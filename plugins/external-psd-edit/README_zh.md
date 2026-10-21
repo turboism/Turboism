@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -40,14 +40,15 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.1,1.0.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：** 必需。导出与替换使用 Cubism 原生分层图像导出与原图替换能力（自 Cubism 5.2.00 起提供）。
 - **界面模式：** `embedded`。
 - **插件依赖：** 无。
 - 导出的临时 PSD 是重建的分层文档，而非源资产的字节副本。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.2.00–5.2.03, 5.3.00–5.3.04。
 - 导出 PSD 原图 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 - 替换 PSD 原图 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)

@@ -13,12 +13,20 @@ public final class AtlasQueueProbeTest {
             AtlasQueueProbe.validateCase(count, "native");
             AtlasQueueProbe.validateCase(count, "new");
             AtlasQueueProbe.validateCase(count, "polygon");
-            assertions += 3;
+            AtlasQueueProbe.validateCase(count, "nesting");
+            AtlasQueueProbe.validateCase(count, "nesting-rect");
+            assertions += 5;
         }
         rejects(() -> AtlasQueueProbe.validateCase(1001, "native"));
         rejects(() -> AtlasQueueProbe.validateCase(2499, "new"));
         rejects(() -> AtlasQueueProbe.validateCase(100, "both"));
         rejects(() -> AtlasQueueProbe.validateCase(99, "new"));
+        AtlasQueueProbe.validateCase(0, "new");
+        AtlasQueueProbe.validateCase(0, "nesting");
+        assertions += 2;
+        rejects(() -> AtlasQueueProbe.validateCase(0, "native"));
+        rejects(() -> AtlasQueueProbe.validateCase(0, "polygon"));
+        rejects(() -> AtlasQueueProbe.validateCase(0, "nesting-rect"));
         var directory = java.nio.file.Files.createTempDirectory("atlas-one-shot-test-");
         try {
             AtlasQueueProbe.markLayoutStarted(directory, "native");
@@ -75,6 +83,10 @@ public final class AtlasQueueProbeTest {
         assertions++;
         ObjectNode polygonNative = polygon.deepCopy().put("branch", "native");
         rejects(() -> AtlasQueueProbe.validateResult(polygonNative, 100, "polygon"));
+        AtlasQueueProbe.validateResult(result(), 100, "nesting-rect"); assertions++;
+        ObjectNode legacyOverlap = result();
+        ((ObjectNode) legacyOverlap.get("output")).put("overlaps", 1);
+        rejects(() -> AtlasQueueProbe.validateResult(legacyOverlap, 100, "nesting-rect"));
         ObjectNode ui = result();
         ui.put("uiActionToProgressClosedMs", 200).put("uiActionToProgressShownMs", 20)
             .put("uiMethodReturnToProgressClosedMs", 10).put("uiInputProbeMs", 3)

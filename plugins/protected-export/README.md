@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: export, protected, candidate
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -25,13 +25,14 @@ interface: none
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.1,1.0.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Admissions are recorded per exact reviewed Editor version (`5.1.00`–`5.3.04` at this time); unsupported or unreviewed hosts fail closed during preflight.
 - **Models:** Only eligible models are admitted. Models with unsupported families, non-stored keyforms, degenerate geometry, or missing pairs are vetoed with a blocker reason instead of partially exported.
 - **Interface mode:** `none` — the plugin drives the export through framework actions and reports through notifications and logs.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely）.
+**Cubism Editor version support (generated):** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely）.
+Full feature set (reviewed versions): 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
 - Protected-export orchestration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 - Export settings contribution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
@@ -39,7 +40,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication, install it through Turboism's official release packaging, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.
+This official plugin is bundled with Turboism and is available through **Plugin Market**. Enable, disable or uninstall the installed plugin in **Plugin Management**.
 
 ## How to use
 

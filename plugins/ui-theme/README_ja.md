@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: theme, colors, user-interface
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: false
 interface: none
 ---
@@ -36,13 +36,14 @@ interface: none
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** このプラグインは Cubism なしでも初期化できます。Cubism にテーマを適用するには、正確にレビュー済みの Editor アーティファクト（`5.0.00` から `5.3.04`）とセマンティック外観サービスが引き続き必要です。
 - **インターフェースモード:** `none`。
 - **プラグイン依存関係:** 宣言されていません。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 
