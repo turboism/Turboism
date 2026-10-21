@@ -25,6 +25,58 @@ class PluginReadmeRendererTest {
     }
 
     @Test
+    void rendersCompatibilitySectionWithoutExposingCommentsOrRelativeMarkdown() {
+        final String html = PluginReadmeRenderer.render("""
+            <!-- compatibility:begin -->
+            **Cubism Editor 版本支持：** 5.3.04。
+            完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md) <!-- compatibility:end -->
+            """);
+
+        assertTrue(html.contains("<strong>Cubism Editor 版本支持：</strong> 5.3.04。"));
+        assertTrue(
+                html.contains(
+                        "<a href=\"https://github.com/turboism/Turboism/blob/main/compatibility/cubism/plugins_zh.md\">compatibility matrix</a>"));
+        assertFalse(html.contains("compatibility:begin"));
+        assertFalse(html.contains("compatibility:end"));
+        assertFalse(html.contains("[compatibility matrix]"));
+    }
+
+    @Test
+    void resolvesLocalizedMatricesWithoutEnablingArbitraryRelativeLinks() {
+        for (String suffix : new String[] {"", "_zh", "_ja", "_ko"}) {
+            final String filename = "plugins" + suffix + ".md";
+            final String html = PluginReadmeRenderer.render("[matrix](../../compatibility/cubism/" + filename + ")");
+            assertTrue(html.contains(
+                    "href=\"https://github.com/turboism/Turboism/blob/main/compatibility/cubism/" + filename + "\""));
+        }
+        final String html = PluginReadmeRenderer.render("""
+            [Local](../../config.json)
+            [Traversal](../../compatibility/cubism/../../config.json)
+            """);
+        assertFalse(html.contains("<a "));
+    }
+
+    @Test
+    void hidesMultilineAndInlineCommentsButPreservesCodeExamples() {
+        final String html = PluginReadmeRenderer.render("""
+            before<!-- hidden
+            ```
+            still hidden -->after
+
+            `<!-- inline example -->`
+
+            ```html
+            <!-- fenced example -->
+            ```
+            """);
+
+        assertTrue(html.contains("before after"));
+        assertFalse(html.contains("hidden"));
+        assertTrue(html.contains("<code>&lt;!-- inline example --&gt;</code>"));
+        assertTrue(html.contains("<pre><code>&lt;!-- fenced example --&gt;</code></pre>"));
+    }
+
+    @Test
     void rendersStoreReadmeTables() {
         final String html = PluginReadmeRenderer.render("""
             | Detail | Value |
