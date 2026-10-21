@@ -1,4 +1,4 @@
-package dev.turboism.plugin.atlasmaxrectsbssf;
+package dev.turboism.plugin.atlasfolders;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -10,6 +10,27 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class FolderAtlasDialogTest {
+    @Test
+    void supportsThirdPartyAlgorithmsWithoutMaxRectsAndDisablesCurrentPageOnlyPlanners() {
+        var currentPageOnly = new TextureAtlasLayoutAlgorithm(
+                "page-only", "Page Only", false, new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner() {
+                    public boolean supportsCompleteAtlas() {
+                        return false;
+                    }
+
+                    public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan(
+                            List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem> items,
+                            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints constraints) {
+                        throw new AssertionError("Listing must not execute planners");
+                    }
+                });
+        var options =
+                FolderAtlasDialog.algorithmOptions(texts, List.of(currentPageOnly, algorithm("custom", "Custom")));
+        assertEquals("custom", options.get(0).id());
+        assertTrue(options.get(0).available());
+        assertFalse(options.get(1).available());
+    }
+
     private final PluginLocalization texts = (PluginLocalization) Proxy.newProxyInstance(
             PluginLocalization.class.getClassLoader(),
             new Class<?>[] {PluginLocalization.class},
