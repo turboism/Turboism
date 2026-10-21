@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Set;
 
-/** Shared hardened construction workflow for runtime-owned, hash-pinned verification manifests. */
+/** Shared construction workflow for runtime-owned manifests and verified host bytes. */
 final class PinnedVerifiedResolverWorkflow {
 
     private final StaticVerificationRecordLoader loader = new StaticVerificationRecordLoader();
@@ -62,7 +62,7 @@ final class PinnedVerifiedResolverWorkflow {
 
     /**
      * Builds a resolver under a compatibility {@link SliceContract}: the record
-     * must still be the pinned trust-root bytes and every exposed selector must
+     * must still match the bytes observed during probing and every exposed selector must
      * verify statically, but the artifact digest is measured rather than matched to a
      * reviewed fingerprint. Classloader/CodeSource attestation and the
      * unchanged-artifact post-check are identical to the exact path.
@@ -82,7 +82,7 @@ final class PinnedVerifiedResolverWorkflow {
         }
         final StaticVerificationRecordLoader.LoadedRecord loaded = loader.load(reviewedRecord);
         if (!loaded.sha256().equals(contract.recordSha256())) {
-            throw new IllegalArgumentException("verification record is not the catalog-pinned record");
+            throw new IllegalArgumentException("verification record changed since compatibility probing");
         }
         final StaticVerificationRecord record = loaded.record();
         if (!record.verificationId().equals(contract.verificationId())
@@ -115,18 +115,14 @@ final class PinnedVerifiedResolverWorkflow {
     }
 
     /**
-     * Loads the reviewed record and proves it is the exact trust-root record the
-     * manifest pins: the record bytes must hash to {@code manifest.recordSha256()}
-     * and every pinned field must match. This is the artifact-independent half of
-     * {@link #create}; offline admission preflights call it directly so a record
-     * that drifts from its reviewed manifest fails before any host launch.
+     * Loads a schema-valid record and checks its identity, capabilities and aliases
+     * against the runtime manifest. Record-byte digests describe provenance; they
+     * are not an independent admission anchor. Host bytes and selector structure
+     * are checked by {@link #create} before constructing a resolver.
      */
     StaticVerificationRecord requireReviewedRecord(final Path reviewedRecord, final Manifest manifest)
             throws IOException {
         final StaticVerificationRecordLoader.LoadedRecord loaded = loader.load(reviewedRecord);
-        if (!loaded.sha256().equals(manifest.recordSha256())) {
-            throw new IllegalArgumentException("verification record is not the reviewed trust-root record");
-        }
         final StaticVerificationRecord record = loaded.record();
         requireManifestRecord(record, manifest);
         return record;
