@@ -52,7 +52,8 @@ $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('turboism-discovery-regr
 [void][System.IO.Directory]::CreateDirectory($fixture)
 try {
     $homePath = Join-Path $fixture 'Turboism home 中文'
-    $root = Join-Path $fixture 'Cubism with spaces'
+    $scanDrive = Join-Path $fixture 'D-shaped-drive'
+    $root = Join-Path $scanDrive 'L2D/Live2D Cubism 5.3'
     foreach ($directory in @($homePath, (Join-Path $root 'app/lib'), (Join-Path $root 'app/jre/bin'))) {
         [void][System.IO.Directory]::CreateDirectory($directory)
     }
@@ -64,10 +65,14 @@ try {
     [System.IO.File]::WriteAllText($jar, 'synthetic reviewed artifact')
     [System.IO.File]::WriteAllText($java, 'synthetic Java, not executable')
     [System.IO.File]::WriteAllText($bat, "@echo off`r`nrem synthetic BAT, never executed`r`n")
+    # Reported installation: D:\L2D\Live2D Cubism 5.3 (artifact version 5.3.04).
+    # Exercise real root enumeration before replacing discovery with the cache seam.
+    $scanRoots = @(Get-CubismShallowDiscoveryRoots -DriveRoots @($scanDrive))
+    Assert-DiscoveryCache ($scanRoots.Count -eq 1 -and $scanRoots[0] -eq (ConvertTo-CubismCanonicalRoot $root)) 'fixed-drive scan finds Cubism below the L2D container'
     $script:ProbeCalls = 0
     $script:DiscoveryCalls = 0
     $script:FixtureRoot = $root
-    $script:CubismArtifactVersionResolver = { param($j, $a, $h) $script:ProbeCalls++; return '5.3.03' }
+    $script:CubismArtifactVersionResolver = { param($j, $a, $h) $script:ProbeCalls++; return '5.3.04' }
     function Get-CubismDiscoveryRoots { $script:DiscoveryCalls++; return @($script:FixtureRoot) }
 
     $report = Join-Path $homePath 'cubism-scan.result'
@@ -85,7 +90,7 @@ try {
     function Get-CubismDiscoveryRoots { throw 'BROAD DISCOVERY MUST NOT RUN AFTER THE MIDDLE PAGE' }
     $script:CubismArtifactVersionResolver = { throw 'JAVA VERSION PROBE MUST NOT RUN AFTER THE MIDDLE PAGE' }
     $cached = @(Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash)
-    Assert-DiscoveryCache ($cached.Count -eq 1 -and $cached[0].Version -ceq '5.3.03' -and $cached[0].Selectable) 'cached exact version is reused without discovery or Java'
+    Assert-DiscoveryCache ($cached.Count -eq 1 -and $cached[0].Version -ceq '5.3.04' -and $cached[0].Selectable) 'cached exact version is reused without discovery or Java'
     Assert-DiscoveryCache ($cached[0].OfficialBat -eq $bat -and $cached[0].ApplicationJar -eq $jar) 'operational paths are derived from the admitted root'
     $selected = @(Merge-CubismSelection -Candidates $cached -SavedInstallations @([pscustomobject]@{ Root=$root; Selected=$false }))
     Assert-DiscoveryCache (-not $selected[0].Selected) 'saved deselection survives snapshot import'
@@ -98,11 +103,11 @@ try {
     Assert-DiscoveryCache ($LASTEXITCODE -eq 0) 'configurator imports the middle scan successfully'
     $statePath = Join-Path $homePath 'cubism-installations.json'
     $state = Read-CubismInstallationState -StatePath $statePath
-    Assert-DiscoveryCache ($state.Valid -and $state.Installations.Count -eq 1 -and $state.Installations[0].Version -ceq '5.3.03' -and $state.Installations[0].Selected) 'headless initialization preserves exact candidate and selection'
+    Assert-DiscoveryCache ($state.Valid -and $state.Installations.Count -eq 1 -and $state.Installations[0].Version -ceq '5.3.04' -and $state.Installations[0].Selected) 'headless initialization preserves exact candidate and selection'
     & $powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $configurator -Home $homePath -DisableShortcuts -InstallerDiscoverySnapshot $snapshot -InstallerDiscoverySnapshotSha256 $snapshotHash
     Assert-DiscoveryCache ($LASTEXITCODE -eq 0) 'headless shortcut operation consumes the same snapshot'
     $state = Read-CubismInstallationState -StatePath $statePath
-    Assert-DiscoveryCache ($state.Valid -and $state.Installations[0].Version -ceq '5.3.03') 'shortcut operation never reprobes synthetic Java'
+    Assert-DiscoveryCache ($state.Valid -and $state.Installations[0].Version -ceq '5.3.04') 'shortcut operation never reprobes synthetic Java'
 
     # Reproduce the full reinstall sequence with an already managed BAT.
     $originalBatBytes = [IO.File]::ReadAllBytes($bat)
@@ -164,7 +169,7 @@ try {
     $script:CubismArtifactVersionResolver = {
         param($j, $a, $h)
         [System.IO.File]::AppendAllText($a, 'changed during probe')
-        return '5.3.03'
+        return '5.3.04'
     }
     $racing = New-CubismInstallationCandidate -Root $root -TurboismHome $homePath
     Assert-DiscoveryCache (-not $racing.Selectable) 'a host updated during the version probe is not admitted'
@@ -188,7 +193,7 @@ try {
     Write-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $compatibleSnapshot -Candidates @($compatible)
     $compatibleCached = @(Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $compatibleSnapshot -ExpectedSha256 (Get-CubismSha256 $compatibleSnapshot))
     Assert-DiscoveryCache ($compatibleCached.Count -eq 1 -and $compatibleCached[0].Status -ceq 'Compatible' -and $compatibleCached[0].Version -ceq '5.3.99' -and $compatibleCached[0].Selectable) 'snapshot reuse preserves unknown version and compatibility status'
-    $script:CubismArtifactVersionResolver = { param($j, $a, $h) return '5.3.03' }
+    $script:CubismArtifactVersionResolver = { param($j, $a, $h) return '5.3.04' }
     $stable = New-CubismInstallationCandidate -Root $root -TurboismHome $homePath
     Assert-DiscoveryCache $stable.Selectable 'an unchanged exact candidate remains admissible'
     [System.IO.File]::AppendAllText($jar, 'changed after probe')
