@@ -49,6 +49,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
         TextureAtlasDalsooPlugin.DIALOG_ALGORITHM_KEY,
         TextureAtlasDalsooPlugin.DIALOG_PARALLEL_KEY,
         TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY,
+        TextureAtlasDalsooPlugin.DIALOG_QUALITY_KEY,
         TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY,
         TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY,
         TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY,
@@ -73,6 +74,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
         plugin.enable();
         try {
             assertEquals("dalsoo", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_ALGORITHM_KEY));
+            assertEquals("BALANCED", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_QUALITY_KEY));
             assertEquals("QUARTER", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY));
             assertEquals("NONE", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY));
             assertEquals("true", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY));
@@ -141,6 +143,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
         plugin.enable();
         try {
             System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "FREE");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_QUALITY_KEY, "DENSE");
             System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY, "ANGLE_SCALE");
             System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY, "false");
             System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY, "150");
@@ -153,6 +156,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
 
             final PolygonLayoutSettings confirmed = plugin.confirmedSettings();
             assertEquals(TextureAtlasRotationMode.FREE, confirmed.rotation());
+            assertEquals(TextureAtlasLayoutQuality.DENSE, confirmed.quality());
             assertEquals(PolygonLayoutLockPreset.ANGLE_SCALE, confirmed.lockPreset());
             assertFalse(confirmed.automaticScale());
             assertEquals(1.5, confirmed.fixedScale(), 1e-9);

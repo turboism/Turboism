@@ -32,6 +32,7 @@ final class Bin {
     // Candidates belong to polygon identity, never its position in the area-sorted list.
     private final Map<Integer, double[][]> perPolyTrigos = new HashMap<>();
     private final List<List<PackedPoly>> grid;
+    private final StrictRingIndex candidateIndex = new StrictRingIndex();
     private int queryStamp;
     private Convex cntConvex;
 
@@ -44,6 +45,7 @@ final class Bin {
     private final int gridH;
     private final BooleanSupplier cancelled;
     private final IntConsumer progress;
+    private final int candidateVertexLimit;
 
     /**
      * @param polys        source polygons (locked items keep their issued transform)
@@ -64,7 +66,8 @@ final class Bin {
             final double hSkew,
             final Double segmentMaxLength,
             final BooleanSupplier cancelled,
-            final IntConsumer progress) {
+            final IntConsumer progress,
+            final int candidateVertexLimit) {
         if (hSkew < 0 || hSkew > 1) {
             throw new IllegalArgumentException("hSkew must be in [0,1]");
         }
@@ -73,6 +76,7 @@ final class Bin {
             pendingPolys.add(new PackedPoly(sp.id, sp.inpts, sp.outpts, segmentMaxLength));
             perPolyTrigos.put(sp.id, trigos.get(i));
         }
+        this.candidateVertexLimit = candidateVertexLimit;
         this.preferX = hSkew;
         this.binWidth = width;
         this.binHeight = height;
@@ -186,7 +190,7 @@ final class Bin {
         Convex minCon = null;
         final double[][] rotated = new double[opl.length][2];
         final double[][] candidate = new double[opl.length][2];
-        for (int i = 0; i < opl.length; i++) { // each vertex of new poly
+        for (int i = 0; i < opl.length; i += vertexStep(opl.length)) { // each vertex of new poly
             checkCancelled();
             final double[] p = opl[i];
             final double[] d0 = Geom.sub(opl[(i - 1 + opl.length) % opl.length], p);
@@ -204,7 +208,7 @@ final class Bin {
             for (final PackedPoly fixed : packedPolys) {
                 checkCancelled();
                 final double[][] fopl = fixed.outpts;
-                for (int j = 0; j < fopl.length; j++) { // each vertex of each fixed poly
+                for (int j = 0; j < fopl.length; j += vertexStep(fopl.length)) { // each vertex of each fixed poly
                     if ((j & 63) == 0) {
                         checkCancelled();
                     }
@@ -257,7 +261,9 @@ final class Bin {
             }
         }
         if (minCossin == null) {
-            return false;
+            // Sparse anchors can miss every continuous contact on symmetric rings.
+            // Retain a bounded discrete/corner search before declaring overflow.
+            return candidateVertexLimit > 0 && packPolyDalalah(sid);
         }
         poly.fixRotateMove(minCossin, minTrans);
         pendingPolys.set(sid, null);
@@ -285,7 +291,8 @@ final class Bin {
             // saved hull or a placed polygon.
             final double[][] candidate = new double[rotatedOutpoly.length][2];
             final double[] candidateBb = new double[4];
-            for (final double[] p : rotatedOutpoly) { // each vertex of new poly
+            for (int anchor = 0; anchor < rotatedOutpoly.length; anchor += vertexStep(rotatedOutpoly.length)) {
+                final double[] p = rotatedOutpoly[anchor]; // candidate anchor only
                 checkCancelled();
                 for (final double[] v : contacts) {
                     final double tx = v[0] - p[0];
@@ -387,7 +394,8 @@ final class Bin {
     private double[][] contactVertices() {
         final Map<Contact, double[]> contacts = new LinkedHashMap<>();
         for (final PackedPoly fixed : packedPolys) {
-            for (final double[] vertex : fixed.outpts) {
+            for (int anchor = 0; anchor < fixed.outpts.length; anchor += vertexStep(fixed.outpts.length)) {
+                final double[] vertex = fixed.outpts[anchor];
                 contacts.putIfAbsent(
                         new Contact(vertex[0] == 0 ? 0 : vertex[0], vertex[1] == 0 ? 0 : vertex[1]), vertex);
             }
@@ -429,6 +437,7 @@ final class Bin {
             return false;
         }
         final double[] center = Geom.centroid(poly);
+        candidateIndex.reset(poly);
         final int stamp = ++queryStamp;
         final int x0 = cellX(bb[0]);
         final int x1 = cellX(bb[2]);
@@ -445,7 +454,17 @@ final class Bin {
                         continue;
                     }
                     fixed.lastQuery = stamp;
-                    if (Geom.overlapStrict(poly, bb, center, fixed.outpts, fixed.outBb, fixed.outCentroid)) {
+                    if (poly.length < 16 && fixed.outpts.length < 16
+                            ? Geom.overlapStrict(poly, bb, center, fixed.outpts, fixed.outBb, fixed.outCentroid)
+                            : Geom.overlapStrict(
+                                    poly,
+                                    bb,
+                                    center,
+                                    candidateIndex,
+                                    fixed.outpts,
+                                    fixed.outBb,
+                                    fixed.outCentroid,
+                                    fixed.outIndex)) {
                         return false;
                     }
                 }
@@ -455,6 +474,10 @@ final class Bin {
     }
 
     /** Whether the ring at {@code bb} translated by {@code (tx,ty)} stays in the bin. */
+    private int vertexStep(final int length) {
+        return candidateVertexLimit == 0 ? 1 : Math.max(1, (length - 1) / candidateVertexLimit + 1);
+    }
+
     private boolean insideBin(final double[] bb, final double tx, final double ty) {
         return bb[0] + tx >= -Geom.PRECISION
                 && bb[2] + tx <= binWidth + Geom.PRECISION

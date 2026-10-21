@@ -363,6 +363,8 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             @SuppressWarnings("unchecked")
             final JComboBox<String> kernel =
                     (JComboBox<String>) observation.optionControls().get("kernel");
+            ((JComboBox<?>) observation.optionControls().get("quality")).setSelectedIndex(2);
+            assertEquals("DENSE", System.getProperty(TextureAtlasAutoLayoutDialogContributor.QUALITY_KEY));
             rotation.setSelectedIndex(2);
             assertEquals("FREE", System.getProperty(TextureAtlasAutoLayoutDialogContributor.ROTATION_KEY));
             lock.setSelectedIndex(4);
@@ -397,6 +399,7 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
                 TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY,
                 TextureAtlasAutoLayoutDialogContributor.PARALLEL_KEY,
                 TextureAtlasAutoLayoutDialogContributor.ROTATION_KEY,
+                TextureAtlasAutoLayoutDialogContributor.QUALITY_KEY,
                 TextureAtlasAutoLayoutDialogContributor.LOCK_PRESET_KEY,
                 TextureAtlasAutoLayoutDialogContributor.KERNEL_KEY,
                 TextureAtlasAutoLayoutDialogContributor.FIXED_SCALE_PERCENT_KEY,

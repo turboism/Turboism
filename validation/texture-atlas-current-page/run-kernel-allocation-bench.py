@@ -12,7 +12,7 @@ SOURCES = [
     Path("sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasRotationMode.java"),
 ] + [KERNEL / (name + ".java") for name in (
     "Bin", "Convex", "Geom", "PackedPoly", "SourcePoly", "PolygonPack",
-    "PackOutcome", "PackingCancelledException",
+    "PackOutcome", "PackingCancelledException", "StrictRingIndex",
 )]
 
 
@@ -38,6 +38,10 @@ def main():
         files = []
         for source in SOURCES:
             if args.ref:
+                if source.stem == "StrictRingIndex" and subprocess.run(
+                        ["git", "cat-file", "-e", f"{args.ref}:{source.as_posix()}"],
+                        cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+                    continue
                 local = scratch / source.name
                 local.write_bytes(subprocess.check_output(
                     ["git", "show", f"{args.ref}:{source.as_posix()}"], cwd=ROOT))

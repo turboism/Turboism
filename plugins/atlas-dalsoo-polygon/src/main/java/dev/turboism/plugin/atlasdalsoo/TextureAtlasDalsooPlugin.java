@@ -32,6 +32,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
     static final String NATIVE_AUTO_LAYOUT_CALLBACK_KEY = "dev.turboism.texture-atlas.auto-layout.callback";
     static final String DIALOG_ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
     static final String DIALOG_PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
+    static final String DIALOG_QUALITY_KEY = "dev.turboism.texture-atlas.dialog.quality";
     static final String DIALOG_ROTATION_KEY = "dev.turboism.texture-atlas.dialog.rotation";
     static final String DIALOG_LOCK_PRESET_KEY = "dev.turboism.texture-atlas.dialog.lock-preset";
     static final String DIALOG_AUTO_SCALE_KEY = "dev.turboism.texture-atlas.dialog.auto-scale";
@@ -166,6 +167,8 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         if (System.getProperty(DIALOG_ALGORITHM_KEY) == null) {
             System.getProperties().put(DIALOG_ALGORITHM_KEY, ALGORITHM_DALSOO);
         }
+        System.getProperties()
+                .putIfAbsent(DIALOG_QUALITY_KEY, confirmed.quality().name());
         System.getProperties().putIfAbsent(DIALOG_PARALLEL_KEY, String.valueOf(confirmed.parallel()));
         System.getProperties()
                 .putIfAbsent(DIALOG_ROTATION_KEY, confirmed.rotation().name());
@@ -192,7 +195,10 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         final PolygonLayoutSettings merged = new PolygonLayoutSettings(
                 confirmed.backend(),
                 enumProperty(DIALOG_ROTATION_KEY, TextureAtlasRotationMode.class, confirmed.rotation()),
-                confirmed.quality(),
+                enumProperty(
+                        DIALOG_QUALITY_KEY,
+                        dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality.class,
+                        confirmed.quality()),
                 booleanProperty(DIALOG_AUTO_SCALE_KEY, confirmed.automaticScale()),
                 intProperty(DIALOG_FIXED_SCALE_PERCENT_KEY, 1, 800, (int) Math.round(confirmed.fixedScale() * 100))
                         / 100.0,

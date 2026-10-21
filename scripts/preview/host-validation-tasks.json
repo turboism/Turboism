@@ -707,6 +707,24 @@
           "-Dturboism.optimization.mesaGlThread=true",
           "--linux-env",
           "mesa_glthread=true"
+        ],
+        "ui-heavy-0-polygon": [
+          "{version}",
+          "{runLabel}",
+          "ui-heavy-0-polygon"
+        ],
+        "ui-heavy-0-polygon-assisted-gl": [
+          "{version}",
+          "{runLabel}",
+          "ui-heavy-0-polygon",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
         ]
       },
       "resources": {
