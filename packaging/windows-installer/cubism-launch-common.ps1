@@ -1629,6 +1629,33 @@ function Get-CubismBatIntegrationText {
     return $managed + $clean.TrimStart("`r", "`n")
 }
 
+function Get-CubismLegacyManagedBatOriginalText {
+    param([string]$Text, [string]$TurboismHome)
+    if ($TurboismHome -match '[\r\n&|<>^%!`"]') { return $null }
+    $agent = Join-Path $TurboismHome 'turboism-agent.jar'
+    $fixedOptions = (ConvertTo-JdkOptionToken "-Dturboism.home=$TurboismHome") + ' ' + (ConvertTo-JdkOptionToken "-javaagent:$agent=home=$TurboismHome;timeoutSeconds=120")
+    # Match only options emitted by the old generator, in its original order.
+    # Do not accept arbitrary commands merely because they sit inside markers.
+    $optionsPattern = [regex]::Escape($fixedOptions + ' -Djava.locale.providers=CLDR,SPI') +
+        '(?: -XX:\+UseZGC)?(?: -XX:\+DisableAttachMechanism)?' +
+        '(?: -Xmx4g(?: -XX:SoftRefLRUPolicyMSPerMB=100)?)?' +
+        '(?: -Dturboism\.optimization\.modelUpdateSkip=false)?' +
+        '(?: -Dturboism\.optimization\.incrementalUpdate=true)?' +
+        '(?: -Dturboism\.optimization\.uniformLocationCache=false)?' +
+        '(?: -Dturboism\.optimization\.uploadElision=false)?' +
+        '(?: -Dturboism\.optimization\.inputPathElision=false)?' +
+        '(?: -Dturboism\.optimization\.mesaGlThread=false)?'
+    $pattern = '\Arem TURBOISM MANAGED BEGIN\r?\n' +
+        [regex]::Escape('set "TURBOISM_HOME=' + $TurboismHome + '"') + '\r?\n' +
+        'set "JAVA_TOOL_OPTIONS=' + $optionsPattern + ' %JAVA_TOOL_OPTIONS%"\r?\n' +
+        'rem TURBOISM MANAGED END\r?\n(?<original>[\s\S]+)\z'
+    $match = [regex]::Match($Text, $pattern)
+    if (-not $match.Success) { return $null }
+    $original = $match.Groups['original'].Value
+    if ($original -match '(?im)^rem\s+TURBOISM' -or $original -match '(?i)-javaagent:.*turboism-agent\.jar') { return $null }
+    return $original
+}
+
 function Invoke-CubismBatIntegration {
     param([string]$TurboismHome, [object[]]$Candidates, [object[]]$ExistingRecords = @())
     $existing = @{}
@@ -1647,7 +1674,32 @@ function Invoke-CubismBatIntegration {
             }
             else {
                 $text = [System.IO.File]::ReadAllText($bat, [System.Text.Encoding]::Default)
-                if ($text -match '(?im)^rem\s+TURBOISM' -or $text -match '(?i)-javaagent:.*turboism-agent\.jar') {
+                $legacyOriginal = Get-CubismLegacyManagedBatOriginalText -Text $text -TurboismHome $TurboismHome
+                if (Test-Path -LiteralPath $backup) {
+                    # Lost state is recoverable only when the complete current BAT
+                    # equals a known generator output from the surviving original backup.
+                    # Marker presence alone never establishes ownership of either file.
+                    if (-not (Test-CubismNormalFile $backup)) { throw "Cubism BAT backup is not a normal file: $backup" }
+                    $originalText = [System.IO.File]::ReadAllText($backup, [System.Text.Encoding]::Default)
+                    if ($originalText -match '(?im)^rem\s+TURBOISM' -or $originalText -match '(?i)-javaagent:.*turboism-agent\.jar') {
+                        throw "Cubism BAT backup contains an existing integration: $backup"
+                    }
+                    $recoveryVariant = if ($path -ieq $candidate.D3DBat) { "d3d" } else { "normal" }
+                    $expectedText = Get-CubismBatIntegrationText -OriginalText $originalText -TurboismHome $TurboismHome -Variant $recoveryVariant
+                    $expectedBytes = [System.Text.Encoding]::Default.GetBytes($expectedText)
+                    if ([Convert]::ToBase64String([System.IO.File]::ReadAllBytes($bat)) -ceq [Convert]::ToBase64String($expectedBytes)) {
+                        [void]$records.Add([pscustomobject]@{ Path = $bat; BackupPath = $backup; OriginalSha256 = (Get-CubismSha256 $backup); ManagedSha256 = $currentHash })
+                        continue
+                    }
+                    if ($null -eq $legacyOriginal -or $legacyOriginal -cne $originalText.TrimStart("`r", "`n")) {
+                        throw "Cubism BAT backup exists without matching managed state; existing files were preserved: $bat"
+                    }
+                }
+                elseif ($null -ne $legacyOriginal) {
+                    $originalText = $legacyOriginal
+                    [System.IO.File]::WriteAllText($backup, $originalText, [System.Text.Encoding]::Default)
+                }
+                elseif ($text -match '(?im)^rem\s+TURBOISM' -or $text -match '(?i)-javaagent:.*turboism-agent\.jar') {
                     # Historical Turboism injection is admitted only when its
                     # managed marker pair is complete; unknown edits fail closed.
                     if ($text -notmatch '(?im)^rem\s+TURBOISM(?:\s+BEGIN)?\s*$' -or $text -notmatch '(?im)^rem\s+TURBOISM(?:\s+END)?\s*$') { throw "unrecognized legacy Turboism BAT injection: $bat" }
