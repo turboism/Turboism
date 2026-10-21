@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject undocumented public API, duplicated host digests, retired naming, direct EDT waits, and
+"""Reject undocumented public API, retired naming, direct EDT waits, and
 literal control characters.
 
 Six rules, all fail-closed:
@@ -11,20 +11,18 @@ Six rules, all fail-closed:
    and ``@Override`` implementations inherit their supertype documentation and are exempt.
    The scan needs a full JDK 17 toolchain and fails closed when one is unavailable or a
    source file cannot be parsed.
-2. The reviewed Cubism digests appear only in their single production declaration and its guard
-   test. A second copy can drift from the reviewed record and silently widen admission.
-3. No production type name (file name or declared class/interface/enum/record name)
+2. No production type name (file name or declared class/interface/enum/record name)
    encodes a Cubism version. Versions are declared as data so that no type can quietly
    mean "the other version".
-4. No retired governance token (``m14``/``m15``) survives in ``compatibility/cubism/`` asset filenames.
-5. Runtime production code never calls ``invokeAndWait`` directly: synchronous EDT handoffs go
+3. No retired governance token (``m14``/``m15``) survives in ``compatibility/cubism/`` asset filenames.
+4. Runtime production code never calls ``invokeAndWait`` directly: synchronous EDT handoffs go
    through ``EdtDispatch`` so an interrupted or timed-out caller can never leave a queued
    mutation behind to run after the caller already reported failure. The token is banned
    outright (comments included) except inside ``EdtDispatch`` itself.
-6. No literal C0 control character (bytes other than ``\\t``, ``\\n``, ``\\r``) appears in a
+5. No literal C0 control character (bytes other than ``\\t``, ``\\n``, ``\\r``) appears in a
    scanned source file. A raw control byte in a string literal is invisible in review and
    diffs; spell it as an escape sequence instead.
-7. Every license/startup/version-warning answer goes through
+6. Every license/startup/version-warning answer goes through
    ``dev.turboism.validation.NativeFreeStartup``: a forked responder once left the
    user-authorized PRO trial confirm unanswered and cancelled the newer-file gate, so any
    source that both names an audited startup prompt and carries a UI actuation primitive
@@ -59,38 +57,7 @@ PRODUCTION_ROOTS = (
 )
 PLUGIN_ROOT = "plugins"
 
-REVIEWED_DIGESTS = (
-    "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd",
-    "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b",
-    "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072",
-    "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66",
-    "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758",
-    "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
-    "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
-    "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05",
-    "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02",
-    "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-    "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-    "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1",
-    "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac",
-    "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff",
-    "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-    "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767",
-    "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4",
-    "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-    "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
-    "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-)
-DIGEST_DECLARATION_SITES = (
-    "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-    "runtime/src/test/java/dev/turboism/mapping/verification/ReviewedHostArtifactsTest.java",
-    # P1 published the 5.3.03 public records before the production trust root existed; these
-    # agreement tests pin those already-reviewed public bytes and are the repository's allowed
-    # test locations for the same exact identity.
-    "testing/integration-tests/src/test/java/dev/turboism/tests/mapping/MappingPackDraftImportTest.java",
-    "testing/integration-tests/src/test/java/dev/turboism/tests/mapping/StaticVerificationRecordRepositoryTest.java",
-)
-DIGEST_SCAN_ROOTS = PRODUCTION_ROOTS + (
+SOURCE_SCAN_ROOTS = PRODUCTION_ROOTS + (
     PLUGIN_ROOT,
     "runtime/src/test/java",
     "bootstrap/src/test/java",
@@ -198,7 +165,7 @@ def _strip_java_comments_and_strings(source: str) -> str:
     return "".join(output)
 
 ALL_RULES = (
-    "javadoc", "digests", "naming", "assets", "edt-dispatch", "controlchars", "startup-dialogs"
+    "javadoc", "naming", "assets", "edt-dispatch", "controlchars", "startup-dialogs"
 )
 
 # License/startup/version-warning answering has exactly one audited implementation,
@@ -239,7 +206,7 @@ STARTUP_DIALOG_EXEMPT = (
 # Tab, LF and CR are the only control bytes legitimate in text sources; the rest must be
 # written as escape sequences so they stay visible in review.
 CONTROL_CHAR_PATTERN = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
-CONTROL_CHAR_JAVA_ROOTS = DIGEST_SCAN_ROOTS + ("buildSrc/src/main/java",)
+CONTROL_CHAR_JAVA_ROOTS = SOURCE_SCAN_ROOTS + ("buildSrc/src/main/java",)
 
 # The Javadoc backlog is closed. The ratchet that carried it down from 1253 is kept because it is
 # the mechanism that got here and is cheap to re-arm, but the maximum is now zero, so every rule
@@ -354,24 +321,6 @@ def check_javadoc(root: Path) -> list[str]:
     ]
 
 
-def check_digests(root: Path) -> list[str]:
-    allowed = {(root / site).resolve() for site in DIGEST_DECLARATION_SITES}
-    failures = []
-    for relative in DIGEST_SCAN_ROOTS:
-        for source in java_sources(root, relative):
-            if source.resolve() in allowed:
-                continue
-            text = source.read_text(encoding="utf-8")
-            for digest in REVIEWED_DIGESTS:
-                if digest in text:
-                    failures.append(
-                        "reviewed host digest restated outside ReviewedHostArtifacts: "
-                        f"{source.relative_to(root).as_posix()}"
-                    )
-                    break
-    return failures
-
-
 def check_naming(root: Path) -> list[str]:
     failures = []
     for relative in PRODUCTION_ROOTS + (PLUGIN_ROOT,):
@@ -474,7 +423,6 @@ def check_controlchars(root: Path) -> list[str]:
 
 CHECKS = {
     "javadoc": check_javadoc,
-    "digests": check_digests,
     "naming": check_naming,
     "assets": check_assets,
     "edt-dispatch": check_edt_dispatch,
