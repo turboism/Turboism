@@ -104,6 +104,26 @@ try {
     $state = Read-CubismInstallationState -StatePath $statePath
     Assert-DiscoveryCache ($state.Valid -and $state.Installations[0].Version -ceq '5.3.03') 'shortcut operation never reprobes synthetic Java'
 
+    # Reproduce the full reinstall sequence with an already managed BAT.
+    $originalBatBytes = [IO.File]::ReadAllBytes($bat)
+    & $powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $configurator -Home $homePath -IntegrateBat -Elevated -InstallerDiscoverySnapshot $snapshot -InstallerDiscoverySnapshotSha256 $snapshotHash
+    Assert-DiscoveryCache ($LASTEXITCODE -eq 0) 'first elevated BAT integration consumes the snapshot'
+    $integratedState = Read-CubismInstallationState -StatePath $statePath
+    # Reported legacy state has no batIntegrations despite a managed BAT.
+    $oldOptions = (ConvertTo-JdkOptionToken "-Dturboism.home=$homePath") + ' ' + (ConvertTo-JdkOptionToken "-javaagent:$(Join-Path $homePath 'turboism-agent.jar')=home=$homePath;timeoutSeconds=120") + ' -Djava.locale.providers=CLDR,SPI -XX:+UseZGC'
+    $oldBat = "rem TURBOISM MANAGED BEGIN`r`nset `"TURBOISM_HOME=$homePath`"`r`nset `"JAVA_TOOL_OPTIONS=$oldOptions %JAVA_TOOL_OPTIONS%`"`r`nrem TURBOISM MANAGED END`r`n" + [Text.Encoding]::Default.GetString($originalBatBytes)
+    [IO.File]::WriteAllText($bat, $oldBat, [Text.Encoding]::Default)
+    $cached[0].Selected = $true
+    Write-CubismInstallationState -StatePath $statePath -Candidates $cached
+    foreach ($operation in @('-InitializeSelection', '-DisableShortcuts', '-IntegrateBat')) {
+        & $powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $configurator -Home $homePath $operation -Elevated -InstallerDiscoverySnapshot $snapshot -InstallerDiscoverySnapshotSha256 $snapshotHash
+        Assert-DiscoveryCache ($LASTEXITCODE -eq 0) "upgrade preserves the existing BAT integration through $operation"
+    }
+    $upgradedState = Read-CubismInstallationState -StatePath $statePath
+    Assert-DiscoveryCache ($upgradedState.Valid -and $upgradedState.BatIntegrations.Count -eq 1 -and $upgradedState.BatIntegrations[0].OriginalSha256 -eq $integratedState.BatIntegrations[0].OriginalSha256) 'upgrade keeps the original BAT backup record'
+    Restore-CubismBatIntegrations -Records $upgradedState.BatIntegrations
+    Assert-DiscoveryCache ([Convert]::ToBase64String([IO.File]::ReadAllBytes($bat)) -ceq [Convert]::ToBase64String($originalBatBytes)) 'upgraded integration restores exact original bytes'
+
     $testShortcutDir = Join-Path $homePath 'test-shortcuts'
     foreach ($ver in @('5.0.00', '5.1.00', '5.1.03', '5.2.03', '5.3.02', '5.3.04')) {
         $modernName = "Turboism_Cubism_${ver}_Live2D_Cubism_${ver}-A1B2C3D4E5F6.lnk"

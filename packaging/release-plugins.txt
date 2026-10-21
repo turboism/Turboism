@@ -1,5 +1,7 @@
 :plugins:acp
+:plugins:atlas-bitmask-nesting
 :plugins:atlas-dalsoo-polygon
+:plugins:atlas-folder-layout
 :plugins:atlas-maxrects-bssf
 :plugins:boundingbox-warp-mirror
 :plugins:clipmask-viewer
