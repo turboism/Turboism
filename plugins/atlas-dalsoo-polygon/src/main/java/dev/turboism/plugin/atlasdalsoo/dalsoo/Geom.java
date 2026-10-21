@@ -61,6 +61,14 @@ final class Geom {
         return out;
     }
 
+    /** Rotates into caller-owned scratch; operation order matches {@link #rotate(double[][], double[])}. */
+    static void rotateInto(final double[][] ps, final double[] cosSin, final double[][] out) {
+        for (int i = 0; i < ps.length; i++) {
+            out[i][0] = ps[i][0] * cosSin[0] - ps[i][1] * cosSin[1];
+            out[i][1] = ps[i][0] * cosSin[1] + ps[i][1] * cosSin[0];
+        }
+    }
+
     /** Cosine/sine pair of the given angle in radians. */
     static double[] cosSin(final double radians) {
         return new double[] {Math.cos(radians), Math.sin(radians)};
@@ -87,21 +95,24 @@ final class Geom {
      */
     static boolean insidePolygon(final double[] p, final double[][] poly) {
         final int len = poly.length;
-        double[][] shifted = new double[len][];
-        for (int i = 0; i < len; i++) {
-            shifted[i] = new double[] {poly[i][0] - p[0], poly[i][1] - p[1]};
-        }
-        double[][] trans = new double[len + 1][];
+        // Only crossing X coordinates are needed. Avoid allocating a shifted
+        // ring and a two-element array for every vertex/crossing during scoring.
+        // Preserve the original operation order, including edge and underflow
+        // behavior; a conventional ray-cast replacement is not equivalent here.
+        final double[] crossings = new double[len];
         int num = 0;
         for (int i = 0; i < len; i++) {
-            final double[] a = shifted[i];
-            final double[] b = shifted[(i + 1) % len];
-            if (a[0] * b[1] - a[1] * b[0] == 0 && a[0] * b[0] + a[1] * b[1] <= 0) {
+            final double[] a = poly[i];
+            final double[] b = poly[(i + 1) % len];
+            final double ax = a[0] - p[0];
+            final double ay = a[1] - p[1];
+            final double bx = b[0] - p[0];
+            final double by = b[1] - p[1];
+            if (ax * by - ay * bx == 0 && ax * bx + ay * by <= 0) {
                 return true; // on an edge or vertex
             }
-            if ((a[1] < 0 && b[1] >= 0) || (a[1] >= 0 && b[1] < 0)) {
-                final double x = a[0] - a[1] * (b[0] - a[0]) / (b[1] - a[1]);
-                trans[num++] = new double[] {x, 0};
+            if ((ay < 0 && by >= 0) || (ay >= 0 && by < 0)) {
+                crossings[num++] = ax - ay * (bx - ax) / (by - ay);
             }
         }
         if (num < 2) {
@@ -110,7 +121,7 @@ final class Geom {
         boolean inside = true;
         for (int i = 0; i < num - 1; i++) {
             for (int j = i + 1; j < num; j++) {
-                if (trans[i][0] * trans[j][0] < 0) {
+                if (crossings[i] * crossings[j] < 0) {
                     inside = !inside;
                 }
             }

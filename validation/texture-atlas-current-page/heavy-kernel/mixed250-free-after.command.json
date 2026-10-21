@@ -1,0 +1,1 @@
+["python3", "validation/texture-atlas-current-page/run-kernel-allocation-bench.py", "--mode", "heavy", "--shape", "mixed", "--count", "250", "--rotation", "FREE", "--budget-seconds", "60", "--abey"]
