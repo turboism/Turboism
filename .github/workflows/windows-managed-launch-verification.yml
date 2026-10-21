@@ -30,12 +30,16 @@ jobs:
         run: |
           & .\packaging\windows-installer\test-bat-integration.ps1
           & .\packaging\windows-installer\test-installer-discovery-cache.ps1
+          & .\packaging\windows-installer\test-installer-discovery-sources.ps1
+          & .\packaging\windows-installer\test-installer-import.ps1
           & .\packaging\windows-installer\test-script-engine-install.ps1
       - name: Verify BAT upgrade and cached discovery without a host (PowerShell 7)
         shell: pwsh
         run: |
           & .\packaging\windows-installer\test-bat-integration.ps1
           & .\packaging\windows-installer\test-installer-discovery-cache.ps1
+          & .\packaging\windows-installer\test-installer-discovery-sources.ps1
+          & .\packaging\windows-installer\test-installer-import.ps1
           & .\packaging\windows-installer\test-script-engine-install.ps1
 
   verify-native-graal-installer:

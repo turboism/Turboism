@@ -5,6 +5,17 @@ import re
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
+# The native folder import flow must cover the installer's four selectable languages.
+nsis = (ROOT / "packaging/windows-installer/installer.nsi").read_text(encoding="utf-8-sig")
+import_keys = {}
+for key, language in re.findall(r'^LangString (CubismImport\w+) \$\{LANG_(\w+)\}', nsis, re.M):
+    if language in import_keys.setdefault(key, set()):
+        raise SystemExit(f"duplicate native import localization: {key} {language}")
+    import_keys[key].add(language)
+expected_languages = {"ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"}
+if len(import_keys) != 5 or any(languages != expected_languages for languages in import_keys.values()):
+    raise SystemExit("native Cubism import localization keys are not in parity")
+
 LANGPACK = ROOT / "packaging/java-installer/CustomLangPack.xml"
 variants = [LANGPACK, Path(str(LANGPACK) + "_eng"), Path(str(LANGPACK) + "_chn"),
             Path(str(LANGPACK) + "_jpn"), Path(str(LANGPACK) + "_kor")]

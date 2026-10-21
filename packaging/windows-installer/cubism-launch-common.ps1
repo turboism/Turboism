@@ -275,7 +275,7 @@ function New-CubismInstallationCandidate {
 
 function Test-CubismScanContainer {
     param([string]$Name)
-    return [regex]::IsMatch($Name, '(?i)^(?:Program Files(?: \(x86\))?|ProgramData|Users|Applications?|Apps?|Software|Games|Programs|Live2D(?:\s+Cubism.*)?|Cubism.*)$')
+    return [regex]::IsMatch($Name, '(?i)^(?:Program Files(?: \(x86\))?|ProgramData|Users|Applications?|Apps?|Software|Games|Programs|L2D|Live2D(?:\s+Cubism.*)?|Cubism.*)$')
 }
 
 function Get-CubismDirectories {
@@ -343,6 +343,117 @@ function Get-CubismShallowDiscoveryRoots {
     return @($roots)
 }
 
+function Get-CubismRegistryEntries {
+    # Explicit views avoid depending on whether NSIS started 32- or 64-bit PowerShell.
+    $fields = @('DisplayName', 'Publisher', 'InstallLocation', 'InstallDir', 'Install_Dir', 'Location', 'UninstallString', 'QuietUninstallString', 'DisplayIcon')
+    foreach ($hive in @([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryHive]::LocalMachine)) {
+        foreach ($view in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+            $baseKey = $null; $uninstallKey = $null
+            try {
+                $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey($hive, $view)
+                # Official Cubism 5.3.04 writes Install_Dir, not InstallLocation.
+                $vendorKey = $null
+                try {
+                    $vendorKey = $baseKey.OpenSubKey('Software\Live2D\Live2D Cubism')
+                    if ($null -ne $vendorKey) {
+                        $installDir = $vendorKey.GetValue('Install_Dir', $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+                        if ($installDir -is [string]) { [pscustomobject]@{ DisplayName='Live2D Cubism'; Install_Dir=$installDir } }
+                    }
+                }
+                catch { }
+                finally { if ($null -ne $vendorKey) { $vendorKey.Dispose() } }
+                $uninstallKey = $baseKey.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Uninstall')
+                if ($null -eq $uninstallKey) { continue }
+                foreach ($name in @($uninstallKey.GetSubKeyNames() | Sort-Object | Select-Object -First $script:CubismMaxScanEntries)) {
+                    $entryKey = $null
+                    try {
+                        $entryKey = $uninstallKey.OpenSubKey($name)
+                        if ($null -eq $entryKey) { continue }
+                        $entry = [ordered]@{ KeyName = $name }
+                        foreach ($field in $fields) {
+                            $entry[$field] = $entryKey.GetValue($field, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+                        }
+                        [pscustomobject]$entry
+                    }
+                    catch { } # An unreadable record must not hide later installations.
+                    finally { if ($null -ne $entryKey) { $entryKey.Dispose() } }
+                }
+            }
+            catch { } # Missing/inaccessible hives and unsupported views are independent.
+            finally {
+                if ($null -ne $uninstallKey) { $uninstallKey.Dispose() }
+                if ($null -ne $baseKey) { $baseKey.Dispose() }
+            }
+        }
+    }
+}
+
+function Get-CubismRootsFromRegisteredPath {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    try {
+        $expanded = [Environment]::ExpandEnvironmentVariables($Path.Trim().Trim('"'))
+        if (-not [IO.Path]::IsPathRooted($expanded)) { return }
+        $candidate = [IO.Path]::GetFullPath($expanded)
+        # Includes uninstall/ and icon subdirectories without traversing the disk.
+        for ($level = 0; $level -le 3; $level++) {
+            if (Test-CubismAutoCandidatePath $candidate) {
+                ConvertTo-CubismCanonicalRoot $candidate
+                return
+            }
+            $parent = Split-Path -Parent $candidate
+            if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $candidate) { break }
+            $candidate = $parent
+        }
+    }
+    catch { }
+}
+
+function Get-CubismRegistryDiscoveryRoots {
+    foreach ($entry in @(Get-CubismRegistryEntries)) {
+        $identity = @('DisplayName', 'Publisher', 'KeyName', 'InstallLocation', 'InstallDir', 'Install_Dir', 'Location' | ForEach-Object {
+            $property = $entry.PSObject.Properties[$_]
+            if ($null -ne $property -and $property.Value -is [string]) { $property.Value }
+        }) -join ' '
+        if ($identity -notmatch '(?i)Live2D|Cubism') { continue }
+        foreach ($field in @('InstallLocation', 'InstallDir', 'Install_Dir', 'Location', 'UninstallString', 'QuietUninstallString', 'DisplayIcon')) {
+            $property = $entry.PSObject.Properties[$field]
+            if ($null -eq $property -or $property.Value -isnot [string]) { continue }
+            $value = [Environment]::ExpandEnvironmentVariables($property.Value.Trim())
+            if ([string]::IsNullOrWhiteSpace($value)) { continue }
+            if ($field -in @('UninstallString', 'QuietUninstallString')) {
+                # Read executable paths only. Never execute or evaluate a registry command.
+                if ($value -notmatch '^(?:"(?<path>[^"]+\.exe)"|(?<path>[^"\r\n]+?\.exe)(?=\s|$))') { continue }
+                $value = $Matches['path']
+            }
+            elseif ($field -eq 'DisplayIcon') {
+                if ($value -notmatch '^(?:"(?<path>[^"]+)"|(?<path>[^"\r\n]+?))(?:,\s*-?\d+)?$') { continue }
+                $value = $Matches['path']
+            }
+            Get-CubismRootsFromRegisteredPath -Path $value
+        }
+    }
+}
+
+function Get-CubismShortcutDiscoveryRoots {
+    # Read both personal and all-users links. Discovery never rewrites shortcuts.
+    $shortcutRoots = @(
+        Get-CubismCurrentUserShortcutRoots
+        foreach ($folder in @('CommonPrograms', 'CommonDesktopDirectory')) {
+            $path = [Environment]::GetFolderPath($folder)
+            if (-not [string]::IsNullOrWhiteSpace($path)) { $path }
+        }
+    ) | Sort-Object -Unique
+    foreach ($shortcut in @(Get-CubismShortcutFiles -Roots $shortcutRoots)) {
+        try {
+            $target = Get-CubismShortcutTarget -Path $shortcut
+            if ([string]::IsNullOrWhiteSpace($target) -or [IO.Path]::GetExtension($target) -notin @('.bat', '.exe')) { continue }
+            Get-CubismRootsFromRegisteredPath -Path $target
+        }
+        catch { } # A broken link must not hide the remaining links.
+    }
+}
+
 function Get-CubismDiscoveryRoots {
     param(
         [string[]]$SavedRoots = @(),
@@ -372,27 +483,8 @@ function Get-CubismDiscoveryRoots {
     if (-not [string]::IsNullOrWhiteSpace($env:CUBISM_ROOT)) { & $add $env:CUBISM_ROOT $true }
     foreach ($root in @($ManualRoots)) { & $add $root $true }
 
-    $registryPaths = @(
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-    foreach ($path in $registryPaths) {
-        try {
-            $entries = @(Get-ItemProperty -Path $path -ErrorAction SilentlyContinue |
-                Where-Object {
-                    $identity = @($_.DisplayName, $_.Publisher, $_.InstallLocation, $_.InstallDir) -join " "
-                    $identity -match '(?i)Live2D|Cubism'
-                } | Sort-Object @{Expression={ [string]$_.DisplayName }}, @{Expression={ [string]$_.InstallLocation }})
-            foreach ($entry in $entries) {
-                foreach ($property in @("InstallLocation", "InstallDir", "Location")) {
-                    $value = $entry.$property
-                    if ($value -is [string] -and -not [string]::IsNullOrWhiteSpace($value)) { & $add $value $false }
-                }
-            }
-        }
-        catch { }
-    }
+    foreach ($root in @(Get-CubismRegistryDiscoveryRoots)) { & $add $root $false }
+    foreach ($root in @(Get-CubismShortcutDiscoveryRoots)) { & $add $root $false }
 
     $knownBases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramW6432, $env:LOCALAPPDATA) |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
@@ -565,12 +657,69 @@ function Read-CubismInstallerSnapshot {
     return $items.ToArray()
 }
 
+function Write-CubismInstallerImportReport {
+    param(
+        [string]$TurboismHome,
+        [string]$OutputPath,
+        [string]$Root,
+        [string]$PreviousSnapshot = '',
+        [string]$PreviousSnapshotSha256 = ''
+    )
+    # Installation recognition uses required names and layout, never an artifact
+    # digest allowlist. Snapshot digests only protect the scan-to-install handoff.
+    if (-not (Test-CubismRequiredFileShape $Root)) {
+        return Write-CubismInstallerDiscoveryReport -TurboismHome $TurboismHome -OutputPath $OutputPath -FailureCode 'InvalidCubismRoot'
+    }
+    foreach ($relative in @('', 'app', 'app/lib', 'app/jre', 'app/jre/bin')) {
+        $directory = if ($relative -eq '') { $Root } else { Join-Path $Root $relative }
+        if (-not (Test-CubismNormalDirectory $directory)) {
+            return Write-CubismInstallerDiscoveryReport -TurboismHome $TurboismHome -OutputPath $OutputPath -FailureCode 'InvalidCubismRoot'
+        }
+    }
+    foreach ($relative in @('CubismEditor5.bat', 'app/jre/bin/java.exe', 'app/lib/Live2D_Cubism.jar')) {
+        if (-not (Test-CubismNormalFile (Join-Path $Root $relative))) {
+            return Write-CubismInstallerDiscoveryReport -TurboismHome $TurboismHome -OutputPath $OutputPath -FailureCode 'InvalidCubismRoot'
+        }
+    }
+    $candidate = New-CubismInstallationCandidate -Root $Root -Source 'manual' -TurboismHome $TurboismHome
+    if ($candidate.Status -eq 'Invalid') {
+        return Write-CubismInstallerDiscoveryReport -TurboismHome $TurboismHome -OutputPath $OutputPath -FailureCode 'InvalidCubismRoot'
+    }
+    $existing = @()
+    $extraDisplays = @()
+    if (-not [string]::IsNullOrWhiteSpace($PreviousSnapshot)) {
+        $existing = @(Read-CubismInstallerSnapshot -TurboismHome $TurboismHome -SnapshotPath $PreviousSnapshot -ExpectedSha256 $PreviousSnapshotSha256)
+        # Keep informational unsupported rows as well as selectable snapshot entries.
+        $previousReport = $PreviousSnapshot.Substring(0, $PreviousSnapshot.Length - '.json'.Length)
+        $known = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($item in $existing) { [void]$known.Add($item.Key) }
+        [void]$known.Add($candidate.Key)
+        if ((Test-CubismNormalFile $previousReport) -and (Get-Item -LiteralPath $previousReport).Length -le 524288) {
+            foreach ($line in [IO.File]::ReadAllLines($previousReport, [Text.Encoding]::Unicode)) {
+                if ($line -match '^DISPLAY\|\[[^\]]+\] (.+)$') {
+                    $key = Get-CubismRootKey $Matches[1]
+                    if ($null -ne $key -and $known.Add($key)) { $extraDisplays += $line }
+                }
+                if ($extraDisplays.Count -ge $script:CubismMaxRoots) { break }
+            }
+        }
+    }
+    $merged = @($existing | Where-Object { $_.Key -ine $candidate.Key }) + @($candidate)
+    if ($merged.Count + $extraDisplays.Count -gt $script:CubismMaxRoots) {
+        return Write-CubismInstallerDiscoveryReport -TurboismHome $TurboismHome -OutputPath $OutputPath -FailureCode 'TooManyInstallations'
+    }
+    return Write-CubismInstallerDiscoveryReport -TurboismHome $TurboismHome -OutputPath $OutputPath -VerifiedCandidates $merged -ExtraDisplayRecords $extraDisplays
+}
+
+
 function Write-CubismInstallerDiscoveryReport {
     param(
         [string]$TurboismHome,
         [string]$OutputPath,
         [AllowNull()][string[]]$Roots = $null,
-        [string]$FailureCode = ""
+        [string]$FailureCode = "",
+        [object[]]$VerifiedCandidates = $null,
+        [string[]]$ExtraDisplayRecords = @()
     )
     $canonicalHome = ConvertTo-CubismCanonicalRoot $TurboismHome
     if ($null -eq $canonicalHome -or -not (Test-CubismNormalDirectory $canonicalHome)) {
@@ -601,15 +750,18 @@ function Write-CubismInstallerDiscoveryReport {
                 $publish = $true
                 return $output
             }
-            $scanRoots = if ($null -eq $Roots) { @(Get-CubismDiscoveryRoots) } else { @($Roots) }
-            $candidates = @(Get-CubismInstallations -Roots $scanRoots -TurboismHome $canonicalHome)
+            $candidates = @(if ($PSBoundParameters.ContainsKey('VerifiedCandidates')) { @($VerifiedCandidates) } else {
+                $scanRoots = if ($null -eq $Roots) { @(Get-CubismDiscoveryRoots) } else { @($Roots) }
+                @(Get-CubismInstallations -Roots $scanRoots -TurboismHome $canonicalHome)
+            })
             $snapshotSha256 = Write-CubismInstallerSnapshot -TurboismHome $canonicalHome -SnapshotPath ($output + '.json') -Candidates $candidates
             $supported = @($candidates | Where-Object { $_.Selectable }).Count
-            $other = $candidates.Count - $supported
+            $other = $candidates.Count - $supported + $ExtraDisplayRecords.Count
             $language = [System.Threading.Thread]::CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
             $labels = switch ($language) {
                 "zh" { @{ Supported = "支持"; Compatible = "兼容"; Detected = "已识别"; Unsupported = "不支持"; Invalid = "无效" } }
                 "ja" { @{ Supported = "対応"; Compatible = "互換"; Detected = "検出"; Unsupported = "未対応"; Invalid = "不正" } }
+                "ko" { @{ Supported = "지원"; Compatible = "호환"; Detected = "감지됨"; Unsupported = "미지원"; Invalid = "유효하지 않음" } }
                 default { @{ Supported = "Supported"; Compatible = "Compatible"; Detected = "Detected"; Unsupported = "Unsupported"; Invalid = "Invalid" } }
             }
             $lines = [System.Collections.Generic.List[string]]::new()
@@ -631,6 +783,7 @@ function Write-CubismInstallerDiscoveryReport {
                 $root = ConvertTo-CubismDiscoveryField $candidate.CanonicalRoot -MaximumLength 520
                 [void]$lines.Add("DISPLAY|[$label] $root")
             }
+            foreach ($record in $ExtraDisplayRecords) { [void]$lines.Add($record) }
             [void]$lines.Add("END")
             [System.IO.File]::WriteAllLines($temporary, $lines, $unicode)
             $publish = $true
