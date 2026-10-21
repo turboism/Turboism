@@ -38,6 +38,7 @@ MANIFEST_PATH = Path("scripts/preview/host-validation-tasks.json")
 # Task -> explicit capability dependencies when taskGroupAliases/taskPluginAliases
 # either do not cover the task or name a broader documentation group.
 TASK_EXPLICIT_CAPABILITIES: dict[str, tuple[str, ...]] = {
+    "atlas-folders": ("cubism.texture-atlas.layout.write", "cubism.editor-model.read", "cubism.editor-model.write", "cubism.editor-model.texture.read"),
     "atlas-image": ("cubism.texture-atlas.data-model-hook",),
     "backup-interactive": (
         "cubism.autobackup.backup",
