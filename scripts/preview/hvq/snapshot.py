@@ -450,6 +450,11 @@ class PreparedStore:
             for path in sorted((source_root / "scripts/preview").iterdir()):
                 if path.suffix in {".sh", ".py", ".json"} and path.is_file():
                     copy_verified(path, tool_dir / path.name)
+            # reviewed_host_artifacts.py resolves the reviewed jar digests from this file at the same
+            # relative position inside the snapshot, so the runner never restates them.
+            reviewed_source = source_root / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+            if reviewed_source.is_file():
+                copy_verified(reviewed_source, stage / "tool" / reviewed_source.relative_to(source_root))
             hvq_source = source_root / "scripts/preview/hvq"
             if not (hvq_source / "__init__.py").is_file():
                 raise QueueError("missing canonical runner/helper: hvq")
