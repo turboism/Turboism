@@ -11118,6 +11118,95 @@
    }
   },
   {
+   "id": "dev.turboism.plugin.texture-atlas-nesting",
+   "name": "Bitmask Nesting",
+   "directory": "atlas-bitmask-nesting",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
+     }
+    }
+   ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
    "id": "dev.turboism.plugin.texture-atlas-dalsoo",
    "name": "Dalsoo Polygon Packing Algorithm",
    "directory": "atlas-dalsoo-polygon",
@@ -18797,6 +18886,7 @@
   "fps": "perf-stats",
   "psd-clip-mask": "psd-clip-mask-import",
   "atlas": "atlas-maxrects-bssf",
+  "atlas-nesting": "atlas-bitmask-nesting",
   "atlas-polygon": "atlas-dalsoo-polygon",
   "external-psd-edit-pipeline": "external-psd-edit",
   "external-psd-fixture-preparation": "external-psd-edit",
@@ -18832,7 +18922,8 @@
   "backup": "autobackup",
   "backup-webdav": "autobackup",
   "selection-brush": "modeling-tool",
-  "atlas": "texture-atlas"
+  "atlas": "texture-atlas",
+  "atlas-nesting": "texture-atlas"
  },
  "versionBoundaries": [
   {

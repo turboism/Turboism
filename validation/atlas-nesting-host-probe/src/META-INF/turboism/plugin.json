@@ -1,0 +1,25 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.nesting-capture",
+  "name": "Nesting Validation Capture",
+  "version": "0.1.0",
+  "description": "Task-local issued contour and production plan capture for nesting validation.",
+  "entrypoints": ["dev.turboism.validation.nesting.NestingCapturePlugin"],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [{"name": "Turboism validation"}],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": ["en"]},
+  "dependencies": [],
+  "permissions": [
+    {"id": "turboism.cubism.model.read", "scope": "application", "reason": "Capture issued current-page contours."},
+    {"id": "turboism.cubism.model.write", "scope": "application", "reason": "Delegate to the real nesting planner under runtime validation."}
+  ],
+  "capabilities": ["cubism.texture-atlas.layout"],
+  "environment": {"requiresCubism": true, "ui": "none"},
+  "lifecycle": {"hotReload": true},
+  "category": "modeling",
+  "tags": ["texture-atlas", "validation"]
+}
