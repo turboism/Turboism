@@ -1,0 +1,9 @@
+command: python3 validation/texture-atlas-current-page/run-kernel-allocation-bench.py --ref c3d454042283e10634793bb6b31246a3d89a4e95 --mode fallback --heap-mb 64
+exitCode: 1
+Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+	at dev.turboism.plugin.atlasdalsoo.dalsoo.Bin.cornerLattice(Bin.java:356)
+	at dev.turboism.plugin.atlasdalsoo.dalsoo.Bin.packPolyDalalah(Bin.java:306)
+	at dev.turboism.plugin.atlasdalsoo.dalsoo.Bin.pack(Bin.java:108)
+	at dev.turboism.plugin.atlasdalsoo.dalsoo.PolygonPack.pack(PolygonPack.java:91)
+	at dev.turboism.plugin.atlasdalsoo.dalsoo.KernelAllocationBench.fallback(KernelAllocationBench.java:69)
+	at dev.turboism.plugin.atlasdalsoo.dalsoo.KernelAllocationBench.main(KernelAllocationBench.java:16)

@@ -31,7 +31,7 @@ final class Bin {
     private final List<PackedPoly> pendingPolys = new ArrayList<>();
     // Candidates belong to polygon identity, never its position in the area-sorted list.
     private final Map<Integer, double[][]> perPolyTrigos = new HashMap<>();
-    private final Map<Integer, List<PackedPoly>> grid = new HashMap<>();
+    private final List<List<PackedPoly>> grid;
     private int queryStamp;
     private Convex cntConvex;
 
@@ -80,6 +80,7 @@ final class Bin {
         this.cellHeight = Math.max(1.0, height / GRID_DIV);
         this.gridW = Math.max(1, (int) Math.ceil(width / cellWidth));
         this.gridH = Math.max(1, (int) Math.ceil(height / cellHeight));
+        this.grid = new ArrayList<>(Collections.nCopies(gridW * gridH, null));
         this.cancelled = cancelled == null ? () -> false : cancelled;
         this.progress = progress == null ? i -> {} : progress;
         if (obstacles != null) {
@@ -114,7 +115,7 @@ final class Bin {
     }
 
     private void checkCancelled() {
-        if (cancelled.getAsBoolean()) {
+        if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean()) {
             throw new PackingCancelledException();
         }
     }
@@ -183,7 +184,10 @@ final class Bin {
         double[] minCossin = null;
         double[] minTrans = null;
         Convex minCon = null;
+        final double[][] rotated = new double[opl.length][2];
+        final double[][] candidate = new double[opl.length][2];
         for (int i = 0; i < opl.length; i++) { // each vertex of new poly
+            checkCancelled();
             final double[] p = opl[i];
             final double[] d0 = Geom.sub(opl[(i - 1 + opl.length) % opl.length], p);
             final double[] d2 = Geom.sub(opl[(i + 1) % opl.length], p);
@@ -198,8 +202,12 @@ final class Bin {
             final double sb2 = d2[1] / mag2;
 
             for (final PackedPoly fixed : packedPolys) {
+                checkCancelled();
                 final double[][] fopl = fixed.outpts;
                 for (int j = 0; j < fopl.length; j++) { // each vertex of each fixed poly
+                    if ((j & 63) == 0) {
+                        checkCancelled();
+                    }
                     final double[] v = fopl[j];
                     final double[] t0 = Geom.sub(fopl[(j - 1 + fopl.length) % fopl.length], v);
                     final double[] t2 = Geom.sub(fopl[(j + 1) % fopl.length], v);
@@ -220,14 +228,14 @@ final class Bin {
                         } else {
                             cossin = new double[] {ca2 * cb0 + sa2 * sb0, sa2 * cb0 - ca2 * sb0}; // a2 - b0
                         }
-                        final double[][] rotOpl = Geom.rotate(opl, cossin);
-                        final double[] trans = Geom.sub(v, rotOpl[i]);
-                        final double[] rotBb = Geom.boundingBox(rotOpl);
+                        Geom.rotateInto(opl, cossin, rotated);
+                        final double[] trans = Geom.sub(v, rotated[i]);
+                        final double[] rotBb = Geom.boundingBox(rotated);
                         if (!insideBin(rotBb, trans[0], trans[1])) {
                             continue;
                         }
-                        final double[][] transRotOutpoly = translate(trans, rotOpl);
-                        if (isFeasible(transRotOutpoly)) {
+                        translateInto(trans[0], trans[1], rotated, candidate);
+                        if (isFeasible(candidate)) {
                             final double[][] transRotInpoly = translate(trans, Geom.rotate(poly.inpts, cossin));
                             final Convex tmpcon = cntConvex.clone();
                             for (final double[] trp : transRotInpoly) {
@@ -272,19 +280,27 @@ final class Bin {
             final double[][] rotatedOutpoly = Geom.rotate(stp.outpts, trigos[i]);
             final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
             final double[] rotatedBb = Geom.boundingBox(rotatedOutpoly);
+            // Scratch is local to this search. Scoring retains only the separate
+            // raw ring, never this buffered outline; reusing it cannot mutate a
+            // saved hull or a placed polygon.
+            final double[][] candidate = new double[rotatedOutpoly.length][2];
+            final double[] candidateBb = new double[4];
             for (final double[] p : rotatedOutpoly) { // each vertex of new poly
+                checkCancelled();
                 for (final double[] v : contacts) {
                     final double tx = v[0] - p[0];
                     final double ty = v[1] - p[1];
                     if (!insideBin(rotatedBb, tx, ty)) {
                         continue;
                     }
-                    final double[] trans = {tx, ty};
-                    final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
-                    final double[] transBb = {rotatedBb[0] + tx, rotatedBb[1] + ty, rotatedBb[2] + tx, rotatedBb[3] + ty
-                    };
-                    if (isFeasible(transRotOutpoly, transBb)) {
-                        final PlacementScore sc = score(translate(trans, rotatedInpoly), transRotOutpoly);
+                    translateInto(tx, ty, rotatedOutpoly, candidate);
+                    candidateBb[0] = rotatedBb[0] + tx;
+                    candidateBb[1] = rotatedBb[1] + ty;
+                    candidateBb[2] = rotatedBb[2] + tx;
+                    candidateBb[3] = rotatedBb[3] + ty;
+                    if (isFeasible(candidate, candidateBb)) {
+                        final double[] trans = {tx, ty};
+                        final PlacementScore sc = score(translate(trans, rotatedInpoly), candidate);
                         if (minArea > sc.area) {
                             minArea = sc.area;
                             minRotid = i;
@@ -299,25 +315,32 @@ final class Bin {
             // vertex-contact placement can fail even on a nearly empty page
             // (e.g. one large poly vs a dense blob): fall back to a deterministic
             // corner lattice derived from placed bounding boxes and bin edges
+            final CornerAxes axes = cornerAxes();
             for (int i = 0; i < trigos.length; i++) {
                 final double[][] rotatedOutpoly = Geom.rotate(stp.outpts, trigos[i]);
                 final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
                 final double[] bb = Geom.boundingBox(rotatedOutpoly);
-                for (final double[] corner : cornerLattice()) {
-                    final double tx = corner[0] - bb[0];
-                    final double ty = corner[1] - bb[1];
-                    if (!insideBin(bb, tx, ty)) {
-                        continue;
-                    }
-                    final double[] trans = {tx, ty};
-                    final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
-                    if (isFeasible(transRotOutpoly)) {
-                        final PlacementScore sc = score(translate(trans, rotatedInpoly), transRotOutpoly);
-                        if (minArea > sc.area) {
-                            minArea = sc.area;
-                            minRotid = i;
-                            minTrans = trans;
-                            minCon = sc.convex;
+                final double[][] candidate = new double[rotatedOutpoly.length][2];
+                // Iterate the same y-major Cartesian product without retaining
+                // (2 * placed + 1)^2 small coordinate arrays per rotation.
+                for (final double y : axes.ys) {
+                    checkCancelled();
+                    for (final double x : axes.xs) {
+                        final double tx = x - bb[0];
+                        final double ty = y - bb[1];
+                        if (!insideBin(bb, tx, ty)) {
+                            continue;
+                        }
+                        translateInto(tx, ty, rotatedOutpoly, candidate);
+                        if (isFeasible(candidate)) {
+                            final double[] trans = {tx, ty};
+                            final PlacementScore sc = score(translate(trans, rotatedInpoly), candidate);
+                            if (minArea > sc.area) {
+                                minArea = sc.area;
+                                minRotid = i;
+                                minTrans = trans;
+                                minCon = sc.convex;
+                            }
                         }
                     }
                 }
@@ -339,25 +362,22 @@ final class Bin {
      * bounding-box right/top edges crossed with every left/bottom edge — the
      * classic no-fit corner set, deterministic in placement order.
      */
-    private List<double[]> cornerLattice() {
-        final List<double[]> xs = new ArrayList<>();
-        final List<double[]> ys = new ArrayList<>();
-        xs.add(new double[] {0});
-        ys.add(new double[] {0});
+    private CornerAxes cornerAxes() {
+        final int size = 1 + 2 * packedPolys.size();
+        final double[] xs = new double[size];
+        final double[] ys = new double[size];
+        int index = 1; // first anchor on each axis is the bin origin
         for (final PackedPoly fixed : packedPolys) {
-            xs.add(new double[] {fixed.outBb[0]});
-            xs.add(new double[] {fixed.outBb[2]});
-            ys.add(new double[] {fixed.outBb[1]});
-            ys.add(new double[] {fixed.outBb[3]});
+            xs[index] = fixed.outBb[0];
+            xs[index + 1] = fixed.outBb[2];
+            ys[index] = fixed.outBb[1];
+            ys[index + 1] = fixed.outBb[3];
+            index += 2;
         }
-        final List<double[]> corners = new ArrayList<>(xs.size() * ys.size());
-        for (final double[] y : ys) {
-            for (final double[] x : xs) {
-                corners.add(new double[] {x[0], y[0]});
-            }
-        }
-        return corners;
+        return new CornerAxes(xs, ys);
     }
+
+    private record CornerAxes(double[] xs, double[] ys) {}
 
     private record PlacementScore(double area, Convex convex) {}
 
@@ -459,7 +479,13 @@ final class Bin {
         final int y1 = cellY(poly.outBb[3]);
         for (int cy = y0; cy <= y1; cy++) {
             for (int cx = x0; cx <= x1; cx++) {
-                grid.computeIfAbsent(cy * gridW + cx, k -> new ArrayList<>()).add(poly);
+                final int index = cy * gridW + cx;
+                List<PackedPoly> cell = grid.get(index);
+                if (cell == null) {
+                    cell = new ArrayList<>();
+                    grid.set(index, cell);
+                }
+                cell.add(poly);
             }
         }
     }
@@ -470,6 +496,15 @@ final class Bin {
             out[i] = new double[] {ps[i][0] + v[0], ps[i][1] + v[1]};
         }
         return out;
+    }
+
+    /** Writes candidate coordinates without allocating one array per vertex. */
+    private static void translateInto(
+            final double tx, final double ty, final double[][] source, final double[][] target) {
+        for (int i = 0; i < source.length; i++) {
+            target[i][0] = source[i][0] + tx;
+            target[i][1] = source[i][1] + ty;
+        }
     }
 
     private void placePackedPoly(final PackedPoly poly) {

@@ -1,0 +1,1 @@
+{"shape":"mixed","count":250,"vertices":3518,"rotation":"FREE","abey":true,"targetFill":0.75,"budgetSeconds":60,"status":"PASS","elapsedMs":39576.493,"placed":185,"coverage":0.568686,"allocatedMiB":702.584,"sampledPeakHeapMiB":24.048,"initialHeapMiB":1.431,"postGcHeapMiB":1.427,"gcMs":165,"hash":"b57b6be628e1cd0754a95f0bcf06d5cba909d1fad5cd9d7331971ff3c2a3e940"}
