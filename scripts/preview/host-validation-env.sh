@@ -238,21 +238,7 @@ PY
 }
 
 turboism_reviewed_jar_sha256() {
-  local version=$1
-  local semver
-  semver="$(turboism_dotted_version "$version")" || return 2
-  local root_dir
-  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-  local record="$root_dir/compatibility/cubism/verification/cubism-${semver}-editor-model.json"
-  [[ -f "$record" ]] || {
-    printf 'host validation: missing editor-model verification record for %s\n' "$semver" >&2
-    return 2
-  }
-  python3 - "$record" <<'PY'
-import json, sys
-data = json.loads(open(sys.argv[1], encoding="utf-8").read())
-print(data["artifact"]["sha256"])
-PY
+  python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/reviewed_host_artifacts.py" sha256 "$1"
 }
 
 turboism_core_acquisition_metadata() {

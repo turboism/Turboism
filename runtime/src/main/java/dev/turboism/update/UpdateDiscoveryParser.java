@@ -163,8 +163,7 @@ public final class UpdateDiscoveryParser {
             final Optional<String> platform = optionalText(assetObj, "platform");
             final String url = text(assetObj, "url");
             final long size = longValue(assetObj, "size");
-            final String sha256 = text(assetObj, "sha256");
-            list.add(new UpdateDiscovery.Asset(name, kind, variant, platform, url, size, sha256));
+            list.add(new UpdateDiscovery.Asset(name, kind, variant, platform, url, size));
         }
         return Collections.unmodifiableList(list);
     }

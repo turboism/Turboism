@@ -166,6 +166,8 @@ with tempfile.TemporaryDirectory(prefix="external-psd-wrapper-argv-") as tempora
 
     wrapper = preview / "run-external-psd-edit-host-validation.sh"
     shutil.copy2(wrapper_source, wrapper)
+    gates = preview / "host_validation_static_gates.py"
+    shutil.copy2(wrapper_source.with_name(gates.name), gates)
     executable(preview / "host-validation-env.sh", """
 fixture_src="$PWD/fixture.cmo3"
 fixture_sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -246,13 +248,17 @@ exec /bin/bash "$@"
     run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin,
         "prepare-second-document", sandbox / "wrong-sha.argv", expected_code=2, second_document=second)
     # Only argv wiring uses a digest stub; the real dry-run checks actual reviewed assets.
+    reviewed = {role: subprocess.run(
+        [sys.executable, str(gates), "fixture-sha256", role],
+        check=True, capture_output=True, text=True).stdout.strip()
+        for role in ("first-document", "second-document")}
     executable(stub_bin / "sha256sum", """#!/bin/sh
 case "$2" in
-  */fixture.cmo3) printf '%s  %s\\n' 59d5aa5775e86a2917b05a7322f05f0cdcfead994000fede91ab023cab19f308 "$2" ;;
-  */second.cmo3) printf '%s  %s\\n' 7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c "$2" ;;
+  */fixture.cmo3) printf '%s  %s\\n' @FIRST@ "$2" ;;
+  */second.cmo3) printf '%s  %s\\n' @SECOND@ "$2" ;;
   *) exit 2 ;;
 esac
-""")
+""".replace("@FIRST@", reviewed["first-document"]).replace("@SECOND@", reviewed["second-document"]))
     args = run_wrapper(sandbox, wrapper, runner, stub_bin, fixture, plugin,
         "prepare-second-document", sandbox / "second.argv", second_document=second)
     assert option_values(args, "--home-file") == [str(second) + ":second-document/prepared-control.cmo3"]

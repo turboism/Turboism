@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas.image;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -148,17 +149,17 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
     }
 
     /**
-     * One stderr line per terminal outcome. RuntimeDiagnostics has no sink during premain, so
-     * the console is the only place the transform verdict survives on a real host.
+     * Keeps transform verdicts in internal debug diagnostics, including buffered premain records.
+     * Never writes to the host console, where Cubism labels stderr as errors.
      */
     private static void report(final Outcome outcome, final AtlasTileBboxTarget target, final String detail) {
         try {
-            System.err.println("[turboism] atlas-tile-bbox " + outcome
-                    + " " + target.internalName()
-                    + (detail == null || detail.isEmpty() ? "" : " " + detail));
+            RuntimeDiagnostics.debug(
+                    "atlas-tile-bbox",
+                    outcome + " " + target.internalName() + (detail == null || detail.isEmpty() ? "" : " " + detail));
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
-            // The console is evidence, never a failure source.
+            // Diagnostics must never affect the transform outcome.
         }
     }
 

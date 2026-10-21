@@ -35,6 +35,41 @@ class RuntimeTextureAtlasLayoutServiceTest {
     private static final TextureAtlasLayoutPlan CURRENT = plan(1, 6);
 
     @Test
+    void completeAtlasAcceptsExplicitSizesAndChecksTheirOwnEdgeMargins() {
+        final RecordingProvider provider = new RecordingProvider(state(7));
+        final TextureAtlasLayoutCoordinator coordinator = new TextureAtlasLayoutCoordinator();
+        coordinator.connect(provider);
+        final var service = service(coordinator, permissions(), new ArrayList<>());
+        final var snapshot = service.current().orElseThrow();
+        final var placements = List.of(
+                new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false));
+        final var valid = new TextureAtlasLayoutPlan(
+                32,
+                16,
+                1,
+                List.of("folder"),
+                placements,
+                1D,
+                List.of(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize(32, 16)));
+        assertEquals(
+                Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                service.apply(snapshot.target(), valid).status());
+        final var invalid = new TextureAtlasLayoutPlan(
+                32,
+                16,
+                1,
+                List.of("folder"),
+                placements,
+                1D,
+                List.of(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize(8, 8)));
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                service.apply(snapshot.target(), invalid).failureCode());
+        assertEquals(1, provider.applyCount.get());
+    }
+
+    @Test
     void currentIssuesOwnerBoundTargetAndApplyChecksWritePermissionBeforeProviderMutation() {
         final RecordingProvider provider = new RecordingProvider(state(7));
         final TextureAtlasLayoutCoordinator coordinator = new TextureAtlasLayoutCoordinator();

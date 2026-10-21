@@ -406,7 +406,9 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
 
     private boolean invokeManagerShutdown(final List<String> failures) {
         try {
-            final Class<?> agent = Class.forName("dev.turboism.bootstrap.TurboismAgent");
+            // Bootstrap lives in the agent/system loader, outside the isolated plugin loader.
+            final Class<?> agent = Class.forName(
+                "dev.turboism.bootstrap.TurboismAgent", false, ClassLoader.getSystemClassLoader());
             final java.lang.reflect.Method shutdown = agent.getDeclaredMethod("shutdownForTesting");
             shutdown.setAccessible(true);
             if (!Boolean.TRUE.equals(shutdown.invoke(null))) {

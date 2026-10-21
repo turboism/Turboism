@@ -659,6 +659,34 @@ class CubismHostCompatibilityResolverTest {
     }
 
     @Test
+    void acceptsReserializedRecordAndBindsObservedBytes() throws Exception {
+        final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
+        final byte[] original = recordBytes(
+                "5.3.02",
+                "synthetic.editor-model",
+                ADAPTER_SLICE,
+                List.of(selectorSpec("synthetic.class", "class", "", "", 1, 0)));
+        final CubismSliceCatalog.Candidate candidate = candidate(SLICE, "5.3.02", original, "synthetic.editor-model");
+        final byte[] formatted = (new String(original, java.nio.charset.StandardCharsets.UTF_8) + "\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        final var slice = CubismHostCompatibilityResolver.probeSlice(
+                        SLICE,
+                        identity(artifact),
+                        artifact,
+                        List.of(candidate),
+                        new StaticVerificationRecordLoader(),
+                        new StaticSelectorVerifier(),
+                        name -> formatted)
+                .resolution();
+        assertEquals(CompatibilityResolution.SliceStatus.ADMITTED, slice.status());
+        assertEquals(
+                new StaticVerificationRecordLoader()
+                        .load(formatted, candidate.recordFileName())
+                        .sha256(),
+                slice.contract().orElseThrow().recordSha256());
+    }
+
+    @Test
     void rejectsTamperedRecordBytes() throws Exception {
         final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
         final CubismHostIdentity identity = identity(artifact);

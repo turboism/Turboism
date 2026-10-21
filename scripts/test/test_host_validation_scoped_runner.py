@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
 import hvq.common
 import hvq.display
+import reviewed_host_artifacts as reviewed_artifacts
 
 
 FAKE_XVFB_CODE = (
@@ -104,8 +105,11 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             tools = Path(queue.__file__).parent
             for name in ("host_validation.py", "host_validation_queue.py", "host_validation_containment.py",
                          "host_validation_evidence.py", "host_validation_retention.py", "host-validation-env.sh", "host-validation-transport.sh",
-                         "run-cubism-host-validation.sh", "archive-cubism-host-evidence.sh"):
+                         "run-cubism-host-validation.sh", "archive-cubism-host-evidence.sh",
+                         "reviewed_host_artifacts.py"):
                 queue.copy_verified(tools / name, preview / name)
+            reviewed_relative = reviewed_artifacts.SOURCE_RELATIVE
+            queue.copy_verified(tools.parents[1] / reviewed_relative, source / reviewed_relative)
             hvq_dir = preview / "hvq"
             hvq_dir.mkdir(parents=True, exist_ok=True)
             for py_file in sorted((tools / "hvq").glob("*.py")):
@@ -139,9 +143,9 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             poison.chmod(0o700)
             if timeout or deferred is not None:
                 # Only the test SOURCE fixture is altered, never production identity authority.
-                runner_source = preview / "run-cubism-host-validation.sh"
-                runner_source.write_text(runner_source.read_text().replace(
-                    "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                reviewed_source = source / reviewed_artifacts.SOURCE_RELATIVE
+                reviewed_source.write_text(reviewed_source.read_text().replace(
+                    reviewed_artifacts.sha256("5302"),
                     queue.file_digest(editor / "app/lib/Live2D_Cubism.jar")))
                 (golden / "pfx/drive_c/windows/system32").mkdir(parents=True)
                 poison.write_text(f"#!/bin/sh\ntouch '{marker}'\nsleep 30\nexit 97\n")

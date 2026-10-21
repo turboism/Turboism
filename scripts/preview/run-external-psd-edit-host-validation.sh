@@ -64,8 +64,11 @@ case "$phase" in
        && ${EXTERNAL_PSD_SECOND_DOCUMENT:-} == /* && -f $EXTERNAL_PSD_SECOND_DOCUMENT ]] || {
       echo 'second-document preparation requires absolute first and second CMO files' >&2; exit 2;
     }
-    [[ $(sha256sum -- "$EXTERNAL_PSD_FIXTURE_LOCAL" | cut -d ' ' -f 1) == 59d5aa5775e86a2917b05a7322f05f0cdcfead994000fede91ab023cab19f308
-       && $(sha256sum -- "$EXTERNAL_PSD_SECOND_DOCUMENT" | cut -d ' ' -f 1) == 7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c ]] || {
+    gates="$root/scripts/preview/host_validation_static_gates.py"
+    first_reviewed_sha256="$(python3 "$gates" fixture-sha256 first-document)"
+    second_reviewed_sha256="$(python3 "$gates" fixture-sha256 second-document)"
+    [[ $(sha256sum -- "$EXTERNAL_PSD_FIXTURE_LOCAL" | cut -d ' ' -f 1) == "$first_reviewed_sha256"
+       && $(sha256sum -- "$EXTERNAL_PSD_SECOND_DOCUMENT" | cut -d ' ' -f 1) == "$second_reviewed_sha256" ]] || {
       echo 'second-document controls differ from reviewed CMO assets' >&2; exit 2;
     }
     structural_input=(--home-file "$EXTERNAL_PSD_SECOND_DOCUMENT:second-document/prepared-control.cmo3")

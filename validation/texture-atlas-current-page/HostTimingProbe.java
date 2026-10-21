@@ -10,7 +10,7 @@ import java.security.*;
 import java.util.*;
 import java.util.function.Predicate;
 
-/** Validation-only, exact Cubism 5.3.03 native entry boundary timer.
+/** Validation-only native entry timer; these selector symbols match the reviewed 5.0-5.3 records.
  * Registered AFTER production ingress instrumentation; never shipped with the product.
  * Input/output reflection, geometry checks and file IO are OUTSIDE the measured interval.
  */
@@ -102,7 +102,7 @@ public final class HostTimingProbe {
                 for (Class<?> type : instrumentation.getAllLoadedClasses())
                     if (type.getName().equals(OWNER.replace('/','.')) || type.getName().equals(PLANNER.replace('/','.')) || type.getName().equals(DALSOO.replace('/','.')))
                         instrumentation.retransformClasses(type);
-                Files.writeString(directory.resolve("timer-ready.txt"),"READY exact=5.3.03 owner="+OWNER+" descriptor="+DESC);
+                Files.writeString(directory.resolve("timer-ready.txt"),"READY owner="+OWNER+" descriptor="+DESC);
             } catch (Throwable failure) {
                 try { Files.writeString(directory.resolve("timer-error.txt"),failure.toString()); }
                 catch (Exception ignored) { failure.printStackTrace(); }

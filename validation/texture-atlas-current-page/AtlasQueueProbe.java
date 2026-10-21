@@ -20,21 +20,25 @@ public final class AtlasQueueProbe {
         int count = Integer.parseInt(required("count"));
         String implementation = required("implementation");
         validateCase(count, implementation);
+        requestedModelImage();
         boolean parallel = requestedParallel();
         if (parallel && ((count != 100 && count != 500) || !implementation.equals("new") || !HostUiProbe.UI_TIMING))
             throw new IllegalArgumentException("Parallel host validation is admitted only for new UI 100/500 cases");
         Path home = Path.of(System.getProperty("turboism.home"));
         String fixtureName = required("fixtureName");
         String dataset = System.getProperty("turboism.validation.atlas.dataset", "geometry");
-        if (!List.of("circle", "geometry", "heavy").contains(dataset)
-                || (!HostUiProbe.UI_TIMING && !dataset.equals("geometry")))
+        if (!List.of("circle", "geometry", "heavy", "pprcut").contains(dataset)
+                || (!HostUiProbe.UI_TIMING && dataset.equals("circle")))
             throw new IllegalArgumentException("Only fixed Circle/Geometry UI cases are admitted");
-        String suffix = "atlas_mapping_" + (dataset.equals("geometry") ? "geometry_" : "") + count + ".cmo3";
-        if (dataset.equals("heavy")) suffix = "heavy.cmo3";
+        boolean capturedFixture = dataset.equals("heavy") || dataset.equals("pprcut");
+        String suffix = dataset.equals("pprcut") ? "Pprcut.cmo3" : dataset.equals("heavy") ? "heavy.cmo3"
+            : "atlas_mapping_" + (dataset.equals("geometry") ? "geometry_" : "") + count + ".cmo3";
+        if (capturedFixture != (count == 0)) throw new IllegalArgumentException("Captured fixture count must be discovered live");
         if (!fixtureName.endsWith(suffix)) throw new IllegalArgumentException("Unexpected task fixture name");
         evidence = home.resolve("state/atlas-validation");
         try { Files.createDirectories(evidence); }
         catch (Exception failure) { throw new IllegalStateException(failure); }
+        if (capturedFixture) installLoadingDiagnostics();
         // Admission diagnostics are offline-only; final timing runs do not install temporary observers.
         HostUiProbe.premain(evidence.toString(), instrumentation);
         HostTimingProbe.premain(evidence.toString(), instrumentation);
@@ -43,7 +47,11 @@ public final class AtlasQueueProbe {
                 run(count, implementation, fixtureName);
             } catch (Throwable failure) {
                 try {
-                    Files.writeString(evidence.resolve("driver-error.txt"), failure.toString());
+                    java.io.StringWriter stack = new java.io.StringWriter();
+                    failure.printStackTrace(new java.io.PrintWriter(stack));
+                    Files.writeString(evidence.resolve("driver-error.txt"), stack.toString());
+                    Files.writeString(evidence.resolve("failure-threads.txt"), java.util.Arrays.toString(
+                        java.lang.management.ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)));
                     Files.writeString(evidence.resolve("ui-windows.txt"),
                         String.join("\n", new java.util.TreeSet<>(HostUiProbe.observedWindows)) + "\n");
                     atomic("result.txt", "status=FAIL\nreason=" + failure.getClass().getSimpleName() + "\n");
@@ -55,6 +63,36 @@ public final class AtlasQueueProbe {
         worker.start();
     }
 
+    // Heavy-only, before the measured action: capture the actual exit caller and any
+    // blocked loading thread without instrumenting the planner or changing UI state.
+    private static void installLoadingDiagnostics() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> dumpThreads("shutdown-threads.txt"),
+            "atlas-validation-shutdown-evidence"));
+        Thread observer = new Thread(() -> {
+            try {
+                for (int sample = 1; sample <= 10; sample++) {
+                    Thread.sleep(30_000);
+                    if (Files.exists(evidence.resolve("layout-started.txt"))) return;
+                    dumpThreads("loading-threads-" + sample + ".txt");
+                }
+            } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        }, "atlas-validation-loading-evidence");
+        observer.setDaemon(true);
+        observer.start();
+    }
+
+    private static void dumpThreads(String name) {
+        try {
+            StringBuilder output = new StringBuilder();
+            Thread.getAllStackTraces().forEach((thread, stack) -> {
+                output.append(thread.getName()).append(" ").append(thread.getState()).append('\n');
+                for (StackTraceElement frame : stack) output.append("  at ").append(frame).append('\n');
+                output.append('\n');
+            });
+            Files.writeString(evidence.resolve(name), output);
+        } catch (Exception failure) { failure.printStackTrace(); }
+    }
+
     static void markLayoutStarted(Path directory, String implementation) throws java.io.IOException {
         Files.writeString(directory.resolve("layout-started.txt"), implementation + "\n",
             java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
@@ -64,8 +102,10 @@ public final class AtlasQueueProbe {
         if (count == 0 && implementation.equals("polygon") && System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) return;
         if (count != 100 && count != 500 && count != 1000 && count != 2500)
             throw new IllegalArgumentException("Only fixed Geometry 100/500/1000/2500 cases are admitted");
-        if (!List.of("native", "new", "polygon").contains(implementation))
+        if (!List.of("native", "new", "polygon", "nesting", "nesting-rect").contains(implementation))
             throw new IllegalArgumentException("Exactly one implementation per fresh task is required");
+        if (count == 0 && !List.of("new", "nesting").contains(implementation))
+            throw new IllegalArgumentException("Heavy is admitted only for BSSF and nesting");
     }
 
     static boolean requestedParallel() {
@@ -96,6 +136,13 @@ public final class AtlasQueueProbe {
         }
         require(ready, "Fixture/timer readiness timeout");
         click("编辑纹理集...", false, false);
+        List<String[]> pages = tree().stream().filter(row -> row[1].strip().equals(
+            "com.live2d.cubism.doc.modeling.ui.atlasEditor.impl.a.a") && row[2].equals("true/true")).toList();
+        require(pages.size() == 1, "Expected one native texture-page tab pane");
+        Files.writeString(evidence.resolve("texture-pages.txt"), render(pages));
+        int page = Integer.parseInt(System.getProperty("turboism.validation.atlas.page", "0"));
+        require(page >= 0, "Negative texture page");
+        request("tab\t" + pages.get(0)[0] + "\t" + page);
         click("自动排版...", true, false);
         // The algorithm selector is contributed at dialog construction from the live
         // plugin registry: a dialog opened before plugin registration completes stays
@@ -103,7 +150,8 @@ public final class AtlasQueueProbe {
         // selector for this run's implementation appears. The dialog is rebuilt on
         // every open, so a fresh construction picks up the completed registry.
         String pluginLabel = implementation.equals("new") ? "MaxRects-BSSF"
-            : implementation.equals("polygon") ? "Dalsoo" : "";
+            : implementation.equals("polygon") ? "Dalsoo" : implementation.equals("nesting") ? "Nesting Validation"
+            : implementation.equals("nesting-rect") ? "Bitmask Nesting" : "";
         List<String[]> combos = List.of();
         long selectorDeadline = System.nanoTime() + Duration.ofSeconds(90).toNanos();
         while (System.nanoTime() < selectorDeadline) {
@@ -122,21 +170,30 @@ public final class AtlasQueueProbe {
         String options = combo[3].split("; options=\\[", 2)[1];
         options = options.substring(0, options.length() - 1);
         List<String> nativeOptions = new ArrayList<>(List.of(options.split(", ")));
-        nativeOptions.removeIf(option -> option.contains("MaxRects-BSSF") || option.contains("Dalsoo"));
+        nativeOptions.removeIf(option -> option.contains("MaxRects-BSSF") || option.contains("Dalsoo")
+            || option.contains("Bitmask Nesting") || option.contains("Nesting Validation"));
         require(nativeOptions.size() == 1, "Ambiguous native algorithm");
         String selection = nativeOptions.get(0);
         if (implementation.equals("new")) selection = "MaxRects-BSSF";
         else if (implementation.equals("polygon"))
             selection = optionsList(options).stream().filter(option -> option.contains("Dalsoo"))
                 .findFirst().orElseThrow(() -> new IllegalStateException("Dalsoo algorithm option missing"));
+        else if (implementation.equals("nesting")) selection = "Nesting Validation";
+        else if (implementation.equals("nesting-rect"))
+            selection = optionsList(options).stream().filter(option -> option.contains("Bitmask Nesting"))
+                .findFirst().orElseThrow(() -> new IllegalStateException("Nesting algorithm option missing"));
         request("select\t" + combo[0] + "\t" + selection);
+        List<String[]> units = tree().stream().filter(row -> row[1].contains("JComboBox")
+            && row[2].equals("true/true") && row[3].contains("options=[模型图像, 网格]")).toList();
+        require(units.size() == 1, "Expected one native layout-unit selector");
+        request("select\t" + units.get(0)[0] + "\t" + (requestedModelImage() ? "模型图像" : "网格"));
         if (implementation.equals("new")) {
             List<String[]> checks = tree().stream().filter(row -> row[1].contains("JCheckBox")
                 && row[2].equals("true/true") && row[3].startsWith("启用并行搜索")).toList();
             require(checks.size() == 1, "Expected one enabled parallel checkbox");
             request("check\t" + checks.get(0)[0] + "\t" + requestedParallel());
         }
-        if (count == 0) {
+        if (count == 0 && implementation.equals("polygon") && System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) {
             var rotations = tree().stream().filter(row -> row[1].contains("JComboBox") && row[2].equals("true/true")
                 && row[3].contains("18 档角度")).toList();
             require(rotations.size() == 1, "Expected the 18-angle rotation selector");
@@ -147,6 +204,19 @@ public final class AtlasQueueProbe {
         sampler.start();
         // The only layout trigger in this driver. No Undo loop, warmup, retry or second invocation.
         markLayoutStarted(evidence, implementation);
+        if (Boolean.getBoolean("turboism.validation.atlas.diagnose")) {
+            Thread observer = new Thread(() -> {
+                try {
+                    for (int sample = 1; sample <= 24; sample++) {
+                        Thread.sleep(5_000);
+                        if (Files.exists(evidence.resolve("timing-001.json"))) return;
+                        dumpThreads("layout-threads-" + sample + ".txt");
+                    }
+                } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            }, "atlas-validation-layout-evidence");
+            observer.setDaemon(true);
+            observer.start();
+        }
         click("OK", true, true);
         long deadline = System.nanoTime() + Duration.ofSeconds(layoutDeadlineSeconds(count)).toNanos();
         JsonNode result = null;
@@ -163,21 +233,21 @@ public final class AtlasQueueProbe {
         }
         require(result != null, "Layout timing timeout");
         sampler.stop();
-        if (count != 0) validateResult(result, count, implementation);
-        else {
+        if (count == 0 && implementation.equals("polygon") && System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) {
             require(result.path("returned").asBoolean() && result.path("branch").asText().equals("handled"), "Heavy layout did not return through plugin");
             require(result.path("output").path("count").asInt() == 101, "Wrong heavy item count");
             require(result.path("output").path("overflow").isEmpty(), "Heavy overflow");
             require(result.path("output").path("finite").asBoolean() && result.path("output").path("layerMatch").asBoolean(), "Invalid heavy writeback");
             HostTimingProbe.validateHeavy(result);
-        }
+        } else validateResult(result, count, implementation);
+        if (implementation.equals("nesting")) NestingCaptureCheck.validate(evidence, result);
         if (HostUiProbe.UI_TIMING) validateUiTiming(result);
         require(!Files.exists(evidence.resolve("timing-002.json")), "Unexpected second layout invocation");
         atomic("memory-001.json", sampler.toJson());
         Files.writeString(evidence.resolve("ui-windows.txt"),
             String.join("\n", new java.util.TreeSet<>(HostUiProbe.observedWindows)) + "\n");
         atomic("validation.json", JSON.writerWithDefaultPrettyPrinter().writeValueAsString(result));
-        if (count == 0) {
+        if (count == 0 && implementation.equals("polygon") && System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) {
             Files.writeString(evidence.resolve("heavy-screenshot-ready"), "ready");
             long captureDeadline = System.nanoTime() + Duration.ofSeconds(45).toNanos();
             while (!Files.exists(evidence.resolve("heavy-screenshot-captured")) && System.nanoTime() < captureDeadline)
@@ -196,16 +266,24 @@ public final class AtlasQueueProbe {
         require(result.path("returned").isBoolean() && result.path("returned").booleanValue(), "Layout returned false/missing");
         require(result.path("branch").asText().equals(implementation.equals("native") ? "native" : "handled"), "Wrong actual branch");
         JsonNode input = result.path("input"), output = result.path("output");
+        if (count == 0) {
+            count = input.path("count").asInt(-1);
+            require(count > 0, "Heavy fixture issued no items");
+        }
         require(input.path("count").asInt(-1) == count && output.path("count").asInt(-1) == count, "Wrong issued current-page image count");
         require(input.path("items").isArray() && input.path("items").size() == count
             && output.path("items").isArray() && output.path("items").size() == count, "Incomplete snapshots");
         require(input.path("rotate").isBoolean() && input.path("rotate").booleanValue(), "Rotation must be enabled");
-        require(input.path("modelImage").isBoolean() && !input.path("modelImage").booleanValue(), "Expected mesh layout mode");
+        require(input.path("modelImage").isBoolean()
+            && input.path("modelImage").booleanValue() == requestedModelImage(), "Wrong native layout unit");
         require(input.path("requestedScale").isNumber() && Double.isFinite(input.path("requestedScale").doubleValue())
             && input.path("requestedScale").doubleValue() <= 0, "Expected native automatic-scale sentinel");
-        for (String flag : List.of("finite", "inside", "layerMatch"))
+        for (String flag : implementation.equals("nesting") ? List.of("finite", "layerMatch") : List.of("finite", "inside", "layerMatch"))
             require(output.path(flag).isBoolean() && output.path(flag).booleanValue(), "Failed geometry: " + flag);
-        require(output.path("overlaps").isIntegralNumber() && output.path("overlaps").intValue() == 0, "Overlapping output");
+        // Nesting intentionally overlaps AABBs. Original-contour separation and
+        // exact host matrices are checked independently by NestingCaptureCheck.
+        if (!implementation.equals("nesting"))
+            require(output.path("overlaps").isIntegralNumber() && output.path("overlaps").intValue() == 0, "Overlapping output");
         require(output.path("overflow").isArray() && output.path("overflow").isEmpty(), "Unexpected overflow in full-fit matrix");
         double scale = output.path("dataScale").asDouble(Double.NaN);
         double elapsed = result.path("methodMs").asDouble(Double.NaN);
@@ -269,7 +347,10 @@ public final class AtlasQueueProbe {
         Path file = evidence.resolve("ui-tree.txt");
         Files.deleteIfExists(file);
         request("dump");
-        long deadline = System.nanoTime() + Duration.ofSeconds(System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy") ? 300 : 15).toNanos();
+        // The real heavy fixture spends over two minutes loading on the EDT.
+        // Keep one dump request pending until it can execute; do not enqueue
+        // retries or treat model-load time as planner time.
+        long deadline = System.nanoTime() + Duration.ofSeconds(required("count").equals("0") ? 300 : 15).toNanos();
         while (System.nanoTime() < deadline) {
             checkErrors();
             if (Files.isRegularFile(file)) {
@@ -314,6 +395,12 @@ public final class AtlasQueueProbe {
 
     private static List<String> optionsList(String options) {
         return new ArrayList<>(List.of(options.split(", ")));
+    }
+
+    private static boolean requestedModelImage() {
+        String unit = System.getProperty("turboism.validation.atlas.unit", "mesh");
+        require(List.of("mesh", "model-image").contains(unit), "Unknown native layout unit");
+        return unit.equals("model-image");
     }
 
     private static long layoutDeadlineSeconds(int count) {

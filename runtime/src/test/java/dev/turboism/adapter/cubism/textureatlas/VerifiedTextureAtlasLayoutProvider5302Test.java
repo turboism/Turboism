@@ -23,6 +23,22 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
             VerifiedTextureAtlasSelectorContract.profileFor("5.3.02").orElseThrow();
 
     @Test
+    void projectsScaledAndRotatedNativeBoundsInsteadOfSourceDimensions() {
+        final Fixture fixture = new Fixture();
+        final var atlas = fixture.source.textureManager.atlases.get(0);
+        atlas.entries.get(0).transform.setTransform(0.25, 0, 0, 0.25, 1, 1);
+        atlas.entries.get(1).transform.setTransform(0, 1, -1, 0, 5, 1);
+        final var provider = provider(resolver("5.3.02", true), "session-a", fixture);
+        final var plan = provider.current().orElseThrow().currentPlan();
+        assertEquals(
+                new TextureAtlasPlacement("texture-a", 0, 1, 1, 1, 1, false),
+                plan.placements().get(0));
+        assertEquals(
+                new TextureAtlasPlacement("texture-b", 0, 3, 1, 2, 2, true),
+                plan.placements().get(1));
+    }
+
+    @Test
     void packsActiveModelWithoutOpeningAtlasEditorOnAdmittedVersions() {
         for (String version : List.of("5.2.03", "5.3.02", "5.3.03", "5.3.04")) {
             final Fixture fixture = new Fixture();
@@ -94,6 +110,10 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
 
     @Test
     void undoRedoPreservesRawImageDisplaySelectedAfterLayout() {
+        assertTrue(
+                VerifiedTextureAtlasSelectorContract.REQUIRED_ALIASES.contains(
+                        "cubism.texture-atlas.texture-manager.reinit-input"),
+                "The production access plan must admit the refresh invoked only during Undo/Redo");
         final Fixture fixture = new Fixture();
         final var provider = provider(resolver("5.3.02", true), "session-a", fixture);
         final var before = provider.current().orElseThrow();

@@ -22,8 +22,18 @@ public interface TextureAtlasLayoutPlanner {
      * @param items the images to place
      * @param constraints the atlas size, padding, and rotation/scaling limits
      * @return a layout plan accepted by {@link TextureAtlasLayoutService#apply}
+     * @throws TextureAtlasPackingException when the issued page cannot fit the inputs;
+     *     complete-atlas clients can try larger pages or divide folders for recoverable reasons
      */
     TextureAtlasLayoutPlan plan(List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints constraints);
+
+    /**
+     * Whether this planner accepts complete-atlas rectangle requests without current-page options.
+     * Current-page-only implementations return false so independent authoring tools can disable them.
+     */
+    default boolean supportsCompleteAtlas() {
+        return true;
+    }
 
     /**
      * Parallel variant. The default ignores {@code parallel} and delegates to the

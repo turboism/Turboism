@@ -251,6 +251,11 @@ def memory_observer_dependency(argv: list[str], source_root: Path, task_spec: st
         raise QueueError("memory observer closure cannot include extra hooks or shadow directories")
     helpers = ("measure-task-memory.py", "host_memory_identity.py", "host_resource_counters.py")
     expected = {str(source_root / "scripts/test" / name) + ":validation/" + name for name in helpers}
+    # host_memory_identity.py resolves the reviewed jar digest through these two staged siblings.
+    reviewed_reader = source_root / "scripts/preview/reviewed_host_artifacts.py"
+    reviewed_source = source_root / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+    expected |= {f"{reviewed_reader}:validation/{reviewed_reader.name}",
+                 f"{reviewed_source}:validation/{reviewed_source.name}"}
     supplied = options.get("--home-file", [])
     if len(supplied) != len(expected) or set(supplied) != expected:
         raise QueueError("memory observer requires exact unshadowed helper dependency inventory")
@@ -450,6 +455,11 @@ class PreparedStore:
             for path in sorted((source_root / "scripts/preview").iterdir()):
                 if path.suffix in {".sh", ".py", ".json"} and path.is_file():
                     copy_verified(path, tool_dir / path.name)
+            # reviewed_host_artifacts.py resolves the reviewed jar digests from this file at the same
+            # relative position inside the snapshot, so the runner never restates them.
+            reviewed_source = source_root / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+            if reviewed_source.is_file():
+                copy_verified(reviewed_source, stage / "tool" / reviewed_source.relative_to(source_root))
             hvq_source = source_root / "scripts/preview/hvq"
             if not (hvq_source / "__init__.py").is_file():
                 raise QueueError("missing canonical runner/helper: hvq")
