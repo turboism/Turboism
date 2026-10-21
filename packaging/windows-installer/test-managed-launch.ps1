@@ -1234,9 +1234,9 @@ try {
     Assert-ManagedLaunch (Test-Path -LiteralPath $batBackup) "official BAT backup is created"
     Assert-ManagedLaunch ([System.Linq.Enumerable]::SequenceEqual([byte[]]$batOriginal, [byte[]][System.IO.File]::ReadAllBytes($batBackup))) "fresh official BAT backup preserves exact original bytes"
     $batManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
-    Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $batManaged -match '-javaagent:.*turboism-agent\.jar') "official BAT receives current owned Turboism arguments"
-    Assert-ManagedLaunch ($batManaged -match '(?m)^set "JAVA_TOOL_OPTIONS=.*-javaagent:' -and $batManaged -notmatch '(?m)^set "JDK_JAVA_OPTIONS=') "official BAT integration uses JVM-parsed tool options instead of cmd-expanded JDK options"
-    Assert-ManagedLaunch ($batManaged -match '(?m)^set "JAVA_TOOL_OPTIONS=.* %JAVA_TOOL_OPTIONS%"') "inherited tool options parse after managed tokens so an explicit -Xmx stays authoritative"
+    Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $batManaged -match 'launch-cubism-turboism\.ps1') "official BAT delegates to the current managed launcher"
+    Assert-ManagedLaunch ($batManaged -notmatch 'JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|-javaagent:') "official BAT carries no frozen JVM options"
+    Assert-ManagedLaunch ($batManaged.Contains('-CubismRoot "%~dp0." -Variant normal %*')) "official BAT forwards root, variant and file arguments"
     $batHash = Get-CubismSha256 $batCandidate.OfficialBat
     $batRecords2 = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate) -ExistingRecords $batRecords)
     Assert-ManagedLaunch ((Get-CubismSha256 $batCandidate.OfficialBat) -eq $batHash -and $batRecords2[0].ManagedSha256 -eq $batHash) "current update skips unnecessary BAT rewrite"

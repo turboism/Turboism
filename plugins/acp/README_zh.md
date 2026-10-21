@@ -16,22 +16,31 @@ interface: swing
 
 > **Turboism 官方插件** · **状态：预览版**
 
-打开 Agent 对话窗口与 Agent 设置窗口，通过 Agent Client Protocol (ACP) v1 驱动用户安装的 ACP 兼容 Agent，并通过免凭据 stdio 桥接接入本地 Turboism MCP 服务器。
+打开 Agent 对话窗口与 Agent 设置窗口，通过内置原生接入与 Agent Client Protocol (ACP) v1 驱动用户安装的 Agent，并通过免凭据 stdio 桥接接入本地 Turboism MCP 服务器。
+
+### 原生接入与本地会话
+
+- 参考 [Paseo 的 providers 设计](https://paseo.sh/docs/providers.md)，插件内置三种原生协议适配，不要求用户安装 Node SDK 或 ACP 包。Pi 的 Turboism MCP 桥接扩展随插件分发。
+- 模型来自 CLI 的实际目录；权限模式等控件只在 harness 支持时显示。Pi 和不提供权限选项的 ACP Agent 不显示权限占位按钮。可操作控件使用正常前景色。
+- 左侧会话列表通过插件状态目录的 `session-index/` 保存本地创建的会话索引，按 harness、启动命令、协议和工作目录分别隔离；不会导入 CLI 在其他应用创建的会话。
+- 原生会话可以恢复模型上下文；当前仅支持恢复上下文，不回放之前的对话文字。Pi 会话文件保存在插件状态目录 `native-sessions/pi/`；Codex 和 Claude Code 使用各自原生会话存储。
+- 自定义命令继续按 ACP 解释；原版 CLI 请从其对应 harness 入口选择。
+
 
 ## 功能概述
 
 - 打开两个 Swing 窗口：**Agent**（对话）与 **Agent 设置**。
-- 通过 stdin/stdout JSON-RPC 启动用户安装的 ACP Agent：Claude Agent ACP、Codex ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI 或自定义命令。
+- 直接接入原版 `claude`、`codex`、`pi`，无需另装 ACP 适配器；Gemini CLI、OpenCode、Devin CLI 使用各自 ACP 模式，Antigravity 使用 `agy-acp`。已有 ACP 适配器和自定义 ACP 命令继续兼容。
 - 按 ACP v1 契约驱动 `initialize`、`authenticate`、`session/new`、`session/load`、`session/resume`、`session/prompt`、`session/cancel`、`session/close`、`session/list`、`session/update`、`session/request_permission`、`session/set_config_option` 与 `logout`。
 - 将 Turboism MCP 服务器作为 ACP stdio MCP 服务器接入，使 Agent 可以使用 Cubism 工具。HTTP 端点保留为只读回退，用于仅声明 HTTP MCP 支持的 Agent。
 - 在 PATH 与常见安装目录中检测 Agent 可执行文件，未配置时自动选择首个可用 ACP Agent；持久化插件自有状态（已选 Agent、自定义命令、持久会话 ID、初始指令）并保留用户自定义配置。
-- 区分普通 CLI 与支持 ACP 握手的代理：仅将声明支持 ACP 的工具（如 OpenCode、Devin CLI、Claude Agent ACP 等）纳入检测与连接，避免普通原生 CLI 冒充 ACP。
+- 区分原生协议与 ACP：Claude Code 使用 stream-json、Codex 使用 app-server、Pi 使用 RPC；检测时检查原生模式或 ACP 握手，harness 选择菜单只显示可用项。
 - 支持安全命令启动探测（验证 OS 级可执行性并兼容 Windows `.cmd`/`.bat` shim），并在窗口打开及连接失败时提供明确的不可用原因与日志输出。
 
 ## 要求与兼容性
 
 - SDK API 范围 `[0.67.0,1.0.0)`。
-- 用户安装的 ACP v1 兼容 Agent 可执行文件，可从 PATH 访问或在 **管理 Agent…** 中配置为自定义命令。
+- 用户安装并已配置登录／模型的原版 CLI，或 ACP v1 兼容 Agent 可执行文件，可从 PATH 访问或在 **管理 Agent…** 中配置为自定义命令。
 - 需要 MCP 工具访问时，由捆绑的 `dev.turboism.plugin.mcp` 插件提供 Turboism MCP 服务器。
 - 需要已安装的 Cubism Editor 宿主；插件不在独立预览中运行。
 
@@ -67,6 +76,12 @@ interface: swing
 - 当只有 HTTP 端点可用且 Agent 声明 HTTP MCP 支持时，会话以只读形式接入端点；写操作仍受 bearer token 限制，该 token 从不离开 MCP 状态目录。
 - 当两种形式都不可用时，会话不带 MCP 工具运行。
 
+### 已连接但没有回复
+
+“已连接”只表示 ACP 握手成功。若 Agent 以 `end_turn` 结束本轮请求，却没有返回文字、思考、图片或工具事件，插件会显示空回复错误，而不再显示“已完成”。检查所选模型、服务商凭据和 Agent 日志后重试。
+
+OpenCode 1.15.13 在模型接口返回鉴权错误时，可能只返回 `end_turn` 和零 token 用量，隐藏实际错误。使用本地模拟接口对照验证，1.18.4 会返回明确的鉴权错误；遇到此情况请更新 OpenCode 并重新连接，再根据错误检查模型配置。
+
 ## 功能能力
 
 | 能力 | 用户效果 |
@@ -85,6 +100,7 @@ interface: swing
 | `turboism.config.plugin.read` | `application` | 恢复已选 Agent ID、自定义命令、持久会话 ID 与初始指令。 |
 | `turboism.config.plugin.write` | `application` | 持久化上述插件自有状态；不存储 Agent 凭据与 MCP 授权。 |
 | `turboism.file.read` | `application` | 在 PATH 与常见安装目录检测用户安装的 Agent 可执行文件。 |
+| `turboism.file.write` | `application` | 保存本地会话索引和原生 Pi 会话，创建临时 MCP 配置与扩展文件。 |
 | `turboism.process.run` | `application` | 启动并管理所选 Agent 可执行文件。 |
 | `turboism.mcp.connection.read` | `application` | 读取当前 MCP 连接快照（含免凭据 stdio 启动描述符）并订阅端点变化，使已接入会话重连。 |
 

@@ -146,14 +146,6 @@ final class EditorWarpMirrorAccess implements WarpMirrorRuntimeService.Port {
         ancestors(all, root);
         final ArrayList<EvaluatedState> evaluated = new ArrayList<>();
         final ArrayList<DirectCompensation> direct = new ArrayList<>();
-        if (request.preserveDescendants()) {
-            if (!list(resolver.invoke("cubism.editor-model.model-source.all-glues", binding.source()))
-                    .isEmpty()) {
-                throw blocked(
-                        WarpMirrorBlockerCode.GLUE_PRESENT,
-                        "Descendant preservation is unavailable while Glue objects are present.");
-            }
-        }
         for (EditorObjectReadAccess.NativeObjectRef descendant : descendants) {
             if (request.preserveDescendants() && descendant.locked()) {
                 throw blocked(
@@ -673,8 +665,8 @@ final class EditorWarpMirrorAccess implements WarpMirrorRuntimeService.Port {
     /**
      * No-preservation observation: re-evaluates every captured descendant after the
      * parent mirror and logs how far its canvas geometry moved. Movement is expected
-     * here — preservation is off — so the measurement is evidence for the validation
-     * probe and never fails the transaction.
+     * here — preservation is off — so the measurement is debug-only evidence for
+     * the validation probe and never fails the transaction.
      */
     private void observeDescendantFollow(final Capture before) {
         updateInstances(before.binding().source());
@@ -715,13 +707,13 @@ final class EditorWarpMirrorAccess implements WarpMirrorRuntimeService.Port {
             compared++;
             maximum = Math.max(maximum, objectDelta);
             LOGGER.log(
-                    System.Logger.Level.INFO,
+                    System.Logger.Level.DEBUG,
                     "Warp mirror descendant follow: id=" + value.object().id()
                             + ", kind=" + value.object().kind()
                             + ", delta=" + objectDelta);
         }
         LOGGER.log(
-                System.Logger.Level.INFO,
+                System.Logger.Level.DEBUG,
                 "Warp mirror descendant follow summary: target=" + before.root().id() + ", compared=" + compared
                         + ", maxDelta=" + maximum);
     }

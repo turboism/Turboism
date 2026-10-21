@@ -47,7 +47,7 @@ final class McpConnectionWindow {
     private final JTextField stdioConfig = new JTextField();
     private final JTextArea agentPrompt = new JTextArea(3, 20);
     private final HistoryModel history = new HistoryModel();
-    private final JTable historyTable = new JTable(history);
+    private final JTable historyTable;
     private final JButton refresh = new JButton();
     private java.util.function.Supplier<McpConnectionSnapshot> snapshot =
             () -> new McpConnectionSnapshot(null, null, List.of());
@@ -55,8 +55,11 @@ final class McpConnectionWindow {
     McpConnectionWindow(final PluginLocalization localization, final PluginLogger logger) {
         this.localization = Objects.requireNonNull(localization, "localization");
         this.logger = Objects.requireNonNull(logger, "logger");
+        // JTable reads localized column names synchronously during construction.
+        historyTable = new JTable(history);
         frame = TurboismWindowFactory.frame(localization.text("window.connection-title", "MCP Connection"));
         if (frame == null) throw new IllegalStateException("Swing is unavailable in a headless JVM");
+        frame.setName("turboism-mcp.connection");
         configure();
     }
 

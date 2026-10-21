@@ -457,6 +457,10 @@ dependencies {
     // Runtime-only bytecode metadata scanning for the local draft mapping review pipeline.
     implementation("org.ow2.asm:asm:9.7.1")
 
+    // Resilience4j uses SLF4J 1.7. Keep private dependency diagnostics silent and
+    // avoid LoggerFactory's missing-binding warning in Cubism's native log.
+    runtimeOnly("org.slf4j:slf4j-nop:1.7.30")
+
     implementation(libs.resilience4j.bulkhead)
     implementation(libs.resilience4j.timelimiter)
     implementation(libs.resilience4j.circuitbreaker)
