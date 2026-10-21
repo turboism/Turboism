@@ -14,6 +14,15 @@ development line, shipping with the next tagged release.
 - **Older release lines** (0.44.x and earlier) — no backports; please
   upgrade.
 
+## Integrity and trust anchors
+
+Release `.sha256` sidecars, the plugin-template `setup.sh` check and a plugin
+`packageHash` are published next to the files they describe, so they detect
+corruption but do not defend against tampering. Independent trust anchors are
+the Ed25519-signed plugin catalog, pinned Gradle verification metadata and
+wrapper/JDK archive hashes, and R2 write verification. Installers are currently
+unsigned.
+
 ## Reporting a vulnerability
 
 Please do **not** open a public issue for a security concern. Report the
