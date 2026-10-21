@@ -105,12 +105,7 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
      * the bytes, so any {@code sha256} field in the document is intentionally ignored.
      */
     public record Asset(
-            String name,
-            String kind,
-            Optional<String> variant,
-            Optional<String> platform,
-            String url,
-            long size) {
+            String name, String kind, Optional<String> variant, Optional<String> platform, String url, long size) {
         public Asset {
             name = Objects.requireNonNull(name, "name");
             kind = Objects.requireNonNull(kind, "kind");
