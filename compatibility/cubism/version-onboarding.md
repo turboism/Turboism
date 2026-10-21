@@ -4,8 +4,8 @@ Maintainer checklist for admitting one exact Cubism Editor release (say `X.Y.Z`,
 compact form `XYZZ`) to the runtime. The model in `index.md` applies throughout:
 `DRAFT` artifacts under `mapping-packs/draft/` and `profiles/draft/` never
 authorize runtime binding; runtime admission requires a matching `VERIFIED_STATIC`
-record under `verification/`, a reviewed host-artifact identity, a pinned record
-digest, the exact version string, the declared capability set, and selector
+record under `verification/`, a reviewed host-artifact identity, the exact
+version string, the declared capability set, and verified selector
 aliases. Unknown or mismatched inputs fail closed.
 
 Adding a version is therefore a *reviewed* change spread across contracts,
@@ -225,8 +225,9 @@ For each capability family admitted on `X.Y.Z`:
 - `runtime/.../mapping/verification/*VerificationManifest.java`: add
   `RECORD_X_Y_Z` (`ReviewedSliceRecord` = artifact + `verificationId` +
   `recordSha256` of the record file bytes + `cubismVersion` + `profileId`) and
-  the version's capability/alias sets, mirroring existing records. Record-byte
-  pins must move with any later reviewed selector addition.
+  the version's capability/alias sets, mirroring existing records. Generated record
+  digests describe provenance; admission checks schema, identity, selector structure
+  and host bytes rather than treating a record self-hash as a trust anchor.
 - `runtime/.../mapping/verification/selector/*.java`: add or extend the
   `REQUIRED_ALIASES` contracts the manifest references.
 - `CorePublicApiTrustRoots.java`: add the Core `verificationId` arm only if a
@@ -265,7 +266,7 @@ For each capability family admitted on `X.Y.Z`:
 
 - `testing/.../mapping/StaticVerificationRecordRepositoryTest.java`: add a
   `SliceExpectation` per record — verificationId, slice, version, profile,
-  capabilities, artifact size+SHA-256, **record SHA-256**, selector count,
+  capabilities, artifact size+SHA-256, selector count,
   required/used alias sets, pack path, profile path, slice kind.
 - `MappingPackDraftImportTest`/`ProfileDraftImportTest`: adjust per-version
   pins (entry counts, `capabilityCount`, metadata provenance).
