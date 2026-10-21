@@ -1512,14 +1512,6 @@ class StaticVerificationRecordRepositoryTest {
                 packEntry.get("x.verification").get("ownerInternalName").asText(),
                 selector.get("ownerInternalName").asText(),
                 mappingId + " owner drift");
-        assertEquals(
-                packEntry.get("x.verification").get("requiredAccessFlags").asInt(),
-                selector.get("requiredAccessFlags").asInt(),
-                mappingId + " required access drift");
-        assertEquals(
-                packEntry.get("x.verification").get("forbiddenAccessFlags").asInt(),
-                selector.get("forbiddenAccessFlags").asInt(),
-                mappingId + " forbidden access drift");
         assertEquals(expectation.profileId(), packEntry.get("profile").asText(), mappingId + " profile drift");
         assertEquals("DRAFT", packEntry.get("status").asText(), mappingId + " mapping readiness drift");
 

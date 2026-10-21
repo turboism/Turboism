@@ -280,10 +280,8 @@ def synthesize_entry(
     selector: dict,
     family: str,
     profile: str,
-    artifact_sha: str,
     uses_intermediary: bool,
     uses_owner: str | None,
-    uses_review: bool,
 ) -> dict:
     """Build a pack entry faithful to the strict record↔entry join contract."""
     entry = {
@@ -313,19 +311,7 @@ def synthesize_entry(
         entry["descriptor"] = selector.get("descriptor")
     entry["x.verification"] = {
         "ownerInternalName": selector["ownerInternalName"],
-        "requiredAccessFlags": selector["requiredAccessFlags"],
-        "forbiddenAccessFlags": selector["forbiddenAccessFlags"],
     }
-    if uses_review:
-        entry["x.review"] = {
-            "recordAlias": selector["alias"],
-            "recordMappingId": selector["mappingId"],
-            "exactArtifactSha256": artifact_sha,
-            "provenance": (
-                "exact classfile verification on the reviewed artifact via "
-                "cubism_version_matrix"
-            ),
-        }
     return entry
 
 
@@ -335,7 +321,6 @@ def derive_pack(
     version: str,
     family: str,
     family_packs: dict[str, dict] | None = None,
-    rewrite_provenance: bool = False,
 ) -> dict:
     """Clone a source pack as a strict 1:1 projection of the emitted record."""
     profile = f"cubism-{version}"
@@ -354,7 +339,6 @@ def derive_pack(
     uses_intermediary = any("intermediary" in e for e in source_pack["entries"])
     owners = {e["owner"] for e in source_pack["entries"] if "owner" in e}
     uses_owner = sorted(owners)[0] if owners else None
-    uses_review = any("x.review" in e for e in source_pack["entries"])
     entries = []
     for selector in record["selectors"]:
         template = by_id.get(selector["mappingId"]) or by_alias.get(selector["alias"])
@@ -363,10 +347,8 @@ def derive_pack(
                 selector,
                 family,
                 profile,
-                sha,
                 uses_intermediary,
                 uses_owner,
-                uses_review,
             )
         else:
             entry = dict(template)
@@ -385,24 +367,17 @@ def derive_pack(
                 entry.pop("descriptor")
             entry["x.verification"] = {
                 "ownerInternalName": selector["ownerInternalName"],
-                "requiredAccessFlags": selector["requiredAccessFlags"],
-                "forbiddenAccessFlags": selector["forbiddenAccessFlags"],
             }
-            if "x.review" in entry:
-                entry["x.review"] = dict(
-                    entry["x.review"],
-                    recordAlias=selector["alias"],
-                    recordMappingId=selector["mappingId"],
-                    exactArtifactSha256=sha,
-                )
-                if rewrite_provenance:
-                    entry["x.review"]["provenance"] = (
-                        "exact classfile verification on the reviewed "
-                        f"{version} artifact via cubism_version_matrix"
-                    )
         entries.append(entry)
-    pack = dict(source_pack)
-    pack["cubismVersion"] = version
+    pack = {}
+    for key, value in source_pack.items():
+        if key == "exactArtifactSha256":
+            continue
+        pack[key] = value
+        if key == "cubismVersion":
+            pack[key] = version
+            if "exactArtifactSha256" in source_pack:
+                pack["exactArtifactSha256"] = sha
     pack["entries"] = entries
     if "metadata" in source_pack:
         record_bytes = json.dumps(record, indent=2).encode() + b"\n"
@@ -669,8 +644,10 @@ def repair_committed_packs() -> list[str]:
         record = json.loads(record_path.read_text())
         pack = json.loads(path.read_text())
         fixed = derive_pack(pack, record, version, family)
-        if fixed["entries"] != pack["entries"] or fixed.get("metadata") != pack.get(
-            "metadata"
+        if (
+            fixed["entries"] != pack["entries"]
+            or fixed.get("metadata") != pack.get("metadata")
+            or fixed.get("exactArtifactSha256") != pack.get("exactArtifactSha256")
         ):
             path.write_text(json.dumps(fixed, indent=2) + "\n")
             repaired.append(path.name)
