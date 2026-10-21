@@ -42,7 +42,7 @@ Turboism 是面向 **Live2D Cubism Editor**、以 Windows 为主要平台的运�
 
 所有 Turboism 安装器均提供**英语、简体中文、日语和韩语**界面。选择语言只影响安装器自身界面，Turboism 运行时的语言仍由 `config.json` 的 `locale` 决定。
 
-当前安装器尚未签名，运行前请将下载文件的 SHA-256 与对应校验文件中的值进行比对。例如在 PowerShell 中执行（将 `<version>` 替换为下载的版本号）：
+当前安装器尚未签名，`.sha256` 文件与下载文件同源发布，只能发现文件损坏，无法证明发行内容未被替换；只有经 Ed25519 签名的插件目录具备独立的信任锚。运行前请将下载文件的 SHA-256 与对应校验文件中的值进行比对。例如在 PowerShell 中执行（将 `<version>` 替换为下载的版本号）：
 
 ```powershell
 Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
