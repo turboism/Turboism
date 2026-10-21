@@ -136,8 +136,6 @@ def make_pack(version, selectors):
                 **({"descriptor": s["descriptor"]} if s["kind"] != "class" else {}),
                 "x.verification": {
                     "ownerInternalName": s["ownerInternalName"],
-                    "requiredAccessFlags": s["requiredAccessFlags"],
-                    "forbiddenAccessFlags": s["forbiddenAccessFlags"],
                 },
             }
             for s in selectors

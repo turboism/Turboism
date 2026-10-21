@@ -78,9 +78,9 @@ class MappingPackDraftImportTest {
                 assertEquals(selector.path("memberName"), entry.path("runtime"));
                 assertEquals(selector.path("descriptor"), entry.path("descriptor"));
             }
-            for (final String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
-                assertEquals(selector.path(field), entry.path("x.verification").path(field));
-            }
+            assertEquals(
+                    selector.path("ownerInternalName"),
+                    entry.path("x.verification").path("ownerInternalName"));
             assertEquals("DRAFT", entry.path("status").asText());
             assertTrue(entry.path("verifiedAt").isNull());
         }
@@ -370,10 +370,12 @@ class MappingPackDraftImportTest {
                 assertEquals(selector.path("memberName"), entry.path("runtime"));
                 assertEquals(selector.path("descriptor"), entry.path("descriptor"));
             }
-            for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
-                assertEquals(selector.path(field), entry.path("x.verification").path(field));
-            }
+            assertEquals(
+                    selector.path("ownerInternalName"),
+                    entry.path("x.verification").path("ownerInternalName"));
             assertFalse(entry.has("x.review"), "x.review is derivable from name/semanticName and no longer stored");
+            assertFalse(entry.path("x.verification").has("requiredAccessFlags"), "access flags live in the record");
+            assertFalse(entry.path("x.verification").has("forbiddenAccessFlags"), "access flags live in the record");
         }
     }
 
@@ -584,9 +586,9 @@ class MappingPackDraftImportTest {
             assertEquals(selector.path("kind"), entry.path("kind"));
             assertEquals(selector.path("memberName"), entry.path("runtime"));
             assertEquals(selector.path("descriptor"), entry.path("descriptor"));
-            for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
-                assertEquals(selector.path(field), entry.path("x.verification").path(field));
-            }
+            assertEquals(
+                    selector.path("ownerInternalName"),
+                    entry.path("x.verification").path("ownerInternalName"));
             assertEquals("DRAFT", entry.path("status").asText());
             assertEquals("medium", entry.path("confidence").asText());
             assertEquals("none", entry.path("verifiedBy").asText());
