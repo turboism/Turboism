@@ -1,0 +1,1407 @@
+{
+  "family": "protected-export",
+  "releases": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+  ],
+  "templates": [
+    {
+      "keys": [
+        "semanticName",
+        "kind",
+        "owner",
+        "name",
+        "runtime",
+        "profile",
+        "status",
+        "stability",
+        "source",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence",
+        "x.verification"
+      ],
+      "annotations": {
+        "owner": "protected-export",
+        "status": "DRAFT",
+        "stability": "experimental",
+        "source": "derived-from-verified-record",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "high"
+      }
+    },
+    {
+      "keys": [
+        "semanticName",
+        "kind",
+        "owner",
+        "name",
+        "runtime",
+        "profile",
+        "status",
+        "stability",
+        "source",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence",
+        "descriptor",
+        "x.verification"
+      ],
+      "annotations": {
+        "owner": "protected-export",
+        "status": "DRAFT",
+        "stability": "experimental",
+        "source": "derived-from-verified-record",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "high"
+      }
+    }
+  ],
+  "entries": {
+    "cubism.protected-export.alias-source.class": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.alias.alpha-composition": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.alias.circulated": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.alias.clip-guids": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.alias.color-composition": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.alias.invert-clipping": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.alias.reference-object-guid": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.alias.use-offscreen": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.app-controller.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.app-controller.close-content": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.app-controller.current-document": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.app-controller.current-project": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.app-controller.instance": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.app-controller.main-frame-ctrl": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.app-controller.open": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.art-mesh-form.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.art-mesh-form.positions": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.art-mesh-instance.calculated-form": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.art-mesh-instance.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.art-mesh-instance.source": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.art-mesh.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.art-path-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.art-path.brush-guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.controllable-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.deformer-source.children": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.deformer-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.deformer.guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.deformer.target-guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.document.edit-mode-current": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.edit-mode-main": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.file": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.file-content": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.mark-saved": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.model-source": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.selector": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.document.undo-manager": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.drawable-id.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.drawable-id.create": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.drawable-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.drawable.clip-guids": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.drawable.id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.drawable.invert-clipping": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.drawable.set-id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.edit-mode-base.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.edit-mode.apply-deformer": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.edit-mode.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.export-dialog.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.export-dialog.model-source": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.export-driver.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.export-driver.export": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.export-driver.instance": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.extended-interpolation-type.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.file-cache.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.file-cache.handle-by-file": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-cache.handles": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-cache.instance": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-cache.remove": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-content.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.file-content.file": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-content.modified": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-handle.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.file-handle.file": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-handle.listeners": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-handle.loader": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-handle.release": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.file-handle.unload": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.glue-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.glue-source.target-art-mesh-a": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.glue-source.target-art-mesh-b": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.guid.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.guid.uuid-string": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.id.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.id.id-string": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.keyform-binding.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.keyform-binding.extended-type": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.keyform-binding.illegal-extended": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.keyform-binding.keys": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.keyform-binding.parameter-id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.keyform-grid.bindings": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.keyform-grid.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.main-frame-ctrl.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.main-frame-ctrl.main-frame": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-art-meshes": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-deformers": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-motion-sync-settings": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-objects": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-parameters": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-parts": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.all-physics-settings": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.model-source.contain-advanced-blend": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-alias": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-art-path": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-invert-clipping": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-morph-target": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-morph-target-enhancement": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-motion-sync": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-motion-sync-correction": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-multiply-color": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-offscreen-rendering": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-quad-transform": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.contain-screen-color": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.current-instance": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.document": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.physics-settings-set": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.root-part": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model-source.save-model": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model.all-art-meshes": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.model.parameter-set": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.model.reinit-instance-exe": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.morph-target-set.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.morph-target-set.morph-targets": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-mapping.checksum": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-postproc.checksum": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting-id.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting-id.create": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.id-field": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.mapping": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.postproc": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.set-name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.motion-sync-setting.version": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-id.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.parameter-instance.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.parameter-instance.id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-instance.set-value": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-instance.value": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-set.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.parameter-set.parameters": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.default-value": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.max-value": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.min-value": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter-source.repeat": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.parameter.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.part.alpha-composition": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.part.child-guids": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.part.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.part.clip-guids": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.part.color-composition": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.part.invert-clipping": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.part.use-offscreen": [
+      {
+        "versions": "5.3.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-input.angle-scale": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-input.reverse": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-input.source": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-input.translation-scale": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-input.type": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-input.weight": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.angle-scale": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.destination": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.reverse": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.translation-scale": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.type": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.value-below-minimum": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.value-exceeded-maximum": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.vertex-index": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-output.weight": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-setting-id.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.physics-setting-id.create": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings-set.fps": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings-set.gravity": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings-set.selected": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings-set.wind": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings-source.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.physics-settings.enable": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.inputs": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.normalization-angle-default": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.normalization-angle-max": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.normalization-angle-min": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.normalization-position-default": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.normalization-position-max": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.normalization-position-min": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.outputs": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.set-id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.set-name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.total-angle": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-settings.vertices": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-vertex.acceleration": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-vertex.delay": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-vertex.mobility": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-vertex.position": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.physics-vertex.radius": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.project.children": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.project.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.rotation-deformer.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.selector-interface.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.selector.add-source": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.selector.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.selector.clear": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.selector.selected": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.selector.selected-count": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.selector.selected-deformers": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.extended-keyform-grid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.extended-morph-target-set": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.extensions": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.id": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.keyform-grid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.keyform-morph-target-set": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.local-name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.set-local-name": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.source.target-deformer-guid": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.undo-manager.can-undo": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.undo-manager.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.protected-export.undo-manager.edit-count": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.undo-manager.position": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.vector2.x": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.vector2.y": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.protected-export.warp-deformer.class": [
+      {
+        "versions": "5.1.00-5.3.04",
+        "template": 0
+      }
+    ]
+  },
+  "envelopes": [
+    {
+      "versions": "5.1.00-5.3.04",
+      "value": {
+        "format": "turboism.mapping.pack",
+        "schemaVersion": 1,
+        "status": "DRAFT",
+        "source": "derived-from-verified-record",
+        "cubismVersion": "${version}"
+      }
+    }
+  ]
+}
