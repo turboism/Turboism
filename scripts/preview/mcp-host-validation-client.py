@@ -20,12 +20,23 @@ PROTOCOL_VERSION = "2025-11-25"
 # Exact reviewed Cubism version set admitted by the compatibility records. The
 # capability ledger reports this full set for operations whose backing
 # capabilities verify on every reviewed artifact.
-ALL_REVIEWED_VERSIONS = [
-    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-    "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
-]
+def reviewed_versions():
+    # A task-local copy is staged by the runner; repository invocations read the table directly.
+    here = Path(__file__).resolve()
+    source = here.with_name('reviewed-releases.json')
+    if not source.is_file():
+        source = here.parents[2] / 'compatibility/cubism/reviewed-releases.json'
+    data = json.loads(source.read_text(encoding='utf-8'))
+    if data.get('format') != 'turboism.reviewed-releases/v1':
+        raise ValueError('invalid reviewed release table')
+    versions = [r['version'] for r in data['releases']]
+    if (not versions or any(not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]{2}', v) for v in versions)
+            or versions != sorted(set(versions), key=lambda v: tuple(map(int, v.split('.'))))):
+        raise ValueError('invalid reviewed version order')
+    return versions
+
+
+ALL_REVIEWED_VERSIONS = reviewed_versions()
 EXPECTED_TOOLS = {
     "turboism.model_objects.apply",
     "turboism.parameters.apply",

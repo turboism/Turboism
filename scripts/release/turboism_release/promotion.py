@@ -146,7 +146,7 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
                             "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
                             "release-notes", "scripts/release/turboism_release/release_notes.py",
                             "compatibility/cubism/compatibility-matrix.json",
-                            "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"],
+                            "compatibility/cubism/reviewed-releases.json"],
                            capture_output=True)
     require(clean.returncode == 0, "source release metadata was modified after checkout")
     document = read_document(unique_file(bundle_root, "candidate.json"), "candidate")
