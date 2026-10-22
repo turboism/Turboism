@@ -20,7 +20,8 @@ import java.util.Objects;
 /**
  * Runtime implementation of the canvas-top GL strip state button surface.
  *
- * <p>Target: the GL-drawn view context strip {@code a.b}. The strip's H group
+ * <p>Target: the GL-drawn view context strip ({@code a.b} through 5.3.03,
+ * {@code b.b} on 5.3.04), supplied by the reviewed per-version hook. The strip's H group
  * only accepts {@code GToggleIconButtonEntity}, so the contributed control is a
  * SINGLE icon toggle button whose icon set cycles through the three user-provided
  * state images (off / vertical / horizontal). Each click destroys the current
@@ -33,13 +34,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private static final RuntimeViewContextMenuRegistry INSTANCE = new RuntimeViewContextMenuRegistry();
 
-    /** Reviewed selectors, disassembly-verified identical on 5.2.03/5.3.02/5.3.03. */
-    private static final String STRIP_CLASS = "com.live2d.cubism.view.context.a.b";
-
     private static final String BUTTON_CLASS = "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity";
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
     private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
-    private static final String TYPE_CLASS = "com.live2d.graphics.n";
     private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
 
     private final Object lock = new Object();

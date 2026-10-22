@@ -95,9 +95,8 @@ public record WarpAltMirrorHostProfile(
             ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
 
     /**
-     * Reviewed 5.3.x generations sharing the 5.3.02/5.3.03 selector tuple: every
-     * profile selector resolves to the same member names, including the
-     * {@code R()V} strip mount pass.
+     * Reviewed 5.3.x generations share the method signatures, including the
+     * {@code R()V} strip mount pass. 5.3.04 uses a different strip owner.
      */
     private static final Set<String> REVIEWED_53_VERSIONS = Set.of(
             ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
@@ -122,7 +121,10 @@ public record WarpAltMirrorHostProfile(
             return Optional.of(reviewed5203());
         }
         if (REVIEWED_53_VERSIONS.contains(version)) {
-            return Optional.of(reviewed5302And5303());
+            return Optional.of(reviewed53(
+                    ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(version)
+                            ? "com/live2d/cubism/view/context/b/b"
+                            : STRIP));
         }
         return Optional.empty();
     }
@@ -185,6 +187,11 @@ public record WarpAltMirrorHostProfile(
 
     /** Selectors verified identical between the reviewed 5.3.02 and 5.3.03 artifacts. */
     static WarpAltMirrorHostProfile reviewed5302And5303() {
+        return reviewed53(STRIP);
+    }
+
+    /** 5.3.04 moved the strip to context.b.b; its mount/layout signatures are unchanged. */
+    private static WarpAltMirrorHostProfile reviewed53(final String stripOwner) {
         return new WarpAltMirrorHostProfile(
                 "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
                 "moveToOnLocal",
@@ -192,7 +199,7 @@ public record WarpAltMirrorHostProfile(
                 "com/live2d/cubism/view/context/temporaryHandler/a",
                 "b",
                 "(Lcom/live2d/graphics3d/type/GVector2;" + "Lcom/live2d/cubism/view/context/actionManager/aG;)V",
-                "com/live2d/cubism/view/context/a/b",
+                stripOwner,
                 "R",
                 "()V",
                 "a",
