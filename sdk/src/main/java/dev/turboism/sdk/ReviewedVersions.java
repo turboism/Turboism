@@ -7,27 +7,28 @@ import java.util.stream.Collectors;
 /** Reviewed version selections generated from reviewed-releases.json; do not edit. */
 public final class ReviewedVersions {
 
-    private static final List<String> VERSIONS = List.of(
-            "5.0.00",
-            "5.0.01",
-            "5.0.02",
-            "5.0.03",
-            "5.0.04",
-            "5.0.05",
-            "5.0.06",
-            "5.1.00",
-            "5.1.01",
-            "5.1.02",
-            "5.1.03",
-            "5.2.00",
-            "5.2.01",
-            "5.2.02",
-            "5.2.03",
-            "5.3.00",
-            "5.3.01",
-            "5.3.02",
-            "5.3.03",
-            "5.3.04");
+    private static final List<String> VERSIONS = """
+            5.0.00
+            5.0.01
+            5.0.02
+            5.0.03
+            5.0.04
+            5.0.05
+            5.0.06
+            5.1.00
+            5.1.01
+            5.1.02
+            5.1.03
+            5.2.00
+            5.2.01
+            5.2.02
+            5.2.03
+            5.3.00
+            5.3.01
+            5.3.02
+            5.3.03
+            5.3.04
+            """.lines().toList();
 
     /** @return reviewed releases starting at the exact reviewed boundary */
     public static Set<String> since(final String first) {
@@ -36,7 +37,8 @@ public final class ReviewedVersions {
 
     /** @return reviewed releases in the named major.minor line */
     public static Set<String> line(final String line) {
-        return VERSIONS.stream().filter(version -> version.startsWith(line + "."))
+        return VERSIONS.stream()
+                .filter(version -> version.startsWith(line + "."))
                 .collect(Collectors.toUnmodifiableSet());
     }
 

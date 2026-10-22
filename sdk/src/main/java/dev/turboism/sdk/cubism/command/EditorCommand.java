@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Set;
 
 /** Safe no-argument semantic operations discovered from the normal Cubism menus. */
@@ -40,15 +40,13 @@ public enum EditorCommand {
     DELETE(ReviewedVersions.since("5.0.00")),
     DELETE_DEFORMER_AND_CHILDREN(ReviewedVersions.since("5.0.00")),
     DELETE_DEFORMER_AND_SET_PARAM(ReviewedVersions.since("5.0.00")),
-    DELETE_DEFORMER_ORIGINAL_SHAPE(
-            ReviewedVersions.since("5.2.00")),
+    DELETE_DEFORMER_ORIGINAL_SHAPE(ReviewedVersions.since("5.2.00")),
     DELETE_TEMPORARY_HANDLER(ReviewedVersions.since("5.0.00")),
     DESELECT_INVISIBLE_AND_LOCK_OBJECTS(ReviewedVersions.since("5.0.00")),
     EDIT_LEVEL_1(ReviewedVersions.since("5.0.00")),
     EDIT_LEVEL_2(ReviewedVersions.since("5.0.00")),
     EDIT_LEVEL_3(ReviewedVersions.since("5.0.00")),
-    ENABLE_PLAYBACK_CACHE(
-            ReviewedVersions.since("5.2.00")),
+    ENABLE_PLAYBACK_CACHE(ReviewedVersions.since("5.2.00")),
     ESC(ReviewedVersions.since("5.0.00")),
     ESTIMATE_LINE_WIDTH(ReviewedVersions.since("5.0.00")),
     EXPAND_WARPDEFORMER(ReviewedVersions.line("5.3")),
@@ -112,16 +110,11 @@ public enum EditorCommand {
     OPEN_PRODUCT_PAGE(ReviewedVersions.since("5.0.00")),
     OPEN_SAMPLE_MODEL_PAGE(ReviewedVersions.since("5.0.00")),
     OPEN_STORE_PAGE(ReviewedVersions.since("5.0.00")),
-    PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL(
-            ReviewedVersions.since("5.2.00")),
-    PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION(
-            ReviewedVersions.since("5.2.00")),
-    PARAM_CONTROLLER_PREVIEW_BAKE(
-            ReviewedVersions.since("5.2.00")),
-    PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL(
-            ReviewedVersions.since("5.2.00")),
-    PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE(
-            ReviewedVersions.since("5.2.00")),
+    PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL(ReviewedVersions.since("5.2.00")),
+    PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION(ReviewedVersions.since("5.2.00")),
+    PARAM_CONTROLLER_PREVIEW_BAKE(ReviewedVersions.since("5.2.00")),
+    PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL(ReviewedVersions.since("5.2.00")),
+    PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE(ReviewedVersions.since("5.2.00")),
     PASTE(ReviewedVersions.since("5.0.00")),
     PASTE_PARAM_SET(ReviewedVersions.since("5.0.00")),
     PASTE_SHAPE(ReviewedVersions.since("5.0.00")),
@@ -156,8 +149,7 @@ public enum EditorCommand {
     SELECT_CHILD_ELEMENTS_OF_DEFORMER(ReviewedVersions.since("5.2.03")),
     SELECT_CLIPPED_OBJECT(ReviewedVersions.since("5.0.00")),
     SELECT_CLIPPING_OBJECT(ReviewedVersions.since("5.0.00")),
-    SELECT_OBJECT_BY_CURRENT_KEY_VALUE(
-            ReviewedVersions.since("5.2.00")),
+    SELECT_OBJECT_BY_CURRENT_KEY_VALUE(ReviewedVersions.since("5.2.00")),
     SELECT_PARENT_DEFORMER(ReviewedVersions.since("5.0.00")),
     SETTING_GUIDES_MODELING_ADD_CENTER(ReviewedVersions.line("5.3")),
     SETTING_GUIDES_MODELING_ADD_SELECTED_VERTICES(ReviewedVersions.since("5.0.00")),
@@ -184,10 +176,8 @@ public enum EditorCommand {
     SHOW_MODEL_BY_TEXTURE_ATLAS(ReviewedVersions.since("5.0.00")),
     SHOW_PARAMETER_BOOKMARK_FORM_SELECTED_ATTRIBUTE(ReviewedVersions.since("5.0.00")),
     SHOW_PARAMETER_PALETTE(ReviewedVersions.since("5.0.00")),
-    SHOW_PARAM_CONTROLLER_TARGET_TRACKING(
-            ReviewedVersions.since("5.2.00")),
-    SHOW_PARAM_CTRL_MARKER(
-            ReviewedVersions.since("5.2.00")),
+    SHOW_PARAM_CONTROLLER_TARGET_TRACKING(ReviewedVersions.since("5.2.00")),
+    SHOW_PARAM_CTRL_MARKER(ReviewedVersions.since("5.2.00")),
     SHOW_PARTS_PALETTE(ReviewedVersions.since("5.0.00")),
     SHOW_POPUP_HOVERING_OBJECT(ReviewedVersions.since("5.2.03")),
     SHOW_PROJECT_PALETTE(ReviewedVersions.since("5.0.00")),
@@ -208,8 +198,7 @@ public enum EditorCommand {
     STROKE_MESH_EDIT_TOGGLE_TYPE(ReviewedVersions.since("5.0.00")),
     SWITCH_EDIT_MODE(ReviewedVersions.since("5.0.00")),
     SWITCH_HIGHTLIGHT_CONFLICT_POLYGON(ReviewedVersions.line("5.3")),
-    SWITCH_LOOP_EDITING_SUPPORT(
-            ReviewedVersions.since("5.2.00")),
+    SWITCH_LOOP_EDITING_SUPPORT(ReviewedVersions.since("5.2.00")),
     SYNC_PARAMETERS_ACROSS_TABS(ReviewedVersions.since("5.0.05")),
     TOGGLE_DISPLAY_BOUNDINGBOX(ReviewedVersions.since("5.0.00")),
     TOOL_MODE_MESH_EDIT_ARROW(ReviewedVersions.since("5.0.00")),
@@ -224,8 +213,7 @@ public enum EditorCommand {
     UNBIND_ART_PATH_POINT_TO_ARTMESH_EXTENSION(ReviewedVersions.since("5.0.00")),
     UNBIND_ART_PATH_POINT_TO_ARTMESH_EXTENSION_TO_ALL(ReviewedVersions.since("5.0.00")),
     UNDO(ReviewedVersions.since("5.0.00")),
-    UPDATE_DEFORMER_ORIGINAL_SHAPE(
-            ReviewedVersions.since("5.2.00"));
+    UPDATE_DEFORMER_ORIGINAL_SHAPE(ReviewedVersions.since("5.2.00"));
 
     private final Set<String> supportedVersions;
 

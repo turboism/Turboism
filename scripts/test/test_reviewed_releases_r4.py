@@ -25,6 +25,15 @@ class CheckHostValidationVersionsTest(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
 
+    def test_draft_records_do_not_admit_task_versions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._write_fixture(root)
+            with patch.object(gate, "render_records", return_value={"draft.json": json.dumps({
+                    "status": "DRAFT", "cubismVersion": "5.3.02",
+                    "capabilityIds": ["cubism.workspace.control"]}).encode()}):
+                self.assertTrue(gate.r4_check(root))
+
     def test_live_repository_passes(self) -> None:
         self.assertEqual([], gate.r4_check(gate.r4_ROOT))
 

@@ -1,9 +1,8 @@
 package dev.turboism.adapter.ui;
 
-import dev.turboism.sdk.ReviewedVersions;
-import java.util.Map;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.sdk.ReviewedVersions;
 import java.awt.Color;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -12,6 +11,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -167,12 +167,12 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
     }
 
     private static final Map<java.util.Set<String>, String> APPEARANCE_CLASSES = Map.ofEntries(
-                Map.entry(ReviewedVersions.between("5.0.00", "5.0.06"), "bG"),
-                Map.entry(ReviewedVersions.between("5.1.00", "5.1.03"), "bJ"),
-                Map.entry(ReviewedVersions.between("5.2.00", "5.2.02"), "bO"),
-                Map.entry(ReviewedVersions.between("5.2.03", "5.3.02"), "bR"),
-                Map.entry(ReviewedVersions.between("5.3.03", "5.3.03"), "bS"),
-                Map.entry(ReviewedVersions.between("5.3.04", "5.3.04"), "bT"));
+            Map.entry(ReviewedVersions.between("5.0.00", "5.0.06"), "bG"),
+            Map.entry(ReviewedVersions.between("5.1.00", "5.1.03"), "bJ"),
+            Map.entry(ReviewedVersions.between("5.2.00", "5.2.02"), "bO"),
+            Map.entry(ReviewedVersions.between("5.2.03", "5.3.02"), "bR"),
+            Map.entry(ReviewedVersions.between("5.3.03", "5.3.03"), "bS"),
+            Map.entry(ReviewedVersions.between("5.3.04", "5.3.04"), "bT"));
 
     private static String appearanceClass(final String version) {
         final String owner = APPEARANCE_CLASSES.entrySet().stream()

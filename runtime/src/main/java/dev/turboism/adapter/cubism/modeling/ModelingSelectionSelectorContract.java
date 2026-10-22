@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Set;
 
 /** Independently admitted exact ordinary-modeling point selection and tool lifecycle surface. */
@@ -9,8 +9,7 @@ public final class ModelingSelectionSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.modeling-tool.selection-brush";
     /** Reviewed 5.2/5.3 generations carrying the complete selection-brush contract. */
-    public static final Set<String> SUPPORTED_VERSIONS =
-            ReviewedVersions.since("5.2.00");
+    public static final Set<String> SUPPORTED_VERSIONS = ReviewedVersions.since("5.2.00");
 
     public static final String APP = "cubism.editor-model.app-controller.instance";
     public static final String DOCUMENT = "cubism.editor-model.app-controller.current-document";

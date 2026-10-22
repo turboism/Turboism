@@ -84,7 +84,7 @@ public final class ReviewedReleaseTable {
     private ReviewedReleaseTable() {}
 }
 '''
-    ranges = """package dev.turboism.sdk;
+    ranges = '''package dev.turboism.sdk;
 
 import java.util.List;
 import java.util.Set;
@@ -93,8 +93,9 @@ import java.util.stream.Collectors;
 /** Reviewed version selections generated from reviewed-releases.json; do not edit. */
 public final class ReviewedVersions {
 
-    private static final List<String> VERSIONS = List.of(
-""" + ',\n'.join('            "' + r['version'] + '"' for r in releases) + """);
+    private static final List<String> VERSIONS = """
+''' + '\n'.join('            ' + r['version'] for r in releases) + '''
+            """.lines().toList();
 
     /** @return reviewed releases starting at the exact reviewed boundary */
     public static Set<String> since(final String first) {
@@ -103,7 +104,8 @@ public final class ReviewedVersions {
 
     /** @return reviewed releases in the named major.minor line */
     public static Set<String> line(final String line) {
-        return VERSIONS.stream().filter(version -> version.startsWith(line + "."))
+        return VERSIONS.stream()
+                .filter(version -> version.startsWith(line + "."))
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -119,7 +121,7 @@ public final class ReviewedVersions {
 
     private ReviewedVersions() {}
 }
-"""
+'''
     env = (root / ENV).read_text(encoding='utf-8')
     begin, end = '# reviewed-fixtures:begin', '# reviewed-fixtures:end'
     if env.count(begin) != 1 or env.count(end) != 1 or env.index(begin) >= env.index(end):
