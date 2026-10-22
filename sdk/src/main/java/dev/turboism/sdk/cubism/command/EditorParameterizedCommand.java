@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.CubismEditor;
 import dev.turboism.internal.ReviewedVersions;
+import dev.turboism.sdk.CubismEditor;
 import java.util.Set;
 
 /** Closed inventory of typed operations awaiting or using command-specific request records. */

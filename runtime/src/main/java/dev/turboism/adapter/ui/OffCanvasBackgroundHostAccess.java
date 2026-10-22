@@ -1,8 +1,8 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.internal.ReviewedVersions;
 import java.awt.Color;
 import java.io.IOException;
 import java.lang.reflect.Constructor;

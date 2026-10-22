@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.integration;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
-import dev.turboism.internal.ReviewedVersions;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
