@@ -18,7 +18,6 @@ import java.util.function.Consumer;
 /** Persists the managed launcher's Cubism JVM choice in the canonical config. */
 public final class CubismJvmSettingsFileService implements CubismJvmSettingsService, AutoCloseable {
 
-    private static final CubismJvm DEFAULT = CubismJvm.GRAALVM;
     /** Exact-host validation override: forces the opt-in on without config plumbing. */
     private static final String REDUCE_AUTO_BACKUP_ENV = "TURBOISM_REDUCE_AUTO_BACKUP";
 
@@ -73,24 +72,19 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
 
     @Override
     public CubismJvm read() {
-        final JsonNode value = config.read().path("launcher").path("cubismJvm");
-        return value.isMissingNode() ? DEFAULT : CubismJvm.fromConfig(value.asText());
+        return CubismJvm.fromConfig(savedPerformance(PerformanceSettingsConfig.Field.CUBISM_JVM));
     }
 
     @Override
     public CubismJvm save(final CubismJvm value) {
         final CubismJvm requested = Objects.requireNonNull(value, "value");
-        config.update(root -> {
-            root.withObject("launcher").put("cubismJvm", requested.configValue());
-            return root;
-        });
+        PerformanceSettingsConfig.save(config, PerformanceSettingsConfig.Field.CUBISM_JVM, requested.configValue());
         return requested;
     }
 
     @Override
     public String graalVmPath() {
-        final JsonNode value = config.read().path("launcher").path("graalVmPath");
-        return value.isTextual() ? value.asText() : "";
+        return savedPerformance(PerformanceSettingsConfig.Field.GRAAL_VM_PATH);
     }
 
     @Override
@@ -106,14 +100,7 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
             }
             persisted = Paths.get(requested).toAbsolutePath().normalize().toString();
         }
-        config.update(root -> {
-            if (persisted.isEmpty()) {
-                root.withObject("launcher").remove("graalVmPath");
-            } else {
-                root.withObject("launcher").put("graalVmPath", persisted);
-            }
-            return root;
-        });
+        PerformanceSettingsConfig.save(config, PerformanceSettingsConfig.Field.GRAAL_VM_PATH, persisted);
         return persisted;
     }
 
@@ -132,38 +119,33 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                     || "yes".equalsIgnoreCase(normalized)
                     || "on".equalsIgnoreCase(normalized);
         }
-        return config.read().path("reduceAutoBackup").asBoolean(false);
+        return Boolean.parseBoolean(savedPerformance(PerformanceSettingsConfig.Field.REDUCE_AUTO_BACKUP));
+    }
+
+    @Override
+    public boolean startupReduceAutoBackup() {
+        var startup = NativeOptimizationDiagnostics.startup();
+        return startup == null
+                ? reduceAutoBackup()
+                : Boolean.parseBoolean(startup.value(PerformanceSettingsConfig.Field.REDUCE_AUTO_BACKUP)
+                        .value());
     }
 
     @Override
     public boolean saveReduceAutoBackup(final boolean value) {
-        config.update(root -> {
-            if (value) {
-                root.put("reduceAutoBackup", true);
-            } else {
-                root.remove("reduceAutoBackup");
-            }
-            return root;
-        });
+        PerformanceSettingsConfig.save(
+                config, PerformanceSettingsConfig.Field.REDUCE_AUTO_BACKUP, Boolean.toString(value));
         return value;
     }
 
     @Override
     public boolean zgc() {
-        return config.read().path("launcher").path("zgc").asBoolean(true);
+        return Boolean.parseBoolean(savedPerformance(PerformanceSettingsConfig.Field.ZGC));
     }
 
     @Override
     public boolean saveZgc(final boolean value) {
-        config.update(root -> {
-            if (value) {
-                // Absent means enabled; only an explicit false is stored.
-                root.withObject("launcher").remove("zgc");
-            } else {
-                root.withObject("launcher").put("zgc", false);
-            }
-            return root;
-        });
+        PerformanceSettingsConfig.save(config, PerformanceSettingsConfig.Field.ZGC, Boolean.toString(value));
         return value;
     }
 
@@ -172,22 +154,13 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         // The repository already drops an unsupported persisted value on read
         // (RUNTIME_CONFIG_BAD_MEMORY_PROFILE diagnostic); the lenient parse is
         // the second fail-closed layer for non-validating config sources.
-        final JsonNode value = config.read().path("launcher").path("memoryProfile");
-        return MemoryProfile.fromConfigOrSystem(value.isTextual() ? value.asText() : null);
+        return MemoryProfile.fromConfigOrSystem(savedPerformance(PerformanceSettingsConfig.Field.MEMORY_PROFILE));
     }
 
     @Override
     public MemoryProfile saveMemoryProfile(final MemoryProfile value) {
         final MemoryProfile requested = Objects.requireNonNull(value, "value");
-        config.update(root -> {
-            if (requested == MemoryProfile.SYSTEM) {
-                // Absent means the system default; only explicit tiers persist.
-                root.withObject("launcher").remove("memoryProfile");
-            } else {
-                root.withObject("launcher").put("memoryProfile", requested.configValue());
-            }
-            return root;
-        });
+        PerformanceSettingsConfig.save(config, PerformanceSettingsConfig.Field.MEMORY_PROFILE, requested.configValue());
         return requested;
     }
 
@@ -251,36 +224,90 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         return saveOptimization("mesaGlThread", value);
     }
 
-    /** Opt-in experiments default off; verified optimizations default on. */
-    private static final java.util.Set<String> DEFAULT_OFF_OPTIMIZATIONS = java.util.Set.of("incrementalUpdate");
-    /**
-     * Platform-defaulted options: unset means on only for the Wine/Proton
-     * launch — the paths they optimize exist only there. Explicit values
-     * always win; the same platform default drives reads and saves so
-     * "value == platform default" removes the key under either host.
-     */
-    private static final java.util.Set<String> PROTON_DEFAULT_OPTIMIZATIONS =
-            java.util.Set.of("inputPathElision", "mesaGlThread");
+    @Override
+    public String globalConfigPath() {
+        return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
+    }
 
-    private boolean defaultOptimization(final String name) {
-        return PROTON_DEFAULT_OPTIMIZATIONS.contains(name)
-                ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment)
-                : !DEFAULT_OFF_OPTIMIZATIONS.contains(name);
+    @Override
+    public List<PerformanceStatus> performanceStatuses() {
+        JsonNode root;
+        try {
+            root = config.read();
+        } catch (RuntimeException invalid) {
+            root = null;
+        }
+        final boolean proton = dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment);
+        final var startup = NativeOptimizationDiagnostics.startup();
+        final var hooks = NativeOptimizationDiagnostics.snapshot();
+        final List<PerformanceStatus> result = new ArrayList<>();
+        for (var field : PerformanceSettingsConfig.Field.values()) {
+            String saved = root == null ? "invalid-config" : PerformanceSettingsConfig.saved(root, field, proton);
+            var request = startup == null ? null : startup.value(field);
+            String actual;
+            if (field.nativeOptimization()) {
+                var status = hooks.get(NativeOptimizationConfig.Option.forKey(field.key()));
+                actual = status == null ? "not-observed" : status.state() + ": " + status.reason();
+            } else {
+                actual = switch (field) {
+                    case CUBISM_JVM -> System.getProperty("java.vm.name") + " / " + System.getProperty("java.vendor");
+                    case GRAAL_VM_PATH -> System.getProperty("java.home");
+                    case ZGC ->
+                        java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
+                                .map(java.lang.management.GarbageCollectorMXBean::getName)
+                                .collect(java.util.stream.Collectors.joining(", "));
+                    case MEMORY_PROFILE ->
+                        "maxHeapBytes=" + Runtime.getRuntime().maxMemory() + "; JVM="
+                                + java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
+                                        .filter(argument -> argument.startsWith("-Xmx")
+                                                || argument.startsWith("-XX:MaxRAM")
+                                                || argument.startsWith("-XX:SoftRefLRUPolicyMSPerMB"))
+                                        .collect(java.util.stream.Collectors.joining(" "));
+                    default -> NativeOptimizationDiagnostics.observed(field);
+                };
+            }
+            result.add(new PerformanceStatus(
+                    field.key(),
+                    saved,
+                    request == null ? "unknown" : request.value(),
+                    request == null ? "not-observed" : request.source(),
+                    actual,
+                    root != null && request != null && !saved.equals(request.value())));
+        }
+        return List.copyOf(result);
+    }
+
+    @Override
+    public List<OptimizationStatus> optimizationStatuses() {
+        final JsonNode root = config.read();
+        final boolean proton = dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment);
+        final var diagnostics = NativeOptimizationDiagnostics.snapshot();
+        final List<OptimizationStatus> result = new ArrayList<>();
+        for (var option : NativeOptimizationConfig.Option.values()) {
+            final var status = diagnostics.get(option);
+            final var choice = status == null ? null : status.choice();
+            result.add(new OptimizationStatus(
+                    option.key(),
+                    Boolean.parseBoolean(PerformanceSettingsConfig.saved(root, option.field(), proton)),
+                    choice == null ? Optional.empty() : Optional.of(choice.enabled()),
+                    choice == null ? "unknown" : choice.source(),
+                    status == null ? "unknown" : status.state(),
+                    status == null ? "not-observed" : status.reason()));
+        }
+        return List.copyOf(result);
+    }
+
+    private String savedPerformance(PerformanceSettingsConfig.Field field) {
+        return PerformanceSettingsConfig.saved(
+                config.read(), field, dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment));
     }
 
     private boolean optimization(final String name) {
-        return config.read().path("launcher").path(name).asBoolean(defaultOptimization(name));
+        return Boolean.parseBoolean(savedPerformance(PerformanceSettingsConfig.Field.forKey(name)));
     }
 
     private boolean saveOptimization(final String name, final boolean value) {
-        config.update(root -> {
-            if (value == defaultOptimization(name)) {
-                root.withObject("launcher").remove(name);
-            } else {
-                root.withObject("launcher").put(name, value);
-            }
-            return root;
-        });
+        PerformanceSettingsConfig.save(config, PerformanceSettingsConfig.Field.forKey(name), Boolean.toString(value));
         return value;
     }
 
