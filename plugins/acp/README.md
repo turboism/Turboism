@@ -71,6 +71,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 ### MCP attachment
 
 - When the MCP server publishes a stdio launch descriptor, the session attaches `{name:"turboism", command, args, env:[]}` and the bridge adds the persisted bearer token itself. The agent can use read and write tools.
+- On HTTP 401, the stdio bridge re-reads the token and retries once only if it changed. If authentication still fails, it reports an authentication error without downgrading to read-only access; users do not need to give the token to the agent.
 - When only the HTTP endpoint is usable and the agent advertises HTTP MCP support, the session attaches the endpoint in read-only form; mutating calls stay gated by the bearer token that never leaves the MCP state directory.
 - When neither form is usable, the session runs without MCP tools.
 
