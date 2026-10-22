@@ -157,6 +157,10 @@ def derive_editor_model_record(
     record["cubismVersion"] = version
     record["profileId"] = f"cubism-{version}"
     record["artifact"] = artifact_facts(version, ref_dir=ref_dir)
+    # Historical provenance spelling, not the output filename: writers use
+    # VERIFICATION_DIR (build/generated/verification). Keep it byte-compatible
+    # with materializer.derived(); sync_draft_pack_metadata maps inventoryRef
+    # copies of this label to the generated record before reading its bytes.
     record["evidencePath"] = (
         f"compatibility/cubism/verification/cubism-{version}-{family}.json"
     )
@@ -230,6 +234,10 @@ def derive_record(
     record["cubismVersion"] = version
     record["profileId"] = f"cubism-{version}"
     record["artifact"] = artifact
+    # Historical provenance spelling, not the output filename: writers use
+    # VERIFICATION_DIR (build/generated/verification). Keep it byte-compatible
+    # with materializer.derived(); sync_draft_pack_metadata maps inventoryRef
+    # copies of this label to the generated record before reading its bytes.
     record["evidencePath"] = (
         f"compatibility/cubism/verification/cubism-{version}-{family}.json"
     )

@@ -104,6 +104,8 @@ def make_record(version, selectors, capabilities=("cubism.ui-test.cap",)):
         "profileId": f"cubism-{version}",
         "artifact": {"name": "Live2D_Cubism.jar", "size": 0, "sha256": "0" * 64},
         "evidenceType": "STATIC_CLASSFILE",
+        # Preserve the materializer's historical provenance label; fixture I/O
+        # uses self.verification, not this field (see derive.py).
         "evidencePath": f"compatibility/cubism/verification/cubism-{version}-{FAMILY}.json",
         "owner": "test-owner",
         "status": "VERIFIED_STATIC",
