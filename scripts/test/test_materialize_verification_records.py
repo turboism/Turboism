@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import materialize_verification_records as gen
+import version_table_releases as releases_gen
 
 
 VERSIONS = ['5.0.00', '5.0.01', '5.0.02']
@@ -95,6 +96,23 @@ class MaterializeVerificationRecordsTest(unittest.TestCase):
             gen.import_family('fixture', {VERSIONS[0]: encoded(d)}, RELEASES)
         with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
             gen.unique_object([('key', 1), ('key', 2)])
+        # Symbol spelling must not hide a changed Java version literal.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            files = {
+                releases_gen.SOURCE_RELATIVE: (
+                    'public static final String CUBISM_5_0_00_VERSION = "5.0.99";\n'
+                    'CUBISM_5_0_00 = new HostArtifactDigest(1L, "' + 'ab' * 32 + '");'
+                ),
+                releases_gen.JAVA_RELEASES: 'case ReviewedHostArtifacts.CUBISM_5_0_00_VERSION -> build == 1;',
+                releases_gen.JAVA_CORE: 'case "5.0.00" -> exact(5, 0, 0);',
+            }
+            for name, text in files.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'version literals'):
+                releases_gen.import_releases(root)
 
 
 if __name__ == '__main__':

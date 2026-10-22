@@ -32,12 +32,19 @@ def import_releases(root: Path) -> dict:
                 raise ValueError(f'duplicate Core tuple: {version}')
             core[version] = dict(major=int(major), minor=int(minor), patch=int(patch))
     host = (root / SOURCE_RELATIVE).read_text(encoding='utf-8')
+    version_declarations = re.findall(r'public static final String CUBISM_([\d_]+)_VERSION = "([\d.]+)";', host)
+    declared_versions = dict(version_declarations)
+    expected_versions = {v.replace('.', '_'): v for v in artifacts}
+    if len(declared_versions) != len(version_declarations) or declared_versions != expected_versions:
+        raise ValueError('Java version literals and artifact declarations disagree')
     if not re.search(r'boolean admitsFullRuntime\(final String cubismVersion\)\s*\{\s*Objects.requireNonNull\(cubismVersion, "cubismVersion"\);\s*return REVIEWED_CUBISM_VERSION_SET.contains\(cubismVersion\);\s*\}', host):
         raise ValueError('unsupported Java full-runtime declaration; update shadow importer')
     reviewed_set = re.search(r'REVIEWED_CUBISM_VERSION_SET = Set.of\((.*?)\);', host, re.S)
     if reviewed_set is None:
         raise ValueError('missing Java reviewed version set')
     versions = re.findall(r'CUBISM_([\d_]+)_VERSION', reviewed_set[1])
+    if re.sub(r'CUBISM_[\d_]+_VERSION|[\s,]', '', reviewed_set[1]):
+        raise ValueError('unsupported Java reviewed version set expression')
     if len(set(versions)) != len(versions) or {v.replace('_', '.') for v in versions} != set(artifacts):
         raise ValueError('Java reviewed version set and artifact declarations disagree')
     if set(builds) != set(artifacts) or set(core) != set(artifacts):
