@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 内容表协调器（方案 B）：维护每个目标 panel 一张注入分区内容表，渲染时把注入分区
@@ -53,6 +54,24 @@ public final class PanelCollapsibleContentCoordinator {
     /** 注入条目的注册归属：贡献者 pluginId + 注入贡献本身。 */
     private record OwnerSection(String pluginId, CollapsibleSectionContribution contribution) {}
 
+    private record ContentListener(EmbeddedPanelId panelId, Runnable callback) {}
+
+    private final List<ContentListener> listeners = new CopyOnWriteArrayList<>();
+
+    /** Observes section changes for one installed panel; callbacks run outside the content-table lock. */
+    public Registration onContentChanged(final EmbeddedPanelId panelId, final Runnable callback) {
+        final ContentListener listener = new ContentListener(
+                Objects.requireNonNull(panelId, "panelId"), Objects.requireNonNull(callback, "callback"));
+        listeners.add(listener);
+        return () -> listeners.remove(listener);
+    }
+
+    private void contentChanged(final EmbeddedPanelId panelId) {
+        for (ContentListener listener : listeners) {
+            if (listener.panelId().equals(panelId)) listener.callback().run();
+        }
+    }
+
     private final Object monitor = new Object();
     private final Set<EmbeddedPanelId> registeredPanels = new HashSet<>();
     /** 内容表：targetPanelId → sectionId → 注入贡献列表。多插件可向明确的共享 sectionId 注入，渲染时合并为一个折叠区。 */
@@ -77,6 +96,7 @@ public final class PanelCollapsibleContentCoordinator {
         Objects.requireNonNull(contribution, "contribution");
         final EmbeddedPanelId target = contribution.targetPanelId();
         final String sectionId = contribution.sectionId();
+        final OwnerSection owner = new OwnerSection(pluginId, contribution);
         synchronized (monitor) {
             final Map<String, List<OwnerSection>> panelSections =
                     sections.computeIfAbsent(target, ignored -> new LinkedHashMap<>());
@@ -94,10 +114,10 @@ public final class PanelCollapsibleContentCoordinator {
                     }
                 }
             }
-            final OwnerSection owner = new OwnerSection(pluginId, contribution);
             list.add(owner);
-            return () -> unregister(target, sectionId, owner);
         }
+        contentChanged(target);
+        return () -> unregister(target, sectionId, owner);
     }
 
     /**
@@ -259,7 +279,7 @@ public final class PanelCollapsibleContentCoordinator {
             if (list == null) {
                 return;
             }
-            list.removeIf(existing -> existing == owner);
+            if (!list.removeIf(existing -> existing == owner)) return;
             if (list.isEmpty()) {
                 panelSections.remove(sectionId);
                 if (panelSections.isEmpty()) {
@@ -267,5 +287,6 @@ public final class PanelCollapsibleContentCoordinator {
                 }
             }
         }
+        contentChanged(target);
     }
 }
