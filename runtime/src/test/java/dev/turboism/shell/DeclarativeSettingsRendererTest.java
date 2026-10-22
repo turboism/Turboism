@@ -453,7 +453,16 @@ class DeclarativeSettingsRendererTest {
                 JScrollPane scroll =
                         assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
                 layoutTree(rendered.tabs());
-                assertTrue(scroll.getHorizontalScrollBar().isVisible(), "long labels must not be silently clipped");
+                assertFalse(
+                        scroll.getHorizontalScrollBar().isVisible(), "settings must fit without horizontal scrolling");
+                assertEquals(
+                        scroll.getViewport().getExtentSize().width,
+                        scroll.getViewport().getView().getWidth());
+                JCheckBox first = checkboxes(scroll).get(0);
+                assertTrue(
+                        first.getHeight()
+                                > first.getFontMetrics(first.getFont()).getHeight() * 2,
+                        "long option labels must wrap instead of being clipped");
                 JCheckBox last = checkboxes(scroll).get(29);
                 for (var listener : last.getFocusListeners()) {
                     listener.focusGained(new FocusEvent(last, FocusEvent.FOCUS_GAINED));
@@ -465,6 +474,98 @@ class DeclarativeSettingsRendererTest {
                         assertInstanceOf(Scrollable.class, scroll.getViewport().getView());
                 assertTrue(view.getScrollableUnitIncrement(new Rectangle(0, 0, 100, 100), 1, 1) > 0);
                 assertTrue(view.getScrollableBlockIncrement(new Rectangle(0, 0, 1, 1), 1, 1) > 0);
+            }
+        });
+    }
+
+    @Test
+    void pluginSettingsFitLongControlsInSingleAndMultipleTabs() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    List::of,
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final String longLabel =
+                        "A long localized caption with <literal> & symbols that must stay readable at narrow widths ";
+                final String path = "/very/long/directory/".repeat(12);
+                final String[] stored = {path};
+                final List<SettingsControl> controls = List.of(
+                        new SettingsControl.Note("note", longLabel.repeat(3)),
+                        new SettingsControl.Toggle("toggle", longLabel, SettingsBinding.of(() -> true, ignored -> {})),
+                        new SettingsControl.Text("text", longLabel, 128, SettingsBinding.of(() -> path, ignored -> {})),
+                        new SettingsControl.FilePath(
+                                "path",
+                                longLabel,
+                                128,
+                                SettingsBinding.of(() -> stored[0], value -> stored[0] = value),
+                                "Browse…",
+                                java.util.Optional::empty),
+                        new SettingsControl.Choice(
+                                "choice",
+                                longLabel,
+                                List.of(new SettingsControl.Option("one", longLabel)),
+                                SettingsBinding.of(() -> "one", ignored -> {})));
+                final SettingsTab tab = new SettingsTab("plugin", "Plugin");
+                final SettingsSnapshot.Tab snapshot = new SettingsSnapshot.Tab(
+                        "plugin",
+                        "Plugin",
+                        OptionalInt.empty(),
+                        controls.stream()
+                                .map(control -> new SettingsSnapshot.Entry(
+                                        "plugin.test", new SettingsContribution(control.id(), tab, control)))
+                                .toList());
+                final PluginSettingsWindow pluginWindow =
+                        new PluginSettingsWindow(localization(), null, plugins(), windows::renderControl);
+                try {
+                    final Method render = PluginSettingsWindow.class.getDeclaredMethod(
+                            "renderPluginTabs", JDialog.class, List.class, List.class);
+                    render.setAccessible(true);
+                    for (List<SettingsSnapshot.Tab> tabs : List.of(List.of(snapshot), List.of(snapshot, snapshot))) {
+                        final List<java.util.function.BooleanSupplier> saves = new java.util.ArrayList<>();
+                        final JPanel panel = (JPanel) render.invoke(pluginWindow, null, tabs, saves);
+                        final JScrollPane scroll = panel.getComponent(0) instanceof JTabbedPane tabbed
+                                ? (JScrollPane) tabbed.getComponentAt(0)
+                                : (JScrollPane) panel.getComponent(0);
+                        for (int width : new int[] {340, 760, 340}) {
+                            panel.setSize(width, 260);
+                            layoutTree(panel);
+                            assertFalse(scroll.getHorizontalScrollBar().isVisible());
+                            assertEquals(
+                                    scroll.getViewport().getExtentSize().width,
+                                    scroll.getViewport().getView().getWidth());
+                            final JPanel form =
+                                    (JPanel) ((Container) scroll.getViewport().getView()).getComponent(0);
+                            int previousBottom = 0;
+                            for (Component child : form.getComponents()) {
+                                if (child.getWidth() == 0) continue;
+                                assertTrue(
+                                        child.getX() >= 0 && child.getX() + child.getWidth() <= form.getWidth(),
+                                        "every caption and input must fit the page");
+                                assertTrue(
+                                        child.getY() >= previousBottom || width >= 760,
+                                        "stacked captions and inputs must not overlap");
+                                previousBottom = child.getY() + child.getHeight();
+                            }
+                            final javax.swing.JLabel note = (javax.swing.JLabel) form.getComponent(0);
+                            assertTrue(note.getHeight()
+                                    > note.getFontMetrics(note.getFont()).getHeight());
+                            assertEquals(longLabel.repeat(3), note.getText());
+                            assertTrue(scroll.getVerticalScrollBar().isVisible());
+                            final JPanel pathInput = (JPanel) form.getComponent(7);
+                            final JTextField field = (JTextField) pathInput.getComponent(0);
+                            assertTrue(field.getWidth() > 0);
+                            assertEquals(path, field.getText());
+                        }
+                        assertEquals(path, stored[0]);
+                        for (var save : saves) assertTrue(save.getAsBoolean());
+                        assertEquals(path, stored[0]);
+                    }
+                } catch (ReflectiveOperationException failure) {
+                    throw new AssertionError(failure);
+                }
             }
         });
     }

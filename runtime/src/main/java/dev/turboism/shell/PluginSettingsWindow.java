@@ -81,7 +81,7 @@ final class PluginSettingsWindow {
     }
 
     private JDialog createDialog(final Optional<String> initialPluginId) {
-        final JDialog win = CoreDialogs.create(i18n.text("plugin-settings.title"), 840, 560);
+        final JDialog win = CoreDialogs.create(i18n.text("plugin-settings.title"), 1000, 600);
         if (win == null) return null;
         win.setLayout(new BorderLayout(8, 8));
 
@@ -163,6 +163,7 @@ final class PluginSettingsWindow {
         pluginList.setSelectedIndex(initialIndex);
 
         final JScrollPane listScroll = new JScrollPane(pluginList);
+        listScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         listScroll.setPreferredSize(new Dimension(240, 400));
         listScroll.setMinimumSize(new Dimension(180, 200));
 
@@ -213,7 +214,7 @@ final class PluginSettingsWindow {
                 saves.add(controlRenderer.render(
                         owner, form, row++, entry.contribution().control()));
             }
-            final JScrollPane scroll = new JScrollPane(form);
+            final JScrollPane scroll = new SettingsPageScrollPane(form);
             scroll.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
             final JPanel container = new JPanel(new BorderLayout());
             container.add(scroll, BorderLayout.CENTER);
@@ -221,6 +222,7 @@ final class PluginSettingsWindow {
         }
 
         final JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         for (SettingsSnapshot.Tab tab : tabs) {
             final JPanel form = form();
             int row = 0;
@@ -228,7 +230,7 @@ final class PluginSettingsWindow {
                 saves.add(controlRenderer.render(
                         owner, form, row++, entry.contribution().control()));
             }
-            final JScrollPane scroll = new JScrollPane(form);
+            final JScrollPane scroll = new SettingsPageScrollPane(form);
             scroll.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
             tabbedPane.addTab(tab.title(), scroll);
         }

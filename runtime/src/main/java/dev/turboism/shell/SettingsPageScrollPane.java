@@ -18,7 +18,7 @@ import javax.swing.SwingUtilities;
 /** A tab-local viewport; dialog actions remain outside it and never scroll away. */
 final class SettingsPageScrollPane extends JScrollPane {
     SettingsPageScrollPane(final JPanel form) {
-        super(new Content(form), VERTICAL_SCROLLBAR_AS_NEEDED, HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        super(new Content(form), VERTICAL_SCROLLBAR_AS_NEEDED, HORIZONTAL_SCROLLBAR_NEVER);
         setBorder(BorderFactory.createEmptyBorder());
         setViewportBorder(BorderFactory.createEmptyBorder());
         setWheelScrollingEnabled(true);
@@ -30,6 +30,7 @@ final class SettingsPageScrollPane extends JScrollPane {
     private static final class Content extends JPanel implements Scrollable {
         Content(final JPanel form) {
             super(new BorderLayout());
+            SettingsFormLayout.install(form);
             setBackground(form.getBackground());
             add(form, BorderLayout.CENTER);
             installFocusReveal(form);
@@ -77,9 +78,7 @@ final class SettingsPageScrollPane extends JScrollPane {
 
         @Override
         public boolean getScrollableTracksViewportWidth() {
-            // Fit ordinary forms; expose horizontal scrolling instead of clipping long translations.
-            return getParent() instanceof JViewport viewport
-                    && viewport.getExtentSize().width >= getMinimumSize().width;
+            return true;
         }
 
         @Override
