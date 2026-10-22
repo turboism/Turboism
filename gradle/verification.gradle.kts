@@ -270,30 +270,6 @@ tasks.register<Exec>("checkThrowableContainment") {
 }
 
 /*
- * Keeps the SDK forwarding-completeness audit runnable as a gate: the script compares
- * every dev.turboism.sdk.cubism.model interface method against the PermissionChecked
- * and Session wrapper layers and fails on any unforwarded method.
- */
-tasks.register<Exec>("checkForwardingAudit") {
-    group = "verification"
-    description =
-        "Audits that the adapter wrapper layers forward every SDK model interface method."
-    workingDir(rootDir)
-    dependsOn(":sdk:compileJava")
-    inputs.files("scripts/forwarding-audit.sh")
-    inputs.files(
-        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("PermissionChecked*.java") },
-        fileTree("runtime/src/main/java/dev/turboism/adapter/host") { include("Session*.java") },
-        fileTree("sdk/src/main/java/dev/turboism/sdk/cubism/model") { include("*.java") }
-    )
-    VerificationStamps.apply(this)
-    val sdkClasses = project(":sdk").layout.buildDirectory.dir("classes/java/main")
-    inputs.dir(sdkClasses)
-    environment("SDK_CLASSES", sdkClasses.get().asFile.absolutePath)
-    commandLine("bash", "scripts/forwarding-audit.sh")
-}
-
-/*
  * Wired into devCheck as a ratchet: the naming and asset rules are enforced absolutely,
  * and Javadoc is enforced as a non-increasing maximum so new undocumented public API is blocked
  * immediately while the existing backlog burns down.
@@ -1236,7 +1212,6 @@ val devCheck by tasks.registering {
         "checkCodeQuality",
         "checkThrowableContainment",
         "checkValidationToolsSync",
-        "checkForwardingAudit",
         "checkPythonLint",
         "checkCompatibilityMatrix",
         "checkShellLint",

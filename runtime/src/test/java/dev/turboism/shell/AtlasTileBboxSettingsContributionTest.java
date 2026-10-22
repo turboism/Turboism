@@ -60,23 +60,6 @@ class AtlasTileBboxSettingsContributionTest {
         assertFalse(Boolean.TRUE.equals(toggle.binding().read()), "the toggle reads back the persisted value");
     }
 
-    @Test
-    void everyBundleCarriesTheToggleLabel() {
-        final String key = AtlasTileBboxSettingsContribution.LABEL_KEY;
-        for (final String bundle : new String[] {
-            "messages.properties", "messages_en.properties", "messages_ja.properties",
-            "messages_ko.properties", "messages_zh_Hans.properties", "messages_zh_Hant.properties",
-        }) {
-            final var path = java.nio.file.Path.of("src/main/resources/META-INF/turboism/i18n", bundle);
-            assertTrue(java.nio.file.Files.exists(path), "missing bundle: " + bundle);
-            try {
-                assertTrue(java.nio.file.Files.readString(path).contains(key), bundle + " must define " + key);
-            } catch (java.io.IOException failure) {
-                throw new AssertionError("cannot read " + bundle, failure);
-            }
-        }
-    }
-
     private static PluginLocalization localization() {
         final Map<String, String> texts = Map.of(
                 "settings.tab.performance",

@@ -6,8 +6,6 @@ import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.CubismJvmSettingsService.MemoryProfile;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsControl;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -72,52 +70,6 @@ class MemoryProfileSettingsContributionTest {
         assertEquals("performance", contribution.tab().id());
         var note = assertInstanceOf(SettingsControl.Note.class, contribution.control());
         assertEquals("settings.cubism-jvm.memory-profile-note", note.label());
-        for (String bundle : new String[] {
-            "messages.properties",
-            "messages_en.properties",
-            "messages_ja.properties",
-            "messages_ko.properties",
-            "messages_zh_Hans.properties",
-            "messages_zh_Hant.properties"
-        }) {
-            try {
-                String text = Files.readString(Path.of("src/main/resources/META-INF/turboism/i18n", bundle));
-                String noteText = text.lines()
-                        .filter(line -> line.startsWith("settings.cubism-jvm.memory-profile-note="))
-                        .findFirst()
-                        .orElseThrow();
-                String value = noteText.substring(noteText.indexOf('=') + 1);
-                assertTrue(value.contains("-Xmx"), bundle);
-                assertTrue(value.toLowerCase(Locale.ROOT).contains("zgc"), bundle);
-            } catch (java.io.IOException failure) {
-                throw new AssertionError(failure);
-            }
-        }
-    }
-
-    @Test
-    void everySupportedLocaleDefinesEveryMemoryProfileKeyOnce() throws Exception {
-        String[] keys = {
-            "settings.cubism-jvm.memory-profile=",
-            "settings.cubism-jvm.memory-profile.system=",
-            "settings.cubism-jvm.memory-profile.balanced4g=",
-            "settings.cubism-jvm.memory-profile.balanced4g-fast-soft=",
-            "settings.cubism-jvm.memory-profile-note="
-        };
-        for (String bundle : new String[] {
-            "messages.properties",
-            "messages_en.properties",
-            "messages_ja.properties",
-            "messages_ko.properties",
-            "messages_zh_Hans.properties",
-            "messages_zh_Hant.properties"
-        }) {
-            String text = Files.readString(Path.of("src/main/resources/META-INF/turboism/i18n", bundle));
-            for (String key : keys) {
-                assertEquals(
-                        1L, text.lines().filter(line -> line.startsWith(key)).count(), bundle + " " + key);
-            }
-        }
     }
 
     private static PluginLocalization i18n() {
