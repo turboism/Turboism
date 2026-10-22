@@ -11,6 +11,7 @@ import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
 import dev.turboism.pluginmanagement.PluginCatalogClient.CatalogFetchResult;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
 import dev.turboism.preview.PluginHotReloadCoordinator;
+import dev.turboism.update.UpdateFileSupport;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -349,7 +350,7 @@ public final class PluginMarketService implements AutoCloseable {
 
                             // Attempt file replacement
                             try {
-                                Files.copy(prepared.stagedJar(), targetJar, StandardCopyOption.REPLACE_EXISTING);
+                                UpdateFileSupport.copyAtomic(prepared.stagedJar(), targetJar);
                             } catch (IOException lockException) {
                                 // Windows file lock or permission error: fall back to staging!
                                 logSink.accept("File replacement failed (likely locked); falling back to staging: "
@@ -371,7 +372,7 @@ public final class PluginMarketService implements AutoCloseable {
                                 } else if (reloadResult.rolledBack()) {
                                     // Rollback restored previous generation
                                     if (backupJar != null) {
-                                        Files.copy(backupJar, targetJar, StandardCopyOption.REPLACE_EXISTING);
+                                        UpdateFileSupport.copyAtomic(backupJar, targetJar);
                                         Files.deleteIfExists(backupJar);
                                     }
                                     return stageForRestart(prepared);

@@ -123,14 +123,15 @@ class RuntimeStartupConfigTest {
     }
 
     @Test
-    void rejectsTheWholeStartupPolicyWhenAnyStartupFieldHasTheWrongType() throws Exception {
+    void preservesSafetyControlsWhenAnyStartupFieldHasTheWrongType() throws Exception {
         Files.writeString(temporaryHome.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
               "schemaVersion": 1,
               "worktreeId": "startup-test",
-              "safeMode": false,
+              "safeMode": true,
               "hooks": {
+                "disabledIds": ["test.hook"],
                 "startup": {
                   "skipUpdateCheck": "true",
                   "skipSplash": true,
@@ -143,6 +144,8 @@ class RuntimeStartupConfigTest {
 
         final RuntimeStartupConfig config = RuntimeStartupConfig.load(temporaryHome, diagnostics::add);
 
+        assertTrue(config.safeMode());
+        assertEquals(java.util.Set.of("test.hook"), config.disabledHookIds());
         assertFalse(config.skipStartupUpdateCheck());
         assertFalse(config.skipStartupSplash());
         assertFalse(config.skipStartupInformation());
@@ -172,6 +175,22 @@ class RuntimeStartupConfigTest {
         assertFalse(config.skipStartupSplash());
         assertFalse(config.skipStartupInformation());
         assertEquals(List.of("RUNTIME_STARTUP_CONFIG_INVALID"), diagnostics);
+    }
+
+    @Test
+    void unreadableAndRejectedConfigEnableSafeMode() throws Exception {
+        final Path config = temporaryHome.resolve("config.json");
+        final List<String> diagnostics = new ArrayList<>();
+        Files.writeString(config, "{");
+        assertTrue(RuntimeStartupConfig.load(temporaryHome, diagnostics::add).safeMode());
+        assertEquals(List.of("RUNTIME_STARTUP_CONFIG_UNREADABLE"), diagnostics);
+        diagnostics.clear();
+        Files.writeString(config, " ".repeat(65537));
+        assertTrue(RuntimeStartupConfig.load(temporaryHome, diagnostics::add).safeMode());
+        assertEquals(List.of("RUNTIME_STARTUP_CONFIG_FILE_REJECTED"), diagnostics);
+        Files.delete(config);
+        Files.createDirectory(config);
+        assertTrue(RuntimeStartupConfig.load(temporaryHome).safeMode());
     }
 
     @Test

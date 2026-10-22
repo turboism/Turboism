@@ -18,8 +18,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-/** Small bounded, symlink-rejecting atomic-file helper for update state. */
-final class UpdateFileSupport {
+/** Atomic file replacement and bounded, symlink-rejecting update state IO. */
+public final class UpdateFileSupport {
     static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
                     .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                     .build())
@@ -73,6 +73,24 @@ final class UpdateFileSupport {
                 failure.addSuppressed(ignored);
             }
             throw failure;
+        }
+    }
+
+    /** Copies a file via a temporary sibling, preserving the source for recovery. */
+    public static void copyAtomic(final Path source, final Path target) throws IOException {
+        try (java.io.InputStream input = Files.newInputStream(source)) {
+            writeAtomic(target, input);
+        }
+    }
+
+    /** Replaces a file from a stream via a temporary sibling; does not close the stream. */
+    public static void writeAtomic(final Path target, final java.io.InputStream input) throws IOException {
+        final Path temporary = Files.createTempFile(target.toAbsolutePath().getParent(), ".replacement-", ".tmp");
+        try {
+            Files.copy(input, temporary, StandardCopyOption.REPLACE_EXISTING);
+            move(temporary, target);
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
