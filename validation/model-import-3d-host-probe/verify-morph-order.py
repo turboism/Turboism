@@ -161,8 +161,7 @@ def expand_section(e):
                      json.dumps(entry['history'], sort_keys=True, separators=(',', ':')))
         require(signature not in seen, 'duplicate historyBank value within one domain')
         seen.add(signature)
-    expanded = copy.deepcopy(e)
-    expanded.pop('historyBank')
+    expanded = {k: v for k, v in e.items() if k != 'historyBank'}
     used, counters = set(), {'refs': 0, 'bytes': 0}
 
     def walk(node, path):

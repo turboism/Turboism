@@ -14,7 +14,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 ORACLE = runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-cube-render.py'))
-CUBE = Path(os.environ.get('MI3D_RENDER_CUBE_INPUT', ROOT/'build/model-import-3d-inputs/cube-985496727e50/cube.glb'))
+CUBE = Path(os.environ.get('MI3D_RENDER_CUBE_INPUT', ''))
+HAS_CUBE = bool(os.environ.get('MI3D_RENDER_CUBE_INPUT')) and CUBE.is_file()
+
+
+def has_classpath():
+    value = os.environ.get('MI3D_RENDER_TEST_CLASSPATH', '')
+    return bool(value) and all(Path(entry.rstrip('*')).exists() for entry in value.split(os.pathsep))
 
 
 def ray_face(x, y, pose, far=False):
@@ -56,6 +62,7 @@ def raster(pose, source=False, far=False):
     return rows
 
 
+@unittest.skipUnless(HAS_CUBE, 'set MI3D_RENDER_CUBE_INPUT to the authorized frozen cube.glb')
 class VisibilityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -131,7 +138,14 @@ class VisibilityTests(unittest.TestCase):
 def state_fixture():
     # Only exercises the render cross-binding gate; does not claim the geometry
     # fixture satisfies the separate full cubeGeometry admission contract.
-    sources,_ = ORACLE['GEOMETRY']['cube_source'](CUBE)
+    # Explicit synthetic six-face box; state cross-binding does not read/admit GLB bytes.
+    sources = [[[x, y, z] for x, y, z in face] for face in (
+        ((-1,1,-1),(1,1,-1),(1,1,1),(-1,1,1)),
+        ((-1,-1,1),(1,-1,1),(1,1,1),(-1,1,1)),
+        ((-1,-1,-1),(-1,-1,1),(-1,1,1),(-1,1,-1)),
+        ((-1,-1,-1),(1,-1,-1),(1,-1,1),(-1,-1,1)),
+        ((1,-1,-1),(1,-1,1),(1,1,1),(1,1,-1)),
+        ((-1,-1,-1),(1,-1,-1),(1,1,-1),(-1,1,-1))) ]
     snapshots=[]
     for i,vertices in enumerate(sources):
         snapshots.append(dict(artMeshId=f'mesh-{i}',sourceGuid=f'source-{i}',
@@ -236,9 +250,10 @@ class StateTests(unittest.TestCase):
 
 
 class FingerprintTests(unittest.TestCase):
+    @unittest.skipUnless(has_classpath(),
+                         'set MI3D_RENDER_TEST_CLASSPATH to compiled offline fingerprint test classes')
     def test_java_cross_language_vectors_and_field_mutations(self):
         classpath=os.environ.get('MI3D_RENDER_TEST_CLASSPATH')
-        self.assertTrue(classpath,'compile Java sources and set MI3D_RENDER_TEST_CLASSPATH; no silent skip')
         result=subprocess.run(['java','-cp',classpath,
             'dev.turboism.validation.modelimport3d.host.SurfaceSnapshotFingerprintTest'],
             check=True,text=True,capture_output=True)

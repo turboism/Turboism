@@ -89,7 +89,7 @@ public final class GlbSurfaceReaderTest {
     }
 
     private static Map<String,Object> document(){
-        return Json.parseObject(Json.bytes(Map.of(
+        return new java.util.LinkedHashMap<>(Json.parseObject(Json.bytes(Map.of(
             "asset",Map.of("version","2.0"),"scene",0,"scenes",List.of(Map.of("nodes",List.of(0))),
             "nodes",List.of(Map.of("mesh",0)),"meshes",List.of(Map.of("primitives",List.of(Map.of(
                 "attributes",Map.of("POSITION",0,"TEXCOORD_0",1),"indices",2,"material",0)))),
@@ -97,7 +97,7 @@ public final class GlbSurfaceReaderTest {
             "buffers",List.of(Map.of("byteLength",66)),"bufferViews",List.of(Map.of("buffer",0,"byteLength",36),
                 Map.of("buffer",0,"byteOffset",36,"byteLength",24),Map.of("buffer",0,"byteOffset",60,"byteLength",6)),
             "accessors",List.of(Map.of("bufferView",0,"componentType",5126,"count",3,"type","VEC3"),
-                Map.of("bufferView",1,"componentType",5126,"count",3,"type","VEC2"),Map.of("bufferView",2,"componentType",5123,"count",3,"type","SCALAR")))));
+                Map.of("bufferView",1,"componentType",5126,"count",3,"type","VEC2"),Map.of("bufferView",2,"componentType",5123,"count",3,"type","SCALAR"))))));
     }
     private static byte[] binary(){
         ByteBuffer b=ByteBuffer.allocate(66).order(ByteOrder.LITTLE_ENDIAN);

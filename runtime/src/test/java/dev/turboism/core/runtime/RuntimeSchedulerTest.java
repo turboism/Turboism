@@ -11,7 +11,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.core.runtime.work.PluginWorkStatus;
+import dev.turboism.test.concurrent.ManualScheduledExecutor;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +31,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class RuntimeSchedulerTest {
+
+    private final ManualScheduledExecutor timeouts = new ManualScheduledExecutor();
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.demo";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
@@ -148,9 +153,20 @@ class RuntimeSchedulerTest {
     @Test
     void executedTimerReleasesPermitExactlyOnce() throws Exception {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final ManualScheduledExecutor timer = new ManualScheduledExecutor();
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+                new RecordingSidecarDispatcher(),
+                events::add,
+                timer);
         final CountDownLatch executed = new CountDownLatch(1);
-        assertTrue(scheduler.schedule(Duration.ZERO, executed::countDown).accepted());
+        assertTrue(
+                scheduler.schedule(Duration.ofSeconds(1), executed::countDown).accepted());
+        timer.advanceBy(Duration.ofMillis(999));
+        assertEquals(1, executed.getCount());
+        assertEquals(1023, scheduler.availableTimerPermits());
+        timer.advanceBy(Duration.ofMillis(1));
         assertTrue(executed.await(1, TimeUnit.SECONDS));
         for (int index = 0; index < 1024; index++) {
             assertTrue(scheduler.schedule(Duration.ofHours(1), () -> {}).accepted());
@@ -376,28 +392,52 @@ class RuntimeSchedulerTest {
         // The test registry carries the default 500ms task timeout; the long lane has none.
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
-        final CountDownLatch completed = new CountDownLatch(1);
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
         final AtomicBoolean interrupted = new AtomicBoolean();
-
+        final CountDownLatch completed = new CountDownLatch(1);
         final boolean accepted = scheduler.dispatch(task("plugin.long.normal", "none"), () -> {
+            started.countDown();
             try {
-                Thread.sleep(700);
+                release.await();
             } catch (InterruptedException exception) {
                 interrupted.set(true);
+                Thread.currentThread().interrupt();
             }
             completed.countDown();
         });
-
-        assertTrue(accepted);
-        assertTrue(completed.await(2, TimeUnit.SECONDS));
+        try {
+            assertTrue(accepted);
+            assertTrue(started.await(1, TimeUnit.SECONDS));
+            final CountDownLatch probeStarted = new CountDownLatch(1);
+            final var probe =
+                    scheduler.submitLightweight(task("action.handle", "none"), new RuntimeCancellationToken(), () -> {
+                        probeStarted.countDown();
+                        await(release);
+                    });
+            assertTrue(probeStarted.await(1, TimeUnit.SECONDS));
+            timeouts.advanceBy(Duration.ofMillis(700));
+            assertEquals(
+                    PluginWorkStatus.TIMED_OUT,
+                    probe.completion()
+                            .toCompletableFuture()
+                            .get(1, TimeUnit.SECONDS)
+                            .status());
+            assertEquals(1, completed.getCount());
+            assertFalse(interrupted.get(), "long-lane work must not be interrupted at the task budget");
+        } finally {
+            release.countDown();
+        }
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
         assertFalse(interrupted.get(), "long-lane work must not be interrupted at the task budget");
         scheduler.shutdown();
     }
 
-    private static RuntimeScheduler scheduler(List<PluginWorkBudgetEvent> events, SidecarDispatcher sidecarDispatcher) {
+    private RuntimeScheduler scheduler(List<PluginWorkBudgetEvent> events, SidecarDispatcher sidecarDispatcher) {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500, 1, 2, 50.0f), events::add, CLOCK, ignored -> timeouts),
                 sidecarDispatcher,
                 events::add);
     }
