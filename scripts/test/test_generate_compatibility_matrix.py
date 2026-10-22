@@ -154,6 +154,7 @@ def build_tree(root: Path) -> None:
         "editor-model": [
             "cubism.editor-model.read",
             "cubism.mesh-tool.session",
+            "ui.mesh-toolbar.contribute",
         ],
     }
     for version in VERSIONS:
@@ -373,9 +374,7 @@ class MatrixTest(unittest.TestCase):
         self.assertEqual(list(VERSIONS), plugin["supportedVersions"])
         self.assertEqual(["5.2.00"], plugin["fullFeatureVersions"])
         notes = {n["key"]: n["versions"] for n in plugin["partialFeatures"]}
-        # The declared capability resolves to the single capabilityId it
-        # aliases; the note keys on that id.
-        self.assertEqual(["5.0.00", "5.2.00"], notes["cubism.mesh-tool.session"])
+        self.assertEqual(["5.0.00", "5.2.00"], notes["cubism.mesh.custom-tools"])
         # The referenced SDK accessor narrows svc() to 5.1.00+.
         self.assertEqual(
             ["5.1.00", "5.2.00"],
@@ -386,6 +385,48 @@ class MatrixTest(unittest.TestCase):
         for plugin in self.matrix["plugins"]:
             for note in plugin["partialFeatures"]:
                 self.assertFalse(set(plugin["fullFeatureVersions"]) & set(note["missingOn"]))
+
+    def test_parameter_interception_requires_every_verified_hook_selector(self) -> None:
+        descriptor = json.loads(PLUGIN_DESCRIPTOR)
+        descriptor["capabilities"] = ["cubism.model.intercept"]
+        _write(self.root, f"plugins/toy/{GEN.PLUGIN_DESCRIPTOR}", json.dumps(descriptor))
+        path = self.root / "compatibility/cubism/verification/cubism-5.2.00-extra.json"
+        record = json.loads(path.read_text())
+        aliases = GEN.DECLARED_CAPABILITY_ALIASES["cubism.model.intercept"]["selectors"]
+        record["selectors"] = [
+            {"alias": alias, "status": "VERIFIED_STATIC"} for alias in aliases
+        ]
+        path.write_text(json.dumps(record))
+        plugin = GEN.build_matrix(self.root)["plugins"][0]
+        self.assertEqual(["5.2.00"], plugin["supportedVersions"])
+        self.assertEqual([], plugin["unmappedCapabilities"])
+
+        for alias in aliases:
+            with self.subTest(missing=alias):
+                incomplete = dict(record, selectors=[s for s in record["selectors"] if s["alias"] != alias])
+                path.write_text(json.dumps(incomplete))
+                plugin = GEN.build_matrix(self.root)["plugins"][0]
+                self.assertEqual([], plugin["supportedVersions"])
+                self.assertEqual([], plugin["fullFeatureVersions"])
+        unverified = dict(record, selectors=[dict(s, status="UNVERIFIED") for s in record["selectors"]])
+        path.write_text(json.dumps(unverified))
+        self.assertEqual([], GEN.build_matrix(self.root)["plugins"][0]["fullFeatureVersions"])
+
+    def test_model_observation_does_not_drop_missing_project_dependency(self) -> None:
+        descriptor = json.loads(PLUGIN_DESCRIPTOR)
+        descriptor["capabilities"] = ["cubism.model.observe"]
+        _write(self.root, f"plugins/toy/{GEN.PLUGIN_DESCRIPTOR}", json.dumps(descriptor))
+        plugin = GEN.build_matrix(self.root)["plugins"][0]
+        self.assertEqual([], plugin["supportedVersions"])
+        self.assertEqual([], plugin["fullFeatureVersions"])
+        self.assertEqual([], plugin["unmappedCapabilities"])
+        _write(
+            self.root,
+            "compatibility/cubism/verification/cubism-5.2.00-project-workspace.json",
+            _verification_record("5.2.00", "project-workspace", ["cubism.project.read"]),
+        )
+        plugin = GEN.build_matrix(self.root)["plugins"][0]
+        self.assertEqual(["5.2.00"], plugin["supportedVersions"])
 
     def test_readme_names_exact_reviewed_and_full_feature_versions(self) -> None:
         block = GEN.readme_block(self.plugin(), "zh", list(VERSIONS))
@@ -411,7 +452,7 @@ class MatrixTest(unittest.TestCase):
     def test_missing_nature_classification(self) -> None:
         plugin = self.plugin()
         notes = {n["key"]: n for n in plugin["partialFeatures"]}
-        nature = notes["cubism.mesh-tool.session"]["missingNature"]
+        nature = notes["cubism.mesh.custom-tools"]["missingNature"]
         # 5.1.00 is an interior hole (admitted on 5.0.00 and 5.2.00); the
         # java-set exception whose site equals the admitted set marks it as
         # pending adaptation.
