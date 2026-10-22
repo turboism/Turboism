@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectService;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -300,7 +299,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.3.02", "5.3.04"})
     void meshBatchOwnsRejectedEagerInsertionsAndRestoresEveryTree(final String version) {
         for (boolean nativeAbort : List.of(false, true)) {
-            final var scoped = ScopedFixture.onEdt(version);
+            final var scoped = HierarchyScopedFixture.onEdt(resolver(version));
             scoped.host.nativeAbort = nativeAbort;
             final var before = List.copyOf(scoped.fixture.drawableSet.sources);
             final var children = List.copyOf(scoped.fixture.rootPart.children);
@@ -571,7 +570,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.3.02", "5.3.04"})
     void siblingPartsRejectMiddleAdmissionWithoutResidue(final String version) {
         for (boolean nativeAbort : List.of(false, true)) {
-            final var scoped = ScopedFixture.onEdt(version);
+            final var scoped = HierarchyScopedFixture.onEdt(resolver(version));
             scoped.host.nativeAbort = nativeAbort;
             final var before = List.copyOf(scoped.fixture.partSet.sources);
             final var children = List.copyOf(scoped.fixture.rootPart.children);
@@ -719,7 +718,7 @@ class EditorObjectHierarchyEditAccessTest {
 
     @Test
     void initializedWarpRejectedInsertionRestoresMembershipAndPartTree() {
-        final var scoped = ScopedFixture.onEdt("5.3.04");
+        final var scoped = HierarchyScopedFixture.onEdt(resolver("5.3.04"));
         final var before = List.copyOf(scoped.fixture.source.deformerSet.sources);
         final var children = List.copyOf(scoped.fixture.rootPart.children);
         scoped.fixture.editMode.rejectNextAdmission = 1;
@@ -1587,7 +1586,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ParameterizedTest
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void artMeshCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
-        final var scoped = ScopedFixture.onEdt(cubismVersion);
+        final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
         final var geometry = triangle();
         final var result = scoped.execute(AuthoringTransactionOptions.of("import two surfaces"), () -> {
             scoped.access.createArtMeshSource(
@@ -1614,7 +1613,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ParameterizedTest
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void standaloneArtMeshCreateCommitsThroughItsOwnTransaction(final String cubismVersion) {
-        final var scoped = ScopedFixture.onEdt(cubismVersion);
+        final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
         scoped.access.createArtMeshSource(
                 "model", scoped.fixture.source, scoped.fixture.source.model, "STANDALONE", null, false, -1, triangle());
         assertEquals(1, scoped.host.begins);
@@ -1632,7 +1631,7 @@ class EditorObjectHierarchyEditAccessTest {
                 "5.3.00, ROTATION", "5.3.04, ROTATION"
     })
     void deformerCreatesJoinOneAmbientRootTransaction(final String cubismVersion, final String kind) {
-        final var scoped = ScopedFixture.onEdt(cubismVersion);
+        final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
         final var result = scoped.execute(AuthoringTransactionOptions.of("create two " + kind.toLowerCase()), () -> {
             if ("WARP".equals(kind)) {
                 final WarpGrid grid = new WarpGrid(
@@ -1702,7 +1701,7 @@ class EditorObjectHierarchyEditAccessTest {
         for (final boolean deformerParent : List.of(false, true))
             for (final boolean nativeAbort : List.of(false, true))
                 for (final boolean rejectFirst : List.of(false, true)) {
-                    final var scoped = ScopedFixture.onEdt(cubismVersion);
+                    final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
                     scoped.host.nativeAbort = nativeAbort;
                     final var geometry = triangle();
                     final Object parent = deformerParent ? scoped.fixture.source.deformerSet.sources.get(0) : null;
@@ -1759,7 +1758,7 @@ class EditorObjectHierarchyEditAccessTest {
         for (final boolean deformerParent : List.of(false, true))
             for (final boolean nativeAbort : List.of(false, true))
                 for (final boolean rejectFirst : List.of(false, true)) {
-                    final var scoped = ScopedFixture.onEdt(cubismVersion);
+                    final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
                     scoped.host.nativeAbort = nativeAbort;
                     final Object parent = deformerParent ? scoped.fixture.source.deformerSet.sources.get(0) : null;
                     if (rejectFirst) scoped.fixture.editMode.rejectNextAdmission = 1;
@@ -1797,7 +1796,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ParameterizedTest
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void partAndMeshCreateJoinOneAmbientRoot(final String cubismVersion) {
-        final var scoped = ScopedFixture.onEdt(cubismVersion);
+        final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
         final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
         final var originalMeshes = List.copyOf(scoped.fixture.source.drawableSet.sources);
         final var result = scoped.execute(AuthoringTransactionOptions.of("import grouped surface"), () -> {
@@ -1838,7 +1837,7 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectedPartCreateOwnsEagerMutation(final String cubismVersion) {
         for (final boolean nativeAbort : List.of(false, true))
             for (final boolean rejectFirst : List.of(false, true)) {
-                final var scoped = ScopedFixture.onEdt(cubismVersion);
+                final var scoped = HierarchyScopedFixture.onEdt(resolver(cubismVersion));
                 final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
                 final var originalChildren = List.copyOf(scoped.fixture.rootPart.children);
                 scoped.host.nativeAbort = nativeAbort;
@@ -1872,7 +1871,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void failedGroupedSurfaceImportRestoresSourcesAndTree(final boolean nativeAbort) {
-        final var scoped = ScopedFixture.onEdt("5.3.02");
+        final var scoped = HierarchyScopedFixture.onEdt(resolver("5.3.02"));
         scoped.host.nativeAbort = nativeAbort;
         final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
         final var originalChildren = List.copyOf(scoped.fixture.rootPart.children);
@@ -1910,60 +1909,6 @@ class EditorObjectHierarchyEditAccessTest {
                 List.of(new Point2(-1F, -1F), new Point2(1F, -1F), new Point2(0F, 1F)),
                 List.of(new Point2(0F, 0F), new Point2(1F, 0F), new Point2(0.5F, 1F)),
                 List.of(0, 1, 2));
-    }
-
-    private static final class ScopedFixture {
-        final Fixture fixture = new Fixture();
-        final ScopedHost host = new ScopedHost(fixture);
-        final EditorAuthoringTransactionCoordinator.Binding binding = new EditorAuthoringTransactionCoordinator.Binding(
-                "hierarchy-test", "document", 1, "model", 1, Thread.currentThread());
-        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(host);
-        final EditorObjectHierarchyEditAccess access;
-
-        ScopedFixture(final String cubismVersion) {
-            Host.document = fixture.document;
-            final EditorParameterCombinedAccess.ModelGuard guard = (identity, model) -> {};
-            access = new EditorObjectHierarchyEditAccess(resolver(cubismVersion), guard, coordinator, () -> binding);
-        }
-
-        // The fixture must live on the Swing EDT: the coordinator's ambient scope and the
-        // binding's host thread are thread-confined, and access writes dispatch to the EDT.
-        static ScopedFixture onEdt(final String cubismVersion) {
-            final java.util.concurrent.atomic.AtomicReference<ScopedFixture> ref =
-                    new java.util.concurrent.atomic.AtomicReference<>();
-            try {
-                javax.swing.SwingUtilities.invokeAndWait(() -> ref.set(new ScopedFixture(cubismVersion)));
-            } catch (java.lang.reflect.InvocationTargetException failure) {
-                final Throwable cause = failure.getCause();
-                if (cause instanceof RuntimeException exception) throw exception;
-                if (cause instanceof Error error) throw error;
-                throw new IllegalStateException(cause);
-            } catch (InterruptedException failure) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(failure);
-            }
-            return ref.get();
-        }
-
-        <T> dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T> execute(
-                final AuthoringTransactionOptions options,
-                final dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork<T> work) {
-            final java.util.concurrent.atomic.AtomicReference<
-                            dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T>>
-                    ref = new java.util.concurrent.atomic.AtomicReference<>();
-            try {
-                javax.swing.SwingUtilities.invokeAndWait(() -> ref.set(coordinator.execute(binding, options, work)));
-            } catch (java.lang.reflect.InvocationTargetException failure) {
-                final Throwable cause = failure.getCause();
-                if (cause instanceof RuntimeException exception) throw exception;
-                if (cause instanceof Error error) throw error;
-                throw new IllegalStateException(cause);
-            } catch (InterruptedException failure) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(failure);
-            }
-            return ref.get();
-        }
     }
 
     // ------------------------------------------------------------------
