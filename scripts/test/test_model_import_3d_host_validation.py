@@ -4,6 +4,8 @@ import argparse
 import copy
 import hashlib
 import importlib.util
+import importlib
+from functools import lru_cache
 import json
 import os
 import shutil
@@ -19,10 +21,14 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
 PROBE = ROOT / 'validation/model-import-3d-host-probe'
+PRESERVED_BUILD = Path(os.environ.get('TURBOISM_MI3D_BUILD_RUN', ''))
+HAS_PRESERVED_BUILD = bool(os.environ.get('TURBOISM_MI3D_BUILD_RUN')) and PRESERVED_BUILD.is_dir()
 sys.dont_write_bytecode = True
 
 
 def load(name, path):
+    if path.name.startswith('test_model_import_3d_'):
+        return importlib.import_module('scripts.test.' + path.stem)
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
 
@@ -75,7 +81,7 @@ def fixture():
     return result
 
 
-def ordinary_fixture():
+def _ordinary_fixture():
     # Independent synthetic protocol data: not native execution and never saved as host evidence.
     r = fixture(); baseline = copy.deepcopy(r['grid'])
     for i, cell in enumerate(baseline['cells']): cell['formGuid'] = 'form-' + str(i)
@@ -124,6 +130,16 @@ def ordinary_fixture():
     r = load('mi3d_image_binding_fixture', Path(__file__).with_name('test_model_import_3d_image_binding.py')).attach(r)
     r = load('mi3d_shape_import_fixture', Path(__file__).with_name('test_model_import_3d_shape_import.py')).attach(r)
     return load('mi3d_pixel_fixture', Path(__file__).with_name('test_model_import_3d_pixel_sampling.py')).attach(r)
+
+
+@lru_cache(maxsize=1)
+def _ordinary_json():
+    return json.dumps(_ordinary_fixture())
+
+
+def ordinary_fixture():
+    # Each caller owns its mutable report, while deterministic construction happens once.
+    return json.loads(_ordinary_json())
 
 
 def pixel_entries():
@@ -584,10 +600,10 @@ class ProtocolTest(unittest.TestCase):
                                     env=env, capture_output=True, text=True)
             self.assertNotEqual(2, result.returncode, result.stderr)
 
+    @unittest.skipUnless(HAS_PRESERVED_BUILD,
+                         'set TURBOISM_MI3D_BUILD_RUN to an authorized preserved build run')
     def test_wrapper_exit_diagnostic_forwarded_on_persistence_leg(self):
-        run_dir = ROOT / 'build/model-import-3d-host/r22-persist-20260928T161137Z'
-        if not run_dir.is_dir():
-            self.skipTest('r22 build run not present in this worktree')
+        run_dir = PRESERVED_BUILD
         wrapper = ROOT / 'scripts/preview/run-model-import-3d-host-validation.sh'
         with tempfile.TemporaryDirectory() as temp:
             temp = Path(temp)
@@ -644,23 +660,13 @@ class ProtocolTest(unittest.TestCase):
                 BUILD.build(argparse.Namespace(run='dry', sdk=str(sdk), agent=str(agent), dry_run=True))
             self.assertEqual(before, sorted(str(p.relative_to(root)) for p in root.rglob('*')))
 
+    @unittest.skipUnless(HAS_PRESERVED_BUILD,
+                         'set TURBOISM_MI3D_BUILD_RUN to an authorized preserved build run')
     def test_build_only_real_run_and_missing_t008_dependency(self):
         # Real build output, not dry-run/mock: verify_build must accept the
         # newest actual PASS run and must reject a copy missing a T008 file.
-        # The newest run is selected by completion time, never by name sort.
-        host = ROOT / 'build/model-import-3d-host'
-        # Only genuine build outputs: controller-inventory-* copies are
-        # deliberately-mutated provenance controls owned by the controller,
-        # and verify-regression-* are this test's own mutants.
-        runs = [p for p in host.iterdir()
-                if p.is_dir() and (p / 'terminal.json').is_file()
-                and (p / 'provenance/build.json').is_file()
-                and (p / 'bundle').is_dir()
-                and not p.name.startswith(('verify-regression-', 'controller-'))] \
-            if host.is_dir() else []
-        if not runs:
-            self.skipTest('no real build run present')
-        real = max(runs, key=lambda p: (p / 'terminal.json').stat().st_mtime)
+        host = PRESERVED_BUILD.parent
+        real = PRESERVED_BUILD
         self.assertIsNotNone(VERIFY.verify_build(real))
         dropped = 'validation/model-import-3d-host-probe/verify-pixel-sampling.py'
         pixel_class = 'dev/turboism/validation/modelimport3d/host/PixelSamplingProbe.class'
@@ -791,7 +797,9 @@ class ProtocolTest(unittest.TestCase):
 
 
 def load_tests(loader, tests, pattern):
-    # Preserve the catalog's single entrypoint and include every independent calculated matrix.
+    # Discovery already collects these modules. Preserve the catalog's single-file entrypoint.
+    if pattern is not None:
+        return tests
     module = load('mi3d_evaluation_tests', Path(__file__).with_name('test_model_import_3d_evaluation.py'))
     tests.addTests(loader.loadTestsFromTestCase(module.EvaluationProtocolTest))
     module = load('mi3d_order_tests', Path(__file__).with_name('test_model_import_3d_order.py'))

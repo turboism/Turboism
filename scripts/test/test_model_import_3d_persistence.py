@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -486,16 +487,11 @@ class PersistencePairTest(unittest.TestCase):
 # lifecycle/containment/tar schema — the same admission the real Job A/B run
 # will go through. The build run is the preserved implementation build.
 JAR_SHA = '988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21'
-BUILD_ROOT = ROOT / 'build/model-import-3d-host'
 
 
-def _latest_build():
-    candidates = [d for d in BUILD_ROOT.iterdir()
-                  if d.is_dir() and not d.name.startswith('controller-')
-                  and (d / 'provenance/build.json').is_file()]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda d: (d / 'terminal.json').stat().st_mtime)
+# Real build provenance is opt-in; synthetic archive loader controls need no build artifacts.
+PRESERVED_BUILD = Path(os.environ.get('TURBOISM_MI3D_BUILD_RUN', ''))
+HAS_PRESERVED_BUILD = bool(os.environ.get('TURBOISM_MI3D_BUILD_RUN')) and PRESERVED_BUILD.is_dir()
 
 
 def _lifecycle(run_id, fixture_sha, agent_sha, probe_sha):
@@ -581,7 +577,7 @@ class PersistencePairCliTest(unittest.TestCase):
     def setUp(self):
         self.pair = load('verify-persistence-pair')
         self.script = PROBE / 'verify-persistence-pair.py'
-        self.build = _latest_build()
+        self.build = PRESERVED_BUILD
         self.a_report, self.a_frames = save_report(CMO3)
         self.b_frames = {p: self.a_frames[p]
                          for p in ('bound-p0', 'bound-p1', 'bound-m1')}
@@ -634,10 +630,10 @@ class PersistencePairCliTest(unittest.TestCase):
             with self.assertRaises((ValueError, KeyError, TypeError)):
                 self.pair.load_result(evidence)
 
+    @unittest.skipUnless(HAS_PRESERVED_BUILD,
+                         'set TURBOISM_MI3D_BUILD_RUN to an authorized preserved build run')
     def test_cli_runs_and_rejects_wrong_modes(self):
         # The pair CLI must fail closed: two reopen-mode jobs are not a pair.
-        if self.build is None:
-            self.skipTest('no preserved build run available')
         import tempfile
         build = json.loads((self.build / 'provenance/build.json').read_text())
         with tempfile.TemporaryDirectory() as tmp:
@@ -660,12 +656,12 @@ class PersistencePairCliTest(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn('FAIL', result.stderr)
 
+    @unittest.skipUnless(HAS_PRESERVED_BUILD,
+                         'set TURBOISM_MI3D_BUILD_RUN to an authorized preserved build run')
     def test_cli_accepts_valid_pair_on_real_layout(self):
         # Positive CLI regression: Job A save + Job B reopen evidence dirs,
         # full lifecycle/containment/build/archive admission, then the pair
         # invariants — all through the real CLI subprocess.
-        if self.build is None:
-            self.skipTest('no preserved build run available')
         import tempfile
         build = json.loads((self.build / 'provenance/build.json').read_text())
         a_full, a_frames = _save_report_full(CMO3)
@@ -694,11 +690,11 @@ class PersistencePairCliTest(unittest.TestCase):
                              'expected PASS, got: ' + result.stderr)
             self.assertIn('T014 PERSISTENCE PAIR PASS', result.stdout)
 
+    @unittest.skipUnless(HAS_PRESERVED_BUILD,
+                         'set TURBOISM_MI3D_BUILD_RUN to an authorized preserved build run')
     def test_cli_rejects_lifecycle_mutation(self):
         # Negative CLI regression: Job B lifecycle claims a different seed than
         # the CMO3 Job A actually produced → four-way sha agreement fails.
-        if self.build is None:
-            self.skipTest('no preserved build run available')
         import tempfile
         build = json.loads((self.build / 'provenance/build.json').read_text())
         a_full, a_frames = _save_report_full(CMO3)

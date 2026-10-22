@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 import java.util.function.IntConsumer;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import javax.swing.SwingUtilities;
 
@@ -35,6 +36,8 @@ final class ImageBindingProbe {
     private static final int WIDTH = 256, HEIGHT = 128;
     private static final String EVALUATION_UNAVAILABLE = "Core evaluated data is unavailable";
     private static final long TEXTURE_INDEX_POLL_MILLIS = 250;
+    private final LongSupplier clock;
+    private final EvaluationProbe.Sleeper sleeper;
     private final Supplier<CubismModel> current;
     private final Supplier<HistorySnapshot> history;
     private final IntConsumer restore;
@@ -45,7 +48,8 @@ final class ImageBindingProbe {
     private final Map<String, Object> zeroMutations = new LinkedHashMap<>();
 
     private ImageBindingProbe(Supplier<CubismModel> current, Supplier<HistorySnapshot> history,
-            IntConsumer restore, Map<String, Object> data) {
+            IntConsumer restore, Map<String, Object> data, LongSupplier clock, EvaluationProbe.Sleeper sleeper) {
+        this.clock = clock; this.sleeper = sleeper;
         this.current = current; this.history = history; this.restore = restore; this.data = data;
         data.put("status", "RUNNING"); data.put("checks", checks); data.put("samples", samples);
         data.put("setupMutations", setupMutations);
@@ -53,8 +57,14 @@ final class ImageBindingProbe {
 
     static void run(Supplier<CubismModel> current, Supplier<HistorySnapshot> history,
             IntConsumer restore, Map<String, Object> data) throws Exception {
+        run(current, history, restore, data, System::nanoTime, Thread::sleep);
+    }
+
+    static void run(Supplier<CubismModel> current, Supplier<HistorySnapshot> history,
+            IntConsumer restore, Map<String, Object> data, LongSupplier clock,
+            EvaluationProbe.Sleeper sleeper) throws Exception {
         NativeAssertions.require(!SwingUtilities.isEventDispatchThread(), "N5a probe must not block EDT");
-        var p = new ImageBindingProbe(current, history, restore, data);
+        var p = new ImageBindingProbe(current, history, restore, data, clock, sleeper);
         HistorySnapshot root = null; Map<String, Object> counts = null, canvas = null;
         Throwable primary = null;
         try {
@@ -252,7 +262,7 @@ final class ImageBindingProbe {
     // with the exception message recorded as the sample's reason. Other failures
     // propagate; never fabricate a value.
     private Object textureIndex(Drawable mesh, Map<String, Object> sample) throws Exception {
-        long deadline = System.nanoTime() + EvaluationProbe.WAIT_MILLIS * 1_000_000L;
+        long deadline = clock.getAsLong() + EvaluationProbe.WAIT_MILLIS * 1_000_000L;
         while (true) {
             if (Thread.currentThread().isInterrupted())
                 throw new InterruptedException("N5a textureIndex read interrupted");
@@ -265,12 +275,12 @@ final class ImageBindingProbe {
                 if (!(cause instanceof IllegalStateException failure)) throw rethrow(cause);
                 String message = String.valueOf(failure.getMessage());
                 if (!message.startsWith(EVALUATION_UNAVAILABLE)) throw failure;
-                if (System.nanoTime() >= deadline) {
+                if (clock.getAsLong() >= deadline) {
                     sample.put("reason", message);
                     return "UNAVAILABLE";
                 }
                 // Sleep OFF the EDT so the render loop can produce the join.
-                Thread.sleep(TEXTURE_INDEX_POLL_MILLIS);
+                sleeper.sleep(TEXTURE_INDEX_POLL_MILLIS);
             }
         }
     }
