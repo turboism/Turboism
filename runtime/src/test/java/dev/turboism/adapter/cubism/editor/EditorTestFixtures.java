@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -3529,5 +3531,59 @@ public final class EditorTestFixtures {
             }
         }
         return selectors;
+    }
+
+    public static final class HierarchyScopedFixture {
+        final Fixture fixture = new Fixture();
+        final ScopedHost host = new ScopedHost(fixture);
+        final EditorAuthoringTransactionCoordinator.Binding binding = new EditorAuthoringTransactionCoordinator.Binding(
+                "hierarchy-test", "document", 1, "model", 1, Thread.currentThread());
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(host);
+        final EditorObjectHierarchyEditAccess access;
+
+        HierarchyScopedFixture(final VerifiedMemberResolver resolver) {
+            Host.document = fixture.document;
+            final EditorParameterCombinedAccess.ModelGuard guard = (identity, model) -> {};
+            access = new EditorObjectHierarchyEditAccess(resolver, guard, coordinator, () -> binding);
+        }
+
+        // The fixture must live on the Swing EDT: the coordinator's ambient scope and the
+        // binding's host thread are thread-confined, and access writes dispatch to the EDT.
+        static HierarchyScopedFixture onEdt(final VerifiedMemberResolver resolver) {
+            final java.util.concurrent.atomic.AtomicReference<HierarchyScopedFixture> ref =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(() -> ref.set(new HierarchyScopedFixture(resolver)));
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                final Throwable cause = failure.getCause();
+                if (cause instanceof RuntimeException exception) throw exception;
+                if (cause instanceof Error error) throw error;
+                throw new IllegalStateException(cause);
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(failure);
+            }
+            return ref.get();
+        }
+
+        <T> dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T> execute(
+                final AuthoringTransactionOptions options,
+                final dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork<T> work) {
+            final java.util.concurrent.atomic.AtomicReference<
+                            dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T>>
+                    ref = new java.util.concurrent.atomic.AtomicReference<>();
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(() -> ref.set(coordinator.execute(binding, options, work)));
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                final Throwable cause = failure.getCause();
+                if (cause instanceof RuntimeException exception) throw exception;
+                if (cause instanceof Error error) throw error;
+                throw new IllegalStateException(cause);
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(failure);
+            }
+            return ref.get();
+        }
     }
 }
