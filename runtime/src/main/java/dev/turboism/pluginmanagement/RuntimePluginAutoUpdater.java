@@ -25,6 +25,7 @@ import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerifica
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import dev.turboism.update.UpdateFileSupport;
 import dev.turboism.update.UpdatePreferencesStore;
 import java.io.IOException;
 import java.io.InputStream;
@@ -523,31 +524,30 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                     final Path stagingDir = home.resolve("state/runtime/plugin-management/packages");
                     final Path backup = stagingDir.resolve(
                             ".backup-" + update.pluginId() + "-" + java.util.UUID.randomUUID() + ".jar");
+                    boolean replaced = false;
+                    boolean applied = false;
                     try {
                         Files.copy(target, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        try {
-                            Files.copy(
-                                    staged.prepared().stagedJar(),
-                                    target,
-                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            final var reloadRes = hotReloadCoordinator.hotReload(update.pluginId(), target, backup);
-                            if (reloadRes.succeeded()) {
-                                Files.deleteIfExists(backup);
-                                Files.deleteIfExists(staged.prepared().stagedJar());
-                                return StageAttempt.HOT_APPLIED;
-                            } else if (reloadRes.rolledBack()) {
-                                Files.copy(backup, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                                Files.deleteIfExists(backup);
-                            }
-                        } catch (IOException locked) {
-                            // File locked on Windows; keep staged in pending journal for restart
+                        UpdateFileSupport.copyAtomic(staged.prepared().stagedJar(), target);
+                        replaced = true;
+                        final var reloadRes = hotReloadCoordinator.hotReload(update.pluginId(), target, backup);
+                        if (reloadRes.succeeded()) {
+                            Files.deleteIfExists(staged.prepared().stagedJar());
+                            applied = true;
+                            return StageAttempt.HOT_APPLIED;
                         }
-                    } catch (Exception e) {
-                        if (backup != null)
-                            try {
-                                Files.deleteIfExists(backup);
-                            } catch (IOException ignored) {
+                    } catch (IOException | RuntimeException failure) {
+                        // Keep staged in the pending journal for restart, including Windows file locks.
+                    } finally {
+                        try {
+                            if (replaced && !applied) {
+                                UpdateFileSupport.copyAtomic(backup, target);
                             }
+                            Files.deleteIfExists(backup);
+                        } catch (IOException | RuntimeException failure) {
+                            // Retain the backup if restoration failed.
+                            report("PLUGIN_UPDATE_BACKUP_CLEANUP_FAILED");
+                        }
                     }
                 }
             }
