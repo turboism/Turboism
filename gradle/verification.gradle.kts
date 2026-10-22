@@ -1778,6 +1778,15 @@ val checkPerformanceProbeReports by tasks.registering(Exec::class) {
     commandLine("python3", "-m", "unittest", "-v", "scripts/test/test_image_performance_probe.py")
 }
 
+val checkHostToolingSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs offline host-tooling Python and worktree shell contracts."
+    dependsOn(":sdk:jar", ":bootstrap:jar")
+    workingDir(rootDir)
+    // Always run: the worktree contracts inspect the current checkout and artifacts.
+    commandLine("python3", "scripts/test/run_host_tooling_selftest.py")
+}
+
 val ordinaryTestTasks = subprojects
     .filter { it.tasks.findByName("test") != null }
     .map { "${it.path}:test" }
@@ -1809,6 +1818,7 @@ val checkCompletedCommit by tasks.registering {
         checkRemoteHygieneSelfTest,
         checkPluginEventReference,
         checkPerformanceProbeReports,
+        checkHostToolingSelfTest,
         "checkLocalizedChangelogs",
         "checkLocalizedChangelogsSelfTest",
         spotlessCheckTasks,

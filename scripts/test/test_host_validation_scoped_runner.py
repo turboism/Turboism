@@ -152,10 +152,12 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             if deferred is not None:
                 # The supervisor imports the captured SOURCE module, not this process.
                 # Match its synthetic host hash without changing production authority.
+                # The finalizer imports its reviewed-artifact helper in the supervisor
+                # process; bind this frozen synthetic SOURCE to the same test digest.
                 evidence_source = preview / "host_validation_evidence.py"
-                evidence_source.write_text(evidence_source.read_text().replace(
-                    "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-                    queue.file_digest(editor / "app/lib/Live2D_Cubism.jar")))
+                with evidence_source.open("a") as stream:
+                    digest = queue.file_digest(editor / "app/lib/Live2D_Cubism.jar")
+                    stream.write(f"\nHOSTS['5302'] = (HOST_DIRECTORIES['5302'], {digest!r})\n")
                 # Use the admitted MCP client protocol without relaxing its inventory,
                 # fixture or containment checks. Both programs only write test files.
                 client = preview / "mcp-host-validation-client.py"
@@ -274,7 +276,7 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                 self.assertEqual(admitted, observed["trigger"], log)
                 self.assertEqual(admitted, observed["client"], log)
                 self.assertEqual(admitted, observed["validationComplete"], log)
-                self.assertEqual("succeeded" if admitted else "failed", result["terminalState"], log)
+                self.assertEqual("succeeded" if admitted else "failed", result["terminalState"], json.dumps(result, indent=2))
                 self.assertEqual("PASS" if admitted else "FAIL", result["validationStatus"], result)
                 self.assertEqual(0 if admitted else 1, preliminary["details"]["exitCode"], log)
                 self.assertEqual(admitted, "terminal PASS observed" in log, log)
@@ -293,7 +295,7 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                 else:
                     self.assertFalse((evidence / "deferred-check.properties").exists())
                 return
-            self.assertEqual("cancelled" if cancel else ("timed_out" if timeout else "failed"), result["terminalState"], log)
+            self.assertEqual("cancelled" if cancel else ("timed_out" if timeout else "failed"), result["terminalState"], json.dumps(result, indent=2))
             self.assertEqual("safe", result["cleanup"], result)
             self.assertNotEqual("PASS", result["validationStatus"])
             self.assertEqual(job["run_id"], result["runId"])

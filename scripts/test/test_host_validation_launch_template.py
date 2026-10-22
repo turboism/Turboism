@@ -23,7 +23,7 @@ class LaunchTemplateTest(unittest.TestCase):
         self.assertEqual(1, len(templates), "expected the one production launch template")
         with tempfile.TemporaryDirectory(prefix="turboism-launch-template-") as temporary:
             base = Path(temporary)
-            task = base / "task with spaces"
+            task = base / "task with spaces" / "queue-offline-template-fixture"
             evidence = task / "evidence"
             local = base / "local temporary"
             evidence.mkdir(parents=True)
@@ -33,6 +33,8 @@ class LaunchTemplateTest(unittest.TestCase):
             niri.write_text("#!/usr/bin/env python3\nfrom pathlib import Path\n"
                             + f"Path({str(focus_marker)!r}).write_text('observed')\nprint('[]')\n")
             niri.chmod(0o700)
+            import shutil
+            shutil.copy2(ROOT / "scripts/preview/focus-cubism-validation-window.py", task)
             recorder = base / "argv recorder"
             recorder.write_text(
                 "#!/usr/bin/env python3\n"
@@ -50,8 +52,9 @@ class LaunchTemplateTest(unittest.TestCase):
             values = {
                 "local_tmp": str(local), "task_dir": str(task), "evidence_dir": str(evidence),
                 "display": ":testing-only", "proton_wrapper": str(recorder),
-                "task_id": "offline-template-fixture", "focus_editor_window": "1" if focus else "0",
+                "task_id": "queue-offline-template-fixture", "focus_editor_window": "1" if focus else "0",
                 "graphics_device": graphics_device,
+                "editor_window_python": os.sys.executable, "editor_window_niri": str(niri),
                 "prefix_dir": str(task / "prefix"), "proton_runner": str(base / "runner with spaces"),
                 "cmd_unix": str(task / "prefix/cmd.exe"), "win_launch": r"Z:\task with spaces\launch.bat",
                 "linux_environment_exports": linux_environment_exports,
