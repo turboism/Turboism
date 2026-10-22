@@ -10,6 +10,7 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- 新增插件作者指南，涵盖生命周期、线程、权限、设置、存储、事件和测试，并明确稳定版发布前的 `@Incubating` 策略。
 - `SettingsControl` 新增 `FilePath` 变体；插件重新编译时，针对 `SettingsControl` 的穷尽式 switch 必须添加对应分支。
 - 纹理图集 SDK 新增逐页尺寸、打包失败诊断与规划器协商支持。
 

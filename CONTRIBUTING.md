@@ -1,5 +1,8 @@
 # Contributing to Turboism
 
+For third-party plugin development, start with the [plugin author guide](sdk/plugin-author-guide.md)
+and the [standalone template](templates/plugin-template/README.md).
+
 ## Repository hygiene policy
 
 Remote history must never contain:

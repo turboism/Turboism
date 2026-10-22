@@ -10,6 +10,10 @@ and build a single plugin JAR ready for any Turboism installation.
 The plugin SDK API range is `[0.67.0,1.0.0)`: its lower bound is the minimum framework base version, with beta/nightly/SNAPSHOT suffixes ignored. See [plugin API compatibility](../../compatibility/plugin-api.md) for the runtime version source and release synchronization command.
 
 
+See the [plugin author guide](../../sdk/plugin-author-guide.md) for lifecycle,
+threading, settings, storage, permissions and testing. In the standalone template
+repository, read it in the [Turboism repository](https://github.com/turboism/Turboism/blob/main/sdk/plugin-author-guide.md).
+
 ## Prerequisites
 
 - **JDK 17** (or newer — the plugin is compiled for Java 17 bytecode)
