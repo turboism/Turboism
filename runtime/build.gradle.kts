@@ -239,9 +239,9 @@ val admissionPreflightTest by tasks.registering(Test::class) {
     }
 }
 
-// Test classes that require separately staged licensed Cubism evidence; they
+// Test classes or individual methods requiring separately staged licensed Cubism evidence; they
 // live in legacyCubismEvidenceTest and never run in the offline suites.
-val legacyEvidenceTestClasses = listOf(
+val legacyEvidenceTests = listOf(
     "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest",
     "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest",
     "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest",
@@ -271,7 +271,13 @@ val legacyEvidenceTestClasses = listOf(
     "dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteArtifactTest",
     "dev.turboism.adapter.cubism.performance.PerformanceProbeImageArtifactTest",
     "dev.turboism.adapter.cubism.shader.ShaderUniformCompositionArtifactTest",
-    "dev.turboism.mapping.verification.CubismHostCompatibilityRealSampleTest"
+    "dev.turboism.mapping.verification.CubismHostCompatibilityRealSampleTest",
+    // Mixed suites retain their synthetic behavior tests in the offline gates.
+    "dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformerTest.realJarBytesMatchPinnedDigestsAndTransformOnEveryReviewedVersion",
+    "dev.turboism.adapter.cubism.mesh.PopupMeshUndoContractTest.popupSnapshotRestoresRealNativeMeshAndInvalidatesPositionsOnUndoRedo",
+    "dev.turboism.adapter.ui.OffCanvasBackgroundHostAccessTest.refreshesExistingAndFutureBackgroundMaterialsAcrossReviewedHosts",
+    "dev.turboism.mapping.verification.ReviewedHostArtifactsTest.localExactArtifactsMatchTheReviewedIdentitiesWhenPresent",
+    "dev.turboism.ui.table.SceneTableCompatibilityTest.realMembersBindAfterRepackingAndDeclarationChangeButRejectOtherSources"
 )
 
 val legacyCubismEvidenceTest by tasks.registering(Test::class) {
@@ -280,12 +286,20 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
+    // Evidence supplied to Gradle must also reach the opt-in evidence JVM.
+    listOf(
+        "turboism.test.cubismEditorJar",
+        "turboism.test.cubismCoreJar",
+        "turboism.test.cubism5302Jar",
+        "turboism.test.verificationDir"
+    ).forEach { name ->
+        providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
+    }
     filter {
-        legacyEvidenceTestClasses.forEach { includeTestsMatching(it) }
+        legacyEvidenceTests.forEach { includeTestsMatching(it) }
         isFailOnNoMatchingTests = true
     }
 }
-
 
 tasks.named<Test>("test") {
     @Suppress("UNCHECKED_CAST")
@@ -305,7 +319,7 @@ tasks.named<Test>("test") {
         providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
     }
     filter {
-        legacyEvidenceTestClasses.forEach { excludeTestsMatching(it) }
+        legacyEvidenceTests.forEach { excludeTestsMatching(it) }
     }
 }
 
@@ -338,7 +352,7 @@ val admissionUnitTests by tasks.registering(Test::class) {
         includeTestsMatching("dev.turboism.mapping.*")
         includeTestsMatching("dev.turboism.adapter.*")
         includeTestsMatching("dev.turboism.core.plugin.context.*")
-        legacyEvidenceTestClasses.forEach { excludeTestsMatching(it) }
+        legacyEvidenceTests.forEach { excludeTestsMatching(it) }
         isFailOnNoMatchingTests = true
     }
 }
