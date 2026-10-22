@@ -390,7 +390,7 @@ class MatrixTest(unittest.TestCase):
         descriptor = json.loads(PLUGIN_DESCRIPTOR)
         descriptor["capabilities"] = ["cubism.model.intercept"]
         _write(self.root, f"plugins/toy/{GEN.PLUGIN_DESCRIPTOR}", json.dumps(descriptor))
-        path = self.root / "compatibility/cubism/verification/cubism-5.2.00-extra.json"
+        path = self.root / "build/generated/verification/cubism-5.2.00-extra.json"
         record = json.loads(path.read_text())
         aliases = GEN.DECLARED_CAPABILITY_ALIASES["cubism.model.intercept"]["selectors"]
         record["selectors"] = [
@@ -422,7 +422,7 @@ class MatrixTest(unittest.TestCase):
         self.assertEqual([], plugin["unmappedCapabilities"])
         _write(
             self.root,
-            "compatibility/cubism/verification/cubism-5.2.00-project-workspace.json",
+            "build/generated/verification/cubism-5.2.00-project-workspace.json",
             _verification_record("5.2.00", "project-workspace", ["cubism.project.read"]),
         )
         plugin = GEN.build_matrix(self.root)["plugins"][0]
