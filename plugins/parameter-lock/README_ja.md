@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: parameter, lock, palette, safety
 turboismApi: "[0.67.0,1.0.0)"
@@ -14,7 +14,7 @@ interface: embedded
 
 # パラメータロックプラグイン
 
-> **Turboism 公式プラグイン** · **ステータス: 開発中**
+> **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
 Cubism パラメータ値の誤編集を防ぎ、セッション間での永続化および行単位・パラメータグループ単位でのネイティブロックアイコン統合を提供します。
 
@@ -58,13 +58,15 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 
+上記のバージョン計算にはモデル監視とパラメータ変更のインターセプトを含みます。`:runtime:parameterLockArtifactTest` で各レビュー済み JAR のパラメータフックと行 UI の変換を検証できます。[バージョン互換性の検証](../../validation/parameter-lock/VERSION-COMPATIBILITY.md)を参照してください。
+
 **実機検証：** Cubism 5.2.03 と 5.3.02 で、パラメータ行のクリックと SDK・ネイティブコントローラーの書き込み抑制を確認しました。両バージョンでは実際の単層グループで MIXED → 全ロック → 全解除を全子パラメータに対して検証しました。隔離モデル内で一時的に追加したメンバーは元のグループへ戻し、モデルは保存していません。5.3.02 の別プロセス間の行ロック復元も検証済みです。深い入れ子はオフライン検証済みですが、実機の多層グループ、物理ドラッグ、キー入力、Undo/Redo、複数モデル切り替えは未検証です。
 
 詳細は[実機検証記録](../../validation/parameter-lock/ROW-UI-ACCEPTANCE.md)を参照してください。
 
 ## インストールと有効化
 
-本公式プラグインは**開発中**で、公式配布パッケージやマーケットプレイスには含まれていません。開発検証では `./gradlew :plugins:parameter-lock:jar` で JAR をビルドし、インストール後に**プラグイン管理**で有効化してください。
+本公式プラグインは**プレビュー**段階で、今後の Turboism 配布パッケージとプラグインマーケットの公開リストに含まれています。`./gradlew :plugins:parameter-lock:jar` で JAR をビルドするか、本プラグインを含むリリースからインストールし、**プラグイン管理**で有効化してください。
 
 ## 使い方
 
@@ -116,7 +118,7 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 
 ## 状態と制限
 
-- **ステータス:** 開発中。
+- **ステータス:** プレビュー。
 - オフラインの単体テストおよび結合テストにおいて、フックによる値変更の抑制、行前置アクション登録、深層グループの再帰・循環防止、永続化、およびモデル間分離を検証済みです。行 UI の実機検証結果と制限は上記の記録に記載しています。
 - 新しい行単位 UI は旧ツールバーの実機検証結果と等価ではありません。
 - 値変更の抑制はホスト書き込み前に現在値を返す方式を採用しています。ネイティブ履歴との詳細な相互作用はインストールされた Cubism の書き込みパイプラインに依存します。
