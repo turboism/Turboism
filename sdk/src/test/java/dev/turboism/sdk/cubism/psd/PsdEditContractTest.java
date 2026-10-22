@@ -145,8 +145,9 @@ class PsdEditContractTest {
     @Test
     void handlesExposeOnlyFrozenOperationsAndOpaqueRevision() throws Exception {
         assertEquals(
-                Set.of("openInDefaultApplication", "observeSaves", "stop"),
+                Set.of("openInDefaultApplication", "openInApplication", "observeSaves", "stop"),
                 Arrays.stream(PsdEditFile.class.getDeclaredMethods())
+                        .filter(method -> !method.isSynthetic())
                         .map(m -> m.getName())
                         .collect(Collectors.toSet()));
         assertEquals(0, PsdFileRevision.class.getDeclaredMethods().length);

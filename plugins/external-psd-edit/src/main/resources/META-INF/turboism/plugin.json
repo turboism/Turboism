@@ -4,20 +4,28 @@
   "id": "dev.turboism.plugin.external-psd-edit",
   "name": "External PSD Edit Plugin",
   "version": "0.1.0",
-  "description": "ArtMesh context-menu entry that exports the complete raw PSD, opens it in the system default PSD application, and applies Cubism native explicit-target replacement on save.",
+  "description": "ArtMesh context-menu entry that exports the complete raw PSD, opens it in a configured or system default application, and applies Cubism native explicit-target replacement on save.",
   "entrypoints": [
     "dev.turboism.plugin.externalpsdedit.ExternalPsdEditPlugin"
   ],
   "turboismApi": "[0.67.0,1.0.0)",
   "authors": [
-    { "name": "Turboism Contributors" }
+    {
+      "name": "Turboism Contributors"
+    }
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
   "resources": [],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
   },
   "dependencies": [],
   "permissions": [
@@ -49,7 +57,7 @@
     {
       "id": "turboism.process.run",
       "scope": "application",
-      "reason": "Open the temporary PSD in the operating system's default PSD application."
+      "reason": "Open the temporary PSD with the selected executable or the system default application."
     },
     {
       "id": "turboism.ui.status.notify",
@@ -75,6 +83,26 @@
       "id": "turboism.ui.context-source.read",
       "scope": "application",
       "reason": "Read the captured ArtMesh context-menu selection that triggers editing."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Read the saved external editor executable path."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Save the external editor executable path."
+    },
+    {
+      "id": "turboism.ui.settings.contribute",
+      "scope": "application",
+      "reason": "Show the external editor path and browse button in plugin settings."
+    },
+    {
+      "id": "turboism.ui.file-chooser.request",
+      "scope": "application",
+      "reason": "Let the user select an external editor executable."
     }
   ],
   "capabilities": [

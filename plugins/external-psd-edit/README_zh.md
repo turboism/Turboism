@@ -16,7 +16,7 @@ interface: embedded
 
 > **Turboism 官方插件** · **状态：预览版**
 
-右键点击 ArtMesh 即可在系统默认 PSD 应用程序中打开并编辑其完整原图 PSD；每次稳定保存都会应用 Cubism 原生显式目标原图替换。
+右键点击 ArtMesh 即可在指定的外部编辑器（留空时使用系统默认程序）中打开并编辑其完整原图 PSD；每次稳定保存都会应用 Cubism 原生显式目标原图替换。
 
 | 项目 | 值 |
 |---|---|
@@ -33,10 +33,14 @@ interface: embedded
 - 在支持 ArtMesh 的右键菜单（部件、变形器与工作区对象视图）中添加「外部编辑 (PSD)」入口。
 - 通过类型化纹理关系图将每个选中的 ArtMesh 解析为其当前原图（Raw Image），并对每个不同原图开启一个独立编辑会话；重复选择与已打开的原图会自动去重。
 - 当 ArtMesh 当前从纹理图集渲染时，仅当其保留的模型图像输入全部解析为同一个当前原图时才继续追踪；缺失、未知或存在歧义的源会被拒绝，且绝不切换渲染输入。
-- 通过 Cubism 原生分层图像导出将完整原图 PSD 导出到运行时管理的临时文件，然后启动操作系统默认的 PSD 应用程序。
+- 通过 Cubism 原生分层图像导出将完整原图 PSD 导出到运行时管理的临时文件，然后启动设置中指定的编辑器；未填写时使用系统默认的 PSD 应用程序。
 - 监听该临时文件，并在每次稳定保存时应用 Cubism 原生显式目标原图替换。
 - 会话存活期间执行有界只读关系刷新，以感知 Undo/Redo 引起的原图变化，而不会额外排队替换或重放保存。
 - 以非阻塞通知报告会话、导入与暂停状态；当原生结果不确定时暂停会话而非猜测结果。
+
+## 指定外部编辑器
+
+在 Turboism 的插件设置中打开「外部编辑 PSD」，输入编辑器程序的完整路径，或点击「浏览…」选择 exe。应用设置后，新打开或重新打开的文档会使用该程序；留空则使用系统默认打开方式。路径可以包含空格，无需加引号或命令行参数。无效路径会报告打开失败，并保留临时 PSD。
 
 ## 要求与兼容性
 
@@ -77,7 +81,10 @@ interface: embedded
 - `turboism.cubism.model.observe` — 接收模型关闭与编辑器退出生命周期回调以停止外部编辑会话。
 - `turboism.file.read` — 读取运行时签发的临时 PSD 修订版本以执行替换。
 - `turboism.file.write` — 将完整原图 PSD 导出到运行时管理的临时文件。
-- `turboism.process.run` — 使用操作系统默认 PSD 应用程序打开临时 PSD。
+- `turboism.process.run` — 使用指定编辑器或系统默认程序打开临时 PSD。
+- `turboism.config.plugin.read` / `turboism.config.plugin.write` — 读取与保存编辑器路径。
+- `turboism.ui.settings.contribute` — 显示路径输入框和浏览按钮。
+- `turboism.ui.file-chooser.request` — 选择编辑器可执行文件。
 - `turboism.ui.status.notify` — 显示会话、导入以及暂停/失败通知。
 - `turboism.ui.dialog.contribute` — 在打开多个临时 PSD 前进行确认。
 - `turboism.action.register` — 注册由右键菜单调用的操作。
