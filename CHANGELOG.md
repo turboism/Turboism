@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `SettingsControl` gained the `FilePath` variant; plugin authors must add a case to exhaustive switches over `SettingsControl` when recompiling.
+- The texture-atlas SDK now supports per-page sizes, packing failure diagnostics and planner negotiation.
+
 ## [0.67.2] - 2026-10-22
 
 ### Fixed

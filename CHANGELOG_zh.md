@@ -10,6 +10,9 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- `SettingsControl` 新增 `FilePath` 变体；插件重新编译时，针对 `SettingsControl` 的穷尽式 switch 必须添加对应分支。
+- 纹理图集 SDK 新增逐页尺寸、打包失败诊断与规划器协商支持。
+
 - `acp` 精确实机验证能力加入本机验证队列：test-only 探针在真实 Cubism 会话内经公共 action
   catalog 打开 ACP Agent 窗口；脚本化 fake agent（默认包 `acp` 入口）断言无凭据的 stdio MCP
   挂载，并经 token 门控的 `TurboismMcpBridge` 完成一次 rename 写与守护式 undo；SDK 交叉回读

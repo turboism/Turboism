@@ -274,6 +274,32 @@ val generateSdkApiReport by tasks.registering(Exec::class) {
     }
 }
 
+val sdkApiCurrent = layout.projectDirectory.file("sdk/api-contracts/current.txt")
+val sdkApiCurrentReport = layout.buildDirectory.file("reports/sdk-api/current.txt")
+
+val checkSdkApiCurrent by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the public SDK surface matches the reviewed current snapshot."
+    dependsOn(generateSdkApiReport)
+    inputs.files(sdkApiCurrent, sdkApiCurrentReport, sdkApiHelperFiles)
+    workingDir(rootDir)
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-current",
+        "--input", sdkApiCurrentReport.get().asFile.absolutePath,
+        "--current", sdkApiCurrent.asFile.absolutePath
+    )
+    VerificationStamps.apply(this)
+}
+
+tasks.register("updateSdkApiCurrent") {
+    group = "build setup"
+    description = "Refreshes the public SDK snapshot for explicit diff review."
+    dependsOn(generateSdkApiReport)
+    doLast {
+        sdkApiCurrentReport.get().asFile.copyTo(sdkApiCurrent.asFile, overwrite = true)
+    }
+}
+
 tasks.register<Exec>("generateSdkApiBaseline") {
     group = "build setup"
     description = "Explicitly generate an SDK API baseline to a caller-selected non-repository output path."

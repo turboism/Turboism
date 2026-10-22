@@ -2,10 +2,31 @@
 from __future__ import annotations
 
 import argparse
+import difflib
+import itertools
 import json
 
 from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION, canonical_dump, sha256_bytes
 from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, load_baseline, write_output
+
+
+def verify_current(args: argparse.Namespace) -> None:
+    expected, actual = args.current.read_bytes(), args.input.read_bytes()
+    if expected == actual:
+        print("SDK API current surface matches sdk/api-contracts/current.txt")
+        return
+    diff = difflib.diff_bytes(
+        difflib.unified_diff, expected.splitlines(keepends=True), actual.splitlines(keepends=True),
+        fromfile=b"sdk/api-contracts/current.txt", tofile=b"build/reports/sdk-api/current.txt", n=2,
+    )
+    lines = list(itertools.islice(diff, 61))
+    detail = b"".join(lines[:60]).decode("utf-8", errors="replace")
+    if len(lines) > 60:
+        detail += "\n(diff truncated; compare the two files for the full diff)\n"
+    raise BaselineError(
+        "public SDK surface differs from sdk/api-contracts/current.txt\n" + detail
+        + "\nRefresh with ./gradlew updateSdkApiCurrent and review the diff."
+    )
 
 
 def capture(args: argparse.Namespace) -> None:
