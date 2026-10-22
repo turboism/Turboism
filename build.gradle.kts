@@ -133,7 +133,40 @@ val materializeVerificationRecords by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/materialize_verification_records.py")
 }
 
+val materializeDraftContracts by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Projects DRAFT packs and profiles from materialized records and historical annotations."
+    dependsOn(materializeVerificationRecords)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_draft_contracts.py",
+        "scripts/materialize_verification_records.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "compatibility/cubism/reviewed-releases.json",
+        fileTree("compatibility/cubism/draft-src") { include("*.json") },
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        materializeVerificationRecords
+    )
+    outputs.dir(rootProject.file("build/generated/draft"))
+    outputs.cacheIf { true }
+    commandLine("python3", "scripts/materialize_draft_contracts.py")
+}
+
+val checkMaterializedDraftContracts by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks frozen pre-migration DRAFT pack/profile byte identity."
+    dependsOn(materializeDraftContracts)
+    workingDir(rootDir)
+    inputs.files(
+        materializeDraftContracts,
+        "scripts/test/test_materialize_draft_contracts.py",
+        "scripts/test/fixtures/draft-contract-sha256.json"
+    )
+    commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_draft_contracts", "-v")
+}
+
 apply(from = "gradle/verification.gradle.kts")
+tasks.named("devCheck") { dependsOn(checkMaterializedDraftContracts) }
 apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")
 

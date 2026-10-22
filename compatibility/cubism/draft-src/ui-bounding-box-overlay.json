@@ -1,0 +1,146 @@
+{
+  "family": "ui-bounding-box-overlay",
+  "releases": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.3.00",
+    "5.3.01",
+    "5.3.03",
+    "5.3.04"
+  ],
+  "templates": [
+    {
+      "keys": [
+        "semanticName",
+        "name",
+        "kind",
+        "runtime",
+        "descriptor",
+        "profile",
+        "status",
+        "confidence",
+        "verifiedBy",
+        "verifiedAt",
+        "x.verification"
+      ],
+      "annotations": {
+        "status": "DRAFT",
+        "confidence": "medium",
+        "verifiedBy": "none",
+        "verifiedAt": null
+      }
+    }
+  ],
+  "entries": {
+    "cubism.ui-bounding-box-overlay.bounding-box.setup-button": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.bounding-box.update": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.button.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.button.set-enabled": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.entities.remove": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.entity.children": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.icon-set.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.scene.component-objects": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.scene.remove-volatile": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.vector.plus": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.vector.times": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-bounding-box-overlay.writable-image.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ]
+  },
+  "envelopes": [
+    {
+      "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+      "value": {
+        "format": "turboism.mapping.pack",
+        "schemaVersion": 1,
+        "status": "DRAFT",
+        "source": "derived-from-verified-record",
+        "cubismVersion": "${version}",
+        "metadata": {
+          "description": "Exact Cubism 5.3.03 red-box overlay native setup and cleanup selector evidence.",
+          "inventoryRef": "${inventoryRef}",
+          "artifactSha256": "${artifactSha256}",
+          "confidenceBasis": "Medium-confidence draft projection of matching static selectors; no real-host verification is claimed.",
+          "selectorCount": "${selectorCount}",
+          "capabilityCount": "${capabilityCount}",
+          "capabilityIds": "${capabilityIds}",
+          "verificationRecordSha256": "${verificationRecordSha256}",
+          "artifactName": "${artifactName}",
+          "artifactSize": "${artifactSize}",
+          "profileId": "${profileId}",
+          "verificationId": "${verificationId}"
+        }
+      }
+    }
+  ]
+}
