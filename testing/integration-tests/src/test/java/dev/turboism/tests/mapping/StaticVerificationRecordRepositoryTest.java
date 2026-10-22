@@ -64,8 +64,7 @@ class StaticVerificationRecordRepositoryTest {
                                     projectWorkspaceMemberAliases(),
                                     projectWorkspaceAttestationClassAliases(),
                                     "cubism-5.2.03-project-workspace",
-                                    Path.of(
-                                            "build/generated/draft/mapping-packs/cubism-5.2.03-project-workspace.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-project-workspace.json"),
                                     Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                                     "5.2.03",
                                     SliceKind.PROJECT_WORKSPACE),
@@ -144,8 +143,7 @@ class StaticVerificationRecordRepositoryTest {
                                             MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                             mainToolbarMethodAliases()),
                                     "cubism-5.2.03-ui-main-toolbar",
-                                    Path.of(
-                                            "build/generated/draft/mapping-packs/cubism-5.2.03-ui-main-toolbar.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-ui-main-toolbar.json"),
                                     Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                                     "5.2.03",
                                     SliceKind.EDITOR_UI),
@@ -171,8 +169,7 @@ class StaticVerificationRecordRepositoryTest {
                                             MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                             mainToolbarMethodAliases()),
                                     "cubism-5.3.02-ui-main-toolbar",
-                                    Path.of(
-                                            "build/generated/draft/mapping-packs/cubism-5.3.02-ui-main-toolbar.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-ui-main-toolbar.json"),
                                     Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                                     "5.3.02",
                                     SliceKind.EDITOR_UI),
@@ -200,8 +197,7 @@ class StaticVerificationRecordRepositoryTest {
                                     recordMethodAliases("build/generated/verification/cubism-5.2.03-editor-model.json"),
                                     recordClassAliases("build/generated/verification/cubism-5.2.03-editor-model.json"),
                                     "cubism-5.2.03-editor-model-read",
-                                    Path.of(
-                                            "build/generated/draft/mapping-packs/cubism-5.2.03-editor-model-read.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-editor-model-read.json"),
                                     Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                                     "5.2.03",
                                     SliceKind.EDITOR_MODEL),
@@ -225,8 +221,7 @@ class StaticVerificationRecordRepositoryTest {
                                     recordMethodAliases("build/generated/verification/cubism-5.3.02-editor-model.json"),
                                     recordClassAliases("build/generated/verification/cubism-5.3.02-editor-model.json"),
                                     "cubism-5.3.02-editor-model-read",
-                                    Path.of(
-                                            "build/generated/draft/mapping-packs/cubism-5.3.02-editor-model-read.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-editor-model-read.json"),
                                     Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                                     "5.3.02",
                                     SliceKind.EDITOR_MODEL),
