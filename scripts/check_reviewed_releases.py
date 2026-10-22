@@ -1067,8 +1067,8 @@ def r2_check(root: Path) -> tuple[list[r2_Finding], list[r2_Finding]]:
 
 r3_ROOT = repo_root()
 
-r3_REGISTRY = Path("scripts/reviewed-release-literal-exceptions.json")
-r3_REGISTRY_FORMAT = "turboism.reviewed-release-literal-exceptions/v1"
+r3_LITERAL_EXCEPTIONS = Path("scripts/reviewed-release-literal-exceptions.json")
+r3_LITERAL_EXCEPTIONS_FORMAT = "turboism.reviewed-release-literal-exceptions/v1"
 r3_PREVIEW_WRAPPERS_DIR = Path("scripts/preview")
 r3_GENERIC_RUNNER_NAME = "run-cubism-host-validation.sh"
 r3_SHELL_COMPACT_VERSION = re.compile(r"\b(5[0-3]\d{2})\b")
@@ -1076,7 +1076,7 @@ r3_SHELL_DOTTED_VERSION = re.compile(r"\b(5\.\d{1,2}\.\d{2})\b")
 
 
 
-class r3_RegistryError(Exception):
+class r3_LiteralExceptionError(Exception):
     """Raised when the registry file cannot be parsed at all."""
 
 
@@ -1163,19 +1163,19 @@ def r3_collect_sites(root: Path) -> dict[tuple[str, str], int]:
     return sites
 
 
-def r3_load_registry(root: Path) -> tuple[list[dict], list[str]]:
-    path = root / r3_REGISTRY
+def r3_load_literal_exceptions(root: Path) -> tuple[list[dict], list[str]]:
+    path = root / r3_LITERAL_EXCEPTIONS
     if not path.is_file():
         return [], []
     try:
         document = read_json(path)
     except json.JSONDecodeError as exc:
-        raise r3_RegistryError(f"{r3_REGISTRY}: invalid JSON: {exc}") from exc
-    if document.get("format") != r3_REGISTRY_FORMAT:
-        raise r3_RegistryError(f"{r3_REGISTRY}: unexpected format {document.get('format')!r}")
+        raise r3_LiteralExceptionError(f"{r3_LITERAL_EXCEPTIONS}: invalid JSON: {exc}") from exc
+    if document.get("format") != r3_LITERAL_EXCEPTIONS_FORMAT:
+        raise r3_LiteralExceptionError(f"{r3_LITERAL_EXCEPTIONS}: unexpected format {document.get('format')!r}")
     entries = document.get("sites")
     if not isinstance(entries, list):
-        raise r3_RegistryError(f"{r3_REGISTRY}: 'sites' list not found")
+        raise r3_LiteralExceptionError(f"{r3_LITERAL_EXCEPTIONS}: 'sites' list not found")
     problems: list[str] = []
     seen: set[tuple[str, str, str]] = set()
     for index, entry in enumerate(entries):
@@ -1206,7 +1206,7 @@ def r3_load_registry(root: Path) -> tuple[list[dict], list[str]]:
 
 def r3_check(root: Path) -> list[str]:
     observed = r3_collect_sites(root)
-    entries, problems = r3_load_registry(root)
+    entries, problems = r3_load_literal_exceptions(root)
     failures = list(problems)
     expected: dict[tuple[str, str, str], dict] = {}
     for entry in entries:
@@ -1217,7 +1217,7 @@ def r3_check(root: Path) -> list[str]:
         if entry is None:
             failures.append(
                 f"unregistered {kind} version set at {path}: {csv}; document an exception in "
-                f"{r3_REGISTRY} with evidence, or derive the set from review data"
+                f"{r3_LITERAL_EXCEPTIONS} with evidence, or derive the set from review data"
             )
             continue
         if kind == "collection" and entry.get("count", 1) != count:
@@ -1230,7 +1230,7 @@ def r3_check(root: Path) -> list[str]:
         if (kind, path, csv) not in observed:
             failures.append(
                 f"stale registry entry: {kind} {path} {csv} is not live; remove "
-                f"it from {r3_REGISTRY}"
+                f"it from {r3_LITERAL_EXCEPTIONS}"
             )
     return failures
 
@@ -1512,8 +1512,8 @@ def r4_check(root: Path = r4_ROOT) -> list[str]:
         return [f"{r4_MANIFEST_PATH}: cannot read task manifest: {exc}"]
 
     registry_entries: dict[tuple[str, str], dict] = {}
-    if (root / r3_REGISTRY).is_file():
-        entries, reg_problems = r3_load_registry(root)
+    if (root / r3_LITERAL_EXCEPTIONS).is_file():
+        entries, reg_problems = r3_load_literal_exceptions(root)
         failures.extend(reg_problems)
         for entry in entries:
             registry_entries[(entry["kind"], entry["path"])] = entry
@@ -1568,7 +1568,7 @@ def r4_check(root: Path = r4_ROOT) -> list[str]:
                         f"unregistered wrapper version enumeration at {relative}: "
                         f"{','.join(sorted_found)}; use host-validation-env.sh "
                         f"manifest helpers or document an evidence-backed exception in "
-                        f"{r3_REGISTRY}"
+                        f"{r3_LITERAL_EXCEPTIONS}"
                     )
 
     return failures
@@ -1752,7 +1752,7 @@ def main() -> int:
     try:
         failures = check(args.root.resolve())
     except (ValueError, OSError, r1_CompletenessError, r2_MonotonicityError,
-            r3_RegistryError, index_IndexError_) as exc:
+            r3_LiteralExceptionError, index_IndexError_) as exc:
         failures = [str(exc)]
     for failure in failures:
         print("FAIL: " + failure)

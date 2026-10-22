@@ -10,7 +10,7 @@
 
 ## 验证证据
 
-- `python3 scripts/check_version_set_completeness.py`：20 个版本在 12 处重述一致。
+- `python3 scripts/check_reviewed_releases.py`：版本表完整性、补丁单调性、字面量禁令与宿主任务覆盖（R1–R4）。
 - `python3 scripts/generate_compatibility_matrix.py --check`：矩阵、各插件 sidecar、README 和市场发布清单没有过期。
 - 对本机 `cubism-ref` 的每个版本，实测 Editor/Core JAR 大小与 SHA-256，与记录完全一致；279 份记录共 32,941 个选择器，由 Python 元数据检查和当前 checkout 编译的生产 `StaticVerificationCli.verify` 分别校验，均无失败。
 - 14 张 class-pin 表共 956 项版本/类 SHA-256 与对应原始 Editor JAR 匹配。

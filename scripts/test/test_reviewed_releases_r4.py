@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed unit tests for check_host_validation_versions."""
+"""Fail-closed fixtures for R4 task and wrapper coverage."""
 from __future__ import annotations
 
 import json

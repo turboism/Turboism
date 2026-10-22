@@ -25,7 +25,7 @@ REVIEWED_VERSIONS = tuple(
     reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()
 )
 
-import check_host_validation_versions as version_derivation  # noqa: E402
+import check_reviewed_releases as version_derivation  # noqa: E402
 import host_validation as scheduler  # noqa: E402
 queue = scheduler.queue
 
