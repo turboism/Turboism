@@ -20,7 +20,7 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(SYNC)
 
 PACK_DIR = Path("compatibility/cubism/mapping-packs/draft")
-RECORD_DIR = Path("compatibility/cubism/verification")
+RECORD_DIR = Path("build/generated/verification")
 RECORD_REL = RECORD_DIR / "fixture-record.json"
 
 
@@ -77,7 +77,7 @@ def fixture_pack(record_bytes: bytes, record: dict) -> dict:
         "entries": [],
         "metadata": {
             "description": "keeps its position and text",
-            "inventoryRef": RECORD_REL.as_posix(),
+            "inventoryRef": "compatibility/cubism/verification/fixture-record.json",
             "selectorCount": len(record["selectors"]),
             "capabilityCount": len(record["capabilityIds"]),
             "capabilityIds": list(record["capabilityIds"]),
@@ -262,7 +262,7 @@ class DraftPackMetadataTest(unittest.TestCase):
             pack = fixture_pack(raw, record)
             pack["metadata"] = {
                 "mergedFrom": ["a.json", "b.json"],
-                "inventoryRef": RECORD_REL.as_posix(),
+                "inventoryRef": "compatibility/cubism/verification/fixture-record.json",
                 "selectorCount": 1,
                 "capabilityCount": 1,
                 "capabilityIds": [],

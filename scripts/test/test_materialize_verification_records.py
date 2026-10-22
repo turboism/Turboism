@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import sys
+import subprocess
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,6 +66,35 @@ class MaterializeVerificationRecordsTest(unittest.TestCase):
             (directory / 'cubism-5.0.00-fixture.json').write_bytes(b'changed')
             with self.assertRaisesRegex(ValueError, 'bytes differ'):
                 gen.check_records(rendered, directory)
+
+    def test_output_removes_stale_records_and_preserves_bytes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'records'
+            expected = {'cubism-5.0.00-fixture.json': encoded(record(VERSIONS[0]))}
+            gen.write_records(output, expected)
+            stamp = (output / next(iter(expected))).stat().st_mtime_ns
+            (output / 'stale.json').write_text('{}')
+            gen.write_records(output, expected)
+            gen.check_records(expected, output)
+            self.assertEqual(stamp, (output / next(iter(expected))).stat().st_mtime_ns)
+            (output / 'link.json').symlink_to(output / next(iter(expected)))
+            with self.assertRaisesRegex(ValueError, 'unexpected entry'):
+                gen.write_records(output, expected)
+
+    def test_export_committed_restores_exact_layout(self):
+        root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp)
+            shutil.copytree(root / gen.SOURCES, target / gen.SOURCES)
+            shutil.copyfile(root / gen.RELEASES, target / gen.RELEASES)
+            command = [sys.executable, str(root / 'scripts/materialize_verification_records.py'),
+                       '--root', str(target)]
+            result = subprocess.run(command + ['export-committed'], capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            gen.check_records(gen.render_records(root), target / gen.RECORDS)
+            result = subprocess.run(command + ['--output', str(gen.RECORDS)], capture_output=True, text=True)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn('use export-committed', result.stderr)
 
     def test_range_boundary(self):
         docs = {v: record(v) for v in VERSIONS}

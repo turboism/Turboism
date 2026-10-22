@@ -37,7 +37,7 @@ class EditorDocumentReadSelectorContractTest {
         final var resolver = SliceRegistry.EDITOR_MODEL
                 .resolverFactory()
                 .create(
-                        PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
+                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json"),
                         artifact,
                         loader(artifact));
         assertTrue(resolver.authorizesFeature(
@@ -67,7 +67,7 @@ class EditorDocumentReadSelectorContractTest {
         final var resolver = SliceRegistry.EDITOR_MODEL
                 .resolverFactory()
                 .create(
-                        PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
+                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.2.03-editor-model.json"),
                         artifact,
                         loader(artifact));
         assertTrue(resolver.authorizesFeature(

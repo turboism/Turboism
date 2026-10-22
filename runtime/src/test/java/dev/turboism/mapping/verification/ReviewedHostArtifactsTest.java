@@ -38,8 +38,8 @@ final class ReviewedHostArtifactsTest {
     void reviewedArtifactsAgreeWithTheirVerificationRecords() throws IOException {
         for (final HostArtifactDigest digest : ReviewedHostArtifacts.all()) {
             final String version = ReviewedHostArtifacts.cubismVersionOf(digest).orElseThrow();
-            final JsonNode artifact = JSON.readTree(Files.readString(root().resolve(
-                                    "compatibility/cubism/verification/cubism-" + version + "-editor-model.json")))
+            final JsonNode artifact = JSON.readTree(Files.readString(
+                            root().resolve("build/generated/verification/cubism-" + version + "-editor-model.json")))
                     .path("artifact");
             assertEquals(artifact.path("size").asLong(), digest.size(), version);
             assertEquals(artifact.path("sha256").asText(), digest.sha256(), version);

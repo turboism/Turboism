@@ -683,7 +683,7 @@ def test_core_model_read_mapping_packs(
 
         # Access flags live in the verification record, not in the DRAFT pack.
         record_path = (
-            ROOT / f"compatibility/cubism/verification/cubism-{version}-core-model-read.json"
+            ROOT / f"build/generated/verification/cubism-{version}-core-model-read.json"
         )
         record = decode_json(
             record_path.read_text(encoding="utf-8"),

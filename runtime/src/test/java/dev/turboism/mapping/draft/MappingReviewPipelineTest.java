@@ -916,6 +916,19 @@ class MappingReviewPipelineTest {
     }
 
     @Test
+    void applyRejectsMissingMaterializedRecordsWhenFamilySourcesExist() throws Exception {
+        TestWorkspace workspace = workspace();
+        Path jar = happyJar();
+        GeneratedBundle bundle = workspace.service().generate(request(jar));
+        Path approved = approvedReview(bundle, sha256(bundle.candidateBytes()));
+        Files.delete(workspace.root().resolve("build/generated/verification"));
+        Files.createDirectories(workspace.root().resolve("compatibility/cubism/verification-src"));
+        assertCode(
+                "STATIC_VERIFICATION_RECORD_INVALID",
+                () -> workspace.service().apply(new ApplyRequest(bundle.candidatePath(), approved, jar, false)));
+    }
+
+    @Test
     void applyRejectsInvalidStaticVerificationRecordAndCompleteVerifiedReference() throws Exception {
         TestWorkspace workspace = workspace();
         Path jar = happyJar();
@@ -1342,7 +1355,7 @@ class MappingReviewPipelineTest {
         Path root = temp.resolve("worktree-" + System.nanoTime());
         TestWorkspace workspace = new TestWorkspace(root);
         workspace.writePack(OLD_RUNTIME);
-        Files.createDirectories(root.resolve("compatibility/cubism/verification"));
+        Files.createDirectories(root.resolve("build/generated/verification"));
         return workspace;
     }
 
@@ -1771,7 +1784,7 @@ class MappingReviewPipelineTest {
         }
 
         Path verificationRecord() {
-            return root.resolve("compatibility/cubism/verification/fixture.json");
+            return root.resolve("build/generated/verification/fixture.json");
         }
 
         MappingReviewService service() {

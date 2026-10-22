@@ -31,7 +31,8 @@ from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
 DRAFT_PACKS = Path("compatibility/cubism/mapping-packs/draft")
-VERIFICATION_RECORDS = Path("compatibility/cubism/verification")
+VERIFICATION_RECORDS = Path("build/generated/verification")
+LEGACY_RECORDS = Path("compatibility/cubism/verification")
 MANAGED_FIELDS = (
     "selectorCount",
     "capabilityCount",
@@ -160,7 +161,10 @@ def inventory_ref_target(root: Path, pack_path: Path, metadata: dict[str, Any]) 
         return None
     if not isinstance(ref, str) or not ref:
         raise SyncError(f"{pack_path}: metadata.inventoryRef must be a non-empty string")
-    target = (root / ref).resolve()
+    relative = Path(ref)
+    if relative.is_relative_to(LEGACY_RECORDS):
+        relative = VERIFICATION_RECORDS / relative.relative_to(LEGACY_RECORDS)
+    target = (root / relative).resolve()
     if not target.is_relative_to(root.resolve()):
         raise SyncError(f"{pack_path}: inventoryRef escapes the repository: {ref}")
     return target

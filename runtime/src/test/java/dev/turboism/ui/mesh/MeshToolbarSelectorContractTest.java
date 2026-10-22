@@ -70,7 +70,7 @@ class MeshToolbarSelectorContractTest {
     void everyExactRecordAdvertisesAndContainsTheCompleteContract() throws Exception {
         for (String version : MeshToolbarSelectorContract.SUPPORTED_VERSIONS) {
             final var record = JSON.readTree(Files.readString(
-                    root().resolve("compatibility/cubism/verification/cubism-" + version + "-ui-main-toolbar.json")));
+                    root().resolve("build/generated/verification/cubism-" + version + "-ui-main-toolbar.json")));
             final Set<String> capabilities = strings(record.path("capabilityIds"));
             final Set<String> aliases = new HashSet<>();
             record.path("selectors")
