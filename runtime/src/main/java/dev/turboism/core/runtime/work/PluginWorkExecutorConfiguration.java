@@ -3,7 +3,10 @@ package dev.turboism.core.runtime.work;
 import java.time.Duration;
 import java.util.Objects;
 
-final class PluginWorkExecutorConfiguration {
+/** Immutable budgets and shutdown bounds for plugin work lanes. */
+public final class PluginWorkExecutorConfiguration {
+
+    private final Duration shutdownTimeout;
 
     static final int DEFAULT_LONG_LANE_CONCURRENCY = 2;
     static final long DEFAULT_LONG_RUNNING_THRESHOLD_MILLIS = 30_000L;
@@ -27,6 +30,7 @@ final class PluginWorkExecutorConfiguration {
             int longLaneConcurrency,
             Duration longRunningThreshold,
             Duration longRunningReportInterval) {
+        this.shutdownTimeout = Duration.ofSeconds(5);
         this.timeoutDuration = Objects.requireNonNull(timeoutDuration, "timeoutDuration");
         this.bulkheadPoolSize = requirePositive(bulkheadPoolSize, "bulkheadPoolSize");
         this.queueCapacity = requirePositive(queueCapacity, "queueCapacity");
@@ -37,7 +41,31 @@ final class PluginWorkExecutorConfiguration {
         this.longRunningReportInterval = Objects.requireNonNull(longRunningReportInterval, "longRunningReportInterval");
     }
 
-    static PluginWorkExecutorConfiguration of(
+    private PluginWorkExecutorConfiguration(PluginWorkExecutorConfiguration source, Duration shutdownTimeout) {
+        this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
+            throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
+        this.timeoutDuration = source.timeoutDuration;
+        this.bulkheadPoolSize = source.bulkheadPoolSize;
+        this.queueCapacity = source.queueCapacity;
+        this.circuitBreakerFailureRateThreshold = source.circuitBreakerFailureRateThreshold;
+        this.longLaneConcurrency = source.longLaneConcurrency;
+        this.longRunningThreshold = source.longRunningThreshold;
+        this.longRunningReportInterval = source.longRunningReportInterval;
+    }
+
+    /** Returns the same work budgets with a different bounded pool shutdown wait. */
+    public PluginWorkExecutorConfiguration withShutdownTimeout(Duration timeout) {
+        return new PluginWorkExecutorConfiguration(this, timeout);
+    }
+
+    Duration shutdownTimeout() {
+        return shutdownTimeout;
+    }
+
+    /** Creates work budgets with the production long-lane defaults. */
+    public static PluginWorkExecutorConfiguration of(
             long timeoutMillis, int bulkheadPoolSize, int queueCapacity, float circuitBreakerFailureRateThreshold) {
         return of(
                 timeoutMillis,
