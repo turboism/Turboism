@@ -42,19 +42,23 @@ import org.junit.jupiter.api.Test;
 class ParameterBatchTransferPluginTest {
 
     @Test
-    void enableRegistersOneActionAndTwoContextMenuEntries() {
+    void enableRegistersOneActionAndThreeContextMenuEntries() {
         final Fixture fixture = new Fixture();
         fixture.plugin.init(fixture.context);
         fixture.plugin.enable();
 
         assertEquals(List.of(ParameterBatchTransferPlugin.ACTION_ID), fixture.actions.ids());
-        assertEquals(2, fixture.contextMenus.contributions.size());
+        assertEquals(3, fixture.contextMenus.contributions.size());
 
         final ContextMenuRegistry.ContextMenuContribution deformer =
                 fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_DEFORMER_ID);
         final ContextMenuRegistry.ContextMenuContribution part =
                 fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_PART_ID);
 
+        final ContextMenuRegistry.ContextMenuContribution workspace =
+                fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_WORKSPACE_ID);
+
+        assertEquals(ContextMenuRegistry.Location.WORKSPACE_OBJECT, workspace.location());
         assertEquals(ContextMenuRegistry.Location.DEFORMER_TAB, deformer.location());
         assertEquals(ContextMenuRegistry.Location.PART_TAB, part.location());
         for (final ContextMenuRegistry.ContextMenuContribution contribution : fixture.contextMenus.contributions) {

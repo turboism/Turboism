@@ -153,18 +153,20 @@ class IdempotentRegistrationTest {
         final CountDownLatch releaseOwner = new CountDownLatch(1);
         final AtomicInteger closes = new AtomicInteger();
         final AtomicReference<Throwable> waiterFailure = new AtomicReference<>();
-        final Registration registration = IdempotentRegistration.of(() -> {
-            closes.incrementAndGet();
-            ownerEntered.countDown();
-            try {
-                if (!releaseOwner.await(10, TimeUnit.SECONDS)) {
-                    throw new IllegalStateException("owner release latch timed out");
-                }
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(interrupted);
-            }
-        });
+        final Registration registration = IdempotentRegistration.of(
+                () -> {
+                    closes.incrementAndGet();
+                    ownerEntered.countDown();
+                    try {
+                        if (!releaseOwner.await(10, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("owner release latch timed out");
+                        }
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(interrupted);
+                    }
+                },
+                new dev.turboism.core.runtime.QuiescencePolicy(Duration.ofMillis(50)));
 
         final Thread owner = new Thread(registration::close, "registration-blocked-owner");
         final Thread waiter =
@@ -183,10 +185,9 @@ class IdempotentRegistrationTest {
                 "waiter must fail closed with IllegalStateException, got: " + waiterFailure.get());
         assertTrue(waiterFailure.get().getCause() instanceof java.util.concurrent.TimeoutException);
         assertTrue(
-                elapsedMillis >= 4_500,
-                "waiter returned too early (" + elapsedMillis + "ms) — join timeout not honoured");
+                elapsedMillis >= 40, "waiter returned too early (" + elapsedMillis + "ms) — join timeout not honoured");
         assertTrue(
-                elapsedMillis <= 8_000,
+                elapsedMillis <= 2_000,
                 "waiter blocked too long (" + elapsedMillis + "ms) — expected the bounded join");
 
         releaseOwner.countDown();

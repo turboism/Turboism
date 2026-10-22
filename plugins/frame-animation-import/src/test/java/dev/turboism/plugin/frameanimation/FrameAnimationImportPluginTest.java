@@ -36,7 +36,13 @@ class FrameAnimationImportPluginTest {
                 fixture.actions.actions.get(0).id());
 
         // Context menu items registered in service registry
-        assertEquals(2, fixture.contextMenus.contributions.size());
+        assertEquals(1, fixture.contextMenus.contributions.size());
+        assertEquals(
+                ContextMenuRegistry.Location.PART_TAB,
+                fixture.contextMenus.contributions.get(0).location());
+        assertEquals(
+                FrameAnimationImportPlugin.ACTION_ID,
+                fixture.contextMenus.contributions.get(0).actionId());
 
         // Top-level Turboism menu item registered
         assertEquals(1, fixture.menus.contributions.size());

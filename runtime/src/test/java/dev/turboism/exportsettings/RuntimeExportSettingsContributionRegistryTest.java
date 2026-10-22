@@ -199,7 +199,8 @@ final class RuntimeExportSettingsContributionRegistryTest {
     @Test
     void crossThreadScopeCloseTimesOutAndKeepsLoaderRetained() throws Exception {
         final DisposableScope scope = new DisposableScope();
-        final RuntimeExportSettingsContributionRegistry registry = registry();
+        final RuntimeExportSettingsContributionRegistry registry = new RuntimeExportSettingsContributionRegistry(
+                "plugin-1", 7L, new dev.turboism.core.runtime.QuiescencePolicy(Duration.ofMillis(50)));
         scope.register(registry);
         scope.register(registry.scopeCloseGuard());
         final CountDownLatch callbackEntered = new CountDownLatch(1);

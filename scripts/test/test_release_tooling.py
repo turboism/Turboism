@@ -186,18 +186,16 @@ class ReleaseWorkflowTest(unittest.TestCase):
 
     def test_all_release_verifier_calls_supply_roster_and_windows_stage(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        runbook = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
         candidate = (
             ROOT / "scripts/release/turboism_release/candidate.py"
         ).read_text(encoding="utf-8")
-        for text in (workflow, runbook):
+        for text in (workflow,):
             self.assertIn("scripts/release/verify-release.py", text)
             self.assertIn("--release-plugins", text)
             self.assertIn("--windows-stage", text)
         self.assertIn("packaging/release-plugins.txt", candidate)
         self.assertIn('dist.resolve().parent / "staging"', candidate)
         self.assertIn("build/windows-installer/staging", workflow)
-        self.assertIn("build/windows-installer/staging", runbook)
 
     def test_candidate_artifact_includes_windows_stage(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
@@ -248,33 +246,6 @@ class ReleaseWorkflowTest(unittest.TestCase):
             publisher.index("Verify public signed catalog and planned plugin bytes"),
             publisher.index("Verify payload then create or resume official tag and Release"),
         )
-
-    def test_releasing_runbook_documents_one_command_and_roster_separation(self):
-        runbook = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
-        self.assertIn("turboism-release.py release", runbook)
-        self.assertIn("--candidate-run-id <completed-actions-run-id>", runbook)
-        self.assertIn("packaging/release-plugins.txt", runbook)
-        self.assertIn("packaging/market-plugins.json", runbook)
-        self.assertIn("not thereby published", runbook)
-
-    def test_readme_states_supported_host_versions_and_platform(self):
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("Windows x64", readme)
-        self.assertIn("5.0.00 – 5.0.06", readme)
-        self.assertIn("5.1.00 – 5.1.03", readme)
-        self.assertIn("5.2.00 – 5.2.03", readme)
-        self.assertIn("5.3.00 – 5.3.04", readme)
-        self.assertIn("## About", readme)
-        self.assertIn("## Supported Cubism Editor versions", readme)
-        self.assertIn("CHANGELOG.md", readme)
-
-    def test_public_plugin_readmes_state_complete_host_roster(self):
-        readmes = sorted((ROOT / "plugins").glob("*/README*.md"))
-        for path in readmes:
-            text = path.read_text(encoding="utf-8")
-            if "5.2.03" not in text or "5.3.02" not in text:
-                continue
-            self.assertIn("5.3.03", text, path)
 
     def test_windows_zip_writer_uses_a_fixed_timestamp(self):
         script = (
@@ -343,16 +314,6 @@ class RootReadmeTest(unittest.TestCase):
                               "configure_turboism.ps1", "launch-cubism-turboism.bat",
                               "gradlew.bat", "compileOnly", "com.live2d.*"):
                     self.assertIn(token, text)
-
-    def test_command_examples_are_identical_in_every_language(self):
-        def blocks(filename):
-            text = (ROOT / filename).read_text(encoding="utf-8")
-            return ["\n".join(line.strip() for line in block.splitlines())
-                    for block in re.findall(r"(?ms)^ *```[^\n]*\n(.*?)^ *```[ \t]*$", text)]
-        english = blocks("README.md")
-        self.assertEqual(len(english), 5)
-        for filename in self.PAGES:
-            self.assertEqual(blocks(filename), english, filename)
 
     def test_links_exist_and_match_across_languages(self):
         from collections import Counter

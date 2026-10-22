@@ -35,8 +35,6 @@ import java.util.function.Supplier;
  */
 public final class PluginWorkExecutor {
 
-    private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
-
     private final String pluginId;
     private final PluginWorkExecutorConfiguration configuration;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
@@ -222,12 +220,12 @@ public final class PluginWorkExecutor {
         return workerPool.isTerminated() && timeoutScheduler.isTerminated();
     }
 
-    private static void shutdownPool(final java.util.concurrent.ExecutorService pool) {
+    private void shutdownPool(final java.util.concurrent.ExecutorService pool) {
         pool.shutdown();
         try {
-            if (!pool.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            if (!pool.awaitTermination(configuration.shutdownTimeout().toNanos(), TimeUnit.NANOSECONDS)) {
                 pool.shutdownNow();
-                pool.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                pool.awaitTermination(configuration.shutdownTimeout().toNanos(), TimeUnit.NANOSECONDS);
             }
         } catch (InterruptedException exception) {
             pool.shutdownNow();

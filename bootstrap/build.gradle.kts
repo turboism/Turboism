@@ -7,6 +7,7 @@ import java.util.jar.JarFile
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 dependencies {
+    testImplementation(project(":testing:test-support"))
     implementation(project(":runtime"))
     implementation(project(":sdk"))
     // Framework composition includes only SDK, runtime and internal contracts.
