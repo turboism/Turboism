@@ -53,7 +53,7 @@ public record RuntimeStartupConfig(
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final RuntimeStartupConfig DISABLED = new RuntimeStartupConfig(false, false, false, false);
+    private static final RuntimeStartupConfig FAIL_CLOSED = new RuntimeStartupConfig(true, false, false, false);
     private static final RuntimeStartupConfig DEFAULTS = new RuntimeStartupConfig(false, true, true, true);
     private static final long MAX_CONFIG_BYTES = 64L * 1024L;
 
@@ -62,7 +62,7 @@ public record RuntimeStartupConfig(
      *
      * @param turboismHome Turboism home directory containing {@code config.json}
      * @return the parsed configuration, the default-on configuration when the file is absent,
-     *     or the all-disabled configuration on any other problem
+     *     or a configuration preserving safety controls on any other problem
      * @throws NullPointerException if {@code turboismHome} is null
      */
     public static RuntimeStartupConfig load(final Path turboismHome) {
@@ -75,16 +75,17 @@ public record RuntimeStartupConfig(
      *
      * <p>Startup suppression defaults to on: an absent {@code config.json} and absent
      * {@code hooks.startup.skip*} keys both mean requested, and only an explicit {@code false}
-     * (or safe mode) opts out. Rejection paths still return the all-disabled configuration and
-     * report a code, because failing to read config must not stop the official host from
-     * starting. Rejections are a path escaping the home directory, a non-regular file, a file
+     * (or safe mode) opts out. Invalid schemas preserve boolean safe mode and string hook IDs,
+     * while unreadable or rejected files enable safe mode. All rejection paths disable startup
+     * suppression and report a code without stopping the official host from starting. Rejections
+     * are a path escaping the home directory, a non-regular file, a file
      * over 64 KiB, a schema-invalid document, and any read or parse error.</p>
      *
      * @param turboismHome Turboism home directory containing {@code config.json}
      * @param diagnostic receives a {@code RUNTIME_STARTUP_CONFIG_*} code per rejection; exceptions
      *     it throws are swallowed so a broken diagnostic sink cannot block startup
      * @return the parsed configuration, the default-on configuration when the file is absent, or
-     *     the all-disabled configuration when anything else was wrong
+     *     a configuration preserving safety controls when anything else was wrong
      * @throws NullPointerException if either argument is null
      */
     public static RuntimeStartupConfig load(final Path turboismHome, final Consumer<String> diagnostic) {
@@ -94,7 +95,7 @@ public record RuntimeStartupConfig(
         final Path configPath = home.resolve("config.json").normalize();
         if (!configPath.startsWith(home)) {
             report(diagnostic, "RUNTIME_STARTUP_CONFIG_PATH_REJECTED");
-            return DISABLED;
+            return FAIL_CLOSED;
         }
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
             return DEFAULTS;
@@ -103,14 +104,34 @@ public record RuntimeStartupConfig(
             if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
                     || Files.size(configPath) > MAX_CONFIG_BYTES) {
                 report(diagnostic, "RUNTIME_STARTUP_CONFIG_FILE_REJECTED");
-                return DISABLED;
+                return FAIL_CLOSED;
             }
             final JsonNode root = JSON.readTree(Files.readAllBytes(configPath));
+            if (root == null) {
+                report(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
+                return FAIL_CLOSED;
+            }
             final java.util.List<dev.turboism.core.schema.SchemaValidationError> configErrors =
                     new RuntimeConfigValidator().validate(root, configPath.toString());
             if (!configErrors.isEmpty()) {
                 report(diagnostic, "RUNTIME_STARTUP_CONFIG_INVALID");
-                return DISABLED;
+                final java.util.Set<String> disabledHookIds = new java.util.LinkedHashSet<>();
+                final JsonNode disabledIds = root.path("hooks").path("disabledIds");
+                if (disabledIds.isArray()) {
+                    for (JsonNode value : disabledIds) {
+                        if (value.isTextual()) disabledHookIds.add(value.textValue());
+                    }
+                }
+                final JsonNode safeMode = root.path("safeMode");
+                return new RuntimeStartupConfig(
+                        safeMode.isBoolean() && safeMode.booleanValue(),
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        disabledHookIds);
             }
             final boolean safeMode = root.path("safeMode").asBoolean(false);
             final JsonNode startup = root.path("hooks").path("startup");
@@ -130,7 +151,7 @@ public record RuntimeStartupConfig(
                     disabledHookIds);
         } catch (IOException | RuntimeException failure) {
             report(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
-            return DISABLED;
+            return FAIL_CLOSED;
         }
     }
 
