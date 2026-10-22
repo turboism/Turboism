@@ -16,7 +16,15 @@ JAVA_DIR = Path('runtime/src/main/java/dev/turboism/mapping/verification')
 HOST = JAVA_DIR / 'ReviewedHostArtifacts.java'
 TABLE = JAVA_DIR / 'ReviewedReleaseTable.java'
 ENV = Path('.env.example')
-VERSIONS = Path('sdk/src/main/java/dev/turboism/internal/ReviewedVersions.java')
+VERSIONS = Path('sdk/src/main/java/dev/turboism/sdk/cubism/command/ReviewedVersions.java')
+INTERNAL_VERSIONS = Path('runtime/src/main/java/dev/turboism/internal/ReviewedVersions.java')
+MCP_VERSIONS = Path('plugins/mcp/src/main/java/dev/turboism/plugin/mcp/ReviewedVersions.java')
+# Each loader owns its implementation helper; the two plugin-facing modules keep it package-private.
+RANGE_OUTPUTS = {
+    VERSIONS: ('dev.turboism.sdk.cubism.command', False),
+    INTERNAL_VERSIONS: ('dev.turboism.internal', True),
+    MCP_VERSIONS: ('dev.turboism.plugin.mcp', False),
+}
 
 
 def render(root: Path) -> dict[Path, str]:
@@ -133,7 +141,11 @@ public final class ReviewedVersions {
         fixture_lines.extend([f'TURBOISM_HOST_VALIDATION_FIXTURE_{code}=/path/to/cubism-{version}-fixture.cmo3',
                               f'# TURBOISM_HOST_VALIDATION_FIXTURE_{code}_SHA256=<64 lowercase hex characters>'])
     env = env[:env.index(begin)] + begin + '\n' + '\n'.join(fixture_lines) + '\n' + env[env.index(end):]
-    return {HOST: host, TABLE: table, VERSIONS: ranges, ENV: env}
+    outputs = {HOST: host, TABLE: table, ENV: env}
+    for path, (package, public) in RANGE_OUTPUTS.items():
+        content = ranges.replace('package dev.turboism.internal;', f'package {package};')
+        outputs[path] = content if public else content.replace('public ', '')
+    return outputs
 
 
 def check(root: Path) -> list[str]:

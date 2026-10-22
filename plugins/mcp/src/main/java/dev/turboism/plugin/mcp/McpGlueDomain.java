@@ -1,6 +1,5 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
