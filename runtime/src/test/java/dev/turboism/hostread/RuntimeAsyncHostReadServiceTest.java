@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
@@ -23,6 +24,7 @@ import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -160,7 +162,7 @@ class RuntimeAsyncHostReadServiceTest {
                         .toCompletableFuture()
                         .get(1, TimeUnit.SECONDS)
                         .status());
-        Thread.sleep(50L);
+        drainLane();
         assertEquals(1, source.calls.get());
     }
 
@@ -191,7 +193,7 @@ class RuntimeAsyncHostReadServiceTest {
                         .toCompletableFuture()
                         .get(1, TimeUnit.SECONDS)
                         .status());
-        Thread.sleep(50L);
+        drainLane();
         assertEquals(1, source.calls.get());
     }
 
@@ -225,7 +227,7 @@ class RuntimeAsyncHostReadServiceTest {
         assertEquals(
                 AsyncHostReadErrorCode.TIMEOUT, timeout.error().orElseThrow().code());
         timedSource.release.countDown();
-        Thread.sleep(50L);
+        drainLane();
         assertEquals(AsyncHostReadStatus.FAILED, timed.status());
 
         final FakeSource canceledSource = new FakeSource();
@@ -317,7 +319,7 @@ class RuntimeAsyncHostReadServiceTest {
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
 
         final CompletableFuture<Void> closing = CompletableFuture.runAsync(service::close);
-        Thread.sleep(75L);
+        Await.condition(() -> !service.isAvailable());
         assertThrows(IllegalStateException.class, () -> handle.completion().thenRun(() -> {}));
         assertThrows(IllegalStateException.class, () -> handle.completion().thenAccept(ignored -> {}));
         assertThrows(IllegalStateException.class, () -> handle.completion().thenAcceptAsync(ignored -> {}));
@@ -339,7 +341,7 @@ class RuntimeAsyncHostReadServiceTest {
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
 
         final CompletableFuture<Void> closed = CompletableFuture.runAsync(service::close);
-        Thread.sleep(75L);
+        Await.condition(() -> !service.isAvailable());
         assertFalse(closed.isDone(), "close must retain the plugin while the host wrapper is still running");
         assertEquals(
                 AsyncHostReadStatus.CANCELED,
@@ -371,7 +373,7 @@ class RuntimeAsyncHostReadServiceTest {
         assertTrue(continuationStarted.await(1, TimeUnit.SECONDS));
 
         final CompletableFuture<Void> closed = CompletableFuture.runAsync(service::close);
-        Thread.sleep(75L);
+        Await.condition(() -> !service.isAvailable());
         assertFalse(closed.isDone(), "close must wait for admitted plugin continuations");
         releaseContinuation.countDown();
         closed.get(1, TimeUnit.SECONDS);
@@ -386,7 +388,11 @@ class RuntimeAsyncHostReadServiceTest {
         if (scheduler == null) {
             scheduler = new RuntimeScheduler(
                     new DefaultWorkBudgetPolicy(),
-                    new PluginWorkExecutorRegistry(2_000L, 1, 64, ignored -> {}, Clock.systemUTC()),
+                    new PluginWorkExecutorRegistry(
+                            PluginWorkExecutorConfiguration.of(2_000L, 1, 64, 50.0f)
+                                    .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                            ignored -> {},
+                            Clock.systemUTC()),
                     SidecarDispatcher.noop(),
                     ignored -> {});
             lane = new SharedAsyncHostReadLane(32);
@@ -408,7 +414,7 @@ class RuntimeAsyncHostReadServiceTest {
                 throw new RuntimeException(exception);
             }
         });
-        Thread.sleep(75L);
+        Await.condition(() -> !service.isAvailable());
         assertEquals(List.of("plugin-ui"), closeOrder);
         source.release.countDown();
         closed.get(1, TimeUnit.SECONDS);
@@ -435,6 +441,12 @@ class RuntimeAsyncHostReadServiceTest {
         assertTrue(second.status() == AsyncHostReadStatus.CANCELED || second.status() == AsyncHostReadStatus.SUCCEEDED);
     }
 
+    private void drainLane() throws Exception {
+        final CompletableFuture<Void> drained = new CompletableFuture<>();
+        assertTrue(lane.offerSessionObservation(() -> drained.complete(null)));
+        drained.get(1, TimeUnit.SECONDS);
+    }
+
     private RuntimeAsyncHostReadService service(
             final String pluginId, final Set<String> permissions, final FakeSource source) {
         return service(pluginId, permissions, source, 32);
@@ -445,7 +457,11 @@ class RuntimeAsyncHostReadServiceTest {
         if (scheduler == null) {
             scheduler = new RuntimeScheduler(
                     new DefaultWorkBudgetPolicy(),
-                    new PluginWorkExecutorRegistry(2_000L, 1, 64, ignored -> {}, Clock.systemUTC()),
+                    new PluginWorkExecutorRegistry(
+                            PluginWorkExecutorConfiguration.of(2_000L, 1, 64, 50.0f)
+                                    .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                            ignored -> {},
+                            Clock.systemUTC()),
                     SidecarDispatcher.noop(),
                     ignored -> {});
             lane = new SharedAsyncHostReadLane(capacity);

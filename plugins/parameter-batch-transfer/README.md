@@ -30,7 +30,7 @@ Transfers parameter bindings from one selected ArtMesh or Deformer to multiple t
 
 ## What it does
 
-- Adds batch-transfer entries to Deformer and Part context menus.
+- Adds batch-transfer entries to Deformer, Part, and canvas context menus.
 - Builds a modal target-selection session from one selected ArtMesh, Warp Deformer, or Rotation Deformer.
 - Applies confirmed transfers with optional inversion and reports each outcome.
 
@@ -74,7 +74,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 | `turboism.cubism.model.read` | `application` | Read the selected object's parameter bindings and the model parameter list for the transfer session. |
 | `turboism.cubism.model.write` | `application` | Apply confirmed parameter-binding transfers through the typed Editor authoring API. |
 | `turboism.action.register` | `application` | Register the batch-transfer open action behind the context-menu entries. |
-| `turboism.ui.context-menu.contribute` | `application` | Expose the batch-transfer entry in Deformer tab and Part tab context menus. |
+| `turboism.ui.context-menu.contribute` | `application` | Expose the batch-transfer entry in Deformer tab, Part tab, and canvas context menus. |
 | `turboism.ui.status.notify` | `application` | Notify transfer results and precondition skips. |
 
 ## Privacy and data
@@ -104,7 +104,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 | Symptom | What to check |
 |---|---|
-| Context command is missing | Select one supported object in the Deformer or Part context. |
+| Context command is missing | Select one supported object in the Deformer, Part, or canvas context. |
 | Dialog has no source bindings | Choose an object with existing parameter bindings. |
 | A transfer is skipped | Check destination validity, selection state, and the status notification for the rejected row. |
 
