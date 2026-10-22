@@ -37,9 +37,9 @@ import java.util.function.Consumer;
  */
 public final class PluginLongLane {
 
-    private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
     private static final String DIAGNOSTIC_COMPONENT = "turboism.plugin.long-lane";
 
+    private final Duration shutdownTimeout;
     private final String pluginId;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final ThreadPoolExecutor worker;
@@ -55,7 +55,12 @@ public final class PluginLongLane {
             int queueCapacity,
             Duration longRunningThreshold,
             Duration reportInterval,
-            Consumer<PluginWorkBudgetEvent> diagnosticSink) {
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Duration shutdownTimeout) {
+        this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
+            throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
         this.pluginId = requireText(pluginId, "pluginId");
         if (concurrency < 1) {
             throw new IllegalArgumentException("concurrency must be positive");
@@ -135,7 +140,7 @@ public final class PluginLongLane {
         }
         worker.shutdown();
         try {
-            worker.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            worker.awaitTermination(shutdownTimeout.toNanos(), TimeUnit.NANOSECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }

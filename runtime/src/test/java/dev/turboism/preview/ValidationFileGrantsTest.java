@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.home.PluginHomePaths;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
@@ -1021,7 +1022,11 @@ class ValidationFileGrantsTest {
             this.scope = new DisposableScope();
             this.scheduler = new RuntimeScheduler(
                     new DefaultWorkBudgetPolicy(),
-                    new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
+                    new PluginWorkExecutorRegistry(
+                            PluginWorkExecutorConfiguration.of(500L, 1, 32, 50.0f)
+                                    .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                            ignored -> {},
+                            Clock.systemUTC()),
                     SidecarDispatcher.noop(),
                     ignored -> {});
             this.service = new RuntimeUserFileAccessService(

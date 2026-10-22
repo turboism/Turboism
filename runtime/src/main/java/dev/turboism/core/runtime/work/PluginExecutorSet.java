@@ -79,7 +79,8 @@ public final class PluginExecutorSet {
                             configuration.queueCapacity(),
                             configuration.longRunningThreshold(),
                             configuration.longRunningReportInterval(),
-                            diagnosticSink);
+                            diagnosticSink,
+                            configuration.shutdownTimeout());
                     longLane = lane;
                     if (closed) {
                         lane.shutdown();
