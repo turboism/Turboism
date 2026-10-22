@@ -1,6 +1,7 @@
 """Joint-pose protocol controls. Synthetic fixtures never certify native evaluation."""
 import copy
 import itertools
+import json
 import math
 from pathlib import Path
 import runpy
@@ -97,15 +98,16 @@ class JointPoseProtocolTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.base = fixture()
+        cls.base_json = json.dumps(cls.base)
 
     def check_rejected(self, mutate):
-        report = copy.deepcopy(self.base)
+        report = json.loads(self.base_json)
         mutate(report['jointPose'])
         with self.assertRaises(ValueError):
             VERIFY['verify_joint_pose'](report)
 
     def test_complete_fixture(self):
-        VERIFY['verify_joint_pose'](copy.deepcopy(self.base))
+        VERIFY['verify_joint_pose'](json.loads(self.base_json))
 
     def test_missing_midpoint_and_random_samples(self):
         self.check_rejected(lambda e: e['samples'].pop(1))
@@ -160,7 +162,7 @@ class JointPoseProtocolTest(unittest.TestCase):
     def test_complete_section_has_a_fixed_byte_budget(self):
         import json
         limit = 96 * 1024 * 1024
-        report = copy.deepcopy(self.base)
+        report = json.loads(self.base_json)
         report['jointPose']['padding'] = ''
         size = len(json.dumps(report['jointPose'], separators=(',', ':')).encode('utf-8'))
         report['jointPose']['padding'] = ' ' * (limit - size)
@@ -170,7 +172,7 @@ class JointPoseProtocolTest(unittest.TestCase):
             VERIFY['verify_joint_pose'](report)
 
     def test_float_json_shortest_decimal(self):
-        report = copy.deepcopy(self.base)
+        report = json.loads(self.base_json)
         # Java serializes Float with shortest round-tripping decimal digits.
         report['jointPose']['yawKeys'] = [float(format(v, '.8g')) for v in report['jointPose']['yawKeys']]
         VERIFY['verify_joint_pose'](report)
