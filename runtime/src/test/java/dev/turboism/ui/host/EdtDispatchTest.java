@@ -306,6 +306,77 @@ class EdtDispatchTest {
     }
 
     @Test
+    void interruptBeforeStartWaitCompensatesAnAlreadyRunningTask() throws Exception {
+        final CountDownLatch bodyStarted = new CountDownLatch(1);
+        final CountDownLatch callerDone = new CountDownLatch(1);
+        final AtomicReference<Thread> caller = new AtomicReference<>();
+        final AtomicReference<Throwable> outcome = new AtomicReference<>();
+        final AtomicBoolean interruptRestored = new AtomicBoolean();
+        final AtomicInteger compensations = new AtomicInteger();
+        final AtomicBoolean handedOff = new AtomicBoolean();
+        class HandoffQueue extends java.awt.EventQueue {
+            @Override
+            public void postEvent(final java.awt.AWTEvent event) {
+                super.postEvent(event);
+                if (Thread.currentThread() == caller.get() && handedOff.compareAndSet(false, true)) {
+                    // Hold invokeLater's return until the body is running, then interrupt
+                    // before dispatch can enter its acceptance wait.
+                    await(bodyStarted);
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+            void remove() {
+                super.pop();
+            }
+        }
+        final HandoffQueue queue = new HandoffQueue();
+        SwingUtilities.invokeAndWait(
+                () -> java.awt.Toolkit.getDefaultToolkit().getSystemEventQueue().push(queue));
+        final java.awt.SecondaryLoop loop = queue.createSecondaryLoop();
+        final Thread worker = new Thread(
+                () -> {
+                    try {
+                        EdtDispatch.call(
+                                "interrupted-handoff",
+                                Duration.ofSeconds(30),
+                                () -> {
+                                    bodyStarted.countDown();
+                                    loop.enter();
+                                    return null;
+                                },
+                                () -> {
+                                    assertTrue(SwingUtilities.isEventDispatchThread());
+                                    compensations.incrementAndGet();
+                                    loop.exit();
+                                });
+                    } catch (Throwable failure) {
+                        outcome.set(failure);
+                    } finally {
+                        interruptRestored.set(Thread.currentThread().isInterrupted());
+                        callerDone.countDown();
+                    }
+                },
+                "edt-dispatch-test-handoff");
+        worker.setDaemon(true);
+        caller.set(worker);
+        try {
+            worker.start();
+            assertTrue(callerDone.await(5, TimeUnit.SECONDS));
+            assertTrue(outcome.get() instanceof EdtDispatchException);
+            assertEquals(EdtDispatchException.Reason.INTERRUPTED, ((EdtDispatchException) outcome.get()).reason());
+            assertEquals(1, compensations.get());
+            assertTrue(interruptRestored.get());
+        } finally {
+            SwingUtilities.invokeAndWait(() -> {
+                loop.exit();
+                queue.remove();
+            });
+            worker.join(5000);
+        }
+    }
+
+    @Test
     void taskFailuresPropagateUnchanged() {
         final IllegalArgumentException runtime = new IllegalArgumentException("boom");
         final IllegalArgumentException thrown = assertThrows(
