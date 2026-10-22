@@ -10,8 +10,9 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 
 # Rebuild every shipped artifact before copying so a stale jar can never be
 # packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
+# Materialize before any generated-record reads, including on a clean checkout.
 TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
-  :bootstrap:jar :testing:integration-tests:testClasses
+  materializeVerificationRecords :bootstrap:jar :testing:integration-tests:testClasses
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-workspace-validation}"
 # The bundle must carry the agent freshly built by :bootstrap:jar for THIS worktree.
 # The legacy build/preview/<worktree>/turboism-agent.jar copy is stale by design and must

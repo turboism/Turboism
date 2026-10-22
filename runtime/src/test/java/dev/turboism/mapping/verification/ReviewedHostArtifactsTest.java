@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * Guards the reviewed host artifact identities without restating them.
  *
  * <p>{@link ReviewedHostArtifacts} is the single declaration of the size and SHA-256 literals. The
- * per-version editor-model verification records under {@code compatibility/cubism/verification}
+ * per-version editor-model verification records under {@code build/generated/verification}
  * are the independent, byte-anchored copy of the same identity, so a typo in the shared constants
  * is caught by disagreement with those records instead of by a third literal copy here.</p>
  */

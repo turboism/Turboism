@@ -93,7 +93,7 @@ record StartupSuppressionProfile(
      * The reviewed suppression shape per admitted generation: the splash-factory
      * selector and whether the startup entry invokes {@code CEAppCtrl.showInformation}.
      * Every tuple is the VERIFIED_STATIC contract of
-     * {@code compatibility/cubism/verification/cubism-<version>-startup-suppression.json};
+     * {@code build/generated/verification/cubism-<version>-startup-suppression.json};
      * the startup entry {@code a([Ljava/lang/String;)V} and the update-check call
      * {@code CEAppCtrl.command_checkUpdate()V} are identical on all reviewed
      * generations. On 5.0.x the startup entry never invokes an information
