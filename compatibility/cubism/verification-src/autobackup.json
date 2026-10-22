@@ -1,0 +1,1021 @@
+{
+  "format": "turboism.verification-family/v1",
+  "family": "autobackup",
+  "base": {
+    "format": "turboism.static.verification.record",
+    "schemaVersion": 1,
+    "adapterSliceId": "adapter.cubism.autobackup",
+    "capabilityIds": [
+      "cubism.autobackup.settings",
+      "cubism.autobackup.backup"
+    ],
+    "evidenceType": "JAR_METADATA",
+    "owner": "runtime-adapter",
+    "status": "VERIFIED_STATIC",
+    "verifiedBy": "turboism-autobackup-static-verifier",
+    "safeMode": "Fail closed with UNAVAILABLE and keep the auto-backup service unavailable until runtime resolution and smoke evidence exist.",
+    "capabilityConditions": {
+      "cubism.autobackup.settings": [
+        "structure"
+      ],
+      "cubism.autobackup.backup": [
+        "structure"
+      ]
+    }
+  },
+  "fieldRanges": [],
+  "artifactRanges": [],
+  "selectors": [
+    {
+      "base": {
+        "alias": "cubism.auto-backup.manager.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.class.manager_class"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.class.manager_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.manager.instance",
+        "kind": "field",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "a",
+        "descriptor": "Lcom/live2d/cubism/util/a;",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.field.manager_instance"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.field.manager_instance"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.is-enabled",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "a",
+        "descriptor": "()Z",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.is_enabled"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.is_enabled"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.set-enabled",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "a",
+        "descriptor": "(Z)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.set_enabled"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.set_enabled"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.set-interval-minute",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "a",
+        "descriptor": "(I)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.set_interval_minute"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.set_interval_minute"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.attach-pack",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "a",
+        "descriptor": "(Lcom/live2d/cubism/pack/CECompletePack;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.attach_pack"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.attach_pack"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.get-interval-minute",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "b",
+        "descriptor": "()I",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.get_interval_minute"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.get_interval_minute"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.set-max-mb",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "b",
+        "descriptor": "(I)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.set_max_mb"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.set_max_mb"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.get-max-mb",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "c",
+        "descriptor": "()I",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.get_max_mb"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.get_max_mb"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.update",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "h",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.update"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.update"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.backup-dir",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/util/a",
+        "memberName": "i",
+        "descriptor": "()Ljava/io/File;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.backup_dir"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.backup_dir"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.app-controller.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.class.app_controller_class"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.class.app_controller_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.app-controller.get-complete-pack",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "getCompletePack",
+        "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.app_controller_get_complete_pack"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.app_controller_get_complete_pack"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.complete-pack.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.class.complete_pack_class"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.class.complete_pack_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.complete-pack.file-contents",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+        "memberName": "getAllFileContents",
+        "descriptor": "()Ljava/util/List;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.complete_pack_file_contents"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.complete_pack_file_contents"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.file-content.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.class.file_content_class"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.class.file_content_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.file-content.last-auto-backup-time",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+        "memberName": "getLastAutoBackupTime",
+        "descriptor": "()J",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.file_content_last_auto_backup_time"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.file_content_last_auto_backup_time"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.file-content.set-last-auto-backup-time",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+        "memberName": "setLastAutoBackupTime",
+        "descriptor": "(J)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.file_content_set_last_auto_backup_time"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.file_content_set_last_auto_backup_time"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.file-content.last-saved-time",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+        "memberName": "getLastSavedTime",
+        "descriptor": "()J",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.file_content_last_saved_time"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.file_content_last_saved_time"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.file-content.modified-after-saving",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+        "memberName": "isModifiedAfterSaving",
+        "descriptor": "()Z",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.file_content_modified_after_saving"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.file_content_modified_after_saving"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.file-content.file",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+        "memberName": "getFile",
+        "descriptor": "()Ljava/io/File;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.file_content_file"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.file_content_file"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.app-controller.instance",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "access$get_instance$cp",
+        "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.autobackup.method.app_controller_instance"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.autobackup.method.app_controller_instance"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.document-uid.modeling",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "memberName": "getDocumentUID",
+        "descriptor": "()Ljava/lang/String;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.document_uid_modeling"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.document_uid_modeling"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.scene-docs",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/animation/CAnimationFileContent",
+        "memberName": "getSceneDocs",
+        "descriptor": "()Lcom/live2d/type/CArrayList;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.scene_docs"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.scene_docs"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.auto-backup.document-uid.scene",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/animation/CSceneDocument",
+        "memberName": "getDocumentUID",
+        "descriptor": "()Ljava/lang/String;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.method.document_uid_scene"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.method.document_uid_scene"
+        }
+      ]
+    }
+  ],
+  "selectorOrder": [
+    {
+      "versions": "5.1.00-5.3.04",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "verificationId",
+          "adapterSliceId",
+          "capabilityIds",
+          "cubismVersion",
+          "profileId",
+          "artifact",
+          "evidenceType",
+          "evidencePath",
+          "owner",
+          "status",
+          "verifiedBy",
+          "verifiedAt",
+          "safeMode",
+          "selectors",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    },
+    {
+      "versions": "5.2.03,5.3.02",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "verificationId",
+          "adapterSliceId",
+          "capabilityIds",
+          "cubismVersion",
+          "profileId",
+          "artifact",
+          "evidenceType",
+          "evidencePath",
+          "owner",
+          "status",
+          "verifiedBy",
+          "verifiedAt",
+          "safeMode",
+          "selectors",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 1,
+        "fieldStyle": {
+          "16": 2
+        },
+        "duplicateValues": {}
+      }
+    }
+  ],
+  "releases": {
+    "5.1.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.03": {
+      "verifiedAt": "2026-08-08T00:00:00Z"
+    },
+    "5.3.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.02": {
+      "verifiedAt": "2026-08-08T00:00:00Z"
+    },
+    "5.3.03": {
+      "verifiedAt": "2026-08-15T00:00:00Z"
+    },
+    "5.3.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    }
+  }
+}
