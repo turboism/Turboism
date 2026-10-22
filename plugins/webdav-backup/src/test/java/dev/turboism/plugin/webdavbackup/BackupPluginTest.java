@@ -83,7 +83,8 @@ final class BackupPluginTest {
     @Test
     void refreshTargetRetriesUntilTheBindingInitializes() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable(); // registerSchema is still pending: read() yields null
@@ -100,14 +101,15 @@ final class BackupPluginTest {
     @Test
     void disableCancelsPendingTargetRetries() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofHours(1), Duration.ofHours(2))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
         assertTrue(context.awaitLog("WEBDAV_TARGET_RETRY attempt=1", Duration.ofSeconds(2)));
         plugin.disable(); // clears the retry state; binding is disabled
         context.registry.completeSchema();
-        Thread.sleep(1_200L); // long enough for the first backoff (500ms) to elapse
+        assertEquals(0, liveWorkerThreads(), "disable drains all retry workers before returning");
         assertFalse(context.hasLog("WEBDAV_TARGET_READY"), "a cancelled retry must never build the target");
         assertFalse(context.hasLog("WEBDAV_TARGET_RETRY attempt=2"), "disable must stop the retry chain");
     }
@@ -115,7 +117,8 @@ final class BackupPluginTest {
     @Test
     void enableAfterInitBuildsTheTargetWithoutRetries() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         context.registry.completeSchema();
@@ -130,7 +133,8 @@ final class BackupPluginTest {
     @Test
     void applySavedConfigBuildsTheTargetDeterministically() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable(); // registerSchema stays pending: read-driven construction never succeeds
@@ -161,7 +165,8 @@ final class BackupPluginTest {
     void rejectedUploadTaskIsDiagnosedInsteadOfRunningInline() throws Exception {
         FakeContext context = new FakeContext();
         context.rejectTasks = true;
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
@@ -185,14 +190,14 @@ final class BackupPluginTest {
     @Test
     void onBackupCompletedLazilyRebuildsTheTargetFromTheLastSavedConfig() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
         plugin.applySavedConfig(savedConfig());
-        // The pending retry (500ms) wakes with the binding still uninitialized
-        // and clears the target; the last-saved config must still serve events.
-        Thread.sleep(900L);
+        // The first retry clears the uninitialized target and schedules the next attempt.
+        assertTrue(context.awaitLog("WEBDAV_TARGET_RETRY attempt=2", Duration.ofSeconds(2)));
         final java.nio.file.Path artifact = java.nio.file.Files.createTempFile("turboism-backup-lazy-", ".cmo3");
         java.nio.file.Files.writeString(artifact, "backup");
         context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
@@ -212,7 +217,8 @@ final class BackupPluginTest {
     @Test
     void applySavedConfigLogsTheTriggerModeAndAutoModeIgnoresEvents() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
@@ -231,7 +237,8 @@ final class BackupPluginTest {
     @Test
     void autoBackupScanUploadsNewHostArtifactsWithoutDeletingThem() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
@@ -263,7 +270,8 @@ final class BackupPluginTest {
         final FakeContext context = new FakeContext();
         final CompletableFuture<dev.turboism.sdk.cubism.backup.BackupRunResult> pending = new CompletableFuture<>();
         context.backupAfterSave = pending;
-        final BackupPlugin plugin = new BackupPlugin();
+        final BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         context.registry.completeSchema();
@@ -279,14 +287,15 @@ final class BackupPluginTest {
         plugins.remove(plugin);
 
         assertDoesNotThrow(() -> pending.completeExceptionally(new IllegalStateException("late completion")));
-        Thread.sleep(100L);
+        // CompletableFuture completion invokes the registered callback synchronously.
         assertFalse(context.hasLog("SAVE_BACKUP_FAILED"));
     }
 
     @Test
     void saveTriggeredTempArtifactsAreDeletedAfterTheEvent() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
@@ -310,7 +319,8 @@ final class BackupPluginTest {
     @Test
     void disableDiscardsPendingTempArtifactsWhileAnUploadIsInFlight() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
@@ -346,7 +356,8 @@ final class BackupPluginTest {
     @Test
     void disableTerminatesEveryPluginWorkerThread() throws Exception {
         FakeContext context = new FakeContext();
-        BackupPlugin plugin = new BackupPlugin();
+        BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
         plugin.enable();
@@ -386,7 +397,8 @@ final class BackupPluginTest {
             throw new IllegalStateException("fixture menu failure");
         };
         final FakeContext context = new FakeContext(actionRegistry, failingMenu);
-        final BackupPlugin plugin = new BackupPlugin();
+        final BackupPlugin plugin =
+                new BackupPlugin(new BackupPlugin.RetryPolicy(List.of(Duration.ofMillis(50), Duration.ofHours(1))));
         plugins.add(plugin);
         plugin.init(context);
 

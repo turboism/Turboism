@@ -16,7 +16,7 @@ interface: embedded
 
 > **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
-ArtMesh を右クリックして完全な原画 PSD を OS 既定の PSD アプリケーションで編集し、保存するたびに Cubism ネイティブの明示ターゲット原画置換を適用します。
+ArtMesh を右クリックして完全な原画 PSD を設定したエディター、または OS 既定のアプリケーションで編集し、保存するたびに Cubism ネイティブの明示ターゲット原画置換を適用します。
 
 | 項目 | 値 |
 |---|---|
@@ -70,6 +70,10 @@ Turboism 公式リリースパッケージに同梱されています。イン�
 
 マニフェストでは ArtMesh から PSD への編集パイプライン用に `cubism.psd.external-edit`、メニュー項目用に `ui.context-menu.contribute`、セッション通知用に `ui.status.notify`、複数ファイル確認ダイアログ用に `ui.dialog.contribute` を宣言しています。
 
+## 外部エディターの指定
+
+Turboism のプラグイン設定で「External PSD Edit」を開き、実行ファイルのフルパスを入力するか「参照…」で exe を選択します。設定を適用すると、新しく開く／開き直すドキュメントでそのプログラムが使われます。空欄の場合は OS 既定のアプリケーションを使います。パスに空白を含めてもかまいません。引用符やコマンドライン引数は付けないでください。無効なパスは起動失敗として報告され、一時 PSD は保持されます。
+
 ## 権限
 
 - `turboism.cubism.model.read` — テクスチャ関係を読み取り、ArtMesh を原画へ解決してセッションバインディングを検証します。
@@ -77,7 +81,10 @@ Turboism 公式リリースパッケージに同梱されています。イン�
 - `turboism.cubism.model.observe` — モデルクローズおよびエディター終了のライフサイクルコールバックを受け取り、外部編集セッションを停止します。
 - `turboism.file.read` — 置換のためにランタイムが発行した一時 PSD のリビジョンを読み取ります。
 - `turboism.file.write` — 完全な原画 PSD をランタイム管理下の一時ファイルへ書き出します。
-- `turboism.process.run` — OS 既定の PSD アプリケーションで一時 PSD を開きます。
+- `turboism.process.run` — 設定したエディター、または OS 既定のアプリケーションで一時 PSD を開きます。
+- `turboism.config.plugin.read` / `turboism.config.plugin.write` — エディターのパスを読み取り・保存します。
+- `turboism.ui.settings.contribute` — パス入力欄と参照ボタンを表示します。
+- `turboism.ui.file-chooser.request` — エディターの実行ファイルを選択します。
 - `turboism.ui.status.notify` — セッション、インポート、一時停止／失敗の通知を表示します。
 - `turboism.ui.dialog.contribute` — 複数の一時 PSD を開く前に一度確認ダイアログを表示します。
 - `turboism.action.register` — コンテキストメニューから呼び出されるアクションを登録します。

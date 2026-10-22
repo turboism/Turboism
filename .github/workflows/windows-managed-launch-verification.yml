@@ -28,6 +28,7 @@ jobs:
       - name: Verify BAT upgrade and cached discovery without a host (Windows PowerShell 5.1)
         shell: powershell
         run: |
+          & .\packaging\windows-installer\test-shortcut-recovery.ps1
           & .\packaging\windows-installer\test-bat-integration.ps1
           & .\packaging\windows-installer\test-installer-discovery-cache.ps1
           & .\packaging\windows-installer\test-installer-discovery-sources.ps1
@@ -36,6 +37,7 @@ jobs:
       - name: Verify BAT upgrade and cached discovery without a host (PowerShell 7)
         shell: pwsh
         run: |
+          & .\packaging\windows-installer\test-shortcut-recovery.ps1
           & .\packaging\windows-installer\test-bat-integration.ps1
           & .\packaging\windows-installer\test-installer-discovery-cache.ps1
           & .\packaging\windows-installer\test-installer-discovery-sources.ps1

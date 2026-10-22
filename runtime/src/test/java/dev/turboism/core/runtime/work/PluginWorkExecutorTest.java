@@ -145,7 +145,7 @@ class PluginWorkExecutorTest {
         executor.execute(task("action.handle"), () -> {
             started.countDown();
             try {
-                Thread.sleep(1_000L);
+                new CountDownLatch(1).await();
             } catch (InterruptedException exception) {
                 interrupted.countDown();
                 Thread.currentThread().interrupt();
@@ -287,7 +287,7 @@ class PluginWorkExecutorTest {
                 () -> {
                     started.countDown();
                     try {
-                        Thread.sleep(1_000L);
+                        new CountDownLatch(1).await();
                     } catch (InterruptedException exception) {
                         Thread.currentThread().interrupt();
                     }

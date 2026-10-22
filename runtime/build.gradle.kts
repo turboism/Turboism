@@ -262,74 +262,9 @@ val admissionPreflightTest by tasks.registering(Test::class) {
     }
 }
 
-val legacyCubismEvidenceTest by tasks.registering(Test::class) {
-    group = "host verification"
-    description = "Runs tests that require separately supplied licensed Cubism binary evidence."
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    useJUnitPlatform()
-    filter {
-        includeTestsMatching(
-            "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.CorePublicApiAdmissionTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
-        )
-        isFailOnNoMatchingTests = true
-    }
-}
-
-// Test classes that require separately staged licensed Cubism evidence; they
+// Test classes or individual methods requiring separately staged licensed Cubism evidence; they
 // live in legacyCubismEvidenceTest and never run in the offline suites.
-val legacyEvidenceTestClasses = listOf(
+val legacyEvidenceTests = listOf(
     "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest",
     "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest",
     "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest",
@@ -347,8 +282,47 @@ val legacyEvidenceTestClasses = listOf(
     "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
     "dev.turboism.mapping.verification.CorePublicApiAdmissionTest",
-    "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
+    "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest",
+    "dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisionArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteArtifactTest",
+    "dev.turboism.adapter.cubism.performance.PerformanceProbeImageArtifactTest",
+    "dev.turboism.adapter.cubism.shader.ShaderUniformCompositionArtifactTest",
+    "dev.turboism.mapping.verification.CubismHostCompatibilityRealSampleTest",
+    // Mixed suites retain their synthetic behavior tests in the offline gates.
+    "dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformerTest.realJarBytesMatchPinnedDigestsAndTransformOnEveryReviewedVersion",
+    "dev.turboism.adapter.cubism.mesh.PopupMeshUndoContractTest.popupSnapshotRestoresRealNativeMeshAndInvalidatesPositionsOnUndoRedo",
+    "dev.turboism.adapter.ui.OffCanvasBackgroundHostAccessTest.refreshesExistingAndFutureBackgroundMaterialsAcrossReviewedHosts",
+    "dev.turboism.mapping.verification.ReviewedHostArtifactsTest.localExactArtifactsMatchTheReviewedIdentitiesWhenPresent",
+    "dev.turboism.ui.table.SceneTableCompatibilityTest.realMembersBindAfterRepackingAndDeclarationChangeButRejectOtherSources"
 )
+
+val legacyCubismEvidenceTest by tasks.registering(Test::class) {
+    group = "host verification"
+    description = "Runs tests that require separately supplied licensed Cubism binary evidence."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    // Evidence supplied to Gradle must also reach the opt-in evidence JVM.
+    listOf(
+        "turboism.test.cubismEditorJar",
+        "turboism.test.cubismCoreJar",
+        "turboism.test.cubism5302Jar",
+        "turboism.test.verificationDir"
+    ).forEach { name ->
+        providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
+    }
+    filter {
+        legacyEvidenceTests.forEach { includeTestsMatching(it) }
+        isFailOnNoMatchingTests = true
+    }
+}
 
 tasks.named<Test>("test") {
     @Suppress("UNCHECKED_CAST")
@@ -368,7 +342,9 @@ tasks.named<Test>("test") {
         providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
     }
     filter {
-        legacyEvidenceTestClasses.forEach { excludeTestsMatching(it) }
+        legacyEvidenceTests.forEach { excludeTestsMatching(it) }
+        // Needs TURBOISM_CUBISM_REF_ROOT; runs only in warpAltMirrorArtifactTest.
+        excludeTestsMatching("dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest")
     }
 }
 
@@ -401,7 +377,7 @@ val admissionUnitTests by tasks.registering(Test::class) {
         includeTestsMatching("dev.turboism.mapping.*")
         includeTestsMatching("dev.turboism.adapter.*")
         includeTestsMatching("dev.turboism.core.plugin.context.*")
-        legacyEvidenceTestClasses.forEach { excludeTestsMatching(it) }
+        legacyEvidenceTests.forEach { excludeTestsMatching(it) }
         isFailOnNoMatchingTests = true
     }
 }
@@ -488,4 +464,19 @@ dependencies {
     implementation(libs.resilience4j.timelimiter)
     implementation(libs.resilience4j.circuitbreaker)
 
+}
+
+// Keep standalone focused gates useful, while the full suite owns their coverage
+// whenever it is present (including devCheck + checkCompletedCommit in CI).
+listOf("admissionUnitTests", "admissionPreflightTest", "corePublicApiProviderTest", "asyncHostReadFoundationTest").forEach { name ->
+    tasks.named<Test>(name) {
+        description += " Skipped when :runtime:test is scheduled, which includes this coverage."
+        onlyIf("the full runtime suite is not scheduled") { !gradle.taskGraph.hasTask(":runtime:test") }
+    }
+}
+listOf("admissionPreflightTest", "corePublicApiProviderTest").forEach { name ->
+    tasks.named<Test>(name) {
+        description += " Also covered by admissionUnitTests when that task is scheduled."
+        onlyIf("the admission unit suite is not scheduled") { !gradle.taskGraph.hasTask(":runtime:admissionUnitTests") }
+    }
 }

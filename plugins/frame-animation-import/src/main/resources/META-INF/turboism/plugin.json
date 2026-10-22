@@ -44,7 +44,7 @@
     {
       "id": "turboism.ui.context-menu.contribute",
       "scope": "application",
-      "reason": "Expose frame animation import in part and deformer context menus."
+      "reason": "Expose frame animation import in the Part tab context menu."
     },
     {
       "id": "turboism.ui.menu.contribute",

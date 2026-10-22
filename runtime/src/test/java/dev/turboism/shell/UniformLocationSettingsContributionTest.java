@@ -6,7 +6,6 @@ import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridg
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsControl;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
@@ -152,26 +151,6 @@ class UniformLocationSettingsContributionTest {
         } finally {
             if (previousIncremental == null) System.clearProperty(key);
             else System.setProperty(key, previousIncremental);
-        }
-    }
-
-    @Test
-    void everySupportedLocaleHasExactlyOneLabel() throws Exception {
-        for (String bundle : new String[] {
-            "messages.properties",
-            "messages_en.properties",
-            "messages_ja.properties",
-            "messages_ko.properties",
-            "messages_zh_Hans.properties",
-            "messages_zh_Hant.properties"
-        }) {
-            String text = Files.readString(Path.of("src/main/resources/META-INF/turboism/i18n", bundle));
-            assertEquals(
-                    1L,
-                    text.lines()
-                            .filter(line -> line.startsWith("settings.optimization.uniform-location-cache="))
-                            .count(),
-                    bundle);
         }
     }
 

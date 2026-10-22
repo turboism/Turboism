@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import javax.swing.Icon;
@@ -285,16 +286,32 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         panels.put(palette, new NativePanel(dock, palette, paletteId));
         final EmbeddedPanelId panelId = new EmbeddedPanelId(descriptor.contributionId());
         final AtomicBoolean closed = new AtomicBoolean();
+        final long installedGeneration = hostGeneration;
+        final AtomicReference<EmbeddedPanelContributionDescriptor> currentDescriptor =
+                new AtomicReference<>(descriptor);
+        final AtomicReference<JPanel> contentRoot = new AtomicReference<>();
+        // Subscribe before the first render so a concurrent plugin contribution cannot
+        // fall into a gap between rendering the content and installing the listener.
+        final Registration sectionChanges = PanelCollapsibleContentCoordinator.shared()
+                .onContentChanged(
+                        panelId,
+                        () -> SwingUtilities.invokeLater(() -> {
+                            if (closed.get()
+                                    || installedGeneration != hostGeneration
+                                    || (installedGeneration != Long.MIN_VALUE && !hostActive)) return;
+                            refreshContent(contentRoot.get(), currentDescriptor.get());
+                        }));
         WindowMenuItem windowMenuItem = null;
         JPanel stableContentRoot = null;
         try {
-            final JComponent contentRoot = buildContentRoot(descriptor);
+            final JComponent renderedContent = buildContentRoot(descriptor);
             // The native palette keeps one stable layout-neutral wrapper for its whole
             // lifetime; refresh swaps the wrapper's single child, so the host container
             // and any floating window are never rebuilt and layout-specific renderer
             // roots are never nested inside one another.
             stableContentRoot = new JPanel(new BorderLayout());
-            stableContentRoot.add(contentRoot, BorderLayout.CENTER);
+            stableContentRoot.add(renderedContent, BorderLayout.CENTER);
+            contentRoot.set(stableContentRoot);
             synchronized (stableContentRoots) {
                 if (hostGeneration != Long.MIN_VALUE) {
                     requireActiveHost(hostGeneration);
@@ -338,6 +355,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             // complete construction, including the shared content-coordinator state.
             PanelCollapsibleContentCoordinator.shared().onPanelRegistered(panelId);
         } catch (RuntimeException | Error failure) {
+            closed.set(true);
+            sectionChanges.close();
             final WindowMenuItem installedItem = windowMenuItem;
             final FloatingPanel floating = floatingPanels.remove(palette);
             lastFloatMillis.remove(palette);
@@ -388,16 +407,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     throw new IllegalStateException("embedded panel is closed");
                 }
                 onEdt(() -> {
-                    // Add the fresh root before removing the previous one so the
-                    // stable wrapper is never observed empty (no blank flash) and
-                    // still ends with exactly one child; the native palette (and its
-                    // floating window) is never rebuilt.
-                    final JComponent next = buildContentRoot(descriptor);
-                    final java.awt.Component previous = installedStableContentRoot.getComponent(0);
-                    installedStableContentRoot.add(next, BorderLayout.CENTER);
-                    installedStableContentRoot.remove(previous);
-                    installedStableContentRoot.revalidate();
-                    installedStableContentRoot.repaint();
+                    if (closed.get()) return null;
+                    refreshContent(installedStableContentRoot, descriptor);
+                    currentDescriptor.set(descriptor);
                     return null;
                 });
             }
@@ -407,6 +419,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 if (!closed.compareAndSet(false, true)) {
                     return;
                 }
+                sectionChanges.close();
                 // Removal stays queued through an acceptance timeout so a disabled plugin
                 // never leaves an orphaned palette behind.
                 onEdtEventually(() -> {
@@ -424,6 +437,16 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 });
             }
         };
+    }
+
+    private void refreshContent(final JPanel root, final EmbeddedPanelContributionDescriptor descriptor) {
+        // Retain the native palette and its floating window; never leave the wrapper empty.
+        final JComponent next = buildContentRoot(descriptor);
+        final java.awt.Component previous = root.getComponent(0);
+        root.add(next, BorderLayout.CENTER);
+        root.remove(previous);
+        root.revalidate();
+        root.repaint();
     }
 
     @Override
