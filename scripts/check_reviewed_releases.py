@@ -250,6 +250,31 @@ def r1_collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     return sites, problems
 
 
+def r1_family_range_coverage(root: Path) -> list[str]:
+    """Family-owned range selections require materialized VERIFIED_STATIC records."""
+    admitted = r2_admitted_versions(root)
+    records = {name: json.loads(raw) for name, raw in render_records(root).items()}
+    problems = []
+    for path in sorted((root / "scripts/verification-sources/families").glob("*.json")):
+        family = read_json(path)
+        covered = {
+            records[name]["cubismVersion"] for name in family.get("records", [])
+            if name in records and records[name].get("status") == "VERIFIED_STATIC"
+        }
+        sources = [Path("scripts/verification-sources/templates") / name
+                   for name in family.get("files", [])]
+        sources.extend(Path(name) for name in family.get("coverageSources", []))
+        for relative in sources:
+            text = r2_strip_comments((root / relative).read_text(encoding="utf-8"))
+            missing = r2_range_versions(text, admitted) - covered
+            if missing:
+                problems.append(
+                    f"{relative}: {family['family']} range admits versions without "
+                    f"VERIFIED_STATIC family records: {sorted(missing)}"
+                )
+    return problems
+
+
 def r1_check(root: Path) -> list[str]:
     sites, problems = r1_collect(root)
     canonical = sites[r1_CANONICAL]
@@ -1721,6 +1746,7 @@ def index_check(root: Path) -> list[str]:
 def check(root: Path) -> list[str]:
     failures = ["R1: " + p for p in r1_check(root)]
     failures.extend("R1: " + p for p in index_check(root))
+    failures.extend("R1: " + p for p in r1_family_range_coverage(root))
     _, live = r2_check(root)
     failures.extend("R2: " + f.message() for f in live)
     failures.extend("R3: " + p for p in r3_check(root))
