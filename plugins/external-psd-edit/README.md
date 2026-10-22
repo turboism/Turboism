@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.2,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -47,7 +47,7 @@ In Turboism plugin settings, open **External PSD Edit** and enter the full execu
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.67.2,1.0.0)`.
 - **Cubism:** Required. Export and replacement use Cubism native layered-image and raw-image replacement behavior; only the reviewed Cubism 5.3.02 record admits this feature today. Other Cubism versions require their own reviewed verification record before the entry resolves.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.

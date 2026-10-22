@@ -8,19 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.67.2] - 2026-10-23
+
 ### Added
 
 - Added a plugin author guide covering lifecycle, threading, permissions, settings, storage, events and testing; clarified the pre-stable `@Incubating` policy.
 - `SettingsControl` gained the `FilePath` variant; plugin authors must add a case to exhaustive switches over `SettingsControl` when recompiling.
 - The texture-atlas SDK now supports per-page sizes, packing failure diagnostics and planner negotiation.
 
-## [0.67.2] - 2026-10-22
-
 ### Fixed
 
 - Plugin management now labels SDK API compatibility ranges and displays declared exact Cubism versions separately for available, full and partial functionality. Missing or invalid declarations remain undeclared.
-- Official plugin minimum API requirements remain at `0.67.0`; README synchronization no longer raises every plugin's API floor on a framework patch release.
+- README synchronization no longer raises every plugin's API floor on a framework patch release; each official plugin's minimum API records the SDK it actually uses.
 - Derived full-functionality declarations now include SDK and endpoint version restrictions. Plugin READMEs name the reviewed range and full-functionality range, and remove stale pre-publication installation instructions.
+- An interrupt that arrives while a task is starting on the Swing event thread now triggers the same abandonment compensation as an interrupt during execution.
+
+### Changed
+
+- `external-psd-edit`, `atlas-bitmask-nesting`, `atlas-folder-layout` and `atlas-maxrects-bssf` now require API `0.67.2`, because they use the SDK additions above. Other official plugins keep their previous minimum.
 
 ## [0.67.1] - 2026-10-20
 
