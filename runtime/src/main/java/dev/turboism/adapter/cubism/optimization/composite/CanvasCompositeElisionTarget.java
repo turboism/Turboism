@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.internal.ReviewedVersions;
 import java.util.Optional;
 
 /**
