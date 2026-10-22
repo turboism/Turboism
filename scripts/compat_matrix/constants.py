@@ -18,7 +18,7 @@ FAMILIES_DIR = Path("scripts/verification-sources/families")
 MATRIX_JSON = Path("compatibility/cubism/compatibility-matrix.json")
 DOCS_DIR = Path("compatibility/cubism")
 REVIEWED_HOST_ARTIFACTS = Path(
-    "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+    "compatibility/cubism/reviewed-releases.json"
 )
 SDK_MAIN = Path("sdk/src/main/java")
 RUNTIME_MAIN = Path("runtime/src/main/java")
@@ -52,9 +52,6 @@ README_LOCALE = {"README.md": "en", "README_zh.md": "zh", "README_ja.md": "ja"}
 DOC_SUFFIX = {"en": "", "zh": "_zh", "ja": "_ja", "ko": "_ko"}
 
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
-VERSION_CONSTANT_RE = re.compile(
-    r'CUBISM_\d+_\d+_\d+_VERSION\s*=\s*"(\d+\.\d+\.\d+)"'
-)
 ANNOTATION_RE = re.compile(
     r"@(?:dev\.turboism\.sdk\.)?CubismEditor\b(?:\s*\((.*?)\))?", re.DOTALL
 )

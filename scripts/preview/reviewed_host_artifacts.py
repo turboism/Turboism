@@ -127,6 +127,10 @@ def main(argv: list[str]) -> int:
     if len(argv) == 3 and argv[1] == "sha256":
         print(sha256(argv[2]))
         return 0
+    if len(argv) == 2 and argv[1] == "source":
+        load_releases()  # Validate before exposing a file to stage.
+        print(DEFAULT_SOURCE)
+        return 0
     if len(argv) == 2 and argv[1] == "versions":
         print(" ".join(compact(version) for version in load()))
         return 0

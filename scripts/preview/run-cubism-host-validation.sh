@@ -472,7 +472,7 @@ run_label="$(safe_label "$run_label")"
 [ -n "$name" ] || fail "validation name becomes empty after sanitization"
 [ -n "$run_label" ] || fail "run label becomes empty after sanitization"
 
-# Reviewed jar identities are declared once, in ReviewedHostArtifacts.java; an unreviewed
+# Reviewed jar identities are declared once, in reviewed-releases.json; an unreviewed
 # version fails closed here before any path or seam decision is made.
 reviewed_artifacts_tool="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/reviewed_host_artifacts.py"
 [[ "$version" =~ ^5[0-9]{3}$ ]] || fail "--version must be a compact reviewed Cubism build code such as 5303"
@@ -2258,6 +2258,11 @@ for spec in "${resolved_aux_agents[@]}"; do
 done
 if [ -n "$client_script" ]; then
   local_copy_to "$client_script" "$task_dir/$client_script_remote_name"
+  if [ "$client_script_remote_name" = "mcp-host-validation-client.py" ]; then
+    reviewed_table_source="$(python3 "$reviewed_artifacts_tool" source)" \
+      || fail "reviewed release table cannot be resolved for the MCP client"
+    local_copy_to "$reviewed_table_source" "$task_dir/reviewed-releases.json"
+  fi
   client_sha256="$(sha256_file "$client_script")"
   [ "$client_sha256" = "$(sha256_file "$task_dir/$client_script_remote_name")" ] \
     || fail "staged client script hash mismatch"

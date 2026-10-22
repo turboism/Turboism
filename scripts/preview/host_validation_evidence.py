@@ -18,32 +18,13 @@ from host_validation_queue import (
 )
 
 # Install directory per compact build code; the jar digest comes from the single reviewed source.
+_RELEASES = reviewed_host_artifacts.load_releases()
 HOST_DIRECTORIES = {
-    "5000": "Live2D Cubism 5.0.00",
-    "5001": "Live2D Cubism 5.0.01",
-    "5002": "Live2D Cubism 5.0.02",
-    "5003": "Live2D Cubism 5.0.03",
-    "5004": "Live2D Cubism 5.0.04",
-    "5005": "Live2D Cubism 5.0.05",
-    "5006": "Live2D Cubism 5.0.06",
-    "5100": "Live2D Cubism 5.1.00",
-    "5101": "Live2D Cubism 5.1.01",
-    "5102": "Live2D Cubism 5.1.02",
-    "5103": "Live2D Cubism 5.1.03",
-    "5200": "Live2D Cubism 5.2.00",
-    "5201": "Live2D Cubism 5.2.01",
-    "5202": "Live2D Cubism 5.2.02",
-    "5203": "Live2D Cubism 5.2",
-    "5300": "Live2D Cubism 5.3.00",
-    "5301": "Live2D Cubism 5.3.01",
-    "5302": "Live2D Cubism 5.3",
-    "5303": "Live2D Cubism 5.3.03",
-    "5304": "Live2D Cubism 5.3.04",
+    reviewed_host_artifacts.compact(r['version']): r['hostLabel'] for r in _RELEASES
 }
-_REVIEWED = reviewed_host_artifacts.load()
 HOSTS = {
-    code: (directory, _REVIEWED[reviewed_host_artifacts.dotted(code)].sha256)
-    for code, directory in HOST_DIRECTORIES.items()
+    reviewed_host_artifacts.compact(r['version']): (r['hostLabel'], r['artifact']['sha256'])
+    for r in _RELEASES
 }
 
 
