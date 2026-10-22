@@ -10,7 +10,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class PluginDescriptorParserTest {
 
@@ -144,45 +148,6 @@ class PluginDescriptorParserTest {
     }
 
     @Test
-    void rejectsV3DescriptorWithoutCategory() {
-        final String json = v3Descriptor("");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_MISSING", failure.code());
-    }
-
-    @Test
-    void rejectsV3DescriptorWithDuplicateTags() {
-        final String json =
-                v3Descriptor("\"category\": \"modeling\",\n              \"tags\": [\"parameter\", \"parameter\"],");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
-    }
-
-    @Test
-    void rejectsV3DescriptorWithMalformedCategory() {
-        final String json = v3Descriptor("\"category\": \"Modeling\",");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_BAD_CATEGORY", failure.code());
-    }
-
-    @Test
-    void rejectsV3DescriptorWithMoreThanTwelveTags() {
-        final String json = v3Descriptor("\"category\": \"modeling\",\n              \"tags\": ["
-                + "\"a-1\",\"a-2\",\"a-3\",\"a-4\",\"a-5\",\"a-6\","
-                + "\"a-7\",\"a-8\",\"a-9\",\"a-10\",\"a-11\",\"a-12\",\"a-13\"],");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
-    }
-
-    @Test
     void rejectsV2DescriptorCarryingV3FieldsAsUnknown() {
         final String json = validDescriptor()
                 .replace(
@@ -192,33 +157,6 @@ class PluginDescriptorParserTest {
         final DescriptorParseException failure =
                 assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
         assertEquals("PLUGIN_META_UNKNOWN_FIELD", failure.code());
-    }
-
-    @Test
-    void rejectsV3DescriptorWithWrongTypeCategory() {
-        final String json = v3Descriptor("\"category\": 42,");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_BAD_CATEGORY", failure.code());
-    }
-
-    @Test
-    void rejectsV3DescriptorWithNullCategoryAsMissing() {
-        final String json = v3Descriptor("\"category\": null,");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_MISSING", failure.code());
-    }
-
-    @Test
-    void rejectsV3DescriptorWithNonArrayTags() {
-        final String json = v3Descriptor("\"category\": \"modeling\",\n              \"tags\": \"parameter\",");
-
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
-        assertEquals("PLUGIN_META_BAD_TAGS", failure.code());
     }
 
     @Test
@@ -583,6 +521,46 @@ class PluginDescriptorParserTest {
               "description": ""
             }
             """.formatted(eventFields);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidClassificationDescriptors")
+    void rejectsInvalidClassification(final String caseName, final String json, final String expectedCode) {
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(json)));
+        assertEquals(expectedCode, failure.code());
+    }
+
+    private static Stream<Arguments> invalidClassificationDescriptors() {
+        return Stream.of(
+                Arguments.of("rejectsV3DescriptorWithoutCategory", v3Descriptor(""), "PLUGIN_META_MISSING"),
+                Arguments.of(
+                        "rejectsV3DescriptorWithDuplicateTags",
+                        v3Descriptor(
+                                "\"category\": \"modeling\",\n              \"tags\": [\"parameter\", \"parameter\"],"),
+                        "PLUGIN_META_BAD_TAGS"),
+                Arguments.of(
+                        "rejectsV3DescriptorWithMalformedCategory",
+                        v3Descriptor("\"category\": \"Modeling\","),
+                        "PLUGIN_META_BAD_CATEGORY"),
+                Arguments.of(
+                        "rejectsV3DescriptorWithMoreThanTwelveTags",
+                        v3Descriptor("\"category\": \"modeling\",\n              \"tags\": ["
+                                + "\"a-1\",\"a-2\",\"a-3\",\"a-4\",\"a-5\",\"a-6\","
+                                + "\"a-7\",\"a-8\",\"a-9\",\"a-10\",\"a-11\",\"a-12\",\"a-13\"],"),
+                        "PLUGIN_META_BAD_TAGS"),
+                Arguments.of(
+                        "rejectsV3DescriptorWithWrongTypeCategory",
+                        v3Descriptor("\"category\": 42,"),
+                        "PLUGIN_META_BAD_CATEGORY"),
+                Arguments.of(
+                        "rejectsV3DescriptorWithNullCategoryAsMissing",
+                        v3Descriptor("\"category\": null,"),
+                        "PLUGIN_META_MISSING"),
+                Arguments.of(
+                        "rejectsV3DescriptorWithNonArrayTags",
+                        v3Descriptor("\"category\": \"modeling\",\n              \"tags\": \"parameter\","),
+                        "PLUGIN_META_BAD_TAGS"));
     }
 
     private static String v3Descriptor(final String classificationFields) {
