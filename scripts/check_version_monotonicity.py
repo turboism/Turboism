@@ -15,7 +15,7 @@ legal; a set that skips a higher patch is a silent admission hole.
 
 Checked sites:
 
-- ``compatibility/cubism/verification/cubism-*-*.json``: per family, the
+- ``build/generated/verification/cubism-*-*.json``: per family, the
   ``capabilityIds`` list and the selector ``alias`` set of a newer patch must
   include the older patch's.
 - Java sources under ``JAVA_ROOTS``: ``Set.of(...)``/``List.of(...)``/
@@ -37,6 +37,8 @@ Usage: check_version_monotonicity.py [repo-root]
 """
 from __future__ import annotations
 
+from preview.reviewed_host_artifacts import load_releases
+
 import argparse
 import json
 import re
@@ -55,9 +57,9 @@ from turboism_dev.versions import (
 ROOT = repo_root()
 
 REVIEWED_HOST_ARTIFACTS = Path(
-    "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+    "compatibility/cubism/reviewed-releases.json"
 )
-VERIFICATION_DIR = Path("compatibility/cubism/verification")
+VERIFICATION_DIR = Path("build/generated/verification")
 CLASS_PINS_DIR = Path(
     "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
 )
@@ -87,9 +89,6 @@ JAVA_EXCLUDE = re.compile(
 DOTTED = re.compile(r"^5\.(\d{1,2})\.(\d{2})$")
 COMPACT = re.compile(r"^5\d{3}$")
 
-VERSION_CONSTANT = re.compile(
-    r'CUBISM_(\d+)_(\d+)_(\d+)_VERSION\s*=\s*"([^"]+)"'
-)
 RECORD_FILENAME = re.compile(r"^cubism-(5\.\d{1,2}\.\d{2})-(.+)\.json$")
 
 # Java-site patterns.
@@ -152,25 +151,10 @@ def _read(root: Path, relative: Path) -> str:
 
 
 def admitted_versions(root: Path) -> set[str]:
-    text = _read(root, REVIEWED_HOST_ARTIFACTS)
-    versions = set()
-    for major, minor, patch, literal in VERSION_CONSTANT.findall(text):
-        if literal != f"{int(major)}.{int(minor)}.{int(patch):0>2}":
-            raise MonotonicityError(
-                f"{REVIEWED_HOST_ARTIFACTS}: CUBISM_{major}_{minor}_{patch}_VERSION "
-                f"is {literal!r}"
-            )
-        versions.add(literal)
-    if not versions:
-        raise MonotonicityError(
-            f"{REVIEWED_HOST_ARTIFACTS}: no CUBISM_*_VERSION constants found"
-        )
-    return versions
-
-
-# --------------------------------------------------------------------------
-# Java source scanning
-# --------------------------------------------------------------------------
+    try:
+        return {r['version'] for r in load_releases(root / REVIEWED_HOST_ARTIFACTS)}
+    except ValueError as exc:
+        raise MonotonicityError(str(exc)) from exc
 
 
 def strip_comments(text: str) -> str:
@@ -464,7 +448,7 @@ def collect_verification_records(
             findings.append(
                 Finding(
                     "verification-record",
-                    VERIFICATION_DIR.as_posix(),
+                    "compatibility/cubism/verification",
                     f"{family} record coverage",
                     tuple(sorted(coverage_missing, key=parse_dotted)),
                     f"{family} has records for {sorted(by_version)}",
@@ -484,7 +468,7 @@ def collect_verification_records(
                     findings.append(
                         Finding(
                             "verification-record",
-                            VERIFICATION_DIR.as_posix(),
+                            "compatibility/cubism/verification",
                             f"{family} {older}>{newer} {label}",
                             tuple(sorted(lost)),
                             f"{family} record {newer} drops {len(lost)} {label} "

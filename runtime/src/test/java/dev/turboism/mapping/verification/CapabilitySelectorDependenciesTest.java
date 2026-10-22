@@ -114,7 +114,7 @@ class CapabilitySelectorDependenciesTest {
 
     private static StaticVerificationRecord record(final String version) throws Exception {
         return new StaticVerificationRecordLoader()
-                .load(Path.of("../compatibility/cubism/verification", "cubism-" + version + "-editor-model.json"))
+                .load(Path.of("../build/generated/verification", "cubism-" + version + "-editor-model.json"))
                 .record();
     }
 }

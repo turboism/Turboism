@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.test.reviewed_releases_fixture import table
 
 from scripts import check_host_validation_versions as check_gate
 
@@ -65,15 +66,9 @@ class CheckHostValidationVersionsTest(unittest.TestCase):
 
     @staticmethod
     def _write_fixture(root: Path) -> None:
-        artifacts = root / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+        artifacts = root / "compatibility/cubism/reviewed-releases.json"
         artifacts.parent.mkdir(parents=True, exist_ok=True)
-        artifacts.write_text(
-            'public final class ReviewedHostArtifacts {\n'
-            '    public static final String CUBISM_5_2_03_VERSION = "5.2.03";\n'
-            '    public static final String CUBISM_5_3_02_VERSION = "5.3.02";\n'
-            '}\n',
-            encoding="utf-8",
-        )
+        artifacts.write_text(table(['5.2.03', '5.3.02']), encoding='utf-8')
         matrix = root / check_gate.MATRIX_PATH
         matrix.parent.mkdir(parents=True, exist_ok=True)
         matrix.write_text(

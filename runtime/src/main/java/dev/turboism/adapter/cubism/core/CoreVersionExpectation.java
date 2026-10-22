@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.mapping.verification.ReviewedReleaseTable;
 import java.util.Objects;
 
 /**
@@ -35,23 +36,9 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
      */
     public static CoreVersionExpectation reviewedProfile(final String profile) {
         Objects.requireNonNull(profile, "profile");
-        return switch (profile) {
-            case "5.0.00",
-                    "5.0.01",
-                    "5.0.02",
-                    "5.0.03",
-                    "5.0.04",
-                    "5.0.05",
-                    "5.0.06",
-                    "5.1.00",
-                    "5.1.01",
-                    "5.1.02",
-                    "5.1.03" -> exact(5, 0, 0);
-            case "5.2.00", "5.2.01", "5.2.02", "5.2.03" -> exact(5, 0, 256);
-            case "5.3.00", "5.3.01", "5.3.02", "5.3.03" -> exact(6, 0, 257);
-            case "5.3.04" -> exact(6, 0, 513);
-            default -> throw new IllegalArgumentException("unsupported Cubism Core profile: " + profile);
-        };
+        final ReviewedReleaseTable.Release release = ReviewedReleaseTable.find(profile)
+                .orElseThrow(() -> new IllegalArgumentException("unsupported Cubism Core profile: " + profile));
+        return exact(release.coreMajor(), release.coreMinor(), release.corePatch());
     }
 
     /**

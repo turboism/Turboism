@@ -351,9 +351,9 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
     )
     inputs.files(
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
-        "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-        "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
-        "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
+        "build/generated/verification/cubism-5.2.03-editor-model.json",
+        "build/generated/verification/cubism-5.3.02-editor-model.json",
+        "build/generated/verification/cubism-5.3.03-editor-model.json"
     )
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
@@ -368,9 +368,9 @@ val checkEditorModelAliasesSelfTest by tasks.registering(Exec::class) {
         "scripts/test/test_editor_model_aliases.py"
     )
     inputs.files(
-        "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-        "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
-        "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
+        "build/generated/verification/cubism-5.2.03-editor-model.json",
+        "build/generated/verification/cubism-5.3.02-editor-model.json",
+        "build/generated/verification/cubism-5.3.03-editor-model.json"
     )
     VerificationStamps.apply(this)
     commandLine(
@@ -397,7 +397,7 @@ tasks.register<Exec>("syncDraftPackMetadata") {
     inputs.files(
         "scripts/sync_draft_pack_metadata.py",
         fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
-        fileTree("compatibility/cubism/verification") { include("*.json") }
+        fileTree("build/generated/verification") { include("*.json") }
     )
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath)
 }
@@ -412,7 +412,7 @@ val checkDraftPackMetadataSelfTest by tasks.registering(Exec::class) {
     )
     inputs.files(
         fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
-        fileTree("compatibility/cubism/verification") { include("*.json") }
+        fileTree("build/generated/verification") { include("*.json") }
     )
     VerificationStamps.apply(this)
     commandLine(
@@ -430,7 +430,7 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/sync_draft_pack_metadata.py",
         fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
-        fileTree("compatibility/cubism/verification") { include("*.json") }
+        fileTree("build/generated/verification") { include("*.json") }
     )
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
@@ -448,11 +448,23 @@ val checkVersionSetCompletenessSelfTest by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/check_version_set_completeness.py",
+        ".env.example",
+        "scripts/generate_reviewed_releases.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/reviewed_releases_fixture.py",
+        "scripts/reviewed-releases/ReviewedHostArtifacts.java.template",
+        "compatibility/cubism/reviewed-releases.json",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java",
+        "scripts/test/test_reviewed_releases.py",
         "scripts/test/test_check_version_set_completeness.py"
     )
     VerificationStamps.apply(this)
     commandLine(
         "python3", "-m", "unittest",
+        "scripts.test.test_reviewed_releases",
         "scripts.test.test_check_version_set_completeness",
         "-v"
     )
@@ -465,6 +477,16 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/check_version_set_completeness.py",
+        ".env.example",
+        "scripts/generate_reviewed_releases.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/reviewed_releases_fixture.py",
+        "scripts/reviewed-releases/ReviewedHostArtifacts.java.template",
+        "compatibility/cubism/reviewed-releases.json",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java",
         "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java",
@@ -494,6 +516,8 @@ val checkCompatibilityMatrixSelfTest by tasks.registering(Exec::class) {
     description = "Runs synthetic-tree fixtures for the compatibility matrix generator."
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/reviewed_releases_fixture.py",
         "scripts/generate_compatibility_matrix.py",
         fileTree("scripts/compat_matrix") { include("*.py") },
         "scripts/test/test_generate_compatibility_matrix.py"
@@ -527,10 +551,12 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
     dependsOn(checkCompatibilityMatrixSelfTest)
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
         "scripts/generate_compatibility_matrix.py",
         fileTree("scripts/compat_matrix") { include("*.py") },
         fileTree("scripts/turboism_dev") { include("*.py") },
         "scripts/version-monotonicity-exceptions.json",
+        "compatibility/cubism/reviewed-releases.json",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
         "validation/cubism-version-matrix/campaign-jobs.json",
@@ -540,7 +566,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         "compatibility/cubism/official-feature-timeline.json",
         "packaging/release-plugins.txt",
         "packaging/market-plugins.json",
-        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("build/generated/verification") { include("*.json") },
         fileTree("scripts/verification-sources/families") { include("*.json") },
         // SUPPORTED_*_VERSIONS sets (contract and feature-level gates).
         javaSourcesContaining("scripts/verification-sources/templates", "SUPPORTED"),
@@ -584,6 +610,8 @@ val checkVersionMonotonicitySelfTest by tasks.registering(Exec::class) {
     description = "Runs fail-closed fixtures for patch-line version-set monotonicity."
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/reviewed_releases_fixture.py",
         "scripts/check_version_monotonicity.py",
         "scripts/test/test_check_version_monotonicity.py"
     )
@@ -601,12 +629,14 @@ val checkVersionMonotonicity by tasks.registering(Exec::class) {
     dependsOn(checkVersionMonotonicitySelfTest)
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
         "scripts/check_version_monotonicity.py",
         "scripts/version-monotonicity-exceptions.json",
+        "compatibility/cubism/reviewed-releases.json",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "scripts/preview/host-validation-tasks.json",
         "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
-        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("build/generated/verification") { include("*.json") },
         fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
             include("*.json")
         },
@@ -640,6 +670,9 @@ val checkVersionSetRegistrySelfTest by tasks.registering(Exec::class) {
     description = "Runs fail-closed fixtures for the literal version-set registry."
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/reviewed_releases_fixture.py",
+        "scripts/generate_reviewed_releases.py",
         "scripts/check_version_set_registry.py",
         "scripts/check_version_monotonicity.py",
         "scripts/test/test_check_version_set_registry.py"
@@ -658,9 +691,12 @@ val checkVersionSetRegistry by tasks.registering(Exec::class) {
     dependsOn(checkVersionSetRegistrySelfTest)
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/generate_reviewed_releases.py",
         "scripts/check_version_set_registry.py",
         "scripts/check_version_monotonicity.py",
         "scripts/version-set-registry.json",
+        "compatibility/cubism/reviewed-releases.json",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         fileTree("sdk/src/main") { include("**/*.java") },
         fileTree("runtime/src/main") { include("**/*.java") },
@@ -684,6 +720,8 @@ val checkHostValidationVersionsSelfTest by tasks.registering(Exec::class) {
     description = "Runs fail-closed fixtures for host-validation task version derivation and wrapper single-source checks."
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/reviewed_releases_fixture.py",
         "scripts/check_host_validation_versions.py",
         "scripts/check_version_set_registry.py",
         "scripts/check_version_monotonicity.py",
@@ -704,6 +742,7 @@ val checkHostValidationVersions by tasks.registering(Exec::class) {
     dependsOn(checkHostValidationVersionsSelfTest)
     workingDir(rootDir)
     inputs.files(
+        "scripts/preview/reviewed_host_artifacts.py",
         "scripts/check_host_validation_versions.py",
         "scripts/check_version_set_registry.py",
         "scripts/check_version_monotonicity.py",
@@ -711,6 +750,7 @@ val checkHostValidationVersions by tasks.registering(Exec::class) {
         "scripts/preview/host-validation-tasks.json",
         "scripts/preview/host_validation_static_gates.py",
         "compatibility/cubism/compatibility-matrix.json",
+        "compatibility/cubism/reviewed-releases.json",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         fileTree("scripts/preview") { include("run-*.sh") }
     )
@@ -777,11 +817,11 @@ val generateClassPinsSelfTest by tasks.registering(Exec::class) {
 
 val checkMaterializedRecordsSelfTest by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Runs focused byte-preservation and fail-closed fixtures for shadow record materialization."
+    description = "Runs focused byte-preservation and fail-closed fixtures for record materialization."
     workingDir(rootDir)
     inputs.files(
+        "scripts/test/reviewed_releases_fixture.py",
         "scripts/materialize_verification_records.py",
-        "scripts/version_table_releases.py",
         "scripts/preview/reviewed_host_artifacts.py",
         "scripts/test/test_materialize_verification_records.py"
     )
@@ -791,34 +831,25 @@ val checkMaterializedRecordsSelfTest by tasks.registering(Exec::class) {
 
 val checkMaterializedRecords by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Checks Java release facts and reproduces all committed verification records byte-for-byte in shadow mode."
+    description = "Checks materialized verification records byte-for-byte against canonical release and family sources."
     dependsOn(checkMaterializedRecordsSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/materialize_verification_records.py",
-        "scripts/version_table_releases.py",
         "scripts/preview/reviewed_host_artifacts.py",
         "compatibility/cubism/reviewed-releases.json",
         fileTree("compatibility/cubism/verification-src") { include("*.json") },
-        fileTree("compatibility/cubism/verification") { include("*.json") },
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
-        "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java"
+        fileTree("build/generated/verification") { include("*.json") }
     )
     VerificationStamps.apply(this)
     commandLine(
         "python3", "scripts/materialize_verification_records.py",
-        "--check-against", "compatibility/cubism/verification/"
+        "--check-against", "build/generated/verification/"
     )
 }
 
-/*
- * The bootstrap fat JAR packages verification records from an explicit filename
- * list; a record missing from it fails closed only when the agent extracts it at
- * host start. The index check derives the list from the verification directory
- * and cross-checks manifest verificationId pins, so it also runs as a build-time
- * dependency of :bootstrap:processResources.
- */
+// Packaging consumes the materializer task output; validate its exact bytes,
+// filename set and manifest pins before copying the resource directory.
 val checkVerificationRecordIndexSelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs fail-closed fixtures for the packaged verification-record index."
@@ -843,7 +874,7 @@ val checkVerificationRecordIndex by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/verification_record_index.py",
         "bootstrap/build.gradle.kts",
-        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("build/generated/verification") { include("*.json") },
         fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") }
     )
     VerificationStamps.apply(this)
@@ -883,7 +914,7 @@ val checkVerificationSources by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/generate_verification_sources.py",
         fileTree("scripts/verification-sources") { include("**/*") },
-        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("build/generated/verification") { include("*.json") },
         fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
         fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") },
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
@@ -1937,3 +1968,12 @@ tasks.named("check") {
 }
 
 // Gate notes: the unified channel check runs the full release gate on pushes touching gradle/runtime/packaging.
+
+// Python gates and their live-tree fixtures read the canonical materialized records.
+// The materializer itself is registered in the root build, outside this gate script.
+tasks.withType<Exec>().configureEach {
+    if (name != "materializeVerificationRecords") {
+        dependsOn("materializeVerificationRecords")
+        inputs.files(tasks.named("materializeVerificationRecords"))
+    }
+}

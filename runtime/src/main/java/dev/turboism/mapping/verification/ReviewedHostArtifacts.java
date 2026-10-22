@@ -6,18 +6,10 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The single production declaration of the exact Cubism Editor artifacts Turboism admits.
+ * Exact reviewed host artifacts, generated from reviewed-releases.json.
  *
- * <p>Every trust root, host profile and hook installer resolves its reviewed artifact identity
- * from this type, and so do the shell and Python validation tools
- * ({@code scripts/preview/reviewed_host_artifacts.py} reads the declarations below). Keeping one
- * copy means a drifted record cannot silently widen admission. {@code ReviewedHostArtifactsTest}
- * cross-checks the constants against the per-version verification records.</p>
- *
- * <p>Admission stays exact and fails closed: an artifact is reviewed only when both its byte size
- * and its SHA-256 match one of the constants below. Nothing here widens, normalises or infers a
- * version from a near match, and adding a Cubism version is a reviewed change to this type rather
- * than a local fallback in a caller.</p>
+ * <p>Edit the JSON and run {@code python3 scripts/generate_reviewed_releases.py}.
+ * Admission requires exact size and SHA-256 equality; unknown artifacts fail closed.</p>
  */
 public final class ReviewedHostArtifacts {
 
@@ -323,7 +315,9 @@ public final class ReviewedHostArtifacts {
      */
     public static boolean admitsFullRuntime(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
-        return REVIEWED_CUBISM_VERSION_SET.contains(cubismVersion);
+        return ReviewedReleaseTable.find(cubismVersion)
+                .map(ReviewedReleaseTable.Release::fullRuntime)
+                .orElse(false);
     }
 
     private static final Set<String> REVIEWED_SHA256_SET = java.util.Collections.unmodifiableSet(

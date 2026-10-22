@@ -97,7 +97,7 @@ class MeshToolSessionSelectorContractTest {
     void everyExactRecordAdvertisesAndContainsTheCompleteContract() throws Exception {
         for (String version : MeshToolSessionSelectorContract.SUPPORTED_VERSIONS) {
             final var record = JSON.readTree(Files.readString(
-                    root().resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json")));
+                    root().resolve("build/generated/verification/cubism-" + version + "-editor-model.json")));
             final Set<String> capabilities = strings(record.path("capabilityIds"));
             final Set<String> aliases = new HashSet<>();
             record.path("selectors")
