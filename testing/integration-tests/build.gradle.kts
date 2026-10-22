@@ -150,3 +150,9 @@ tasks.register<org.gradle.api.tasks.Exec>("hostValidationScriptContractTest") {
     )
     commandLine("bash", "scripts/preview/host-locale-validation-contract.sh")
 }
+
+// Live-tree mapping/profile fixtures require the complete generated DRAFT view.
+tasks.withType<Test>().configureEach {
+    dependsOn(rootProject.tasks.named("materializeDraftContracts"))
+    inputs.files(rootProject.tasks.named("materializeDraftContracts"))
+}

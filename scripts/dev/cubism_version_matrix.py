@@ -16,8 +16,8 @@ Editor versions present under ``cubism-ref/``. For every target version it:
    capabilities not modelled by the contract table only survive when the
    entire source record verifies;
 4. emits ``build/generated/verification/cubism-<v>-<family>.json``
-   records, ``mapping-packs/draft/`` packs cloned from the source pack, and a
-   ``profiles/draft/cubism-<v>.json`` profile.
+   records, ``build/generated/draft/mapping-packs/`` packs cloned from the source pack, and a
+   ``build/generated/draft/profiles/cubism-<v>.json`` profile.
 
 The Java ``StaticVerificationCli`` remains the authority: every emitted record
 is re-verified end-to-end by the real verifier before the tree is committed.

@@ -84,7 +84,7 @@ final class EditorWarpMirrorSelectorContractTest {
     @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void draftMappingPackCarriesEveryRequiredAlias(final String version) throws Exception {
         final JsonNode pack = JSON.readTree(Files.readString(PROJECT_ROOT.resolve(
-                "compatibility/cubism/mapping-packs/draft/cubism-" + version + "-editor-model-read.json")));
+                "build/generated/draft/mapping-packs/cubism-" + version + "-editor-model-read.json")));
         final java.util.Set<String> names = new java.util.HashSet<>();
         pack.get("entries").forEach(entry -> names.add(entry.get("name").asText()));
 

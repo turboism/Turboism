@@ -104,6 +104,30 @@ def load_packs(paths: Sequence[Path]) -> dict[str, dict[str, dict[str, Any]]]:
     return packs
 
 
+def load_records(directory: Path) -> dict[str, dict[str, dict[str, Any]]]:
+    """Project selector shapes directly from the materialized Core family."""
+    packs = {}
+    for path in sorted(directory.glob("cubism-*-core-model-read.json")):
+        record = load_json(path)
+        version = record["cubismVersion"]
+        aliases = {}
+        for selector in record["selectors"]:
+            alias = selector["alias"]
+            if alias in aliases:
+                fail(f"{path}: duplicate selector alias {alias}")
+            aliases[alias] = {
+                "kind": selector["kind"],
+                "runtime": selector["ownerInternalName"] if selector["kind"] == "class" else selector["memberName"],
+                "descriptor": selector.get("descriptor") or "",
+            }
+        if version in packs:
+            fail(f"duplicate Core record version: {version}")
+        packs[version] = aliases
+    if not packs:
+        fail(f"no materialized Core records in {directory}")
+    return packs
+
+
 def validate_policy_shape(policy: dict[str, Any]) -> list[dict[str, Any]]:
     expected = {
         "format",
@@ -525,7 +549,7 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
 
 
 def pack_documents(arguments: argparse.Namespace) -> dict[str, dict[str, dict[str, Any]]]:
-    return load_packs(arguments.pack)
+    return load_records(arguments.record_dir) if arguments.record_dir else load_packs(arguments.pack)
 
 
 def command_bootstrap(arguments: argparse.Namespace) -> int:
@@ -565,11 +589,12 @@ def command_render_java(arguments: argparse.Namespace) -> int:
 
 
 def add_pack_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--record-dir", type=Path, help="materialized verification record directory")
+    inputs.add_argument(
         "--pack",
         type=Path,
         action="append",
-        required=True,
         help="Core selector mapping pack; repeat for every supported version",
     )
 

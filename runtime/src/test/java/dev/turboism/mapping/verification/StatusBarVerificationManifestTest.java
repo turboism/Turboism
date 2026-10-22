@@ -61,7 +61,7 @@ class StatusBarVerificationManifestTest {
                         recordMappingIds.add(selector.get("mappingId").asText()));
 
         final JsonNode pack = mapper.readTree(
-                repositoryPath("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json")
+                repositoryPath("build/generated/draft/mapping-packs/cubism-5.2.03-ui-status-bar.json")
                         .toFile());
         final Set<String> packSemanticNames = new HashSet<>();
         pack.get("entries")
@@ -70,7 +70,7 @@ class StatusBarVerificationManifestTest {
         assertEquals(recordMappingIds, packSemanticNames);
 
         final JsonNode profile =
-                mapper.readTree(repositoryPath("compatibility/cubism/profiles/draft/cubism-5.2.03.json")
+                mapper.readTree(repositoryPath("build/generated/draft/profiles/cubism-5.2.03.json")
                         .toFile());
         boolean listed = false;
         for (JsonNode packId : profile.get("mappingPacks")) {
