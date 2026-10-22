@@ -13,7 +13,7 @@ fail() {
   exit 1
 }
 
-WT_ID="$(${REPO_ROOT}/scripts/dev/worktree-id.sh)"
+WT_ID="$("${REPO_ROOT}/scripts/dev/worktree-id.sh")"
 
 # Build output must be isolated to build/worktree/<id>/<gradle-project-name>
 BUILD_DIR="${REPO_ROOT}/build/worktree/${WT_ID}"
@@ -53,6 +53,11 @@ while IFS= read -r libs_dir; do
   esac
   for jar in "${jars[@]}"; do
     name=$(basename -- "${jar}")
+    # bootstrap's canonical agent has a fixed Boot-Class-Path name; its custom
+    # performance probe task also has no classifier. Both remain tree-confined.
+    case "${project}/${name}" in
+      bootstrap/turboism-agent.jar|bootstrap/turboism-performance-probe-agent-*.jar) continue ;;
+    esac
     if [[ "${name}" != *"-${WT_ID}.jar" ]]; then
       fail "artifact ${project}/libs/${name} does not include worktree ID ${WT_ID}"
     fi
