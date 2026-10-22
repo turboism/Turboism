@@ -3,6 +3,7 @@ package dev.turboism.keybinding;
 import java.awt.Component;
 import java.awt.Frame;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -34,28 +35,35 @@ final class NativeShortcutCatalog {
 
     /** Scans the menu bar of every known frame. Must be called on the EDT. */
     static List<KeybindingTable.NativeRow> scan() {
+        return collect(Arrays.stream(Frame.getFrames())
+                .filter(frame -> frame instanceof JFrame)
+                .map(frame -> ((JFrame) frame).getJMenuBar())
+                .filter(java.util.Objects::nonNull)
+                .toArray(JMenuBar[]::new));
+    }
+
+    /** Collects shared commands once across menu bars; also usable in headless tests. */
+    static List<KeybindingTable.NativeRow> collect(final JMenuBar... bars) {
         final List<KeybindingTable.NativeRow> rows = new ArrayList<>();
         final Set<String> seen = new LinkedHashSet<>();
-        for (Frame frame : Frame.getFrames()) {
-            if (frame instanceof JFrame jframe && jframe.getJMenuBar() != null) {
-                collect(jframe.getJMenuBar(), rows, seen);
-            }
+        final Set<Command> commands = new LinkedHashSet<>();
+        for (JMenuBar bar : bars) {
+            collect(bar, rows, seen, commands);
         }
         return rows;
     }
 
-    /** Collects rows from one menu bar — split out so tests can exercise it headlessly. */
-    static List<KeybindingTable.NativeRow> collect(final JMenuBar bar) {
-        final List<KeybindingTable.NativeRow> rows = new ArrayList<>();
-        collect(bar, rows, new LinkedHashSet<>());
-        return rows;
-    }
+    /** Menu copies share a command only when both the full path and target stroke match. */
+    private record Command(List<String> path, String stroke) {}
 
     private static void collect(
-            final JMenuBar bar, final List<KeybindingTable.NativeRow> rows, final Set<String> seen) {
+            final JMenuBar bar,
+            final List<KeybindingTable.NativeRow> rows,
+            final Set<String> seen,
+            final Set<Command> commands) {
         for (Component component : bar.getComponents()) {
             if (component instanceof JMenu menu) {
-                walk(menu, new ArrayList<>(), rows, seen);
+                walk(menu, new ArrayList<>(), rows, seen, commands);
             }
         }
     }
@@ -64,12 +72,13 @@ final class NativeShortcutCatalog {
             final JMenu menu,
             final List<String> path,
             final List<KeybindingTable.NativeRow> rows,
-            final Set<String> seen) {
+            final Set<String> seen,
+            final Set<Command> commands) {
         final List<String> deeper = new ArrayList<>(path);
         deeper.add(text(menu));
         for (Component component : menu.getMenuComponents()) {
             if (component instanceof JMenu submenu) {
-                walk(submenu, deeper, rows, seen);
+                walk(submenu, deeper, rows, seen, commands);
             } else if (component instanceof JMenuItem item) {
                 final KeyStroke accelerator = item.getAccelerator();
                 if (accelerator == null) {
@@ -77,16 +86,14 @@ final class NativeShortcutCatalog {
                 }
                 final List<String> full = new ArrayList<>(deeper);
                 full.add(text(item));
+                final String stroke = KeyStrokeCodec.display(KeyStrokeCodec.encode(accelerator));
+                if (!commands.add(new Command(List.copyOf(full), stroke))) {
+                    continue;
+                }
                 final String label = String.join(" › ", full);
                 final String id = uniqueId(full, seen);
                 rows.add(new KeybindingTable.NativeRow(
-                        id,
-                        label,
-                        KeyStrokeCodec.display(KeyStrokeCodec.encode(accelerator)),
-                        KeybindingTable.State.UNSET,
-                        "",
-                        false,
-                        rows.size()));
+                        id, label, stroke, KeybindingTable.State.UNSET, "", false, rows.size()));
             }
         }
     }
