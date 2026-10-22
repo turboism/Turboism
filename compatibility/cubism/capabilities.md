@@ -319,6 +319,7 @@ Selector contracts and class-pin tables that narrow verified capabilities to spe
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
 
 ## Version monotonicity
 

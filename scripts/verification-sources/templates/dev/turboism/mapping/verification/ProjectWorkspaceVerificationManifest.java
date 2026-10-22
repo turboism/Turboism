@@ -1,6 +1,6 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.sdk.cubism.ReviewedVersions;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.List;
 import java.util.Set;
 

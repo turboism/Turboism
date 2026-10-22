@@ -104,3 +104,23 @@ def framework_version(repo_root: Path | str | None = None) -> str:
             f"expected exactly one framework version in {path}, found {len(matches)}"
         )
     return matches[0]
+
+
+def reviewed_range_versions(text: str, admitted: set[str]) -> set[str]:
+    versions = sorted(admitted, key=parse_cubism_version)
+    selected: set[str] = set()
+    for method, body in re.findall(r'\bReviewedVersions\.(since|line|between)\(([^)]*)\)', text):
+        args = re.findall(r'"([^"]+)"', body)
+        if method == "line":
+            if len(args) != 1 or not re.fullmatch(r"5\.\d{1,2}", args[0]):
+                raise ValueError(f"invalid reviewed line: {body}")
+            selected.update(v for v in versions if v.startswith(args[0] + "."))
+        else:
+            if len(args) != (2 if method == "between" else 1) or any(v not in admitted for v in args):
+                raise ValueError(f"unknown reviewed range boundary: {body}")
+            first = versions.index(args[0])
+            last = versions.index(args[-1]) if method == "between" else len(versions) - 1
+            if first > last:
+                raise ValueError(f"reversed reviewed range: {body}")
+            selected.update(versions[first:last + 1])
+    return selected
