@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from sdk_api_baseline import BaselineError, canonical_dump
-from sdk_api_baseline_cli_commands import capture, verify
+from sdk_api_baseline_cli_commands import capture, verify, verify_current
 from sdk_api_baseline_cli_io import die, write_output
 from sdk_api_baseline_cli_parser import build_parser
 
@@ -24,6 +24,8 @@ def _run(args: argparse.Namespace) -> None:
         write_output(args.output, dump)
     elif args.command == "capture":
         capture(args)
+    elif args.command == "verify-current":
+        verify_current(args)
     else:
         verify(args, args.command == "verify-exact")
 
