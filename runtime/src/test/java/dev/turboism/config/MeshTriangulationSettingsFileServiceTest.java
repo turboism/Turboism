@@ -40,7 +40,7 @@ class MeshTriangulationSettingsFileServiceTest {
     }
 
     @Test
-    void nonBooleanPersistedValueFallsBackToEnabled() throws Exception {
+    void nonBooleanPersistedValueDoesNotReportEnabled() throws Exception {
         Files.writeString(home.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
@@ -54,7 +54,7 @@ class MeshTriangulationSettingsFileServiceTest {
             }
             """.formatted(KEY));
 
-        assertTrue(new MeshTriangulationSettingsFileService(home).read());
+        assertFalse(new MeshTriangulationSettingsFileService(home).read());
     }
 
     @Test
@@ -76,8 +76,8 @@ class MeshTriangulationSettingsFileServiceTest {
     }
 
     @Test
-    void unreadablePersistedValueReadsAsEnabled() throws IOException {
+    void unreadablePersistedValueDoesNotReportEnabled() throws IOException {
         Files.createDirectory(home.resolve("config.json"));
-        assertTrue(new MeshTriangulationSettingsFileService(home).read());
+        assertFalse(new MeshTriangulationSettingsFileService(home).read());
     }
 }

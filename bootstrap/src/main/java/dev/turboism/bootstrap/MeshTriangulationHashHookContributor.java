@@ -40,7 +40,17 @@ final class MeshTriangulationHashHookContributor implements HookContributor {
 
     @Override
     public boolean admitted(final HookEnvironment environment) {
-        return enabled(environment.startupPolicy(), environment.options().home());
+        final boolean requested = environment
+                .optimizationConfig()
+                .choice(dev.turboism.config.NativeOptimizationConfig.Option.MESH_TRIANGULATION_HASH)
+                .enabled();
+        final boolean admitted = environment.startupPolicy() != null
+                && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)
+                && requested;
+        if (!admitted)
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(), "not-installed", requested ? "policy-disabled" : "preference-disabled");
+        return admitted;
     }
 
     @Override
@@ -51,8 +61,21 @@ final class MeshTriangulationHashHookContributor implements HookContributor {
                             environment.instrumentation(),
                             code -> RuntimeDiagnostics.debug("mesh-triangulation-hash", code));
             RuntimeDiagnostics.debug("bootstrap", "Mesh triangulation hash status=" + installation.status());
-            return installation;
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(),
+                    "INSTALLED".equals(installation.status().name()) ? "installed" : "not-installed",
+                    installation.status().name());
+            return () -> {
+                try {
+                    installation.close();
+                } finally {
+                    dev.turboism.config.NativeOptimizationDiagnostics.installed(id(), "not-installed", "closed");
+                }
+            };
         } catch (final Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(), "failed", failure.getClass().getSimpleName());
             RuntimeDiagnostics.error("mesh-triangulation-hash", "Triangulation hash fix disabled safely", failure);
             return () -> {};
         }

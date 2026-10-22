@@ -25,6 +25,8 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
     private final String protocolId;
     private final String policyId;
     private boolean complete;
+    private String refusalReason = "not-admitted";
+    private static final AutoCloseable NOT_INSTALLED = () -> {};
 
     NativeOptimizationHookContributor(final String protocolId) {
         this(protocolId, protocolId);
@@ -52,17 +54,36 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
 
     @Override
     public final boolean admitted(final HookEnvironment environment) {
-        return environment.runtimeSliceAdmitted(HOOK_SLICE);
+        final boolean admitted = environment.runtimeSliceAdmitted(HOOK_SLICE);
+        if (!admitted) {
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    protocolId, "not-installed", "host-not-admitted");
+        }
+        return admitted;
     }
 
     @Override
     public final AutoCloseable install(final HookEnvironment environment) {
+        complete = false;
+        refusalReason = "not-admitted";
         try {
             final AutoCloseable handle = installAdmitted(environment);
-            complete = true;
-            log(environment, protocolId + " installation=COMPLETE");
-            return handle;
+            complete = handle != NOT_INSTALLED;
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    protocolId, complete ? "installed" : "not-installed", complete ? "verified" : refusalReason);
+            if (complete) log(environment, protocolId + " installation=COMPLETE");
+            return () -> {
+                try {
+                    handle.close();
+                } finally {
+                    complete = false;
+                    dev.turboism.config.NativeOptimizationDiagnostics.installed(protocolId, "not-installed", "closed");
+                }
+            };
         } catch (final Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    protocolId, "failed", failure.getClass().getSimpleName());
             log(
                     environment,
                     protocolId + " installation=FAILED " + failure.getClass().getName() + ": " + failure.getMessage());
@@ -105,7 +126,13 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
         }
     }
 
+    /** Refuses installation with a diagnostic reason, without reporting completion. */
+    final AutoCloseable refused(final String reason) {
+        refusalReason = reason;
+        return NOT_INSTALLED;
+    }
+
     static AutoCloseable noOp() {
-        return () -> {};
+        return NOT_INSTALLED;
     }
 }
