@@ -32,7 +32,6 @@ from .constants import (
     TEMPLATES_DIR,
     VERIFICATION_DIR,
     VERSION_BOUNDARIES,
-    VERSION_CONSTANT_RE,
     VERSION_RE,
 )
 from .extract import (
@@ -118,7 +117,6 @@ __all__ = [
     "TEMPLATES_DIR",
     "VERIFICATION_DIR",
     "VERSION_BOUNDARIES",
-    "VERSION_CONSTANT_RE",
     "VERSION_RE",
     "_display_fallback",
     "_feature_text",

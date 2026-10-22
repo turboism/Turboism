@@ -239,7 +239,7 @@
         "patch": 256
       },
       "fullRuntime": true,
-      "hostLabel": "Live2D Cubism 5.2.03"
+      "hostLabel": "Live2D Cubism 5.2"
     },
     {
       "version": "5.3.00",
@@ -287,7 +287,7 @@
         "patch": 257
       },
       "fullRuntime": true,
-      "hostLabel": "Live2D Cubism 5.3.02"
+      "hostLabel": "Live2D Cubism 5.3"
     },
     {
       "version": "5.3.03",

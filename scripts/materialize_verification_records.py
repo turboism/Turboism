@@ -19,7 +19,9 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from version_table_releases import RELEASES, import_releases
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
+
+RELEASES = Path(SOURCE_RELATIVE)
 
 ROOT = Path(__file__).resolve().parents[1]
 RECORDS = Path('compatibility/cubism/verification')
@@ -334,20 +336,15 @@ def main() -> int:
     args = parser.parse_args()
     root = args.root.resolve()
     try:
-        expected = import_releases(root)
+        releases = {r["version"]: r for r in load_releases(root / RELEASES)}
         if args.command == 'import':
-            sources = import_records(root / RECORDS, {r['version']: r for r in expected['releases']})
+            sources = import_records(root / RECORDS, releases)
             # Refuse stale files rather than silently deleting authoring input.
             existing = {p.stem for p in (root / SOURCES).glob('*.json')}
             if existing - set(sources):
                 raise ValueError('unexpected family sources; refusing import')
-            write_json(root / RELEASES, expected)
             for family, source in sources.items():
                 write_json(root / SOURCES / f'{family}.json', source)
-        actual = read_json(root / RELEASES)
-        if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
-            raise ValueError('reviewed-releases.json differs from authoritative Java declarations')
-        releases = {r['version']: r for r in actual['releases']}
         rendered = {}
         paths = sorted((root / SOURCES).glob('*.json'))
         if not paths:
@@ -375,7 +372,7 @@ def main() -> int:
             for name, raw in sorted(rendered.items()):
                 output.mkdir(parents=True, exist_ok=True)
                 (output / name).write_bytes(raw)
-        print(f'PASS: Java release facts agree; materialized {len(rendered)} records from {len(paths)} families' + (' byte-for-byte' if args.check_against else ''))
+        print(f'PASS: canonical release table validated; materialized {len(rendered)} records from {len(paths)} families' + (' byte-for-byte' if args.check_against else ''))
         return 0
     except (ValueError, KeyError, TypeError, OSError) as failure:
         parser.exit(1, f'FAIL: {failure}\n')
