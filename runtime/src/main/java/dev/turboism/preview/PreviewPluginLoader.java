@@ -397,7 +397,8 @@ final class PreviewPluginLoader {
             }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
             log.info(pluginId, "Plugin lifecycle: enable succeeded entrypoints=" + resources.enabled);
-        } catch (Exception failure) {
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             runtime.transitionTo(PluginLifecycleState.ENABLE_FAILED);
             log.error(pluginId, "Plugin lifecycle: enable failed", failure);
             throw failure;
@@ -533,7 +534,8 @@ final class PreviewPluginLoader {
         for (int index = resources.enabled - 1; index >= 0; index--) {
             try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
                 resources.entrypoints.get(index).disable();
-            } catch (Exception exception) {
+            } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 log.error(pluginId, "Plugin enable rollback failed", exception);
             }
         }
@@ -543,7 +545,8 @@ final class PreviewPluginLoader {
         for (int index = resources.entrypoints.size() - 1; index >= 0; index--) {
             try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
                 resources.entrypoints.get(index).shutdown();
-            } catch (Exception exception) {
+            } catch (Throwable exception) {
+                FatalErrors.rethrowIfFatal(exception);
                 log.error(pluginId, "Plugin cleanup after load failure failed", exception);
             }
         }

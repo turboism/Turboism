@@ -99,15 +99,17 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
 
                 @Override public void disable() throws Exception {
                     readOwnedResource("%s");
+                    throw new AbstractMethodError("rollback failed");
                 }
 
                 @Override public void shutdown() throws Exception {
                     readOwnedResource("%s");
+                    throw new AbstractMethodError("rollback failed");
                 }
 
                 public static final class FailingEntrypoint implements TurboismPlugin {
                     @Override public void enable() {
-                        throw new IllegalStateException("later entrypoint enable failed");
+                        throw new NoClassDefFoundError("later entrypoint enable failed");
                     }
                 }
             }
