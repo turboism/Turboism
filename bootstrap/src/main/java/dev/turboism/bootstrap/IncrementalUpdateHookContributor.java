@@ -11,7 +11,7 @@ final class IncrementalUpdateHookContributor extends NativeOptimizationHookContr
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.incrementalUpdateEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedIncrementalUpdateInstaller.admitted(
@@ -20,7 +20,7 @@ final class IncrementalUpdateHookContributor extends NativeOptimizationHookContr
                 true,
                 Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedIncrementalUpdateInstaller installer = new VerifiedIncrementalUpdateInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

@@ -46,7 +46,7 @@ class TriangulationEdgeIndexSettingsFileServiceTest {
     }
 
     @Test
-    void nonBooleanPersistedValueFallsBackToEnabled() throws Exception {
+    void nonBooleanPersistedValueDoesNotReportEnabled() throws Exception {
         Files.writeString(home.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
@@ -60,7 +60,7 @@ class TriangulationEdgeIndexSettingsFileServiceTest {
             }
             """.formatted(KEY));
 
-        assertTrue(new TriangulationEdgeIndexSettingsFileService(home).read());
+        assertFalse(new TriangulationEdgeIndexSettingsFileService(home).read());
     }
 
     @Test
@@ -82,8 +82,8 @@ class TriangulationEdgeIndexSettingsFileServiceTest {
     }
 
     @Test
-    void unreadablePersistedValueReadsAsEnabled() throws IOException {
+    void unreadablePersistedValueDoesNotReportEnabled() throws IOException {
         Files.createDirectory(home.resolve("config.json"));
-        assertTrue(new TriangulationEdgeIndexSettingsFileService(home).read());
+        assertFalse(new TriangulationEdgeIndexSettingsFileService(home).read());
     }
 }

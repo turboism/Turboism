@@ -34,8 +34,8 @@ import java.util.function.Supplier;
  * injected host bytecode needs no Turboism classes. Every dependent getter is resolved once
  * at construction through the reviewed {@link ModelUpdateSkipTarget} dependency table and
  * cached as a primitive-typed {@link MethodHandle}; per-frame work is one args-array read,
- * one snapshot record, indexed parameter comparison and a handful of direct handle calls —
- * no reflection lookup, no collection allocation. Any failure anywhere returns
+ * one frame record, a detached selection snapshot, indexed parameter comparison and direct
+ * handle calls, without per-frame reflection lookup. Any failure anywhere returns
  * {@code false}/swallows so the native path always runs.</p>
  */
 public final class ModelUpdateSkipBridge implements AutoCloseable {
@@ -173,6 +173,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private final HostParamSet lastUpdatedParams = new HostParamSet();
     private volatile Frame lastFrame;
     private volatile Frame pendingFrame;
+    private Object lastSource, pendingSource, lastParameters, pendingParameters;
     private volatile byte[] pendingDigest;
     private volatile boolean pendingProbe;
     private final AtomicBoolean skippedFrame = new AtomicBoolean();
@@ -359,7 +360,15 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
 
     private boolean shouldSkip(final Object[] args) {
         skippedFrame.set(false);
-        if (!active.get() || !flagEnabled()) return false;
+        // A missing successful-return callback means native evaluation did not establish a baseline.
+        if (pendingFrame != null) lastFrame = null;
+        pendingFrame = null;
+        pendingDigest = null;
+        pendingProbe = false;
+        if (!active.get() || !flagEnabled()) {
+            lastFrame = null;
+            return false;
+        }
         calls.increment();
         final long started = System.nanoTime();
         try {
@@ -376,8 +385,11 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             pendingFrame = current;
             pendingProbe = false;
             final long decisionStarted = timed ? System.nanoTime() : 0L;
-            final Decision decision =
-                    UnchangedFramePredicate.check(current, lastFrame, currentParams, lastUpdatedParams);
+            final Decision decision = UnchangedFramePredicate.check(
+                    current,
+                    pendingSource == lastSource && pendingParameters == lastParameters ? lastFrame : null,
+                    currentParams,
+                    lastUpdatedParams);
             if (timed) {
                 final long nanos = System.nanoTime() - decisionStarted;
                 decisionNanos.add(nanos);
@@ -400,12 +412,19 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
                 }
                 return false;
             }
-            if (skip) skipped.increment();
+            if (skip) {
+                skipped.increment();
+                pendingFrame = null;
+            } else {
+                lastFrame = null;
+            }
             skippedFrame.set(skip);
             return skip;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failures.increment();
+            lastFrame = null;
+            pendingFrame = null;
             return false;
         } finally {
             final long nanos = System.nanoTime() - started;
@@ -418,7 +437,12 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         try {
             full.increment();
             final Frame completed = pendingFrame;
-            if (completed != null && completed.model() == model) lastFrame = completed;
+            pendingFrame = null;
+            if (active.get() && completed != null && completed.model() == model) {
+                lastFrame = completed;
+                lastSource = pendingSource;
+                lastParameters = pendingParameters;
+            }
             if (pendingProbe) {
                 pendingProbe = false;
                 try {
@@ -500,7 +524,10 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         final boolean editModeActive = editMode != null
                 && editModeType.isInstance(editMode)
                 && (boolean) isEditModeEditing.invokeExact(editMode);
-        final boolean editing = (source != null && (boolean) isModelEditing.invokeExact(source)) || editModeActive;
+        final boolean editing = source == null
+                || !editModeType.isInstance(editMode)
+                || (boolean) isModelEditing.invokeExact(source)
+                || editModeActive;
         boolean ucPresent = update != null,
                 ucAValue = false,
                 ucBValue = false,
@@ -521,7 +548,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             ucView = (Object) ucG.invokeExact(update);
             ucEdit = (Object) ucH.invokeExact(update);
             if (view != null) {
-                selection = castParameters((Object) ucSelection.invokeExact(update));
+                final List<Object> liveSelection = castParameters((Object) ucSelection.invokeExact(update));
+                selection = liveSelection == null ? null : List.copyOf(liveSelection);
             }
             if (ucAliasStack != null) {
                 ucHash = (Object) ucRenderHash.invokeExact(update);
@@ -533,6 +561,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
         final Object parameterSet = model != null ? (Object) getParameterSet.invokeExact(model) : null;
         final Object lastUpdated = model != null ? (Object) getLastUpdatedParameterSet.invokeExact(model) : null;
+        pendingSource = source;
+        pendingParameters = parameterSet;
         currentParams.list =
                 parameterSet != null ? castParameters((Object) getParameters.invokeExact(parameterSet)) : null;
         lastUpdatedParams.list =
@@ -769,6 +799,16 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         active.set(false);
         skippedFrame.set(false);
         configuredDefault = true;
+        lastFrame = null;
+        pendingFrame = null;
+        lastSource = null;
+        pendingSource = null;
+        lastParameters = null;
+        pendingParameters = null;
+        pendingDigest = null;
+        pendingProbe = false;
+        currentParams.list = null;
+        lastUpdatedParams.list = null;
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null)
