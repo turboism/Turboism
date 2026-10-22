@@ -1663,6 +1663,29 @@ function Invoke-CubismLaunchConfiguration {
         $oldBatIntegrations = @($ExistingState.BatIntegrations)
     }
     $selected = @($Candidates | Where-Object { $_.Selected -and $_.Selectable })
+    # Generated shortcuts are installer-owned outputs in a dedicated namespace.
+    # Upgrades may change their launch definition or lack older ownership records;
+    # do not compare old contents against the new generator to authorize refresh.
+    # Admit only exact selected destinations, then persist hashes before cleanup.
+    $refreshState = $false
+    foreach ($candidate in $selected) {
+        foreach ($variant in @("normal", "d3d")) {
+            if ($variant -eq "d3d" -and [string]::IsNullOrWhiteSpace($candidate.D3DBat)) { continue }
+            $path = Get-CubismShortcutPath $candidate $variant $ShortcutDirectory
+            if (-not (Test-Path -LiteralPath $path)) { continue }
+            if (-not (Test-CubismManagedShortcutPath $path -Directory $ShortcutDirectory) -or
+                -not (Test-CubismNormalFile $path)) {
+                throw "managed shortcut destination is not a regular generated file: $path"
+            }
+            if ($oldShortcuts -notcontains $path) { $oldShortcuts += $path }
+            $oldHashes = @($oldHashes | Where-Object { $_.Path -ine $path })
+            $oldHashes += [pscustomobject]@{ Path = $path; Sha256 = Get-CubismSha256 $path }
+            $refreshState = $true
+        }
+    }
+    if ($refreshState) {
+        Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts $oldShortcuts -ManagedShortcutHashes $oldHashes -ShortcutTakeovers $oldRecords -BatIntegrations $oldBatIntegrations -LaunchMode $ExistingState.LaunchMode
+    }
     $newShortcuts = New-Object System.Collections.Generic.List[string]
     $newHashes = [System.Collections.Generic.List[object]]::new()
     $created = New-Object System.Collections.Generic.List[string]
