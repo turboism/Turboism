@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +47,7 @@ public final class RuntimeScheduler {
     private final PluginWorkExecutorRegistry executorRegistry;
     private final SidecarDispatcher sidecarDispatcher;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
-    private final ScheduledThreadPoolExecutor timer;
+    private final ScheduledExecutorService timer;
     private final Semaphore timerPermits = new Semaphore(GLOBAL_TIMER_LIMIT);
     private final Set<RuntimeTimerToken> activeTimers = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -58,16 +59,31 @@ public final class RuntimeScheduler {
             PluginWorkExecutorRegistry executorRegistry,
             SidecarDispatcher sidecarDispatcher,
             Consumer<PluginWorkBudgetEvent> diagnosticSink) {
+        this(policy, executorRegistry, sidecarDispatcher, diagnosticSink, createTimer());
+    }
+
+    /** Creates a scheduler that owns and shuts down the supplied delayed-callback timer. */
+    public RuntimeScheduler(
+            WorkBudgetPolicy policy,
+            PluginWorkExecutorRegistry executorRegistry,
+            SidecarDispatcher sidecarDispatcher,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            ScheduledExecutorService timer) {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.executorRegistry = Objects.requireNonNull(executorRegistry, "executorRegistry");
         this.sidecarDispatcher = Objects.requireNonNull(sidecarDispatcher, "sidecarDispatcher");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
-        this.timer = new ScheduledThreadPoolExecutor(1, runnable -> {
+        this.timer = Objects.requireNonNull(timer, "timer");
+    }
+
+    private static ScheduledExecutorService createTimer() {
+        ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, runnable -> {
             Thread thread = new Thread(runnable, "turboism-runtime-scheduler-timer");
             thread.setDaemon(true);
             return thread;
         });
-        this.timer.setRemoveOnCancelPolicy(true);
+        timer.setRemoveOnCancelPolicy(true);
+        return timer;
     }
 
     /**
