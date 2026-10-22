@@ -1370,6 +1370,53 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
+    @ParameterizedTest(name = "stdio write with stale credential, refreshed token available: {0}")
+    @ValueSource(booleans = {true, false})
+    void stdioWritesRefreshStaleCredentialsOrReportAuthenticationFailure(boolean refreshedTokenAvailable)
+            throws Exception {
+        final MutableObjects objects = new MutableObjects();
+        objects.put(new ModelObjectDescriptor(
+                new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
+        try (McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices()))) {
+            final Path tokenFile = temporaryDirectory.resolve(McpAccessToken.FILE_NAME);
+            final String currentToken = bearer();
+            final String staleToken = "0".repeat(64).equals(currentToken) ? "1".repeat(64) : "0".repeat(64);
+            Files.writeString(tokenFile, staleToken + "\n");
+            try (BridgeProcess bridge = spawnBridge(server.stdioLaunch().orElseThrow())) {
+                bridge.call(initializeMessage(1));
+                bridge.notify(initializedNotification());
+                final Map<String, Object> catalog =
+                        bridge.call(Map.of("jsonrpc", "2.0", "id", 2, "method", "tools/list"));
+                assertTrue(array(object(catalog.get("result")).get("tools")).stream()
+                        .map(McpHttpServerIntegrationTest::object)
+                        .anyMatch(tool -> McpProductionDomainCatalog.APPLY.equals(tool.get("name"))));
+
+                // The running bridge cached the old credential; discovery still succeeds.
+                if (refreshedTokenAvailable) Files.writeString(tokenFile, currentToken + "\n");
+                final Map<String, Object> response = bridge.call(renameCall(3));
+                assertEquals(3L, response.get("id"));
+                if (refreshedTokenAvailable) {
+                    assertEquals(Boolean.FALSE, object(response.get("result")).get("isError"));
+                    assertEquals(
+                            "Renamed via stdio",
+                            objects.find(ModelObjectKind.PART, "PartHead").name());
+                } else {
+                    final Map<String, Object> error = object(response.get("error"));
+                    assertEquals(-32001L, error.get("code"));
+                    assertTrue(error.get("message").toString().contains("authentication"));
+                    assertFalse(response.toString().contains(staleToken));
+                    assertFalse(response.toString().contains(currentToken));
+                    assertEquals(
+                            "Head",
+                            objects.find(ModelObjectKind.PART, "PartHead").name());
+                }
+            } finally {
+                Files.writeString(tokenFile, currentToken + "\n");
+            }
+        }
+    }
+
     private void assertLaunchDescriptor(final dev.turboism.sdk.mcp.McpStdioLaunch launch, final Path stateDir) {
         final Path expectedLauncher = Path.of(System.getProperty("java.home"), "bin", javaExecutable());
         assertEquals(expectedLauncher.toAbsolutePath().normalize().toString(), launch.command());
