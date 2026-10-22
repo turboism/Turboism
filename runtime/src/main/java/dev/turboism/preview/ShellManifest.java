@@ -63,7 +63,7 @@ public final class ShellManifest {
     private static final PluginDescriptor DESCRIPTOR = new CorePluginDescriptor(
             ID,
             "Turboism Core",
-            "0.1.0",
+            FrameworkBuildInfo.current().version(),
             "Built-in menu, toolbar, settings, tab, and plugin management.",
             List.of(),
             "[" + FrameworkBuildInfo.current().apiVersion() + ",1.0.0)",
