@@ -15,6 +15,9 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CollapsibleSectionContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
@@ -474,6 +477,109 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
         public String toString() {
             return value;
         }
+    }
+
+    @Test
+    void lateClipMaskContributionsRefreshTheInstalledTabAndDisappearOnDisable() throws Exception {
+        final InstallHost host = installHost();
+        final var coordinator = PanelCollapsibleContentCoordinator.shared();
+        final var panelId = EmbeddedPanelId.of("turboism.panel.main");
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handle = new AtomicReference<>();
+        runOnEdt(() -> handle.set(host.operations.addPanel(
+                new EmbeddedPanelContributionDescriptor(
+                        "turboism.core", panelId.value(), "Turboism", "right", 0, PanelView.text("Home"), false),
+                (actionId, event) -> {})));
+        final var nativeContainer = host.nativeContainer(host.paletteId(panelId.value()));
+        final var wrapper = (JPanel) nativeContainer.component();
+        final var original = wrapper.getComponent(0);
+        try (var installed = handle.get()) {
+            host.log.clear();
+            try (Registration viewer = coordinator.register(
+                            "viewer",
+                            new CollapsibleSectionContribution(
+                                    panelId,
+                                    "clipping-mask.section",
+                                    "Clipping masks",
+                                    100,
+                                    true,
+                                    PanelView.column(PanelView.button("viewer", "Viewer", "viewer.open"))));
+                    Registration importer = coordinator.register(
+                            "importer",
+                            new CollapsibleSectionContribution(
+                                    panelId,
+                                    "clipping-mask.section",
+                                    "Clipping masks",
+                                    110,
+                                    true,
+                                    PanelView.column(PanelView.button("import", "Import", "psd.import"))))) {
+                runOnEdt(() -> {});
+                assertNotSame(original, wrapper.getComponent(0), "late contributions must refresh the rendered tab");
+                assertEquals(List.of("Viewer", "Import"), buttonLabels(wrapper));
+                assertSame(nativeContainer, host.nativeContainer(host.paletteId(panelId.value())));
+                assertTrue(host.log.isEmpty(), "content refresh must not reinstall the native palette");
+                runOnEdt(() -> handle.get()
+                        .updateContent(new EmbeddedPanelContributionDescriptor(
+                                "turboism.core",
+                                panelId.value(),
+                                "Turboism",
+                                "right",
+                                0,
+                                PanelView.text("Updated"),
+                                false)));
+            }
+            runOnEdt(() -> {});
+            assertEquals(List.of(), buttonLabels(wrapper));
+            assertTrue(
+                    ((JLabel) wrapper.getComponent(0)).getText().contains("Updated"),
+                    "section changes must preserve the latest base descriptor");
+            assertTrue(host.log.isEmpty());
+        }
+        runOnEdt(() -> {});
+        final var afterClose = wrapper.getComponent(0);
+        try (Registration ignored = coordinator.register(
+                "viewer",
+                new CollapsibleSectionContribution(
+                        panelId, "clipping-mask.section", "Clipping masks", 100, true, PanelView.text("Viewer")))) {
+            runOnEdt(() -> {});
+            assertSame(afterClose, wrapper.getComponent(0), "closed panels must unsubscribe");
+        }
+    }
+
+    @Test
+    void queuedSectionRefreshDoesNotTouchAClosedPanel() throws Exception {
+        final InstallHost host = installHost();
+        final var panelId = EmbeddedPanelId.of("test-pane");
+        final AtomicReference<Registration> contribution = new AtomicReference<>();
+        final AtomicReference<JPanel> wrapper = new AtomicReference<>();
+        final AtomicReference<java.awt.Component> original = new AtomicReference<>();
+        runOnEdt(() -> {
+            final var handle = host.operations.addPanel(
+                    new EmbeddedPanelContributionDescriptor(
+                            "turboism.core", panelId.value(), "Test Pane", "right", 0, PanelView.text("Home"), false),
+                    (actionId, event) -> {});
+            wrapper.set((JPanel)
+                    host.nativeContainer(host.paletteId(panelId.value())).component());
+            original.set(wrapper.get().getComponent(0));
+            contribution.set(PanelCollapsibleContentCoordinator.shared()
+                    .register(
+                            "viewer",
+                            new CollapsibleSectionContribution(
+                                    panelId, "viewer", "Viewer", 100, true, PanelView.text("Late"))));
+            handle.close();
+        });
+        try (Registration ignored = contribution.get()) {
+            runOnEdt(() -> {});
+            assertSame(original.get(), wrapper.get().getComponent(0));
+        }
+    }
+
+    private static List<String> buttonLabels(final java.awt.Container root) {
+        final List<String> labels = new ArrayList<>();
+        for (java.awt.Component child : root.getComponents()) {
+            if (child instanceof javax.swing.JButton button) labels.add(button.getText());
+            else if (child instanceof java.awt.Container container) labels.addAll(buttonLabels(container));
+        }
+        return labels;
     }
 
     @Test
