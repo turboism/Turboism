@@ -6,7 +6,7 @@ import java.util.Objects;
 /** Immutable budgets and shutdown bounds for plugin work lanes. */
 public final class PluginWorkExecutorConfiguration {
 
-    private final Duration shutdownTimeout;
+    private static final Duration DEFAULT_SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
 
     static final int DEFAULT_LONG_LANE_CONCURRENCY = 2;
     static final long DEFAULT_LONG_RUNNING_THRESHOLD_MILLIS = 30_000L;
@@ -14,6 +14,7 @@ public final class PluginWorkExecutorConfiguration {
 
     static final PluginWorkExecutorConfiguration DEFAULT = of(500, 2, 64, 50.0f);
 
+    private final Duration shutdownTimeout;
     private final Duration timeoutDuration;
     private final int bulkheadPoolSize;
     private final int queueCapacity;
@@ -29,8 +30,12 @@ public final class PluginWorkExecutorConfiguration {
             float circuitBreakerFailureRateThreshold,
             int longLaneConcurrency,
             Duration longRunningThreshold,
-            Duration longRunningReportInterval) {
-        this.shutdownTimeout = Duration.ofSeconds(5);
+            Duration longRunningReportInterval,
+            Duration shutdownTimeout) {
+        this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
+            throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
         this.timeoutDuration = Objects.requireNonNull(timeoutDuration, "timeoutDuration");
         this.bulkheadPoolSize = requirePositive(bulkheadPoolSize, "bulkheadPoolSize");
         this.queueCapacity = requirePositive(queueCapacity, "queueCapacity");
@@ -41,23 +46,17 @@ public final class PluginWorkExecutorConfiguration {
         this.longRunningReportInterval = Objects.requireNonNull(longRunningReportInterval, "longRunningReportInterval");
     }
 
-    private PluginWorkExecutorConfiguration(PluginWorkExecutorConfiguration source, Duration shutdownTimeout) {
-        this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
-        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
-            throw new IllegalArgumentException("shutdownTimeout must be positive");
-        }
-        this.timeoutDuration = source.timeoutDuration;
-        this.bulkheadPoolSize = source.bulkheadPoolSize;
-        this.queueCapacity = source.queueCapacity;
-        this.circuitBreakerFailureRateThreshold = source.circuitBreakerFailureRateThreshold;
-        this.longLaneConcurrency = source.longLaneConcurrency;
-        this.longRunningThreshold = source.longRunningThreshold;
-        this.longRunningReportInterval = source.longRunningReportInterval;
-    }
-
     /** Returns the same work budgets with a different bounded pool shutdown wait. */
     public PluginWorkExecutorConfiguration withShutdownTimeout(Duration timeout) {
-        return new PluginWorkExecutorConfiguration(this, timeout);
+        return new PluginWorkExecutorConfiguration(
+                timeoutDuration,
+                bulkheadPoolSize,
+                queueCapacity,
+                circuitBreakerFailureRateThreshold,
+                longLaneConcurrency,
+                longRunningThreshold,
+                longRunningReportInterval,
+                timeout);
     }
 
     Duration shutdownTimeout() {
@@ -93,7 +92,8 @@ public final class PluginWorkExecutorConfiguration {
                 longLaneConcurrency,
                 Duration.ofMillis(requirePositiveMillis(longRunningThresholdMillis, "longRunningThresholdMillis")),
                 Duration.ofMillis(
-                        requirePositiveMillis(longRunningReportIntervalMillis, "longRunningReportIntervalMillis")));
+                        requirePositiveMillis(longRunningReportIntervalMillis, "longRunningReportIntervalMillis")),
+                DEFAULT_SHUTDOWN_TIMEOUT);
     }
 
     Duration timeoutDuration() {

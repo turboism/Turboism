@@ -37,9 +37,9 @@ import java.util.function.Consumer;
  */
 public final class PluginLongLane {
 
-    private final Duration shutdownTimeout;
     private static final String DIAGNOSTIC_COMPONENT = "turboism.plugin.long-lane";
 
+    private final Duration shutdownTimeout;
     private final String pluginId;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final ThreadPoolExecutor worker;
@@ -58,8 +58,9 @@ public final class PluginLongLane {
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
             Duration shutdownTimeout) {
         this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
-        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero())
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
             throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
         this.pluginId = requireText(pluginId, "pluginId");
         if (concurrency < 1) {
             throw new IllegalArgumentException("concurrency must be positive");
