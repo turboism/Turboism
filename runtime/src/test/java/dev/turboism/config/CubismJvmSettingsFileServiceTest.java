@@ -48,7 +48,7 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(Files.readString(home.resolve("config.json")).contains("\"reduceAutoBackup\" : true"));
             service.saveReduceAutoBackup(false);
             assertFalse(service.reduceAutoBackup());
-            assertFalse(Files.readString(home.resolve("config.json")).contains("reduceAutoBackup"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"reduceAutoBackup\" : false"));
         }
     }
 
@@ -85,7 +85,7 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(Files.readString(home.resolve("config.json")).contains("\"zgc\" : false"));
             service.saveZgc(true);
             assertTrue(service.zgc());
-            assertFalse(Files.readString(home.resolve("config.json")).contains("zgc"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"zgc\" : true"));
         }
     }
 
@@ -99,7 +99,7 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(service.zgc());
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("cubismJvm"));
-            assertFalse(saved.contains("zgc"));
+            assertTrue(saved.contains("\"zgc\" : true"));
         }
     }
 
@@ -122,7 +122,7 @@ class CubismJvmSettingsFileServiceTest {
                     .contains("\"memoryProfile\" : \"balanced4gFastSoft\""));
             service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.SYSTEM);
             assertEquals(CubismJvmSettingsService.MemoryProfile.SYSTEM, service.memoryProfile());
-            assertFalse(Files.readString(home.resolve("config.json")).contains("memoryProfile"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"memoryProfile\" : \"system\""));
         }
     }
 
@@ -200,7 +200,7 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(reopened.modelUpdateSkip(), "unrelated preference is preserved");
             assertTrue(reopened.saveUniformLocationCache(true));
             assertTrue(reopened.uniformLocationCache());
-            assertFalse(Files.readString(home.resolve("config.json")).contains("uniformLocationCache"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"uniformLocationCache\" : true"));
             assertFalse(reopened.modelUpdateSkip());
         }
     }
@@ -235,10 +235,10 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(reopened.mesaGlThread());
             assertTrue(reopened.uploadElision());
             final String saved = Files.readString(home.resolve("config.json"));
-            assertFalse(saved.contains("incrementalUpdate"), "platform default value clears the key");
-            assertFalse(saved.contains("uploadElision"), "platform default value clears the key");
-            assertFalse(saved.contains("inputPathElision"), "platform default value clears the key");
-            assertFalse(saved.contains("mesaGlThread"), "platform default value clears the key");
+            assertTrue(saved.contains("\"incrementalUpdate\" : false"));
+            assertTrue(saved.contains("\"uploadElision\" : true"));
+            assertTrue(saved.contains("\"inputPathElision\" : false"));
+            assertTrue(saved.contains("\"mesaGlThread\" : false"));
         }
     }
 
@@ -250,10 +250,9 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(service.inputPathElision(), "input-path elision defaults on under Proton");
             assertTrue(service.mesaGlThread(), "mesa glthread defaults on under Proton");
             assertFalse(service.incrementalUpdate(), "unrelated opt-in stays off");
-            // Saving the platform default removes the key; only explicit
-            // non-default values persist.
+            // Explicit choices persist even when they match this platform default.
             assertTrue(service.saveInputPathElision(true));
-            assertFalse(Files.readString(home.resolve("config.json")).contains("inputPathElision"));
+            assertTrue(Files.readString(home.resolve("config.json")).contains("\"inputPathElision\" : true"));
             assertFalse(service.saveInputPathElision(false));
             assertFalse(service.saveMesaGlThread(false));
             assertFalse(service.inputPathElision());
@@ -298,6 +297,41 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
+    void explicitPlatformDefaultSurvivesMovingGlobalConfigToAnotherPlatform() throws Exception {
+        try (CubismJvmSettingsFileService nativeSettings = service(Map.of())) {
+            nativeSettings.saveInputPathElision(false);
+            nativeSettings.saveMesaGlThread(false);
+        }
+        try (CubismJvmSettingsFileService protonSettings = new CubismJvmSettingsFileService(
+                new RuntimeConfigRepository(home, ignored -> {}),
+                home,
+                Map.of(dev.turboism.runtime.env.ProtonEnvironment.MANAGED_MARKER, "1"))) {
+            assertFalse(protonSettings.inputPathElision());
+            assertFalse(protonSettings.mesaGlThread());
+        }
+    }
+
+    @Test
+    void savedPreferenceAndObservedStartupStateRemainSeparate() throws Exception {
+        try (CubismJvmSettingsFileService settings = service(Map.of())) {
+            var option = NativeOptimizationConfig.Option.MODEL_UPDATE_SKIP;
+            NativeOptimizationDiagnostics.requested(option, new NativeOptimizationConfig.Choice(true, "global-config"));
+            NativeOptimizationDiagnostics.installed(
+                    "TURBOISM_MODEL_UPDATE_SKIP", "not-installed", "host-not-supported");
+            settings.saveModelUpdateSkip(false);
+            var status = settings.optimizationStatuses().stream()
+                    .filter(row -> row.key().equals("modelUpdateSkip"))
+                    .findFirst()
+                    .orElseThrow();
+            assertFalse(status.saved());
+            assertTrue(status.requested().orElseThrow());
+            assertEquals("not-installed", status.state());
+            assertEquals("host-not-supported", status.reason());
+            assertEquals(home.resolve("config.json").toString(), settings.globalConfigPath());
+        }
+    }
+
+    @Test
     void optimizationsRoundTripThroughLauncherConfig() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             service.saveModelUpdateSkip(false);
@@ -306,13 +340,13 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(service.incrementalUpdate());
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("\"modelUpdateSkip\" : false"));
-            assertFalse(saved.contains("incrementalUpdate"));
+            assertTrue(saved.contains("\"incrementalUpdate\" : false"));
             service.saveModelUpdateSkip(true);
             assertTrue(service.modelUpdateSkip());
             assertFalse(service.incrementalUpdate());
             final String restored = Files.readString(home.resolve("config.json"));
-            assertFalse(restored.contains("modelUpdateSkip"));
-            assertFalse(restored.contains("incrementalUpdate"));
+            assertTrue(restored.contains("\"modelUpdateSkip\" : true"));
+            assertTrue(restored.contains("\"incrementalUpdate\" : false"));
         }
     }
 }

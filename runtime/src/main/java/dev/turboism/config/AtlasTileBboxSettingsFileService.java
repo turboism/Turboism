@@ -1,6 +1,5 @@
 package dev.turboism.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.internal.core.AtlasTileBboxSettingsService;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -26,20 +25,19 @@ public final class AtlasTileBboxSettingsFileService implements AtlasTileBboxSett
     @Override
     public boolean read() {
         try {
-            final JsonNode value = config.read().get(AtlasTileBboxPreference.KEY);
-            if (value == null || !value.isBoolean()) return DEFAULT_ENABLED;
-            return value.booleanValue();
-        } catch (RuntimeException unreadable) {
-            return DEFAULT_ENABLED;
+            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
+                    config.read(),
+                    PerformanceSettingsConfig.Field.ATLAS_TILE_BBOX,
+                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
+        } catch (RuntimeException invalid) {
+            return false;
         }
     }
 
     @Override
     public boolean save(final boolean value) {
-        config.update(root -> {
-            root.put(AtlasTileBboxPreference.KEY, value);
-            return root;
-        });
+        PerformanceSettingsConfig.save(
+                config, PerformanceSettingsConfig.Field.ATLAS_TILE_BBOX, Boolean.toString(value));
         return value;
     }
 

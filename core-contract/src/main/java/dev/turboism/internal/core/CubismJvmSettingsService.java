@@ -16,6 +16,29 @@ import java.util.concurrent.CompletionStage;
  */
 public interface CubismJvmSettingsService {
 
+    /** One optimization's saved preference and separately observed startup state. */
+    record OptimizationStatus(
+            String key, boolean saved, Optional<Boolean> requested, String source, String state, String reason) {}
+
+    /** Diagnostics for the current session; saved preferences still apply on the next launch. */
+    default java.util.List<OptimizationStatus> optimizationStatuses() {
+        return java.util.List.of();
+    }
+
+    /** One page field's persisted selection, startup request, and separately observed current result. */
+    record PerformanceStatus(
+            String key, String saved, String requested, String source, String actual, boolean pendingRestart) {}
+
+    /** All fifteen performance fields, with no inferred success for unobserved application. */
+    default java.util.List<PerformanceStatus> performanceStatuses() {
+        return java.util.List.of();
+    }
+
+    /** The canonical global file edited by the settings page, when available. */
+    default String globalConfigPath() {
+        return "";
+    }
+
     URI GRAALVM_DOWNLOAD_URI = URI.create("https://www.graalvm.org/downloads/");
     String MANAGED_GRAAL_VERSION = "25.2.4";
     String MANAGED_JAVA_VERSION = "25.0.4";
@@ -62,7 +85,12 @@ public interface CubismJvmSettingsService {
         return false;
     }
 
-    /** Persists the session auto-backup reduction preference. */
+    /** The immutable auto-backup request captured for this session, before any edits in Settings. */
+    default boolean startupReduceAutoBackup() {
+        return reduceAutoBackup();
+    }
+
+    /** Persists the next session auto-backup reduction preference. */
     default boolean saveReduceAutoBackup(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }

@@ -30,13 +30,13 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
         final boolean production = NativeOptimizationPolicy.uploadElisionEnabled(environment);
         if (!validation && !production) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("preference-disabled");
         }
         if (production && !validation && !NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)) {
             // Without skipped frames the consult can never elide; installing
             // would buy pure per-call overhead.
             log(environment, id() + " installation=NOT_ADMITTED reason=modelUpdateSkip-disabled");
-            return noOp();
+            return refused("modelUpdateSkip-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (production
@@ -47,7 +47,7 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
                         true,
                         Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedSkippedFrameUploadElisionInstaller installer = new VerifiedSkippedFrameUploadElisionInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader(), production && !validation);

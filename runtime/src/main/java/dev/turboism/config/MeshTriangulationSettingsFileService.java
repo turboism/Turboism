@@ -1,6 +1,5 @@
 package dev.turboism.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.internal.core.MeshTriangulationSettingsService;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -26,20 +25,19 @@ public final class MeshTriangulationSettingsFileService implements MeshTriangula
     @Override
     public boolean read() {
         try {
-            final JsonNode value = config.read().get(MeshTriangulationPreference.KEY);
-            if (value == null || !value.isBoolean()) return DEFAULT_ENABLED;
-            return value.booleanValue();
-        } catch (RuntimeException unreadable) {
-            return DEFAULT_ENABLED;
+            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
+                    config.read(),
+                    PerformanceSettingsConfig.Field.MESH_TRIANGULATION_HASH,
+                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
+        } catch (RuntimeException invalid) {
+            return false;
         }
     }
 
     @Override
     public boolean save(final boolean value) {
-        config.update(root -> {
-            root.put(MeshTriangulationPreference.KEY, value);
-            return root;
-        });
+        PerformanceSettingsConfig.save(
+                config, PerformanceSettingsConfig.Field.MESH_TRIANGULATION_HASH, Boolean.toString(value));
         return value;
     }
 

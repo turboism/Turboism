@@ -87,7 +87,8 @@ public final class CoreShell implements ShellHandle {
                 services.settingsContributions(),
                 plugins,
                 services.logs(),
-                services.keybindings());
+                services.keybindings(),
+                services.cubismJvmSettings());
         logger.info("Turboism core initialized");
         registerAction(
                 MainToolbarHomeEntryService.ACTION_ID,
@@ -141,7 +142,7 @@ public final class CoreShell implements ShellHandle {
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createBackupDisable(
-                                localization(context), services.cubismJvmSettings(), this::applyAutoBackupPreference)));
+                                localization(context), services.cubismJvmSettings())));
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
@@ -233,7 +234,7 @@ public final class CoreShell implements ShellHandle {
             pluginUpdates.startPluginAutoUpdater();
         }
         logger.info("Turboism main toolbar icon mode selected: " + (settings.useTextIcon() ? "text" : "installer"));
-        applyAutoBackupPreference(services.cubismJvmSettings().reduceAutoBackup());
+        applyAutoBackupPreference(services.cubismJvmSettings().startupReduceAutoBackup());
         logger.info("Turboism core enabled");
     }
 
@@ -284,7 +285,13 @@ public final class CoreShell implements ShellHandle {
                     logger.info("auto-backup baseline restored");
                 }
             }
+            dev.turboism.config.NativeOptimizationDiagnostics.observed(
+                    dev.turboism.config.PerformanceSettingsConfig.Field.REDUCE_AUTO_BACKUP,
+                    "hostAutoBackupEnabled=" + backup.settings().enabled());
         } catch (Exception failure) {
+            dev.turboism.config.NativeOptimizationDiagnostics.observed(
+                    dev.turboism.config.PerformanceSettingsConfig.Field.REDUCE_AUTO_BACKUP,
+                    "failed: " + failure.getClass().getSimpleName());
             logger.warn("auto-backup preference apply failed: " + failure);
         }
     }

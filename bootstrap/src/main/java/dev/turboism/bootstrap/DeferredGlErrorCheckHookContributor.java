@@ -33,12 +33,12 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.mesaGlThreadEnabled(environment)) {
             log(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
-            return noOp();
+            return refused("preference-disabled");
         }
         final String seamFailure = seamFailure();
         if (seamFailure != null) {
             warnInactive(environment, seamFailure);
-            return noOp();
+            return refused(seamFailure);
         }
         try {
             final var host = environment.host().orElseThrow();
@@ -48,7 +48,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
                     true,
                     Runtime.version().feature())) {
                 warnInactive(environment, "admission-refused");
-                return noOp();
+                return refused("host-not-supported-or-hook-disabled");
             }
             final VerifiedDeferredGlErrorCheckInstaller installer = new VerifiedDeferredGlErrorCheckInstaller(
                     environment.instrumentation(), host.artifact(), host.classLoader());
