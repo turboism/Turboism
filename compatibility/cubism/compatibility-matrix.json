@@ -13449,10 +13449,7 @@
     "5.3.04"
    ],
    "partialFeatures": [],
-   "unmappedCapabilities": [
-    "cubism.model.intercept",
-    "cubism.model.observe"
-   ],
+   "unmappedCapabilities": [],
    "hostValidation": {}
   },
   {
