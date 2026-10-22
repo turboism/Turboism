@@ -177,7 +177,22 @@ val materializeDraftContracts by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/materialize_draft_contracts.py")
 }
 
+val checkDraftContractDiagnostics by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks actionable DRAFT declaration errors using tiny synthetic inputs."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_draft_contracts.py",
+        "scripts/materialize_verification_records.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/test_materialize_draft_contracts.py",
+        "scripts/test/reviewed_releases_fixture.py"
+    )
+    commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_draft_contracts", "-v")
+}
+
 apply(from = "gradle/verification.gradle.kts")
+tasks.named("devCheck") { dependsOn(checkDraftContractDiagnostics) }
 apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")
 

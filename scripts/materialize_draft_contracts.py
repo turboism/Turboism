@@ -63,8 +63,19 @@ def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
             selectors = record['selectors']
             active = {alias for alias, rules in source['entries'].items()
                       if any(version in expand(rule['versions'], versions) for rule in rules)}
-            if active != {s['alias'] for s in selectors}:
-                raise ValueError(f'{name}: pack/record alias sets differ')
+            aliases = {s['alias'] for s in selectors}
+            if aliases - active:
+                alias = sorted(aliases - active)[0]
+                raise ValueError(
+                    f"{name} (version {version}): alias {alias!r} has no active DRAFT declaration; "
+                    f"add entries.{alias} with a template index and versions covering {version} "
+                    f"in {SOURCES / path.name}"
+                )
+            if active - aliases:
+                raise ValueError(
+                    f"{name} (version {version}): DRAFT aliases absent from record: "
+                    f"{sorted(active - aliases)}; correct their version ranges in {SOURCES / path.name}"
+                )
             values = {
                 '${version}': version,
                 '${artifactSha256}': record['artifact']['sha256'],
