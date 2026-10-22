@@ -26,6 +26,7 @@ import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -54,7 +55,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
     /** Immutable target-rebuild retry delays, in attempt order.
      * @param delays positive retry delays
      */
-    public record RetryPolicy(List<java.time.Duration> delays) {
+    public record RetryPolicy(List<Duration> delays) {
         public RetryPolicy {
             delays = List.copyOf(delays);
             if (delays.isEmpty() || delays.stream().anyMatch(delay -> delay.isNegative() || delay.isZero())) {
@@ -67,9 +68,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
 
     /** Creates the plugin with the standard five bounded retries. */
     public BackupPlugin() {
-        this(new RetryPolicy(List.of(500L, 1_000L, 2_000L, 4_000L, 8_000L).stream()
-                .map(java.time.Duration::ofMillis)
-                .toList()));
+        this(DEFAULT_RETRY_POLICY);
     }
 
     /** Creates the plugin with an explicit target-rebuild retry policy. */
@@ -346,6 +345,12 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
             Thread.currentThread().interrupt();
         }
     }
+
+    /** Bounded target-rebuild retry backoff; five attempts, ~15.5s total. */
+    private static final RetryPolicy DEFAULT_RETRY_POLICY =
+            new RetryPolicy(List.of(500L, 1_000L, 2_000L, 4_000L, 8_000L).stream()
+                    .map(Duration::ofMillis)
+                    .toList());
 
     /** AUTO_BACKUP_SYNC scan period. */
     static final long AUTO_BACKUP_SCAN_INTERVAL_MILLIS = 30_000L;

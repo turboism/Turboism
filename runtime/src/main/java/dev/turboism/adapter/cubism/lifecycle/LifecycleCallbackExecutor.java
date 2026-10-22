@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.QuiescencePolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -12,11 +13,17 @@ import java.util.concurrent.TimeUnit;
 
 /** Shared callback submission and quiescence mechanics for lifecycle coordinators. */
 final class LifecycleCallbackExecutor implements AutoCloseable {
+    static final QuiescencePolicy DEFAULT_QUIESCENCE = new QuiescencePolicy(Duration.ofSeconds(2));
+
     private final QuiescencePolicy quiescence;
 
     private final String lifecycleName;
     private final PluginWorkExecutorRegistry executors;
     private final List<CompletionStage<?>> pending = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    LifecycleCallbackExecutor(final String lifecycleName, final PluginWorkExecutorRegistry executors) {
+        this(lifecycleName, executors, DEFAULT_QUIESCENCE);
+    }
 
     LifecycleCallbackExecutor(
             final String lifecycleName, final PluginWorkExecutorRegistry executors, final QuiescencePolicy quiescence) {
