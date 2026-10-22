@@ -16,6 +16,7 @@ JAVA_DIR = Path('runtime/src/main/java/dev/turboism/mapping/verification')
 HOST = JAVA_DIR / 'ReviewedHostArtifacts.java'
 TABLE = JAVA_DIR / 'ReviewedReleaseTable.java'
 ENV = Path('.env.example')
+VERSIONS = Path('sdk/src/main/java/dev/turboism/sdk/cubism/ReviewedVersions.java')
 
 
 def render(root: Path) -> dict[Path, str]:
@@ -83,6 +84,44 @@ public final class ReviewedReleaseTable {
     private ReviewedReleaseTable() {}
 }
 '''
+    ranges = """package dev.turboism.sdk.cubism;
+
+import dev.turboism.sdk.CubismEditor;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/** Reviewed version selections generated from reviewed-releases.json; do not edit. */
+@CubismEditor
+public final class ReviewedVersions {
+
+    private static final List<String> VERSIONS = List.of(
+""" + ',\n'.join('            "' + r['version'] + '"' for r in releases) + """);
+
+    /** @return reviewed releases starting at the exact reviewed boundary */
+    public static Set<String> since(final String first) {
+        return between(first, VERSIONS.get(VERSIONS.size() - 1));
+    }
+
+    /** @return reviewed releases in the named major.minor line */
+    public static Set<String> line(final String line) {
+        return VERSIONS.stream().filter(version -> version.startsWith(line + "."))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** @return reviewed releases between two exact reviewed boundaries, inclusive */
+    public static Set<String> between(final String first, final String last) {
+        final int start = VERSIONS.indexOf(first);
+        final int end = VERSIONS.indexOf(last);
+        if (start < 0 || end < start) {
+            throw new IllegalArgumentException("Invalid reviewed version range: " + first + ".." + last);
+        }
+        return Set.copyOf(VERSIONS.subList(start, end + 1));
+    }
+
+    private ReviewedVersions() {}
+}
+"""
     env = (root / ENV).read_text(encoding='utf-8')
     begin, end = '# reviewed-fixtures:begin', '# reviewed-fixtures:end'
     if env.count(begin) != 1 or env.count(end) != 1 or env.index(begin) >= env.index(end):
@@ -94,7 +133,7 @@ public final class ReviewedReleaseTable {
         fixture_lines.extend([f'TURBOISM_HOST_VALIDATION_FIXTURE_{code}=/path/to/cubism-{version}-fixture.cmo3',
                               f'# TURBOISM_HOST_VALIDATION_FIXTURE_{code}_SHA256=<64 lowercase hex characters>'])
     env = env[:env.index(begin)] + begin + '\n' + '\n'.join(fixture_lines) + '\n' + env[env.index(end):]
-    return {HOST: host, TABLE: table, ENV: env}
+    return {HOST: host, TABLE: table, VERSIONS: ranges, ENV: env}
 
 
 def check(root: Path) -> list[str]:

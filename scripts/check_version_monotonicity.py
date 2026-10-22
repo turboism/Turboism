@@ -211,6 +211,12 @@ def strip_comments(text: str) -> str:
     return "".join(out)
 
 
+def strip_reviewed_ranges(text: str) -> str:
+    """Range boundaries are selections from generated data, not literal rosters."""
+    return re.sub(r'\bReviewedVersions\.(?:since|line|between)\([^)]*\)',
+                  lambda match: ' ' * len(match.group()), text)
+
+
 def match_paren(text: str, open_index: int) -> int:
     """Index just past the ')' balancing text[open_index] == '('."""
     depth = 0
@@ -317,7 +323,7 @@ def java_findings(
 ) -> tuple[list[Finding], list[str]]:
     findings: list[Finding] = []
     problems: list[str] = []
-    stripped = strip_comments(text)
+    stripped = strip_reviewed_ranges(strip_comments(text))
     spans: list[tuple[int, int]] = []
     for match in ANNOTATION_OPEN.finditer(stripped):
         try:

@@ -80,8 +80,8 @@ def collect_sites(root: Path) -> dict[tuple[str, str], int]:
     ``kind`` is ``collection`` for collection literals and ``file`` for the
     per-file residual set.
     """
-    from generate_reviewed_releases import HOST, TABLE
-    generated_paths = {HOST.as_posix(), TABLE.as_posix()}
+    from generate_reviewed_releases import HOST, TABLE, VERSIONS
+    generated_paths = {HOST.as_posix(), TABLE.as_posix(), VERSIONS.as_posix()}
     admitted = monotonicity.admitted_versions(root)
     sites: dict[tuple[str, str], int] = {}
     for base in monotonicity.java_roots(root):
@@ -92,9 +92,9 @@ def collect_sites(root: Path) -> dict[tuple[str, str], int]:
             # These outputs are checked byte-for-byte against the table by completeness.
             if relative in generated_paths or monotonicity.JAVA_EXCLUDE.search(relative):
                 continue
-            stripped = monotonicity.strip_comments(
+            stripped = monotonicity.strip_reviewed_ranges(monotonicity.strip_comments(
                 source.read_text(encoding="utf-8")
-            )
+            ))
             spans: list[tuple[int, int]] = []
             for match in monotonicity.ANNOTATION_OPEN.finditer(stripped):
                 try:

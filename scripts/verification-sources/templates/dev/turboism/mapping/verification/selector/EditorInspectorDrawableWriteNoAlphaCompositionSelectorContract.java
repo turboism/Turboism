@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,10 +19,7 @@ public final class EditorInspectorDrawableWriteNoAlphaCompositionSelectorContrac
     public static final String CAPABILITY_ID = EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID;
 
     /** Exact installed generations whose complete no-alpha contract has been statically verified. */
-    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
-    );
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.03");
 
     public static final Set<String> REQUIRED_ALIASES = aliases();
 

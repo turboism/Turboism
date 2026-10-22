@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.sdk.cubism.model.ModelStatistics;
@@ -145,7 +146,7 @@ final class EditorModelStatisticsAccess {
     }
 
     static boolean supportsOffscreenStatistics(final String cubismVersion) {
-        return Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04").contains(cubismVersion);
+        return ReviewedVersions.line("5.3").contains(cubismVersion);
     }
 
     private static List<?> list(final Object value, final String label) {

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -119,47 +120,27 @@ public record MeshMirrorHostProfile(
      * is inlined in its {@code C()} pass, so the legacy axis-draw weave applies.
      * No native mirror-linked deletion — the backport selectors are installed.
      */
-    private static final Set<String> REVIEWED_50_VERSIONS = Set.of(
-            ReviewedHostArtifacts.CUBISM_5_0_00_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_0_01_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_0_02_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_0_03_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_0_04_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_0_05_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_0_06_VERSION);
+    private static final Set<String> REVIEWED_50_VERSIONS = ReviewedVersions.line("5.0");
 
     /**
      * Reviewed 5.1.x generations: identical to 5.0.x except the guide context is
      * {@code context/K}.
      */
-    private static final Set<String> REVIEWED_51_VERSIONS = Set.of(
-            ReviewedHostArtifacts.CUBISM_5_1_00_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_1_01_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_1_02_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_1_03_VERSION);
+    private static final Set<String> REVIEWED_51_VERSIONS = ReviewedVersions.line("5.1");
 
     /**
      * Reviewed 5.2.x generations: the mirror selectors share one obfuscation
      * generation and none of these hosts delete mirror counterparts natively, so
      * every 5.2 profile carries the linked-deletion backport selectors.
      */
-    private static final Set<String> REVIEWED_52_VERSIONS = Set.of(
-            ReviewedHostArtifacts.CUBISM_5_2_00_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_2_01_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_2_02_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
+    private static final Set<String> REVIEWED_52_VERSIONS = ReviewedVersions.line("5.2");
 
     /**
      * Reviewed 5.3.x generations: the same selector tuple as 5.2, but every one
      * of these hosts deletes mirror counterparts natively, so no backport
      * selectors are installed.
      */
-    private static final Set<String> REVIEWED_53_VERSIONS = Set.of(
-            ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_3_01_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
+    private static final Set<String> REVIEWED_53_VERSIONS = ReviewedVersions.line("5.3");
 
     /** Returns the exact reviewed selector profile for the artifact, if it is supported. */
     public static Optional<MeshMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
