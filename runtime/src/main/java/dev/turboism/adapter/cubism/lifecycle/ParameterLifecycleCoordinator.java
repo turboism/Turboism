@@ -31,7 +31,10 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
     }
 
     public ParameterLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.callbacks = new LifecycleCallbackExecutor("Parameter", executors);
+        this.callbacks = new LifecycleCallbackExecutor(
+                "Parameter",
+                executors,
+                new dev.turboism.core.runtime.QuiescencePolicy(java.time.Duration.ofSeconds(2)));
     }
 
     /** Attaches the session event broker used by the preview plugin runtime. */

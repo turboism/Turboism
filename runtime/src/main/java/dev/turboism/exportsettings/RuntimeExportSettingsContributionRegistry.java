@@ -1,11 +1,13 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.QuiescencePolicy;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +33,7 @@ public final class RuntimeExportSettingsContributionRegistry
     static final String CALLBACK_FAILED_KEY = "export-settings.callback-failed";
     static final String PROCEED_UNEXPECTED_KEY = "export-settings.proceed-unexpected";
     static final String CALLBACK_DRAIN_TIMEOUT_KEY = "export-settings.callback-drain-timeout";
-    private static final long CALLBACK_DRAIN_TIMEOUT_MILLIS = 5_000L;
+    private final QuiescencePolicy closePolicy;
     static final String CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY = "export-settings.callback-active-during-scope-close";
 
     private final String pluginId;
@@ -46,6 +48,13 @@ public final class RuntimeExportSettingsContributionRegistry
     private boolean closeDrainInterrupted;
 
     public RuntimeExportSettingsContributionRegistry(final String pluginId, final long generation) {
+        this(pluginId, generation, new QuiescencePolicy(Duration.ofSeconds(5)));
+    }
+
+    /** Creates a contribution registry with an explicit callback drain bound. */
+    public RuntimeExportSettingsContributionRegistry(
+            final String pluginId, final long generation, final QuiescencePolicy closePolicy) {
+        this.closePolicy = Objects.requireNonNull(closePolicy, "closePolicy");
         this.pluginId = requireText(pluginId, "pluginId");
         if (generation < 0L) {
             throw new IllegalArgumentException("generation must not be negative");
@@ -230,7 +239,7 @@ public final class RuntimeExportSettingsContributionRegistry
                 closeReturnedReentrantly = true;
                 return;
             }
-            final long deadline = System.nanoTime() + CALLBACK_DRAIN_TIMEOUT_MILLIS * 1_000_000L;
+            final long deadline = System.nanoTime() + closePolicy.timeout().toNanos();
             while (activeCallbacks > 0) {
                 final long remainingNanos = deadline - System.nanoTime();
                 if (remainingNanos <= 0L) {
