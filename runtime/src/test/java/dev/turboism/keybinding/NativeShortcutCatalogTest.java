@@ -64,6 +64,54 @@ class NativeShortcutCatalogTest {
     }
 
     @Test
+    void identicalCommandsAreCollectedOnlyOnce() {
+        JMenuBar bar = new JMenuBar();
+        for (int index = 0; index < 3; index++) {
+            JMenu file = new JMenu("File");
+            file.add(item("Save", "ctrl S"));
+            bar.add(file);
+        }
+
+        List<KeybindingTable.NativeRow> rows = NativeShortcutCatalog.collect(bar);
+        assertEquals(1, rows.size());
+        assertEquals("menu/file-save", rows.get(0).id());
+    }
+
+    @Test
+    void sharedCommandsAcrossWindowMenusKeepOneStableRow() {
+        JMenuBar first = new JMenuBar();
+        JMenu file = new JMenu("File");
+        file.add(item("Save", "ctrl S"));
+        first.add(file);
+        JMenuBar second = new JMenuBar();
+        JMenu copy = new JMenu("&File");
+        copy.add(item("&Save", "ctrl S"));
+        copy.add(item("Open", "ctrl O"));
+        second.add(copy);
+
+        List<KeybindingTable.NativeRow> rows = NativeShortcutCatalog.collect(first, second);
+        assertEquals(2, rows.size());
+        assertEquals(NativeShortcutCatalog.collect(first).get(0), rows.get(0));
+        assertEquals(rows, NativeShortcutCatalog.collect(first, second, first));
+        assertEquals("menu/file-open", rows.get(1).id());
+        assertEquals(1, rows.get(1).order());
+    }
+
+    @Test
+    void sameShortcutOnDifferentMenuPathsIsPreserved() {
+        JMenuBar bar = new JMenuBar();
+        for (String name : List.of("File", "Project")) {
+            JMenu menu = new JMenu(name);
+            menu.add(item("Save", "ctrl S"));
+            bar.add(menu);
+        }
+
+        List<KeybindingTable.NativeRow> rows = NativeShortcutCatalog.collect(bar);
+        assertEquals(2, rows.size());
+        assertNotEquals(rows.get(0).id(), rows.get(1).id());
+    }
+
+    @Test
     void duplicateLeafNamesGetUniqueIds() {
         JMenuBar bar = new JMenuBar();
         JMenu a = new JMenu("File");
