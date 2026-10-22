@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: parameter, lock, palette, safety
 turboismApi: "[0.67.0,1.0.0)"
@@ -14,7 +14,7 @@ interface: embedded
 
 # 参数锁定插件
 
-> **Turboism 官方插件** · **状态：开发中**
+> **Turboism 官方插件** · **状态：预览**
 
 保护 Cubism 参数值避免意外修改，支持跨会话持久化与原生逐行/参数组锁定图标集成。
 
@@ -58,13 +58,15 @@ interface: embedded
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 
+模型观察与参数拦截已纳入上述版本计算。逐版本原始 JAR 的参数钩子和行 UI 变换检查可通过 `:runtime:parameterLockArtifactTest` 重跑，详见[版本兼容性验证](../../validation/parameter-lock/VERSION-COMPATIBILITY.md)。
+
 **实机验收：** 原生逐参数行点击、SDK 及原生控制器写入拦截已在 Cubism 5.2.03、5.3.02 通过。这两个版本的真实单层组已验证“混合 → 全锁 → 全解锁”，全部子参数均逐一验证；隔离模型临时移入第二个成员，测试后已移回，全程未保存模型。5.3.02 跨进程逐行锁持久化恢复已通过。深层嵌套已有离线回归；实机深层嵌套、物理滑条拖动、文本按键输入、Undo/Redo、多模型切换仍未完整验收。
 
 详见[实机验收记录](../../validation/parameter-lock/ROW-UI-ACCEPTANCE.md)。
 
 ## 安装与启用
 
-此官方插件处于**开发中**状态，尚未随正式包分发或上架。开发验证可执行 `./gradlew :plugins:parameter-lock:jar` 构建插件 JAR，安装后在**插件管理**中启用；也可在同一窗口停用。
+此官方插件处于**预览**状态，已列入后续 Turboism 发布包与插件市场发布清单。可执行 `./gradlew :plugins:parameter-lock:jar` 构建插件 JAR，或从包含此插件的发行版安装后，在**插件管理**中启用；也可在同一窗口停用。
 
 ## 使用方法
 
@@ -116,7 +118,7 @@ interface: embedded
 
 ## 状态与限制
 
-- **状态：** 开发中。
+- **状态：** 预览。
 - 离线单元测试与集成测试已验证 Hook 写入拦截、行级图标动作注册、深层参数组递归及防环、持久化存储及跨模型隔离；真实 Cubism Editor 的逐行与组动作通过项及限制见上述验收记录。
 - 逐行交互已使用独立探针与产物验收；旧工具栏证据单独保留。
 - 写入抑制机制在宿主执行修改前返回参数当前已有值；原生撤销历史的交互依赖所安装 Cubism 版本的具体写入管线。
