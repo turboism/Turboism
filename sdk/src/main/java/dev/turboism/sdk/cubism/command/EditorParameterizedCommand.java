@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Set;
 
 /** Closed inventory of typed operations awaiting or using command-specific request records. */
@@ -25,8 +25,7 @@ public enum EditorParameterizedCommand {
     CREATE_SCENE_FROM_SOUNDS(ReviewedVersions.since("5.0.00")),
     CREATE_WARP_DEFORMER(ReviewedVersions.since("5.0.00")),
     CREATE_YURE(ReviewedVersions.since("5.1.00")),
-    DISPLAY_MULTI_PASTE_SHAPE_DIALOG(
-            ReviewedVersions.since("5.2.00")),
+    DISPLAY_MULTI_PASTE_SHAPE_DIALOG(ReviewedVersions.since("5.2.00")),
     EDIT_EXTENSION_INTERPOLATION(ReviewedVersions.since("5.0.00")),
     EDIT_MULTIKEY(ReviewedVersions.since("5.0.00")),
     EDIT_MULTIKEY_FOR_ARTPATH(ReviewedVersions.since("5.0.00")),
@@ -56,10 +55,8 @@ public enum EditorParameterizedCommand {
     OPEN_PARAMETER_GROUP_SETTING(ReviewedVersions.since("5.1.02")),
     OPEN_PARAMETER_SETTING(ReviewedVersions.since("5.0.00")),
     OPEN_PASTE_BLEND_SETTING_DIALOG(ReviewedVersions.since("5.0.00")),
-    PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG(
-            ReviewedVersions.since("5.2.00")),
-    PARAM_CTRL_CALC_ORDER_SETTING_DIALOG(
-            ReviewedVersions.since("5.2.00")),
+    PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG(ReviewedVersions.since("5.2.00")),
+    PARAM_CTRL_CALC_ORDER_SETTING_DIALOG(ReviewedVersions.since("5.2.00")),
     REFLECT_FADE(ReviewedVersions.line("5.3")),
     RESIZE_ARTMESH_WITH_SCALE(ReviewedVersions.since("5.0.00")),
     RESIZE_MODEL_DOCUMENT(ReviewedVersions.since("5.0.00")),

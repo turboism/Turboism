@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
@@ -42,9 +43,8 @@ final class McpHistoryCommandDomain {
 
     private static final String JSON_MIME_TYPE = "application/json";
     private static final int MAX_ARGUMENT_STRING_LENGTH = 256;
-    private static final List<String> HISTORY_SUPPORTED_VERSIONS = List.of(
-            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
-            "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
+    private static final List<String> HISTORY_SUPPORTED_VERSIONS =
+            ReviewedVersions.since("5.0.00").stream().sorted().toList();
 
     private final CubismHistory history;
     private final EditorCommandService editorCommands;

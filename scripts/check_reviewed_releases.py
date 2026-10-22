@@ -1167,72 +1167,88 @@ def r3_load_literal_exceptions(root: Path) -> tuple[list[dict], list[str]]:
     path = root / r3_LITERAL_EXCEPTIONS
     if not path.is_file():
         return [], []
-    try:
-        document = read_json(path)
-    except json.JSONDecodeError as exc:
-        raise r3_LiteralExceptionError(f"{r3_LITERAL_EXCEPTIONS}: invalid JSON: {exc}") from exc
+    document = read_json(path)
     if document.get("format") != r3_LITERAL_EXCEPTIONS_FORMAT:
-        raise r3_LiteralExceptionError(f"{r3_LITERAL_EXCEPTIONS}: unexpected format {document.get('format')!r}")
+        raise r3_LiteralExceptionError(f"{path}: unexpected exception format")
     entries = document.get("sites")
     if not isinstance(entries, list):
-        raise r3_LiteralExceptionError(f"{r3_LITERAL_EXCEPTIONS}: 'sites' list not found")
-    problems: list[str] = []
-    seen: set[tuple[str, str, str]] = set()
+        raise r3_LiteralExceptionError(f"{path}: 'sites' list not found")
+    problems = []
+    seen = set()
     for index, entry in enumerate(entries):
-        kind = entry.get("kind")
-        versions = entry.get("versions")
-        if kind not in ("collection", "file"):
-            problems.append(f"site {index}: kind must be 'collection' or 'file'")
+        entry.setdefault("kind", "file")
+        if entry["kind"] not in ("collection", "file"):
+            problems.append(f"site {index}: invalid exception kind")
         if not isinstance(entry.get("path"), str) or not entry["path"]:
             problems.append(f"site {index}: 'path' missing")
-        if not isinstance(versions, list) or not versions:
-            problems.append(f"site {index}: 'versions' must be a non-empty list")
-        elif versions != r3_sort_versions(set(versions)):
-            problems.append(f"site {index}: 'versions' must be sorted")
         if not isinstance(entry.get("evidence"), str) or not entry["evidence"].strip():
             problems.append(f"site {index}: 'evidence' must justify the exception")
+        versions = entry.get("versions")
+        if versions is not None and (not isinstance(versions, list) or not versions
+                                    or versions != r3_sort_versions(set(versions))):
+            problems.append(f"site {index}: versions must be nonempty, unique and sorted")
+        if entry["kind"] == "collection" and versions is None:
+            problems.append(f"site {index}: collection exception needs exact versions")
         count = entry.get("count", 1)
-        if kind == "collection" and (not isinstance(count, int) or count < 1):
-            problems.append(f"site {index}: 'count' must be a positive integer")
-        if kind == "file" and "count" in entry:
-            problems.append(f"site {index}: 'file' entries carry no 'count'")
-        if isinstance(entry.get("path"), str) and isinstance(versions, list):
-            key = (str(kind), entry["path"], ",".join(versions))
-            if key in seen:
-                problems.append(f"site {index}: duplicate registry entry")
-            seen.add(key)
+        if not isinstance(count, int) or count < 1:
+            problems.append(f"site {index}: count must be positive")
+        key = (entry["kind"], entry.get("path"), tuple(versions or ()))
+        if key in seen:
+            problems.append(f"site {index}: duplicate exception")
+        seen.add(key)
     return entries, problems
+
+
+def r3_bare_version_sets(root: Path) -> set[tuple[str, str]]:
+    """File-level value-table exceptions never permit a bare Set.of roster."""
+    bare = set()
+    for base in r2_java_roots(root):
+        if not base.is_dir():
+            continue
+        for source in base.rglob("*.java"):
+            relative = source.relative_to(root).as_posix()
+            if r2_JAVA_EXCLUDE.search(relative):
+                continue
+            text = r2_strip_comments(source.read_text(encoding="utf-8"))
+            for match in r2_COLLECTION_OPEN.finditer(text):
+                end = r2_match_paren(text, match.end() - 1)
+                body = text[match.end():end - 1]
+                if re.fullmatch(r'\s*(?:"5\.\d{1,2}\.\d{2}"\s*,?\s*)+', body):
+                    versions = r2_literal_versions(body, set())
+                    bare.add((relative, ",".join(r3_sort_versions(versions))))
+    return bare
 
 
 def r3_check(root: Path) -> list[str]:
     observed = r3_collect_sites(root)
     entries, problems = r3_load_literal_exceptions(root)
-    failures = list(problems)
-    expected: dict[tuple[str, str, str], dict] = {}
-    for entry in entries:
-        key = (entry["kind"], entry["path"], ",".join(entry["versions"]))
-        expected[key] = entry
+    if problems:
+        return problems
+    bare = r3_bare_version_sets(root)
+    used = set()
     for (kind, path, csv), count in sorted(observed.items()):
-        entry = expected.get((kind, path, csv))
-        if entry is None:
-            failures.append(
-                f"unregistered {kind} version set at {path}: {csv}; document an exception in "
-                f"{r3_LITERAL_EXCEPTIONS} with evidence, or derive the set from review data"
-            )
+        explicit = [i for i, entry in enumerate(entries)
+                    if entry["path"] == path and entry["kind"] == kind
+                    and entry.get("versions") == csv.split(",")]
+        general = [i for i, entry in enumerate(entries)
+                   if entry["path"] == path and entry["kind"] == "file"
+                   and "versions" not in entry]
+        matches = explicit or ([] if (path, csv) in bare else general)
+        if not matches:
+            problems.append(f"unregistered {kind} version set at {path}: {csv}; "
+                            "derive a range or document an evidence-backed exception")
             continue
-        if kind == "collection" and entry.get("count", 1) != count:
-            failures.append(
-                f"{path}: set {csv} now occurs {count} time(s) but the registry "
-                f"declares {entry.get('count', 1)}; update the count or remove the "
-                f"new literal"
-            )
-    for (kind, path, csv), entry in sorted(expected.items()):
-        if (kind, path, csv) not in observed:
-            failures.append(
-                f"stale registry entry: {kind} {path} {csv} is not live; remove "
-                f"it from {r3_LITERAL_EXCEPTIONS}"
-            )
-    return failures
+        for index in matches:
+            used.add(index)
+            entry = entries[index]
+            if kind == "collection" and index in explicit and entry.get("count", 1) != count:
+                problems.append(f"{path}: set {csv} occurs {count} time(s), "
+                                f"exception declares {entry.get('count', 1)}")
+    for index, entry in enumerate(entries):
+        if index not in used:
+            problems.append(f"stale literal exception: {entry['path']}")
+    return problems
+
 
 # R4
 #!/usr/bin/env python3

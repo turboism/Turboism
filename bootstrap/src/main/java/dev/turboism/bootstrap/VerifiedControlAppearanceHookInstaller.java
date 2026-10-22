@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.ui.appearance.control.DeformerControlRowAppearanceProvider;
 import dev.turboism.ui.appearance.control.DeformerControlRowRendererMethodTransformer;
 import dev.turboism.ui.appearance.control.DeformerTreeControlAppearanceProvider;
@@ -213,8 +213,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     }
 
     static boolean supportsStaticProfile(final String cubismVersion) {
-        return ReviewedVersions.since("5.2.00")
-                .contains(cubismVersion);
+        return ReviewedVersions.since("5.2.00").contains(cubismVersion);
     }
 
     void install() throws Exception {

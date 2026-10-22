@@ -1,10 +1,10 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserRedirectTransformer;
 import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.sdk.ReviewedVersions;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
     /** Exact Cubism releases whose reviewed artifacts carry a chooser-redirect profile. */
-    static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS = java.util.stream.Stream.of(ReviewedVersions.between("5.2.03", "5.2.03"), ReviewedVersions.since("5.3.02")).flatMap(java.util.Set::stream).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS = java.util.stream.Stream.of(
+                    ReviewedVersions.between("5.2.03", "5.2.03"), ReviewedVersions.since("5.3.02"))
+            .flatMap(java.util.Set::stream)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     private final Instrumentation instrumentation;
     private final String targetClassName;

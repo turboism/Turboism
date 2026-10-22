@@ -1,7 +1,7 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -37,8 +37,7 @@ record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
     private static final String ACCESSOR_53 = "i";
 
     private static final java.util.Set<String> VERSIONS_52 = ReviewedVersions.line("5.2");
-    private static final java.util.Set<String> VERSIONS_53 =
-            ReviewedVersions.line("5.3");
+    private static final java.util.Set<String> VERSIONS_53 = ReviewedVersions.line("5.3");
 
     DeformerNodeSourceProfile {
         Objects.requireNonNull(cubismVersion, "cubismVersion");

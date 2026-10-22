@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.integration;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Container;
@@ -102,8 +102,7 @@ public final class NativeEditToggleInjector {
             final VerifiedMemberResolver resolver, final EditToggleState state) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(state, "state");
-        if (!ReviewedVersions.since("5.1.00")
-                .contains(verified.admittedCubismVersion())) {
+        if (!ReviewedVersions.since("5.1.00").contains(verified.admittedCubismVersion())) {
             return Optional.empty();
         }
         if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, REQUIRED_ALIASES)) {

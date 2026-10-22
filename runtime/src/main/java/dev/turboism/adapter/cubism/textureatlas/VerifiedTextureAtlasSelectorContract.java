@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -64,9 +64,14 @@ public final class VerifiedTextureAtlasSelectorContract {
             .collect(java.util.stream.Collectors.toUnmodifiableMap(
                     java.util.function.Function.identity(),
                     version -> ReviewedVersions.since("5.2.00").contains(version)
-                            ? new Profile(version, REQUIRED_ALIASES, HOOK_ALIASES,
-                                    AUTO_LAYOUT_HOOK_ALIASES, NATIVE_INVOCATION_ALIASES,
-                                    DIALOG_INJECTION_ALIASES, STATISTICS_ALIASES)
+                            ? new Profile(
+                                    version,
+                                    REQUIRED_ALIASES,
+                                    HOOK_ALIASES,
+                                    AUTO_LAYOUT_HOOK_ALIASES,
+                                    NATIVE_INVOCATION_ALIASES,
+                                    DIALOG_INJECTION_ALIASES,
+                                    STATISTICS_ALIASES)
                             : profile520AndBelow(version)));
 
     /**

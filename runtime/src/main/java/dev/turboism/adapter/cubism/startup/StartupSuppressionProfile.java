@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.startup;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -102,12 +102,17 @@ record StartupSuppressionProfile(
      * information selector and the skip is vacuously satisfied.
      */
     private static final Map<String, SuppressionShape> SHAPES = java.util.stream.Stream.of(
-            Map.entry(ReviewedVersions.between("5.0.00", "5.0.02"), new SuppressionShape("c", SPLASH_Y_DESCRIPTOR, false)),
-            Map.entry(ReviewedVersions.between("5.0.03", "5.0.06"), new SuppressionShape("e", SPLASH_X_DESCRIPTOR, false)),
-            Map.entry(ReviewedVersions.between("5.1.00", "5.2.03"), new SuppressionShape("e", SPLASH_X_DESCRIPTOR, true)),
-            Map.entry(ReviewedVersions.since("5.3.00"), new SuppressionShape("e", SPLASH_V_DESCRIPTOR, true)))
-            .flatMap(entry -> entry.getKey().stream()
-                    .map(version -> Map.entry(version, entry.getValue())))
+                    Map.entry(
+                            ReviewedVersions.between("5.0.00", "5.0.02"),
+                            new SuppressionShape("c", SPLASH_Y_DESCRIPTOR, false)),
+                    Map.entry(
+                            ReviewedVersions.between("5.0.03", "5.0.06"),
+                            new SuppressionShape("e", SPLASH_X_DESCRIPTOR, false)),
+                    Map.entry(
+                            ReviewedVersions.between("5.1.00", "5.2.03"),
+                            new SuppressionShape("e", SPLASH_X_DESCRIPTOR, true)),
+                    Map.entry(ReviewedVersions.since("5.3.00"), new SuppressionShape("e", SPLASH_V_DESCRIPTOR, true)))
+            .flatMap(entry -> entry.getKey().stream().map(version -> Map.entry(version, entry.getValue())))
             .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
     private record SuppressionShape(String splashName, String splashDescriptor, boolean informationCall) {
