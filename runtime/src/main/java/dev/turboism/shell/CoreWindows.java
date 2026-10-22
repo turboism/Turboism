@@ -187,7 +187,7 @@ final class CoreWindows implements AutoCloseable {
 
     private JDialog createSettingsDialog() {
         final RuntimeSettings value = settings.read();
-        final JDialog dialog = CoreDialogs.create(text("window.settings.title"), 620, 460);
+        final JDialog dialog = CoreDialogs.create(text("window.settings.title"), 780, 560);
         dialog.setLayout(new BorderLayout());
 
         final JCheckBox safeMode = new JCheckBox(text("settings.safe-mode"), value.safeMode());
