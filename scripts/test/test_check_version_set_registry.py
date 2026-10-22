@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.test.reviewed_releases_fixture import table
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,14 +19,7 @@ CHECK = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(CHECK)
 
-REVIEWED_HOST_ARTIFACTS = """
-public final class ReviewedHostArtifacts {
-    public static final String CUBISM_5_2_03_VERSION = "5.2.03";
-    public static final String CUBISM_5_3_02_VERSION = "5.3.02";
-    public static final String CUBISM_5_3_03_VERSION = "5.3.03";
-    public static final String CUBISM_5_3_04_VERSION = "5.3.04";
-}
-"""
+REVIEWED_HOST_ARTIFACTS = table(['5.2.03', '5.3.02', '5.3.03', '5.3.04'])
 
 REGISTERED_CONTRACT = """
 package dev.turboism.demo;
@@ -59,10 +53,6 @@ final class Dispatch {
 CONTRACT_REL = "runtime/src/main/java/dev/turboism/demo/Contract.java"
 OTHER_REL = "runtime/src/main/java/dev/turboism/demo/OtherContract.java"
 DISPATCH_REL = "runtime/src/main/java/dev/turboism/demo/Dispatch.java"
-CANONICAL_REL = (
-    "runtime/src/main/java/dev/turboism/mapping/verification/"
-    "ReviewedHostArtifacts.java"
-)
 
 ALL = ["5.2.03", "5.3.02", "5.3.03", "5.3.04"]
 DISPATCH_SET = ["5.3.02", "5.3.03"]
@@ -95,18 +85,11 @@ def _entry(
 
 
 def _registry(root: Path, sites: list[dict]) -> None:
-    canonical = _entry(
-        "file",
-        CANONICAL_REL,
-        ALL,
-        basis="canonical",
-        reason="the canonical admitted-version declaration",
-    )
     _write(
         root,
         CHECK.REGISTRY.as_posix(),
         json.dumps(
-            {"format": CHECK.REGISTRY_FORMAT, "sites": [canonical, *sites]}
+            {"format": CHECK.REGISTRY_FORMAT, "sites": sites}
         ),
     )
 

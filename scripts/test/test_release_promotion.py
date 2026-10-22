@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.test.reviewed_releases_fixture import table
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/release"))
@@ -97,6 +98,14 @@ class PromotionTest(unittest.TestCase):
             'rootProject.extra["turboismFrameworkVersion"] = "1.2.3"\n')
         (self.source / "CHANGELOG.md").write_text('## [1.2.3] - 2026-09-06\n\nTest notes\n')
         (self.source / "packaging/release-plugins.txt").write_text(':plugins:core\n:plugins:mcp\n')
+        reviewed = self.source / 'compatibility/cubism/reviewed-releases.json'
+        reviewed.parent.mkdir(parents=True)
+        reviewed.write_text(table(['5.3.04']))
+        for name in ('ReviewedHostArtifacts.java', 'ReviewedReleaseTable.java'):
+            relative = Path('runtime/src/main/java/dev/turboism/mapping/verification') / name
+            generated = self.source / relative
+            generated.parent.mkdir(parents=True, exist_ok=True)
+            generated.write_bytes((ROOT / relative).read_bytes())
         self.git("init", "-b", "main")
         self.git("add", ".")
         self.git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture")
@@ -141,6 +150,34 @@ class PromotionTest(unittest.TestCase):
     def promote(self, attempt=2):
         return p.promote(self.gh, self.source, self.bundle, '123', self.sha, attempt,
                          'publish-github-only:' + self.sha)
+
+    def test_reviewed_table_cannot_change_after_candidate(self):
+        path = self.source / 'compatibility/cubism/reviewed-releases.json'
+        path.write_text(path.read_text().replace('"fullRuntime": true', '"fullRuntime": false'))
+        with self.assertRaisesRegex(p.ReleaseError, 'source release metadata was modified'):
+            self.promote()
+        self.assertEqual([], self.gh.writes)
+        # The same guard covers an already staged modification.
+        self.git('add', str(path))
+        with self.assertRaisesRegex(p.ReleaseError, 'source release metadata was modified'):
+            self.promote()
+        self.assertEqual([], self.gh.writes)
+
+    def test_generated_java_cannot_change_after_candidate(self):
+        for name in ('ReviewedHostArtifacts.java', 'ReviewedReleaseTable.java'):
+            with self.subTest(file=name):
+                path = self.source / 'runtime/src/main/java/dev/turboism/mapping/verification' / name
+                original = path.read_text()
+                path.write_text(original + '\n// hand edit after candidate\n')
+                with self.assertRaisesRegex(p.ReleaseError, 'source release metadata was modified'):
+                    self.promote()
+                self.assertEqual([], self.gh.writes)
+                self.git('add', str(path))
+                with self.assertRaisesRegex(p.ReleaseError, 'source release metadata was modified'):
+                    self.promote()
+                self.assertEqual([], self.gh.writes)
+                path.write_text(original)
+                self.git('add', str(path))
 
     def test_promotes_exact_bytes_and_annotated_source_then_noops(self):
         self.promote()

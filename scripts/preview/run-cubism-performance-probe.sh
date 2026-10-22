@@ -21,21 +21,21 @@ identity_source="$(dirname "${BASH_SOURCE[0]}")/probe-process-identity.sh"
 source "$identity_source"
 
 # The verifier resolves the reviewed jar digest through reviewed_host_artifacts.py, which reads
-# ReviewedHostArtifacts.java. The task directory is flat, so snapshot both next to the verifier
+# reviewed-releases.json. The task directory is flat, so snapshot both next to the verifier
 # (from the repository tree beside this runner, else already staged in the task directory) and
 # fail closed before any host launch when either is unavailable.
 runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 reviewed_py="$runner_dir/reviewed_host_artifacts.py"
-reviewed_java="$runner_dir/../../runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+reviewed_table="$runner_dir/../../compatibility/cubism/reviewed-releases.json"
 [[ -r "$reviewed_py" ]] || reviewed_py="$task/reviewed_host_artifacts.py"
-[[ -r "$reviewed_java" ]] || reviewed_java="$task/ReviewedHostArtifacts.java"
-[[ -r "$reviewed_py" && -r "$reviewed_java" ]] \
-  || { echo "reviewed_host_artifacts.py / ReviewedHostArtifacts.java are missing next to the runner or in $task" >&2; exit 64; }
+[[ -r "$reviewed_table" ]] || reviewed_table="$task/reviewed-releases.json"
+[[ -r "$reviewed_py" && -r "$reviewed_table" ]] \
+  || { echo "reviewed_host_artifacts.py / reviewed-releases.json are missing next to the runner or in $task" >&2; exit 64; }
 if [[ "$(realpath "$reviewed_py")" != "$(realpath -m "$task/reviewed_host_artifacts.py")" ]]; then
   cp "$reviewed_py" "$task/reviewed_host_artifacts.py"
 fi
-if [[ "$(realpath "$reviewed_java")" != "$(realpath -m "$task/ReviewedHostArtifacts.java")" ]]; then
-  cp "$reviewed_java" "$task/ReviewedHostArtifacts.java"
+if [[ "$(realpath "$reviewed_table")" != "$(realpath -m "$task/reviewed-releases.json")" ]]; then
+  cp "$reviewed_table" "$task/reviewed-releases.json"
 fi
 python3 "$task/reviewed_host_artifacts.py" versions > /dev/null \
   || { echo "reviewed Cubism digests are not resolvable from $task" >&2; exit 64; }

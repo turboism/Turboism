@@ -1,30 +1,20 @@
 #!/usr/bin/env python3
-"""Read the reviewed Cubism host artifacts from their single source of truth.
+"""Read exact reviewed Cubism facts from reviewed-releases.json.
 
-``ReviewedHostArtifacts.java`` is the only place a reviewed Cubism Editor jar identity is
-declared. Shell runners and Python tools resolve the same identities here instead of restating
-SHA-256 literals, so adding a Cubism version is one reviewed edit to that Java type.
+Tree snapshots keep the repository-relative JSON path; flat runners stage a
+sibling reviewed-releases.json. Missing or malformed input fails closed.
 
-The source is located relative to this file (``<root>/scripts/preview/`` -> ``<root>/runtime/...``),
-which holds both in the repository and inside a prepared validation snapshot. Flat staging
-directories (a probe task directory, a task home ``validation/`` directory) carry no such tree, so
-a ``ReviewedHostArtifacts.java`` copy sitting next to this file is used instead. Parsing fails
-closed: a missing source, a malformed declaration, or an unknown version raises instead of
-returning a guess.
-
-Usage: reviewed_host_artifacts.py sha256 VERSION    (VERSION is 5303 or 5.3.03)
-       reviewed_host_artifacts.py versions          (compact codes, oldest first)
+Usage: reviewed_host_artifacts.py sha256 VERSION | versions
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 from typing import NamedTuple
 
-SOURCE_RELATIVE = (
-    "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
-)
+SOURCE_RELATIVE = "compatibility/cubism/reviewed-releases.json"
 SOURCE_NAME = Path(SOURCE_RELATIVE).name
 
 
@@ -42,13 +32,6 @@ def default_source() -> Path:
 
 DEFAULT_SOURCE = default_source()
 
-# ``CUBISM_5_3_03 = new HostArtifactDigest(42_010_633L, "<sha256>")``; the bundled JOGL
-# dependency (``CUBISM_5_3_03_JOGL``) is not an Editor artifact and deliberately does not match.
-_DECLARATION = re.compile(
-    r'CUBISM_(\d+)_(\d+)_(\d+)\s*=\s*new HostArtifactDigest\(\s*([\d_]+)L,\s*"([0-9a-f]{64})"\s*\)'
-)
-
-
 class ReviewedArtifact(NamedTuple):
     """One reviewed Editor jar identity."""
 
@@ -57,21 +40,66 @@ class ReviewedArtifact(NamedTuple):
     sha256: str
 
 
-def load(source: Path = DEFAULT_SOURCE) -> dict[str, ReviewedArtifact]:
-    """Return reviewed artifacts keyed by dotted version (``5.3.03``), oldest first."""
+def unique_object(pairs: list) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def load_releases(source: Path = DEFAULT_SOURCE) -> list[dict]:
+    """Validate the canonical table; preserve its strictly increasing order."""
     try:
-        text = source.read_text(encoding="utf-8")
-    except OSError as failure:
-        raise SystemExit(f"reviewed host artifact source unreadable: {source}: {failure}")
-    artifacts: dict[str, ReviewedArtifact] = {}
-    for major, minor, patch, size, sha256 in _DECLARATION.findall(text):
-        version = f"{major}.{minor}.{patch}"
-        if version in artifacts:
-            raise SystemExit(f"duplicate reviewed artifact {version} in {source}")
-        artifacts[version] = ReviewedArtifact(version, int(size.replace("_", "")), sha256)
-    if not artifacts:
-        raise SystemExit(f"no reviewed host artifacts found in {source}")
-    return dict(sorted(artifacts.items(), key=lambda item: tuple(map(int, item[0].split(".")))))
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
+    except (OSError, ValueError) as failure:
+        raise ValueError(f"reviewed release source unreadable: {source}: {failure}") from failure
+    if not isinstance(document, dict) or set(document) != {"format", "releases"} or document["format"] != "turboism.reviewed-releases/v1":
+        raise ValueError("invalid reviewed releases format")
+    releases = document["releases"]
+    if not isinstance(releases, list) or not releases:
+        raise ValueError("empty reviewed releases")
+    previous = (-1, -1, -1)
+    digests = set()
+    codes = set()
+    for release in releases:
+        if not isinstance(release, dict) or set(release) != {"version", "build", "artifact", "core", "fullRuntime", "hostLabel"}:
+            raise ValueError("invalid release fields")
+        version = release["version"]
+        if not isinstance(version, str) or not re.fullmatch(r"[1-9]\d*\.(?:0|[1-9]\d*)\.\d{2}", version):
+            raise ValueError(f"invalid exact version: {version!r}")
+        key = tuple(map(int, version.split(".")))
+        if key <= previous or compact(version) in codes:
+            raise ValueError("reviewed versions must be unique and strictly increasing")
+        previous = key
+        codes.add(compact(version))
+        if type(release["build"]) is not int or not 0 < release["build"] <= 2147483647:
+            raise ValueError(f"invalid build: {version}")
+        artifact = release["artifact"]
+        if not isinstance(artifact, dict) or set(artifact) != {"name", "size", "sha256"} or artifact["name"] != "Live2D_Cubism.jar":
+            raise ValueError(f"invalid artifact: {version}")
+        if type(artifact["size"]) is not int or not 0 < artifact["size"] <= 9223372036854775807:
+            raise ValueError(f"invalid artifact size: {version}")
+        digest = artifact["sha256"]
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest) or digest in digests:
+            raise ValueError(f"invalid or duplicate artifact sha256: {version}")
+        digests.add(digest)
+        core = release["core"]
+        if not isinstance(core, dict) or set(core) != {"major", "minor", "patch"} or any(type(v) is not int or not 0 <= v <= 2147483647 for v in core.values()):
+            raise ValueError(f"invalid Core tuple: {version}")
+        if type(release["fullRuntime"]) is not bool:
+            raise ValueError(f"invalid fullRuntime: {version}")
+        label = release["hostLabel"]
+        if not isinstance(label, str) or not label.strip() or any(c in label for c in "/\\\r\n") or label in {".", ".."}:
+            raise ValueError(f"invalid hostLabel: {version}")
+    return releases
+
+
+def load(source: Path = DEFAULT_SOURCE) -> dict[str, ReviewedArtifact]:
+    """Return reviewed artifacts keyed by exact dotted version, oldest first."""
+    return {r["version"]: ReviewedArtifact(r["version"], r["artifact"]["size"], r["artifact"]["sha256"])
+            for r in load_releases(source)}
 
 
 def dotted(version: str) -> str:
@@ -98,6 +126,10 @@ def sha256(version: str, source: Path = DEFAULT_SOURCE) -> str:
 def main(argv: list[str]) -> int:
     if len(argv) == 3 and argv[1] == "sha256":
         print(sha256(argv[2]))
+        return 0
+    if len(argv) == 2 and argv[1] == "source":
+        load_releases()  # Validate before exposing a file to stage.
+        print(DEFAULT_SOURCE)
         return 0
     if len(argv) == 2 and argv[1] == "versions":
         print(" ".join(compact(version) for version in load()))

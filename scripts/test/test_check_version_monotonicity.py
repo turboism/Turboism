@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.test.reviewed_releases_fixture import table
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,14 +21,7 @@ SPEC.loader.exec_module(CHECK)
 
 VERSIONS = ("5.2.03", "5.3.02", "5.3.03", "5.3.04")
 
-REVIEWED_HOST_ARTIFACTS = """
-public final class ReviewedHostArtifacts {
-    public static final String CUBISM_5_2_03_VERSION = "5.2.03";
-    public static final String CUBISM_5_3_02_VERSION = "5.3.02";
-    public static final String CUBISM_5_3_03_VERSION = "5.3.03";
-    public static final String CUBISM_5_3_04_VERSION = "5.3.04";
-}
-"""
+REVIEWED_HOST_ARTIFACTS = table(['5.2.03', '5.3.02', '5.3.03', '5.3.04'])
 
 JAVA_CONTRACT = """
 final class Contract {

@@ -26,6 +26,7 @@ import uuid
 from typing import Any
 
 import host_validation_queue as queue
+import reviewed_host_artifacts
 
 FORMAT = "turboism.host-validation.tasks"
 SCHEMA_VERSION = 1
@@ -194,7 +195,7 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
         if not command_path.is_relative_to(scripts_root) or not command_path.is_file():
             raise SchedulerError(f"task {name} command must be an existing scripts/preview file")
         versions = require_string_list(fields.get("versions"), f"task {name} versions")
-        if any(version not in {"5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"} for version in versions):
+        if any(version not in {reviewed_host_artifacts.compact(v) for v in reviewed_host_artifacts.load()} for version in versions):
             raise SchedulerError(f"task {name} contains an unsupported exact host version")
 
         request_values = require_dict(fields.get("resources"), f"task {name} resources")

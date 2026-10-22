@@ -1,6 +1,8 @@
 """Repository artifact, contract, and metadata extraction."""
 from __future__ import annotations
 
+from preview.reviewed_host_artifacts import load_releases
+
 import json
 from pathlib import Path
 import re
@@ -35,19 +37,11 @@ from .constants import (
     TYPE_DECL_RE,
     VERIFICATION_DIR,
     VERSION_BOUNDARIES,
-    VERSION_CONSTANT_RE,
     VERSION_RE,
 )
 
 def load_reviewed_versions(root: Path) -> list[str]:
-    text = (root / REVIEWED_HOST_ARTIFACTS).read_text(encoding="utf-8")
-    seen: list[str] = []
-    for version in VERSION_CONSTANT_RE.findall(text):
-        if version not in seen:
-            seen.append(version)
-    if not seen:
-        raise ValueError("ReviewedHostArtifacts declares no CUBISM_*_VERSION constants")
-    return seen
+    return [r['version'] for r in load_releases(root / REVIEWED_HOST_ARTIFACTS)]
 
 
 def load_families(root: Path) -> tuple[dict[str, list[str]], dict[str, str]]:

@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.test.reviewed_releases_fixture import table
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,13 +21,7 @@ SPEC.loader.exec_module(GEN)
 
 VERSIONS = ("5.0.00", "5.1.00", "5.2.00")
 
-HOST_ARTIFACTS = """
-public final class ReviewedHostArtifacts {
-    public static final String CUBISM_5_0_00_VERSION = "5.0.00";
-    public static final String CUBISM_5_1_00_VERSION = "5.1.00";
-    public static final String CUBISM_5_2_00_VERSION = "5.2.00";
-}
-"""
+HOST_ARTIFACTS = table(['5.0.00', '5.1.00', '5.2.00'])
 
 CONTRACT = """
 package dev.turboism.mesh;
@@ -151,8 +146,7 @@ def _write(root: Path, rel: str, content: str) -> None:
 def build_tree(root: Path) -> None:
     _write(
         root,
-        "runtime/src/main/java/dev/turboism/mapping/verification/"
-        "ReviewedHostArtifacts.java",
+        "compatibility/cubism/reviewed-releases.json",
         HOST_ARTIFACTS,
     )
     records = {
