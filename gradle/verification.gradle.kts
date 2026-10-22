@@ -1687,7 +1687,7 @@ val checkCompletedCommit by tasks.registering {
         "checkLocalizedChangelogs",
         "checkLocalizedChangelogsSelfTest",
         spotlessCheckTasks,
-        "generateSdkApiReport"
+        "checkSdkApiCurrent"
     )
 }
 
