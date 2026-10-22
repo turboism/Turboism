@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -57,5 +58,10 @@ def main() -> None:
                 assert inner.read(name) == content.encode("utf-8")
 
 
+class PluginPackageBuilderTest(unittest.TestCase):
+    def test_package_preserves_jar_bytes_and_zip_flags(self):
+        main()
+
+
 if __name__ == "__main__":
-    main()
+    unittest.main()
