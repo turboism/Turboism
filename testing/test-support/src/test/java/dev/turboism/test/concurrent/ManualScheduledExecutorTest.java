@@ -18,10 +18,13 @@ class ManualScheduledExecutorTest {
     void advancesThroughDeadlinesAndDrainsReentrantTimersInFifoOrder() throws Exception {
         ManualScheduledExecutor timer = new ManualScheduledExecutor();
         List<String> calls = new ArrayList<>();
-        timer.schedule(() -> {
-            calls.add("first");
-            timer.schedule(() -> calls.add("nested"), 1, TimeUnit.SECONDS);
-        }, 1, TimeUnit.SECONDS);
+        timer.schedule(
+                () -> {
+                    calls.add("first");
+                    timer.schedule(() -> calls.add("nested"), 1, TimeUnit.SECONDS);
+                },
+                1,
+                TimeUnit.SECONDS);
         timer.schedule(() -> calls.add("second"), 1, TimeUnit.SECONDS);
         var result = timer.schedule(() -> 42, 2, TimeUnit.SECONDS);
         timer.advanceBy(Duration.ofMillis(999));
@@ -34,11 +37,44 @@ class ManualScheduledExecutorTest {
     }
 
     @Test
+    void fixedDelayRepeatsUntilCancelledAndFailureStopsRepetition() {
+        ManualScheduledExecutor timer = new ManualScheduledExecutor();
+        List<Integer> calls = new ArrayList<>();
+        var repeat = timer.scheduleWithFixedDelay(() -> calls.add(1), 1, 2, TimeUnit.SECONDS);
+        timer.advanceBy(Duration.ofSeconds(5));
+        assertEquals(3, calls.size());
+        assertFalse(repeat.isDone());
+        assertTrue(repeat.cancel(false));
+        timer.advanceBy(Duration.ofSeconds(20));
+        assertEquals(3, calls.size());
+        var failed = timer.scheduleWithFixedDelay(
+                () -> {
+                    throw new IllegalStateException();
+                },
+                0,
+                1,
+                TimeUnit.SECONDS);
+        timer.runDueTasks();
+        assertTrue(failed.isDone());
+        assertEquals(0, timer.pendingTaskCount());
+    }
+
+    @Test
     void cancellationFailureAndShutdownPreserveFutureSemantics() {
         ManualScheduledExecutor timer = new ManualScheduledExecutor();
-        var cancelled = timer.schedule(() -> { throw new AssertionError("cancelled callback ran"); }, 0, TimeUnit.SECONDS);
+        var cancelled = timer.schedule(
+                () -> {
+                    throw new AssertionError("cancelled callback ran");
+                },
+                0,
+                TimeUnit.SECONDS);
         assertTrue(cancelled.cancel(false));
-        var failed = timer.schedule(() -> { throw new IllegalStateException("failure"); }, 0, TimeUnit.SECONDS);
+        var failed = timer.schedule(
+                () -> {
+                    throw new IllegalStateException("failure");
+                },
+                0,
+                TimeUnit.SECONDS);
         timer.runDueTasks();
         assertTrue(cancelled.isCancelled());
         assertThrows(ExecutionException.class, failed::get);
