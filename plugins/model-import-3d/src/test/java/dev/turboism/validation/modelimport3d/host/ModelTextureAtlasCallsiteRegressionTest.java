@@ -290,7 +290,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         // Capture UI confirm info
         ModelImportPlugin.AtlasSummary capturedAtlasSummary;
         boolean confirmResult = true;
-        int choice = 1; // default 1 = FACE_COLORS (Path 1 simple import)
+        int choice = 1; // FACE_COLORS uses full-circle layered import
 
         // Texture atlas append control
         boolean supportsAppend = true;
@@ -851,9 +851,9 @@ class ModelTextureAtlasCallsiteRegressionTest {
     }
 
     @Test
-    void simpleImportCreatesNativeAtlasAndRemapsMeshInputs() throws Exception {
+    void faceColorFullCircleImportCreatesNativeAtlasAndRemapsMeshInputs() throws Exception {
         var w = new TestWorld();
-        w.choice = 1; // FACE_COLORS -> Path 1 (simple import)
+        w.choice = 1; // FACE_COLORS -> full-circle layered import
         w.start();
         byte[] cubeGlb = ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-985496727e50/cube.glb");
         w.feedModel(cubeGlb);
@@ -864,13 +864,13 @@ class ModelTextureAtlasCallsiteRegressionTest {
         System.err.println("TEST DEBUG: reportedMessage=" + w.reportedMessage + ", isError=" + w.reportedIsError
                 + ", txRolledBack=" + w.transactionRolledBack + ", txCount=" + w.transactionCount);
         assertNotNull(w.capturedAtlasSummary, "Confirmation dialog should receive AtlasSummary");
-        assertEquals(2, w.capturedAtlasSummary.pageCount(), "6 face colors at 256x128 pack into 2 pages of 512x512");
-        assertEquals(512, w.capturedAtlasSummary.width(), "Cube should plan 512x512 atlas");
-        assertEquals(512, w.capturedAtlasSummary.height());
+        assertEquals(1, w.capturedAtlasSummary.pageCount(), "Six full-circle face-color images share one atlas");
+        assertEquals(2048, w.capturedAtlasSummary.width(), "Six 576x576 face-color images fit in 2048x2048");
+        assertEquals(2048, w.capturedAtlasSummary.height());
 
         // ModelTextures.appendTextureAtlasPages was called
         assertEquals(1, w.appendTextureAtlasPagesCalls);
-        assertEquals(2, w.atlases.size(), "Two atlas pages should be created on model");
+        assertEquals(1, w.atlases.size(), "One atlas page should be created on model");
         assertNotNull(w.lastAppendedPlan);
 
         // Mesh texture inputs were migrated to TEXTURE_ATLAS_REGION
@@ -961,18 +961,18 @@ class ModelTextureAtlasCallsiteRegressionTest {
                 "Pre-existing atlas must not be overwritten");
         // New atlas added via appendTextureAtlasPages
         assertEquals(1, w.appendTextureAtlasPagesCalls);
-        assertEquals(3, w.atlases.size(), "Model should now have 3 atlases total (1 old + 2 new)");
+        assertEquals(2, w.atlases.size(), "Model should have 2 atlases total (1 old + 1 new)");
 
-        // New atlas should be sized by new textures (512x512), heterogeneous from old atlas (1024x1024)
+        // Full-circle palette images determine the new atlas size independently of the old atlas.
         var newAtlas = w.atlases.stream()
                 .filter(a -> !a.id().equals(oldAtlasId))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(512, newAtlas.width(), "New atlas should be sized by new textures, not old atlas");
-        assertEquals(512, newAtlas.height());
+        assertEquals(2048, newAtlas.width(), "New atlas should be sized by new textures, not old atlas");
+        assertEquals(2048, newAtlas.height());
 
         assertNotNull(w.lastAppendedPlan);
-        assertEquals(2, w.lastAppendedPlan.pageCount());
+        assertEquals(1, w.lastAppendedPlan.pageCount());
     }
 
     @Test

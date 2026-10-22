@@ -1,4 +1,5 @@
 action.import.label
+action.preset.label
 atlas.page-name
 dialog.appearance.message
 dialog.appearance.option.cancel
@@ -16,6 +17,7 @@ dialog.confirm.vertices
 dialog.confirm.vertices-optimized
 dialog.message.error.title
 dialog.message.info.title
+dialog.preset.message
 error.atlas-budget-exceeded
 error.atlas-layout-failed
 error.atlas-oversized
@@ -46,6 +48,16 @@ object.rotation.z
 object.warp
 plugin.description
 plugin.name
+preset.annulus
+preset.circle
+preset.cube
+preset.cylinder
+preset.inward-ring
+preset.sphere
+preset.square
+preset.tetrahedron
+preset.torus
+preset.triangle
 resource.chooser.title
 success.xyz-rotation
 success.yaw-pitch
