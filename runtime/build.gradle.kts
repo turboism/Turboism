@@ -466,3 +466,18 @@ dependencies {
     implementation(libs.resilience4j.circuitbreaker)
 
 }
+
+// Keep standalone focused gates useful, while the full suite owns their coverage
+// whenever it is present (including devCheck + checkCompletedCommit in CI).
+listOf("admissionUnitTests", "admissionPreflightTest", "corePublicApiProviderTest", "asyncHostReadFoundationTest").forEach { name ->
+    tasks.named<Test>(name) {
+        description += " Skipped when :runtime:test is scheduled, which includes this coverage."
+        onlyIf("the full runtime suite is not scheduled") { !gradle.taskGraph.hasTask(":runtime:test") }
+    }
+}
+listOf("admissionPreflightTest", "corePublicApiProviderTest").forEach { name ->
+    tasks.named<Test>(name) {
+        description += " Also covered by admissionUnitTests when that task is scheduled."
+        onlyIf("the admission unit suite is not scheduled") { !gradle.taskGraph.hasTask(":runtime:admissionUnitTests") }
+    }
+}
