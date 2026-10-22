@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.Set;
 
 /**
@@ -13,12 +14,7 @@ public final class EditorRawImagePsdSelectorContract {
     public static final String CAPABILITY_ID = "cubism.editor-model.psd.raw-image.export";
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     /** Reviewed generations carrying every identity, native export and integrity selector. */
-    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-    );
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = ReviewedVersions.since("5.0.00");
 
     /**
      * Exact installations whose {@code ACLayerEntry} has no {@code isTransparencyShapesLayer}
@@ -26,11 +22,7 @@ public final class EditorRawImagePsdSelectorContract {
      * nothing exists for the export fidelity comparison to preserve there. The save path is
      * otherwise identical, so admission requires every other alias on these generations.
      */
-    public static final Set<String> TRANSPARENCY_SHAPES_ABSENT_VERSIONS = Set.of(
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03"
-    );
+    public static final Set<String> TRANSPARENCY_SHAPES_ABSENT_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.03");
 
     /** Aliases that only the 5.3 layer model carries. */
     public static final Set<String> TRANSPARENCY_SHAPES_ALIASES = Set.of(

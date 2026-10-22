@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.ProtectedExportVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.io.File;
@@ -574,15 +575,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * {@link #cubism52} selector roster without the 5.3-only alias family, matching
      * {@code ProtectedExportVerificationManifest#cubism52Aliases()}.
      */
-    private static final Set<String> CUBISM_LEGACY_SURFACE_VERSIONS = Set.of(
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_00,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_01,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_02,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_03,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_00,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_01,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_02,
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03);
+    private static final Set<String> CUBISM_LEGACY_SURFACE_VERSIONS = ReviewedVersions.between("5.1.00", "5.2.03");
 
     private static Map<String, String> featureGates() {
         final Map<String, String> gates = new LinkedHashMap<>();

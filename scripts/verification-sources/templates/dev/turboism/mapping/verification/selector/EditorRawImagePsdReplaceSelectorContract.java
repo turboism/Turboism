@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.Set;
 
 /**
@@ -14,12 +15,7 @@ public final class EditorRawImagePsdReplaceSelectorContract {
     public static final String CAPABILITY_ID = "cubism.editor-model.psd.raw-image.replace";
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     /** Reviewed generations carrying both native replacement and issued-PSD export dependencies. */
-    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-    );
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = ReviewedVersions.since("5.0.00");
 
     /** Existing exact selectors reused for the current document/edit-state checks. */
     public static final String APP_CONTROLLER_CLASS_ALIAS =

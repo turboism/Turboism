@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -29,10 +30,7 @@ public final class EditorTextureSelectorContract {
     public static final String REGISTER_BIND_CAPABILITY_ID = "cubism.editor-model.texture.register-bind";
 
     /** Exact installations reviewed for the legacy factory route; no version-range inference. */
-    public static final Set<String> LEGACY_RAW_IMAGE_REMOVAL_VERSIONS = Set.of(
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
-    );
+    public static final Set<String> LEGACY_RAW_IMAGE_REMOVAL_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.03");
 
     public static final Set<String> READ_REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.model-source.texture-manager",

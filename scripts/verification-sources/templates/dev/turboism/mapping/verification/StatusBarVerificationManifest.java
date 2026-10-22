@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.List;
 import java.util.Set;
 
@@ -265,28 +266,7 @@ public final class StatusBarVerificationManifest {
 
     /** Reviewed exact Cubism versions this status-bar trust root can serve. */
     public static Set<String> reviewedCubismVersions() {
-        return Set.of(
-            CUBISM_VERSION_5_0_00,
-            CUBISM_VERSION_5_0_01,
-            CUBISM_VERSION_5_0_02,
-            CUBISM_VERSION_5_0_03,
-            CUBISM_VERSION_5_0_04,
-            CUBISM_VERSION_5_0_05,
-            CUBISM_VERSION_5_0_06,
-            CUBISM_VERSION_5_1_00,
-            CUBISM_VERSION_5_1_01,
-            CUBISM_VERSION_5_1_02,
-            CUBISM_VERSION_5_1_03,
-            CUBISM_VERSION_5_2_00,
-            CUBISM_VERSION_5_2_01,
-            CUBISM_VERSION_5_2_02,
-            CUBISM_VERSION_5_2_03,
-            CUBISM_VERSION_5_3_00,
-            CUBISM_VERSION_5_3_01,
-            CUBISM_VERSION_5_3_02,
-            CUBISM_VERSION_5_3_03,
-            CUBISM_VERSION_5_3_04
-        );
+        return ReviewedVersions.since("5.0.00");
     }
 
     /**

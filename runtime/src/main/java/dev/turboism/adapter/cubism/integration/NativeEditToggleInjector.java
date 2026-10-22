@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
@@ -101,9 +102,7 @@ public final class NativeEditToggleInjector {
             final VerifiedMemberResolver resolver, final EditToggleState state) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(state, "state");
-        if (!Set.of(
-                        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00",
-                        "5.3.01", "5.3.02", "5.3.03", "5.3.04")
+        if (!ReviewedVersions.since("5.1.00")
                 .contains(verified.admittedCubismVersion())) {
             return Optional.empty();
         }
