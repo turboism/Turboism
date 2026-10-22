@@ -1,6 +1,6 @@
 package dev.turboism.ui.mesh;
 
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Set;
 
 /** Exact-version selector admission contract for ui.mesh-toolbar.contribute. */

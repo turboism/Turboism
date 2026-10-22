@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.sdk.cubism.model.ModelStatistics;
 import java.util.ArrayList;
 import java.util.HashSet;

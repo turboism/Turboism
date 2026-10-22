@@ -1,7 +1,7 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Objects;
 import java.util.Optional;
 
