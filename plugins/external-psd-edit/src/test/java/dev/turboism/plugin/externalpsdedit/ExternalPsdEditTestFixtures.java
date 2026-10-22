@@ -285,6 +285,14 @@ final class ExternalPsdEditTestFixtures {
         volatile CountDownLatch observeRelease;
         volatile PsdFileOperationResult.Status openStatus = PsdFileOperationResult.Status.OPENED;
 
+        volatile String applicationPath = "";
+
+        @Override
+        public CompletionStage<PsdFileOperationResult> openInApplication(final String application) {
+            applicationPath = application;
+            return openInDefaultApplication();
+        }
+
         @Override
         public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
             subscribedBeforeOpen = observed && !subscriptionClosed.get();
@@ -604,11 +612,21 @@ final class ExternalPsdEditTestFixtures {
         }
     }
 
+    static final class SettingsUiHost extends RecordingUiHost {
+        final List<dev.turboism.sdk.ui.settings.SettingsContribution> settings = new ArrayList<>();
+
+        @Override
+        public Registration contributeSettings(final dev.turboism.sdk.ui.settings.SettingsContribution contribution) {
+            settings.add(contribution);
+            return () -> settings.remove(contribution);
+        }
+    }
+
     static final class RecordingPluginContext extends FakePluginContext {
         final DisposableScope disposableScope = new DisposableScope();
         final RecordingActionRegistry actions = new RecordingActionRegistry();
         final RecordingContextMenuRegistry contextMenu = new RecordingContextMenuRegistry();
-        final RecordingUiHost uiHost = new RecordingUiHost();
+        final SettingsUiHost uiHost = new SettingsUiHost();
         final PluginLogger logger;
         final FixedCubismFacade cubism = new FixedCubismFacade();
         final RecordingTaskScheduler taskScheduler = new RecordingTaskScheduler();
@@ -644,7 +662,7 @@ final class ExternalPsdEditTestFixtures {
         }
 
         @Override
-        public RecordingUiHost uiHost() {
+        public SettingsUiHost uiHost() {
             return uiHost;
         }
 

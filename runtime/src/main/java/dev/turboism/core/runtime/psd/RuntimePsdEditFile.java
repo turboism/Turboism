@@ -108,6 +108,13 @@ final class RuntimePsdEditFile implements PsdEditFile {
 
     @Override
     public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
+        return openInApplication("");
+    }
+
+    @Override
+    public CompletionStage<PsdFileOperationResult> openInApplication(final String executablePath) {
+        final String application =
+                Objects.requireNonNull(executablePath, "executablePath").strip();
         final PluginCompletionFuture<PsdFileOperationResult> completion = completion();
         final AtomicBoolean settled = new AtomicBoolean(false);
         try {
@@ -117,7 +124,7 @@ final class RuntimePsdEditFile implements PsdEditFile {
             final Path path = registry.requireFile(binding, this).validatedPath();
             inFlight.incrementAndGet();
             try {
-                executor.execute(() -> open(completion, settled, path));
+                executor.execute(() -> open(completion, settled, path, application));
             } catch (RejectedExecutionException queueRejected) {
                 endWork();
                 settle(completion, settled, result(PsdFileOperationResult.Status.REJECTED, "PSD_OPEN;queue=rejected"));
@@ -208,9 +215,14 @@ final class RuntimePsdEditFile implements PsdEditFile {
     private void open(
             final PluginCompletionFuture<PsdFileOperationResult> completion,
             final AtomicBoolean settled,
-            final Path path) {
+            final Path path,
+            final String application) {
         try {
-            launcher.launch(path);
+            requireOperational();
+            permissionChecker.check(PermissionIds.TURBOISM_PROCESS, OPEN_OPERATION);
+            permissionChecker.check(PermissionIds.TURBOISM_FILE_READ, OPEN_OPERATION);
+            registry.requireFile(binding, this).validatedPath();
+            launcher.launch(path, application);
             settle(completion, settled, result(PsdFileOperationResult.Status.OPENED, "PSD_OPEN;launch=accepted"));
         } catch (IOException | RuntimeException launchFailure) {
             settle(completion, settled, result(PsdFileOperationResult.Status.FAILED, "PSD_OPEN;launch=failed"));

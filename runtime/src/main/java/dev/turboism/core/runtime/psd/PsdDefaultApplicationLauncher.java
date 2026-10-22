@@ -3,6 +3,7 @@ package dev.turboism.core.runtime.psd;
 import java.awt.Desktop;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
@@ -11,7 +12,7 @@ import java.util.Objects;
  * Runtime-private seam that hands one validated, runtime-allocated PSD to the system's default
  * application.
  *
- * <p>The launcher never chooses an application, never accepts a user-supplied path or command, and
+ * <p>The launcher accepts an explicit executable path without parsing a shell command and
  * never changes file associations. The caller must already have validated the allocation and the
  * plugin's process permission. A missing desktop or missing association is reported as a failure to
  * open; it must not be worked around by editing system settings.</p>
@@ -20,6 +21,26 @@ import java.util.Objects;
 interface PsdDefaultApplicationLauncher {
     /** Requests that the operating system open this exact regular file. */
     void launch(Path file) throws IOException;
+
+    /** Launches a selected executable without a shell; blank retains the default association. */
+    default void launch(final Path file, final String executablePath) throws IOException {
+        if (executablePath.isBlank()) {
+            launch(file);
+            return;
+        }
+        customApplication(file, executablePath).start();
+    }
+
+    /** Validates and constructs the exact two-argument invocation without starting a process. */
+    static ProcessBuilder customApplication(final Path file, final String executablePath) throws IOException {
+        final Path executable = Path.of(executablePath);
+        if (!executable.isAbsolute() || !Files.isRegularFile(executable) || !Files.isExecutable(executable)) {
+            throw new IOException("PSD application must be an absolute executable file");
+        }
+        return new ProcessBuilder(executable.toString(), file.toString())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD);
+    }
 
     /** The production launcher: AWT desktop when available, otherwise a bounded OS fallback. */
     static PsdDefaultApplicationLauncher system() {

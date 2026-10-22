@@ -171,10 +171,13 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         invoke(slider, "setMax", active.maximumDegrees());
         invoke(slider, "setKeta", 1);
         invoke(slider, "setValue", axis.currentAngleDegrees());
+        final java.util.concurrent.atomic.AtomicLong changeSequence = new java.util.concurrent.atomic.AtomicLong();
         final Object changed = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
+                changeSequence.incrementAndGet();
                 active.onAngleChanged()
                         .accept(number(invoke(slider, "getValue")).floatValue());
+                NativeMeshMirrorBridge.repaintCanvas(panel);
                 return unitInstance;
             }
             return unitInstance;
@@ -191,9 +194,12 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         if (!active.resetToolTip().isEmpty()) invoke(reset, "setToolTipText", active.resetToolTip());
         final Object onReset = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
+                final long before = changeSequence.get();
                 invoke(slider, "setValue", 0.0f);
-                active.onAngleChanged()
-                        .accept(number(invoke(slider, "getValue")).floatValue());
+                if (changeSequence.get() == before) {
+                    active.onAngleChanged().accept(0.0f);
+                    NativeMeshMirrorBridge.repaintCanvas(panel);
+                }
                 return unitInstance;
             }
             return unitInstance;
