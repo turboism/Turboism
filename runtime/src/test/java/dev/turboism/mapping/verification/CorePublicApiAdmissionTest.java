@@ -103,7 +103,7 @@ class CorePublicApiAdmissionTest {
         final Path editor = EditorSelectorContractTestPaths.artifact(version);
         return CubismHostCompatibilityResolver.resolve(editor, editor.resolveSibling("Live2DCubismCore.jar"), name -> {
             final Path path =
-                    PROJECT_ROOT.resolve("compatibility/cubism/verification").resolve(name);
+                    PROJECT_ROOT.resolve("build/generated/verification").resolve(name);
             try {
                 return Files.isRegularFile(path) ? Files.readAllBytes(path) : null;
             } catch (java.io.IOException failure) {
@@ -213,7 +213,7 @@ class CorePublicApiAdmissionTest {
 
     private static Path record(final String profile) {
         return PROJECT_ROOT.resolve(
-                Path.of("compatibility", "cubism", "verification", "cubism-" + profile + "-core-model-read.json"));
+                Path.of("build", "generated", "verification", "cubism-" + profile + "-core-model-read.json"));
     }
 
     private static Path coreArtifact(final String profile) {

@@ -25,7 +25,7 @@ class EditorTextureRelationsSelectorContractTest {
         final Path projectRoot = locateProjectRoot();
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
         final Path recordPath =
-                projectRoot.resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+                projectRoot.resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
         final var loaded = new StaticVerificationRecordLoader().load(recordPath);
         final var report = new StaticSelectorVerifier()
                 .verify(artifact, loaded.record().artifact(), loaded.record().selectors());

@@ -15,7 +15,7 @@ legal; a set that skips a higher patch is a silent admission hole.
 
 Checked sites:
 
-- ``compatibility/cubism/verification/cubism-*-*.json``: per family, the
+- ``build/generated/verification/cubism-*-*.json``: per family, the
   ``capabilityIds`` list and the selector ``alias`` set of a newer patch must
   include the older patch's.
 - Java sources under ``JAVA_ROOTS``: ``Set.of(...)``/``List.of(...)``/
@@ -59,7 +59,7 @@ ROOT = repo_root()
 REVIEWED_HOST_ARTIFACTS = Path(
     "compatibility/cubism/reviewed-releases.json"
 )
-VERIFICATION_DIR = Path("compatibility/cubism/verification")
+VERIFICATION_DIR = Path("build/generated/verification")
 CLASS_PINS_DIR = Path(
     "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
 )
@@ -448,7 +448,7 @@ def collect_verification_records(
             findings.append(
                 Finding(
                     "verification-record",
-                    VERIFICATION_DIR.as_posix(),
+                    "compatibility/cubism/verification",
                     f"{family} record coverage",
                     tuple(sorted(coverage_missing, key=parse_dotted)),
                     f"{family} has records for {sorted(by_version)}",
@@ -468,7 +468,7 @@ def collect_verification_records(
                     findings.append(
                         Finding(
                             "verification-record",
-                            VERIFICATION_DIR.as_posix(),
+                            "compatibility/cubism/verification",
                             f"{family} {older}>{newer} {label}",
                             tuple(sorted(lost)),
                             f"{family} record {newer} drops {len(lost)} {label} "

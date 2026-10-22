@@ -26,7 +26,7 @@ class EditorModelRecordPinTest {
     @Test
     void qSelectorRecordsMatchThePinsUsedBeforeHostConnection() throws Exception {
         Path root = Path.of("").toAbsolutePath();
-        while (root != null && !Files.isDirectory(root.resolve("compatibility/cubism/verification")))
+        while (root != null && !Files.isDirectory(root.resolve("build/generated/verification")))
             root = root.getParent();
         assertNotNull(root, "Repository verification records must be available; never skip pin validation");
         for (var pin : List.of(
@@ -35,7 +35,7 @@ class EditorModelRecordPinTest {
                 EditorModelVerificationManifest.RECORD_5_3_03)) {
             var loaded = new StaticVerificationRecordLoader()
                     .load(root.resolve(
-                            "compatibility/cubism/verification/cubism-" + pin.cubismVersion() + "-editor-model.json"));
+                            "build/generated/verification/cubism-" + pin.cubismVersion() + "-editor-model.json"));
             // Static selector validity alone is insufficient: runtime admission pins the entire record bytes.
             assertEquals(pin.recordSha256(), loaded.sha256(), "Runtime record pin drift: " + pin.cubismVersion());
             assertEquals(pin.verificationId(), loaded.record().verificationId());
@@ -49,7 +49,7 @@ class EditorModelRecordPinTest {
     @Test
     void reviewedRecordRosterMatchesRuntimeManifestExactly() throws Exception {
         Path root = Path.of("").toAbsolutePath();
-        while (root != null && !Files.isDirectory(root.resolve("compatibility/cubism/verification")))
+        while (root != null && !Files.isDirectory(root.resolve("build/generated/verification")))
             root = root.getParent();
         assertNotNull(root, "Repository verification records must be available; never skip roster validation");
         for (var pin : List.of(
@@ -58,7 +58,7 @@ class EditorModelRecordPinTest {
                 EditorModelVerificationManifest.RECORD_5_3_03)) {
             var loaded = new StaticVerificationRecordLoader()
                     .load(root.resolve(
-                            "compatibility/cubism/verification/cubism-" + pin.cubismVersion() + "-editor-model.json"));
+                            "build/generated/verification/cubism-" + pin.cubismVersion() + "-editor-model.json"));
             var manifest = EditorModelVerificationManifest.forArtifact(pin.artifact());
             Set<String> recordAliases = loaded.record().selectors().stream()
                     .map(StaticSelector::alias)
