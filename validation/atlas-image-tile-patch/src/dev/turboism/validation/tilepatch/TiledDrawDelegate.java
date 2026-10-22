@@ -14,8 +14,8 @@ import java.util.Arrays;
  * Bbox-bounded delegate replacing the body of Cubism 5.3.03
  * {@code com.live2d.util.f.g.a(BufferedImage, Graphics2D, BufferedImage, int, int)}.
  *
- * <p>Semantics identical to the original page-size pipeline (verified offline in
- * validation/atlas-image-tile-scratch, 5000-case pixel-identical): the page-size
+ * <p>Semantics identical to the original page-size pipeline (verified by the
+ * live-JVM differential harness documented in this probe's README): the page-size
  * scratch9/10 are shrunk to the transformed-tile bbox clipped to the page; the
  * merge loop and SrcOver composite cover only that box. All heavy helpers are the
  * REAL host ones (UtCache pool, jp.noids.graphics.f raster ops, h.a edge fill,
