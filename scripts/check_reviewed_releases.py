@@ -941,8 +941,8 @@ def r3_collect_sites(root: Path) -> dict[tuple[str, str, str], int]:
     ``kind`` is ``collection`` for collection literals and ``file`` for the
     per-file residual set.
     """
-    from generate_reviewed_releases import HOST, TABLE, VERSIONS
-    generated_paths = {HOST.as_posix(), TABLE.as_posix(), VERSIONS.as_posix()}
+    from generate_reviewed_releases import HOST, TABLE, RANGE_OUTPUTS
+    generated_paths = {path.as_posix() for path in (HOST, TABLE, *RANGE_OUTPUTS)}
     admitted = admitted_versions(root)
     sites: dict[tuple[str, str, str], int] = {}
     for base in r2_java_roots(root):
