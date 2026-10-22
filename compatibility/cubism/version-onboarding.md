@@ -48,21 +48,23 @@ sha256sum Live2D_Cubism.jar   # digest
 stat -c %s Live2D_Cubism.jar  # byte size
 ```
 
-- `runtime/.../mapping/verification/ReviewedHostArtifacts.java`: add
-  `CUBISM_X_Y_Z_VERSION`, a `HostArtifactDigest` constant, and arms in
-  `cubismVersionOf`, `all()`, and `admitsFullRuntime`. Keep `admitsFullRuntime`
-  closed until the runtime/UI/SDK surfaces are genuinely enabled — artifact
-  review and full-runtime admission are separate decisions.
-- `runtime/src/test/.../ReviewedHostArtifactsTest.java`: asserts structural
-  invariants of the declarations (unique, well-formed digests; version
-  agreement); it does not restate the literals.
-- Shell and Python tools never restate the digest: they read it from
-  `ReviewedHostArtifacts.java` through `scripts/preview/reviewed_host_artifacts.py`,
-  and validation snapshots carry that Java file alongside the scripts.
-- `runtime/.../mapping/verification/CubismEditorReleaseDetector.java`: pin the
-  host-declared build integer in `pinnedBuild` for `X.Y.Z` (measured from the
-  `com/live2d/cubism/h` declaration class; builds are *not* formula-derived —
-  5.2.03 is `502030002`, not `502030001`).
+- `compatibility/cubism/reviewed-releases.json`: append the exact version,
+  observed build, artifact name/size/SHA-256, observed Core tuple, explicit
+  `fullRuntime` decision and installed `hostLabel`. Build numbers are observed,
+  never formula-derived (for example 5.2.03 reports `502030002`).
+- Run `python3 scripts/generate_reviewed_releases.py`. It updates the checked-in
+  `ReviewedHostArtifacts` constants, `ReviewedReleaseTable` and `.env.example`
+  fixture placeholders. Do not hand-edit these generated outputs.
+- `ReviewedCubismReleases`, `CoreVersionExpectation`, `CorePublicApiTrustRoots`
+  and `CubismEditorAvailabilityPolicy` derive exact membership from that table.
+  Artifact review and full-runtime admission remain separate decisions: keep
+  `fullRuntime` false until the runtime/UI/SDK surfaces are enabled.
+- `ReviewedHostArtifactsTest` checks structural invariants against verification
+  records. `checkVersionSetCompleteness` rejects stale generated Java or fixture
+  placeholders by byte comparison with the JSON-derived output.
+- Shell and Python tools read the JSON through
+  `scripts/preview/reviewed_host_artifacts.py`. Validation snapshots stage the
+  JSON at its repository-relative path or as a flat sibling of that reader.
 - Cross-check with the shipped CLI: `./gradlew verifyStaticHostSelectors`
   exercises records, and `ReviewedHostArtifactCli` resolves an artifact to its
   admitted version (run via `runtime` classpath or a test).
@@ -230,11 +232,11 @@ For each capability family admitted on `X.Y.Z`:
   and host bytes rather than treating a record self-hash as a trust anchor.
 - `runtime/.../mapping/verification/selector/*.java`: add or extend the
   `REQUIRED_ALIASES` contracts the manifest references.
-- `CorePublicApiTrustRoots.java`: add the Core `verificationId` arm only if a
-  `cubism-X.Y.Z.core-model-read` record is admitted.
-- `CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS`: add `X.Y.Z` when the
-  version is admitted — this *widens* every unrestricted or ranged
-  `@CubismEditor` SDK declaration to the new version automatically; audit the
+- `CorePublicApiTrustRoots` derives the Core `verificationId` from exact table
+  membership; the matching committed Core record is still required.
+- `CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS` derives from the table.
+  Adding a version *widens* every unrestricted or ranged `@CubismEditor` SDK
+  declaration automatically; audit the
   annotated surface (`sdk/src/main/java`) before flipping, and review
   `sdk/src/test/.../CubismEditorAvailabilityContractTest` expectations.
 - `Verified*ResolverFactory` classes and `TurboismAgent` wiring may carry
@@ -285,21 +287,21 @@ For each capability family admitted on `X.Y.Z`:
 
 - `scripts/preview/host-validation-tasks.json`: add `XYZZ` to the `versions`
   list of each task family that should run on the new version.
-- `scripts/preview/host_validation.py`: extend the admitted version set
-  (`{"5203","5302","5303"}` today).
+- `scripts/preview/host_validation.py` derives the admitted version set from
+  the JSON; no whitelist edit is needed.
 - `scripts/preview/run-cubism-host-validation.sh` (and family wrappers
   `run-*-host-validation.sh`): the reviewed jar digest is resolved from
-  `ReviewedHostArtifacts.java`; add a `case` arm only if the version installs
+  `reviewed-releases.json`; add a `case` arm only if the version installs
   to a non-default path under the golden prefix (`cubism_win`/`cubism_rel`).
-- `scripts/preview/host_validation_evidence.py`: add the `XYZZ` entry to `HOSTS`
-  (install folder + jar digest; `test_host_validation_evidence.py` fails if the
-  digest disagrees with `ReviewedHostArtifacts.java`).
+- `scripts/preview/host_validation_evidence.py` derives `HOSTS` from the table's
+  `hostLabel` and artifact digest. Check the actual golden-prefix install folder
+  when reviewing `hostLabel`; some hosts use a short label such as `Live2D Cubism 5.3`.
 - `gradle/verification.gradle.kts`: register `validate*HostXYZZ` tasks for the
   families that need exact-host evidence (existing registrations for
   5203/5302/5303 are the template), plus `package*HostValidation` if a new
   bundle is required.
-- `.env.example`: add `TURBOISM_HOST_VALIDATION_FIXTURE_XYZZ` (and the
-  `_SHA256` placeholder) if the version uses its own fixture.
+- `.env.example` versioned fixture placeholders are generated from the table;
+  configure the actual fixture path/hash in your ignored `.env`.
 
 Queue usage (all verified; the worker serializes one Cubism session across all
 worktrees and versions):
@@ -367,18 +369,18 @@ Release-side verification (CI is the authority; these are the local handles):
 
 | # | Touch point | Type |
 | --- | --- | --- |
-| 1 | `ReviewedHostArtifacts.java` (single source for shell/Python tools too) | artifact identity |
-| 2 | `CubismEditorReleaseDetector.pinnedBuild` (+ detector/routing tests) | declared release identity |
+| 1 | `reviewed-releases.json` + `generate_reviewed_releases.py` | artifact/build/Core/admission facts |
+| 2 | detector/routing tests | exact declared release regression coverage |
 | 3 | `core-api/observed/cubism-core-X.Y.Z.json` + `runtime/build.gradle.kts` inputs + `test_cubism_core_api_inventory.py` facts | tool-produced inventory |
 | 4 | `core-api/policy/*.json` rosters + `test_cubism_core_{member,selector}_policy.py` | mixed policy |
 | 5 | `verification/cubism-X.Y.Z-*.json` (one per family) | VERIFIED_STATIC records |
 | 6 | `mapping-packs/draft/cubism-X.Y.Z-*.json` + `profiles/draft/cubism-X.Y.Z.json` | DRAFT catalogues |
-| 7 | `*VerificationManifest.java` records + `selector/*Contract.java` + `CorePublicApiTrustRoots` | runtime trust roots |
-| 8 | `CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS` + `@CubismEditor` surface audit | SDK availability |
+| 7 | `*VerificationManifest.java` records + `selector/*Contract.java` | runtime verification records |
+| 8 | `@CubismEditor` surface audit (reviewed versions derive from JSON) | SDK availability |
 | 8a | `class-pins/*.json` via `scripts/generate_class_pins.py update|check` | hook class pins |
 | 9 | `bootstrap/build.gradle.kts` record list (+ `previewBundle` smoke check) | packaging |
 | 10 | `StaticVerificationRecordRepositoryTest`, `MappingPackDraftImportTest`, `ProfileDraftImportTest`, `check_editor_model_aliases.py` | test pins |
-| 11 | `host-validation-tasks.json`, `host_validation.py` versions, `run-*-host-validation.sh` arms, `.env.example`, `validate*Host*` tasks | host validation |
+| 11 | `host-validation-tasks.json`, exceptional `run-*-host-validation.sh` paths, `validate*Host*` tasks | host validation |
 | 12 | `index.md`, `editor-commands/*.tsv` | public docs/evidence |
 
 ## Appendix B — verified command reference

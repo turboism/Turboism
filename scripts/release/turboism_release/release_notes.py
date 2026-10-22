@@ -15,7 +15,7 @@ TAG = re.compile(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?')
 CUBISM_VERSION = re.compile(r'^5\.\d{1,2}\.\d{2}$')
 COMPATIBILITY_MATRIX = Path('compatibility/cubism/compatibility-matrix.json')
 REVIEWED_HOST_ARTIFACTS = Path(
-    'runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java'
+    'compatibility/cubism/reviewed-releases.json'
 )
 LOCALES = ('en', 'zh', 'ja', 'ko')
 MAX_COMMITS = 60
@@ -170,19 +170,13 @@ def compatibility_versions(root):
     root = Path(root)
     matrix_path = root / COMPATIBILITY_MATRIX
     artifacts_path = root / REVIEWED_HOST_ARTIFACTS
-    artifact_versions = None
+    require(artifacts_path.is_file() and not artifacts_path.is_symlink(), 'Missing or invalid reviewed releases table')
+    from .candidate import _load_script
+    reader = _load_script('release_reviewed_releases',
+                          Path(__file__).resolve().parents[2] / 'preview/reviewed_host_artifacts.py')
+    artifact_versions = [r['version'] for r in reader.load_releases(artifacts_path)]
+    require(0 < len(artifact_versions) <= 64, 'Invalid reviewed host artifact versions')
     matrix_versions = None
-    if artifacts_path.is_file():
-        require(not artifacts_path.is_symlink(), 'Invalid ReviewedHostArtifacts file')
-        from .candidate import _load_script
-        completeness = _load_script(
-            'release_version_set_completeness',
-            Path(__file__).resolve().parents[2] / 'check_version_set_completeness.py',
-        )
-        raw_versions, problems = completeness.reviewed_host_artifacts(root)
-        require(not problems, '; '.join(problems))
-        artifact_versions = sorted(raw_versions, key=_cubism_version_key)
-        require(0 < len(artifact_versions) <= 64, 'Invalid reviewed host artifact versions')
     if matrix_path.is_file():
         require(not matrix_path.is_symlink() and matrix_path.stat().st_size < 2 * 1024 * 1024,
                 'Invalid compatibility matrix file')
@@ -196,15 +190,10 @@ def compatibility_versions(root):
         require(raw_matrix == ordered_matrix,
                 'Compatibility matrix versions must be unique and sorted')
         matrix_versions = ordered_matrix
-    if artifact_versions is not None and matrix_versions is not None:
-        require(artifact_versions == matrix_versions,
-                'Compatibility matrix reviewedVersions drifted from ReviewedHostArtifacts')
-        return matrix_versions
     if matrix_versions is not None:
-        return matrix_versions
-    if artifact_versions is not None:
-        return artifact_versions
-    raise ValueError('Missing reviewed Cubism versions')
+        require(artifact_versions == matrix_versions,
+                'Compatibility matrix reviewedVersions drifted from reviewed-releases.json')
+    return artifact_versions
 
 
 def collapse_ranges(versions, reviewed=None):
@@ -226,11 +215,11 @@ def collapse_ranges(versions, reviewed=None):
             else:
                 runs.append([v])
     else:
-        repo_matrix = Path(__file__).resolve().parents[3] / COMPATIBILITY_MATRIX
+        repo_matrix = Path(__file__).resolve().parents[3] / REVIEWED_HOST_ARTIFACTS
         canonical = None
         if repo_matrix.is_file() and not repo_matrix.is_symlink():
             data = json.loads(repo_matrix.read_text(encoding='utf-8'))
-            rv = data.get('reviewedVersions')
+            rv = [r['version'] for r in data['releases']]
             if isinstance(rv, list) and set(ordered) <= set(rv):
                 canonical = {v: i for i, v in enumerate(rv)}
         runs = [[ordered[0]]]
