@@ -19,7 +19,7 @@ SYNC = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(SYNC)
 
-PACK_DIR = Path("compatibility/cubism/mapping-packs/draft")
+PACK_DIR = Path("build/generated/draft/mapping-packs")
 RECORD_DIR = Path("build/generated/verification")
 RECORD_REL = RECORD_DIR / "fixture-record.json"
 

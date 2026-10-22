@@ -58,7 +58,7 @@ class SelectionBrushManifestBindingTest {
                     List.of("hook:mesh-tool-session", "hook:modeling-tool-lifecycle"),
                     readerRecord.capabilityConditions().get(ModelingSelectionSelectorContract.CAPABILITY_ID));
             var packMetadata = new ObjectMapper()
-                    .readTree(root.resolve("compatibility/cubism/mapping-packs/draft/cubism-" + editor.cubismVersion()
+                    .readTree(root.resolve("build/generated/draft/mapping-packs/cubism-" + editor.cubismVersion()
                                     + "-editor-model-read.json")
                             .toFile())
                     .path("metadata");

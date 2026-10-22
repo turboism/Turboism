@@ -1,0 +1,292 @@
+{
+  "family": "ui-control-appearance",
+  "releases": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.3.03",
+    "5.3.04"
+  ],
+  "templates": [
+    {
+      "annotations": {
+        "confidence": "medium",
+        "status": "DRAFT",
+        "verifiedAt": null,
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": true
+    },
+    {
+      "annotations": {
+        "confidence": "medium",
+        "status": "DRAFT",
+        "verifiedAt": null,
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": false
+    }
+  ],
+  "entries": {
+    "cubism.ui-control-appearance.art-mesh.source-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.art-mesh.source-id": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-control.outer": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-control.outer-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-control.renderer": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-control.tree": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-control.tree-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-label.renderer": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-row.source": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-source.class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.deformer-source.id": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.id.value": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.double-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.double-create": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.double-selection": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-create-primary": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-create-secondary": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-label": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-selection": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-source": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-source-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.folder-source-id": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.label": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.label-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.label-swing": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.secondary-label": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.secondary-source": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.single-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.single-create": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.single-selection": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.source": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.source-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.parameter.source-id": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.part.node-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.part.node-source": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.part.renderer": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.part.source-children": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-control-appearance.part.source-class": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-control-appearance.part.source-id": [
+      {
+        "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+        "template": 0
+      }
+    ]
+  },
+  "envelopes": [
+    {
+      "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
+      "value": {
+        "cubismVersion": "${version}",
+        "format": "turboism.mapping.pack",
+        "schemaVersion": 1,
+        "source": "derived-from-verified-record",
+        "status": "DRAFT"
+      }
+    }
+  ]
+}

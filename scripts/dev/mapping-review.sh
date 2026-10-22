@@ -18,7 +18,9 @@ usage:
       [--write]
 
 Generated files default to this worktree's isolated build directory. apply defaults to dry-run;
-pass --write explicitly to atomically replace the target DRAFT mapping pack.
+pass --write explicitly to atomically replace a retained observation mapping pack.
+Generated build/generated/draft/mapping-packs paths resolve to their observation source;
+derived packs must be changed through verification-src/draft-src and regenerated.
 USAGE
 }
 

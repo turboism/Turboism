@@ -82,6 +82,7 @@ final class CoreWindows implements AutoCloseable {
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
     private JLabel pluginStatus;
+    private final dev.turboism.internal.core.CubismJvmSettingsService performanceSettings;
     private final PluginSettingsWindow pluginSettingsWindow;
     private final PluginMarketWindow pluginMarketWindow;
 
@@ -92,6 +93,18 @@ final class CoreWindows implements AutoCloseable {
             final CorePluginManagement plugins,
             final RuntimeLogReader logs,
             final dev.turboism.internal.core.KeybindingService keybindings) {
+        this(i18n, settings, settingsContributions, plugins, logs, keybindings, null);
+    }
+
+    CoreWindows(
+            final PluginLocalization i18n,
+            final RuntimeSettingsService settings,
+            final SettingsContributionSource settingsContributions,
+            final CorePluginManagement plugins,
+            final RuntimeLogReader logs,
+            final dev.turboism.internal.core.KeybindingService keybindings,
+            final dev.turboism.internal.core.CubismJvmSettingsService performanceSettings) {
+        this.performanceSettings = performanceSettings;
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
@@ -362,6 +375,15 @@ final class CoreWindows implements AutoCloseable {
                                             .control()));
                         });
             }
+        }
+        if (performanceSettings != null) {
+            final JPanel performance = builtins.get("performance").panel();
+            final JButton status = new JButton(text("settings.performance.status"));
+            status.addActionListener(ignored -> CoreDialogs.scrollableMessage(
+                    owner,
+                    text("settings.performance.status"),
+                    CubismJvmSettingsContribution.optimizationStatusMessage(i18n, performanceSettings)));
+            add(performance, performance.getComponentCount() / 2, status, new JLabel());
         }
         renderedTabs.sort(java.util.Comparator.comparingInt(RenderedTab::index).thenComparing(RenderedTab::id));
         final JTabbedPane tabs = new JTabbedPane();

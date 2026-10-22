@@ -591,6 +591,74 @@ public class ModelUpdateSkipBridgeTest {
     }
 
     @Test
+    void mutableSelectionMustNotMutateTheCompletedBaseline() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        List<Object> selection = new ArrayList<>();
+        set(world.ax, "i", selection);
+        try (ModelUpdateSkipBridge bridge = new ModelUpdateSkipBridge(T5303, loader)) {
+            bridge.install();
+            withProperties(ModelUpdateSkipBridge.ENABLE_PROPERTY, "true");
+            try {
+                assertFalse(predicate().test(world.args()));
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()));
+                selection.add(new Object());
+                assertFalse(predicate().test(world.args()), "in-place selection change needs a full update");
+            } finally {
+                PropertiesBackup.revert();
+            }
+        }
+    }
+
+    @Test
+    void failedNativeUpdateCannotReuseAnOlderCompletedBaseline() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        try (ModelUpdateSkipBridge bridge = new ModelUpdateSkipBridge(T5303, loader)) {
+            bridge.install();
+            withProperties(ModelUpdateSkipBridge.ENABLE_PROPERTY, "true");
+            try {
+                assertFalse(predicate().test(world.args()));
+                after().accept(world.model);
+                set(world.doc, "lastModified", 43L);
+                assertFalse(predicate().test(world.args()));
+                // Native update throws: no successful-return callback, then the authoring state rolls back.
+                set(world.doc, "lastModified", 42L);
+                assertFalse(predicate().test(world.args()), "interrupted update invalidates its old geometry baseline");
+            } finally {
+                PropertiesBackup.revert();
+            }
+        }
+    }
+
+    @Test
+    void sourceReplacementAndReenableInvalidateTheGeometryBaseline() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        try (ModelUpdateSkipBridge bridge = new ModelUpdateSkipBridge(T5303, loader)) {
+            bridge.install();
+            withProperties(ModelUpdateSkipBridge.ENABLE_PROPERTY, "true");
+            try {
+                assertFalse(predicate().test(world.args()));
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()));
+                set(world.model, "source", make(loader, N + "doc/model/CModelSource"));
+                assertFalse(predicate().test(world.args()), "same model with a new source needs full evaluation");
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()));
+                System.setProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY, "false");
+                assertFalse(predicate().test(world.args()));
+                after().accept(world.model);
+                System.setProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY, "true");
+                assertFalse(predicate().test(world.args()), "reenabling cannot reuse a baseline from before disable");
+            } finally {
+                PropertiesBackup.revert();
+            }
+        }
+    }
+
+    @Test
     void installsAndSkipsUnchangedFrame() throws Exception {
         Loader loader = host();
         World world = new World(loader);
@@ -625,6 +693,8 @@ public class ModelUpdateSkipBridgeTest {
                 set(world.currentParams.get(0), "value", 9f);
                 assertFalse(predicate().test(world.args()), "parameter value drift");
                 set(world.currentParams.get(0), "value", 0f);
+                assertFalse(predicate().test(world.args()));
+                after().accept(world.model);
                 assertTrue(predicate().test(world.args()));
 
                 Object foreignId = make(loader, N + "doc/model/id/CParameterId");
@@ -704,6 +774,8 @@ public class ModelUpdateSkipBridgeTest {
                 missingView[1] = make(loader, N + "view/context/CEViewContext");
                 assertFalse(predicate().test(missingView), "non-modeling context");
 
+                assertFalse(predicate().test(world.args()), "interrupted calls require a fresh baseline");
+                after().accept(world.model);
                 assertTrue(predicate().test(world.args()), "all restored");
             } finally {
                 PropertiesBackup.revert();
@@ -728,7 +800,9 @@ public class ModelUpdateSkipBridgeTest {
                 alien[4] = "not an update context";
                 assertFalse(predicate().test(alien));
                 assertTrue(bridge.snapshot().get("failures") > 0);
-                assertTrue(predicate().test(world.args()), "baseline unaffected by the failure");
+                assertFalse(predicate().test(world.args()), "failure invalidates the baseline");
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()), "successful full update restores reuse");
             } finally {
                 PropertiesBackup.revert();
             }
@@ -781,6 +855,7 @@ public class ModelUpdateSkipBridgeTest {
                 after().accept(world.model);
                 set(world.drawable, "form", null);
                 assertFalse(predicate().test(world.args()), "null form digests as an absent-value marker");
+                after().accept(world.model);
                 set(world.model, "drawables", java.util.Arrays.asList((Object) null));
                 assertFalse(predicate().test(world.args()), "undigestable frame runs native");
                 assertEquals(1L, (long) bridge.snapshot().get("probeMismatch"));
@@ -882,7 +957,8 @@ public class ModelUpdateSkipBridgeTest {
                 System.setProperty(ModelUpdateSkipBridge.TIMING_PROPERTY, "false");
                 assertFalse(predicate().test(world.args()));
                 Map<String, Long> untimed = bridge.snapshot();
-                assertEquals(2L, (long) untimed.get("reject.PARAMETERS_CHANGED"));
+                assertEquals(1L, (long) untimed.get("reject.PARAMETERS_CHANGED"));
+                assertEquals(2L, (long) untimed.get("reject.NO_BASELINE"));
                 assertEquals(stats.get("readFrameSamples"), untimed.get("readFrameSamples"));
                 assertEquals(stats.get("decisionSamples"), untimed.get("decisionSamples"));
             } finally {

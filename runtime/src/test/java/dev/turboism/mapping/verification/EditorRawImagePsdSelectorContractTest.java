@@ -25,7 +25,7 @@ class EditorRawImagePsdSelectorContractTest {
     private static final Path RECORD_PATH =
             PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json");
     private static final Path DRAFT_PACK_PATH =
-            PROJECT_ROOT.resolve("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json");
+            PROJECT_ROOT.resolve("build/generated/draft/mapping-packs/cubism-5.3.02-editor-model-read.json");
 
     @ParameterizedTest
     @ValueSource(

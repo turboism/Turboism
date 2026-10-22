@@ -134,11 +134,14 @@ public final class UnchangedFramePredicate {
         if (current.model() == null
                 || current.modelingView() == null
                 || current.document() == null
-                || !current.updateContextPresent()) {
+                || !current.updateContextPresent()
+                || current.updateContextSelection() == null) {
             return Decision.MISSING_REQUIRED_STATE;
         }
         // Same model and same document generation only.
-        if (current.model() != previous.model() || current.document() != previous.document()) {
+        if (current.model() != previous.model()
+                || current.document() != previous.document()
+                || current.modelingView() != previous.modelingView()) {
             return Decision.MODEL_OR_DOCUMENT_CHANGED;
         }
         // Modes that gate work inside the entry method: all must be off now and off then.

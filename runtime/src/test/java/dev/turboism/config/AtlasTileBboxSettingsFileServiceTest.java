@@ -43,7 +43,7 @@ class AtlasTileBboxSettingsFileServiceTest {
     }
 
     @Test
-    void nonBooleanPersistedValueFallsBackToEnabled() throws Exception {
+    void nonBooleanPersistedValueDoesNotReportEnabled() throws Exception {
         Files.writeString(home.resolve("config.json"), """
             {
               "format": "turboism.runtime.config",
@@ -57,8 +57,8 @@ class AtlasTileBboxSettingsFileServiceTest {
             }
             """.formatted(KEY));
 
-        assertTrue(new AtlasTileBboxSettingsFileService(home).read());
-        assertTrue(AtlasTileBboxPreference.read(home));
+        assertFalse(new AtlasTileBboxSettingsFileService(home).read());
+        assertFalse(AtlasTileBboxPreference.read(home));
     }
 
     @Test
@@ -80,10 +80,10 @@ class AtlasTileBboxSettingsFileServiceTest {
     }
 
     @Test
-    void unreadablePersistedValueReadsAsEnabled() throws IOException {
+    void unreadablePersistedValueDoesNotReportEnabled() throws IOException {
         Files.createDirectory(home.resolve("config.json"));
-        assertTrue(new AtlasTileBboxSettingsFileService(home).read());
-        assertTrue(AtlasTileBboxPreference.read(home));
+        assertFalse(new AtlasTileBboxSettingsFileService(home).read());
+        assertFalse(AtlasTileBboxPreference.read(home));
     }
 
     @Test

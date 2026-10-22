@@ -64,9 +64,8 @@ class StaticVerificationRecordRepositoryTest {
                                     projectWorkspaceMemberAliases(),
                                     projectWorkspaceAttestationClassAliases(),
                                     "cubism-5.2.03-project-workspace",
-                                    Path.of(
-                                            "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-project-workspace.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-project-workspace.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                                     "5.2.03",
                                     SliceKind.PROJECT_WORKSPACE),
                             "build/generated/verification/cubism-5.3.02-project-workspace.json",
@@ -90,8 +89,8 @@ class StaticVerificationRecordRepositoryTest {
                                     projectWorkspaceAttestationClassAliases(),
                                     "cubism-5.3.02-m14-project-workspace",
                                     Path.of(
-                                            "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                                            "build/generated/draft/mapping-packs/cubism-5.3.02-m14-project-workspace.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                                     "5.3.02",
                                     SliceKind.PROJECT_WORKSPACE),
                             "build/generated/verification/cubism-5.2.03-core-model-read.json",
@@ -122,8 +121,8 @@ class StaticVerificationRecordRepositoryTest {
                                     VerifiedClipMaskHostOperations.methodAliasesUsed(),
                                     VerifiedClipMaskHostOperations.classAliasesUsed(),
                                     "cubism-5.3.02-m15-clipmask",
-                                    Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-m15-clipmask.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                                     "5.3.02",
                                     SliceKind.CLIP_MASK),
                             "build/generated/verification/cubism-5.2.03-ui-main-toolbar.json",
@@ -144,9 +143,8 @@ class StaticVerificationRecordRepositoryTest {
                                             MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                             mainToolbarMethodAliases()),
                                     "cubism-5.2.03-ui-main-toolbar",
-                                    Path.of(
-                                            "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-ui-main-toolbar.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-ui-main-toolbar.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                                     "5.2.03",
                                     SliceKind.EDITOR_UI),
                             "build/generated/verification/cubism-5.3.02-ui-main-toolbar.json",
@@ -171,9 +169,8 @@ class StaticVerificationRecordRepositoryTest {
                                             MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                             mainToolbarMethodAliases()),
                                     "cubism-5.3.02-ui-main-toolbar",
-                                    Path.of(
-                                            "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-ui-main-toolbar.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-ui-main-toolbar.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                                     "5.3.02",
                                     SliceKind.EDITOR_UI),
                             "build/generated/verification/cubism-5.2.03-ui-control-appearance.json",
@@ -200,9 +197,8 @@ class StaticVerificationRecordRepositoryTest {
                                     recordMethodAliases("build/generated/verification/cubism-5.2.03-editor-model.json"),
                                     recordClassAliases("build/generated/verification/cubism-5.2.03-editor-model.json"),
                                     "cubism-5.2.03-editor-model-read",
-                                    Path.of(
-                                            "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-editor-model-read.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-editor-model-read.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                                     "5.2.03",
                                     SliceKind.EDITOR_MODEL),
                             "build/generated/verification/cubism-5.3.02-editor-model.json",
@@ -225,9 +221,8 @@ class StaticVerificationRecordRepositoryTest {
                                     recordMethodAliases("build/generated/verification/cubism-5.3.02-editor-model.json"),
                                     recordClassAliases("build/generated/verification/cubism-5.3.02-editor-model.json"),
                                     "cubism-5.3.02-editor-model-read",
-                                    Path.of(
-                                            "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json"),
-                                    Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                                    Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-editor-model-read.json"),
+                                    Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                                     "5.3.02",
                                     SliceKind.EDITOR_MODEL),
                             "build/generated/verification/cubism-5.3.02-core-model-read.json",
@@ -269,11 +264,11 @@ class StaticVerificationRecordRepositoryTest {
             final String fileName = recordPath.getFileName().toString().replace(".json", "");
             final String cubismVersion = record.get("cubismVersion").asText();
             final String packId = fileName.endsWith("-editor-model") ? fileName + "-read" : fileName;
-            final Path packPath = Path.of("compatibility/cubism/mapping-packs/draft/" + packId + ".json");
+            final Path packPath = Path.of("build/generated/draft/mapping-packs/" + packId + ".json");
             if (!Files.isRegularFile(PROJECT_ROOT.resolve(packPath))) {
                 throw new IllegalStateException("missing required DRAFT pack " + packPath);
             }
-            final Path profilePath = Path.of("compatibility/cubism/profiles/draft/cubism-" + cubismVersion + ".json");
+            final Path profilePath = Path.of("build/generated/draft/profiles/cubism-" + cubismVersion + ".json");
             final Set<String> aliases = recordAliases(repositoryPath);
             final Set<String> classAliases = recordClassAliases(repositoryPath);
             final SliceKind kind = fileName.contains("editor-model")
@@ -336,8 +331,8 @@ class StaticVerificationRecordRepositoryTest {
                         VerifiedProtectedExportHostOperations.cubism52MethodAliasesUsed(),
                         VerifiedProtectedExportHostOperations.cubism52ClassAliasesUsed(),
                         "cubism-5.2.03-protected-export",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-protected-export.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-protected-export.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                         "5.2.03",
                         SliceKind.PROTECTED_EXPORT));
         expectations.put(
@@ -361,8 +356,8 @@ class StaticVerificationRecordRepositoryTest {
                         VerifiedProtectedExportHostOperations.methodAliasesUsed(),
                         VerifiedProtectedExportHostOperations.classAliasesUsed(),
                         "cubism-5.3.02-protected-export",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-protected-export.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-protected-export.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                         "5.3.02",
                         SliceKind.PROTECTED_EXPORT));
         return Map.copyOf(expectations);
@@ -398,7 +393,7 @@ class StaticVerificationRecordRepositoryTest {
             final JsonNode record = new ObjectMapper().readTree(absoluteRecord.toFile());
             final String fileName = recordPath.getFileName().toString().replace(".json", "");
             final String packId = packIdFor5303(fileName);
-            final Path packPath = Path.of("compatibility/cubism/mapping-packs/draft/" + packId + ".json");
+            final Path packPath = Path.of("build/generated/draft/mapping-packs/" + packId + ".json");
             if (!Files.isRegularFile(PROJECT_ROOT.resolve(packPath))) {
                 throw new IllegalStateException("missing required 5.3.03 DRAFT pack " + packPath);
             }
@@ -433,7 +428,7 @@ class StaticVerificationRecordRepositoryTest {
                             classAliases,
                             packId,
                             packPath,
-                            Path.of("compatibility/cubism/profiles/draft/cubism-5.3.03.json"),
+                            Path.of("build/generated/draft/profiles/cubism-5.3.03.json"),
                             "5.3.03",
                             kind));
         } catch (Exception failure) {
@@ -549,8 +544,8 @@ class StaticVerificationRecordRepositoryTest {
                 difference(aliases, Set.of("workspace.app.class")),
                 Set.of("workspace.app.class"),
                 "cubism-" + profile + "-workspace-control",
-                Path.of("compatibility/cubism/mapping-packs/draft/cubism-" + profile + "-workspace-control.json"),
-                Path.of("compatibility/cubism/profiles/draft/cubism-" + profile + ".json"),
+                Path.of("build/generated/draft/mapping-packs/cubism-" + profile + "-workspace-control.json"),
+                Path.of("build/generated/draft/profiles/cubism-" + profile + ".json"),
                 range,
                 SliceKind.EDITOR_UI);
     }
@@ -574,8 +569,8 @@ class StaticVerificationRecordRepositoryTest {
                         embeddedPanelMethodAliases(),
                         difference(EmbeddedPanelVerificationManifest.REQUIRED_ALIASES, embeddedPanelMethodAliases()),
                         "cubism-5.2.03-ui-embedded-panel",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-ui-embedded-panel.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-ui-embedded-panel.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                         "5.2.03",
                         SliceKind.EDITOR_UI));
         expectations.put(
@@ -599,8 +594,8 @@ class StaticVerificationRecordRepositoryTest {
                         embeddedPanelMethodAliases(),
                         difference(EmbeddedPanelVerificationManifest.REQUIRED_ALIASES, embeddedPanelMethodAliases()),
                         "cubism-5.3.02-ui-embedded-panel",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-ui-embedded-panel.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-ui-embedded-panel.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                         "5.3.02",
                         SliceKind.EDITOR_UI));
         return Map.copyOf(expectations);
@@ -705,8 +700,8 @@ class StaticVerificationRecordRepositoryTest {
                 aliases,
                 Set.of(),
                 packId,
-                Path.of("compatibility/cubism/mapping-packs/draft/" + packId + ".json"),
-                Path.of("compatibility/cubism/profiles/draft/" + profileId + ".json"),
+                Path.of("build/generated/draft/mapping-packs/" + packId + ".json"),
+                Path.of("build/generated/draft/profiles/" + profileId + ".json"),
                 expectedCubismVersion,
                 SliceKind.PERFORMANCE);
     }
@@ -730,8 +725,8 @@ class StaticVerificationRecordRepositoryTest {
                         VerifiedClipMaskHostOperations.methodAliasesUsed(),
                         VerifiedClipMaskHostOperations.classAliasesUsed(),
                         "cubism-5.2.03-clipmask",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-clipmask.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-clipmask.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                         "5.2.03",
                         SliceKind.CLIP_MASK));
         return Map.copyOf(expectations);
@@ -748,7 +743,7 @@ class StaticVerificationRecordRepositoryTest {
                         AutoBackupVerificationManifest.ARTIFACT_SIZE_5_3_02,
                         AutoBackupVerificationManifest.ARTIFACT_SHA256_5_3_02,
                         "cubism-5.3.02-autobackup",
-                        "compatibility/cubism/profiles/draft/cubism-5.3.02.json",
+                        "build/generated/draft/profiles/cubism-5.3.02.json",
                         "5.3.02"));
         expectations.put(
                 "build/generated/verification/cubism-5.2.03-autobackup.json",
@@ -759,7 +754,7 @@ class StaticVerificationRecordRepositoryTest {
                         AutoBackupVerificationManifest.ARTIFACT_SIZE_5_2_03,
                         AutoBackupVerificationManifest.ARTIFACT_SHA256_5_2_03,
                         "cubism-5.2.03-autobackup",
-                        "compatibility/cubism/profiles/draft/cubism-5.2.03.json",
+                        "build/generated/draft/profiles/cubism-5.2.03.json",
                         "5.2.03"));
         return Map.copyOf(expectations);
     }
@@ -799,7 +794,7 @@ class StaticVerificationRecordRepositoryTest {
                         "cubism.auto-backup.complete-pack.class",
                         "cubism.auto-backup.file-content.class"),
                 packId,
-                Path.of("compatibility/cubism/mapping-packs/draft/" + packId + ".json"),
+                Path.of("build/generated/draft/mapping-packs/" + packId + ".json"),
                 Path.of(profilePath),
                 expectedCubismVersion,
                 SliceKind.EDITOR_UI);
@@ -824,8 +819,8 @@ class StaticVerificationRecordRepositoryTest {
                         statusBarMethodAliases(),
                         difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
                         "cubism-5.2.03-ui-status-bar",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-ui-status-bar.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                         "5.2.03",
                         SliceKind.EDITOR_UI));
         expectations.put(
@@ -845,8 +840,8 @@ class StaticVerificationRecordRepositoryTest {
                         statusBarMethodAliases(),
                         difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
                         "cubism-5.3.02-ui-status-bar",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-ui-status-bar.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-ui-status-bar.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                         "5.3.02",
                         SliceKind.EDITOR_UI));
         return Map.copyOf(expectations);
@@ -893,8 +888,8 @@ class StaticVerificationRecordRepositoryTest {
                         topMenuMethodAliases(),
                         difference(TopMenuVerificationManifest.REQUIRED_ALIASES, topMenuMethodAliases()),
                         "cubism-5.2.03-ui-top-menu",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.2.03-ui-top-menu.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.2.03.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.2.03-ui-top-menu.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.2.03.json"),
                         "5.2.03",
                         SliceKind.EDITOR_UI));
         expectations.put(
@@ -914,8 +909,8 @@ class StaticVerificationRecordRepositoryTest {
                         topMenuMethodAliases(),
                         difference(TopMenuVerificationManifest.REQUIRED_ALIASES, topMenuMethodAliases()),
                         "cubism-5.3.02-ui-top-menu",
-                        Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-ui-top-menu.json"),
-                        Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                        Path.of("build/generated/draft/mapping-packs/cubism-5.3.02-ui-top-menu.json"),
+                        Path.of("build/generated/draft/profiles/cubism-5.3.02.json"),
                         "5.3.02",
                         SliceKind.EDITOR_UI));
         return Map.copyOf(expectations);
@@ -973,8 +968,8 @@ class StaticVerificationRecordRepositoryTest {
                 difference(ControlAppearanceVerificationManifest.REQUIRED_ALIASES, classAliases),
                 classAliases,
                 packId,
-                Path.of("compatibility/cubism/mapping-packs/draft/" + packId + ".json"),
-                Path.of("compatibility/cubism/profiles/draft/" + profile + ".json"),
+                Path.of("build/generated/draft/mapping-packs/" + packId + ".json"),
+                Path.of("build/generated/draft/profiles/" + profile + ".json"),
                 expectedCubismVersion,
                 SliceKind.EDITOR_UI);
     }
@@ -1027,8 +1022,8 @@ class StaticVerificationRecordRepositoryTest {
                 BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,
                 Set.of(),
                 packId,
-                Path.of("compatibility/cubism/mapping-packs/draft/" + packId + ".json"),
-                Path.of("compatibility/cubism/profiles/draft/" + profileId + ".json"),
+                Path.of("build/generated/draft/mapping-packs/" + packId + ".json"),
+                Path.of("build/generated/draft/profiles/" + profileId + ".json"),
                 expectedCubismVersion,
                 SliceKind.EDITOR_UI);
     }
@@ -1266,8 +1261,8 @@ class StaticVerificationRecordRepositoryTest {
                 Set.copyOf(allMethods),
                 difference(aliases, allMethods),
                 "cubism-" + profile + "-core-model-read",
-                Path.of("compatibility/cubism/mapping-packs/draft/cubism-" + profile + "-core-model-read.json"),
-                Path.of("compatibility/cubism/profiles/draft/cubism-" + profile + ".json"),
+                Path.of("build/generated/draft/mapping-packs/cubism-" + profile + "-core-model-read.json"),
+                Path.of("build/generated/draft/profiles/cubism-" + profile + ".json"),
                 expectedCubismVersion,
                 SliceKind.CORE);
     }
