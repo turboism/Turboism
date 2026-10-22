@@ -14,7 +14,9 @@ presentation/reference exceptions (including the extra 5.3.02 Core reference in
 5.3.03). These exceptions preserve bytes; they do not admit runtime evidence.
 
 For an intentional family/release change, extend its declaration and the
-applicable annotation ranges; new aliases need an annotation template rule.
+applicable annotation ranges. For each new alias, add `entries.<alias>` with a
+template index and a `versions` range in `draft-src/<family>.json`
+(`editor-model-read.json` for upstream `editor-model` selectors).
 The generator checks alias-set equality, profile identity and pack references;
 existing import and metadata checks validate the generated contracts.
 `--check-against <old-checkout>` compares all packs and profiles byte for byte.
