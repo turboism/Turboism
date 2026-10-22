@@ -36,7 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
  * <p>Replays everything {@link PinnedVerifiedResolverWorkflow} can decide without a host
  * artifact — record schema, the record-byte pin, manifest field equality and
  * capability/alias coverage — for every generated {@code *VerificationManifest} and every
- * record under {@code compatibility/cubism/verification}. This is the check that would
+ * record under {@code build/generated/verification}. This is the check that would
  * have caught the pre-7ade4e071 ui-main-toolbar wall (records missing the
  * {@code ui.mesh-toolbar.contribute} capability their manifest requires) without a single
  * real-host launch. Run it alone via {@code ./gradlew :runtime:admissionPreflightTest} or

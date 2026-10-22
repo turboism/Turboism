@@ -18,7 +18,7 @@ import java.util.Set;
  *
  * @param artifact the exact reviewed host artifact this record is admitted for
  * @param verificationId the reviewed record's stable verification identity
- * @param recordSha256 SHA-256 of the reviewed record bytes under {@code compatibility/cubism/verification/}
+ * @param recordSha256 SHA-256 of the materialized record bytes under {@code build/generated/verification/}, packaged unchanged in the agent
  * @param cubismVersion the Cubism version string this record reports for the artifact
  * @param profileId the mapping profile this record's selectors were observed under
  */

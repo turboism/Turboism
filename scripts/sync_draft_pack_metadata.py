@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Sync DRAFT mapping-pack metadata projections from hash-pinned verification records.
 
-A draft pack whose ``metadata.inventoryRef`` resolves under
-``compatibility/cubism/verification/`` restates four fields derived from the
-referenced record bytes:
+A draft pack whose ``metadata.inventoryRef`` identifies a verification record
+restates four fields derived from materialized bytes in
+``build/generated/verification/``. Historical references spelled
+``compatibility/cubism/verification/`` are mapped there before reading; the pack's
+provenance label is preserved. Run the materializer before standalone use.
+The projected fields are:
 
 - ``selectorCount``            == len(record.selectors)
 - ``capabilityCount``          == len(record.capabilityIds)
