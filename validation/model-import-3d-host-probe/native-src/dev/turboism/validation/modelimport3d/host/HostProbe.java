@@ -3,6 +3,7 @@ package dev.turboism.validation.modelimport3d.host;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
@@ -102,7 +103,7 @@ public final class HostProbe implements TurboismPlugin {
                     var persistence = new LinkedHashMap<String,Object>();
                     report.data.put("cubeAtlasPersistence",persistence);
                     var layouts=edt(()->context.cubism().textureAtlasLayouts());
-                    var commands=edt(()->context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class));
+                    var commands=edt(this::commands);
                     byte[] input=persistenceInput();
                     if ("cube-atlas-save".equals(mode))
                         CubeAtlasProbe.run(input,this::current,this::history,this::restore,layouts,commands,
@@ -115,12 +116,12 @@ public final class HostProbe implements TurboismPlugin {
                     byte[] input=persistenceInput();
                     var profile=CubePersistenceInput.identify(CubePersistenceInput.prepare(input).inputSha256);
                     CubeAtlasProbe.run(input,this::current,this::history,this::restore,
-                        edt(()->context.cubism().textureAtlasLayouts()),edt(()->context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+                        edt(()->context.cubism().textureAtlasLayouts()),edt(this::commands),
                         context.paths().stateDir(),report.cubeAtlas,
                         ()->CubeMocExportProbe.run(this::current,this::history,context.paths().stateDir(),report.cubeExport,profile));
                 } else if ("cube-atlas".equals(mode))
                     CubeAtlasProbe.run(persistenceInput(),this::current,this::history,this::restore,
-                        edt(()->context.cubism().textureAtlasLayouts()),edt(()->context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+                        edt(()->context.cubism().textureAtlasLayouts()),edt(this::commands),
                         context.paths().stateDir(),report.cubeAtlas);
                 else if ("cube-persistence-reopen".equals(mode))
                     CubePersistenceProbe.reopen(persistenceInput(), this::current, this::history, this::restore, context.paths().stateDir(), report.cubePersistence);
@@ -147,7 +148,7 @@ public final class HostProbe implements TurboismPlugin {
             if ("cube-geometry".equals(mode) || "cube-render".equals(mode) || "whole-import".equals(mode) || "cube-persistence-save".equals(mode)) {
                 cubeInput = "cube-persistence-save".equals(mode) ? persistenceInput() : cubeInput();
             }
-            EditorCommandResult command = edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class).execute(EditorCommand.NEW_MODEL));
+            EditorCommandResult command = edt(() -> commands().execute(EditorCommand.NEW_MODEL));
             report.check("newCommand", command.status() == EditorCommandResult.Status.EXECUTED, "NEW_MODEL executed");
             DocumentBinding blank = awaitDocument(seed.document().documentId(), "NEW");
             taskDocument = blank.document().documentId(); taskModel = blank.editorModelId();
@@ -159,7 +160,7 @@ public final class HostProbe implements TurboismPlugin {
             if("canonical-warp-textured".equals(mode) || "canonical-warp-layered-textured".equals(mode)) {
                 edt(()->{initialCounts=counts(current());initialHistory=history();report.data.put("initialCounts",initialCounts);report.data.put("historyBefore",historyData(initialHistory));return null;});
                 edt(()->{
-                    var resized=context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class).execute(new EditorCanvasSettingsRequest(1024,1024));
+                    var resized=commands().execute(new EditorCanvasSettingsRequest(1024,1024));
                     NativeAssertions.require(resized.status()==EditorCommandResult.Status.EXECUTED,"canonical canvas setup failed");
                     var canvas=current().canvas();
                     NativeAssertions.require(canvas.widthPixels()==1024 && canvas.heightPixels()==1024,"canonical canvas setup readback");
@@ -229,7 +230,7 @@ public final class HostProbe implements TurboismPlugin {
                     report.data.put("initialCounts",initialCounts);report.data.put("historyBefore",historyData(initialHistory));return null;});
                 var section=new LinkedHashMap<String,Object>();report.data.put("planarGeometry",section);
                 PlanarGeometryProbe.run(planarInput,planarProfile,this::current,this::history,this::restore,
-                    edt(()->context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),edt(()->context.cubism().authoringTransactions()),section,
+                    edt(this::commands),edt(()->context.cubism().authoringTransactions()),section,
                     mode.endsWith("-render")?context.paths().stateDir():null);
                 status="PASS";return;
             }
@@ -238,7 +239,7 @@ public final class HostProbe implements TurboismPlugin {
                     report.data.put("initialCounts",initialCounts);report.data.put("historyBefore",historyData(initialHistory));return null;});
                 var section=new LinkedHashMap<String,Object>();report.data.put("sheetGeometry",section);
                 SheetGeometryProbe.run(sheetInput,this::current,this::history,this::restore,
-                    edt(()->context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),edt(()->context.cubism().authoringTransactions()),section,
+                    edt(this::commands),edt(()->context.cubism().authoringTransactions()),section,
                     "sheet-render".equals(mode)?context.paths().stateDir():null);
                 status="PASS";return;
             }
@@ -249,7 +250,7 @@ public final class HostProbe implements TurboismPlugin {
                     report.data.put("historyBefore", historyData(initialHistory)); return null;
                 });
                 CubePersistenceProbe.save(cubeInput, this::current, this::history, this::restore,
-                    edt(() -> context.cubism().authoringTransactions()), edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+                    edt(() -> context.cubism().authoringTransactions()), edt(this::commands),
                     edt(() -> context.userFiles()), context.paths().stateDir(), report.cubePersistence);
                 status = "PASS"; return;
             }
@@ -257,26 +258,26 @@ public final class HostProbe implements TurboismPlugin {
             ShapeImportProbe.run(this::current, this::history, this::restore,
                 edt(() -> context.cubism().authoringTransactions()), report.shapeImport);
             if ("joint-pose".equals(mode)) JointPoseProbe.run(this::current, this::history, this::restore,
-                edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)), edt(() -> context.cubism().authoringTransactions()), report.jointPose);
+                edt(this::commands), edt(() -> context.cubism().authoringTransactions()), report.jointPose);
             if ("whole-import".equals(mode)) WholeImportProbe.run(cubeInput, this::current, this::history, this::restore,
                 edt(() -> context.cubism().authoringTransactions()), report.wholeImport);
             if ("cube-geometry".equals(mode)) CubeGeometryProbe.run(cubeInput, this::current, this::history, this::restore,
-                edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)), edt(() -> context.cubism().authoringTransactions()), report.cubeGeometry);
+                edt(this::commands), edt(() -> context.cubism().authoringTransactions()), report.cubeGeometry);
             if ("cube-render".equals(mode)) CubeGeometryProbe.run(cubeInput, this::current, this::history, this::restore,
-                edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)), edt(() -> context.cubism().authoringTransactions()), report.cubeGeometry,
+                edt(this::commands), edt(() -> context.cubism().authoringTransactions()), report.cubeGeometry,
                 (surfaces, plan, created) -> CubeRenderProbe.run(this::current, this::history, this::restore,
                     surfaces, plan, created, context.paths().stateDir(), report.cubeRender), SurfaceImportGeometry.UvMode.FLAT_COLOR_INTERIOR);
-            EvaluationProbe.run(this::current, this::history, this::restore, edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+            EvaluationProbe.run(this::current, this::history, this::restore, edt(this::commands),
                 edt(() -> context.cubism().authoringTransactions()), report.evaluation);
-            OrderProbe.run(this::current, this::history, this::restore, edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+            OrderProbe.run(this::current, this::history, this::restore, edt(this::commands),
                 edt(() -> context.cubism().authoringTransactions()), report.order);
-            MorphProbe.run(this::current, this::history, this::restore, edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+            MorphProbe.run(this::current, this::history, this::restore, edt(this::commands),
                 edt(() -> context.cubism().authoringTransactions()), report.morph);
-            MorphOrderProbe.run(this::current, this::history, this::restore, edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+            MorphOrderProbe.run(this::current, this::history, this::restore, edt(this::commands),
                 edt(() -> context.cubism().authoringTransactions()), report.morphOrder);
             ImageBindingProbe.run(this::current, this::history, this::restore, report.textureBinding);
             PixelSamplingProbe.run(this::current, this::history, this::restore,
-                edt(() -> context.services().require(dev.turboism.sdk.cubism.command.EditorCommandService.class)),
+                edt(this::commands),
                 edt(() -> context.cubism().authoringTransactions()),
                 edt(() -> context.userFiles()),
                 context.paths().stateDir(), report.pixelSampling,
@@ -439,6 +440,8 @@ public final class HostProbe implements TurboismPlugin {
         rejected.accept(diagnostic);
         throw new IllegalStateException(failure);
     }
+
+    private EditorCommandService commands() { return context.services().require(EditorCommandService.class); }
 
     private HistorySnapshot history() { current(); return context.cubism().history().snapshot(); }
 
