@@ -54,6 +54,24 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     @Test
+    void contentListenersObserveOnlyTheirPanelAfterEachEffectiveChangeAndCanUnsubscribe() {
+        final List<Integer> sizes = new ArrayList<>();
+        final Registration listener = coordinator.onContentChanged(
+                PANEL, () -> sizes.add(coordinator.injectedSections(PANEL).size()));
+        final Registration unrelated = coordinator.register("other", section(OTHER_PANEL, "s", 0, "other"));
+        final Registration first = coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
+        final Registration second = coordinator.register("plugin-b", section(PANEL, "s2", 1, "two"));
+        first.close();
+        first.close();
+        assertEquals(List.of(1, 2, 1), sizes);
+        listener.close();
+        listener.close();
+        second.close();
+        unrelated.close();
+        assertEquals(List.of(1, 2, 1), sizes);
+    }
+
+    @Test
     void registerRejectsNull() {
         assertThrows(NullPointerException.class, () -> coordinator.register("plugin-a", null));
     }
