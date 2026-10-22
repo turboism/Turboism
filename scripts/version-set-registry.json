@@ -499,6 +499,15 @@
    "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
   },
   {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java",
+   "versions": [
+    "5.3.04"
+   ],
+   "basis": "evidence",
+   "reason": "The reviewed 5.3.04 JAR moves the canvas toolbar from context/a/b to context/b/b; the former owner is now a TimerTask. WarpAltMirrorReviewedArtifactsTest checks the exact mount/layout selectors and button surfaces against every reviewed JAR, while the complete 5.3.x admission set remains unchanged."
+  },
+  {
    "kind": "collection",
    "path": "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java",
    "versions": [
