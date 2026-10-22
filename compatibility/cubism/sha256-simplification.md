@@ -1,7 +1,8 @@
 # SHA-256 check simplification
 
-The host artifact declarations in `ReviewedHostArtifacts.java` are the single
-source for shell/Python host identities. Adding a reviewed host digest changes
+The reviewed facts in `reviewed-releases.json` are the single source for host
+identities. `ReviewedHostArtifacts.java` is generated from that table, and
+shell/Python tools read the JSON directly. Adding a reviewed host digest changes
 one declaration instead of restating the same value in five or more consumers.
 This does not make the entire version-onboarding procedure a one-file change.
 
@@ -24,7 +25,7 @@ flag copies in `x.verification`. Access flags remain in verification selectors.
 The packs shrink from 33,213,386 to 24,999,956 bytes: 8,213,430 bytes removed.
 The generator, validators and import tests use the reduced representation.
 
-`checkCompatibilityMatrix` inputs now track the Java tokens the generator reads,
+`checkCompatibilityMatrix` inputs track the canonical release table and the Java tokens the generator reads,
 plus previously omitted metadata dependencies. Unused update asset digests are
 removed; security/release documentation distinguishes transfer integrity from
 independent trust anchors.

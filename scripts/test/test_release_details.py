@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from scripts.test.reviewed_releases_fixture import table
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,8 +20,9 @@ class ReleaseDetailsTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         matrix = self.root / 'compatibility/cubism/compatibility-matrix.json'
-        matrix.parent.mkdir(parents=True)
+        matrix.parent.mkdir(parents=True, exist_ok=True)
         matrix.write_bytes((ROOT / 'compatibility/cubism/compatibility-matrix.json').read_bytes())
+        (self.root / 'compatibility/cubism/reviewed-releases.json').write_bytes((ROOT / 'compatibility/cubism/reviewed-releases.json').read_bytes())
         self.git('init','-q')
         self.git('config','user.name','Tests'); self.git('config','user.email','tests@example.invalid')
         self.base = self.commit('initial')
@@ -180,19 +182,9 @@ class ReleaseDetailsTests(unittest.TestCase):
             empty=Path(d)
             with self.assertRaises(ValueError):
                 m.compatibility_marker(empty)
-            artifacts=empty/'runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java'
+            artifacts=empty/'compatibility/cubism/reviewed-releases.json'
             artifacts.parent.mkdir(parents=True)
-            artifacts.write_text(
-                'public final class ReviewedHostArtifacts {\n'
-                '    public static final String CUBISM_5_2_03_VERSION = "5.2.03";\n'
-                '    public static final String CUBISM_5_3_02_VERSION = "5.3.02";\n'
-                '    public static final String CUBISM_5_3_03_VERSION = "5.3.03";\n'
-                '    public static final HostArtifactDigest CUBISM_5_2_03 = new HostArtifactDigest(1L, "a");\n'
-                '    public static final HostArtifactDigest CUBISM_5_3_02 = new HostArtifactDigest(2L, "b");\n'
-                '    public static final HostArtifactDigest CUBISM_5_3_03 = new HostArtifactDigest(3L, "c");\n'
-                '}\n',
-                encoding='utf-8',
-            )
+            artifacts.write_text(table(['5.2.03', '5.3.02', '5.3.03']))
             sub_marker=m.compatibility_marker(empty)
             sub_payload=json.loads(sub_marker[len('<!-- turboism-compatibility-v1 '):-len(' -->\n')])
             self.assertEqual(sub_payload['cubismEditor']['versions'], ['5.2.03', '5.3.02', '5.3.03'])
@@ -201,7 +193,7 @@ class ReleaseDetailsTests(unittest.TestCase):
                 [{'from': '5.2.03', 'to': '5.2.03'}, {'from': '5.3.02', 'to': '5.3.03'}],
             )
             matrix=empty/'compatibility/cubism/compatibility-matrix.json'
-            matrix.parent.mkdir(parents=True)
+            matrix.parent.mkdir(parents=True, exist_ok=True)
             matrix.write_text(json.dumps({
                 'format': 'turboism.compatibility-matrix/v1',
                 'reviewedVersions': ['5.2.03', '5.3.03'],

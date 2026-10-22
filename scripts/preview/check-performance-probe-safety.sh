@@ -16,7 +16,7 @@ for pattern in 'pkill' 'killall' 'wineserver' 'rm -rf'; do
 done
 for token in 'wrapper_pid=$!' 'metrics_pid=$!' 'trap cleanup EXIT' 'cleanup_done=1' 'java_pid_belongs_to_run' 'mkdir "$run"' \
     'probe-process-identity.sh' 'probe_pid_start_ticks_match' 'settle_child' 'java_start_ticks' \
-    'window_belongs_to_pid' 'java_identity_ok' 'exit 13' 'reviewed_host_artifacts.py' 'ReviewedHostArtifacts.java'; do
+    'window_belongs_to_pid' 'java_identity_ok' 'exit 13' 'reviewed_host_artifacts.py' 'reviewed-releases.json'; do
   grep -qF "$token" "$runner" || {
     echo "FAIL: runner is missing expected cleanup/creation token: $token" >&2
     failures=$((failures + 1))
