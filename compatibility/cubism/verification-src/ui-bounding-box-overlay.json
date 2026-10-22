@@ -1,0 +1,549 @@
+{
+  "format": "turboism.verification-family/v1",
+  "family": "ui-bounding-box-overlay",
+  "base": {
+    "format": "turboism.static.verification.record",
+    "schemaVersion": 1,
+    "adapterSliceId": "adapter.editor-ui.bounding-box-overlay-button",
+    "capabilityIds": [
+      "cubism.editor-ui.bounding-box-overlay-button"
+    ],
+    "evidenceType": "JAR_METADATA",
+    "owner": "runtime-editor-ui-bounding-box-overlay-provider",
+    "status": "VERIFIED_STATIC",
+    "verifiedBy": "turboism-editor-ui-bounding-box-overlay-static-verifier",
+    "safeMode": "Fail closed and keep red-box overlay contributions unavailable when the exact artifact, classloader, provider generation, verified update hook and setup-helper call sites, native button factory, image resource, vector arithmetic, or cleanup members do not match.",
+    "capabilityConditions": {
+      "cubism.editor-ui.bounding-box-overlay-button": [
+        "hook:editor-ui"
+      ]
+    }
+  },
+  "fieldRanges": [],
+  "artifactRanges": [],
+  "selectors": [
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.bounding-box.update",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
+        "memberName": "update",
+        "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.bounding_box_update"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.bounding_box_update"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.bounding-box.setup-button",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
+        "memberName": "update$setupButton",
+        "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Lcom/live2d/cubism/view/context/boundingBox/ACBoundingBox;Ljava/util/List;Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;Lcom/live2d/cubism/view/context/guiEntity/GIconButtonEntity;Lcom/live2d/graphics3d/type/GVector2;)V",
+        "requiredAccessFlags": 26,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.bounding_box_setup_button"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.bounding_box_setup_button"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.button.create",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
+        "memberName": "createButton",
+        "descriptor": "(Lcom/live2d/cubism/view/context/guiEntity/q;Lkotlin/jvm/functions/Function0;)Lcom/live2d/cubism/view/context/guiEntity/GIconButtonEntity;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.button_create"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.button_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.vector.times",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "memberName": "times",
+        "descriptor": "(F)Lcom/live2d/graphics3d/type/GVector2;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.vector_times"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.vector_times"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.vector.plus",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "memberName": "plus",
+        "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.vector_plus"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.vector_plus"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.button.set-enabled",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/entity/GEntity",
+        "memberName": "setEnabled",
+        "descriptor": "(Z)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.button_set_enabled"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.button_set_enabled"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.scene.component-objects",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph",
+        "memberName": "getObjectsOnComponent",
+        "descriptor": "()Lcom/live2d/graphics3d/entity/GEntity;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.scene_component_objects"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.scene_component_objects"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.entity.children",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/entity/GEntity",
+        "memberName": "getChildren",
+        "descriptor": "()Lcom/live2d/graphics3d/entity/Entities;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.entity_children"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.entity_children"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.scene.remove-volatile",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph",
+        "memberName": "removeVolatileEntity",
+        "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.scene_remove_volatile"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.scene_remove_volatile"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.entities.remove",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics3d/entity/Entities",
+        "memberName": "remove",
+        "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.entities_remove"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.entities_remove"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.writable-image.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "memberName": "<init>",
+        "descriptor": "(Ljava/awt/image/BufferedImage;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.writable_image_create"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.writable_image_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-bounding-box-overlay.icon-set.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/cubism/view/context/guiEntity/q",
+        "memberName": "<init>",
+        "descriptor": "(Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.icon_set_create"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_bounding_box_overlay.icon_set_create"
+        }
+      ]
+    }
+  ],
+  "selectorOrder": [
+    {
+      "versions": "5.0.00-5.3.04",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "versions": "5.0.00-5.3.04",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "verificationId",
+          "adapterSliceId",
+          "capabilityIds",
+          "cubismVersion",
+          "profileId",
+          "artifact",
+          "evidenceType",
+          "evidencePath",
+          "owner",
+          "status",
+          "verifiedBy",
+          "verifiedAt",
+          "safeMode",
+          "selectors",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    }
+  ],
+  "releases": {
+    "5.0.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.05": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.06": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.03": {
+      "verifiedAt": "2026-09-04T11:30:00Z"
+    },
+    "5.3.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.02": {
+      "verifiedAt": "2026-09-04T11:30:00Z"
+    },
+    "5.3.03": {
+      "verifiedAt": "2026-09-04T11:30:00Z"
+    },
+    "5.3.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    }
+  }
+}

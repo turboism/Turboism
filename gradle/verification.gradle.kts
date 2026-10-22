@@ -775,6 +775,43 @@ val generateClassPinsSelfTest by tasks.registering(Exec::class) {
     )
 }
 
+val checkMaterializedRecordsSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs focused byte-preservation and fail-closed fixtures for shadow record materialization."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_verification_records.py",
+        "scripts/version_table_releases.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/test_materialize_verification_records.py"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_verification_records", "-v")
+}
+
+val checkMaterializedRecords by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks Java release facts and reproduces all committed verification records byte-for-byte in shadow mode."
+    dependsOn(checkMaterializedRecordsSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_verification_records.py",
+        "scripts/version_table_releases.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "compatibility/cubism/reviewed-releases.json",
+        fileTree("compatibility/cubism/verification-src") { include("*.json") },
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java"
+    )
+    VerificationStamps.apply(this)
+    commandLine(
+        "python3", "scripts/materialize_verification_records.py",
+        "--check-against", "compatibility/cubism/verification/"
+    )
+}
+
 /*
  * The bootstrap fat JAR packages verification records from an explicit filename
  * list; a record missing from it fails closed only when the agent extracts it at
@@ -1219,6 +1256,7 @@ val devCheck by tasks.registering {
         checkRepositoryHygiene,
         checkTestCorpusSelfTest,
         checkEditorModelAliases,
+        checkMaterializedRecords,
         checkVersionMonotonicity,
         checkVersionSetRegistry,
         checkHostValidationVersions,

@@ -1,0 +1,505 @@
+{
+  "format": "turboism.verification-family/v1",
+  "family": "performance-render-scene",
+  "base": {
+    "format": "turboism.static.verification.record",
+    "schemaVersion": 1,
+    "adapterSliceId": "adapter.cubism.performance.fps-hook",
+    "capabilityIds": [
+      "turboism.performance.stats.read"
+    ],
+    "evidenceType": "JAR_METADATA",
+    "owner": "bootstrap-performance-fps-hook",
+    "status": "VERIFIED_STATIC",
+    "verifiedBy": "turboism-fps-5203-static-verifier",
+    "safeMode": "FPS counting stays disabled with one bounded diagnostic when the exact 5.2.03 artifact, host classloader, or the renderScene_exe owner/member/descriptor does not match; partial instrumentation is not allowed.",
+    "capabilityConditions": {
+      "turboism.performance.stats.read": [
+        "hook:performance-fps"
+      ]
+    }
+  },
+  "fieldRanges": [
+    {
+      "field": "verifiedBy",
+      "versions": "5.3.00-5.3.04",
+      "value": "turboism-static-verifier"
+    },
+    {
+      "field": "safeMode",
+      "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+      "value": "FPS counting stays disabled with one bounded diagnostic when the exact 5.3.03 artifact, host classloader, or any owner/member/descriptor does not match; partial instrumentation is not allowed and this static record does not admit the 5.3.03 FPS installer."
+    }
+  ],
+  "artifactRanges": [],
+  "selectors": [
+    {
+      "base": {
+        "alias": "cubism.performance.render-scene",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "memberName": "renderScene_exe",
+        "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+        "requiredAccessFlags": 20,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.2.03",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.performance.render_scene"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.reinit-model-instance",
+        "descriptor": "()V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "reinitModelInstance_exe",
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.reinit_model_instance"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.reinit_model_instance"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.update-model-instances",
+        "descriptor": "()V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "updateModelInstances",
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.update_model_instances"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.update_model_instances"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.modeling-pre-render-update",
+        "descriptor": "(Lcom/live2d/graphics3d/a;)V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "a",
+        "ownerInternalName": "com/live2d/cubism/view/context/K",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.modeling_pre_render_update"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.modeling_pre_render_update"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.render-scene",
+        "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "renderScene_exe",
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.render_scene"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.render_scene"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.render-system",
+        "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;ZZ)V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "b",
+        "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.render_system"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.render_system"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.scene-traversal",
+        "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;ZZZLjava/util/ArrayList;)V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "a",
+        "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.scene_traversal"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.scene_traversal"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.performance.renderer-dispatch",
+        "descriptor": "(Lcom/live2d/graphics3d/component/AGRenderer;Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;)V",
+        "forbiddenAccessFlags": 0,
+        "kind": "method",
+        "memberName": "a",
+        "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+        "requiredAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "alias",
+        "descriptor",
+        "forbiddenAccessFlags",
+        "kind",
+        "mappingId",
+        "memberName",
+        "ownerInternalName",
+        "requiredAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.performance.renderer_dispatch"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.performance.renderer_dispatch"
+        }
+      ]
+    }
+  ],
+  "selectorOrder": [
+    {
+      "versions": "5.0.00-5.0.06",
+      "value": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "versions": "5.1.00-5.2.03",
+      "value": [
+        0,
+        3,
+        1,
+        2
+      ]
+    },
+    {
+      "versions": "5.3.00-5.3.04",
+      "value": [
+        4,
+        3,
+        5,
+        6,
+        7,
+        2,
+        1
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "versions": "5.0.00-5.2.03",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "verificationId",
+          "adapterSliceId",
+          "capabilityIds",
+          "cubismVersion",
+          "profileId",
+          "artifact",
+          "evidenceType",
+          "evidencePath",
+          "owner",
+          "status",
+          "verifiedBy",
+          "verifiedAt",
+          "safeMode",
+          "selectors",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    },
+    {
+      "versions": "5.3.00-5.3.01,5.3.04",
+      "value": {
+        "keyOrder": [
+          "adapterSliceId",
+          "artifact",
+          "capabilityIds",
+          "cubismVersion",
+          "evidencePath",
+          "evidenceType",
+          "format",
+          "owner",
+          "profileId",
+          "safeMode",
+          "schemaVersion",
+          "selectors",
+          "status",
+          "verificationId",
+          "verifiedAt",
+          "verifiedBy",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    },
+    {
+      "versions": "5.3.02-5.3.03",
+      "value": {
+        "keyOrder": [
+          "adapterSliceId",
+          "artifact",
+          "capabilityIds",
+          "cubismVersion",
+          "evidencePath",
+          "evidenceType",
+          "format",
+          "owner",
+          "profileId",
+          "safeMode",
+          "schemaVersion",
+          "selectors",
+          "status",
+          "verificationId",
+          "verifiedAt",
+          "verifiedBy",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "sha256",
+          "size"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    }
+  ],
+  "releases": {
+    "5.0.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.05": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.06": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.03": {
+      "verifiedAt": "2026-08-14T00:00:00Z",
+      "overrides": {
+        "verificationId": "cubism-5.2.03.performance.render-scene.static"
+      }
+    },
+    "5.3.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.02": {
+      "verifiedAt": "2026-08-19T00:00:00Z",
+      "overrides": {
+        "verificationId": "cubism-5.3.02.performance.render-scene.static"
+      }
+    },
+    "5.3.03": {
+      "verifiedAt": "2026-08-22T00:00:00Z",
+      "overrides": {
+        "verificationId": "cubism-5.3.03.performance.render-scene.static"
+      }
+    },
+    "5.3.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    }
+  }
+}
