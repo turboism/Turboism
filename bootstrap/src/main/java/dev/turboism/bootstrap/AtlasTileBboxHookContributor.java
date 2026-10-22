@@ -41,7 +41,17 @@ final class AtlasTileBboxHookContributor implements HookContributor {
 
     @Override
     public boolean admitted(final HookEnvironment environment) {
-        return enabled(environment.startupPolicy(), environment.options().home());
+        final boolean requested = environment
+                .optimizationConfig()
+                .choice(dev.turboism.config.NativeOptimizationConfig.Option.ATLAS_TILE_BBOX)
+                .enabled();
+        final boolean admitted = environment.startupPolicy() != null
+                && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)
+                && requested;
+        if (!admitted)
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(), "not-installed", requested ? "policy-disabled" : "preference-disabled");
+        return admitted;
     }
 
     @Override
@@ -53,8 +63,21 @@ final class AtlasTileBboxHookContributor implements HookContributor {
                     "bootstrap",
                     "Atlas tile-bbox status=" + installation.status() + ", transformOutcome="
                             + installation.transformOutcome());
-            return installation;
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(),
+                    "INSTALLED".equals(installation.status().name()) ? "installed" : "not-installed",
+                    installation.status().name());
+            return () -> {
+                try {
+                    installation.close();
+                } finally {
+                    dev.turboism.config.NativeOptimizationDiagnostics.installed(id(), "not-installed", "closed");
+                }
+            };
         } catch (final Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(), "failed", failure.getClass().getSimpleName());
             RuntimeDiagnostics.error("atlas-tile-bbox", "Atlas tile-bbox optimization disabled safely", failure);
             return () -> {};
         }

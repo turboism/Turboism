@@ -1,6 +1,5 @@
 package dev.turboism.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -27,20 +26,19 @@ public final class TriangulationEdgeIndexSettingsFileService
     @Override
     public boolean read() {
         try {
-            final JsonNode value = config.read().get(TriangulationEdgeIndexPreference.KEY);
-            if (value == null || !value.isBoolean()) return DEFAULT_ENABLED;
-            return value.booleanValue();
-        } catch (RuntimeException unreadable) {
-            return DEFAULT_ENABLED;
+            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
+                    config.read(),
+                    PerformanceSettingsConfig.Field.TRIANGULATION_EDGE_INDEX,
+                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
+        } catch (RuntimeException invalid) {
+            return false;
         }
     }
 
     @Override
     public boolean save(final boolean value) {
-        config.update(root -> {
-            root.put(TriangulationEdgeIndexPreference.KEY, value);
-            return root;
-        });
+        PerformanceSettingsConfig.save(
+                config, PerformanceSettingsConfig.Field.TRIANGULATION_EDGE_INDEX, Boolean.toString(value));
         return value;
     }
 

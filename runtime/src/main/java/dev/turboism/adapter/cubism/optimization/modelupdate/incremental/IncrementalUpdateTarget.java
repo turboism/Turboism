@@ -217,6 +217,8 @@ public record IncrementalUpdateTarget(
         final List<Dep> deps = new ArrayList<>(48);
         deps.add(new Dep(up, "b", "()Z"));
         deps.add(new Dep(up, "b", "(Z)V"));
+        deps.add(new Dep(CM, "getSource", "()Lcom/live2d/cubism/doc/model/CModelSource;"));
+        deps.add(new Dep("com.live2d.cubism.doc.model.CModelSource", "isModelEditing", "()Z"));
         deps.add(new Dep(CM, "getAllDeformers", "()Ljava/util/List;"));
         deps.add(new Dep(CM, "getAllArtPaths", "()Ljava/util/List;"));
         deps.add(new Dep(CM, "getAllAffecters", "()Ljava/util/List;"));
