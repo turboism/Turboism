@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.config.RuntimeConfigRepository;
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.internal.core.CorePluginManagement;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +18,22 @@ import org.junit.jupiter.api.io.TempDir;
 class RuntimePluginManagementServiceTest {
     @TempDir
     Path home;
+
+    @Test
+    void coreListAndDetailsFollowThePackagedFrameworkVersion() {
+        final RuntimePluginManagementService service = service(Optional::empty);
+        final CorePluginManagement.PluginInfo core = service.plugins().stream()
+                .filter(plugin -> plugin.id().equals(CorePluginManagement.CORE_PLUGIN_ID))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(FrameworkBuildInfo.current().version(), core.version());
+        assertEquals(
+                core.version(),
+                service.details(CorePluginManagement.CORE_PLUGIN_ID)
+                        .orElseThrow()
+                        .plugin()
+                        .version());
+    }
 
     @Test
     void coreCannotBeDisabledOrUninstalled() {
