@@ -15,6 +15,8 @@ import tempfile
 import time
 from typing import TYPE_CHECKING, Any
 
+from reviewed_host_artifacts import compact, load
+
 from .common import (
     QUEUE_PROTOCOL,
     SCHEMA,
@@ -253,7 +255,7 @@ def memory_observer_dependency(argv: list[str], source_root: Path, task_spec: st
     expected = {str(source_root / "scripts/test" / name) + ":validation/" + name for name in helpers}
     # host_memory_identity.py resolves the reviewed jar digest through these two staged siblings.
     reviewed_reader = source_root / "scripts/preview/reviewed_host_artifacts.py"
-    reviewed_source = source_root / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+    reviewed_source = source_root / "compatibility/cubism/reviewed-releases.json"
     expected |= {f"{reviewed_reader}:validation/{reviewed_reader.name}",
                  f"{reviewed_source}:validation/{reviewed_source.name}"}
     supplied = options.get("--home-file", [])
@@ -288,9 +290,7 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
         return None
     versions = options.get("--version", [])
     if (options.get("--name") != ["mcp"] or len(versions) != 1
-            or versions[0] not in {
-                "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102",
-                "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"}
+            or versions[0] not in {compact(v) for v in load()}
             or task_spec not in {"direct-runner", "mcp:" + versions[0],
                                  "mcp:" + versions[0] + "@standard",
                                  "mcp:" + versions[0] + "@free-fixture"}):
@@ -344,9 +344,7 @@ def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spe
         return None
     versions = options.get("--version", [])
     if (options.get("--name") != ["edit-protocol"] or len(versions) != 1
-            or versions[0] not in {
-                "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102",
-                "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"}
+            or versions[0] not in {compact(v) for v in load()}
             or task_spec not in {"direct-runner", "edit-protocol:" + versions[0],
                                  "edit-protocol:" + versions[0] + "@standard",
                                  "edit-protocol:" + versions[0] + "@assisted"}):
@@ -457,7 +455,7 @@ class PreparedStore:
                     copy_verified(path, tool_dir / path.name)
             # reviewed_host_artifacts.py resolves the reviewed jar digests from this file at the same
             # relative position inside the snapshot, so the runner never restates them.
-            reviewed_source = source_root / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+            reviewed_source = source_root / "compatibility/cubism/reviewed-releases.json"
             if reviewed_source.is_file():
                 copy_verified(reviewed_source, stage / "tool" / reviewed_source.relative_to(source_root))
             hvq_source = source_root / "scripts/preview/hvq"

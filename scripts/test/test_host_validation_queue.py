@@ -831,7 +831,7 @@ class PreparedStoreTest(unittest.TestCase):
         for name in names:
             argv.extend(["--home-file", str(directory / name) + ":validation/" + name])
         reviewed = (self.source / "scripts/preview/reviewed_host_artifacts.py",
-                    self.source / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java")
+                    self.source / "compatibility/cubism/reviewed-releases.json")
         for path in reviewed:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("# isolated inventory fixture, never executed\n")
@@ -1073,8 +1073,7 @@ class PreparedStoreTest(unittest.TestCase):
                      "host_validation_static_gates.py", "reviewed_host_artifacts.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
-        reviewed_relative = ("runtime/src/main/java/dev/turboism/mapping/verification/"
-                             "ReviewedHostArtifacts.java")
+        reviewed_relative = "compatibility/cubism/reviewed-releases.json"
         queue.copy_verified(tools.parents[1] / reviewed_relative, self.source / reviewed_relative)
         hvq_preview = self.preview / "hvq"
         hvq_preview.mkdir(parents=True, exist_ok=True)
