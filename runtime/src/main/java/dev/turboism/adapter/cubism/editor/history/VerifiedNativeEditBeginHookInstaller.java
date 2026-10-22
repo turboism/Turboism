@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.editor.history;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
+import dev.turboism.sdk.ReviewedVersions;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,8 +86,7 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
             final VerifiedMemberResolver resolver,
             final ClassLoader hostClassLoader) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!ReviewedVersions.since("5.0.00")
-                .contains(verified.admittedCubismVersion())) {
+        if (!ReviewedVersions.since("5.0.00").contains(verified.admittedCubismVersion())) {
             throw new IllegalArgumentException("Native edit entry hook version is unsupported.");
         }
         final Set<String> aliases = Set.of(

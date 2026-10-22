@@ -104,6 +104,10 @@ class RegistryGateTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
+    def test_value_table_exception_cannot_admit_bare_version_set(self) -> None:
+        _registry(self.root, [{"path": CONTRACT_REL, "evidence": "exact artifact value table"}])
+        self.assertEqual(1, result([str(self.root)]))
+
     def test_unregistered_collection_fails(self) -> None:
         _registry(self.root, [])
         self.assertEqual(1, result([str(self.root)]))

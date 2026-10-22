@@ -1,8 +1,8 @@
 package dev.turboism.ui.resource;
 
-import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +18,9 @@ final class CubismNativeIconCatalog {
             return Optional.empty();
         }
         return ReviewedHostArtifacts.all().stream()
-                .filter(artifact -> ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow().equals(version))
+                .filter(artifact -> ReviewedHostArtifacts.cubismVersionOf(artifact)
+                        .orElseThrow()
+                        .equals(version))
                 .findFirst();
     }
 
