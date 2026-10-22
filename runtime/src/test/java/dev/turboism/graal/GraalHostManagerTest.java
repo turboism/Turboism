@@ -27,6 +27,16 @@ import org.junit.jupiter.api.Test;
 
 final class GraalHostManagerTest {
 
+    private static void drainHostCalls(final GraalHostManager manager) throws Exception {
+        for (String name : List.of("hostCalls", "hostResponses")) {
+            final Field field = GraalHostManager.class.getDeclaredField(name);
+            field.setAccessible(true);
+            final var executor = (java.util.concurrent.ThreadPoolExecutor) field.get(manager);
+            Await.condition(
+                    () -> executor.getActiveCount() == 0 && executor.getQueue().isEmpty());
+        }
+    }
+
     @Test
     void submitReturnsBeforeAHostThatNeverReportsReadyTimesOut() throws Exception {
         final List<String> diagnostics = new CopyOnWriteArrayList<>();
@@ -429,7 +439,9 @@ final class GraalHostManagerTest {
             assertFalse(execution.cancel());
 
             release.countDown();
-            Thread.sleep(150L);
+            drainHostCalls(manager);
+            Files.writeString(enteredFile, "released");
+            awaitDiagnostic(diagnostics, "LATE_RESPONSE_CHECKED");
             assertTrue(
                     diagnostics.stream().noneMatch(message -> message.contains("LATE_HOST_RESPONSE")),
                     () -> diagnostics.toString());
@@ -460,7 +472,7 @@ final class GraalHostManagerTest {
                     execution.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
             assertEquals(GraalHostManager.Status.CANCELLED, result.status());
             release.countDown();
-            Thread.sleep(100L);
+            drainHostCalls(manager);
             assertEquals(2, invocations.get());
             assertFalse(execution.cancel());
         } finally {
@@ -519,7 +531,10 @@ final class GraalHostManagerTest {
             final GraalHostManager.Execution execution =
                     manager.submit("stalled", "x".repeat(3 * 1024 * 1024), Map.of(), (operation, payload) -> "{}");
             awaitDiagnostic(diagnostics, "STALLING_INPUT");
-            Thread.sleep(100L);
+            Await.condition(() -> Thread.getAllStackTraces().entrySet().stream()
+                    .anyMatch(entry -> entry.getKey().getName().startsWith("turboism-graal-host-submit")
+                            && java.util.Arrays.stream(entry.getValue())
+                                    .anyMatch(frame -> frame.getMethodName().startsWith("write"))));
 
             CompletableFuture.runAsync(manager::close).get(1, TimeUnit.SECONDS);
             final GraalHostManager.TransportResult result =
@@ -719,7 +734,11 @@ final class GraalHostManagerTest {
                     + "\",\"status\":\"SUCCEEDED\",\"output\":\"terminal\"}");
             output.newLine();
             output.flush();
-            Thread.sleep(400L);
+            final long releaseDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (!Files.readString(enteredFile).equals("released")) {
+                if (System.nanoTime() >= releaseDeadline) throw new IllegalStateException("release marker timed out");
+                Thread.sleep(5L);
+            }
             if (input.ready()) {
                 final String late = input.readLine();
                 if (late != null && late.contains("\"callId\":\"slow\"")) {
@@ -729,6 +748,9 @@ final class GraalHostManagerTest {
                     output.flush();
                 }
             }
+            output.write("{\"type\":\"PROTOCOL_ERROR\",\"code\":\"LATE_RESPONSE_CHECKED\",\"message\":\"checked\"}");
+            output.newLine();
+            output.flush();
         }
 
         static Path enteredFile(final long parentPid) {

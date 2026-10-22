@@ -13,6 +13,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -84,7 +85,11 @@ class RuntimePluginTaskSchedulerTest {
     void longRunningTaskRunsOnLongLanePastTheTaskBudget() throws Exception {
         runtimeScheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(100L, 2, 8, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -93,18 +98,34 @@ class RuntimePluginTaskSchedulerTest {
         final AtomicReference<String> workerThread = new AtomicReference<>();
         final AtomicBoolean interrupted = new AtomicBoolean();
 
+        final CountDownLatch longStarted = new CountDownLatch(1);
+        final CountDownLatch releaseLong = new CountDownLatch(1);
         final TaskSubmission submission = scheduler.submit(new PluginTaskRequest(
                 new TaskId("long-task"), PluginTaskKind.LONG_RUNNING, PluginTaskPriority.NORMAL, token -> {
                     workerThread.set(Thread.currentThread().getName());
-                    try {
-                        // Beyond the 500ms TimeLimiter the task executor would enforce.
-                        Thread.sleep(700);
-                    } catch (InterruptedException exception) {
-                        interrupted.set(true);
-                    }
+                    longStarted.countDown();
+                    awaitUninterruptibly(releaseLong);
+                    interrupted.set(Thread.currentThread().isInterrupted());
                 }));
 
         assertTrue(submission.accepted());
+        assertTrue(longStarted.await(1, TimeUnit.SECONDS));
+        try {
+            final TaskSubmission budgetProbe = scheduler.submit(request("budget-probe", token -> {
+                awaitUninterruptibly(releaseLong);
+            }));
+            assertEquals(
+                    TaskOutcomeStatus.TIMED_OUT,
+                    budgetProbe
+                            .handle()
+                            .completion()
+                            .toCompletableFuture()
+                            .get(2, TimeUnit.SECONDS)
+                            .status());
+            assertFalse(submission.handle().completion().toCompletableFuture().isDone());
+        } finally {
+            releaseLong.countDown();
+        }
         assertEquals(
                 TaskOutcomeStatus.SUCCEEDED,
                 submission
@@ -122,7 +143,11 @@ class RuntimePluginTaskSchedulerTest {
     void longRunningTaskCancelIsCooperativeAndNeverInterrupts() throws Exception {
         runtimeScheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, 1, 8, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -623,7 +648,11 @@ class RuntimePluginTaskSchedulerTest {
                     await(releaseAdmission);
                     return WorkBudget.HEAVY;
                 },
-                new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, 1, 8, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -676,7 +705,11 @@ class RuntimePluginTaskSchedulerTest {
                     await(releaseAdmission);
                     return WorkBudget.HEAVY;
                 },
-                new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, 1, 8, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -769,7 +802,11 @@ class RuntimePluginTaskSchedulerTest {
                     await(releaseAdmission);
                     return WorkBudget.LIGHTWEIGHT;
                 },
-                new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, 1, 8, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -855,7 +892,11 @@ class RuntimePluginTaskSchedulerTest {
                     await(releaseIterationAdmission);
                     return WorkBudget.LIGHTWEIGHT;
                 },
-                new PluginWorkExecutorRegistry(500L, 1, 8, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, 1, 8, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -1019,12 +1060,11 @@ class RuntimePluginTaskSchedulerTest {
 
     @Test
     void runtimeTimeoutAndFixedDelayFailureUseTerminalFailureAlgebra() throws Exception {
-        createScheduler(1, 8, 1_000L, ignored -> WorkBudget.LIGHTWEIGHT);
+        createScheduler(2, 8, 100L, ignored -> WorkBudget.LIGHTWEIGHT);
+        final CountDownLatch releaseTimed = new CountDownLatch(1);
         final TaskSubmission timed = scheduler.submit(request("timed", token -> {
-            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-            while (System.nanoTime() < deadline) {
-                Thread.onSpinWait();
-            }
+            // Stay physically active until the logical timeout has been observed.
+            awaitUninterruptibly(releaseTimed);
         }));
         final java.util.concurrent.atomic.AtomicReference<String> timeoutContinuationThread =
                 new java.util.concurrent.atomic.AtomicReference<>();
@@ -1033,8 +1073,12 @@ class RuntimePluginTaskSchedulerTest {
             timeoutContinuationThread.set(Thread.currentThread().getName());
             timeoutContinuationRan.countDown();
         });
-        final TaskOutcome timedOutcome =
-                timed.handle().completion().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        final TaskOutcome timedOutcome;
+        try {
+            timedOutcome = timed.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        } finally {
+            releaseTimed.countDown();
+        }
         assertEquals(TaskOutcomeStatus.TIMED_OUT, timedOutcome.status());
         assertTrue(timeoutContinuationRan.await(1, TimeUnit.SECONDS));
         assertTrue(
@@ -1350,7 +1394,11 @@ class RuntimePluginTaskSchedulerTest {
             final int workers, final int queueCapacity, final CleanupEvidenceCollector cleanupEvidence) {
         runtimeScheduler = new RuntimeScheduler(
                 ignored -> WorkBudget.LIGHTWEIGHT,
-                new PluginWorkExecutorRegistry(500L, workers, queueCapacity, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, workers, queueCapacity, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -1368,7 +1416,11 @@ class RuntimePluginTaskSchedulerTest {
             final RuntimeFailureCollector failures) {
         runtimeScheduler = new RuntimeScheduler(
                 policy,
-                new PluginWorkExecutorRegistry(500L, workers, queueCapacity, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(500L, workers, queueCapacity, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -1384,7 +1436,11 @@ class RuntimePluginTaskSchedulerTest {
             final int workers, final int queueCapacity, final long timeoutMillis, final WorkBudgetPolicy policy) {
         runtimeScheduler = new RuntimeScheduler(
                 policy,
-                new PluginWorkExecutorRegistry(timeoutMillis, workers, queueCapacity, ignored -> {}, Clock.systemUTC()),
+                new PluginWorkExecutorRegistry(
+                        PluginWorkExecutorConfiguration.of(timeoutMillis, workers, queueCapacity, 50.0f)
+                                .withShutdownTimeout(java.time.Duration.ofMillis(20)),
+                        ignored -> {},
+                        Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -1409,6 +1465,18 @@ class RuntimePluginTaskSchedulerTest {
 
     private static PluginTaskRequest request(final String id, final dev.turboism.sdk.task.PluginTaskAction action) {
         return new PluginTaskRequest(new TaskId(id), PluginTaskKind.COMPUTE, PluginTaskPriority.NORMAL, action);
+    }
+
+    private static void awaitUninterruptibly(final CountDownLatch latch) {
+        boolean interrupted = false;
+        while (latch.getCount() > 0) {
+            try {
+                latch.await();
+            } catch (InterruptedException exception) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
     }
 
     private static void await(final CountDownLatch latch) {

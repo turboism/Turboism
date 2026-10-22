@@ -26,6 +26,7 @@ import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -50,6 +51,30 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
     static final String MENU_LABEL_KEY = "backup.menu.settings-label";
     static final String MENU_LABEL = "WebDAV Backup Settings";
     static final int MENU_ORDER = 100;
+
+    /** Immutable target-rebuild retry delays, in attempt order.
+     * @param delays positive retry delays
+     */
+    public record RetryPolicy(List<Duration> delays) {
+        public RetryPolicy {
+            delays = List.copyOf(delays);
+            if (delays.isEmpty() || delays.stream().anyMatch(delay -> delay.isNegative() || delay.isZero())) {
+                throw new IllegalArgumentException("retry delays must be positive and nonempty");
+            }
+        }
+    }
+
+    private final RetryPolicy retryPolicy;
+
+    /** Creates the plugin with the standard five bounded retries. */
+    public BackupPlugin() {
+        this(DEFAULT_RETRY_POLICY);
+    }
+
+    /** Creates the plugin with an explicit target-rebuild retry policy. */
+    public BackupPlugin(final RetryPolicy retryPolicy) {
+        this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy");
+    }
 
     private final WebDavSettingsBinding binding = new WebDavSettingsBinding();
     private volatile WebDavSyncTarget target;
@@ -321,8 +346,11 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
         }
     }
 
-    /** Bounded target-rebuild retry backoff (ms); five attempts, ~15.5s total. */
-    static final long[] TARGET_RETRY_BACKOFF_MILLIS = {500L, 1_000L, 2_000L, 4_000L, 8_000L};
+    /** Bounded target-rebuild retry backoff; five attempts, ~15.5s total. */
+    private static final RetryPolicy DEFAULT_RETRY_POLICY =
+            new RetryPolicy(List.of(500L, 1_000L, 2_000L, 4_000L, 8_000L).stream()
+                    .map(Duration::ofMillis)
+                    .toList());
 
     /** AUTO_BACKUP_SYNC scan period. */
     static final long AUTO_BACKUP_SCAN_INTERVAL_MILLIS = 30_000L;
@@ -336,14 +364,14 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
             return; // a retry chain is already scheduled
         }
         final int attempt = targetRetryAttempts;
-        if (attempt >= TARGET_RETRY_BACKOFF_MILLIS.length) {
+        if (attempt >= retryPolicy.delays().size()) {
             targetRetryPending.set(false);
             logger.warn("WEBDAV_TARGET_UNAVAILABLE reason=unavailable");
             return;
         }
         targetRetryAttempts = attempt + 1;
-        logger.info(
-                "WEBDAV_TARGET_RETRY attempt=" + (attempt + 1) + " backoffMs=" + TARGET_RETRY_BACKOFF_MILLIS[attempt]);
+        logger.info("WEBDAV_TARGET_RETRY attempt=" + (attempt + 1) + " backoffMs="
+                + retryPolicy.delays().get(attempt).toMillis());
         final java.util.concurrent.ScheduledExecutorService sched;
         synchronized (workersLock) {
             sched = workersShutdown ? null : scheduler;
@@ -361,7 +389,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
                         }
                         refreshTarget();
                     },
-                    TARGET_RETRY_BACKOFF_MILLIS[attempt],
+                    retryPolicy.delays().get(attempt).toMillis(),
                     java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (java.util.concurrent.RejectedExecutionException stopped) {
             targetRetryPending.set(false);
