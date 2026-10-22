@@ -1469,7 +1469,8 @@ class CubismFacadeImplTest {
 
     @Test
     void genericDeformerProjectionPreservesSubtypeWritesAndLifecycle() {
-        final java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+        // Before hooks run on the caller; observer hooks run on the callback worker.
+        final java.util.Map<String, Integer> counts = new java.util.concurrent.ConcurrentHashMap<>();
         final java.util.function.Consumer<String> count = key -> counts.merge(key, 1, Integer::sum);
         final MockWarpDeformer backendWarp = new MockWarpDeformer("WarpA");
         final MockRotationDeformer backendRotation = new MockRotationDeformer("RotationA");
