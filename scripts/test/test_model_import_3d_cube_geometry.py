@@ -29,8 +29,10 @@ class CubeContractTest(unittest.TestCase):
                 ORACLE['cube_source'](path)
 
 
-@unittest.skipUnless(os.environ.get('TURBOISM_MI3D_CUBE_REPORT') and os.environ.get('TURBOISM_MI3D_CUBE_INPUT'),
-                     'requires an explicit synthetic producer report and authorized frozen input')
+@unittest.skipUnless(os.environ.get('TURBOISM_MI3D_CUBE_REPORT') and os.environ.get('TURBOISM_MI3D_CUBE_INPUT')
+                     and Path(os.environ['TURBOISM_MI3D_CUBE_REPORT']).is_file()
+                     and Path(os.environ['TURBOISM_MI3D_CUBE_INPUT']).is_file(),
+                     'set TURBOISM_MI3D_CUBE_REPORT and TURBOISM_MI3D_CUBE_INPUT to a synthetic report and authorized frozen input')
 class CubeProducerOracleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

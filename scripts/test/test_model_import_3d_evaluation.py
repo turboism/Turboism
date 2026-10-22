@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Synthetic N3b verifier tests. No host execution, queues, or fabricated exact-host evidence files."""
 import copy
-import importlib.util
+import json
 import math
 from pathlib import Path
 import sys
@@ -71,19 +71,27 @@ def attach(r):
 
 
 def load_protocol():
-    spec = importlib.util.spec_from_file_location('mi3d_protocol_for_evaluation', Path(__file__).with_name('test_model_import_3d_host_validation.py'))
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+    from scripts.test import test_model_import_3d_host_validation
+    return test_model_import_3d_host_validation
 
 
 class EvaluationProtocolTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = load_protocol(); cls.verify = cls.protocol.VERIFY
+        # JSON copies model the wire boundary and avoid repeatedly building unrelated matrices.
+        cls.fixture_json = json.dumps(cls.protocol.ordinary_fixture())
+
     def setUp(self):
-        self.protocol = load_protocol(); self.verify = self.protocol.VERIFY
-        self.fixture = self.protocol.ordinary_fixture()
+        self.fixture = json.loads(self.fixture_json)
+
+    def verify_section(self, report):
+        return self.verify.EVALUATION['verify_evaluation'](report, self.verify.snapshot)
 
     def test_positive_requires_all_three_matrices(self):
         self.verify.verify_native(self.fixture, 'synthetic')
         for field in ('evaluation', 'ordinaryWrite'):
-            r = copy.deepcopy(self.fixture); r.pop(field)
+            r = json.loads(self.fixture_json); r.pop(field)
             with self.subTest(field=field), self.assertRaises((ValueError, KeyError, TypeError)):
                 self.verify.verify_native(r, 'synthetic')
 
@@ -103,9 +111,9 @@ class EvaluationProtocolTest(unittest.TestCase):
             ('write_tip', lambda e: e.update(writeEntryId='wrong')), ('target_pollution', lambda e: e['expectedWritten']['forms'][4]['positions'][0].__setitem__(0, 9)),
         ]
         for name, mutate in mutations:
-            r = copy.deepcopy(self.fixture); mutate(r['evaluation'])
+            r = json.loads(self.fixture_json); mutate(r['evaluation'])
             with self.subTest(name=name), self.assertRaises((ValueError, KeyError, TypeError)):
-                self.verify.verify_native(r, 'synthetic')
+                self.verify_section(r)
         changes = [
             ('old_consumption', lambda s: s['actual']['consumed'].update(updateVersion=s['requested']['consumed']['updateVersion'])),
             ('no_time', lambda s: s['actual'].update(passEntryTimeMillis=-1)),
@@ -126,26 +134,26 @@ class EvaluationProtocolTest(unittest.TestCase):
             ('zero_attempts', lambda s: s.update(attempts=0)), ('forged_expected', lambda s: s['expectedPositions'][0].__setitem__(0, 999)),
         ]
         for name, mutate in changes:
-            r = copy.deepcopy(self.fixture); s = r['evaluation']['samples'][4]; mutate(s)
+            r = json.loads(self.fixture_json); s = r['evaluation']['samples'][4]; mutate(s)
             # Reseal the ordinary actual/last copy too, so semantic checks (not just consistency) reject.
             if name != 'different_fixation': s['lastObservation'] = copy.deepcopy(s['actual'])
             with self.subTest(name=name), self.assertRaises((ValueError, KeyError, TypeError)):
-                self.verify.verify_native(r, 'synthetic')
+                self.verify_section(r)
 
     def test_counter_domains_and_euclidean_tolerance(self):
-        r = copy.deepcopy(self.fixture)
+        r = json.loads(self.fixture_json)
         for s in r['evaluation']['samples']:
             s['requested']['consumed']['updateVersion'] = 2**31 - 1
             s['actual']['consumed']['updateVersion'] = -(2**31)
             s['actual']['live']['updateVersion'] = 8
             s['lastObservation'] = copy.deepcopy(s['actual'])
-        self.verify.verify_native(r, 'synthetic')
+        self.verify_section(r)
         s = r['evaluation']['samples'][4]; s['actual']['calculated']['positions'][0] = [32.05, 32.05]
         s['maxErrorPixels'] = math.hypot(.05, .05); s['lastObservation'] = copy.deepcopy(s['actual'])
-        self.verify.verify_native(r, 'synthetic')
+        self.verify_section(r)
         s['actual']['calculated']['positions'][0] = [32.08, 32.08]
         s['maxErrorPixels'] = math.hypot(.08, .08); s['lastObservation'] = copy.deepcopy(s['actual'])
-        with self.assertRaises(ValueError): self.verify.verify_native(r, 'synthetic')
+        with self.assertRaises(ValueError): self.verify_section(r)
 
     def test_native_console_exception_is_not_a_pass(self):
         verify = self.verify.EVALUATION['verify_console']
