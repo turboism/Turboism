@@ -18,7 +18,7 @@ class SelectionBrushManifestBindingTest {
     @Test
     void actualReviewedRecordsMatchEveryRuntimeTrustRootAndMeshScope() throws Exception {
         Path root = Path.of("").toAbsolutePath();
-        while (!Files.isDirectory(root.resolve("compatibility/cubism/verification"))) {
+        while (!Files.isDirectory(root.resolve("build/generated/verification"))) {
             root = root.getParent();
             assertNotNull(root, "repository root");
         }
@@ -47,8 +47,8 @@ class SelectionBrushManifestBindingTest {
                     ModelingSelectionSelectorContract.CAPABILITY_ID,
                     ModelingSelectionSelectorContract.REQUIRED_ALIASES);
             var readerRecord = new StaticVerificationRecordLoader()
-                    .load(root.resolve("compatibility/cubism/verification/cubism-" + editor.cubismVersion()
-                            + "-editor-model.json"))
+                    .load(root.resolve(
+                            "build/generated/verification/cubism-" + editor.cubismVersion() + "-editor-model.json"))
                     .record();
             assertEquals(
                     List.of("structure"),
@@ -97,8 +97,8 @@ class SelectionBrushManifestBindingTest {
             Set<String> meshAliases)
             throws Exception {
         var loaded = new StaticVerificationRecordLoader()
-                .load(root.resolve("compatibility/cubism/verification/cubism-" + manifest.cubismVersion() + "-" + slice
-                        + ".json"));
+                .load(root.resolve(
+                        "build/generated/verification/cubism-" + manifest.cubismVersion() + "-" + slice + ".json"));
         final Set<String> recordAliases =
                 loaded.record().selectors().stream().map(StaticSelector::alias).collect(Collectors.toSet());
         assertAll(

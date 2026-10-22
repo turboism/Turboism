@@ -118,6 +118,21 @@ apply(from = "gradle/asm-admission.gradle.kts")
 apply(from = "gradle/runtime-verification.gradle.kts")
 apply(from = "gradle/sdk-api.gradle.kts")
 apply(from = "gradle/distribution-preview.gradle.kts")
+val materializeVerificationRecords by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Expands reviewed releases and family sources into byte-preserved verification records."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_verification_records.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "compatibility/cubism/reviewed-releases.json",
+        fileTree("compatibility/cubism/verification-src") { include("*.json") }
+    )
+    outputs.dir(rootProject.file("build/generated/verification"))
+    outputs.cacheIf { true }
+    commandLine("python3", "scripts/materialize_verification_records.py")
+}
+
 apply(from = "gradle/verification.gradle.kts")
 apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")

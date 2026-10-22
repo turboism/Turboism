@@ -18,15 +18,15 @@ final class EditorGlueCrossVersionContractTest {
             new VersionCase(
                     "5.2.03",
                     ReviewedHostArtifacts.CUBISM_5_2_03,
-                    "compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
+                    "build/generated/verification/cubism-5.2.03-editor-model.json"),
             new VersionCase(
                     "5.3.02",
                     ReviewedHostArtifacts.CUBISM_5_3_02,
-                    "compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
+                    "build/generated/verification/cubism-5.3.02-editor-model.json"),
             new VersionCase(
                     "5.3.03",
                     ReviewedHostArtifacts.CUBISM_5_3_03,
-                    "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"));
+                    "build/generated/verification/cubism-5.3.03-editor-model.json"));
 
     @Test
     void eachExactVersionManifestRequiresTheCompleteGlueWriterContract() {

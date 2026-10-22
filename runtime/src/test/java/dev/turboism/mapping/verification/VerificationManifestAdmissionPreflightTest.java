@@ -45,7 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 final class VerificationManifestAdmissionPreflightTest {
 
     private static final Path RECORD_DIR =
-            EditorSelectorContractTestPaths.projectRoot().resolve("compatibility/cubism/verification");
+            EditorSelectorContractTestPaths.projectRoot().resolve("build/generated/verification");
     private static final String MANIFEST_PACKAGE = "dev.turboism.mapping.verification";
     private static final java.util.regex.Pattern RECORD_FILE =
             java.util.regex.Pattern.compile("cubism-\\d+\\.\\d+\\.\\d+-.+\\.json");

@@ -30,20 +30,6 @@ COMPATIBILITY_CATALOG = json.dumps({
     ],
 })
 
-BOOTSTRAP = """
-tasks.processResources {
-    listOf(
-        "cubism-5.2.03-editor-model.json",
-        "cubism-5.3.02-editor-model.json",
-        "cubism-5.3.03-editor-model.json"
-    ).forEach { record ->
-        from(rootProject.file("compatibility/cubism/verification/$record")) {
-            into("META-INF/turboism/verification")
-        }
-    }
-}
-"""
-
 INDEX_MD = "# Contracts\n\n- `profiles/draft/` — catalogues for 5.2.03, 5.3.02, and 5.3.03.\n"
 
 
@@ -78,7 +64,8 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
                  Path('runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java')]:
         put(path.as_posix(), (ROOT / path).read_text())
     put(CHECK.COMPATIBILITY_CATALOG.as_posix(), COMPATIBILITY_CATALOG)
-    put(CHECK.BOOTSTRAP_BUILD.as_posix(), BOOTSTRAP)
+    for version in versions:
+        put(f"build/generated/verification/cubism-{version}-editor-model.json", "{}")
     put(CHECK.INDEX_MD.as_posix(), INDEX_MD)
     tasks = {
         "format": "turboism.host-validation.tasks",
@@ -138,15 +125,12 @@ class VersionSetCompletenessTest(unittest.TestCase):
             path.write_text(path.read_text().replace('ReviewedReleaseTable.versions()', 'List.of("5.3.03")'))
             self.assertTrue(any("AvailabilityPolicy" in v for v in violations(root)))
 
-    def test_dropped_bootstrap_record_line_fails(self):
+    def test_dropped_materialized_record_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / CHECK.BOOTSTRAP_BUILD
-            path.write_text(path.read_text().replace(
-                '        "cubism-5.2.03-editor-model.json",\n', ""
-            ))
-            self.assertTrue(any("bootstrap" in v for v in violations(root)))
+            (root / "build/generated/verification/cubism-5.2.03-editor-model.json").unlink()
+            self.assertTrue(any("materialized" in v for v in violations(root)))
 
     def test_unadmitted_task_version_fails(self):
         with tempfile.TemporaryDirectory() as directory:

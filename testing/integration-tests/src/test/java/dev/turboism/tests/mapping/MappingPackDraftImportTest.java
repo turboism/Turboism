@@ -32,6 +32,14 @@ class MappingPackDraftImportTest {
     private static final Path DRAFT_DIR = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
             .resolve("compatibility/cubism/mapping-packs/draft");
 
+    private static String materializedRef(final String reference) {
+        return reference.replace("compatibility/cubism/verification/", "build/generated/verification/");
+    }
+
+    private static Path inventoryPath(final Path root, final String reference) {
+        return root.resolve(materializedRef(reference));
+    }
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final MappingPackValidator validator = new MappingPackValidator();
 
@@ -41,7 +49,7 @@ class MappingPackDraftImportTest {
                 DRAFT_DIR.resolve("cubism-5.3.02-editor-model-read.json").toFile());
         final var root = DRAFT_DIR.getParent().getParent().getParent().getParent();
         final byte[] bytes = Files.readAllBytes(
-                root.resolve(pack.path("metadata").path("inventoryRef").asText()));
+                inventoryPath(root, pack.path("metadata").path("inventoryRef").asText()));
         final var record = mapper.readTree(bytes);
         assertEquals("DRAFT", pack.path("status").asText());
         assertEquals("VERIFIED_STATIC", record.path("status").asText());
@@ -316,7 +324,7 @@ class MappingPackDraftImportTest {
                 metadata.path("artifactSha256").asText());
 
         final Path evidencePath = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-                .resolve(metadata.path("inventoryRef").asText())
+                .resolve(materializedRef(metadata.path("inventoryRef").asText()))
                 .normalize();
         final byte[] evidenceBytes = Files.readAllBytes(evidencePath);
         final JsonNode evidence = mapper.readTree(evidenceBytes);
@@ -384,7 +392,8 @@ class MappingPackDraftImportTest {
         final JsonNode pack = mapper.readTree(
                 DRAFT_DIR.resolve("cubism-5.3.03-editor-model-read.json").toFile());
         final Path evidencePath = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-                .resolve(pack.path("metadata").path("inventoryRef").asText())
+                .resolve(materializedRef(
+                        pack.path("metadata").path("inventoryRef").asText()))
                 .normalize();
         final byte[] evidenceBytes = Files.readAllBytes(evidencePath);
         final JsonNode evidence = mapper.readTree(evidenceBytes);
@@ -538,8 +547,8 @@ class MappingPackDraftImportTest {
                 DRAFT_DIR.resolve("cubism-5.3.03-editor-model-read.json").toFile());
         final JsonNode metadata = pack.path("metadata");
         final Path project = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")));
-        final byte[] inventoryBytes =
-                Files.readAllBytes(project.resolve(metadata.path("inventoryRef").asText()));
+        final byte[] inventoryBytes = Files.readAllBytes(
+                inventoryPath(project, metadata.path("inventoryRef").asText()));
         final JsonNode inventory = mapper.readTree(inventoryBytes);
         assertEquals("DRAFT", pack.path("status").asText());
         assertEquals("VERIFIED_STATIC", inventory.path("status").asText());
@@ -563,9 +572,9 @@ class MappingPackDraftImportTest {
         JsonNode pack = mapper.readTree(
                 DRAFT_DIR.resolve("cubism-5.3.03-ui-bounding-box-overlay.json").toFile());
         Path project = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")));
-        JsonNode evidence = mapper.readTree(
-                project.resolve(pack.path("metadata").path("inventoryRef").asText())
-                        .toFile());
+        JsonNode evidence = mapper.readTree(inventoryPath(
+                        project, pack.path("metadata").path("inventoryRef").asText())
+                .toFile());
         assertEquals("DRAFT", pack.path("status").asText());
         assertEquals("JAR_METADATA", evidence.path("evidenceType").asText());
         assertEquals(pack.path("cubismVersion"), evidence.path("cubismVersion"));

@@ -27,10 +27,7 @@ class EditorTextureSelectorContractTest {
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
         final var resolver = SliceRegistry.EDITOR_MODEL
                 .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
-                        artifact,
-                        loader(artifact));
+                .create(PROJECT_ROOT.resolve("build/generated/verification/" + recordName), artifact, loader(artifact));
         assertTrue(resolver.authorizesFeature(
                 EditorTextureSelectorContract.ADAPTER_SLICE_ID,
                 EditorTextureSelectorContract.READ_CAPABILITY_ID,

@@ -13,7 +13,7 @@ MATRIX_FORMAT = "turboism.compatibility-matrix/v1"
 
 REPO_ROOT = repo_root()
 
-VERIFICATION_DIR = Path("compatibility/cubism/verification")
+VERIFICATION_DIR = Path("build/generated/verification")
 FAMILIES_DIR = Path("scripts/verification-sources/families")
 MATRIX_JSON = Path("compatibility/cubism/compatibility-matrix.json")
 DOCS_DIR = Path("compatibility/cubism")
