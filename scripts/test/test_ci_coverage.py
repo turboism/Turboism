@@ -69,22 +69,36 @@ def reachable(graph: dict[str, set[str]], roots: set[str]) -> set[str]:
     return seen
 
 
-def executable_commands(document: dict) -> list[list[str]]:
+def executable_commands(document: dict, release: bool = False) -> list[list[str]]:
     commands = []
     for job in document.get('jobs', {}).values():
         assert not job.get('continue-on-error'), 'CI job must propagate failures'
         for step in job.get('steps', []):
             if 'run' not in step:
                 continue
-            for line in step['run'].splitlines():
+            for line in step['run'].replace('\\\n', ' ').splitlines():
+                if release and 'checkRelease' not in line:
+                    continue
                 tokens = shlex.split(line, comments=True)
+                if release and 'checkRelease' not in tokens:
+                    continue
                 if tokens and './gradlew' in tokens:
                     assert not step.get('if') and not step.get('continue-on-error'), 'conditional gate'
-                    assert not job.get('if'), 'conditional CI job'
+                    assert release or not job.get('if'), 'conditional CI job'
                     assert tokens[0] in ('./gradlew', 'xvfb-run'), 'gate must execute directly'
                     assert not any(x in line for x in ('&&', '||', ';', '`', '$(', '|')), 'shell gate bypass'
+                    prefix = tokens[:tokens.index('./gradlew')]
+                    if prefix:
+                        index = 1
+                        while index < len(prefix):
+                            option = prefix[index]
+                            assert option in {'-a', '--auto-servernum', '-s', '--server-args'}, 'xvfb must execute Gradle'
+                            index += 2 if option in {'-s', '--server-args'} else 1
+                        assert index == len(prefix), 'missing xvfb option value'
                     args = tokens[tokens.index('./gradlew') + 1:]
                     assert not any(x in args for x in ('-m', '--dry-run', '-x', '--exclude-task')), 'disabled gate'
+                    if release:
+                        args = [x for x in args if not (x.startswith('-PinstallerVersion=') or x == '-PturboismRelease=true')]
                     assert not any(x.startswith(('-P', '-I', '--exclude-task=', '--tests')) for x in args), 'filtered gate'
                     assert set(args) <= {'devCheck', 'checkCompletedCommit', 'checkRelease',
                                          '--no-daemon', '--offline', '--console=plain',
@@ -110,6 +124,10 @@ def check_workflow(root: Path) -> None:
     for job in workflow['jobs'].values():
         assert not job.get('permissions'), 'job must inherit read-only permissions'
 
+    for name in ('unified-channel-checks.yml', 'release.yml'):
+        document = yaml.safe_load((root / '.github/workflows' / name).read_text())
+        assert any('checkRelease' in command for command in executable_commands(document, release=True)), name + ' must execute checkRelease'
+
 
 def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     bodies = {}
@@ -119,6 +137,7 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     graph = dependency_graph(bodies)
     covered = reachable(graph, {'devCheck', 'checkCompletedCommit'})
     release = reachable(graph, {'checkRelease'})
+    assert 'checkCompletedCommit' in release, 'release gate must include completed commits'
     # Host gates intentionally launch/inspect a real host; release-only gates
     # belong to checkRelease. Every new ordinary gate or SelfTest must be wired.
     missing = {name for name, body in bodies.items()
@@ -241,6 +260,14 @@ def self_test() -> None:
             pass
         else:
             raise AssertionError(f'gate bypass accepted: {option}')
+
+    try:
+        executable_commands({'jobs': {'ci': {'steps': [
+            {'run': 'xvfb-run -a echo ./gradlew devCheck checkCompletedCommit'}]}}})
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError('xvfb wrapping echo accepted')
 
 
 def main() -> int:
