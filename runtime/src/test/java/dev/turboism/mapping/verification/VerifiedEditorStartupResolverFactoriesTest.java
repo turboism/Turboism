@@ -120,7 +120,8 @@ class VerifiedEditorStartupResolverFactoriesTest {
     }
 
     private static Path record(final String profile, final String slice) {
-        return PROJECT_ROOT.resolve(Path.of("cubism-ref", "verification", "cubism-" + profile + '-' + slice + ".json"));
+        return PROJECT_ROOT.resolve(
+                Path.of("build", "generated", "verification", "cubism-" + profile + '-' + slice + ".json"));
     }
 
     private static Path editorArtifact(final String profile) {

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Sync DRAFT mapping-pack metadata projections from hash-pinned verification records.
 
-A draft pack whose ``metadata.inventoryRef`` resolves under
-``compatibility/cubism/verification/`` restates four fields derived from the
-referenced record bytes:
+A draft pack whose ``metadata.inventoryRef`` identifies a verification record
+restates four fields derived from materialized bytes in
+``build/generated/verification/``. Historical references spelled
+``compatibility/cubism/verification/`` are mapped there before reading; the pack's
+provenance label is preserved. Run the materializer before standalone use.
+The projected fields are:
 
 - ``selectorCount``            == len(record.selectors)
 - ``capabilityCount``          == len(record.capabilityIds)
@@ -31,7 +34,8 @@ from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
 DRAFT_PACKS = Path("compatibility/cubism/mapping-packs/draft")
-VERIFICATION_RECORDS = Path("compatibility/cubism/verification")
+VERIFICATION_RECORDS = Path("build/generated/verification")
+LEGACY_RECORDS = Path("compatibility/cubism/verification")
 MANAGED_FIELDS = (
     "selectorCount",
     "capabilityCount",
@@ -160,7 +164,10 @@ def inventory_ref_target(root: Path, pack_path: Path, metadata: dict[str, Any]) 
         return None
     if not isinstance(ref, str) or not ref:
         raise SyncError(f"{pack_path}: metadata.inventoryRef must be a non-empty string")
-    target = (root / ref).resolve()
+    relative = Path(ref)
+    if relative.is_relative_to(LEGACY_RECORDS):
+        relative = VERIFICATION_RECORDS / relative.relative_to(LEGACY_RECORDS)
+    target = (root / relative).resolve()
     if not target.is_relative_to(root.resolve()):
         raise SyncError(f"{pack_path}: inventoryRef escapes the repository: {ref}")
     return target

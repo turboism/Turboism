@@ -5,7 +5,7 @@ local-only host validation.
 L0 gates — evaluated in prepare before a job reaches the queue:
 
 - Admission: tasks that write through gated capability slices need
-  VERIFIED_STATIC evidence in compatibility/cubism/verification/ records.
+  VERIFIED_STATIC evidence in build/generated/verification/ records.
   Missing evidence == the runtime admission wall will refuse; skip early.
 - License: runtime-observed FREE-locked installations cancel fixtures that
   exceed the per-object parameter limit; skip early instead of burning a
@@ -52,7 +52,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-VERIFICATION_DIR = ROOT / "compatibility" / "cubism" / "verification"
+VERIFICATION_DIR = ROOT / "build" / "generated" / "verification"
 CLUSTERS_PATH = ROOT / "compatibility" / "cubism" / "clusters.json"
 CAMPAIGN_JOBS_PATH = ROOT / "validation" / "cubism-version-matrix" / "campaign-jobs.json"
 

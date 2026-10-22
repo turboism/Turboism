@@ -315,8 +315,15 @@ public final class MappingReviewService {
     }
 
     private void rejectStaticVerificationReference(final String semanticName) {
-        final Path directory = root.resolve("compatibility/cubism/verification");
-        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) return;
+        final Path directory = root.resolve("build/generated/verification");
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.exists(root.resolve("compatibility/cubism/verification-src"), LinkOption.NOFOLLOW_LINKS)) {
+                fail(
+                        "STATIC_VERIFICATION_RECORD_INVALID",
+                        "materialize verification records before reviewing mappings");
+            }
+            return;
+        }
         try {
             FileSafety.requireDirectoryNoLinks(directory, "STATIC_VERIFICATION_RECORD_INVALID");
             try (var files = Files.walk(directory)) {

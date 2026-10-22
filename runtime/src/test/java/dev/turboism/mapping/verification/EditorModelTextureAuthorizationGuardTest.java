@@ -54,7 +54,7 @@ class EditorModelTextureAuthorizationGuardTest {
     @Test
     void cubism5302RecordContainsEveryTextureContractAlias() throws Exception {
         assertRecordCoversContract(
-                projectRoot().resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
+                projectRoot().resolve("build/generated/verification/cubism-5.3.02-editor-model.json"),
                 EditorTextureSelectorContract.READ_REQUIRED_ALIASES,
                 EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
     }
@@ -62,7 +62,7 @@ class EditorModelTextureAuthorizationGuardTest {
     @Test
     void cubism52RecordContainsEveryTextureContractAlias() throws Exception {
         assertRecordCoversContract(
-                projectRoot().resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
+                projectRoot().resolve("build/generated/verification/cubism-5.2.03-editor-model.json"),
                 EditorTextureSelectorContract.READ_REQUIRED_ALIASES,
                 EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
     }
@@ -108,10 +108,8 @@ class EditorModelTextureAuthorizationGuardTest {
 
     @Test
     void pinnedRecordSha256sMatchTheReviewedRecordFiles() throws Exception {
-        final Path record52 =
-                projectRoot().resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json");
-        final Path record5302 =
-                projectRoot().resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json");
+        final Path record52 = projectRoot().resolve("build/generated/verification/cubism-5.2.03-editor-model.json");
+        final Path record5302 = projectRoot().resolve("build/generated/verification/cubism-5.3.02-editor-model.json");
         org.junit.jupiter.api.Assertions.assertEquals(
                 EditorModelVerificationManifest.RECORD_5_2_03.recordSha256(), sha256(record52));
         org.junit.jupiter.api.Assertions.assertEquals(

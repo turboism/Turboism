@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Exact-version FPS counting target pins. The 5.2.03 RENDER_SCENE entry was
  * established from the exact reviewed 5.2.03 JAR bytecode (see
- * {@code compatibility/cubism/verification/cubism-5.2.03-performance-render-scene.json});
+ * {@code build/generated/verification/cubism-5.2.03-performance-render-scene.json});
  * the 5.3.02 set stays untouched (regression pin).
  */
 class PerformanceFpsTargetsTest {

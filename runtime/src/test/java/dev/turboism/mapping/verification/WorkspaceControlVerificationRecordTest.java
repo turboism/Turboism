@@ -24,7 +24,7 @@ class WorkspaceControlVerificationRecordTest {
 
     private static void verify(final String file, final String version, final HostArtifactDigest artifact)
             throws Exception {
-        final Path path = ROOT.resolve("compatibility/cubism/verification").resolve(file);
+        final Path path = ROOT.resolve("build/generated/verification").resolve(file);
         final JsonNode root = new ObjectMapper().readTree(Files.readString(path));
         assertEquals(version, root.path("cubismVersion").asText());
         assertEquals(artifact.size(), root.path("artifact").path("size").asLong());

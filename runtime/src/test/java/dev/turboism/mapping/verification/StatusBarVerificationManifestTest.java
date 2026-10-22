@@ -32,7 +32,7 @@ class StatusBarVerificationManifestTest {
     }
 
     private void assertRecord(final String name, final ReviewedSliceRecord expected) throws Exception {
-        final Path record = repositoryPath("compatibility/cubism/verification/" + name);
+        final Path record = repositoryPath("build/generated/verification/" + name);
         assertEquals(expected.recordSha256(), sha256(record));
         final JsonNode root = mapper.readTree(record.toFile());
         assertEquals(expected.verificationId(), root.get("verificationId").asText());
@@ -53,8 +53,8 @@ class StatusBarVerificationManifestTest {
 
     @Test
     void manifest52RecordPackAndProfileStayConsistent() throws Exception {
-        final JsonNode record = mapper.readTree(repositoryPath("compatibility/cubism/verification/" + RECORD_NAME_52)
-                .toFile());
+        final JsonNode record = mapper.readTree(
+                repositoryPath("build/generated/verification/" + RECORD_NAME_52).toFile());
         final Set<String> recordMappingIds = new HashSet<>();
         record.get("selectors")
                 .forEach(selector ->

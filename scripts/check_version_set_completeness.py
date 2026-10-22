@@ -30,7 +30,6 @@ COMPATIBILITY_CATALOG = Path(
 AVAILABILITY_POLICY = Path(
     "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java"
 )
-BOOTSTRAP_BUILD = Path("bootstrap/build.gradle.kts")
 HOST_VALIDATION_TASKS = Path("scripts/preview/host-validation-tasks.json")
 HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
 PROFILES_DIR = Path("compatibility/cubism/profiles/draft")
@@ -124,8 +123,9 @@ def derived_consumers(root: Path) -> list[str]:
             for path, expression in expected.items() if expression not in _read(root, path)]
 
 
-def bootstrap_records(root: Path) -> set[str]:
-    return set(RECORD_FILENAME.findall(_read(root, BOOTSTRAP_BUILD)))
+def materialized_record_versions(root: Path) -> set[str]:
+    return {v for path in (root / "build/generated/verification").glob("*.json")
+            for v in RECORD_FILENAME.findall(f'"{path.name}"')}
 
 
 def host_validation_tasks(root: Path) -> tuple[set[str], list[str]]:
@@ -244,7 +244,7 @@ def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     sites = {
         CANONICAL: canonical,
         "compatibility-catalog.json record versions": compatibility_catalog(root),
-        "bootstrap/build.gradle.kts record list": bootstrap_records(root),
+        "materialized verification records": materialized_record_versions(root),
         "host-validation-tasks.json task versions (subset)": tasks,
         "profiles/draft/cubism-*.json": profiles,
         "compatibility/cubism/index.md": index_md(root),
