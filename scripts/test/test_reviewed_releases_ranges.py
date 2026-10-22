@@ -1,7 +1,11 @@
 """Range consumers must preserve command and contract coverage and fail closed."""
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import check_reviewed_releases as gate
 
 from compat_matrix.extract import load_commands, load_contract_gates
 from scripts.test.reviewed_releases_fixture import table
@@ -39,3 +43,24 @@ class RangeConsumerTest(unittest.TestCase):
     def test_selection_never_invents_unreviewed_patches(self):
         self.assertEqual({"5.3.02", "5.3.04"}, reviewed_range_versions(
             'ReviewedVersions.between("5.3.02", "5.3.04")', {"5.3.02", "5.3.04"}))
+
+    def test_family_range_requires_record_even_across_minor_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            releases = root / "compatibility/cubism/reviewed-releases.json"
+            releases.parent.mkdir(parents=True)
+            releases.write_text(table(["5.3.04", "5.4.00"]))
+            family = root / "scripts/verification-sources/families/test.json"
+            family.parent.mkdir(parents=True)
+            family.write_text(json.dumps({"family": "test", "files": ["Test.java"],
+                                          "records": ["old.json", "new.json"]}))
+            source = root / "scripts/verification-sources/templates/Test.java"
+            source.parent.mkdir(parents=True)
+            source.write_text('ReviewedVersions.since("5.3.04")')
+            records = {"old.json": json.dumps({"cubismVersion": "5.3.04", "status": "VERIFIED_STATIC"})}
+            with patch.object(gate, "render_records", return_value=records):
+                self.assertIn("5.4.00", gate.r1_family_range_coverage(root)[0])
+                records["new.json"] = json.dumps({"cubismVersion": "5.4.00", "status": "DRAFT"})
+                self.assertTrue(gate.r1_family_range_coverage(root))
+                records["new.json"] = json.dumps({"cubismVersion": "5.4.00", "status": "VERIFIED_STATIC"})
+                self.assertEqual([], gate.r1_family_range_coverage(root))
