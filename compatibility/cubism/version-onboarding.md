@@ -20,8 +20,11 @@ python3 scripts/generate_reviewed_releases.py
 Review the generated `ReviewedHostArtifacts.java`, `ReviewedReleaseTable.java`,
 internal `ReviewedVersions.java` and `.env.example`; do not hand-edit them.
 `fullRuntime` retains its existing meaning; approving a row does not enable every
-UI slice. `ReviewedVersions` lives in `dev.turboism.internal`, outside the SDK
-API baseline namespace and Javadoc. Public SDK signatures must not expose it.
+UI slice. `ReviewedVersions` is package-private in the SDK command and MCP packages; the
+runtime copy lives in `dev.turboism.internal`. One generator template owns all
+three copies because SDK/plugin loader boundaries forbid sharing runtime helpers.
+The SDK helper is excluded from Javadoc and public API baselines by visibility.
+Public SDK signatures must not expose it.
 
 ### What automatically widens, and what verifies it
 

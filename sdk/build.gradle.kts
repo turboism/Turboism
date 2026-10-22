@@ -31,7 +31,7 @@ tasks.named<ProcessResources>("processResources") {
 }
 
 tasks.named<Javadoc>("javadoc") {
-    exclude("dev/turboism/internal/**")
+    exclude("**/ReviewedVersions.java")
     options.encoding = "UTF-8"
     (options as StandardJavadocDocletOptions).charSet("UTF-8")
     (options as StandardJavadocDocletOptions).docEncoding("UTF-8")
