@@ -149,18 +149,26 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     assert 'checkHostToolingSelfTest' in covered, 'host tooling selftest is orphaned'
     assert 'checkHostToolingSelfTest' not in reachable(graph, {'devCheck'}), 'host tooling belongs to completed commits'
     assert 'ordinaryTestTasks' in covered, 'all module tests must run on completed commits'
+    for name in OPT_IN_TESTS:
+        assert name in bodies, f'missing opt-in task: {name}'
+        assert name not in reachable(graph, {'devCheck', 'checkIntegration', 'checkCompletedCommit'}), f'opt-in task became gated: {name}'
+        assert '"host verification"' in bodies[name], f'opt-in task must be labelled: {name}'
     return bodies, covered
 
 
 def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -> None:
     # Discover patterns are executable selection, rather than mere input files.
     selected = []
-    for name in covered:
+    opt_in_commands = {}
+    for name in covered | OPT_IN_TESTS.keys():
         body = bodies.get(name, [])
         for index, token in enumerate(body[:-1]):
             if token == 'commandLine' and body[index + 1] == '(':
                 end = balanced(body, index + 1, '(', ')')
+                if name in OPT_IN_TESTS:
+                    opt_in_commands[name] = [t.strip('"') for t in body[index + 2:end] if t.startswith('"')]
                 selected.extend(t.strip('"') for t in body[index + 2:end] if t.startswith('"'))
+    assert opt_in_commands == OPT_IN_TESTS, 'missing or changed opt-in execution command'
     runner = root / 'scripts/test/run_host_tooling_selftest.py'
     assert str(runner.relative_to(root)) in selected, 'host tooling runner must execute'
     selected.extend(re.findall(r'"(test_[^"\n]+\.(?:py|sh))"', runner.read_text()))
@@ -187,6 +195,11 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
         assert (module / 'build.gradle.kts').is_file(), f'test source without module: {source}'
         assert f'"{path.lstrip(chr(58))}"' in settings or f'"{path}"' in settings, f'test module omitted from settings: {path}'
 
+
+OPT_IN_TESTS = {
+    'worktreeIdGateTest': ['bash', 'scripts/test/test_worktree_id_gate.sh'],
+    'modelImport3dHostToolingTest': ['python3', '-m', 'unittest', 'discover', '-s', 'scripts/test', '-p', 'test_model_import_3d_*.py'],
+}
 
 # Explicit opt-in host probes and the Gradle lifecycle alias.
 MANUAL_GATES = set("""check checkCubismHostValidationArguments
