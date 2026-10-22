@@ -1,7 +1,5 @@
 name: Verify release notes
 on:
-  push:
-    branches: [fix/nightly-release-notes-20260911]
   pull_request:
     paths: ['scripts/release/**', 'scripts/test/test_release_details.py', 'distribution/**', 'release-notes/**', '.github/workflows/release-notes-checks.yml']
 permissions:
