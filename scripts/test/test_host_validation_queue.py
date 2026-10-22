@@ -354,6 +354,14 @@ class TransientLockTest(StoreFixture, unittest.TestCase):
     """Transient SQLite lock outcomes (BUSY/LOCKED/PROTOCOL) must not kill a
     supervisor, quarantine a proven attempt, or strand a durable verdict."""
 
+    def durable_job(self):
+        self.job("request")
+        job = self.store.claim()
+        directory = self.root / "jobs" / job["job_id"]
+        directory.mkdir(parents=True)
+        queue.atomic_json(directory / "outcome.json", {**self.evidence(job), "terminalState": "succeeded"})
+        return job, directory
+
     def test_supervisor_read_retry_tolerates_locking_protocol(self) -> None:
         job = self.job("request")
         original = self.store.jobs
@@ -371,12 +379,8 @@ class TransientLockTest(StoreFixture, unittest.TestCase):
         self.assertEqual(job["job_id"], rows[0]["job_id"])
 
     def test_verdict_write_retries_transient_protocol_error(self) -> None:
-        self.job("request")
-        job = self.store.claim()
-        directory = self.root / "jobs" / job["job_id"]
-        directory.mkdir(parents=True)
-        evidence = {**self.evidence(job), "terminalState": "succeeded"}
-        queue.atomic_json(directory / "outcome.json", evidence)
+        job, directory = self.durable_job()
+        evidence = json.loads((directory / "outcome.json").read_text())
         original = self.store.complete
         calls = 0
         def flaky(*args, **kwargs):
@@ -394,11 +398,7 @@ class TransientLockTest(StoreFixture, unittest.TestCase):
         self.assertEqual("idle", self.store.host()["state"])
 
     def test_lock_outage_defers_durable_verdict_instead_of_quarantining(self) -> None:
-        self.job("request")
-        job = self.store.claim()
-        directory = self.root / "jobs" / job["job_id"]
-        directory.mkdir(parents=True)
-        queue.atomic_json(directory / "outcome.json", {**self.evidence(job), "terminalState": "succeeded"})
+        job, directory = self.durable_job()
         worker = queue.Worker(self.store, IsolatedBackend())
         with mock.patch.object(self.store, "complete",
                                side_effect=sqlite3.OperationalError("locking protocol")):
@@ -1405,6 +1405,12 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
                        (digest, time.time(), queue.canonical_json({"device": info.st_dev, "inode": info.st_ino})))
         return digest
 
+    def disposed_orphan(self):
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        return job, approval
+
     def orphan(self, *, boot=None, state="running", reason="lost supervisor",
                updated=1000.5, evidence=True) -> tuple:
         """A started attempt whose recorded identities all belong to an old boot."""
@@ -1594,9 +1600,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
                        (queue.canonical_json(payload), event_id))
 
     def test_replay_rejects_tampered_audit_fields(self) -> None:
-        job, _, _ = self.orphan()
-        approval = self.inspect(job["job_id"])["approvalDigest"]
-        self.confirm(job["job_id"], approval)
+        job, approval = self.disposed_orphan()
         original = self.confirm(job["job_id"], approval)
         self.assertTrue(original["replayed"])
         corruptions = [
@@ -1633,9 +1637,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
         self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
 
     def test_replay_rejects_row_that_disagrees_with_audit(self) -> None:
-        job, _, _ = self.orphan()
-        approval = self.inspect(job["job_id"])["approvalDigest"]
-        self.confirm(job["job_id"], approval)
+        job, approval = self.disposed_orphan()
         with self.store.transaction() as db:
             db.execute("UPDATE jobs SET run_id=?,digest=? WHERE job_id=?",
                        ("queue-" + uuid.uuid4().hex, "f" * 64, job["job_id"]))
@@ -1684,9 +1686,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
             self.assertTrue(self.inspect(job["job_id"])["canConfirm"], path)
 
     def test_replay_requires_exact_audit_key_set(self) -> None:
-        job, _, _ = self.orphan()
-        approval = self.inspect(job["job_id"])["approvalDigest"]
-        self.confirm(job["job_id"], approval)
+        job, approval = self.disposed_orphan()
         event_id, payload = self.audit_payload(job["job_id"])
         for missing in ("previousReason", "previousUpdatedAt", "fromState",
                         "recordedAt", "operatorUid", "evidenceInventory"):
@@ -1790,9 +1790,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
         self.assertNotEqual(approval, self.inspect(job["job_id"])["approvalDigest"])
         with self.assertRaises(disposition.Rejected):
             self.confirm(job["job_id"], approval)
-        job, _, _ = self.orphan()
-        approval = self.inspect(job["job_id"])["approvalDigest"]
-        self.confirm(job["job_id"], approval)
+        job, approval = self.disposed_orphan()
         with self.store.transaction() as db:
             db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
                        (drift(job["identity_json"]), job["job_id"]))
@@ -1813,9 +1811,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
                       {entry["code"] for entry in report["blockers"]})
 
     def test_active_row_with_prior_audit_cannot_receive_a_second(self) -> None:
-        job, _, _ = self.orphan()
-        approval = self.inspect(job["job_id"])["approvalDigest"]
-        self.confirm(job["job_id"], approval)
+        job, approval = self.disposed_orphan()
         with self.store.transaction() as db:
             db.execute("UPDATE jobs SET state=?,reason=?,updated_at=? WHERE job_id=?",
                        (job["state"], job["reason"], job["updated_at"], job["job_id"]))
@@ -2379,9 +2375,7 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
             self.assertEqual(75, disposition.cli(single, root=self.root))
 
     def test_consumers_treat_abandoned_as_unverified_terminal(self) -> None:
-        job, _, _ = self.orphan()
-        approval = self.inspect(job["job_id"])["approvalDigest"]
-        self.confirm(job["job_id"], approval)
+        job, approval = self.disposed_orphan()
         job_id = job["job_id"]
         self.assertEqual(1, cli.wait_job(self.store, job_id, timeout=1))
         cancelled = self.store.cancel(job_id)
