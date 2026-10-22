@@ -1,7 +1,9 @@
 package dev.turboism.ui;
 
+import dev.turboism.core.runtime.QuiescencePolicy;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -23,17 +25,22 @@ final class IdempotentRegistration implements Registration {
     private CompletableFuture<Void> inFlight;
     private Thread closeOwner;
     /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
-    private static final long CLOSE_JOIN_TIMEOUT_MILLIS = 5_000L;
+    private final QuiescencePolicy closePolicy;
 
-    private IdempotentRegistration(final Registration delegate) {
+    private IdempotentRegistration(final Registration delegate, final QuiescencePolicy closePolicy) {
+        this.closePolicy = Objects.requireNonNull(closePolicy, "closePolicy");
         this.delegate = Objects.requireNonNull(delegate, "delegate");
     }
 
     static Registration of(final Registration delegate) {
+        return of(delegate, new QuiescencePolicy(Duration.ofSeconds(5)));
+    }
+
+    static Registration of(final Registration delegate, final QuiescencePolicy closePolicy) {
         if (delegate instanceof IdempotentRegistration) {
             return delegate;
         }
-        return new IdempotentRegistration(delegate);
+        return new IdempotentRegistration(delegate, closePolicy);
     }
 
     @Override
@@ -88,15 +95,17 @@ final class IdempotentRegistration implements Registration {
 
     /**
      * Waits for a concurrent close attempt with a bounded timeout (fail closed): a delegate close
-     * that does not finish within {@link #CLOSE_JOIN_TIMEOUT_MILLIS} raises {@link IllegalStateException}
+     * that does not finish within the configured close timeout raises {@link IllegalStateException}
      * instead of blocking the caller (potentially the EDT) indefinitely.
      */
-    private static void await(final CompletableFuture<Void> completion) {
+    private void await(final CompletableFuture<Void> completion) {
         try {
-            completion.get(CLOSE_JOIN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            completion.get(closePolicy.timeout().toNanos(), TimeUnit.NANOSECONDS);
         } catch (TimeoutException timeout) {
             throw new IllegalStateException(
-                    "registration close did not finish within " + CLOSE_JOIN_TIMEOUT_MILLIS + "ms", timeout);
+                    "registration close did not finish within "
+                            + closePolicy.timeout().toMillis() + "ms",
+                    timeout);
         } catch (ExecutionException exception) {
             final Throwable cause = exception.getCause();
             rethrow(cause);

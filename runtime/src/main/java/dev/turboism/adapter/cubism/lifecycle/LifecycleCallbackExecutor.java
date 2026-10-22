@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.QuiescencePolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.util.Arrays;
 import java.util.List;
@@ -11,13 +12,15 @@ import java.util.concurrent.TimeUnit;
 
 /** Shared callback submission and quiescence mechanics for lifecycle coordinators. */
 final class LifecycleCallbackExecutor implements AutoCloseable {
-    private static final long QUIESCENCE_TIMEOUT_SECONDS = 2L;
+    private final QuiescencePolicy quiescence;
 
     private final String lifecycleName;
     private final PluginWorkExecutorRegistry executors;
     private final List<CompletionStage<?>> pending = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    LifecycleCallbackExecutor(final String lifecycleName, final PluginWorkExecutorRegistry executors) {
+    LifecycleCallbackExecutor(
+            final String lifecycleName, final PluginWorkExecutorRegistry executors, final QuiescencePolicy quiescence) {
+        this.quiescence = Objects.requireNonNull(quiescence, "quiescence");
         this.lifecycleName = requireText(lifecycleName, "lifecycleName");
         this.executors = Objects.requireNonNull(executors, "executors");
     }
@@ -41,7 +44,7 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
             CompletableFuture.allOf(Arrays.stream(snapshot)
                             .map(CompletionStage::toCompletableFuture)
                             .toArray(CompletableFuture[]::new))
-                    .get(QUIESCENCE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    .get(quiescence.timeout().toNanos(), TimeUnit.NANOSECONDS);
             pending.removeAll(Arrays.asList(snapshot));
         } catch (InterruptedException failure) {
             Thread.currentThread().interrupt();
