@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.ReviewedVersions;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.Set;
 
 /** Exact-version selector admission contract for cubism.mesh-tool.session. */

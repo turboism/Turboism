@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.cubism.ReviewedVersions;
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.ui.UserFileMode;
 import java.util.Set;

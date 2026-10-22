@@ -22,7 +22,7 @@ tasks.named<Test>("test") {
 }
 
 tasks.processResources {
-    dependsOn(":checkVerificationRecordIndex")
+    dependsOn(":checkReviewedReleases")
     from(rootProject.tasks.named("materializeVerificationRecords")) {
         into("META-INF/turboism/verification")
     }

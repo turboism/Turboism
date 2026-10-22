@@ -1,12 +1,10 @@
-package dev.turboism.sdk.cubism;
+package dev.turboism.sdk;
 
-import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Reviewed version selections generated from reviewed-releases.json; do not edit. */
-@CubismEditor
 public final class ReviewedVersions {
 
     private static final List<String> VERSIONS = List.of(

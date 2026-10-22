@@ -1,6 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
-import dev.turboism.sdk.cubism.ReviewedVersions;
+import dev.turboism.sdk.ReviewedVersions;
 import java.util.HashSet;
 import java.util.Set;
 

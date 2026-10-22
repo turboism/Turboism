@@ -1,6 +1,6 @@
 package dev.turboism.exportsettings;
 
-import dev.turboism.sdk.cubism.ReviewedVersions;
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.ProtectedExportVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.io.File;

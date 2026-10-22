@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import dev.turboism.sdk.cubism.ReviewedVersions;
+import dev.turboism.sdk.ReviewedVersions;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Set;
 
