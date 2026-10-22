@@ -343,6 +343,8 @@ tasks.named<Test>("test") {
     }
     filter {
         legacyEvidenceTests.forEach { excludeTestsMatching(it) }
+        // Needs TURBOISM_CUBISM_REF_ROOT; runs only in warpAltMirrorArtifactTest.
+        excludeTestsMatching("dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest")
     }
 }
 
