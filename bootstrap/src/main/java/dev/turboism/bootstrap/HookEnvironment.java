@@ -52,6 +52,24 @@ final class HookEnvironment {
         this.startupPolicy = builder.startupPolicy;
     }
 
+    HookEnvironment forHook(final String hookId) {
+        return builder()
+                .instrumentation(HookInstrumentation.wrap(instrumentation, hookId))
+                .attachmentMode(attachmentMode)
+                .options(options)
+                .host(host)
+                .runtime(runtime)
+                .profile(profile)
+                .hostResolution(hostResolution)
+                .fullRuntimeAdmission(fullRuntimeAdmission)
+                .safeMode(safeMode)
+                .verificationDirectory(verificationDirectory)
+                .classPath(classPath)
+                .workingDirectory(workingDirectory)
+                .startupPolicy(startupPolicy)
+                .build();
+    }
+
     Instrumentation instrumentation() {
         return instrumentation;
     }
