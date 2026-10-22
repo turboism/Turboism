@@ -1,7 +1,5 @@
 name: Distribution and build identity checks
 on:
-  push:
-    branches: [feat/distribution-builds-20260909]
   pull_request:
     paths: ['distribution/**', 'scripts/release/build-identity.py', 'scripts/release/test_build_identity.py', 'gradle/common-java.gradle.kts', '.github/workflows/release.yml', '.github/workflows/allocate-build.yml', '.github/workflows/distribution-ci.yml']
 permissions:
