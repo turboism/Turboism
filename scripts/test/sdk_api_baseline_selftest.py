@@ -20,6 +20,7 @@ def main() -> None:
     for variant in VARIANTS:
         compile_fixture(args.tmp, variant)
     verify_deterministic_dump(args)
+    verify_current_surface(args)
     verify_incubating_exclusion(args)
     baseline = capture_baseline(args)
     verify_compatibility(args, baseline)
@@ -66,6 +67,23 @@ def assert_dump_features(dump: str) -> None:
     for pattern, message in checks:
         if not re.search(pattern, dump, re.MULTILINE):
             fail(message)
+
+
+def verify_current_surface(args: argparse.Namespace) -> None:
+    current, generated = args.tmp / "current.txt", args.tmp / "generated.txt"
+    original = b"sdk-api-schema\t1\nmethod\tname=before\n"
+    current.write_bytes(original)
+    generated.write_bytes(original)
+    arguments = ("verify-current", "--input", str(generated), "--current", str(current))
+    run(args.tool, *arguments)
+    generated.write_bytes(original.replace(b"name=before", b"name=after"))
+    output = run_failure(args.tool, *arguments)
+    for fragment in ("--- sdk/api-contracts/current.txt", "+++ build/reports/sdk-api/current.txt",
+                     "@@", "-method\tname=before", "+method\tname=after", "./gradlew updateSdkApiCurrent"):
+        if fragment not in output:
+            fail(f"current surface mismatch diagnostic missing {fragment!r}")
+    if current.read_bytes() != original:
+        fail("current surface check refreshed the reviewed file")
 
 
 def verify_incubating_exclusion(args: argparse.Namespace) -> None:
