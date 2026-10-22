@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 from turboism_dev.json_io import read_json
-from turboism_dev.versions import cubism_version_key as version_key
+from turboism_dev.versions import cubism_version_key as version_key, reviewed_range_versions
 
 from .constants import (
     ANNOTATION_RE,
@@ -116,7 +116,8 @@ def load_contract_gates(root: Path) -> dict[str, list[dict]]:
             rel = str(path.relative_to(root))
             for symbol, body in SUPPORTED_SET_RE.findall(text):
                 versions = sorted(
-                    set(QUOTED_VERSIONS_RE.findall(body)), key=version_key
+                    (reviewed_range_versions(body, set(load_reviewed_versions(root)))
+                     if "ReviewedVersions." in body else set(QUOTED_VERSIONS_RE.findall(body))), key=version_key
                 )
                 if not versions:
                     continue
@@ -299,8 +300,9 @@ def load_commands(root: Path, reviewed: list[str]) -> list[dict]:
         enum_name = Path(rel).stem
         for match in ENUM_ENTRY_RE.finditer(text):
             name, body = match.group(1), match.group(2)
-            versions = set(QUOTED_VERSIONS_RE.findall(body))
-            if not versions and "Set.of" not in body:
+            versions = (reviewed_range_versions(body, full) if "ReviewedVersions." in body
+                        else set(QUOTED_VERSIONS_RE.findall(body)))
+            if not versions and "Set.of" not in body and "ReviewedVersions." not in body:
                 continue
             if versions != full:
                 commands.append(
@@ -352,7 +354,8 @@ def load_runtime_gates(root: Path) -> list[dict]:
                 continue
             for symbol, body in SUPPORTED_SET_RE.findall(text):
                 versions = sorted(
-                    set(QUOTED_VERSIONS_RE.findall(body)), key=version_key
+                    (reviewed_range_versions(body, set(load_reviewed_versions(root)))
+                     if "ReviewedVersions." in body else set(QUOTED_VERSIONS_RE.findall(body))), key=version_key
                 )
                 if versions:
                     gates.append(

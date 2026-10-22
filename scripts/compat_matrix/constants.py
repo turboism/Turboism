@@ -66,7 +66,7 @@ CAPABILITY_CONSTANT_RE = re.compile(
     r'\b\w*CAPABILITY\w*\s*=\s*"((?:cubism|ui|turboism)\.[\w.-]+)"'
 )
 SUPPORTED_SET_RE = re.compile(
-    r"\b(\w*SUPPORTED\w*_VERSIONS)\s*=\s*Set\.of\(([^)]*)\)"
+    r"\b(\w*SUPPORTED\w*_VERSIONS)\s*=\s*([^;]+);", re.DOTALL
 )
 CLASS_PIN_LOAD_RE = re.compile(r'ClassPinTable\.load\("([\w.-]+)"\)')
 ENUM_ENTRY_RE = re.compile(

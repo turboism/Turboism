@@ -442,6 +442,41 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
  * docs. Every site must carry the identical set so adding or retiring a version
  * is one deliberate change rather than silent partial admission.
  */
+// One release-table gate and one SelfTest own R1–R4. Materialization is a shared
+// prerequisite for Exec gates below; no host process is needed for these checks.
+val checkReviewedReleasesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for reviewed release rules R1–R4."
+    workingDir(rootDir)
+    inputs.files(fileTree("scripts") {
+        include("**/*.py", "**/*.json", "**/*.template", "**/*.java", "**/*.sh")
+    })
+    inputs.files(".env.example", "compatibility/cubism/reviewed-releases.json")
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "scripts.test.test_check_reviewed_releases", "-v")
+}
+
+val checkReviewedReleases by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks reviewed release integrity, patch closure, literal bans and task coverage."
+    dependsOn(checkReviewedReleasesSelfTest)
+    workingDir(rootDir)
+    inputs.files(fileTree(rootDir) {
+        include("scripts/**/*.py", "scripts/**/*.json", "scripts/**/*.java", "scripts/**/*.template",
+                "scripts/preview/run-*.sh", "compatibility/cubism/**/*.json", "compatibility/cubism/index.md",
+                "sdk/src/main/**/*.java", "runtime/src/main/**/*.java", "bootstrap/src/main/**/*.java",
+                "core-contract/src/main/**/*.java", "event-processor/src/main/**/*.java",
+                "graal-host/src/main/**/*.java", "buildSrc/src/main/**/*.java",
+                "packaging/java-installer/listener-src/**/*.java", "templates/**/*.java",
+                "plugins/*/src/main/**/*.java", "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
+                "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/*.json",
+                "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/Windows*.java",
+                ".env.example")
+    })
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/check_reviewed_releases.py", rootDir.absolutePath)
+}
+
 val checkVersionSetCompletenessSelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs fail-closed fixtures for admitted-version-set completeness."
@@ -1288,9 +1323,7 @@ val devCheck by tasks.registering {
         checkTestCorpusSelfTest,
         checkEditorModelAliases,
         checkMaterializedRecords,
-        checkVersionMonotonicity,
-        checkVersionSetRegistry,
-        checkHostValidationVersions,
+        checkReviewedReleases,
         checkSdkCubismEditorAnnotations,
         "validatePluginMeta",
         checkPluginApiRanges,
@@ -1889,9 +1922,8 @@ val checkCompletedCommit by tasks.registering {
         checkOfficialPluginReadmes,
         checkPluginApiRanges,
         checkDraftPackMetadata,
-        checkVersionSetCompleteness,
+        checkReviewedReleases,
         generateClassPinsSelfTest,
-        checkVerificationRecordIndex,
         checkVerificationSources,
         "checkSdkApiBaselineTool",
         "checkSdkBaselineAnchorConsistency",

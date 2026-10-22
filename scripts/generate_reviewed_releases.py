@@ -16,7 +16,7 @@ JAVA_DIR = Path('runtime/src/main/java/dev/turboism/mapping/verification')
 HOST = JAVA_DIR / 'ReviewedHostArtifacts.java'
 TABLE = JAVA_DIR / 'ReviewedReleaseTable.java'
 ENV = Path('.env.example')
-VERSIONS = Path('sdk/src/main/java/dev/turboism/sdk/cubism/ReviewedVersions.java')
+VERSIONS = Path('sdk/src/main/java/dev/turboism/sdk/ReviewedVersions.java')
 
 
 def render(root: Path) -> dict[Path, str]:
@@ -84,15 +84,13 @@ public final class ReviewedReleaseTable {
     private ReviewedReleaseTable() {}
 }
 '''
-    ranges = """package dev.turboism.sdk.cubism;
+    ranges = """package dev.turboism.sdk;
 
-import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Reviewed version selections generated from reviewed-releases.json; do not edit. */
-@CubismEditor
 public final class ReviewedVersions {
 
     private static final List<String> VERSIONS = List.of(
