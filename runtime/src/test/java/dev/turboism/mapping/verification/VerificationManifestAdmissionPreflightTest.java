@@ -36,7 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
  * <p>Replays everything {@link PinnedVerifiedResolverWorkflow} can decide without a host
  * artifact — record schema, the record-byte pin, manifest field equality and
  * capability/alias coverage — for every generated {@code *VerificationManifest} and every
- * record under {@code compatibility/cubism/verification}. This is the check that would
+ * record under {@code build/generated/verification}. This is the check that would
  * have caught the pre-7ade4e071 ui-main-toolbar wall (records missing the
  * {@code ui.mesh-toolbar.contribute} capability their manifest requires) without a single
  * real-host launch. Run it alone via {@code ./gradlew :runtime:admissionPreflightTest} or
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 final class VerificationManifestAdmissionPreflightTest {
 
     private static final Path RECORD_DIR =
-            EditorSelectorContractTestPaths.projectRoot().resolve("compatibility/cubism/verification");
+            EditorSelectorContractTestPaths.projectRoot().resolve("build/generated/verification");
     private static final String MANIFEST_PACKAGE = "dev.turboism.mapping.verification";
     private static final java.util.regex.Pattern RECORD_FILE =
             java.util.regex.Pattern.compile("cubism-\\d+\\.\\d+\\.\\d+-.+\\.json");

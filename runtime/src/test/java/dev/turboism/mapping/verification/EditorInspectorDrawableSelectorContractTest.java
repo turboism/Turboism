@@ -27,7 +27,7 @@ class EditorInspectorDrawableSelectorContractTest {
         final var resolver = SliceRegistry.EDITOR_MODEL
                 .resolverFactory()
                 .create(
-                        PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
+                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json"),
                         LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
                         loader(LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar")));
 
@@ -50,7 +50,7 @@ class EditorInspectorDrawableSelectorContractTest {
         final var resolver = SliceRegistry.EDITOR_MODEL
                 .resolverFactory()
                 .create(
-                        PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
+                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.2.03-editor-model.json"),
                         artifact,
                         loader(artifact));
 
@@ -82,10 +82,7 @@ class EditorInspectorDrawableSelectorContractTest {
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
         final var resolver = SliceRegistry.EDITOR_MODEL
                 .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
-                        artifact,
-                        loader(artifact));
+                .create(PROJECT_ROOT.resolve("build/generated/verification/" + recordName), artifact, loader(artifact));
         final java.util.Set<String> instanceAliases = java.util.Set.of(
                 "cubism.editor-model.drawable-source.set-id",
                 "cubism.editor-model.deformer-source.set-id",

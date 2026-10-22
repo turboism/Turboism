@@ -4,7 +4,7 @@
 Single source of truth: every version set in the emitted artifacts is parsed
 from data that already gates runtime admission — never hand-written:
 
-- ``compatibility/cubism/verification/*.json`` — static verification records;
+- ``build/generated/verification/*.json`` — static verification records;
   a capability is *verified* on a version when its record admits it there.
 - ``scripts/verification-sources/families/*.json`` — verification-source
   family roster and record membership.

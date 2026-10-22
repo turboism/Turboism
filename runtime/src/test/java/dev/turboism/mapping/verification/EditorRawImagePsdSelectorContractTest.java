@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class EditorRawImagePsdSelectorContractTest {
     private static final Path PROJECT_ROOT = locateProjectRoot();
     private static final Path RECORD_PATH =
-            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json");
+            PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json");
     private static final Path DRAFT_PACK_PATH =
             PROJECT_ROOT.resolve("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json");
 
@@ -35,7 +35,7 @@ class EditorRawImagePsdSelectorContractTest {
             })
     void exactRecordsVerifyEveryPsdExportAndParseSelector(final String version) throws Exception {
         final Path recordPath =
-                PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+                PROJECT_ROOT.resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
         final var loaded = new StaticVerificationRecordLoader().load(recordPath);
         final var report = new StaticSelectorVerifier()

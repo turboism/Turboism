@@ -247,8 +247,9 @@ turboism_core_acquisition_metadata() {
   semver="$(turboism_dotted_version "$version")" || return 2
   local root_dir
   root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-  local core_rec="$root_dir/compatibility/cubism/verification/cubism-${semver}-core-model-read.json"
-  local edit_rec="$root_dir/compatibility/cubism/verification/cubism-${semver}-editor-model.json"
+  python3 "$root_dir/scripts/materialize_verification_records.py" >/dev/null || return 2
+  local core_rec="$root_dir/build/generated/verification/cubism-${semver}-core-model-read.json"
+  local edit_rec="$root_dir/build/generated/verification/cubism-${semver}-editor-model.json"
   [[ -f "$core_rec" && -f "$edit_rec" ]] || {
     printf 'error: unsupported installed Core acquisition version: %s\n' "$version" >&2
     return 2

@@ -60,12 +60,13 @@ val generatedVerificationRoot = layout.buildDirectory.dir(
 )
 
 val generateVerificationSources by tasks.registering(Exec::class) {
+    dependsOn(rootProject.tasks.named("materializeVerificationRecords"))
     group = "build"
     description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
     inputs.files(
         rootProject.file("scripts/generate_verification_sources.py"),
         fileTree(rootProject.file("scripts/verification-sources")),
-        fileTree(rootProject.file("compatibility/cubism/verification")) {
+        fileTree(rootProject.file("build/generated/verification")) {
             include("*.json")
         },
         fileTree(rootProject.file("compatibility/cubism/mapping-packs/draft")) {

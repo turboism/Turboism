@@ -343,7 +343,7 @@ final class EditorEditSelectorContractTest {
             final VerifiedMemberResolver resolver = SliceRegistry.EDITOR_MODEL
                     .resolverFactory()
                     .create(
-                            PROJECT_ROOT.resolve("compatibility/cubism/verification/" + version.recordName()),
+                            PROJECT_ROOT.resolve("build/generated/verification/" + version.recordName()),
                             artifact,
                             loader(artifact));
 
@@ -369,7 +369,7 @@ final class EditorEditSelectorContractTest {
 
     private static StaticVerificationRecord loadRecord(final VersionCase version) throws Exception {
         return new StaticVerificationRecordLoader()
-                .load(PROJECT_ROOT.resolve("compatibility/cubism/verification/" + version.recordName()))
+                .load(PROJECT_ROOT.resolve("build/generated/verification/" + version.recordName()))
                 .record();
     }
 

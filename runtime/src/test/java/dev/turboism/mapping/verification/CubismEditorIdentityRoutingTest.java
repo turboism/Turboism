@@ -18,14 +18,14 @@ class CubismEditorIdentityRoutingTest {
         assertManifest(
                 EditorModelVerificationManifest.forArtifact(artifact),
                 "cubism-5.3.03.editor-model.static",
-                recordDigest("compatibility/cubism/verification/cubism-5.3.03-editor-model.json"),
+                recordDigest("build/generated/verification/cubism-5.3.03-editor-model.json"),
                 EditorModelVerificationManifest.ADAPTER_SLICE_ID,
                 EditorModelVerificationManifest.cubism5303Capabilities(),
                 EditorModelVerificationManifest.cubism5303StaticAliases());
         assertManifest(
                 ProjectWorkspaceVerificationManifest.forArtifact(artifact),
                 "m15.cubism-5.3.03.project-workspace.static",
-                recordDigest("compatibility/cubism/verification/cubism-5.3.03-project-workspace.json"),
+                recordDigest("build/generated/verification/cubism-5.3.03-project-workspace.json"),
                 ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
                 ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
                 ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES);

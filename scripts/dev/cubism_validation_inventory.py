@@ -35,7 +35,7 @@ def semver(code: str) -> str:
 def build_inventory(install_root: Path, root: Path = ROOT) -> dict:
     records = []
     capabilities: dict[str, list[str]] = {}
-    for path in sorted((root / "compatibility/cubism/verification").glob("*.json")):
+    for path in sorted((root / "build/generated/verification").glob("*.json")):
         record = read_json(path)
         relative = path.relative_to(root).as_posix()
         records.append({

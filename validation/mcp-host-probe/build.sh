@@ -28,8 +28,9 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/mcp/CoreOwnedMocProbe.java" \
   "$src/dev/turboism/validation/mcp/McpHostValidationPlugin.java"
 cp -r "$src/META-INF" "$out/"
+python3 "$repo_root/scripts/materialize_verification_records.py"
 mkdir -p "$out/META-INF/turboism/verification"
-for record in "$repo_root"/compatibility/cubism/verification/cubism-*-editor-model.json; do
+for record in "$repo_root"/build/generated/verification/cubism-*-editor-model.json; do
   cp "$record" \
     "$out/META-INF/turboism/verification/"
 done

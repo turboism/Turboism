@@ -161,12 +161,12 @@ def build_tree(root: Path) -> None:
         for family, caps in records.items():
             _write(
                 root,
-                f"compatibility/cubism/verification/cubism-{version}-{family}.json",
+                f"build/generated/verification/cubism-{version}-{family}.json",
                 _verification_record(version, family, caps),
             )
     _write(
         root,
-        "compatibility/cubism/verification/cubism-5.2.00-extra.json",
+        "build/generated/verification/cubism-5.2.00-extra.json",
         _verification_record(
             "5.2.00", "extra", ["cubism.editor-model.write"]
         ),

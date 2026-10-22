@@ -20,7 +20,7 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     void exactJarsVerifyReplaceReceiverStateAndFiveArgumentEntry(final String version) throws Exception {
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
         final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
-                .resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+                .resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
         final var record = new StaticVerificationRecordLoader().load(recordPath).record();
         assertTrue(Files.isRegularFile(artifact), "exact Cubism JAR is required: " + version);
         final List<StaticSelector> selectors = exactSelectors();
@@ -44,7 +44,7 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     void verifiesNativeTransactionSignaturesWithoutAdmittingUnusedAliases(final String version) throws Exception {
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
         final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
-                .resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+                .resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
         final var record = new StaticVerificationRecordLoader().load(recordPath).record();
         final List<StaticSelector> selectors = transactionEvidenceSelectors();
         final StaticVerificationReport report =
