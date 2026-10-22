@@ -40,9 +40,11 @@ class ServiceExampleTest(unittest.TestCase):
                                            "EnvironmentFile=" + str(env_file)))
             subprocess.run(["systemd-analyze", "--user", "verify", str(unit)], check=True,
                            capture_output=True, text=True)
-            # No shell expansion by Python; the user manager expands the actual ExecStart arguments.
+            # Environment expansion is enabled by default, including on systemd
+            # versions before the --expand-environment option was introduced.
+            # No shell expansion by Python; the manager expands ExecStart arguments.
             run = ["systemd-run", "--user", "--wait", "--collect", "--pipe", "--quiet",
-                   "--expand-environment=yes", "--property=EnvironmentFile=" + str(env_file)]
+                   "--property=EnvironmentFile=" + str(env_file)]
             result = subprocess.run(run + command, capture_output=True, text=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout), [str(checkout), ["serve"]])

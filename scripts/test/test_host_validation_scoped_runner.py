@@ -114,6 +114,12 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             hvq_dir.mkdir(parents=True, exist_ok=True)
             for py_file in sorted((tools / "hvq").glob("*.py")):
                 queue.copy_verified(py_file, hvq_dir / py_file.name)
+            # This protocol test uses tiny synthetic prefixes, not host acceptance.
+            # GitHub runner filesystems need not support CoW. Relax only the copied
+            # SOURCE fixture; the production runner still requires reflink=always.
+            fixture_runner = preview / "run-cubism-host-validation.sh"
+            fixture_runner.write_text(fixture_runner.read_text().replace(
+                "cp -a --reflink=always --", "cp -a --reflink=auto --"))
             # A test-only SOURCE fixture override, included in the prepared digest.
             # No production option or ambient HOME override can select a test queue.
             override = f"\n# Isolated test source fixture, never deployed.\ndef account_root():\n    return Path({str(store.root)!r})\n"
