@@ -1,5 +1,7 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
+import java.util.Map;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.awt.Color;
@@ -164,17 +166,20 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
         return result;
     }
 
+    private static final Map<java.util.Set<String>, String> APPEARANCE_CLASSES = Map.ofEntries(
+                Map.entry(ReviewedVersions.between("5.0.00", "5.0.06"), "bG"),
+                Map.entry(ReviewedVersions.between("5.1.00", "5.1.03"), "bJ"),
+                Map.entry(ReviewedVersions.between("5.2.00", "5.2.02"), "bO"),
+                Map.entry(ReviewedVersions.between("5.2.03", "5.3.02"), "bR"),
+                Map.entry(ReviewedVersions.between("5.3.03", "5.3.03"), "bS"),
+                Map.entry(ReviewedVersions.between("5.3.04", "5.3.04"), "bT"));
+
     private static String appearanceClass(final String version) {
-        final String owner =
-                switch (version) {
-                    case "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06" -> "bG";
-                    case "5.1.00", "5.1.01", "5.1.02", "5.1.03" -> "bJ";
-                    case "5.2.00", "5.2.01", "5.2.02" -> "bO";
-                    case "5.2.03", "5.3.00", "5.3.01", "5.3.02" -> "bR";
-                    case "5.3.03" -> "bS";
-                    case "5.3.04" -> "bT";
-                    default -> throw new IllegalArgumentException("Unsupported off-canvas appearance version");
-                };
+        final String owner = APPEARANCE_CLASSES.entrySet().stream()
+                .filter(entry -> entry.getKey().contains(version))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported off-canvas appearance version"));
         return "com.live2d.cubism.view.context." + owner + "$a";
     }
 }
