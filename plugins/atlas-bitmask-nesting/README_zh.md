@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.2,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,7 @@ interface: none
 
 ## 要求与兼容性
 
-需要 Java 17+、Turboism API [0.67.0,1.0.0) 及自动生成清单支持的 Cubism 5.0–5.3。5.2–5.3 支持轮廓嵌合；5.0–5.1 在轮廓接口不可用时使用矩形排版。复用现有 AUTO 后端值，以 bitmask-nesting 诊断标识内核，无需扩展 SDK 枚举。
+需要 Java 17+、Turboism API [0.67.2,1.0.0) 及自动生成清单支持的 Cubism 5.0–5.3。5.2–5.3 支持轮廓嵌合；5.0–5.1 在轮廓接口不可用时使用矩形排版。复用现有 AUTO 后端值，以 bitmask-nesting 诊断标识内核，无需扩展 SDK 枚举。
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, auto-layout
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.2,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ Creates texture pages by top-level Part folders, recursively splitting overflowi
 
 ## Requirements and compatibility
 
-Requires Java 17+, Turboism API [0.67.1,1.0.0), an active Cubism model and a texture atlas. Enable at least one algorithm that supports complete-atlas layout.
+Requires Java 17+, Turboism API [0.67.2,1.0.0), an active Cubism model and a texture atlas. Enable at least one algorithm that supports complete-atlas layout.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
