@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic N5a image registration/binding protocol controls; no host, queue, or exact-host evidence."""
 import copy
-import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -163,24 +162,31 @@ def attach(r):
 
 
 def load_protocol():
-    spec = importlib.util.spec_from_file_location('mi3d_protocol_for_image_binding',
-        Path(__file__).with_name('test_model_import_3d_host_validation.py'))
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+    from scripts.test import test_model_import_3d_host_validation
+    return test_model_import_3d_host_validation
 
 
 class ImageBindingProtocolTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = load_protocol(); cls.verify = cls.protocol.VERIFY
+        # JSON copies model the wire boundary and avoid repeatedly building unrelated matrices.
+        cls.fixture_json = json.dumps(cls.protocol.ordinary_fixture())
+
     def setUp(self):
-        self.protocol = load_protocol(); self.verify = self.protocol.VERIFY
-        self.fixture = attach(self.protocol.ordinary_fixture())
+        self.fixture = json.loads(self.fixture_json)
+
+    def verify_section(self, report):
+        return self.verify.IMAGE_BINDING['verify_image_binding'](report, self.verify.snapshot, self.verify.EVALUATION)
 
     def reject(self, mutation):
-        r = copy.deepcopy(self.fixture); mutation(r)
+        r = json.loads(self.fixture_json); mutation(r)
         with self.assertRaises((ValueError, KeyError, TypeError, IndexError)):
-            self.verify.verify_native(r, 'synthetic')
+            self.verify_section(r)
 
     def test_positive_and_missing_section(self):
         self.verify.verify_native(self.fixture, 'synthetic')
-        r = copy.deepcopy(self.fixture); r.pop('textureBinding')
+        r = json.loads(self.fixture_json); r.pop('textureBinding')
         with self.assertRaises((ValueError, KeyError)):
             self.verify.verify_native(r, 'synthetic')
 
@@ -334,7 +340,7 @@ class ImageBindingProtocolTest(unittest.TestCase):
     def test_opaque_host_ids_rename_cleanly(self):
         # Metamorphic positive: consistently rewriting every native target id is
         # semantically identical and must keep verifying (controller r13 control).
-        r = copy.deepcopy(self.fixture)
+        r = json.loads(self.fixture_json)
         changes = {}
         def rewrite(value):
             if isinstance(value, dict):
@@ -351,7 +357,7 @@ class ImageBindingProtocolTest(unittest.TestCase):
         for row in r['textureBinding']['fixtureMeshes']:
             if row['id'] in changes:
                 row['id'] = changes[row['id']]
-        self.verify.verify_native(r, 'synthetic')
+        self.verify_section(r)
 
     def test_java_serialized_report_passes_oracle(self):
         # Real NativeReport.json output of the SDK-stub probe run feeds the real oracle:

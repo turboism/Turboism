@@ -198,7 +198,7 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
 
 OPT_IN_TESTS = {
     'worktreeIdGateTest': ['bash', 'scripts/test/test_worktree_id_gate.sh'],
-    'modelImport3dHostToolingTest': ['python3', '-m', 'unittest', 'discover', '-s', 'scripts/test', '-p', 'test_model_import_3d_*.py'],
+    'modelImport3dHostToolingTest': ['python3', 'validation/model-import-3d-host-probe/test-tooling.py', 'test_model_import_3d_*.py'],
 }
 
 # Explicit opt-in host probes and the Gradle lifecycle alias.

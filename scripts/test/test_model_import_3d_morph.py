@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Synthetic N4a morph protocol controls; no host, queue, or exact-host evidence is produced."""
 import copy
-import importlib.util
+import json
 import math
-from pathlib import Path
 import sys
 import unittest
 
@@ -221,18 +220,26 @@ def attach(r):
 
 
 def load_protocol():
-    spec = importlib.util.spec_from_file_location('mi3d_protocol_for_morph', Path(__file__).with_name('test_model_import_3d_host_validation.py'))
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+    from scripts.test import test_model_import_3d_host_validation
+    return test_model_import_3d_host_validation
 
 
 class MorphProtocolTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = load_protocol(); cls.verify = cls.protocol.VERIFY
+        # JSON copies model the wire boundary and avoid repeatedly building unrelated matrices.
+        cls.fixture_json = json.dumps(cls.protocol.ordinary_fixture())
+
     def setUp(self):
-        self.protocol = load_protocol(); self.verify = self.protocol.VERIFY
-        self.fixture = self.protocol.ordinary_fixture()
+        self.fixture = json.loads(self.fixture_json)
+
+    def verify_section(self, report):
+        return self.verify.MORPH['verify_morph'](report, self.verify.snapshot, self.verify.EVALUATION)
 
     def test_positive_and_missing_morph(self):
         self.verify.verify_native(self.fixture, 'synthetic')
-        r = copy.deepcopy(self.fixture); r.pop('morph')
+        r = json.loads(self.fixture_json); r.pop('morph')
         with self.assertRaises((ValueError, KeyError, TypeError)):
             self.verify.verify_native(r, 'synthetic')
 
@@ -311,9 +318,9 @@ class MorphProtocolTest(unittest.TestCase):
             ('parameters', lambda e: e['controls']['committed']['before'].update(parameters=[0, 0, 1, 0])),
         ]
         for name, mutate in mutations:
-            r = copy.deepcopy(self.fixture); mutate(r['morph'])
+            r = json.loads(self.fixture_json); mutate(r['morph'])
             with self.subTest(name=name), self.assertRaises((ValueError, KeyError, TypeError)):
-                self.verify.verify_native(r, 'synthetic')
+                self.verify_section(r)
 
     def test_rollback_oracle_targets_the_injected_defect(self):
         # Positive control first: the corrected fixture must pass before any mutation counts.
@@ -355,11 +362,11 @@ class MorphProtocolTest(unittest.TestCase):
              'with_n plus its own two members'),
         ]
         for name, mutate, reason in cases:
-            r = copy.deepcopy(self.fixture)
+            r = json.loads(self.fixture_json)
             mutate(r['morph']['controls']['rolledBack'])
             with self.subTest(name=name):
                 try:
-                    self.verify.verify_native(r, 'synthetic')
+                    self.verify_section(r)
                 except ValueError as error:
                     self.assertIn(reason, str(error), name + ' rejected for the wrong reason: ' + str(error))
                 else:
@@ -386,29 +393,29 @@ class MorphProtocolTest(unittest.TestCase):
             ('intent', lambda s: s.update(m=0)),
         ]
         for name, mutate in changes:
-            r = copy.deepcopy(self.fixture); s = r['morph']['samples'][1]; mutate(s)
+            r = json.loads(self.fixture_json); s = r['morph']['samples'][1]; mutate(s)
             s['lastObservation'] = copy.deepcopy(s['actual'])
             with self.subTest(name=name), self.assertRaises((ValueError, KeyError, TypeError)):
-                self.verify.verify_native(r, 'synthetic')
-        r = copy.deepcopy(self.fixture); r['morph']['samples'][1]['lastObservation']['calculated']['positions'][0] = [0, 0]
+                self.verify_section(r)
+        r = json.loads(self.fixture_json); r['morph']['samples'][1]['lastObservation']['calculated']['positions'][0] = [0, 0]
         with self.assertRaises(ValueError):
-            self.verify.verify_native(r, 'synthetic')
+            self.verify_section(r)
 
     def test_tolerant_positions_and_independent_clocks(self):
-        r = copy.deepcopy(self.fixture); s = r['morph']['samples'][1]
+        r = json.loads(self.fixture_json); s = r['morph']['samples'][1]
         s['actual']['calculated']['positions'][0] = [48.05, 40.05]; s['maxErrorPixels'] = math.hypot(.05, .05)
-        s['lastObservation'] = copy.deepcopy(s['actual']); self.verify.verify_native(r, 'synthetic')
+        s['lastObservation'] = copy.deepcopy(s['actual']); self.verify_section(r)
         s['actual']['calculated']['positions'][0] = [48.08, 40.08]; s['maxErrorPixels'] = math.hypot(.08, .08)
         s['lastObservation'] = copy.deepcopy(s['actual'])
-        with self.assertRaises(ValueError): self.verify.verify_native(r, 'synthetic')
-        r = copy.deepcopy(self.fixture)
+        with self.assertRaises(ValueError): self.verify_section(r)
+        r = json.loads(self.fixture_json)
         for tx in (r['morph']['linearCreate']['result'], r['morph']['isolation']['create']['result'],
                    r['morph']['isolation']['write']['result'], r['morph']['controls']['createN']['result'],
                    r['morph']['controls']['committed']['result'], r['morph']['controls']['rolledBack']['result'],
                    r['morph']['controls']['positionWrite']['noop']['result'], r['morph']['controls']['positionWrite']['result']):
             for side in ('historyBefore', 'historyAfter'):
                 tx['receipt'][side]['revision'] += 1000  # Provider-local clocks never compare to facade counters.
-        self.verify.verify_native(r, 'synthetic')
+        self.verify_section(r)
 
 
 if __name__ == '__main__':
