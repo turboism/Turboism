@@ -36,11 +36,22 @@ public final class PluginWorkExecutorRegistry {
             int queueCapacity,
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
             Clock clock) {
-        this.configuration = PluginWorkExecutorConfiguration.of(
-                timeoutMillis,
-                requirePositive(workerCount, "workerCount"),
-                requirePositive(queueCapacity, "queueCapacity"),
-                50.0f);
+        this(
+                PluginWorkExecutorConfiguration.of(
+                        timeoutMillis,
+                        requirePositive(workerCount, "workerCount"),
+                        requirePositive(queueCapacity, "queueCapacity"),
+                        50.0f),
+                diagnosticSink,
+                clock);
+    }
+
+    /** Creates a registry with explicit work and shutdown budgets. */
+    public PluginWorkExecutorRegistry(
+            PluginWorkExecutorConfiguration configuration,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock) {
+        this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
