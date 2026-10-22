@@ -62,6 +62,17 @@ public final class PluginWorkExecutor {
             PluginWorkExecutorConfiguration configuration,
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
             Clock clock) {
+        this(pluginId, configuration, diagnosticSink, clock, createTimeoutScheduler(pluginId));
+    }
+
+    /** Creates a work executor that owns and shuts down the supplied timeout scheduler. */
+    public PluginWorkExecutor(
+            String pluginId,
+            PluginWorkExecutorConfiguration configuration,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock,
+            ScheduledExecutorService timeoutScheduler) {
+        this.timeoutScheduler = Objects.requireNonNull(timeoutScheduler, "timeoutScheduler");
         this.pluginId = requireText(pluginId, "pluginId");
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
@@ -91,8 +102,10 @@ public final class PluginWorkExecutor {
                         .minimumNumberOfCalls(4)
                         .slidingWindowSize(4)
                         .build());
-        this.timeoutScheduler =
-                new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(this.pluginId + "-timeout"));
+    }
+
+    static ScheduledExecutorService createTimeoutScheduler(String pluginId) {
+        return new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(pluginId + "-timeout"));
     }
 
     /**

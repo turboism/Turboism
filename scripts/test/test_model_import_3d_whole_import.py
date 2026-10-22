@@ -17,6 +17,11 @@ PROBE = ROOT / 'validation/model-import-3d-host-probe'
 GATE = runpy.run_path(str(PROBE / 'verify-whole-import.py'))
 
 
+def has_classpath():
+    value = os.environ.get('MI3D_WHOLE_TEST_CLASSPATH', '')
+    return bool(value) and all(Path(entry.rstrip('*')).exists() for entry in value.split(os.pathsep))
+
+
 def fixture(produced):
     root = dict(availability='AVAILABLE', generation=1, revision=1, position=1,
                 documentBindingId='doc', managerBindingId='manager', entryIds=['existing'])
@@ -43,13 +48,15 @@ def fixture(produced):
         restoredState=copy.deepcopy(initial),partId=part,meshIds=ids,written=produced['written']))
 
 
+@unittest.skipUnless(os.environ.get('MI3D_WHOLE_CUBE_INPUT')
+                     and Path(os.environ['MI3D_WHOLE_CUBE_INPUT']).is_file()
+                     and has_classpath(),
+                     'set MI3D_WHOLE_CUBE_INPUT to the authorized frozen cube and MI3D_WHOLE_TEST_CLASSPATH to compiled producer classes')
 class WholeImportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.cube = os.environ.get('MI3D_WHOLE_CUBE_INPUT')
         cp = os.environ.get('MI3D_WHOLE_TEST_CLASSPATH')
-        if not cls.cube or not cp:
-            raise RuntimeError('explicit frozen cube and compiled Java classpath are required')
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / 'producer.json'
             result = subprocess.run(['java','-Xmx768m','-Djava.awt.headless=true','-cp',cp,
