@@ -10,8 +10,9 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 
 # Rebuild every shipped artifact before copying so a stale jar can never be
 # packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
+# Materialize before any generated-record reads, including on a clean checkout.
 TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
-  :bootstrap:jar :testing:integration-tests:testClasses
+  materializeVerificationRecords :bootstrap:jar :testing:integration-tests:testClasses
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-workspace-validation}"
 # The bundle must carry the agent freshly built by :bootstrap:jar for THIS worktree.
 # The legacy build/preview/<worktree>/turboism-agent.jar copy is stale by design and must
@@ -40,12 +41,12 @@ agent_class_dir_rel="dev/turboism/tests/validation"
 launcher_template="$repo_root/scripts/preview/launch-workspace-validation.bat.template"
 command_helper_ps1="$repo_root/scripts/preview/submit-workspace-command.ps1"
 readme="$repo_root/scripts/preview/README-workspace-validation.md"
-record_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-workspace-control.json"
-record_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-workspace-control.json"
-record_overlay_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-ui-bounding-box-overlay.json"
-record_overlay_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-ui-bounding-box-overlay.json"
-record_project_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-project-workspace.json"
-record_project_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-project-workspace.json"
+record_52="$repo_root/build/generated/verification/cubism-5.2.03-workspace-control.json"
+record_53="$repo_root/build/generated/verification/cubism-5.3.02-workspace-control.json"
+record_overlay_52="$repo_root/build/generated/verification/cubism-5.2.03-ui-bounding-box-overlay.json"
+record_overlay_53="$repo_root/build/generated/verification/cubism-5.3.02-ui-bounding-box-overlay.json"
+record_project_52="$repo_root/build/generated/verification/cubism-5.2.03-project-workspace.json"
+record_project_53="$repo_root/build/generated/verification/cubism-5.3.02-project-workspace.json"
 
 for required in \
   "$agent_jar" \

@@ -1,23 +1,8 @@
 #!/usr/bin/env python3
-"""Derive and check the packaged verification-record index.
+"""Check materialized records against canonical table/family expansion and manifest pins.
 
-The bootstrap fat JAR ships ``META-INF/turboism/verification/*.json`` from an
-explicit filename list in ``bootstrap/build.gradle.kts``. A record missing from
-that list only fails closed when the agent extracts it at host start, so this
-gate derives the required set at build time:
-
-- the packaging list must equal the ``compatibility/cubism/verification/``
-  directory listing exactly (both directions);
-- every ``*.static`` verification id pinned in
-  ``runtime/src/main/java/dev/turboism/mapping/verification/`` must resolve to a
-  record on disk whose ``verificationId`` field matches;
-- every record filename must carry the dotted Cubism version contained in its
-  ``verificationId``, and record ids must be unique.
-
-``--check`` (the default) verifies; ``render`` prints the derived packaging
-list for inspection. Product structure is unchanged: nothing extra is shipped.
-
-Usage: verification_record_index.py [repo-root] [--check | --render]
+Packaging consumes the complete materializer task output, with unchanged resource
+names. --render prints those filenames for inspection.
 """
 from __future__ import annotations
 
@@ -26,16 +11,15 @@ import re
 import sys
 from pathlib import Path
 
+from materialize_verification_records import render_records, check_records
 from turboism_dev.json_io import read_json
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
-VERIFICATION_DIR = Path("compatibility/cubism/verification")
-BOOTSTRAP_BUILD = Path("bootstrap/build.gradle.kts")
+VERIFICATION_DIR = Path("build/generated/verification")
 MANIFEST_ROOT = Path("runtime/src/main/java/dev/turboism/mapping/verification")
 TEMPLATE_ROOT = Path("scripts/verification-sources/templates")
 
-RECORD_LITERAL = re.compile(r'"(cubism-\d+\.\d+\.\d+-[^"]+\.json)"')
 VERIFICATION_ID_LITERAL = re.compile(r'"([a-z0-9][a-z0-9._-]*\.static)"')
 TEMPLATE_RECORD_PIN = re.compile(
     r"\$\{record:(cubism-\d+\.\d+\.\d+-[^}:]+\.json):verificationId\}"
@@ -52,10 +36,6 @@ def _read(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise IndexError_(f"unable to read {path}: {exc}") from exc
-
-
-def packaged_records(root: Path) -> list[str]:
-    return RECORD_LITERAL.findall(_read(root / BOOTSTRAP_BUILD))
 
 
 def on_disk_records(root: Path) -> list[str]:
@@ -135,25 +115,10 @@ def template_record_pins(root: Path) -> dict[str, str]:
 
 def check(root: Path) -> list[str]:
     violations = []
-    packaged = packaged_records(root)
-    on_disk = on_disk_records(root)
-    packaged_set = set(packaged)
-    if len(packaged) != len(packaged_set):
-        seen = set()
-        for name in packaged:
-            if name in seen:
-                violations.append(f"{BOOTSTRAP_BUILD}: duplicate record entry {name}")
-            seen.add(name)
-    for name in sorted(set(on_disk) - packaged_set):
-        violations.append(
-            f"{BOOTSTRAP_BUILD}: verification record {name} is not packaged; "
-            "the agent would fail closed only at host start"
-        )
-    for name in sorted(packaged_set - set(on_disk)):
-        violations.append(
-            f"{BOOTSTRAP_BUILD}: packages {name} but no such record exists"
-        )
-
+    try:
+        check_records(render_records(root), root / VERIFICATION_DIR)
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        violations.append(f"materialized records differ from table/family sources: {exc}")
     ids = record_ids(root)
     manifest_ids = manifest_verification_ids(root)
     if not manifest_ids:
@@ -165,7 +130,7 @@ def check(root: Path) -> list[str]:
         if verification_id not in ids:
             violations.append(
                 f"{source}: pins verificationId {verification_id!r} with no "
-                "matching record under compatibility/cubism/verification/"
+                "matching record under build/generated/verification/"
             )
     for record_name, source in sorted(template_record_pins(root).items()):
         if record_name not in ids.values():
@@ -190,7 +155,7 @@ def run(root: Path, render: bool) -> int:
     if violations:
         print(f"\n{len(violations)} verification index finding(s)")
         return 1
-    print("PASS: packaged verification records match the repository and "
+    print("PASS: materialized verification records match table/family sources and "
           "manifest pins")
     return 0
 

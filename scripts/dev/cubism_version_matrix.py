@@ -15,7 +15,7 @@ Editor versions present under ``cubism-ref/``. For every target version it:
    contract ``REQUIRED_ALIASES`` plus the record-version-conditional extras;
    capabilities not modelled by the contract table only survive when the
    entire source record verifies;
-4. emits ``compatibility/cubism/verification/cubism-<v>-<family>.json``
+4. emits ``build/generated/verification/cubism-<v>-<family>.json``
    records, ``mapping-packs/draft/`` packs cloned from the source pack, and a
    ``profiles/draft/cubism-<v>.json`` profile.
 

@@ -24,10 +24,10 @@ from turboism_dev.json_io import read_json
 
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
 BASE_RECORDS = (
-    "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-    "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
+    "build/generated/verification/cubism-5.2.03-editor-model.json",
+    "build/generated/verification/cubism-5.3.02-editor-model.json",
 )
-ADDITIVE_RECORD = "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
+ADDITIVE_RECORD = "build/generated/verification/cubism-5.3.03-editor-model.json"
 ADDITIVE_ALIASES = frozenset({
     "cubism.editor-model.keyform-grid.keyforms-on-grid",
     "cubism.editor-model.keyform-on-grid.form-guid",
