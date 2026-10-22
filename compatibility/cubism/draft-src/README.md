@@ -15,8 +15,8 @@ presentation/reference exceptions (including the extra 5.3.02 Core reference in
 
 For an intentional family/release change, extend its declaration and the
 applicable annotation ranges; new aliases need an annotation template rule.
-Update the frozen SHA-256 fixture only after reviewing the changed output.
-`checkMaterializedDraftContracts` pins the pre-migration 124 packs/20 profiles.
+The generator checks alias-set equality, profile identity and pack references;
+existing import and metadata checks validate the generated contracts.
 `--check-against <old-checkout>` compares all packs and profiles byte for byte.
 
 Consumers must depend explicitly on `materializeDraftContracts`. Standalone
