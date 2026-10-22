@@ -29,8 +29,8 @@ import javax.swing.SwingUtilities;
 /**
  * Official plugin shell for batch parameter-binding transfer.
  *
- * <p>enable() registers one action and two context-menu entries (Deformer tab,
- * Part tab) restricted to ART_MESH / WARP_DEFORMER /
+ * <p>enable() registers one action and three context-menu entries (Deformer tab,
+ * Part tab, canvas) restricted to ART_MESH / WARP_DEFORMER /
  * ROTATION_DEFORMER selections with exactly one item. The action opens a modal
  * Swing dialog listing the owner's bound parameters; confirmed rows are applied
  * one transfer each (no undo grouping).</p>
@@ -40,6 +40,8 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     public static final String ACTION_ID = "parameter.batchTransfer.open";
     public static final String CONTEXT_MENU_DEFORMER_ID = "parameter.batchTransfer.deformer";
     public static final String CONTEXT_MENU_PART_ID = "parameter.batchTransfer.part";
+
+    public static final String CONTEXT_MENU_WORKSPACE_ID = "parameter.batchTransfer.workspace";
 
     static final Set<ContextMenuRegistry.ObjectKind> OBJECT_KINDS = Set.of(
             ContextMenuRegistry.ObjectKind.ART_MESH,
@@ -81,6 +83,8 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
             context.disposableScope()
                     .register(contribute(CONTEXT_MENU_DEFORMER_ID, ContextMenuRegistry.Location.DEFORMER_TAB));
             context.disposableScope().register(contribute(CONTEXT_MENU_PART_ID, ContextMenuRegistry.Location.PART_TAB));
+            context.disposableScope()
+                    .register(contribute(CONTEXT_MENU_WORKSPACE_ID, ContextMenuRegistry.Location.WORKSPACE_OBJECT));
         } catch (RuntimeException failure) {
             closeScopeQuietly();
             throw failure;

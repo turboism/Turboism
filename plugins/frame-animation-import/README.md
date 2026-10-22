@@ -57,7 +57,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 ## How to use
 
-1. Open the command palette (`Ctrl+P`) or right-click in the Part / Deformer palette and choose **Import Frame Animation...**.
+1. Open the top-level **Turboism → Plugins** menu or right-click in the Part tab and choose **Import Frame Animation...**.
 2. Choose either **Sprite Sheet** mode (specify rows, columns, frame limit) or **Image Sequence** mode (add images).
 3. Configure target parameter (name, ID, repeat) and display transition strategy (Step Flipbook vs Crossfade).
 4. Click **Import**. The frames, meshes, parameter, and keyframe opacities are created and bound automatically.
@@ -69,7 +69,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 | `cubism.model.read` | Reads model structure, parts, and existing parameters. |
 | `cubism.model.write` | Creates Part containers, ArtMeshes, textures, and parameter bindings. |
 | `cubism.parameter.write` | Creates new animation parameters and writes keyframe values. |
-| `ui.context-menu.contribute` | Adds the frame animation import launcher to Part and Deformer context menus. |
+| `ui.context-menu.contribute` | Adds the frame animation import launcher to the Part tab context menu. |
 | `ui.menu.contribute` | Adds the frame animation import launcher to the Turboism top-level menu. |
 | `ui.status.notify` | Reports import outcomes and precondition notifications. |
 
@@ -81,7 +81,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 | `turboism.cubism.model.write` | `application` | Create frame animation parts, art meshes, parameters, and bind keyframe opacities. |
 | `turboism.file.read` | `application` | Read selected frame images and sprite sheet files. |
 | `turboism.action.register` | `application` | Register frame animation import action. |
-| `turboism.ui.context-menu.contribute` | `application` | Expose frame animation import in part and deformer context menus. |
+| `turboism.ui.context-menu.contribute` | `application` | Expose frame animation import in the Part tab context menu. |
 | `turboism.ui.menu.contribute` | `application` | Adds the frame animation import launcher to the Turboism top-level menu. |
 | `turboism.ui.status.notify` | `application` | Notify import outcomes and validation errors. |
 
