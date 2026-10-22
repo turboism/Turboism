@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Added a plugin author guide covering lifecycle, threading, permissions, settings, storage, events and testing; clarified the pre-stable `@Incubating` policy.
 - `SettingsControl` gained the `FilePath` variant; plugin authors must add a case to exhaustive switches over `SettingsControl` when recompiling.
 - The texture-atlas SDK now supports per-page sizes, packing failure diagnostics and planner negotiation.
 
