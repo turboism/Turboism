@@ -3,7 +3,10 @@ package dev.turboism.core.runtime.work;
 import java.time.Duration;
 import java.util.Objects;
 
-final class PluginWorkExecutorConfiguration {
+/** Immutable budgets and shutdown bounds for plugin work lanes. */
+public final class PluginWorkExecutorConfiguration {
+
+    private static final Duration DEFAULT_SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
 
     static final int DEFAULT_LONG_LANE_CONCURRENCY = 2;
     static final long DEFAULT_LONG_RUNNING_THRESHOLD_MILLIS = 30_000L;
@@ -11,6 +14,7 @@ final class PluginWorkExecutorConfiguration {
 
     static final PluginWorkExecutorConfiguration DEFAULT = of(500, 2, 64, 50.0f);
 
+    private final Duration shutdownTimeout;
     private final Duration timeoutDuration;
     private final int bulkheadPoolSize;
     private final int queueCapacity;
@@ -26,7 +30,12 @@ final class PluginWorkExecutorConfiguration {
             float circuitBreakerFailureRateThreshold,
             int longLaneConcurrency,
             Duration longRunningThreshold,
-            Duration longRunningReportInterval) {
+            Duration longRunningReportInterval,
+            Duration shutdownTimeout) {
+        this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
+            throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
         this.timeoutDuration = Objects.requireNonNull(timeoutDuration, "timeoutDuration");
         this.bulkheadPoolSize = requirePositive(bulkheadPoolSize, "bulkheadPoolSize");
         this.queueCapacity = requirePositive(queueCapacity, "queueCapacity");
@@ -37,7 +46,25 @@ final class PluginWorkExecutorConfiguration {
         this.longRunningReportInterval = Objects.requireNonNull(longRunningReportInterval, "longRunningReportInterval");
     }
 
-    static PluginWorkExecutorConfiguration of(
+    /** Returns the same work budgets with a different bounded pool shutdown wait. */
+    public PluginWorkExecutorConfiguration withShutdownTimeout(Duration timeout) {
+        return new PluginWorkExecutorConfiguration(
+                timeoutDuration,
+                bulkheadPoolSize,
+                queueCapacity,
+                circuitBreakerFailureRateThreshold,
+                longLaneConcurrency,
+                longRunningThreshold,
+                longRunningReportInterval,
+                timeout);
+    }
+
+    Duration shutdownTimeout() {
+        return shutdownTimeout;
+    }
+
+    /** Creates work budgets with the production long-lane defaults. */
+    public static PluginWorkExecutorConfiguration of(
             long timeoutMillis, int bulkheadPoolSize, int queueCapacity, float circuitBreakerFailureRateThreshold) {
         return of(
                 timeoutMillis,
@@ -65,7 +92,8 @@ final class PluginWorkExecutorConfiguration {
                 longLaneConcurrency,
                 Duration.ofMillis(requirePositiveMillis(longRunningThresholdMillis, "longRunningThresholdMillis")),
                 Duration.ofMillis(
-                        requirePositiveMillis(longRunningReportIntervalMillis, "longRunningReportIntervalMillis")));
+                        requirePositiveMillis(longRunningReportIntervalMillis, "longRunningReportIntervalMillis")),
+                DEFAULT_SHUTDOWN_TIMEOUT);
     }
 
     Duration timeoutDuration() {

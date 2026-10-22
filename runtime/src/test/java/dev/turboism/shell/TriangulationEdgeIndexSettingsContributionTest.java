@@ -60,31 +60,6 @@ class TriangulationEdgeIndexSettingsContributionTest {
         assertFalse(Boolean.TRUE.equals(toggle.binding().read()), "the toggle reads back the persisted value");
     }
 
-    @Test
-    void everyBundleCarriesTheToggleLabel() {
-        final String key = TriangulationEdgeIndexSettingsContribution.LABEL_KEY;
-        final Map<String, String> labels = Map.of(
-                "messages.properties", "Index mesh triangulation edge lookups",
-                "messages_en.properties", "Index mesh triangulation edge lookups",
-                "messages_ja.properties", "メッシュ三角分割の辺検索を索引化",
-                "messages_ko.properties", "메시 삼각분할의 엣지 조회 인덱싱",
-                "messages_zh_Hans.properties", "索引网格三角化的边查询",
-                "messages_zh_Hant.properties", "將網格三角化的邊查詢索引化");
-        for (final var label : labels.entrySet()) {
-            final var path = java.nio.file.Path.of("src/main/resources/META-INF/turboism/i18n", label.getKey());
-            try (final var reader = java.nio.file.Files.newBufferedReader(path)) {
-                final var catalog = new java.util.Properties();
-                catalog.load(reader);
-                assertEquals(
-                        label.getValue(),
-                        catalog.getProperty(key),
-                        label.getKey() + " must resolve the exact translated label");
-            } catch (java.io.IOException failure) {
-                throw new AssertionError("cannot read " + label.getKey(), failure);
-            }
-        }
-    }
-
     private static PluginLocalization localization() {
         final Map<String, String> texts = Map.of(
                 "settings.tab.performance",

@@ -131,6 +131,7 @@ class PluginLongLaneTest {
         final RuntimeCancellationToken runningToken = new RuntimeCancellationToken();
         final CountDownLatch runningStarted = new CountDownLatch(1);
         final CountDownLatch runningFinished = new CountDownLatch(1);
+        final CountDownLatch releaseRunning = new CountDownLatch(1);
         final AtomicBoolean interrupted = new AtomicBoolean();
         lane.submit(task("plugin.long.normal"), runningToken, () -> {
             runningStarted.countDown();
@@ -143,6 +144,7 @@ class PluginLongLaneTest {
                     return;
                 }
             }
+            awaitQuietly(releaseRunning);
             runningFinished.countDown();
         });
         assertTrue(runningStarted.await(1, TimeUnit.SECONDS));
@@ -151,6 +153,7 @@ class PluginLongLaneTest {
         final PluginWorkSubmission queued =
                 lane.submit(task("plugin.long.normal"), new RuntimeCancellationToken(), () -> queuedRan.set(true));
         assertTrue(queued.accepted());
+        queued.completion().whenComplete((result, failure) -> releaseRunning.countDown());
 
         lane.shutdown();
 
@@ -171,7 +174,8 @@ class PluginLongLaneTest {
 
     @Test
     void shutdownDoesNotInterruptAStubbornTask() throws Exception {
-        final PluginLongLane lane = lane(1, 8);
+        final PluginLongLane lane = new PluginLongLane(
+                PLUGIN_ID, 1, 8, DEFAULT_THRESHOLD, DEFAULT_INTERVAL, events::add, Duration.ofMillis(50));
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final CountDownLatch finished = new CountDownLatch(1);
@@ -276,7 +280,8 @@ class PluginLongLaneTest {
 
     private PluginLongLane lane(
             final int concurrency, final int queueCapacity, final Duration threshold, final Duration interval) {
-        return new PluginLongLane(PLUGIN_ID, concurrency, queueCapacity, threshold, interval, events::add);
+        return new PluginLongLane(
+                PLUGIN_ID, concurrency, queueCapacity, threshold, interval, events::add, Duration.ofSeconds(5));
     }
 
     private static PluginTask task(final String type) {

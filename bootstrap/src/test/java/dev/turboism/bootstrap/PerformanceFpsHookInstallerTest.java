@@ -5,17 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.test.concurrent.Await;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -171,7 +172,7 @@ final class PerformanceFpsHookInstallerTest {
             // not run the loaded-target retransform during early startup.
             assertTrue(calls.contains("add:true"), "addTransformer must be registered before install() returns");
             assertFalse(hasRetransform(calls), "install() must not retransform synchronously");
-            Thread.sleep(300L);
+            awaitDeferredPolling();
             assertFalse(hasRetransform(calls), "retransform must stay deferred while the host L&F is not ready");
         } finally {
             installer.close();
@@ -188,13 +189,13 @@ final class PerformanceFpsHookInstallerTest {
                 .build();
         try {
             installer.install();
-            Thread.sleep(300L);
+            awaitDeferredPolling();
             assertFalse(hasRetransform(calls), "no retransform while the host L&F is not ready");
 
             installCubismLikeLaf();
             awaitRetransform(calls, 5_000L);
             assertEquals(1L, retransformCount(calls), "deferred retransform must run exactly once");
-            Thread.sleep(300L);
+            awaitDeferredFinished();
             assertEquals(1L, retransformCount(calls), "deferred retransform must not repeat");
         } finally {
             installer.close();
@@ -229,10 +230,18 @@ final class PerformanceFpsHookInstallerTest {
                 .lafReadyTimeoutMillis(5_000L)
                 .build();
         try (EdtHold hold = new EdtHold()) {
-            final Future<Boolean> poll = workers.submit(() -> installer.waitForHostLafReady(5_000L));
+            final AtomicReference<Thread> polling = new AtomicReference<>();
+            final Future<Boolean> poll = workers.submit(() -> {
+                polling.set(Thread.currentThread());
+                return installer.waitForHostLafReady(5_000L);
+            });
             // While the EDT is held, an EDT-dispatched poll cannot observe the
             // installed look-and-feel; a direct UIManager read would return at once.
-            Thread.sleep(400L);
+            Await.condition(() -> polling.get() != null
+                    && (polling.get().getState() == Thread.State.TIMED_WAITING
+                            || polling.get().getState() == Thread.State.WAITING)
+                    && java.util.Arrays.stream(polling.get().getStackTrace())
+                            .anyMatch(frame -> frame.getClassName().equals("dev.turboism.ui.host.EdtDispatch")));
             assertFalse(poll.isDone(), "readiness polling must run UIManager reads on the EDT");
             hold.release();
             assertTrue(poll.get(5, TimeUnit.SECONDS), "poll must find the installed look-and-feel");
@@ -280,7 +289,7 @@ final class PerformanceFpsHookInstallerTest {
             installer.close();
             // Late L&F readiness must not trigger a retransform on a closed hook.
             installCubismLikeLaf();
-            Thread.sleep(500L);
+            awaitDeferredFinished();
             assertFalse(hasRetransform(calls), "no retransform may run after close()");
             assertFalse(installer.isInstalled());
         } finally {
@@ -390,14 +399,19 @@ final class PerformanceFpsHookInstallerTest {
                 .count();
     }
 
-    private static void awaitRetransform(final List<String> calls, final long timeoutMillis)
-            throws InterruptedException {
-        final long deadline = System.currentTimeMillis() + timeoutMillis;
-        while (System.currentTimeMillis() < deadline) {
-            if (hasRetransform(calls)) return;
-            Thread.sleep(20L);
-        }
-        fail("deferred retransform did not run within " + timeoutMillis + "ms; calls=" + calls);
+    private static void awaitRetransform(final List<String> calls, final long timeoutMillis) {
+        Await.condition(() -> hasRetransform(calls), Duration.ofMillis(timeoutMillis));
+    }
+
+    private static void awaitDeferredPolling() {
+        Await.condition(() -> Thread.getAllStackTraces().entrySet().stream()
+                .anyMatch(entry ->
+                        entry.getKey().getName().equals(FPS_DAEMON_THREAD) && isPollingSleep(entry.getValue())));
+    }
+
+    private static void awaitDeferredFinished() {
+        Await.condition(() -> Thread.getAllStackTraces().keySet().stream()
+                .noneMatch(thread -> thread.getName().equals(FPS_DAEMON_THREAD) && thread.isAlive()));
     }
 
     /**
