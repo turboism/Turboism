@@ -27,6 +27,26 @@ public final class MeshMirrorGeometry {
         return new Line(anchor, vertical ? new Point(-sin, cos) : new Point(cos, sin));
     }
 
+    /** Covers the entire visible document rectangle, even when the pivot is off screen. */
+    static Segment covering(final Line line, final Point firstCorner, final Point oppositeCorner) {
+        final float radius = (float) Math.hypot(
+                Math.max(
+                        Math.abs(firstCorner.x() - line.anchor().x()),
+                        Math.abs(oppositeCorner.x() - line.anchor().x())),
+                Math.max(
+                        Math.abs(firstCorner.y() - line.anchor().y()),
+                        Math.abs(oppositeCorner.y() - line.anchor().y())));
+        return new Segment(
+                new Point(
+                        line.anchor().x() - line.direction().x() * radius,
+                        line.anchor().y() - line.direction().y() * radius),
+                new Point(
+                        line.anchor().x() + line.direction().x() * radius,
+                        line.anchor().y() + line.direction().y() * radius));
+    }
+
+    record Segment(Point start, Point end) {}
+
     /**
      * Mirrors a point across the axis line.
      *

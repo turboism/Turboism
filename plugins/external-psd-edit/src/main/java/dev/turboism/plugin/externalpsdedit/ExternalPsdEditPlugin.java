@@ -14,8 +14,8 @@ import java.util.Set;
 
 /**
  * Official plugin for external PSD editing: an ArtMesh context-menu entry exports the
- * complete raw PSD for the resolved raw image, opens it in the operating system's default
- * PSD application, and applies a Cubism native explicit-target raw-image replacement for
+ * complete raw PSD for the resolved raw image, opens it in the selected external
+ * application, and applies a Cubism native explicit-target raw-image replacement for
  * every stable save of the temporary file.
  */
 public final class ExternalPsdEditPlugin implements CubismPlugin {
@@ -29,6 +29,7 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
     private PluginLogger logger;
     private PluginLocalization localization;
     private ExternalPsdEditSessionManager sessions;
+    private ExternalPsdEditSettings settings;
 
     public ExternalPsdEditPlugin() {}
 
@@ -41,6 +42,7 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.logger = context.logger();
         this.localization = localization(context);
+        this.settings = new ExternalPsdEditSettings(context);
         if (sessions == null) {
             sessions = new ExternalPsdEditSessionManager(context, localization);
         }
@@ -51,6 +53,7 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
     public void enable() {
         sessions.reopen();
         try {
+            settings.enable(localization);
             registerAction(
                     OPEN_ACTION_ID,
                     text("external-psd-edit.action.open"),

@@ -108,6 +108,60 @@ class RuntimePsdEditFileTest {
     }
 
     @Test
+    void customApplicationUsesTheSameHandleAndPermissionAdmission() throws Exception {
+        final PsdEditRegistry registry = new PsdEditRegistry();
+        final Allocation allocation = allocation();
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final List<String> permissions = new ArrayList<>();
+        final List<String> calls = new ArrayList<>();
+        final RuntimePsdEditFile file = handle(
+                registry, allocation, recording(active, permissions), active, new PsdDefaultApplicationLauncher() {
+                    @Override
+                    public void launch(Path path) {
+                        calls.add("default");
+                    }
+
+                    @Override
+                    public void launch(Path path, String application) throws IOException {
+                        assertEquals(allocation.temporary.validatedPath(), path);
+                        calls.add(application);
+                    }
+                });
+        assertEquals(
+                PsdFileOperationResult.Status.OPENED,
+                await(file.openInApplication("C:/Program Files/PaintTool SAI/sai.exe"))
+                        .status());
+        assertTrue(permissions.contains(PermissionIds.TURBOISM_PROCESS));
+        assertTrue(permissions.contains(PermissionIds.TURBOISM_FILE_READ));
+        assertEquals(List.of("C:/Program Files/PaintTool SAI/sai.exe"), calls);
+        registry.revoke(file);
+        assertEquals(
+                PsdFileOperationResult.Status.REJECTED,
+                await(file.openInApplication("editor.exe")).status());
+        assertEquals(1, calls.size());
+    }
+
+    @Test
+    void customApplicationTreatsSpacesAndShellMetacharactersAsLiteralPaths() throws Exception {
+        final Path application = Files.createFile(root.resolve("editor with spaces & quotes.exe"));
+        assertTrue(application.toFile().setExecutable(true));
+        final Path document = root.resolve("image & painting.psd");
+        assertEquals(
+                List.of(application.toString(), document.toString()),
+                PsdDefaultApplicationLauncher.customApplication(document, application.toString())
+                        .command());
+        assertThrows(
+                IOException.class,
+                () -> PsdDefaultApplicationLauncher.customApplication(document, "relative-editor.exe"));
+        assertThrows(
+                IOException.class, () -> PsdDefaultApplicationLauncher.customApplication(document, root.toString()));
+        assertThrows(
+                IOException.class,
+                () -> PsdDefaultApplicationLauncher.customApplication(
+                        document, root.resolve("missing.exe").toString()));
+    }
+
+    @Test
     void subscriptionPublishesStagedRevisionsAndIsolatesConsumerFailures() throws Exception {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final Allocation allocation = allocation();

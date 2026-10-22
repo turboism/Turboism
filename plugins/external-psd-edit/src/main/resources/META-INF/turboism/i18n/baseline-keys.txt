@@ -18,6 +18,11 @@ external-psd-edit.error.unsupported
 external-psd-edit.menu
 external-psd-edit.progress.body
 external-psd-edit.progress.title
+external-psd-edit.settings.application
+external-psd-edit.settings.browse
+external-psd-edit.settings.choose
+external-psd-edit.settings.note
+external-psd-edit.settings.title
 external-psd-edit.status.already-open
 external-psd-edit.status.applied
 external-psd-edit.status.editing
