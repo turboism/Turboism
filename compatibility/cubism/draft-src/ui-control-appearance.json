@@ -17,45 +17,22 @@
   ],
   "templates": [
     {
-      "keys": [
-        "semanticName",
-        "name",
-        "kind",
-        "runtime",
-        "descriptor",
-        "profile",
-        "status",
-        "x.verification",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
       "annotations": {
+        "confidence": "medium",
         "status": "DRAFT",
-        "verifiedBy": "none",
         "verifiedAt": null,
-        "confidence": "medium"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": true
     },
     {
-      "keys": [
-        "semanticName",
-        "name",
-        "kind",
-        "runtime",
-        "profile",
-        "status",
-        "x.verification",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
       "annotations": {
+        "confidence": "medium",
         "status": "DRAFT",
-        "verifiedBy": "none",
         "verifiedAt": null,
-        "confidence": "medium"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": false
     }
   ],
   "entries": {
@@ -304,11 +281,11 @@
     {
       "versions": "5.0.00-5.1.03,5.3.03-5.3.04",
       "value": {
+        "cubismVersion": "${version}",
         "format": "turboism.mapping.pack",
         "schemaVersion": 1,
-        "status": "DRAFT",
         "source": "derived-from-verified-record",
-        "cubismVersion": "${version}"
+        "status": "DRAFT"
       }
     }
   ]

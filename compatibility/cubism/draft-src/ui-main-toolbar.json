@@ -22,113 +22,42 @@
   ],
   "templates": [
     {
-      "keys": [
-        "semanticName",
-        "name",
-        "kind",
-        "runtime",
-        "profile",
-        "status",
-        "x.verification",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
       "annotations": {
+        "confidence": "medium",
         "status": "DRAFT",
-        "verifiedBy": "none",
         "verifiedAt": null,
-        "confidence": "medium"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": false
     },
     {
-      "keys": [
-        "semanticName",
-        "name",
-        "kind",
-        "runtime",
-        "descriptor",
-        "profile",
-        "status",
-        "x.verification",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
       "annotations": {
+        "confidence": "medium",
         "status": "DRAFT",
-        "verifiedBy": "none",
         "verifiedAt": null,
-        "confidence": "medium"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": true
     },
     {
-      "keys": [
-        "semanticName",
-        "name",
-        "kind",
-        "runtime",
-        "descriptor",
-        "profile",
-        "status",
-        "x.verification",
-        "source",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
       "annotations": {
-        "status": "DRAFT",
+        "confidence": "high",
         "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
-        "verifiedBy": "none",
+        "status": "DRAFT",
         "verifiedAt": null,
-        "confidence": "high"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": true
     },
     {
-      "keys": [
-        "semanticName",
-        "name",
-        "kind",
-        "runtime",
-        "profile",
-        "status",
-        "x.verification",
-        "source",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
       "annotations": {
-        "status": "DRAFT",
+        "confidence": "high",
         "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
-        "verifiedBy": "none",
-        "verifiedAt": null,
-        "confidence": "high"
-      }
-    },
-    {
-      "keys": [
-        "descriptor",
-        "kind",
-        "name",
-        "profile",
-        "runtime",
-        "semanticName",
-        "status",
-        "x.verification",
-        "source",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence"
-      ],
-      "annotations": {
         "status": "DRAFT",
-        "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
-        "verifiedBy": "none",
         "verifiedAt": null,
-        "confidence": "high"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": false
     }
   ],
   "entries": {
@@ -141,31 +70,31 @@
     "cubism.ui-main-toolbar.abstract-button.get-jabstract-button": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
-        "template": 4
+        "template": 2
       }
     ],
     "cubism.ui-main-toolbar.abstract-button.set-disabled-icon": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
-        "template": 4
+        "template": 2
       }
     ],
     "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
-        "template": 4
+        "template": 2
       }
     ],
     "cubism.ui-main-toolbar.abstract-button.set-icon": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
-        "template": 4
+        "template": 2
       }
     ],
     "cubism.ui-main-toolbar.abstract-button.set-pressed-icon": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
-        "template": 4
+        "template": 2
       }
     ],
     "cubism.ui-main-toolbar.abstract-button.set-selected": [
@@ -177,7 +106,7 @@
     "cubism.ui-main-toolbar.abstract-button.set-selected-icon": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
-        "template": 4
+        "template": 2
       }
     ],
     "cubism.ui-main-toolbar.app-controller.class": [
@@ -431,12 +360,12 @@
     {
       "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
       "value": {
+        "cubismVersion": "${version}",
+        "exactArtifactSha256": "${artifactSha256}",
         "format": "turboism.mapping.pack",
         "schemaVersion": 1,
-        "status": "DRAFT",
         "source": "derived-from-verified-record",
-        "cubismVersion": "${version}",
-        "exactArtifactSha256": "${artifactSha256}"
+        "status": "DRAFT"
       }
     }
   ]
