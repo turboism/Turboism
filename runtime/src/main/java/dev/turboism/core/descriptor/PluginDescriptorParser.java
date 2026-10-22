@@ -14,6 +14,8 @@ import java.util.Optional;
 /** Parses schema-version-2 through schema-version-4 plugin.json into the SDK descriptor contract. */
 public final class PluginDescriptorParser {
 
+    private static final int MAX_DESCRIPTOR_BYTES = 1024 * 1024;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
@@ -22,11 +24,17 @@ public final class PluginDescriptorParser {
      * @param source stream containing the {@code plugin.json} bytes
      * @return the validated descriptor
      * @throws DescriptorParseException with code {@code PLUGIN_META_INVALID_JSON} if the bytes are
-     *     not well-formed JSON, or with the first schema error's code if validation fails
+     *     not well-formed JSON, {@code PLUGIN_META_TOO_LARGE} if the stream exceeds 1 MiB,
+     *     or with the first schema error's code if validation fails
      */
     public PluginDescriptor parse(final InputStream source) throws DescriptorParseException {
         try {
-            return parseNode(mapper.readTree(source), "<input stream>");
+            final byte[] bytes = source.readNBytes(MAX_DESCRIPTOR_BYTES + 1);
+            if (bytes.length > MAX_DESCRIPTOR_BYTES) {
+                throw new DescriptorParseException(
+                        "PLUGIN_META_TOO_LARGE", "plugin.json exceeds 1 MiB", "<input stream>");
+            }
+            return parseNode(mapper.readTree(bytes), "<input stream>");
         } catch (IOException exception) {
             throw new DescriptorParseException("PLUGIN_META_INVALID_JSON", "Failed to parse plugin.json", exception);
         }
