@@ -6,7 +6,9 @@ import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Owns one {@link PluginExecutorSet} per plugin id, created on first use from a single shared
@@ -23,6 +25,7 @@ public final class PluginWorkExecutorRegistry {
     private final PluginWorkExecutorConfiguration configuration;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final Clock clock;
+    private final Function<String, ScheduledExecutorService> timeoutSchedulerFactory;
     private final ConcurrentMap<String, PluginExecutorSet> executors = new ConcurrentHashMap<>();
 
     public PluginWorkExecutorRegistry(
@@ -51,6 +54,16 @@ public final class PluginWorkExecutorRegistry {
             PluginWorkExecutorConfiguration configuration,
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
             Clock clock) {
+        this(configuration, diagnosticSink, clock, PluginWorkExecutor::createTimeoutScheduler);
+    }
+
+    /** Creates a registry whose task executors each own a timer returned by the factory. */
+    public PluginWorkExecutorRegistry(
+            PluginWorkExecutorConfiguration configuration,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock,
+            Function<String, ScheduledExecutorService> timeoutSchedulerFactory) {
+        this.timeoutSchedulerFactory = Objects.requireNonNull(timeoutSchedulerFactory, "timeoutSchedulerFactory");
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -166,7 +179,8 @@ public final class PluginWorkExecutorRegistry {
     }
 
     private PluginExecutorSet createSet(String pluginId) {
-        return new PluginExecutorSet(pluginId, configuration, diagnosticSink, clock);
+        return new PluginExecutorSet(
+                pluginId, configuration, diagnosticSink, clock, timeoutSchedulerFactory.apply(pluginId));
     }
 
     private static int requirePositive(int value, String name) {
