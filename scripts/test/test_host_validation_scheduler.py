@@ -29,6 +29,12 @@ import check_reviewed_releases as version_derivation  # noqa: E402
 import host_validation as scheduler  # noqa: E402
 queue = scheduler.queue
 
+# Python 3.10 does not export SQLite result-code constants. These public SQLite
+# codes match the compatibility fallbacks used by the queue implementation.
+SQLITE_ERROR = getattr(sqlite3, "SQLITE_ERROR", 1)
+SQLITE_BUSY = getattr(sqlite3, "SQLITE_BUSY", 5)
+SQLITE_PROTOCOL = getattr(sqlite3, "SQLITE_PROTOCOL", 15)
+
 
 class HostValidationSchedulerTest(unittest.TestCase):
     @classmethod
@@ -579,7 +585,7 @@ class HostValidationWaitTest(unittest.TestCase):
             def connect(database, **kwargs):
                 connection_calls.append((database, kwargs))
                 if len(connection_calls) == 1:
-                    raise self.coded_error("locking protocol", sqlite3.SQLITE_PROTOCOL)
+                    raise self.coded_error("locking protocol", SQLITE_PROTOCOL)
                 return sqlite3.connect(database, **kwargs)
 
             def read_job(database, job_id):
@@ -617,7 +623,7 @@ class HostValidationWaitTest(unittest.TestCase):
 
             def connect(database_uri, **kwargs):
                 connection_calls.append(database_uri)
-                raise self.coded_error("database is locked", sqlite3.SQLITE_BUSY)
+                raise self.coded_error("database is locked", SQLITE_BUSY)
 
             def read_job(database_path, job_id):
                 return real_read_job(database_path, job_id, connect=connect)
@@ -644,7 +650,7 @@ class HostValidationWaitTest(unittest.TestCase):
 
             def connect(database_uri, **kwargs):
                 connection_calls.append(database_uri)
-                raise self.coded_error("locking protocol", sqlite3.SQLITE_PROTOCOL)
+                raise self.coded_error("locking protocol", SQLITE_PROTOCOL)
 
             def read_job(database_path, job_id):
                 return real_read_job(database_path, job_id, connect=connect)
@@ -669,7 +675,7 @@ class HostValidationWaitTest(unittest.TestCase):
 
     def test_lock_retry_budget_spans_successful_polls(self) -> None:
         waiter = _WaitStore(Path("/unused/queue.sqlite3"))
-        lock = self.coded_error("database is locked", sqlite3.SQLITE_BUSY)
+        lock = self.coded_error("database is locked", SQLITE_BUSY)
         running = {"state": "running"}
         responses = [lock, running, lock, running, lock, running, lock]
         calls = []
@@ -725,7 +731,7 @@ class HostValidationWaitTest(unittest.TestCase):
 
             def read_job(database_path, job_id):
                 calls.append((database_path, job_id))
-                raise self.coded_error("locking protocol", sqlite3.SQLITE_ERROR)
+                raise self.coded_error("locking protocol", SQLITE_ERROR)
 
             with mock.patch.object(scheduler.queue, "read_only_job", side_effect=read_job), \
                  mock.patch.object(scheduler.time, "sleep") as sleep:
@@ -741,7 +747,7 @@ class HostValidationWaitTest(unittest.TestCase):
         self.assertFalse(queue.is_retryable_read_error(sqlite3.OperationalError("locking protocol: extra")))
         self.assertFalse(
             queue.is_retryable_read_error(
-                self.coded_error("database is locked", sqlite3.SQLITE_ERROR)
+                self.coded_error("database is locked", SQLITE_ERROR)
             )
         )
 
