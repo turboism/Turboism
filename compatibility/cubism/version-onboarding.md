@@ -1,18 +1,11 @@
 # Onboarding a New Cubism Editor Version
 
-This is the Phase 3 workflow for one exact `X.Y.Z` release (compact `XYZZ`).
-Reviewed identity, complete `VERIFIED_STATIC` records and exact-host selector
+Reviewed identity, complete `VERIFIED_STATIC` records and exact-artifact selector
 verification remain separate requirements. DRAFT packs/profiles never authorize
-runtime binding; unknown or mismatched inputs still fail closed. See [index.md](index.md)
+runtime binding; unknown or mismatched inputs fail closed. See [index.md](index.md)
 for admission and the structurally verified `COMPATIBLE` path.
 
-The design target is **three hand-edit sites plus commands**: the release table,
-affected family sources, and host-validation exceptions. This is not yet a
-three-file onboarding procedure: multiple families may need edits, ranges and
-validation task versions still need manual extension, and the remaining work
-listed below has not been automated. There is no `onboard_cubism_version.py` yet.
-
-## 1. Review the release row, then generate the Java table
+## 1. Review the release row and generate the tables
 
 Keep licensed Editor/Core JARs and private fixtures outside Git. Measure the exact
 Editor JAR with `sha256sum` and `stat -c %s`, then append a row to
@@ -24,35 +17,70 @@ artifact name/size/SHA-256, observed Core tuple, `fullRuntime` and installed
 python3 scripts/generate_reviewed_releases.py
 ```
 
-Review the generated `ReviewedHostArtifacts.java`, `ReviewedReleaseTable.java`
-and `.env.example` changes; do not hand-edit them. Java trust-root consumers,
-Python readers and host identity catalogs derive from the JSON. `fullRuntime`
-retains its existing meaning; approving the row does not enable every UI slice.
-Adding a row automatically widens unrestricted/ranged `@CubismEditor` coverage
-through `REVIEWED_VERSIONS`, so audit the affected SDK surface and slice coverage.
+Review the generated `ReviewedHostArtifacts.java`, `ReviewedReleaseTable.java`,
+internal `ReviewedVersions.java` and `.env.example`; do not hand-edit them.
+`fullRuntime` retains its existing meaning; approving a row does not enable every
+UI slice. `ReviewedVersions` lives in `dev.turboism.internal`, outside the SDK
+API baseline namespace and Javadoc. Public SDK signatures must not expose it.
 
-## 2. Author family sources, then materialize complete records
+### What automatically widens, and what verifies it
+
+`since(first)` selects all reviewed releases at or after its boundary; `line("5.3")`
+selects the reviewed members of that minor line. `between(first,last)` stays bounded.
+Adding a canonical release therefore widens applicable selections, including SDK
+command enums. Unrestricted/ranged `@CubismEditor` coverage also retains the
+existing `REVIEWED_VERSIONS` widening semantics. A selection is a support policy,
+not evidence that a host fact has been verified.
+
+R1's `r1_family_range_coverage` checks every range in a verification family's
+`files` templates and `coverageSources` against that family's materialized
+`VERIFIED_STATIC` records. It uses the existing metadata in
+`scripts/verification-sources/families/*.json`, including across minor lines.
+R2 additionally rejects missing higher patches and lost capabilities/aliases
+within a minor line, subject to the reviewed monotonicity exceptions. Neither
+check proves selector correctness: run `verifyStaticHostSelectors` below against
+the exact artifact. Runtime providers still require artifact identity, resolver
+admission and successful binding; see `VerifiedMemberResolver` and each provider's
+`Verified*Installer`/manifest contract.
+
+There is **no automated proof of native command-id meaning** for newly widened
+`EditorCommand`, `EditorFileCommand` or `EditorParameterizedCommand` entries, nor
+of every file-scoped profile/layout choice. Family record coverage alone cannot
+supply this proof. `VerifiedEditorCommandAdapter` discovers the exact native menu
+id and returns `UNAVAILABLE` when it is missing; that does not detect an id reused
+for different behavior. Typed operations in `VerifiedTypedEditorCommandOperations`
+rely on their resolver selectors and their own state checks.
+
+Before accepting a new row, the maintainer must inspect all affected
+`ReviewedVersions.since`/`line` calls (search production Java and verification
+source templates), verify command ids and typed command behavior against the new
+Editor, and review file-scoped selector/class/layout facts against that artifact.
+Record the observations in the affected family evidence or command review. If a
+site has not been verified, keep it bounded with `between` or defer the release;
+do not treat a passing static gate or runtime discovery as semantic verification.
+
+## 2. Author family evidence and materialize records and drafts
 
 Review or extend `compatibility/cubism/verification-src/<family>.json` for each
-supported family. Add the release's evidence fields under `releases`; explicitly
-extend applicable selector, capability, artifact and layout ranges and preserve
-original `mappingId` values. Neither range extension nor evidence review is
-automatic, even for an otherwise unchanged patch. New selector observations
-still require the exact licensed artifact and human review. For each new alias,
-add `entries.<alias>` with a template index and an applicable `versions` range in
-`compatibility/cubism/draft-src/<family>.json` (`editor-model-read.json` for
-`editor-model` selectors), then run `materializeDraftContracts`.
+supported family. Add evidence under `releases`; explicitly extend applicable
+selector, capability, artifact and layout ranges while preserving `mappingId`s.
+New selector observations require the exact licensed artifact and human review.
+Extend the corresponding records/coverage declarations in
+`scripts/verification-sources/families/*.json` and template blocks as needed;
+`:runtime:generateVerificationSources` renders Java from these inputs.
 
 ```bash
 python3 scripts/materialize_verification_records.py
-# Or: env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew materializeVerificationRecords
+env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew materializeDraftContracts
 ```
 
-Complete records now live in **`build/generated/verification/`**, are not committed,
-and are copied unchanged into `META-INF/turboism/verification/` in the agent.
-Gradle source generation, packaging and gates depend on the materializer. Run it
-first for standalone Python tools or IDE tests that read repository files.
-Do not hand-edit generated records or restore the old packaging filename list.
+Records live in `build/generated/verification/`; DRAFT packs and profiles live in
+`build/generated/draft/mapping-packs/` and `build/generated/draft/profiles/`.
+These outputs are not committed. Author draft alias/template/range declarations
+in `compatibility/cubism/draft-src/`; use `editor-model-read.json` for editor-model
+selectors. `scripts/materialize_draft_contracts.py` owns draft profile/pack
+assertions. Do not restore committed draft copies. See the family source READMEs
+for export/import and rollback commands.
 
 Verify each materialized family against its exact Editor/Core artifact:
 
@@ -63,66 +91,60 @@ env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew verifyStaticHostSelectors \
 ```
 
 Use the matching Core JAR for Core records. Exit 0 requires matching artifact
-identity and all selectors to verify. Historical `evidencePath` and pack
-`inventoryRef` values retain the old `compatibility/cubism/verification/` spelling
-for byte/provenance compatibility; the metadata reader maps record references
-to the materialized directory. They are not instructions to commit those files.
-For export/import and rollback commands, see [verification-src/README.md](verification-src/README.md).
+identity and all selectors to verify. Historical `evidencePath`/`inventoryRef`
+spellings can still reference `compatibility/cubism/verification/`; the metadata
+reader maps them to materialized records. They do not name files to commit.
 
-## 3. Complete the still-manual onboarding work
+## 3. Review pins, policy and validation coverage
 
-Phase 3 removes repeated release facts and committed record copies. It does not
-yet remove these review/update sites:
+- Update hook pins with `python3 scripts/generate_class_pins.py update --jar
+  /path/to/Live2D_Cubism.jar --version X.Y.Z`; investigate missing classes.
+- Review Core inventory, selector contracts and policy following
+  [core-api](core-api/). An OBSERVED inventory does not authorize binding.
+- Update identity/routing tests, alias-consumption contracts, probe close routes,
+  `index.md` coverage and command evidence where applicable.
+- Refresh host task versions with `python3 scripts/check_reviewed_releases.py
+  --update-host-tasks`. R4 derives them from reviewed releases, verified capability
+  records, class pins and task/plugin requirements. Review the result and any
+  explicit task exceptions; do not extend lists mechanically. Add required Gradle
+  host tasks or install-path handling. Private fixture paths/hashes belong in
+  ignored `.env`.
+- Refresh committed compatibility sidecars with
+  `python3 scripts/generate_compatibility_matrix.py` and review the diff.
 
-- **Manifest/selector generation:** extend applicable `records`/coverage/pack
-  declarations in `scripts/verification-sources/families/*.json` and version
-  blocks in `scripts/verification-sources/templates/`. Template looping was
-  deferred. `:runtime:generateVerificationSources` renders the Java; edit inputs,
-  not generated classes. Review remaining version-specific resolver/installer
-  sets and their registry/monotonicity exceptions without silently widening them.
-- **Draft catalogs and tests:** create/review `mapping-packs/draft/` packs and the
-  `profiles/draft/cubism-X.Y.Z.json` catalog. Sync record-derived pack metadata
-  with `python3 scripts/sync_draft_pack_metadata.py`, after materializing. Update
-  repository expectations, identity/routing tests, alias-consumption contracts,
-  probe close routes, `index.md` coverage and command evidence where applicable.
-- **Hook pins:** run `python3 scripts/generate_class_pins.py update --jar
-  /path/to/Live2D_Cubism.jar --version X.Y.Z`; review the diff and investigate
-  missing classes. New class keys and support decisions still require review.
-- **Core evidence/policies:** produce the per-version observed inventory with
-  `scripts/cubism_core_api.py extract --jar /path/to/Live2DCubismCore.jar
-  --cubism-version X.Y.Z --output compatibility/cubism/core-api/observed/cubism-core-X.Y.Z.json`.
-  Wire applicable `runtime/build.gradle.kts` inventory/pack inputs; review policy
-  rosters and `scripts/test/test_cubism_core_*.py` facts. An OBSERVED inventory
-  alone does not authorize runtime binding.
-- **Host-validation catalog:** manually extend relevant `versions` lists in
-  `scripts/preview/host-validation-tasks.json`. Capability-based default expansion
-  and exception-only editing are still a target, not implemented. Add any needed
-  Gradle `validate*HostXYZZ` tasks, probe support or exceptional install-path
-  handling. Configure private fixture paths/hashes in ignored `.env`; fixture
-  placeholders and admitted host identities are generated from the release row.
-
-Compatibility docs/sidecars can be refreshed with
-`python3 scripts/generate_compatibility_matrix.py`; review the output. Existing
-developer matrix tools write scratch records into the materialized directory;
-fold reviewed changes into family sources before rebuilding (see the source
-README). They do not replace exact-artifact review.
-
-## 4. Validate and package
+## 4. Check the result
 
 ```bash
-env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew devCheck checkIntegration checkCompletedCommit
+env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew devCheck checkCompletedCommit
 env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew previewBundle checkPreviewBundleLayout
 ```
 
-`checkMaterializedRecords` checks table/family expansion byte for byte;
-`checkVerificationRecordIndex` checks the generated filename/byte set and manifest
-pins; `checkVersionSetCompleteness` checks generated data against the table.
-Packaging copies the materializer task output automatically, with unchanged
-resource names. `checkPreviewBundleLayout` invokes `verifyPreviewAgentJar`.
+`checkReviewedReleases` and its SelfTest replace the retired checkers:
 
-For real-host validation, use the queue described in
-[scheduling](../../scripts/preview/README-host-validation-scheduling.md):
-`host_validation.py list`, `plan <task>:XYZZ`, then `run <task>:XYZZ` with the
-worker running. A PASS requires exact-host identity, fixture hashes, structured
-terminal evidence and task-owned cleanup; offline gates do not imply a host PASS.
-Run `checkRelease` and `checkReleaseTooling` when preparing a release.
+| Rule | Contract / former checker |
+| --- | --- |
+| R1 | Canonical/generated integrity and remaining completeness checks; materialized record index, IDs and manifest pins; family range coverage. Replaces `check_version_set_completeness.py` and relevant `verification_record_index.py` rules. |
+| R2 | Patch monotonicity, capability/alias closure and evidence exceptions. Replaces `check_version_monotonicity.py`; keeps `version-monotonicity-exceptions.json` semantics. |
+| R3 | Production bare version collection ban, plus evidence-backed residual literals. Replaces `check_version_set_registry.py`; no registry remains. |
+| R4 | Derived host task coverage and shell wrapper policy. Replaces `check_host_validation_versions.py`. |
+
+Generated array/pack repetition checks are unnecessary: generators check their
+outputs against authoritative sources. Draft assertions belong to the draft
+materializer. `checkMaterializedRecords` checks record bytes;
+`check_sdk_cubism_annotations.py` remains independent.
+
+For a necessary literal exception, edit
+`scripts/reviewed-release-literal-exceptions.json`: give the production `path`,
+`kind` and concrete `evidence` explaining the host fact. File exceptions permit
+residual fact tables, never bare version Sets/Lists. A collection exception also
+requires exact `versions` and `count`. Stale, duplicate, evidenceless or drifting
+entries fail R3. Prefer a bounded range when it expresses the actual policy.
+
+Run `checkRelease` before release: its live SDK exact baseline rejects public API
+additions/removals; the development gates do not freeze the SDK surface. Baselines
+are reviewed artifacts and must not be regenerated to conceal unintended API.
+
+Real-host validation uses the [queue](../../scripts/preview/README-host-validation-scheduling.md):
+`host_validation.py list`, `plan <task>:XYZZ`, then `run <task>:XYZZ` with a worker.
+A PASS requires exact-host identity, fixture hashes, terminal evidence and cleanup;
+offline gates do not imply a host PASS.
