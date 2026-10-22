@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.2,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -44,7 +44,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.67.2,1.0.0)`。
 - **Cubism：** 必需。导出与替换使用 Cubism 原生分层图像导出与原图替换能力（自 Cubism 5.2.00 起提供）。
 - **界面模式：** `embedded`。
 - **插件依赖：** 无。

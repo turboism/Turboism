@@ -10,10 +10,6 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
-- 新增插件作者指南，涵盖生命周期、线程、权限、设置、存储、事件和测试，并明确稳定版发布前的 `@Incubating` 策略。
-- `SettingsControl` 新增 `FilePath` 变体；插件重新编译时，针对 `SettingsControl` 的穷尽式 switch 必须添加对应分支。
-- 纹理图集 SDK 新增逐页尺寸、打包失败诊断与规划器协商支持。
-
 - `acp` 精确实机验证能力加入本机验证队列：test-only 探针在真实 Cubism 会话内经公共 action
   catalog 打开 ACP Agent 窗口；脚本化 fake agent（默认包 `acp` 入口）断言无凭据的 stdio MCP
   挂载，并经 token 门控的 `TurboismMcpBridge` 完成一次 rename 写与守护式 undo；SDK 交叉回读
@@ -209,13 +205,24 @@ Turboism 的所有重要变更都记录在本文件中。
   以及 Parameter、Parameter Batch Transfer 插件的工作区条目；它们在面板标签页上下文菜单
   与顶层菜单中的入口保持不变。
 
-## [0.67.2] - 2026-10-22
+## [0.67.2] - 2026-10-23
+
+### 新增
+
+- 新增插件作者指南，涵盖生命周期、线程、权限、设置、存储、事件和测试，并明确稳定版发布前的 `@Incubating` 策略。
+- `SettingsControl` 新增 `FilePath` 变体；插件重新编译时，针对 `SettingsControl` 的穷尽式 switch 必须添加对应分支。
+- 纹理图集 SDK 新增逐页尺寸、打包失败诊断与规划器协商支持。
 
 ### 修复
 
 - 插件管理明确标示 SDK API 兼容范围，并分别显示 Cubism 可用、完整功能及部分功能的精确版本；缺失或无效声明显示为未声明。
-- 官方插件的最低 API 要求保留为 `0.67.0`，README 同步不再随框架补丁发版自动抬高所有插件的门槛。
+- README 同步不再随框架补丁发版自动抬高所有插件的 API 门槛；每个官方插件的最低 API 只反映其实际使用的 SDK。
 - 完整功能版本的生成计算纳入 SDK 与端点限制；插件 README 明确审核范围及完整功能范围，并移除过期的未发布安装说明。
+- 任务在 Swing 事件线程上启动期间收到的中断，现在与执行期间的中断一样触发放弃补偿。
+
+### 变更
+
+- `external-psd-edit`、`atlas-bitmask-nesting`、`atlas-folder-layout` 和 `atlas-maxrects-bssf` 使用了上述 SDK 新增内容，最低 API 要求改为 `0.67.2`；其他官方插件保持原有下限。
 
 ## [0.67.1] - 2026-10-20
 
