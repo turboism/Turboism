@@ -6,7 +6,11 @@ import java.util.Objects;
 
 /** Toolkit-neutral controls supported by the shared Turboism settings window. */
 public sealed interface SettingsControl
-        permits SettingsControl.Choice, SettingsControl.Toggle, SettingsControl.Text, SettingsControl.Note {
+        permits SettingsControl.Choice,
+                SettingsControl.Toggle,
+                SettingsControl.Text,
+                SettingsControl.FilePath,
+                SettingsControl.Note {
 
     /** Returns the control's stable identifier within its tab. */
     String id();
@@ -97,6 +101,27 @@ public sealed interface SettingsControl
 
         public Text(final String id, final String label, final int columns, final SettingsBinding<String> binding) {
             this(id, label, columns, binding, SettingsChangeValidator.acceptAll());
+        }
+    }
+
+    /** Editable path with an explicit browse action; the renderer saves only on Apply/OK. */
+    record FilePath(
+            String id,
+            String label,
+            int columns,
+            SettingsBinding<String> binding,
+            String browseLabel,
+            java.util.function.Supplier<java.util.Optional<String>> browse)
+            implements SettingsControl {
+        public FilePath {
+            id = requireId(id);
+            label = requireText(label, "label", 256);
+            if (columns < 1 || columns > 128) {
+                throw new IllegalArgumentException("columns must be between 1 and 128");
+            }
+            binding = Objects.requireNonNull(binding, "binding");
+            browseLabel = requireText(browseLabel, "browseLabel", 256);
+            browse = Objects.requireNonNull(browse, "browse");
         }
     }
 

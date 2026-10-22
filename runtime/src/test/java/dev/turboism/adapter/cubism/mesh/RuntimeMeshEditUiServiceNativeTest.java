@@ -90,10 +90,12 @@ final class RuntimeMeshEditUiServiceNativeTest {
             // The CSlidableFloat value change routes through the Function1 proxy.
             invoke(slider, "setValue", 12.3f);
             assertEquals(12.3f, changed.get(), 0.0001f);
+            assertEquals(1, invoke(panel, "getCanvasRepaints"));
 
             // The reset CButton action routes through its Function1 proxy.
             invoke(invoke(button, "getOnAction"), "invoke", button);
             assertEquals(0.0f, changed.get(), 0.0001f);
+            assertEquals(2, invoke(panel, "getCanvasRepaints"));
             assertEquals(0.0f, ((Number) invoke(slider, "getValue")).floatValue(), 0.0001f);
 
             registration.close();
@@ -307,6 +309,19 @@ final class RuntimeMeshEditUiServiceNativeTest {
                 import com.live2d.ui.container.CVBox;
                 public final class ToolPanel_MeshEdit {
                     private final CVBox widget = new CVBox();
+                    public final ToolMode toolMode = new ToolMode();
+                    public int getCanvasRepaints() { return toolMode.getCtrl$cubism().completePack.repaints; }
+                    public static final class ToolMode {
+                        public Controller getCtrl$cubism() { return controller; }
+                        private final Controller controller = new Controller();
+                    }
+                    public static final class Controller {
+                        public final Pack completePack = new Pack();
+                    }
+                    public static final class Pack {
+                        public int repaints;
+                        public void repaintCanvas(boolean force) { repaints++; }
+                    }
                     private final CFoldingPane mirrorEditFoldingPane = new CFoldingPane();
                     public Object widgetForTesting() { return widget; }
                     public Object foldingPaneForTesting() { return mirrorEditFoldingPane; }

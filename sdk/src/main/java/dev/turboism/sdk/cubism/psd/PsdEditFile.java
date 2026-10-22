@@ -9,8 +9,7 @@ import java.util.function.Consumer;
  * Workflow-specific, runtime-issued temporary PSD handle, not a general file or process API.
  *
  * <p>Every operation requires runtime registry, plugin ownership, permission and model-session
- * validation. User implementations do not acquire those rights. This API exposes no path, URI,
- * command, bytes or native host objects.</p>
+ * validation. User implementations do not acquire those rights. This API exposes no document path, URI, bytes or native host objects.</p>
  */
 @CubismEditor(from = "5.2.00")
 public interface PsdEditFile {
@@ -19,6 +18,22 @@ public interface PsdEditFile {
      * An unavailable association must not change system settings or discard the temporary file.
      */
     CompletionStage<PsdFileOperationResult> openInDefaultApplication();
+
+    /**
+     * Opens this PSD with a user-selected executable, passing the PSD as a single argument.
+     * The path must be absolute and identify an executable file; no command-line parsing occurs.
+     * Blank paths use the system default association. Requires the same authorization as
+     * {@link #openInDefaultApplication()}.
+     *
+     * @param executablePath executable path, or blank for the system default
+     * @return the authorized launch result
+     */
+    default CompletionStage<PsdFileOperationResult> openInApplication(final String executablePath) {
+        if (java.util.Objects.requireNonNull(executablePath, "executablePath").isBlank()) {
+            return openInDefaultApplication();
+        }
+        throw new UnsupportedOperationException("custom PSD applications are not available");
+    }
 
     /**
      * Subscribes to stable changed save versions, excluding the initial export baseline.
