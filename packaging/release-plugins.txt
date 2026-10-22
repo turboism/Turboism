@@ -15,6 +15,7 @@
 :plugins:model-import-3d
 :plugins:palette-label-style
 :plugins:parameter-batch-transfer
+:plugins:parameter-lock
 :plugins:perf-stats
 :plugins:physics-editor
 :plugins:protected-export
