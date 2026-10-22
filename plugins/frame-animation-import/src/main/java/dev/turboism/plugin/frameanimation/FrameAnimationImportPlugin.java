@@ -30,7 +30,6 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
 
     public static final String ACTION_ID = "frameAnimation.import.open";
     public static final String CONTEXT_MENU_PART_ID = "frameAnimation.import.part";
-    public static final String CONTEXT_MENU_DEFORMER_ID = "frameAnimation.import.deformer";
     private static final String MENU_ROOT = "Turboism";
     private static final int MENU_ORDER = 150;
 
@@ -61,8 +60,6 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
         try {
             registerAction();
             context.disposableScope().register(contribute(CONTEXT_MENU_PART_ID, ContextMenuRegistry.Location.PART_TAB));
-            context.disposableScope()
-                    .register(contribute(CONTEXT_MENU_DEFORMER_ID, ContextMenuRegistry.Location.DEFORMER_TAB));
             context.disposableScope().register(contributeTopMenu());
         } catch (RuntimeException failure) {
             closeScopeQuietly();

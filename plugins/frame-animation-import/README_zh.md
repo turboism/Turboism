@@ -57,7 +57,7 @@ interface: swing
 
 ## 使用方法
 
-1. 打开命令面板（`Ctrl+P`）或在部件（Part）/ 变形器（Deformer）面板空白处右键，选择 **导入帧动画...**。
+1. 打开顶部 **Turboism → 插件** 菜单，或在部件（Part）tab 中右键，选择 **导入帧动画...**。
 2. 选择 **精灵表切片**（配置行、列、有效帧数）或 **多图序列帧**（添加图片）。
 3. 配置参数名称、参数 ID、是否循环以及切换方式（逐帧硬切 / 平滑过渡）。
 4. 点击 **开始导入** 即可一键生成。
@@ -69,7 +69,7 @@ interface: swing
 | `cubism.model.read` | 读取模型结构、部件和现有参数。 |
 | `cubism.model.write` | 创建部件容器、网格、纹理和参数绑定。 |
 | `cubism.parameter.write` | 创建动画参数并写入关键帧不透明度。 |
-| `ui.context-menu.contribute` | 向部件和变形器面板添加上下文菜单入口。 |
+| `ui.context-menu.contribute` | 向部件 tab 添加上下文菜单入口。 |
 | `ui.menu.contribute` | 向 Turboism 顶层菜单添加帧动画导入启动入口。 |
 | `ui.status.notify` | 报告导入结果与状态提示。 |
 
@@ -81,7 +81,7 @@ interface: swing
 | `turboism.cubism.model.write` | `application` | 创建部件、网格、参数并绑定关键点不透明度。 |
 | `turboism.file.read` | `application` | 读取选中的帧图片与精灵表文件。 |
 | `turboism.action.register` | `application` | 注册帧动画导入主动作。 |
-| `turboism.ui.context-menu.contribute` | `application` | 在部件和变形器右键菜单中展示导入入口。 |
+| `turboism.ui.context-menu.contribute` | `application` | 在部件 tab 右键菜单中展示导入入口。 |
 | `turboism.ui.menu.contribute` | `application` | 向 Turboism 顶层菜单添加帧动画导入启动入口。 |
 | `turboism.ui.status.notify` | `application` | 通知导入结果与校验错误。 |
 
