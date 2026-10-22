@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cluster reviewed Cubism versions by per-family reachable bytecode fingerprints.
 
-For each mapping-pack family under ``compatibility/cubism/mapping-packs/draft/``
+For each mapping-pack family under ``build/generated/draft/mapping-packs/``
 this tool computes, inside each version's Live2D jars, the transitive
 *method-level* closure starting from the family's selector members
 (``x.verification.ownerInternalName`` + ``runtime`` member name + ``descriptor``):
@@ -48,7 +48,7 @@ from turboism_dev.json_io import read_json, write_json
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
-PACK_DIR = ROOT / "compatibility" / "cubism" / "mapping-packs" / "draft"
+PACK_DIR = ROOT / "build/generated/draft/mapping-packs"
 LIVE2D_PREFIX = "com/live2d/"
 L2D = LIVE2D_PREFIX.encode()
 

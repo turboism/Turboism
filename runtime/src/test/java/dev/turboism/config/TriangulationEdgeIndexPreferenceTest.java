@@ -21,17 +21,23 @@ class TriangulationEdgeIndexPreferenceTest {
 
     @Test
     void honorsAnExplicitDisableAndEnable() throws Exception {
-        Files.writeString(home.resolve("config.json"), "{\"meshTriangulationEdgeIndex\": false}");
+        new RuntimeConfigRepository(home, ignored -> {}).update(root -> {
+            root.put("meshTriangulationEdgeIndex", false);
+            return root;
+        });
         assertFalse(TriangulationEdgeIndexPreference.read(home));
-        Files.writeString(home.resolve("config.json"), "{\"meshTriangulationEdgeIndex\": true}");
+        new RuntimeConfigRepository(home, ignored -> {}).update(root -> {
+            root.put("meshTriangulationEdgeIndex", true);
+            return root;
+        });
         assertTrue(TriangulationEdgeIndexPreference.read(home));
     }
 
     @Test
-    void unreadableOrWrongTypedValuesKeepTheDefault() throws Exception {
+    void invalidConfigurationDisablesTheOptimization() throws Exception {
         Files.writeString(home.resolve("config.json"), "{not json");
-        assertTrue(TriangulationEdgeIndexPreference.read(home));
+        assertFalse(TriangulationEdgeIndexPreference.read(home));
         Files.writeString(home.resolve("config.json"), "{\"meshTriangulationEdgeIndex\": \"off\"}");
-        assertTrue(TriangulationEdgeIndexPreference.read(home));
+        assertFalse(TriangulationEdgeIndexPreference.read(home));
     }
 }

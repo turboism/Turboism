@@ -11,7 +11,7 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedModelUpdateSkipInstaller.admitted(
@@ -20,7 +20,7 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
                 true,
                 Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedModelUpdateSkipInstaller installer = new VerifiedModelUpdateSkipInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

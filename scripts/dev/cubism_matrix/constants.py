@@ -39,8 +39,8 @@ def cubism_ref_dir() -> Path:
 
 REF_DIR = cubism_ref_dir()
 VERIFICATION_DIR = ROOT / "build/generated/verification"
-PACK_DIR = ROOT / "compatibility/cubism/mapping-packs/draft"
-PROFILE_DIR = ROOT / "compatibility/cubism/profiles/draft"
+PACK_DIR = ROOT / "build/generated/draft/mapping-packs"
+PROFILE_DIR = ROOT / "build/generated/draft/profiles"
 GENERATE = ROOT / "scripts/generate_verification_sources.py"
 DEPS_SOURCE = (
     ROOT / "runtime/src/main/java/dev/turboism/mapping/verification/"

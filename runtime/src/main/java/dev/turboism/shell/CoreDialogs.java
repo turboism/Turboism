@@ -37,6 +37,21 @@ final class CoreDialogs {
         dialog.dispose();
     }
 
+    /** Scrollable, selectable diagnostics that remain readable when all performance fields are shown. */
+    static void scrollableMessage(final Window owner, final String title, final String message) {
+        final javax.swing.JTextArea text = new javax.swing.JTextArea(message, 24, 88);
+        text.setEditable(false);
+        text.setLineWrap(true);
+        text.setWrapStyleWord(true);
+        text.setCaretPosition(0);
+        final JOptionPane pane = new JOptionPane(new javax.swing.JScrollPane(text), JOptionPane.INFORMATION_MESSAGE);
+        final JDialog dialog = pane.createDialog(owner, title);
+        TurboismWindowFactory.style(dialog);
+        dialog.setResizable(true);
+        dialog.setVisible(true);
+        dialog.dispose();
+    }
+
     static boolean confirm(final Window owner, final String title, final String message) {
         final JOptionPane pane = new JOptionPane(message, JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION);
         final JDialog dialog = pane.createDialog(owner, title);

@@ -53,7 +53,7 @@ AUTHORING_ROOT = Path("scripts/verification-sources")
 FAMILY_DIR = AUTHORING_ROOT / "families"
 TEMPLATE_ROOT = AUTHORING_ROOT / "templates"
 VERIFICATION_DIR = Path("build/generated/verification")
-PACK_DIR = Path("compatibility/cubism/mapping-packs/draft")
+PACK_DIR = Path("build/generated/draft/mapping-packs")
 SOURCE_ROOT = Path("runtime/src/main/java")
 VERIFICATION_PACKAGE = "dev/turboism/mapping/verification"
 

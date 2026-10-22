@@ -61,7 +61,6 @@ r1_AVAILABILITY_POLICY = Path(
 )
 r1_HOST_VALIDATION_TASKS = Path("scripts/preview/host-validation-tasks.json")
 r1_HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
-r1_PROFILES_DIR = Path("compatibility/cubism/profiles/draft")
 r1_INDEX_MD = Path("compatibility/cubism/index.md")
 r1_CLASS_PINS_DIR = Path(
     "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
@@ -89,7 +88,6 @@ r1_COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
 r1_COMPACT = re.compile(r"^5\d{3}$")
 
 r1_RECORD_FILENAME = re.compile(r'"cubism-(\d+\.\d+\.\d+)-[^"]+\.json"')
-r1_PROFILE_FILENAME = re.compile(r"^cubism-(\d+\.\d+\.\d+)\.json$")
 r1_INDEX_VERSION = re.compile(r"\b5\.\d{1,2}\.\d{2}\b")
 
 
@@ -176,34 +174,6 @@ def r1_host_validation_tasks(root: Path) -> tuple[set[str], list[str]]:
 
 
 
-def r1_draft_profiles(root: Path) -> tuple[set[str], list[str]]:
-    base = root / r1_PROFILES_DIR
-    versions = set()
-    problems = []
-    for profile in sorted(base.glob("cubism-*.json")):
-        match = r1_PROFILE_FILENAME.match(profile.name)
-        if match is None:
-            continue
-        version = match.group(1)
-        versions.add(version)
-        try:
-            document = read_json(profile)
-        except json.JSONDecodeError as exc:
-            problems.append(f"{profile.name}: invalid JSON: {exc}")
-            continue
-        if document.get("profileId") != f"cubism-{version}":
-            problems.append(
-                f"{profile.name}: profileId {document.get('profileId')!r} "
-                f"!= cubism-{version}"
-            )
-        if document.get("cubismVersion") != version:
-            problems.append(
-                f"{profile.name}: cubismVersion {document.get('cubismVersion')!r} "
-                f"!= {version}"
-            )
-    return versions, problems
-
-
 def r1_index_md(root: Path) -> set[str]:
     return set(r1_INDEX_VERSION.findall(r1__read(root, r1_INDEX_MD)))
 
@@ -264,18 +234,15 @@ def r1_probe_close_routes(root: Path) -> dict[str, set[str]]:
 def r1_collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     canonical, problems = r1_reviewed_host_artifacts(root)
     tasks, task_problems = r1_host_validation_tasks(root)
-    profiles, profile_problems = r1_draft_profiles(root)
     pins, pin_problems = r1_class_pin_tables(root)
     problems.extend(r1_derived_consumers(root))
     problems.extend(task_problems)
-    problems.extend(profile_problems)
     problems.extend(pin_problems)
     sites = {
         r1_CANONICAL: canonical,
         "compatibility-catalog.json record versions": r1_compatibility_catalog(root),
         "materialized verification records": r1_materialized_record_versions(root),
         "host-validation-tasks.json task versions (subset)": tasks,
-        "profiles/draft/cubism-*.json": profiles,
         "compatibility/cubism/index.md": r1_index_md(root),
         "class-pins/*.json version keys (subset)": pins,
         **r1_probe_close_routes(root),

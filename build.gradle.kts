@@ -92,7 +92,7 @@ tasks.register("checkPluginInspectionRuntime") {
 tasks.register<JavaExec>("mappingReview") {
     group = "verification"
     description = "Run the local draft mapping review CLI; apply is dry-run unless --write is passed."
-    dependsOn(":runtime:classes")
+    dependsOn(":runtime:classes", "materializeDraftContracts")
     classpath = project(":runtime").extensions.getByType<SourceSetContainer>()
         .named("main").get().runtimeClasspath
     mainClass.set("dev.turboism.mapping.draft.MappingReviewCli")
@@ -107,7 +107,32 @@ tasks.register<JavaExec>("mappingReview") {
         if (!cliArgsFile.isPresent || cliArgsFile.get().isBlank()) {
             throw GradleException("Pass -PturboismMappingReviewArgsFile=<path> containing one Base64-encoded UTF-8 argument per line.")
         }
-        setArgs(MappingReviewArgsFile.readAndDelete(file(cliArgsFile.get()).toPath()))
+        val reviewArgs = MappingReviewArgsFile.readAndDelete(file(cliArgsFile.get()).toPath()).toMutableList()
+        val packArgument = reviewArgs.indexOf("--pack") + 1
+        if (packArgument > 0 && packArgument < reviewArgs.size) {
+            val supplied = reviewArgs[packArgument]
+            val generatedPrefix = "build/generated/draft/mapping-packs/"
+            val sourcePrefix = "compatibility/cubism/mapping-packs/draft/"
+            val name = when {
+                supplied.startsWith(generatedPrefix) -> supplied.removePrefix(generatedPrefix)
+                supplied.startsWith(sourcePrefix) -> supplied.removePrefix(sourcePrefix)
+                else -> null
+            }
+            if (name != null && Regex("[^/\\\\:]+\\.json").matches(name) && !name.contains("..")) {
+                val generated = file(generatedPrefix + name)
+                val source = file(sourcePrefix + name)
+                if (generated.isFile) {
+                    val pack = groovy.json.JsonSlurper().parse(generated) as Map<*, *>
+                    if (pack["source"] in setOf("derived-from-verified-record", "exact-5.3.03-classfile-observation-and-semantic-remap")) {
+                        throw GradleException("Derived DRAFT pack: edit verification-src/draft-src and regenerate; mapping-review writes observation sources only.")
+                    }
+                    if (supplied.startsWith(generatedPrefix) && source.isFile) {
+                        reviewArgs[packArgument] = sourcePrefix + name
+                    }
+                }
+            }
+        }
+        setArgs(reviewArgs)
     }
 }
 
@@ -133,7 +158,41 @@ val materializeVerificationRecords by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/materialize_verification_records.py")
 }
 
+val materializeDraftContracts by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Projects DRAFT packs and profiles from materialized records and historical annotations."
+    dependsOn(materializeVerificationRecords)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_draft_contracts.py",
+        "scripts/materialize_verification_records.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "compatibility/cubism/reviewed-releases.json",
+        fileTree("compatibility/cubism/draft-src") { include("*.json") },
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        materializeVerificationRecords
+    )
+    outputs.dir(rootProject.file("build/generated/draft"))
+    outputs.cacheIf { true }
+    commandLine("python3", "scripts/materialize_draft_contracts.py")
+}
+
+val checkDraftContractDiagnostics by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks actionable DRAFT declaration errors using tiny synthetic inputs."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/materialize_draft_contracts.py",
+        "scripts/materialize_verification_records.py",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/test/test_materialize_draft_contracts.py",
+        "scripts/test/reviewed_releases_fixture.py"
+    )
+    commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_draft_contracts", "-v")
+}
+
 apply(from = "gradle/verification.gradle.kts")
+tasks.named("devCheck") { dependsOn(checkDraftContractDiagnostics) }
 apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")
 

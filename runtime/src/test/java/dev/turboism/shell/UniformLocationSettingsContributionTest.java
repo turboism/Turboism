@@ -54,21 +54,22 @@ class UniformLocationSettingsContributionTest {
     }
 
     @Test
-    void enablingOverridesTheDisabledDefaultCapturedAtStartup() {
+    void enablingIsSavedWithoutChangingTheCurrentSession() {
         UniformLocationHookBridge.setConfiguredDefault(false);
         try {
             var toggle = (SettingsControl.Toggle)
                     CubismJvmSettingsContribution.createUniformLocationCacheToggle(i18n(), new Settings())
                             .control();
             toggle.binding().write(true);
-            assertTrue(UniformLocationHookBridge.enabledByPreference());
+            assertFalse(UniformLocationHookBridge.enabledByPreference());
         } finally {
             UniformLocationHookBridge.setConfiguredDefault(true);
         }
     }
 
     @Test
-    void checkboxDefaultsOnAndPersistsBeforeApplyingLiveSwitch() {
+    void checkboxPersistsForNextLaunchWithoutChangingRuntimeFlag() {
+        System.setProperty(FLAG, "startup-value");
         Settings settings = new Settings();
         var contribution = CubismJvmSettingsContribution.createUniformLocationCacheToggle(i18n(), settings);
         assertEquals("uniform-location-cache", contribution.id());
@@ -77,10 +78,10 @@ class UniformLocationSettingsContributionTest {
         assertEquals(Boolean.TRUE, toggle.binding().read());
         toggle.binding().write(false);
         assertFalse(settings.stored.get());
-        assertEquals("false", System.getProperty(FLAG));
+        assertEquals("startup-value", System.getProperty(FLAG));
         toggle.binding().write(true);
         assertTrue(settings.stored.get());
-        assertEquals("true", System.getProperty(FLAG));
+        assertEquals("startup-value", System.getProperty(FLAG));
     }
 
     @Test
@@ -143,10 +144,10 @@ class UniformLocationSettingsContributionTest {
                             .control();
             assertEquals(Boolean.FALSE, toggle.binding().read());
             toggle.binding().write(true);
-            assertEquals("true", System.getProperty(key));
+            assertNull(System.getProperty(key));
             assertNull(System.getProperty(FLAG));
             toggle.binding().write(false);
-            assertEquals("false", System.getProperty(key));
+            assertNull(System.getProperty(key));
             assertFalse(requested.get());
         } finally {
             if (previousIncremental == null) System.clearProperty(key);
