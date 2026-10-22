@@ -20,11 +20,13 @@ import java.util.concurrent.TimeoutException;
  */
 final class IdempotentRegistration implements Registration {
 
+    /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
+    private static final QuiescencePolicy DEFAULT_CLOSE_POLICY = new QuiescencePolicy(Duration.ofSeconds(5));
+
     private final Registration delegate;
     private State state = State.OPEN;
     private CompletableFuture<Void> inFlight;
     private Thread closeOwner;
-    /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
     private final QuiescencePolicy closePolicy;
 
     private IdempotentRegistration(final Registration delegate, final QuiescencePolicy closePolicy) {
@@ -33,7 +35,7 @@ final class IdempotentRegistration implements Registration {
     }
 
     static Registration of(final Registration delegate) {
-        return of(delegate, new QuiescencePolicy(Duration.ofSeconds(5)));
+        return of(delegate, DEFAULT_CLOSE_POLICY);
     }
 
     static Registration of(final Registration delegate, final QuiescencePolicy closePolicy) {

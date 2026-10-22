@@ -35,8 +35,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
     }
 
     public EditorLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.callbacks = new LifecycleCallbackExecutor(
-                "Editor", executors, new dev.turboism.core.runtime.QuiescencePolicy(java.time.Duration.ofSeconds(2)));
+        this.callbacks = new LifecycleCallbackExecutor("Editor", executors);
     }
 
     /** Attaches the session event broker used by the preview plugin runtime. */

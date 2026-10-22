@@ -33,9 +33,10 @@ public final class RuntimeExportSettingsContributionRegistry
     static final String CALLBACK_FAILED_KEY = "export-settings.callback-failed";
     static final String PROCEED_UNEXPECTED_KEY = "export-settings.proceed-unexpected";
     static final String CALLBACK_DRAIN_TIMEOUT_KEY = "export-settings.callback-drain-timeout";
-    private final QuiescencePolicy closePolicy;
+    private static final QuiescencePolicy DEFAULT_CLOSE_POLICY = new QuiescencePolicy(Duration.ofSeconds(5));
     static final String CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY = "export-settings.callback-active-during-scope-close";
 
+    private final QuiescencePolicy closePolicy;
     private final String pluginId;
     private final long generation;
     private final Object lifecycleLock = new Object();
@@ -48,7 +49,7 @@ public final class RuntimeExportSettingsContributionRegistry
     private boolean closeDrainInterrupted;
 
     public RuntimeExportSettingsContributionRegistry(final String pluginId, final long generation) {
-        this(pluginId, generation, new QuiescencePolicy(Duration.ofSeconds(5)));
+        this(pluginId, generation, DEFAULT_CLOSE_POLICY);
     }
 
     /** Creates a contribution registry with an explicit callback drain bound. */
