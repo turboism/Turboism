@@ -83,9 +83,9 @@ def _entry(
 def _registry(root: Path, sites: list[dict]) -> None:
     _write(
         root,
-        gate.r3_REGISTRY.as_posix(),
+        gate.r3_LITERAL_EXCEPTIONS.as_posix(),
         json.dumps(
-            {"format": gate.r3_REGISTRY_FORMAT, "sites": sites}
+            {"format": gate.r3_LITERAL_EXCEPTIONS_FORMAT, "sites": sites}
         ),
     )
 

@@ -436,12 +436,6 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
 }
 
-/*
- * The admitted Cubism version set is restated across trust roots, the release
- * detector, the availability policy, packaging, host-validation catalogs and
- * docs. Every site must carry the identical set so adding or retiring a version
- * is one deliberate change rather than silent partial admission.
- */
 // One release-table gate and one SelfTest own R1–R4. Materialization is a shared
 // prerequisite for Exec gates below; no host process is needed for these checks.
 val checkReviewedReleasesSelfTest by tasks.registering(Exec::class) {
@@ -477,66 +471,7 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/check_reviewed_releases.py", rootDir.absolutePath)
 }
 
-val checkVersionSetCompletenessSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for admitted-version-set completeness."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/check_version_set_completeness.py",
-        ".env.example",
-        "scripts/generate_reviewed_releases.py",
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/reviewed-releases/ReviewedHostArtifacts.java.template",
-        "compatibility/cubism/reviewed-releases.json",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java",
-        "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java",
-        "scripts/test/test_reviewed_releases.py",
-        "scripts/test/test_check_version_set_completeness.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_reviewed_releases",
-        "scripts.test.test_check_version_set_completeness",
-        "-v"
-    )
-}
 
-val checkVersionSetCompleteness by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Fails when any surface restates a different admitted Cubism version set."
-    dependsOn(checkVersionSetCompletenessSelfTest)
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/check_version_set_completeness.py",
-        ".env.example",
-        "scripts/generate_reviewed_releases.py",
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/reviewed-releases/ReviewedHostArtifacts.java.template",
-        "compatibility/cubism/reviewed-releases.json",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java",
-        "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-        "runtime/src/main/java/dev/turboism/mapping/verification/CubismEditorReleaseDetector.java",
-        "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java",
-        "bootstrap/build.gradle.kts",
-        "scripts/preview/host-validation-tasks.json",
-        "scripts/preview/host_validation.py",
-        "compatibility/cubism/index.md",
-        fileTree("compatibility/cubism/profiles/draft") { include("*.json") },
-        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
-            include("*.json")
-        }
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/check_version_set_completeness.py", rootDir.absolutePath)
-}
 
 /*
  * The compatibility matrix JSON, the localized compatibility Markdown pages, and
@@ -631,167 +566,11 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
     )
 }
 
-/*
- * Patch releases inside one Cubism minor line are downward compatible: a newer
- * patch's capability set is a superset of every older patch's. Any version set
- * that names a version must therefore also name every higher admitted patch of
- * the same line. The gate enforces that upward closure across verification
- * records, hard-coded Java sets and annotations, class-pin tables, host
- * validation task versions, and MCP coverage lists, with an explicit exception
- * ledger for sanctioned regressions.
- */
-val checkVersionMonotonicitySelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for patch-line version-set monotonicity."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/check_version_monotonicity.py",
-        "scripts/test/test_check_version_monotonicity.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_check_version_monotonicity",
-        "-v"
-    )
-}
 
-val checkVersionMonotonicity by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Fails when a Cubism version set skips a higher patch of the same minor line."
-    dependsOn(checkVersionMonotonicitySelfTest)
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/check_version_monotonicity.py",
-        "scripts/version-monotonicity-exceptions.json",
-        "compatibility/cubism/reviewed-releases.json",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-        "scripts/preview/host-validation-tasks.json",
-        "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
-        fileTree("build/generated/verification") { include("*.json") },
-        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
-            include("*.json")
-        },
-        fileTree("sdk/src/main") { include("**/*.java") },
-        fileTree("runtime/src/main") { include("**/*.java") },
-        fileTree("bootstrap/src/main") { include("**/*.java") },
-        fileTree("core-contract/src/main") { include("**/*.java") },
-        fileTree("event-processor/src/main") { include("**/*.java") },
-        fileTree("graal-host/src/main") { include("**/*.java") },
-        fileTree("buildSrc/src/main") { include("**/*.java") },
-        fileTree("packaging/java-installer/listener-src") { include("**/*.java") },
-        fileTree("templates") { include("**/*.java") },
-        fileTree("scripts/verification-sources/templates") { include("**/*.java") },
-        fileTree("plugins") { include("*/src/main/**/*.java") }
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/check_version_monotonicity.py", rootDir.absolutePath)
-}
 
-/*
- * Monotonicity only proves a version set is upward-closed; it never asks why
- * the set exists. The registry gate goes further: every literal Cubism
- * version set in production sources — collection literals and per-file
- * residual tokens outside @CubismEditor annotations — must be registered in
- * scripts/version-set-registry.json with an audit basis and reason, so a new
- * hand-written admission list cannot appear silently. Stale registrations
- * fail too, so the ledger cannot rot.
- */
-val checkVersionSetRegistrySelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for the literal version-set registry."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/generate_reviewed_releases.py",
-        "scripts/check_version_set_registry.py",
-        "scripts/check_version_monotonicity.py",
-        "scripts/test/test_check_version_set_registry.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_check_version_set_registry",
-        "-v"
-    )
-}
 
-val checkVersionSetRegistry by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Fails when a literal Cubism version set is not in the registry."
-    dependsOn(checkVersionSetRegistrySelfTest)
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/generate_reviewed_releases.py",
-        "scripts/check_version_set_registry.py",
-        "scripts/check_version_monotonicity.py",
-        "scripts/version-set-registry.json",
-        "compatibility/cubism/reviewed-releases.json",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-        fileTree("sdk/src/main") { include("**/*.java") },
-        fileTree("runtime/src/main") { include("**/*.java") },
-        fileTree("bootstrap/src/main") { include("**/*.java") },
-        fileTree("core-contract/src/main") { include("**/*.java") },
-        fileTree("event-processor/src/main") { include("**/*.java") },
-        fileTree("graal-host/src/main") { include("**/*.java") },
-        fileTree("buildSrc/src/main") { include("**/*.java") },
-        fileTree("packaging/java-installer/listener-src") { include("**/*.java") },
-        fileTree("templates") { include("**/*.java") },
-        fileTree("scripts/verification-sources/templates") { include("**/*.java") },
-        fileTree("plugins") { include("*/src/main/**/*.java") },
-        fileTree("scripts/preview") { include("run-*.sh") }
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/check_version_set_registry.py", rootDir.absolutePath)
-}
 
-val checkHostValidationVersionsSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for host-validation task version derivation and wrapper single-source checks."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/check_host_validation_versions.py",
-        "scripts/check_version_set_registry.py",
-        "scripts/check_version_monotonicity.py",
-        "scripts/preview/host_validation_static_gates.py",
-        "scripts/test/test_check_host_validation_versions.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_check_host_validation_versions",
-        "-v"
-    )
-}
 
-val checkHostValidationVersions by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies host-validation manifest task versions equal capability-derived sets and wrappers contain no unregistered version enumerations."
-    dependsOn(checkHostValidationVersionsSelfTest)
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/check_host_validation_versions.py",
-        "scripts/check_version_set_registry.py",
-        "scripts/check_version_monotonicity.py",
-        "scripts/version-set-registry.json",
-        "scripts/preview/host-validation-tasks.json",
-        "scripts/preview/host_validation_static_gates.py",
-        "compatibility/cubism/compatibility-matrix.json",
-        "compatibility/cubism/reviewed-releases.json",
-        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-        fileTree("scripts/preview") { include("run-*.sh") }
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/check_host_validation_versions.py", rootDir.absolutePath)
-}
 
 /*
  * Every public type under dev.turboism.sdk.cubism declares host-facing API and
@@ -885,36 +664,7 @@ val checkMaterializedRecords by tasks.registering(Exec::class) {
 
 // Packaging consumes the materializer task output; validate its exact bytes,
 // filename set and manifest pins before copying the resource directory.
-val checkVerificationRecordIndexSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for the packaged verification-record index."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/verification_record_index.py",
-        "scripts/test/test_verification_record_index.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_verification_record_index",
-        "-v"
-    )
-}
 
-val checkVerificationRecordIndex by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Fails when the packaged verification-record list drifts from the directory or manifest pins."
-    dependsOn(checkVerificationRecordIndexSelfTest)
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/verification_record_index.py",
-        "bootstrap/build.gradle.kts",
-        fileTree("build/generated/verification") { include("*.json") },
-        fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") }
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/verification_record_index.py", rootDir.absolutePath, "--check")
-}
 
 /*
  * The VerificationManifest classes and selector contracts are generated by
