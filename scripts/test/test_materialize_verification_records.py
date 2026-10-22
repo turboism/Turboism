@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import copy
 import sys
+import subprocess
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import materialize_verification_records as gen
-import version_table_releases as releases_gen
+from preview.reviewed_host_artifacts import load_releases
+from scripts.test.reviewed_releases_fixture import table
 
 
 VERSIONS = ['5.0.00', '5.0.01', '5.0.02']
@@ -64,6 +67,35 @@ class MaterializeVerificationRecordsTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'bytes differ'):
                 gen.check_records(rendered, directory)
 
+    def test_output_removes_stale_records_and_preserves_bytes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'records'
+            expected = {'cubism-5.0.00-fixture.json': encoded(record(VERSIONS[0]))}
+            gen.write_records(output, expected)
+            stamp = (output / next(iter(expected))).stat().st_mtime_ns
+            (output / 'stale.json').write_text('{}')
+            gen.write_records(output, expected)
+            gen.check_records(expected, output)
+            self.assertEqual(stamp, (output / next(iter(expected))).stat().st_mtime_ns)
+            (output / 'link.json').symlink_to(output / next(iter(expected)))
+            with self.assertRaisesRegex(ValueError, 'unexpected entry'):
+                gen.write_records(output, expected)
+
+    def test_export_committed_restores_exact_layout(self):
+        root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp)
+            shutil.copytree(root / gen.SOURCES, target / gen.SOURCES)
+            shutil.copyfile(root / gen.RELEASES, target / gen.RELEASES)
+            command = [sys.executable, str(root / 'scripts/materialize_verification_records.py'),
+                       '--root', str(target)]
+            result = subprocess.run(command + ['export-committed'], capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            gen.check_records(gen.render_records(root), target / gen.RECORDS)
+            result = subprocess.run(command + ['--output', str(gen.RECORDS)], capture_output=True, text=True)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn('use export-committed', result.stderr)
+
     def test_range_boundary(self):
         docs = {v: record(v) for v in VERSIONS}
         docs[VERSIONS[0]]['selectors'] = []
@@ -96,23 +128,14 @@ class MaterializeVerificationRecordsTest(unittest.TestCase):
             gen.import_family('fixture', {VERSIONS[0]: encoded(d)}, RELEASES)
         with self.assertRaisesRegex(ValueError, 'duplicate JSON key'):
             gen.unique_object([('key', 1), ('key', 2)])
-        # Symbol spelling must not hide a changed Java version literal.
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            files = {
-                releases_gen.SOURCE_RELATIVE: (
-                    'public static final String CUBISM_5_0_00_VERSION = "5.0.99";\n'
-                    'CUBISM_5_0_00 = new HostArtifactDigest(1L, "' + 'ab' * 32 + '");'
-                ),
-                releases_gen.JAVA_RELEASES: 'case ReviewedHostArtifacts.CUBISM_5_0_00_VERSION -> build == 1;',
-                releases_gen.JAVA_CORE: 'case "5.0.00" -> exact(5, 0, 0);',
-            }
-            for name, text in files.items():
-                path = root / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(text, encoding='utf-8')
-            with self.assertRaisesRegex(ValueError, 'version literals'):
-                releases_gen.import_releases(root)
+            path = Path(temp) / 'reviewed-releases.json'
+            path.write_text(table(VERSIONS))
+            self.assertEqual(VERSIONS, [r['version'] for r in load_releases(path)])
+            path.write_text(table(VERSIONS).replace('"fullRuntime": true', '"fullRuntime": "true"'))
+            with self.assertRaisesRegex(ValueError, 'fullRuntime'):
+                load_releases(path)
+
 
 
 if __name__ == '__main__':

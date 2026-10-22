@@ -13,12 +13,12 @@ MATRIX_FORMAT = "turboism.compatibility-matrix/v1"
 
 REPO_ROOT = repo_root()
 
-VERIFICATION_DIR = Path("compatibility/cubism/verification")
+VERIFICATION_DIR = Path("build/generated/verification")
 FAMILIES_DIR = Path("scripts/verification-sources/families")
 MATRIX_JSON = Path("compatibility/cubism/compatibility-matrix.json")
 DOCS_DIR = Path("compatibility/cubism")
 REVIEWED_HOST_ARTIFACTS = Path(
-    "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
+    "compatibility/cubism/reviewed-releases.json"
 )
 SDK_MAIN = Path("sdk/src/main/java")
 RUNTIME_MAIN = Path("runtime/src/main/java")
@@ -52,9 +52,6 @@ README_LOCALE = {"README.md": "en", "README_zh.md": "zh", "README_ja.md": "ja"}
 DOC_SUFFIX = {"en": "", "zh": "_zh", "ja": "_ja", "ko": "_ko"}
 
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
-VERSION_CONSTANT_RE = re.compile(
-    r'CUBISM_\d+_\d+_\d+_VERSION\s*=\s*"(\d+\.\d+\.\d+)"'
-)
 ANNOTATION_RE = re.compile(
     r"@(?:dev\.turboism\.sdk\.)?CubismEditor\b(?:\s*\((.*?)\))?", re.DOTALL
 )
@@ -109,6 +106,21 @@ DECLARED_CAPABILITY_ALIASES: dict[str, dict[str, list[str]]] = {
         "capabilities": ["cubism.editor-model.object-hierarchy.edit"]
     },
     "cubism.model.read": {"capabilities": ["cubism.editor-model.read"]},
+    # Model lifecycle observation needs model identity and project/document access.
+    # Native hook installation remains a runtime condition, verified separately.
+    "cubism.model.observe": {
+        "capabilities": ["cubism.editor-model.read", "cubism.project.read"]
+    },
+    # ParameterHooks interception uses these three exact aliases in
+    # VerifiedParameterHookInstaller, in addition to the model write contract.
+    "cubism.model.intercept": {
+        "capabilities": ["cubism.editor-model.write"],
+        "selectors": [
+            "cubism.editor-model.parameter-operation.set-value",
+            "cubism.editor-model.parameter-source.id",
+            "cubism.editor-model.id.value",
+        ],
+    },
     "cubism.model.write": {"capabilities": ["cubism.editor-model.write"]},
     "cubism.parameters.read": {
         "capabilities": [

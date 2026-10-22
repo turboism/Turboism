@@ -180,7 +180,7 @@ class ExpandedEvidenceTest(EvidenceTest):
 class HostIdentityMatrixTest(unittest.TestCase):
     def test_every_reviewed_editor_record_has_exact_evidence_identity(self):
         root = Path(__file__).resolve().parents[2]
-        records = list((root / "compatibility/cubism/verification").glob("cubism-*-editor-model.json"))
+        records = list((root / "build/generated/verification").glob("cubism-*-editor-model.json"))
         expected = {}
         for path in records:
             record = json.loads(path.read_text())

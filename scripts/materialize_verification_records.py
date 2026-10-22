@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Import and materialize shadow verification families, without runtime consumers.
+"""Materialize complete verification records for builds, inspection and rollback.
 
   python3 scripts/materialize_verification_records.py import
   python3 scripts/materialize_verification_records.py --check-against compatibility/cubism/verification
   python3 scripts/materialize_verification_records.py --output build/generated/verification
+  python3 scripts/materialize_verification_records.py export-committed
 
 Ranges are inclusive positions in the exact reviewed release list, not semantic
 version inference. Selector table indices preserve original list order; field
@@ -16,14 +17,19 @@ import argparse
 import copy
 import json
 import re
+import os
+import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from version_table_releases import RELEASES, import_releases
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
+
+RELEASES = Path(SOURCE_RELATIVE)
 
 ROOT = Path(__file__).resolve().parents[1]
 RECORDS = Path('compatibility/cubism/verification')
 SOURCES = Path('compatibility/cubism/verification-src')
+OUTPUT = Path('build/generated/verification')
 DERIVED = {'verificationId', 'cubismVersion', 'profileId', 'evidencePath', 'artifact'}
 SPECIAL = DERIVED | {'selectors', 'verifiedAt'}
 
@@ -319,63 +325,85 @@ def import_records(directory: Path, releases: dict) -> dict[str, dict]:
 def check_records(rendered: dict[str, bytes], directory: Path) -> None:
     existing = {p.name: p for p in directory.glob('*.json')}
     if set(existing) != set(rendered):
-        raise ValueError(f'record file set differs: missing={sorted(set(existing) - set(rendered))}, extra={sorted(set(rendered) - set(existing))}')
+        raise ValueError(f'record file set differs: missing={sorted(set(rendered) - set(existing))}, extra={sorted(set(existing) - set(rendered))}')
     changed = [name for name, raw in rendered.items() if raw != existing[name].read_bytes()]
     if changed:
         raise ValueError(f'record bytes differ: {changed}')
 
 
+def render_records(root: Path) -> dict[str, bytes]:
+    """Expand the canonical table and family sources without writing any files."""
+    releases = {r['version']: r for r in load_releases(root / RELEASES)}
+    rendered = {}
+    paths = sorted((root / SOURCES).glob('*.json'))
+    if not paths:
+        raise ValueError('empty family source directory')
+    for path in paths:
+        source = read_json(path)
+        if source['family'] != path.stem:
+            raise ValueError(f'family filename mismatch: {path}')
+        records = materialize_family(source, releases)
+        if set(records) & set(rendered):
+            raise ValueError('duplicate materialized filename')
+        rendered.update(records)
+    return rendered
+
+
+def write_records(output: Path, rendered: dict[str, bytes]) -> None:
+    """Own the output directory; remove stale records and publish each file atomically."""
+    if any(path.is_symlink() for path in [output, *output.parents]):
+        raise ValueError(f'materialized output must not traverse symlinks: {output}')
+    output.mkdir(parents=True, exist_ok=True)
+    for path in output.iterdir():
+        if path.is_symlink() or not path.is_file() or path.suffix != '.json':
+            raise ValueError(f'unexpected entry in materialized output: {path}')
+    for path in output.glob('*.json'):
+        if path.name not in rendered:
+            path.unlink()
+    for name, raw in sorted(rendered.items()):
+        target = output / name
+        if target.is_file() and target.read_bytes() == raw:
+            continue
+        descriptor, temporary = tempfile.mkstemp(prefix='.' + name, dir=output)
+        try:
+            with os.fdopen(descriptor, 'wb') as stream:
+                stream.write(raw)
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', nargs='?', choices=['import', 'materialize'], default='materialize')
+    parser.add_argument('command', nargs='?', choices=['import', 'materialize', 'export-committed'], default='materialize')
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--check-against', type=Path)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     root = args.root.resolve()
     try:
-        expected = import_releases(root)
         if args.command == 'import':
-            sources = import_records(root / RECORDS, {r['version']: r for r in expected['releases']})
-            # Refuse stale files rather than silently deleting authoring input.
+            releases = {r['version']: r for r in load_releases(root / RELEASES)}
+            sources = import_records(root / (args.output or RECORDS), releases)
             existing = {p.stem for p in (root / SOURCES).glob('*.json')}
             if existing - set(sources):
                 raise ValueError('unexpected family sources; refusing import')
-            write_json(root / RELEASES, expected)
             for family, source in sources.items():
                 write_json(root / SOURCES / f'{family}.json', source)
-        actual = read_json(root / RELEASES)
-        if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
-            raise ValueError('reviewed-releases.json differs from authoritative Java declarations')
-        releases = {r['version']: r for r in actual['releases']}
-        rendered = {}
-        paths = sorted((root / SOURCES).glob('*.json'))
-        if not paths:
-            raise ValueError('empty family source directory')
-        for path in paths:
-            source = read_json(path)
-            if source['family'] != path.stem:
-                raise ValueError(f'family filename mismatch: {path}')
-            records = materialize_family(source, releases)
-            if set(records) & set(rendered):
-                raise ValueError('duplicate materialized filename')
-            rendered.update(records)
+        rendered = render_records(root)
         if args.check_against:
             check_records(rendered, root / args.check_against)
-        output_path = args.output
-        if output_path is None and not args.check_against and args.command == 'materialize':
-            output_path = Path('build/generated/verification')
-        if output_path:
-            output = root / output_path
-            if output.resolve() == (root / RECORDS).resolve():
-                raise ValueError('shadow mode cannot overwrite committed records')
-            unexpected = {p.name for p in output.glob('*.json')} - set(rendered)
-            if unexpected:
-                raise ValueError(f'unexpected output records; refusing to leave stale files: {sorted(unexpected)}')
-            for name, raw in sorted(rendered.items()):
-                output.mkdir(parents=True, exist_ok=True)
-                (output / name).write_bytes(raw)
-        print(f'PASS: Java release facts agree; materialized {len(rendered)} records from {len(paths)} families' + (' byte-for-byte' if args.check_against else ''))
+        output = args.output
+        if output is None and args.command == 'export-committed':
+            output = RECORDS
+        elif output is None and not args.check_against and args.command == 'materialize':
+            output = OUTPUT
+        if output is not None:
+            if (root / output).resolve() == (root / RECORDS).resolve() and args.command != 'export-committed':
+                raise ValueError('use export-committed to restore the old committed layout')
+            write_records(root / output, rendered)
+        print(f'PASS: canonical release table validated; materialized {len(rendered)} records' + (' byte-for-byte' if args.check_against else ''))
         return 0
     except (ValueError, KeyError, TypeError, OSError) as failure:
         parser.exit(1, f'FAIL: {failure}\n')

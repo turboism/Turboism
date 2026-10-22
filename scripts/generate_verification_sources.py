@@ -6,7 +6,7 @@ The ``*VerificationManifest`` classes and ``selector/*Contract`` classes under
 truth is:
 
 - the byte-hashed verification records under
-  ``compatibility/cubism/verification/`` (record sha256, verificationId,
+  ``build/generated/verification/`` (record sha256, verificationId,
   cubismVersion, profileId, adapterSliceId and artifact identity are substituted
   from record bytes at render time, so a Java pin can never drift from the
   audited record), and
@@ -52,7 +52,7 @@ ROOT = repo_root()
 AUTHORING_ROOT = Path("scripts/verification-sources")
 FAMILY_DIR = AUTHORING_ROOT / "families"
 TEMPLATE_ROOT = AUTHORING_ROOT / "templates"
-VERIFICATION_DIR = Path("compatibility/cubism/verification")
+VERIFICATION_DIR = Path("build/generated/verification")
 PACK_DIR = Path("compatibility/cubism/mapping-packs/draft")
 SOURCE_ROOT = Path("runtime/src/main/java")
 VERIFICATION_PACKAGE = "dev/turboism/mapping/verification"

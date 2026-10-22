@@ -122,14 +122,14 @@ class ProbeTaskDirectoryDigestTest(unittest.TestCase):
     """The runner executes the verifier from a flat task directory, outside the repository tree."""
 
     PREVIEW = Path(__file__).resolve().parents[1] / "preview"
-    JAVA = (Path(__file__).resolve().parents[2]
-            / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java")
+    TABLE = (Path(__file__).resolve().parents[2]
+            / "compatibility/cubism/reviewed-releases.json")
 
-    def stage(self, directory, java=True):
+    def stage(self, directory, table=True):
         shutil.copy(self.PREVIEW / "verify-cubism-performance-probe.py", directory)
         shutil.copy(self.PREVIEW / "reviewed_host_artifacts.py", directory)
-        if java:
-            shutil.copy(self.JAVA, directory)
+        if table:
+            shutil.copy(self.TABLE, directory)
 
     def run_self_test(self, directory):
         return subprocess.run([sys.executable, str(Path(directory) / "verify-cubism-performance-probe.py"),
@@ -143,10 +143,10 @@ class ProbeTaskDirectoryDigestTest(unittest.TestCase):
 
     def test_verifier_fails_closed_without_the_staged_source(self):
         with tempfile.TemporaryDirectory() as directory:
-            self.stage(directory, java=False)
+            self.stage(directory, table=False)
             result = self.run_self_test(directory)
             self.assertNotEqual(0, result.returncode)
-            self.assertIn("reviewed host artifact source unreadable", result.stderr)
+            self.assertIn("reviewed release source unreadable", result.stderr)
 
 
 if __name__ == "__main__":

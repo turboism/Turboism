@@ -27,8 +27,7 @@ final class EditorWarpMirrorSelectorContractTest {
     @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void exactRecordAdmitsTheWarpMirrorContract(final String version) throws Exception {
         final var loaded = new StaticVerificationRecordLoader()
-                .load(PROJECT_ROOT.resolve(
-                        "compatibility/cubism/verification/cubism-" + version + "-editor-model.json"));
+                .load(PROJECT_ROOT.resolve("build/generated/verification/cubism-" + version + "-editor-model.json"));
 
         assertTrue(
                 loaded.record().capabilityIds().contains(EditorWarpMirrorSelectorContract.CAPABILITY_ID),
@@ -53,8 +52,7 @@ final class EditorWarpMirrorSelectorContractTest {
     @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
     void exactRecordMatchesTheRuntimeOwnedManifest(final String version) throws Exception {
         final var loaded = new StaticVerificationRecordLoader()
-                .load(PROJECT_ROOT.resolve(
-                        "compatibility/cubism/verification/cubism-" + version + "-editor-model.json"));
+                .load(PROJECT_ROOT.resolve("build/generated/verification/cubism-" + version + "-editor-model.json"));
         final HostArtifactDigest artifact =
                 switch (version) {
                     case "5.2.03" -> ReviewedHostArtifacts.CUBISM_5_2_03;

@@ -1,5 +1,14 @@
 # Manifest Provenance Audit
 
+**Historical audit (before the version-table redesign).** Counts, paths, manual
+steps and drift findings below describe that earlier snapshot. After Phase 3,
+`reviewed-releases.json` and `verification-src/*.json` produce complete records
+in `build/generated/verification/`; packaging consumes the materializer task
+output. The old `compatibility/cubism/verification/` path survives only as a
+historical provenance label or an explicit rollback export. Java manifests are
+generated from the existing family/template inputs. For current commands and
+remaining manual work, use [version-onboarding.md](version-onboarding.md).
+
 Read-only audit of the artifact families that bind Turboism to exact Cubism
 Editor/Core versions: which are generated, which are hand-maintained, and where
 the two sides can drift. Scope: `compatibility/cubism/` (96 tracked files) and
@@ -129,7 +138,8 @@ contracts, and every version pin, is hand-maintained (~97% of files by count).
 
 ## Verification appendix
 
-All commands below were executed on this worktree and exist:
+Commands below were executed for the historical audit. To hash a record now,
+materialize first and use `build/generated/verification/` instead of the old path:
 
 - `./gradlew tasks --all` lists `runtime:generateCorePublicApiCatalog`,
   `runtime:generateCorePublicApiSelectorContract`, `mappingReview`,
