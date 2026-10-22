@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism.optimization.composite;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Optional;
 
 /**

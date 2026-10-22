@@ -1,4 +1,4 @@
-package dev.turboism.sdk;
+package dev.turboism.internal;
 
 import java.util.List;
 import java.util.Set;

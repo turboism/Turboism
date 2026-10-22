@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;

@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.command;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Set;
 
 /** Safe no-argument semantic operations discovered from the normal Cubism menus. */
