@@ -119,6 +119,20 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
 
     /* ---------------- Factory entry points ---------------- */
 
+    /** Opaque inspection palette; source geometry, sidedness and controls stay intact. */
+    static NativeMaterialPlan faceColors(ViewerScene scene) {
+        var images = new ArrayList<Image>();
+        for (int color : SurfaceBaseColorPlan.FACE_PALETTE) {
+            int side = Options.DEFAULT.constantImageDimension();
+            int[] pixels = new int[side * side];
+            Arrays.fill(pixels, color);
+            images.add(new Image(side, side, encodePng(side, side, pixels), computeSha256(side, side, pixels)));
+        }
+        var indices = new ArrayList<Integer>();
+        for (int i = 0; i < scene.meshes().size(); i++) indices.add(i % images.size());
+        return new NativeMaterialPlan(scene, indices, images);
+    }
+
     /** Bakes scene materials using default budgets. */
     public static NativeMaterialPlan prepare(ViewerScene scene) {
         return prepare(scene, Options.DEFAULT, () -> false);

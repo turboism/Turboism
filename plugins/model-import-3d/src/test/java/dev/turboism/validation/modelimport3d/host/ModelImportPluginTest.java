@@ -33,9 +33,13 @@ class ModelImportPluginTest {
         final AtomicInteger reads = new AtomicInteger(), writes = new AtomicInteger(), closed = new AtomicInteger();
         final DisposableScope scope = new DisposableScope();
         dev.turboism.sdk.menu.MenuRegistry.MenuContribution menu;
-        ActionRegistry.Action action;
+        ActionRegistry.Action action, presetAction;
+        int registeredActions, registeredMenus, fileRequests;
         String document = "original";
         int choice = 0;
+        Optional<ModelPreset> selectedPreset = Optional.empty();
+        Runnable onPreset = () -> {};
+        NativeModelImport.Prepared character;
         float canvasWidth = 1024, canvasHeight = 1024;
         boolean confirm = false;
         boolean stale = false;
@@ -78,8 +82,10 @@ class ModelImportPluginTest {
         Object cubism() {
             return proxy(CubismFacade.class, (o, m, a) -> {
                 if (m.getName().equals("activeDocument"))
-                    return Optional.of(
-                            new DocumentSnapshot(document, "model", "model.cmo3", Optional.empty(), Optional.empty()));
+                    return document == null
+                            ? Optional.empty()
+                            : Optional.of(new DocumentSnapshot(
+                                    document, "model", "model.cmo3", Optional.empty(), Optional.empty()));
                 if (m.getName().equals("model")) return proxy(m.getReturnType(), (x, n, v) -> model);
                 if (m.getName().equals("authoringTransactions")) {
                     writes.incrementAndGet();
@@ -104,11 +110,14 @@ class ModelImportPluginTest {
                 case "disposableScope" -> scope;
                 case "actions" ->
                     proxy(m.getReturnType(), (x, n, v) -> {
+                        registeredActions++;
                         action = (ActionRegistry.Action) v[1];
+                        if (action.id().equals("model-import-3d.import-preset")) presetAction = action;
                         return (Registration) () -> {};
                     });
                 case "menus" ->
                     proxy(m.getReturnType(), (x, n, v) -> {
+                        registeredMenus++;
                         menu = (dev.turboism.sdk.menu.MenuRegistry.MenuContribution) v[0];
                         return (Registration) () -> {};
                     });
@@ -126,10 +135,13 @@ class ModelImportPluginTest {
                             });
                 case "userFiles" ->
                     proxy(UserFileAccessService.class, (x, n, v) -> {
-                        if (n.getName().equals("request")) return choose;
+                        if (n.getName().equals("request")) {
+                            fileRequests++;
+                            return choose;
+                        }
                         if (n.getName().equals("readBytes") || n.getName().equals("readBytesBounded")) {
                             reads.incrementAndGet();
-                            assertEquals(choice == 0 ? 128 * 1024 * 1024 : 16 * 1024 * 1024, v[1]);
+                            assertEquals(NativeModelImport.MAX_BYTES, v[1]);
                             return read;
                         }
                         throw new AssertionError(n);
@@ -142,6 +154,18 @@ class ModelImportPluginTest {
             appearances++;
             onAppearance.run();
             return choice;
+        }
+
+        public Optional<ModelPreset> preset() {
+            onPreset.run();
+            return selectedPreset;
+        }
+
+        public boolean confirmCharacter(NativeModelImport.Prepared p, ModelImportPlugin.AtlasSummary atlas) {
+            character = p;
+            onConfirm.run();
+            outcome.countDown();
+            return confirm;
         }
 
         public boolean confirm(SurfaceImport.Prepared p) {
@@ -177,10 +201,14 @@ class ModelImportPluginTest {
         }
 
         ModelImportPlugin start() throws Exception {
+            return start(false);
+        }
+
+        ModelImportPlugin start(boolean fromPreset) throws Exception {
             var plugin = new ModelImportPlugin(this);
             plugin.init(context());
             plugin.enable();
-            action.handler().accept(null);
+            (fromPreset ? presetAction : action).handler().accept(null);
             edt(() -> {});
             return plugin;
         }
@@ -214,6 +242,62 @@ class ModelImportPluginTest {
                 List.of("Turboism", "3D 模型", w.action.label()),
                 List.of(w.menu.menuPath().split("/")));
         assertEquals(w.action.id(), w.menu.actionId());
+        assertEquals(2, w.registeredActions);
+        assertEquals(2, w.registeredMenus);
+    }
+
+    @Test
+    void presetImportUsesBundledImageWithoutRequestingUserFiles() throws Exception {
+        var w = new World();
+        w.selectedPreset = Optional.of(ModelPreset.SQUARE);
+        w.start(true);
+        w.done();
+        assertNull(w.error);
+        assertNotNull(w.character);
+        assertEquals("正方形", w.character.geometry().request().name());
+        assertEquals(1, w.character.materials().images().size());
+        assertEquals(0, w.appearances);
+        assertEquals(0, w.reads.get());
+        assertFalse(w.choose.isDone());
+        assertEquals(0, w.fileRequests);
+    }
+
+    @Test
+    void cancelPresetDoesNotReadOrWriteAndReleasesBusyState() throws Exception {
+        var w = new World();
+        w.start(true);
+        w.selectedPreset = Optional.of(ModelPreset.SQUARE);
+        w.presetAction.handler().accept(null);
+        w.done();
+        assertNotNull(w.character);
+        assertNull(w.error);
+        assertEquals(0, w.reads.get());
+    }
+
+    @Test
+    void presetImportRefusesWriteAfterDocumentSwitch() throws Exception {
+        var w = new World();
+        w.selectedPreset = Optional.of(ModelPreset.SQUARE);
+        w.onPreset = () -> w.document = "other";
+        w.start(true);
+        w.done();
+        assertTrue(w.error.contains("目标文档"), w.error);
+        assertNull(w.character);
+    }
+
+    @Test
+    void importsWithoutDocumentAskForModelProject() throws Exception {
+        for (boolean fromPreset : List.of(false, true)) {
+            var w = new World();
+            w.document = null;
+            w.start(fromPreset);
+            w.done();
+            assertEquals("请先打开一个模型工程", w.error);
+            assertEquals(0, w.appearances);
+            assertEquals(0, w.reads.get());
+            assertFalse(w.choose.isDone());
+            assertEquals(0, w.fileRequests);
+        }
     }
 
     @Test
@@ -267,14 +351,14 @@ class ModelImportPluginTest {
     }
 
     @Test
-    void faceColorInspectionKeepsLegacyReadLimit() throws Exception {
+    void faceColorsUseFullCircleReadLimit() throws Exception {
         var w = new World();
         w.choice = 1;
         w.start();
         w.grant();
         w.read.complete(new UserFileReadResult<>(Optional.of(new byte[0]), Optional.empty(), true));
         w.done();
-        assertTrue(w.error.contains("16 MiB"));
+        assertTrue(w.error.contains("128 MiB"));
         assertEquals(1, w.closed.get());
         assertEquals(0, w.writes.get());
     }
@@ -382,9 +466,18 @@ class ModelImportPluginTest {
         w.cube();
         w.done();
         assertNull(w.error);
-        assertEquals(6, w.prepared.appearance.materials().size());
-        assertEquals(2401, w.prepared.geometry.keys().size());
-        assertEquals(49, w.prepared.geometry.grid().yawKeys().size());
+        assertNull(w.prepared);
+        assertNotNull(w.layered);
+        assertEquals(180, w.layered.surface().request.yawLimit());
+        assertEquals(180, w.layered.surface().request.pitchLimit());
+        assertTrue(w.layered.surface().request.roll().isPresent());
+        var images = w.layered.surface().images;
+        assertEquals(6, images.imageCount());
+        assertEquals(6, new java.util.HashSet<>(images.meshImages).size());
+        for (int i = 0; i < images.imageCount(); i++) {
+            var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(images.png(i)));
+            assertEquals(SurfaceBaseColorPlan.FACE_PALETTE.get(i).intValue(), image.getRGB(0, 0));
+        }
     }
 
     @Test

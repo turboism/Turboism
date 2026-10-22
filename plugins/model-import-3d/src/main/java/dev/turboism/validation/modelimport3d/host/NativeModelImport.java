@@ -20,7 +20,14 @@ final class NativeModelImport {
     private NativeModelImport() {}
 
     record Prepared(
-            NativeCharacterPlan.Plan geometry, NativeMaterialPlan materials, NativeControlWarpPlan.Plan controls) {}
+            NativeCharacterPlan.Plan geometry,
+            NativeMaterialPlan materials,
+            NativeControlWarpPlan.Plan controls,
+            boolean faceColors) {
+        Prepared(NativeCharacterPlan.Plan geometry, NativeMaterialPlan materials, NativeControlWarpPlan.Plan controls) {
+            this(geometry, materials, controls, false);
+        }
+    }
 
     static boolean isGlb(byte[] bytes) {
         return bytes != null
@@ -32,10 +39,21 @@ final class NativeModelImport {
     }
 
     static Prepared prepare(byte[] bytes, SurfaceImport.Request request, BooleanSupplier cancelled) throws IOException {
+        return prepare(bytes, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL, cancelled);
+    }
+
+    static Prepared prepare(
+            byte[] bytes,
+            SurfaceImport.Request request,
+            SurfaceBaseColorPlan.Appearance appearance,
+            BooleanSupplier cancelled)
+            throws IOException {
         if (!isGlb(bytes) || bytes.length > MAX_BYTES)
             throw new IllegalArgumentException("Native character import requires a GLB within 128 MiB");
         var scene = GlbViewerLoader.loadWithSourceControls(bytes, cancelled);
-        var materials = NativeMaterialPlan.prepare(scene, cancelled);
+        boolean faceColors = appearance == SurfaceBaseColorPlan.Appearance.FACE_COLORS;
+        var materials =
+                faceColors ? NativeMaterialPlan.faceColors(scene) : NativeMaterialPlan.prepare(scene, cancelled);
         if (cancelled.getAsBoolean()) throw new CancellationException();
         var limits = new java.util.HashMap<Integer, java.util.Set<java.util.List<Integer>>>();
         var fits = new NativeControlWarpPlan.FitCache();
@@ -47,7 +65,7 @@ final class NativeModelImport {
             try {
                 var controls = NativeControlWarpPlan.prepare(materials.scene(), geometry, fits);
                 if (cancelled.getAsBoolean()) throw new CancellationException();
-                return new Prepared(candidate.finish(), materials, controls);
+                return new Prepared(candidate.finish(), materials, controls, faceColors);
             } catch (NativeCharacterVisibility.RefinementRequired failure) {
                 if (++visibilityRetries > 32)
                     throw new IllegalArgumentException("Native visibility refinement budget exceeded", failure);
@@ -105,11 +123,15 @@ final class NativeModelImport {
         Map<ArtMeshId, ModelImageBinding> meshes = new LinkedHashMap<>();
         var materials = prepared.materials();
         var finishSourceControls = new java.util.concurrent.atomic.AtomicReference<Runnable>();
+        var materialOrdinal = new java.util.concurrent.atomic.AtomicInteger();
         return NativeCharacterAuthoring.assemble(
                 model,
                 prepared.geometry(),
                 (meshId, sourceIndex) -> {
-                    int imageIndex = materials.imageIndexForMesh(sourceIndex);
+                    int imageIndex = prepared.faceColors()
+                            ? materialOrdinal.getAndIncrement()
+                                    % materials.images().size()
+                            : materials.imageIndexForMesh(sourceIndex);
                     if (imageIndex < 0 || imageIndex >= materials.images().size())
                         throw new IllegalStateException("Native mesh has no material image");
                     String key = "native-img-" + imageIndex;

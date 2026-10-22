@@ -1,6 +1,5 @@
 package dev.turboism.validation.modelimport3d.host;
 
-import dev.turboism.plugin.modelimport3d.viewer.ModelViewerWindow;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -26,6 +25,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
     interface Ui {
         int appearance();
+
+        default Optional<ModelPreset> preset() {
+            return Optional.empty();
+        }
 
         boolean confirm(SurfaceImport.Prepared prepared);
 
@@ -201,6 +204,37 @@ public final class ModelImportPlugin implements TurboismPlugin {
     static PreparedImport prepare(
             byte[] bytes, SurfaceImport.Request request, SurfaceBaseColorPlan.Appearance appearance)
             throws java.io.IOException {
+        if (appearance == SurfaceBaseColorPlan.Appearance.FACE_COLORS
+                && request.roll().isPresent()) {
+            if (NativeModelImport.isGlb(bytes) && needsNativeSourceImport(bytes))
+                return new PreparedImport(
+                        null, null, null, null, NativeModelImport.prepare(bytes, request, appearance, () -> false));
+            bytes = ModelInputNormalizer.normalize(bytes);
+            if (needsNativeSourceImport(bytes))
+                return new PreparedImport(
+                        null, null, null, null, NativeModelImport.prepare(bytes, request, appearance, () -> false));
+            var prepared = prepare(bytes, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL);
+            if (prepared.layered() != null) {
+                var layer = prepared.layered();
+                return new PreparedImport(
+                        null,
+                        new SurfaceWarpLayerAuthoring.Prepared(
+                                SurfaceWarpAuthoring.faceColors(layer.surface()), layer.orders(),
+                                layer.layerYawKeys(), layer.layerPitchKeys()));
+            }
+            var vertex = prepared.vertices();
+            return new PreparedImport(
+                    null,
+                    null,
+                    new SurfaceVertexAuthoring.Prepared(
+                            vertex.request(),
+                            vertex.geometry(),
+                            SurfaceWarpImagePlan.faceColors(vertex.images()),
+                            vertex.orders(),
+                            vertex.interpolationErrorBoundPixels(),
+                            vertex.sampling()),
+                    prepared.optimization());
+        }
         boolean originalGlb = NativeModelImport.isGlb(bytes);
         if (request.roll().isPresent()
                 && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL
@@ -291,8 +325,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
     private volatile boolean enabled;
     private long busyEpoch; // EDT only; an old enable cycle cannot unlock a new request.
     private static final String ACTION = "model-import-3d.import";
-    private static final String VIEW_ACTION = "model-import-3d.view";
-    private volatile ModelViewerWindow viewer;
+    private static final String PRESET_ACTION = "model-import-3d.import-preset";
 
     @Override
     public void init(PluginContext value) {
@@ -333,51 +366,36 @@ public final class ModelImportPlugin implements TurboismPlugin {
     public void enable() {
         enabled = true;
         long token = ++epoch;
-        context.disposableScope().register(context.actions().register(VIEW_ACTION, new ActionRegistry.Action() {
+        context.disposableScope().register(context.actions().register(PRESET_ACTION, new ActionRegistry.Action() {
             @Override
             public String id() {
-                return VIEW_ACTION;
+                return PRESET_ACTION;
             }
 
             @Override
             public String label() {
-                return text("viewer.action", "View 3D model…");
+                return text("action.preset.label", "从预设导入…");
             }
 
             @Override
             public Consumer<ActionRegistry.ActionContext> handler() {
-                return ignored -> SwingUtilities.invokeLater(() -> {
-                    if (!active(token)) return;
-                    ModelViewerWindow current = viewer;
-                    if (current == null || current.isClosed()) {
-                        current = new ModelViewerWindow(
-                                context.userFiles(),
-                                key -> text(key, key),
-                                failure -> context.logger().error("3D viewer failed", failure));
-                        viewer = current;
-                    }
-                    if (!active(token)) {
-                        current.close();
-                        return;
-                    }
-                    current.show();
-                });
+                return ignored -> SwingUtilities.invokeLater(() -> start(token, true));
             }
         }));
         context.disposableScope().register(context.menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "Turboism/" + text("menu.group", "3D Models") + "/" + text("viewer.action", "View 3D model…");
+                return "Turboism/" + text("menu.group", "3D 模型") + "/" + text("action.preset.label", "从预设导入…");
             }
 
             @Override
             public String actionId() {
-                return VIEW_ACTION;
+                return PRESET_ACTION;
             }
 
             @Override
             public int order() {
-                return 90;
+                return 110;
             }
         }));
         context.disposableScope().register(context.actions().register(ACTION, new ActionRegistry.Action() {
@@ -418,9 +436,6 @@ public final class ModelImportPlugin implements TurboismPlugin {
     public void disable() {
         enabled = false;
         ++epoch;
-        ModelViewerWindow current = viewer;
-        viewer = null;
-        if (current != null) current.close();
     }
 
     @Override
@@ -433,18 +448,27 @@ public final class ModelImportPlugin implements TurboismPlugin {
     }
 
     private void start(long token) {
+        start(token, false);
+    }
+
+    private void start(long token, boolean fromPreset) {
         if (!active(token) || busyEpoch == token) return;
         busyEpoch = token; // Set before opening a modal dialog (which pumps nested events).
         try {
             var document = context.cubism()
                     .activeDocument()
-                    .orElseThrow(() -> new LocalizedIllegalStateException("error.no-active-document", "请先打开目标模型。"));
+                    .orElseThrow(() -> new LocalizedIllegalStateException("error.no-active-document", "请先打开一个模型工程"));
             var target = context.cubism().model().active();
             SurfacePlacementAuthoring.canvasForm(
                     target.canvas().widthPixels(), target.canvas().heightPixels());
             if (!target.textures().supportsAppendTextureAtlasPages())
                 throw new LocalizedIllegalStateException("error.texture-atlas-unavailable", "当前环境不支持纹理图集功能。");
-            int choice = ui.appearance();
+            Optional<ModelPreset> preset = fromPreset ? ui.preset() : Optional.empty();
+            if (fromPreset && (preset.isEmpty() || !active(token))) {
+                release(token);
+                return;
+            }
+            int choice = fromPreset ? 0 : ui.appearance();
             if (choice < 0 || choice == 2 || !active(token)) {
                 release(token);
                 return;
@@ -458,10 +482,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     new ParameterId("Param3DYaw" + suffix),
                     new ParameterId("Param3DPitch" + suffix),
                     new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
-                    choice == 0 ? 180 : 30,
-                    choice == 0 ? 180 : 30,
+                    180,
+                    180,
                     SurfaceImportPlan.MAX_PROJECTED_VERTICES,
-                    choice == 0 ? Optional.of(new ParameterId("Param3DRoll" + suffix)) : Optional.empty(),
+                    Optional.of(new ParameterId("Param3DRoll" + suffix)),
                     java.util.Map.of(
                             "object.rotation.x",
                             text("object.rotation.x", "X 旋转"),
@@ -475,91 +499,111 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             text("object.warp", "曲面变形"),
                             "object.local-action",
                             text("object.local-action", "分区 {0} 局部动作")));
-            var files = context.userFiles();
-            files.request(new UserFileRequest(
-                            "import-model-" + suffix,
-                            text("file.chooser.title", "选择 GLB、glTF、OBJ 或模型 ZIP"),
-                            List.of("glb", "gltf", "obj", "zip"),
-                            UserFileMode.READ,
-                            UserFileLifetime.ONE_OPERATION))
-                    .thenCompose(selected -> {
-                        if (selected.status() == UserFileRequestStatus.CANCELED)
-                            return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
-                        if (selected.status() != UserFileRequestStatus.GRANTED)
-                            throw new CompletionException(new LocalizedIllegalStateException(
-                                    "error.file-select", "无法选择文件：{0}", selected.status()));
-                        if (!active(token)) {
-                            selected.handle().orElseThrow().close();
-                            return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
-                        }
-                        var handle = selected.handle().orElseThrow();
-                        var fileRequest = requestForFile(request, handle.displayName(), suffix);
-                        CompletionStage<UserFileReadResult<byte[]>> pending;
-                        try {
-                            pending = choice == 0
-                                    ? files.readBytesBounded(handle, NativeModelImport.MAX_BYTES)
-                                    : files.readBytes(handle, GlbSurfaceReader.MAX_BYTES);
-                        } catch (RuntimeException failure) {
-                            handle.close();
-                            throw failure;
-                        }
-                        return pending.whenComplete((value, error) -> handle.close())
-                                .thenCompose(read -> {
-                                    if (!active(token))
-                                        return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
-                                    if (read.truncated())
-                                        throw new CompletionException(new LocalizedIllegalArgumentException(
-                                                choice == 0 ? "error.character-file-too-large" : "error.file-too-large",
-                                                choice == 0 ? "GLB 模型文件超过 128 MiB 限制。" : "模型文件超过 16 MiB 限制。"));
-                                    byte[] bytes = read.value()
-                                            .orElseThrow(() ->
-                                                    new LocalizedIllegalStateException("error.file-read", "无法读取所选模型。"));
-                                    if (choice == 0 && needsNativeSourceImport(bytes)) {
-                                        return CompletableFuture.supplyAsync(() -> {
-                                            if (!active(token)) return Optional.<PreparedImport>empty();
-                                            try {
-                                                return Optional.of(new PreparedImport(
-                                                        null,
-                                                        null,
-                                                        null,
-                                                        null,
-                                                        NativeModelImport.prepare(
-                                                                bytes, fileRequest, () -> !active(token))));
-                                            } catch (Exception error) {
-                                                throw new CompletionException(error);
-                                            }
-                                        });
-                                    }
-                                    return ModelInputFiles.normalize(
-                                                    bytes,
-                                                    files,
-                                                    "import-model-" + suffix,
-                                                    () -> active(token),
-                                                    context.localization())
-                                            .thenApplyAsync(normalized -> {
-                                                if (normalized.isEmpty() || !active(token))
-                                                    return Optional.<PreparedImport>empty();
+            CompletionStage<Optional<PreparedImport>> pendingImport;
+            if (fromPreset) {
+                var selectedPreset = preset.orElseThrow();
+                String presetName = text(selectedPreset.labelKey(), selectedPreset.fallbackLabel());
+                var presetRequest = requestForFile(request, presetName + ".glb", suffix);
+                pendingImport = CompletableFuture.supplyAsync(() -> {
+                    if (!active(token)) return Optional.empty();
+                    try {
+                        // Preserve the shared source image and UVs so it can be replaced after import.
+                        return Optional.of(new PreparedImport(
+                                null,
+                                null,
+                                null,
+                                null,
+                                NativeModelImport.prepare(selectedPreset.read(), presetRequest, () -> !active(token))));
+                    } catch (Exception failure) {
+                        throw new CompletionException(failure);
+                    }
+                });
+            } else {
+                var files = context.userFiles();
+                pendingImport = files.request(new UserFileRequest(
+                                "import-model-" + suffix,
+                                text("file.chooser.title", "选择 GLB、glTF、OBJ 或模型 ZIP"),
+                                List.of("glb", "gltf", "obj", "zip"),
+                                UserFileMode.READ,
+                                UserFileLifetime.ONE_OPERATION))
+                        .thenCompose(selected -> {
+                            if (selected.status() == UserFileRequestStatus.CANCELED)
+                                return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
+                            if (selected.status() != UserFileRequestStatus.GRANTED)
+                                throw new CompletionException(new LocalizedIllegalStateException(
+                                        "error.file-select", "无法选择文件：{0}", selected.status()));
+                            if (!active(token)) {
+                                selected.handle().orElseThrow().close();
+                                return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
+                            }
+                            var handle = selected.handle().orElseThrow();
+                            var fileRequest = requestForFile(request, handle.displayName(), suffix);
+                            CompletionStage<UserFileReadResult<byte[]>> pending;
+                            try {
+                                pending = files.readBytesBounded(handle, NativeModelImport.MAX_BYTES);
+                            } catch (RuntimeException failure) {
+                                handle.close();
+                                throw failure;
+                            }
+                            return pending.whenComplete((value, error) -> handle.close())
+                                    .thenCompose(read -> {
+                                        if (!active(token))
+                                            return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
+                                        if (read.truncated())
+                                            throw new CompletionException(new LocalizedIllegalArgumentException(
+                                                    "error.character-file-too-large", "GLB 模型文件超过 128 MiB 限制。"));
+                                        byte[] bytes = read.value()
+                                                .orElseThrow(() -> new LocalizedIllegalStateException(
+                                                        "error.file-read", "无法读取所选模型。"));
+                                        if (needsNativeSourceImport(bytes)) {
+                                            return CompletableFuture.supplyAsync(() -> {
+                                                if (!active(token)) return Optional.<PreparedImport>empty();
                                                 try {
-                                                    return Optional.of(
-                                                            prepare(normalized.orElseThrow(), fileRequest, appearance));
-                                                } catch (Exception failure) {
-                                                    throw new CompletionException(failure);
+                                                    return Optional.of(new PreparedImport(
+                                                            null,
+                                                            null,
+                                                            null,
+                                                            null,
+                                                            NativeModelImport.prepare(
+                                                                    bytes,
+                                                                    fileRequest,
+                                                                    appearance,
+                                                                    () -> !active(token))));
+                                                } catch (Exception error) {
+                                                    throw new CompletionException(error);
                                                 }
                                             });
-                                });
-                    })
-                    .whenComplete((prepared, failure) -> SwingUtilities.invokeLater(() -> {
-                        if (!active(token)) return;
-                        try {
-                            if (failure != null) throw new CompletionException(failure);
-                            if (prepared.isPresent())
-                                commit(token, document.documentId(), target, prepared.orElseThrow());
-                        } catch (Exception error) {
-                            show(error);
-                        } finally {
-                            release(token);
-                        }
-                    }));
+                                        }
+                                        return ModelInputFiles.normalize(
+                                                        bytes,
+                                                        files,
+                                                        "import-model-" + suffix,
+                                                        () -> active(token),
+                                                        context.localization())
+                                                .thenApplyAsync(normalized -> {
+                                                    if (normalized.isEmpty() || !active(token))
+                                                        return Optional.<PreparedImport>empty();
+                                                    try {
+                                                        return Optional.of(prepare(
+                                                                normalized.orElseThrow(), fileRequest, appearance));
+                                                    } catch (Exception failure) {
+                                                        throw new CompletionException(failure);
+                                                    }
+                                                });
+                                    });
+                        });
+            }
+            pendingImport.whenComplete((prepared, failure) -> SwingUtilities.invokeLater(() -> {
+                if (!active(token)) return;
+                try {
+                    if (failure != null) throw new CompletionException(failure);
+                    if (prepared.isPresent()) commit(token, document.documentId(), target, prepared.orElseThrow());
+                } catch (Exception error) {
+                    show(error);
+                } finally {
+                    release(token);
+                }
+            }));
         } catch (Exception failure) {
             release(token);
             show(failure);
@@ -893,6 +937,27 @@ public final class ModelImportPlugin implements TurboismPlugin {
         }
 
         @Override
+        public Optional<ModelPreset> preset() {
+            var presets = ModelPreset.values();
+            String[] labels = Arrays.stream(presets)
+                    .map(preset -> text(preset.labelKey(), preset.fallbackLabel()))
+                    .toArray(String[]::new);
+            Object selected = JOptionPane.showInputDialog(
+                    null,
+                    text("dialog.preset.message", "选择基础形状。导入后可替换模型图像来更换贴图；请保持图像尺寸和 UV 布局。"),
+                    text("action.preset.label", "从预设导入…"),
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    labels,
+                    labels[0]);
+            if (selected == null) return Optional.empty();
+            for (int i = 0; i < labels.length; i++) {
+                if (labels[i].equals(selected)) return Optional.of(presets[i]);
+            }
+            return Optional.empty();
+        }
+
+        @Override
         public int appearance() {
             Object[] choices = {
                 text("dialog.appearance.option.source-material", "保留原材质"),
@@ -903,7 +968,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     null,
                     text(
                             "dialog.appearance.message",
-                            "支持不透明静态 GLB、glTF、OBJ 与模型 ZIP。\n选择单独模型后，可按提示补选引用的材质、buffer 和 PNG/JPEG 贴图；也可一起打包为 ZIP。\n仅还原基础颜色；凹凸、光照与透明材质暂不支持。\n原材质模式：X / Y / Z 各 ±180°，支持整圈旋转。\n按面区分颜色为 ±30° 检查模式。\n颜色方式："),
+                            "支持不透明静态 GLB、glTF、OBJ 与模型 ZIP。\n选择单独模型后，可按提示补选引用的材质、buffer 和 PNG/JPEG 贴图；也可一起打包为 ZIP。\n仅还原基础颜色；凹凸、光照与透明材质暂不支持。\n两种颜色方式均支持 X / Y / Z 各 ±180° 整圈旋转。\n颜色方式："),
                     text("dialog.appearance.title", "导入 3D 模型"),
                     JOptionPane.DEFAULT_OPTION,
                     JOptionPane.QUESTION_MESSAGE,
