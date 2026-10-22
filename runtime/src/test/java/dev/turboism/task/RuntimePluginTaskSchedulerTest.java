@@ -29,6 +29,7 @@ import dev.turboism.sdk.task.TaskRejectionReason;
 import dev.turboism.sdk.task.TaskRunOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.concurrent.ManualScheduledExecutor;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -43,6 +44,8 @@ import org.junit.jupiter.api.Test;
 
 class RuntimePluginTaskSchedulerTest {
 
+    private ManualScheduledExecutor timeouts = new ManualScheduledExecutor();
+    private ManualScheduledExecutor delays;
     private RuntimeScheduler runtimeScheduler;
     private DisposableScope scope;
     private RuntimePluginTaskScheduler scheduler;
@@ -89,7 +92,8 @@ class RuntimePluginTaskSchedulerTest {
                         PluginWorkExecutorConfiguration.of(100L, 2, 8, 50.0f)
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
-                        Clock.systemUTC()),
+                        Clock.systemUTC(),
+                        ignored -> timeouts),
                 SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
@@ -114,6 +118,7 @@ class RuntimePluginTaskSchedulerTest {
             final TaskSubmission budgetProbe = scheduler.submit(request("budget-probe", token -> {
                 awaitUninterruptibly(releaseLong);
             }));
+            timeouts.advanceBy(Duration.ofMillis(100));
             assertEquals(
                     TaskOutcomeStatus.TIMED_OUT,
                     budgetProbe
@@ -287,6 +292,7 @@ class RuntimePluginTaskSchedulerTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> exposed.obtrudeException(new IllegalStateException("plugin-forced")));
+        timeouts.advanceBy(Duration.ofMillis(500));
         final AtomicReference<String> continuationThread = new AtomicReference<>();
         duplicate
                 .handle()
@@ -429,6 +435,7 @@ class RuntimePluginTaskSchedulerTest {
 
     @Test
     void fixedDelayTerminalFailureUsesStableScheduleOperationWithoutLeakingTaskId() throws Exception {
+        delays = new ManualScheduledExecutor();
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         createScheduler(1, 8, failures);
         final String secretTaskId = "private-fixed-delay-task-id";
@@ -442,6 +449,7 @@ class RuntimePluginTaskSchedulerTest {
                     throw new IllegalStateException("private-value");
                 }));
 
+        delays.runDueTasks();
         final TaskOutcome outcome =
                 submission.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
         final var failure = failures.snapshot().taskFailures().get(0);
@@ -502,12 +510,13 @@ class RuntimePluginTaskSchedulerTest {
 
     @Test
     void fixedDelayIsNonOverlappingAndCancelDuringDelayPreservesLastSuccess() throws Exception {
+        delays = new ManualScheduledExecutor();
         createScheduler(1, 8);
         final AtomicInteger running = new AtomicInteger();
         final AtomicInteger maxRunning = new AtomicInteger();
-        final CountDownLatch twoRuns = new CountDownLatch(2);
-        final CountDownLatch timerBlocked = new CountDownLatch(1);
-        final CountDownLatch releaseTimer = new CountDownLatch(1);
+        final AtomicInteger runs = new AtomicInteger();
+        final CountDownLatch firstStarted = new CountDownLatch(1);
+        final CountDownLatch releaseFirst = new CountDownLatch(1);
         final TaskSubmission submission = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
                 new TaskId("refresh"),
                 PluginTaskKind.LOW_FREQUENCY_REFRESH,
@@ -515,30 +524,28 @@ class RuntimePluginTaskSchedulerTest {
                 Duration.ZERO,
                 Duration.ofMillis(200),
                 token -> {
-                    final int current = running.incrementAndGet();
-                    maxRunning.accumulateAndGet(current, Math::max);
+                    maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
                     try {
-                        Thread.sleep(20);
-                        if (twoRuns.getCount() == 1) {
-                            // Hold the timer so no third iteration can start before cancellation.
-                            assertTrue(runtimeScheduler
-                                    .schedule(Duration.ZERO, () -> {
-                                        timerBlocked.countDown();
-                                        await(releaseTimer);
-                                    })
-                                    .accepted());
-                            assertTrue(timerBlocked.await(2, TimeUnit.SECONDS));
+                        if (runs.incrementAndGet() == 1) {
+                            firstStarted.countDown();
+                            await(releaseFirst);
                         }
                     } finally {
                         running.decrementAndGet();
-                        twoRuns.countDown();
                     }
                 }));
-
         try {
             assertTrue(submission.accepted());
-            assertTrue(twoRuns.await(2, TimeUnit.SECONDS));
-            // The action's latch fires before the handle records its result. Wait for run 2 itself.
+            delays.runDueTasks();
+            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+            delays.advanceBy(Duration.ofDays(1));
+            assertEquals(1, runs.get(), "the delay starts after completion, never while an action is running");
+            assertEquals(0, delays.pendingTaskCount());
+            releaseFirst.countDown();
+            Await.condition(() -> delays.pendingTaskCount() == 1);
+            delays.advanceBy(Duration.ofMillis(199));
+            assertEquals(1, runs.get());
+            delays.advanceBy(Duration.ofMillis(1));
             waitUntil(
                     () -> submission
                             .handle()
@@ -547,10 +554,12 @@ class RuntimePluginTaskSchedulerTest {
                             .filter(run -> run.runNumber() == 2 && run.status() == TaskRunOutcomeStatus.SUCCEEDED)
                             .isPresent(),
                     1_000);
+            Await.condition(() -> delays.pendingTaskCount() == 1);
             assertTrue(submission.handle().cancel());
+            delays.advanceBy(Duration.ofDays(1));
             final TaskOutcome outcome =
                     submission.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
-
+            assertEquals(2, runs.get());
             assertEquals(1, maxRunning.get());
             assertEquals(TaskOutcomeStatus.CANCELED, outcome.status());
             assertEquals(2, outcome.runCount());
@@ -558,7 +567,7 @@ class RuntimePluginTaskSchedulerTest {
                     TaskRunOutcomeStatus.SUCCEEDED,
                     outcome.lastRunOutcome().orElseThrow().status());
         } finally {
-            releaseTimer.countDown();
+            releaseFirst.countDown();
         }
     }
 
@@ -1060,9 +1069,12 @@ class RuntimePluginTaskSchedulerTest {
 
     @Test
     void runtimeTimeoutAndFixedDelayFailureUseTerminalFailureAlgebra() throws Exception {
+        delays = new ManualScheduledExecutor();
         createScheduler(2, 8, 100L, ignored -> WorkBudget.LIGHTWEIGHT);
+        final CountDownLatch timedStarted = new CountDownLatch(1);
         final CountDownLatch releaseTimed = new CountDownLatch(1);
         final TaskSubmission timed = scheduler.submit(request("timed", token -> {
+            timedStarted.countDown();
             // Stay physically active until the logical timeout has been observed.
             awaitUninterruptibly(releaseTimed);
         }));
@@ -1073,6 +1085,8 @@ class RuntimePluginTaskSchedulerTest {
             timeoutContinuationThread.set(Thread.currentThread().getName());
             timeoutContinuationRan.countDown();
         });
+        assertTrue(timedStarted.await(1, TimeUnit.SECONDS));
+        timeouts.advanceBy(Duration.ofMillis(100));
         final TaskOutcome timedOutcome;
         try {
             timedOutcome = timed.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
@@ -1097,6 +1111,7 @@ class RuntimePluginTaskSchedulerTest {
                 token -> {
                     throw new IllegalStateException("private-fixed-value");
                 }));
+        delays.runDueTasks();
         final TaskOutcome fixedOutcome =
                 fixed.handle().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(TaskOutcomeStatus.FAILED, fixedOutcome.status());
@@ -1257,10 +1272,11 @@ class RuntimePluginTaskSchedulerTest {
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         createScheduler(1, 8, evidence);
         final CountDownLatch started = new CountDownLatch(1);
-        final CountDownLatch release = new CountDownLatch(1);
         final TaskSubmission accepted = scheduler.submit(request("duplicate-scope", token -> {
             started.countDown();
-            release.await();
+            while (!token.isCancellationRequested()) {
+                Thread.onSpinWait();
+            }
         }));
         assertTrue(started.await(1, TimeUnit.SECONDS));
         final TaskSubmission rejected = scheduler.submit(request("duplicate-scope", token -> {}));
@@ -1275,7 +1291,6 @@ class RuntimePluginTaskSchedulerTest {
         });
 
         scope.close();
-        release.countDown();
 
         assertEquals(
                 TaskOutcomeStatus.CANCELED,
@@ -1392,15 +1407,16 @@ class RuntimePluginTaskSchedulerTest {
 
     private void createScheduler(
             final int workers, final int queueCapacity, final CleanupEvidenceCollector cleanupEvidence) {
-        runtimeScheduler = new RuntimeScheduler(
+        timeouts = new ManualScheduledExecutor();
+        runtimeScheduler = runtimeScheduler(
                 ignored -> WorkBudget.LIGHTWEIGHT,
                 new PluginWorkExecutorRegistry(
                         PluginWorkExecutorConfiguration.of(500L, workers, queueCapacity, 50.0f)
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
-                        Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+                        Clock.systemUTC(),
+                        ignored -> timeouts),
+                delays);
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, cleanupEvidence);
     }
@@ -1414,15 +1430,16 @@ class RuntimePluginTaskSchedulerTest {
             final int queueCapacity,
             final WorkBudgetPolicy policy,
             final RuntimeFailureCollector failures) {
-        runtimeScheduler = new RuntimeScheduler(
+        timeouts = new ManualScheduledExecutor();
+        runtimeScheduler = runtimeScheduler(
                 policy,
                 new PluginWorkExecutorRegistry(
                         PluginWorkExecutorConfiguration.of(500L, workers, queueCapacity, 50.0f)
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
-                        Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+                        Clock.systemUTC(),
+                        ignored -> timeouts),
+                delays);
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler(
                 "plugin.tasks", runtimeScheduler, scope, new CleanupEvidenceCollector(), failures);
@@ -1434,17 +1451,26 @@ class RuntimePluginTaskSchedulerTest {
 
     private void createScheduler(
             final int workers, final int queueCapacity, final long timeoutMillis, final WorkBudgetPolicy policy) {
-        runtimeScheduler = new RuntimeScheduler(
+        timeouts = new ManualScheduledExecutor();
+        runtimeScheduler = runtimeScheduler(
                 policy,
                 new PluginWorkExecutorRegistry(
                         PluginWorkExecutorConfiguration.of(timeoutMillis, workers, queueCapacity, 50.0f)
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
-                        Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+                        Clock.systemUTC(),
+                        ignored -> timeouts),
+                delays);
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope);
+    }
+
+    private static RuntimeScheduler runtimeScheduler(
+            WorkBudgetPolicy policy, PluginWorkExecutorRegistry registry, ManualScheduledExecutor delays) {
+        if (delays == null) {
+            return new RuntimeScheduler(policy, registry, SidecarDispatcher.noop(), ignored -> {});
+        }
+        return new RuntimeScheduler(policy, registry, SidecarDispatcher.noop(), ignored -> {}, delays);
     }
 
     private static int scopedRegistrationCount(final DisposableScope target) throws Exception {
