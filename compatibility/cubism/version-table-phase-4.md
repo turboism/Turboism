@@ -126,6 +126,7 @@ those lanes is outside this refactor.
   the ordered export list. Results: `/tmp/vt4-equivalence-batch2.json`.
 - Correctly filtered runtime/bootstrap installer, admission and profile tests:
   `/tmp/vt4-batch2.log`, **BUILD SUCCESSFUL**.
+- Final MCP Glue/History/Texture and isolated facade/EDT tests: `/tmp/vt4-followup.log`, **BUILD SUCCESSFUL**.
 - Unified SelfTest: 67 cases, including all meaningful old negative fixtures,
   malformed trust roots, stale/evidenceless/count-mismatched exceptions,
   annotation and JSON holes, record regressions/tampering/missing pins,
@@ -152,8 +153,11 @@ those lanes is outside this refactor.
 R4 reads reviewed releases and VERIFIED_STATIC family capability expansion
 rather than matrix version lists. It reads class-pin keys directly. The retained
 matrix supplies group/plugin/alias metadata. Task manifest versions remain
-explicit, checked declarations; this phase does not change the scheduler's JSON
-schema or generate its task configuration.
+materialized, checked declarations to preserve the scheduler's JSON schema.
+`python3 scripts/check_reviewed_releases.py --update-host-tasks` replaces the
+retired host checker's `--update` command and refreshes all version arrays from
+those source intersections; no per-version task-list edits are required. Running
+this command refreshed all 58 tasks with byte-identical output.
 
 Removed rules/workflows: independently comparing handwritten generated Java
 version rosters or packaging filename lists is already obsolete after Phases
@@ -175,6 +179,12 @@ records its result. An initial attempt failed before tests because the Gradle
 daemon could not stat sandbox-only `.agents` directories. Empty worktree-local
 `.agents`, `.codex` and `.aws` directories align the filesystem views; no
 configuration/state files were written.
+
+The next full attempt reported failures in
+`CubismFacadeImplTest.genericDeformerProjectionPreservesSubtypeWritesAndLifecycle`
+and `EdtDispatchTest.postStartInterruptWithCompensationReleasesTheCaller`. Both
+classes passed in isolation without code changes (`/tmp/vt4-followup.log`); the
+failed full log is retained at `/tmp/vt4-gate-runtime-failures.log`.
 
 An earlier incorrectly filtered runtime invocation remains waiting in the
 unrelated Wayland screenshot test (`ScreenshotCaptureHostOperationsTest`, native
