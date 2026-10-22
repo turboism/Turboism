@@ -8,8 +8,7 @@ from data that already gates runtime admission — never hand-written:
   a capability is *verified* on a version when its record admits it there.
 - ``scripts/verification-sources/families/*.json`` — verification-source
   family roster and record membership.
-- ``runtime/.../ReviewedHostArtifacts.java`` — the canonical reviewed version
-  list (``CUBISM_*_VERSION`` constants).
+- ``compatibility/cubism/reviewed-releases.json`` — the canonical reviewed version list.
 - ``@CubismEditor`` annotations across ``sdk/src/main/java`` — SDK surface
   availability (type and accessor/method level).
 - ``EditorCommand`` / ``EditorParameterizedCommand`` / ``EditorFileCommand``
@@ -99,7 +98,6 @@ from compat_matrix import (
     TEMPLATES_DIR,
     VERIFICATION_DIR,
     VERSION_BOUNDARIES,
-    VERSION_CONSTANT_RE,
     VERSION_RE,
     _display_fallback,
     _feature_text,
@@ -181,7 +179,6 @@ __all__ = [
     "TEMPLATES_DIR",
     "VERIFICATION_DIR",
     "VERSION_BOUNDARIES",
-    "VERSION_CONSTANT_RE",
     "VERSION_RE",
     "_display_fallback",
     "_feature_text",

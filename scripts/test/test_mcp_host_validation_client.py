@@ -5,6 +5,9 @@ import inspect
 import json
 import unittest
 import tempfile
+import subprocess
+import shutil
+import sys
 from unittest import mock
 from pathlib import Path
 
@@ -18,6 +21,22 @@ SPEC.loader.exec_module(CLIENT)
 
 
 class McpHostValidationClientTest(unittest.TestCase):
+
+    def test_isolated_task_reads_staged_json_and_fails_without_it(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            client = directory / CLIENT_PATH.name
+            shutil.copy(CLIENT_PATH, client)
+            table = directory / 'reviewed-releases.json'
+            shutil.copy(REPO_ROOT / 'compatibility/cubism/reviewed-releases.json', table)
+            command = [sys.executable, '-I', '-c',
+                       'import runpy,sys,json; print(json.dumps(runpy.run_path(sys.argv[1])["ALL_REVIEWED_VERSIONS"]))',
+                       str(client)]
+            result = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(CLIENT.ALL_REVIEWED_VERSIONS, json.loads(result.stdout))
+            table.unlink()
+            self.assertNotEqual(0, subprocess.run(command, capture_output=True).returncode)
 
     def test_public_catalog_matches_read_write_transaction_cutover(self) -> None:
         self.assertEqual({
