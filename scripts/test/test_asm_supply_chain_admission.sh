@@ -13,11 +13,9 @@ fail() { printf 'ASM supply-chain admission selftest: %s\n' "$*" >&2; exit 1; }
 
 copy_source_tree() {
   local destination="$1"
-  tar \
-    --exclude='./.git' \
-    --exclude='./.gradle' \
-    --exclude='./build' \
-    -C "$ROOT" -cf - . | tar -C "$destination" -xf -
+  # Copy working-tree source contents without traversing directories that
+  # parallel Gradle tasks may modify while the mutation fixtures are created.
+  git -C "$ROOT" ls-files -z | tar -C "$ROOT" --null -T - -cf - | tar -C "$destination" -xf -
 }
 
 python3 "$HELPER" static --root "$ROOT"
