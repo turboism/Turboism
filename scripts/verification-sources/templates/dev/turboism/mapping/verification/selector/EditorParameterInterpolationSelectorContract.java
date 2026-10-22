@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.Set;
 
 /** Additive ArtMesh interpolation authoring contract, reviewed on the exact 5.3.02 artifact. */
@@ -15,12 +16,7 @@ public final class EditorParameterInterpolationSelectorContract {
      * with the same owners, members and descriptors; the capability is admitted
      * on all reviewed 5.0.x, 5.1.x, 5.2.x, and 5.3.x generations.</p>
      */
-    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-    );
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = ReviewedVersions.since("5.0.00");
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.keyform-binding.extended-type",
         "cubism.editor-model.keyform-binding.set-extended-type",

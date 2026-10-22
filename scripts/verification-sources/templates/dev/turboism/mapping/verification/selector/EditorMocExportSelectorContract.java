@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,7 +25,7 @@ public final class EditorMocExportSelectorContract {
      * list {@link #CAPABILITY_ID} for exactly this range.</p>
      */
     public static final Set<String> SUPPORTED_CUBISM_VERSIONS =
-        Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
+        ReviewedVersions.line("5.3");
     public static final Set<String> NEW_ALIASES = Set.of(
         "cubism.editor-model.official-export.exporter-create",
         "cubism.editor-model.official-export.settings-create",

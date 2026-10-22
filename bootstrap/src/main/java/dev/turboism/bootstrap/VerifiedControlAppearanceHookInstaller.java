@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -212,7 +213,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     }
 
     static boolean supportsStaticProfile(final String cubismVersion) {
-        return Set.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04")
+        return ReviewedVersions.since("5.2.00")
                 .contains(cubismVersion);
     }
 

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -89,9 +90,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
             final VerifiedMemberResolver resolver,
             final ClassLoader hostClassLoader) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!Set.of(
-                        "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-                        "5.3.03", "5.3.04")
+        if (!ReviewedVersions.since("5.1.02")
                 .contains(verified.admittedCubismVersion())) {
             throw new IllegalArgumentException("Edit-protocol dispatch hook version is unsupported.");
         }
