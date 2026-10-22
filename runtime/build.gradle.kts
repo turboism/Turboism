@@ -239,71 +239,6 @@ val admissionPreflightTest by tasks.registering(Test::class) {
     }
 }
 
-val legacyCubismEvidenceTest by tasks.registering(Test::class) {
-    group = "host verification"
-    description = "Runs tests that require separately supplied licensed Cubism binary evidence."
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    useJUnitPlatform()
-    filter {
-        includeTestsMatching(
-            "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.CorePublicApiAdmissionTest"
-        )
-        includeTestsMatching(
-            "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
-        )
-        isFailOnNoMatchingTests = true
-    }
-}
-
 // Test classes that require separately staged licensed Cubism evidence; they
 // live in legacyCubismEvidenceTest and never run in the offline suites.
 val legacyEvidenceTestClasses = listOf(
@@ -324,8 +259,33 @@ val legacyEvidenceTestClasses = listOf(
     "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
     "dev.turboism.mapping.verification.CorePublicApiAdmissionTest",
-    "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
+    "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest",
+    "dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisionArtifactTest",
+    "dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteArtifactTest",
+    "dev.turboism.adapter.cubism.performance.PerformanceProbeImageArtifactTest",
+    "dev.turboism.adapter.cubism.shader.ShaderUniformCompositionArtifactTest",
+    "dev.turboism.mapping.verification.CubismHostCompatibilityRealSampleTest"
 )
+
+val legacyCubismEvidenceTest by tasks.registering(Test::class) {
+    group = "host verification"
+    description = "Runs tests that require separately supplied licensed Cubism binary evidence."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        legacyEvidenceTestClasses.forEach { includeTestsMatching(it) }
+        isFailOnNoMatchingTests = true
+    }
+}
+
 
 tasks.named<Test>("test") {
     @Suppress("UNCHECKED_CAST")
