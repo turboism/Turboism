@@ -10,6 +10,7 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.concurrent.ManualScheduledExecutor;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,6 +30,7 @@ class PluginLongLaneTest {
     private static final Duration DEFAULT_THRESHOLD = Duration.ofSeconds(30);
     private static final Duration DEFAULT_INTERVAL = Duration.ofMinutes(5);
 
+    private final ManualScheduledExecutor monitor = new ManualScheduledExecutor();
     private final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
 
     @AfterEach
@@ -39,22 +41,28 @@ class PluginLongLaneTest {
     @Test
     void longTaskRunsPastTaskExecutorBudgetWithoutInterrupt() throws Exception {
         final PluginLongLane lane = lane(2, 8);
-        final CountDownLatch completed = new CountDownLatch(1);
+        final CountDownLatch started = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
         final AtomicBoolean interrupted = new AtomicBoolean();
-
         final PluginWorkSubmission submission =
                 lane.submit(task("plugin.long.normal"), new RuntimeCancellationToken(), () -> {
+                    started.countDown();
                     try {
-                        // Well beyond the 500ms TimeLimiter the task executor would enforce.
-                        Thread.sleep(700);
+                        release.await();
                     } catch (InterruptedException exception) {
                         interrupted.set(true);
+                        Thread.currentThread().interrupt();
                     }
-                    completed.countDown();
                 });
-
-        assertTrue(submission.accepted());
-        assertTrue(completed.await(2, TimeUnit.SECONDS));
+        try {
+            assertTrue(submission.accepted());
+            assertTrue(started.await(1, TimeUnit.SECONDS));
+            monitor.advanceBy(Duration.ofMillis(700));
+            assertFalse(submission.completion().toCompletableFuture().isDone());
+            assertFalse(interrupted.get(), "long lane work must never be interrupted");
+        } finally {
+            release.countDown();
+        }
         assertEquals(
                 PluginWorkStatus.SUCCEEDED,
                 submission
@@ -208,18 +216,26 @@ class PluginLongLaneTest {
         RuntimeDiagnostics.install((level, component, message, failure) -> messages.add(message));
         try {
             final PluginLongLane lane = lane(2, 8, Duration.ofMillis(50), Duration.ofHours(1));
-            lane.submit(task("plugin.long.alpha"), new RuntimeCancellationToken(), () -> sleepQuietly(150));
-            lane.submit(task("plugin.long.beta"), new RuntimeCancellationToken(), () -> sleepQuietly(150));
-
-            // Wait for both threshold reports before shutdown purges the monitor schedule.
-            Await.condition(
-                    "both threshold reports emitted",
-                    () -> messages.stream()
-                                    .filter(m -> m.contains("LONG_TASK_RUNNING"))
-                                    .count()
-                            >= 2,
-                    Duration.ofSeconds(2));
+            final CountDownLatch release = new CountDownLatch(1);
+            final var alpha =
+                    lane.submit(task("plugin.long.alpha"), new RuntimeCancellationToken(), () -> awaitQuietly(release));
+            final var beta =
+                    lane.submit(task("plugin.long.beta"), new RuntimeCancellationToken(), () -> awaitQuietly(release));
+            try {
+                Await.condition(() -> monitor.pendingTaskCount() == 2);
+                monitor.advanceBy(Duration.ofMillis(49));
+                assertTrue(messages.isEmpty(), "no report before the threshold");
+                monitor.advanceBy(Duration.ofMillis(1));
+                assertEquals(2, messages.size());
+                monitor.advanceBy(Duration.ofHours(1).minusMillis(1));
+                assertEquals(2, messages.size(), "no repeated report before the interval");
+            } finally {
+                release.countDown();
+            }
+            alpha.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
+            beta.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
             lane.shutdown();
+            monitor.advanceBy(Duration.ofDays(1));
 
             final List<String> reports = messages.stream()
                     .filter(message -> message.contains("LONG_TASK_RUNNING"))
@@ -281,7 +297,14 @@ class PluginLongLaneTest {
     private PluginLongLane lane(
             final int concurrency, final int queueCapacity, final Duration threshold, final Duration interval) {
         return new PluginLongLane(
-                PLUGIN_ID, concurrency, queueCapacity, threshold, interval, events::add, Duration.ofSeconds(5));
+                PLUGIN_ID,
+                concurrency,
+                queueCapacity,
+                threshold,
+                interval,
+                events::add,
+                Duration.ofSeconds(5),
+                monitor);
     }
 
     private static PluginTask task(final String type) {
@@ -291,14 +314,6 @@ class PluginLongLaneTest {
     private static void awaitQuietly(final CountDownLatch latch) {
         try {
             latch.await();
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private static void sleepQuietly(final long millis) {
-        try {
-            Thread.sleep(millis);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }

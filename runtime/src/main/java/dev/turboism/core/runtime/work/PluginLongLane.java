@@ -11,6 +11,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -43,7 +44,7 @@ public final class PluginLongLane {
     private final String pluginId;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final ThreadPoolExecutor worker;
-    private final ScheduledThreadPoolExecutor monitor;
+    private final ScheduledExecutorService monitor;
     private final Duration longRunningThreshold;
     private final Duration reportInterval;
     private final Set<LongWorkItem> active = ConcurrentHashMap.newKeySet();
@@ -57,6 +58,28 @@ public final class PluginLongLane {
             Duration reportInterval,
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
             Duration shutdownTimeout) {
+        this(
+                pluginId,
+                concurrency,
+                queueCapacity,
+                longRunningThreshold,
+                reportInterval,
+                diagnosticSink,
+                shutdownTimeout,
+                createMonitor(pluginId));
+    }
+
+    /** Creates a long-task lane that owns and shuts down the supplied diagnostic timer. */
+    public PluginLongLane(
+            String pluginId,
+            int concurrency,
+            int queueCapacity,
+            Duration longRunningThreshold,
+            Duration reportInterval,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Duration shutdownTimeout,
+            ScheduledExecutorService monitor) {
+        this.monitor = Objects.requireNonNull(monitor, "monitor");
         this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout");
         if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
             throw new IllegalArgumentException("shutdownTimeout must be positive");
@@ -76,8 +99,13 @@ public final class PluginLongLane {
                 new ArrayBlockingQueue<>(queueCapacity),
                 new PluginWorkThreadFactory(this.pluginId + "-long"),
                 new ThreadPoolExecutor.AbortPolicy());
-        this.monitor = new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(this.pluginId + "-long-monitor"));
-        this.monitor.setRemoveOnCancelPolicy(true);
+    }
+
+    private static ScheduledExecutorService createMonitor(String pluginId) {
+        ScheduledThreadPoolExecutor monitor =
+                new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(pluginId + "-long-monitor"));
+        monitor.setRemoveOnCancelPolicy(true);
+        return monitor;
     }
 
     /**

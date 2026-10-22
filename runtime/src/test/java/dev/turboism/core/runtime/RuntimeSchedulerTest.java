@@ -395,18 +395,19 @@ class RuntimeSchedulerTest {
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicBoolean interrupted = new AtomicBoolean();
-        final var longWork =
-                scheduler.submitLightweight(task("plugin.long.normal", "none"), new RuntimeCancellationToken(), () -> {
-                    started.countDown();
-                    try {
-                        release.await();
-                    } catch (InterruptedException exception) {
-                        interrupted.set(true);
-                        Thread.currentThread().interrupt();
-                    }
-                });
+        final CountDownLatch completed = new CountDownLatch(1);
+        final boolean accepted = scheduler.dispatch(task("plugin.long.normal", "none"), () -> {
+            started.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException exception) {
+                interrupted.set(true);
+                Thread.currentThread().interrupt();
+            }
+            completed.countDown();
+        });
         try {
-            assertTrue(longWork.accepted());
+            assertTrue(accepted);
             assertTrue(started.await(1, TimeUnit.SECONDS));
             final CountDownLatch probeStarted = new CountDownLatch(1);
             final var probe =
@@ -422,17 +423,13 @@ class RuntimeSchedulerTest {
                             .toCompletableFuture()
                             .get(1, TimeUnit.SECONDS)
                             .status());
-            assertFalse(longWork.completion().toCompletableFuture().isDone());
+            assertEquals(1, completed.getCount());
             assertFalse(interrupted.get(), "long-lane work must not be interrupted at the task budget");
         } finally {
             release.countDown();
         }
-        assertEquals(
-                PluginWorkStatus.SUCCEEDED,
-                longWork.completion()
-                        .toCompletableFuture()
-                        .get(1, TimeUnit.SECONDS)
-                        .status());
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
+        assertFalse(interrupted.get(), "long-lane work must not be interrupted at the task budget");
         scheduler.shutdown();
     }
 
