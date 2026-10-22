@@ -37,7 +37,17 @@ final class TriangulationEdgeIndexHookContributor implements HookContributor {
 
     @Override
     public boolean admitted(final HookEnvironment environment) {
-        return enabled(environment.startupPolicy(), environment.options().home());
+        final boolean requested = environment
+                .optimizationConfig()
+                .choice(dev.turboism.config.NativeOptimizationConfig.Option.TRIANGULATION_EDGE_INDEX)
+                .enabled();
+        final boolean admitted = environment.startupPolicy() != null
+                && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)
+                && requested;
+        if (!admitted)
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(), "not-installed", requested ? "policy-disabled" : "preference-disabled");
+        return admitted;
     }
 
     @Override
@@ -55,8 +65,21 @@ final class TriangulationEdgeIndexHookContributor implements HookContributor {
                         }
                     });
             RuntimeDiagnostics.debug("bootstrap", "Triangulation edge index status=" + installation.status());
-            return installation;
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(),
+                    "INSTALLED".equals(installation.status().name()) ? "installed" : "not-installed",
+                    installation.status().name());
+            return () -> {
+                try {
+                    installation.close();
+                } finally {
+                    dev.turboism.config.NativeOptimizationDiagnostics.installed(id(), "not-installed", "closed");
+                }
+            };
         } catch (final Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            dev.turboism.config.NativeOptimizationDiagnostics.installed(
+                    id(), "failed", failure.getClass().getSimpleName());
             RuntimeDiagnostics.error("triangulation-edge-index", "Triangulation edge index disabled safely", failure);
             return () -> {};
         }

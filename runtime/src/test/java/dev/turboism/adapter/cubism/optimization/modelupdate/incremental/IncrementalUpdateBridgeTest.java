@@ -188,6 +188,8 @@ class IncrementalUpdateBridgeTest {
             if (field.equals("guidMap")) desc = "Ljava/util/Map;";
             w.visitField(ACC_PUBLIC, field, desc, null, null).visitEnd();
         }
+        w.visitField(ACC_PUBLIC, "source", "L" + M + "CModelSource;", null, null)
+                .visitEnd();
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
@@ -196,6 +198,7 @@ class IncrementalUpdateBridgeTest {
         m.visitMaxs(1, 1);
         m.visitEnd();
         for (String[] g : new String[][] {
+            {"getSource", "()L" + M + "CModelSource;", "source"},
             {"getAllDeformers", "()Ljava/util/List;", "deformers"},
             {"getAllArtPaths", "()Ljava/util/List;", "paths"},
             {"getAllAffecters", "()Ljava/util/List;", "affecters"},
@@ -368,6 +371,15 @@ class IncrementalUpdateBridgeTest {
                 .add(M + "ax", emit(M + "ax", null, null, f(), f(), m()))
                 .add(M + "CModel", emitModel(M + "CModel"))
                 .add(
+                        M + "CModelSource",
+                        emit(
+                                M + "CModelSource",
+                                null,
+                                null,
+                                f("editing:Z"),
+                                f(),
+                                m(g("isModelEditing", "()Z", "editing"))))
+                .add(
                         M + "param/CParameterSet",
                         emit(
                                 M + "param/CParameterSet",
@@ -523,6 +535,7 @@ class IncrementalUpdateBridgeTest {
             this.loader = loader;
             String M = N + "doc/model/";
             model = make(loader, M + "CModel");
+            set(model, "source", make(loader, M + "CModelSource"));
             ctx = make(loader, N + "view/context/CEViewContext");
             ax = make(loader, M + "ax");
             doc = make(loader, N + "doc/modeling/CModelingDocument");
@@ -613,7 +626,7 @@ class IncrementalUpdateBridgeTest {
     }
 
     @Test
-    void installOccupiesSlotsAndEnablesHostFlag() throws Exception {
+    void installOccupiesSlotsWithoutSkippingInitialInterpolation() throws Exception {
         Loader loader = host();
         IncrementalUpdateBridge bridge = installed(loader);
         try {
@@ -623,7 +636,7 @@ class IncrementalUpdateBridgeTest {
             assertNotNull(deform());
             assertNotNull(form());
             assertNotNull(props().get(IncrementalUpdateBridge.STATS_PROPERTY));
-            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
         } finally {
             bridge.close();
         }
@@ -638,6 +651,8 @@ class IncrementalUpdateBridgeTest {
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
         IncrementalUpdateBridge bridge = installed(loader);
         try {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             mark().accept(world.parent, world.model);
             mark().accept(world.child, world.model);
@@ -658,6 +673,8 @@ class IncrementalUpdateBridgeTest {
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
         IncrementalUpdateBridge bridge = installed(loader);
         try {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             form().accept(world.parentForm);
             mark().accept(world.parent, world.model);
@@ -680,6 +697,8 @@ class IncrementalUpdateBridgeTest {
         IncrementalUpdateBridge bridge = installed(loader);
         try {
             begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
             // Child processed BEFORE parent: ancestor check finds nothing, stays clean.
             mark().accept(world.child, world.model);
             assertFalse((boolean) field(world.child, "dirty"));
@@ -700,6 +719,8 @@ class IncrementalUpdateBridgeTest {
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
         IncrementalUpdateBridge bridge = installed(loader);
         try {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             set(world.parent, "aform", make(loader, N + "doc/model/deformer/warp/CWarpDeformerForm"));
             mark().accept(world.parent, world.model);
@@ -735,6 +756,8 @@ class IncrementalUpdateBridgeTest {
         IncrementalUpdateBridge bridge = installed(loader);
         try {
             begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
             mark().accept(world.parent, world.model);
             mark().accept(world.child, world.model);
             Object out = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
@@ -755,6 +778,8 @@ class IncrementalUpdateBridgeTest {
         IncrementalUpdateBridge bridge = installed(loader);
         try {
             begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
             form().accept(world.childForm);
             mark().accept(world.child, world.model);
             Object out = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
@@ -773,6 +798,8 @@ class IncrementalUpdateBridgeTest {
         IncrementalUpdateBridge bridge = installed(loader);
         try {
             begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
             form().accept(world.meshForm);
             deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
             assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
@@ -789,6 +816,8 @@ class IncrementalUpdateBridgeTest {
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
         IncrementalUpdateBridge bridge = installed(loader);
         try {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
             assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
@@ -865,13 +894,18 @@ class IncrementalUpdateBridgeTest {
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
         IncrementalUpdateBridge bridge = installed(loader);
         try {
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
             // Baseline narrowed epoch.
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
 
             // Interactive drag (e.g. WarpDeformer handle/bounding-box drag) sets ACEditMode.isEditing()=true
             // while parameters and document.lastModified remain unchanged.
             set(world.editMode, "editing", true);
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
             mark().accept(world.parent, world.model);
@@ -883,17 +917,96 @@ class IncrementalUpdateBridgeTest {
 
             // First epoch after mouseReleased (editing=false) still forces one full pass, then resumes narrowed.
             set(world.editMode, "editing", false);
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
 
             // Instantaneous edit or Undo/Redo advances document.lastModified -> forces full pass.
             set(world.doc, "lastModified", 8L);
+            end().accept(world.epoch());
             begin().accept(world.epoch());
             assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
         } finally {
             bridge.close();
+        }
+    }
+
+    @Test
+    void firstUpdateAndInterruptedUpdateMustRunFullUntilCompletion() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"), "first update needs a full baseline");
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            assertTrue((boolean) field(world.parent, "dirty"));
+            assertTrue((boolean) field(world.child, "dirty"));
+            deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertEquals(1L, bridge.snapshot().get("meshDeformed"));
+            // No normal-return callback: the previous native update failed or was interrupted.
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+        }
+    }
+
+    @Test
+    void documentSwitchAndReenableRequireCompletedFullBaseline() throws Exception {
+        Loader loader = host();
+        World a = new World(loader);
+        World b = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            for (World world : List.of(a, b, a)) {
+                begin().accept(world.epoch());
+                assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+                end().accept(world.epoch());
+                begin().accept(world.epoch());
+                assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+                end().accept(world.epoch());
+            }
+            System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "false");
+            begin().accept(a.epoch());
+            end().accept(a.epoch());
+            System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+            begin().accept(a.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+        }
+    }
+
+    @Test
+    void sourceEditingAloneForcesEveryDescendantAndMeshToUpdate() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            set(field(world.model, "source"), "editing", true);
+            for (int frame = 0; frame < 3; frame++) {
+                begin().accept(world.epoch());
+                assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+                mark().accept(world.child, world.model);
+                mark().accept(world.parent, world.model);
+                deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+                assertTrue((boolean) field(world.parent, "dirty"));
+                assertTrue((boolean) field(world.child, "dirty"));
+                end().accept(world.epoch());
+            }
+            assertEquals(3L, bridge.snapshot().get("meshDeformed"));
+            set(field(world.model, "source"), "editing", false);
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
         }
     }
 

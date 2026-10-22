@@ -1,11 +1,5 @@
 package dev.turboism.shell;
 
-import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
-import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
-import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
-import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
-import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsActionHandle;
@@ -99,17 +93,13 @@ final class CubismJvmSettingsContribution {
     /**
      * Opt-in toggle in the Performance tab: when on, the session disables the
      * host's periodic auto-backup entirely (crash-recovery trades for no
-     * mid-edit backup stalls). The writer persists first, then applies live
-     * through the verified backup service so a rejected apply cannot fake a
-     * saved state.
+     * mid-edit backup stalls). Like the other page controls, edits persist for
+     * the next launch; session startup applies through the verified backup service.
      */
     static SettingsContribution createBackupDisable(
-            final PluginLocalization i18n,
-            final CubismJvmSettingsService settings,
-            final java.util.function.Consumer<Boolean> apply) {
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         Objects.requireNonNull(i18n, "i18n");
         Objects.requireNonNull(settings, "settings");
-        Objects.requireNonNull(apply, "apply");
         return new SettingsContribution(
                 "cubism-disable-auto-backup",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
@@ -119,7 +109,6 @@ final class CubismJvmSettingsContribution {
                         i18n.text("settings.cubism-jvm.disable-auto-backup"),
                         SettingsBinding.of(settings::reduceAutoBackup, value -> {
                             settings.saveReduceAutoBackup(value);
-                            apply.accept(value);
                         })));
     }
 
@@ -207,9 +196,8 @@ final class CubismJvmSettingsContribution {
      * Launch-time preference toggles for the verified model-update
      * optimizations. Verified unchanged-frame reuse defaults on; experimental
      * incremental updates require opt-in. The writer persists the
-     * launcher preference (next launch emits the {@code -D...=false}
-     * opt-out) and flips the process system property so an installed
-     * hook also stops live.
+     * global preference for the next launch. Running hooks retain their startup
+     * configuration so dependent optimizations cannot enter a partially switched state.
      */
     static SettingsContribution createModelUpdateSkipToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
@@ -218,7 +206,6 @@ final class CubismJvmSettingsContribution {
                 i18n,
                 "model-update-skip",
                 "settings.optimization.model-update-skip",
-                ModelUpdateSkipBridge.ENABLE_PROPERTY,
                 settings::modelUpdateSkip,
                 settings::saveModelUpdateSkip,
                 80);
@@ -231,7 +218,6 @@ final class CubismJvmSettingsContribution {
                 i18n,
                 "incremental-update",
                 "settings.optimization.incremental-update",
-                IncrementalUpdateBridge.ENABLE_PROPERTY,
                 settings::incrementalUpdate,
                 settings::saveIncrementalUpdate,
                 81);
@@ -245,7 +231,6 @@ final class CubismJvmSettingsContribution {
                 i18n,
                 "uniform-location-cache",
                 "settings.optimization.uniform-location-cache",
-                UniformLocationHookBridge.ENABLE_PROPERTY,
                 settings::uniformLocationCache,
                 value -> {
                     if (settings.saveUniformLocationCache(value) != value) {
@@ -267,7 +252,6 @@ final class CubismJvmSettingsContribution {
                 i18n,
                 "upload-elision",
                 "settings.optimization.upload-elision",
-                SkippedFrameUploadElisionBridge.ENABLE_PROPERTY,
                 settings::uploadElision,
                 value -> {
                     if (settings.saveUploadElision(value) != value) {
@@ -290,7 +274,6 @@ final class CubismJvmSettingsContribution {
                 i18n,
                 "input-path-elision",
                 "settings.optimization.input-path-elision",
-                InputPathElisionBridge.ENABLE_PROPERTY,
                 settings::inputPathElision,
                 value -> {
                     if (settings.saveInputPathElision(value) != value) {
@@ -316,7 +299,6 @@ final class CubismJvmSettingsContribution {
                 i18n,
                 "mesa-gl-thread",
                 "settings.optimization.mesa-gl-thread",
-                DeferredGlErrorCheckTransformer.ENABLE_PROPERTY,
                 settings::mesaGlThread,
                 value -> {
                     if (settings.saveMesaGlThread(value) != value) {
@@ -327,11 +309,27 @@ final class CubismJvmSettingsContribution {
                 85);
     }
 
+    static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        final StringBuilder message =
+                new StringBuilder(i18n.format("settings.performance.status-file", settings.globalConfigPath()));
+        for (var status : settings.performanceStatuses()) {
+            message.append("\n\n")
+                    .append(i18n.format(
+                            "settings.performance.status-all-row",
+                            status.key(),
+                            status.saved(),
+                            status.requested(),
+                            status.source(),
+                            status.actual(),
+                            status.pendingRestart()));
+        }
+        return message.toString();
+    }
+
     private static SettingsContribution createOptimizationToggle(
             final PluginLocalization i18n,
             final String id,
             final String labelKey,
-            final String enableProperty,
             final java.util.function.BooleanSupplier getter,
             final java.util.function.Function<Boolean, Boolean> setter,
             final int index) {
@@ -341,9 +339,9 @@ final class CubismJvmSettingsContribution {
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
                 OptionalInt.of(index),
                 new SettingsControl.Toggle(id, i18n.text(labelKey), SettingsBinding.of(getter::getAsBoolean, value -> {
-                    setter.apply(value);
-                    // Clearing the property would restore the preference cached at startup.
-                    System.setProperty(enableProperty, Boolean.toString(value));
+                    if (!Objects.equals(setter.apply(value), value)) {
+                        throw new IllegalStateException("Optimization preference was not saved");
+                    }
                 })));
     }
 

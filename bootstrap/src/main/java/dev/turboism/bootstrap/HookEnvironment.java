@@ -35,6 +35,7 @@ final class HookEnvironment {
     private final String classPath;
     private final Path workingDirectory;
     private final RuntimeStartupConfig startupPolicy;
+    private dev.turboism.config.NativeOptimizationConfig optimizationConfig;
 
     private HookEnvironment(final Builder builder) {
         this.instrumentation = builder.instrumentation;
@@ -50,6 +51,7 @@ final class HookEnvironment {
         this.classPath = builder.classPath;
         this.workingDirectory = builder.workingDirectory;
         this.startupPolicy = builder.startupPolicy;
+        this.optimizationConfig = builder.optimizationConfig;
     }
 
     HookEnvironment forHook(final String hookId) {
@@ -67,7 +69,19 @@ final class HookEnvironment {
                 .classPath(classPath)
                 .workingDirectory(workingDirectory)
                 .startupPolicy(startupPolicy)
+                .optimizationConfig(optimizationConfig())
                 .build();
+    }
+
+    /** One immutable optimization snapshot shared by every hook in this launch phase. */
+    synchronized dev.turboism.config.NativeOptimizationConfig optimizationConfig() {
+        if (optimizationConfig == null) {
+            optimizationConfig = dev.turboism.config.NativeOptimizationConfig.load(
+                    options == null ? null : options.home(),
+                    message -> dev.turboism.runtime.log.RuntimeDiagnostics.warn("config", message));
+            dev.turboism.config.NativeOptimizationDiagnostics.startup(optimizationConfig.settings());
+        }
+        return optimizationConfig;
     }
 
     Instrumentation instrumentation() {
@@ -340,6 +354,12 @@ final class HookEnvironment {
         private String classPath = "";
         private Path workingDirectory = Path.of(".");
         private RuntimeStartupConfig startupPolicy;
+        private dev.turboism.config.NativeOptimizationConfig optimizationConfig;
+
+        Builder optimizationConfig(dev.turboism.config.NativeOptimizationConfig value) {
+            this.optimizationConfig = value;
+            return this;
+        }
 
         Builder instrumentation(final Instrumentation value) {
             this.instrumentation = value;
