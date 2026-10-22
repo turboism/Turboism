@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 class ProfileDraftImportTest {
 
     private static final Path DRAFT_DIR = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-            .resolve("compatibility/cubism/profiles/draft");
+            .resolve("build/generated/draft/profiles");
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final ProfileValidator validator = new ProfileValidator();
@@ -77,7 +77,7 @@ class ProfileDraftImportTest {
     @Test
     void profilesReferenceExistingDraftPacks() throws Exception {
         Path packsDir = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-                .resolve("compatibility/cubism/mapping-packs/draft");
+                .resolve("build/generated/draft/mapping-packs");
         try (Stream<Path> files = Files.list(DRAFT_DIR)) {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {
@@ -99,7 +99,7 @@ class ProfileDraftImportTest {
     @Test
     void semanticNamesAreCompatibleWithinEachProfile() throws Exception {
         Path packsDir = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-                .resolve("compatibility/cubism/mapping-packs/draft");
+                .resolve("build/generated/draft/mapping-packs");
         try (Stream<Path> files = Files.list(DRAFT_DIR)) {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
                 try {

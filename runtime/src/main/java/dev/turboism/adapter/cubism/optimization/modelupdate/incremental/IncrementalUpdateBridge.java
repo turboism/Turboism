@@ -72,6 +72,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static final String PS = "com.live2d.cubism.doc.model.param.CParameterSet";
     private static final String CP = "com.live2d.cubism.doc.model.param.CParameter";
     private static final String CX = "com.live2d.cubism.view.context.CEViewContext";
+    private static final String SOURCE = "com.live2d.cubism.doc.model.CModelSource";
     private static final String DOC = "com.live2d.cubism.doc.modeling.CModelingDocument";
     private static final String EM = "com.live2d.cubism.doc.ACEditMode";
     private static final String ACD = "com.live2d.cubism.doc.model.deformer.ACDeformer";
@@ -100,6 +101,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             paramValue,
             getLastModifiedTime,
             getDoc,
+            getSource,
+            isModelEditing,
             getCurrentEditMode,
             isEditModeEditing,
             getDirty,
@@ -148,9 +151,19 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private final Set<Object> changedForms = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> markedDeformers = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-    private volatile boolean epochFull, epochUnsafe, priorSkipInterpolation, previousEditing;
-    private volatile Object lastDocument;
-    private volatile long lastDocumentModified = Long.MIN_VALUE;
+    private volatile boolean epochFull = true, epochUnsafe = true, priorSkipInterpolation;
+    private UpdateBaseline completedUpdate, pendingUpdate;
+
+    private record UpdateBaseline(
+            Object model,
+            Object context,
+            Object source,
+            Object parameters,
+            Object document,
+            long modified,
+            boolean editing,
+            boolean enabled) {}
+
     private volatile byte[] previousDigest, previousInputs, currentInputs;
     private volatile boolean previousNarrowed;
     private volatile Properties installedProperties;
@@ -184,6 +197,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         paramValue = handles.get(dep(CP, "getValue"));
         getLastModifiedTime = handles.get(dep(DOC, "getLastModifiedTime"));
         getDoc = handles.get(dep(CX, "getDoc"));
+        getSource = handles.get(dep(CM, "getSource"));
+        isModelEditing = handles.get(dep(SOURCE, "isModelEditing"));
         getCurrentEditMode = handles.get(dep(CX, "getCurrentEditMode"));
         isEditModeEditing = handles.get(dep(EM, "isEditing"));
         getDirty = handles.get(dep(ACD, "getDirtyDeformedForm"));
@@ -263,7 +278,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         throw new NoSuchMethodException(owner.getName() + "." + dep.name() + dep.descriptor());
     }
 
-    /** Occupies the callback slots and enables the host skip flag; refuses double install. */
+    /** Occupies the callback slots and keeps native interpolation until a completed baseline; refuses double install. */
     public synchronized void install() {
         if (active.get()) throw new IllegalStateException("incremental update already installed");
         final Properties properties = System.getProperties();
@@ -297,7 +312,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         }
         try {
             priorSkipInterpolation = (boolean) getSkipInterpolation.invokeExact(updaterInstance);
-            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.TRUE);
+            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.FALSE);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -333,6 +348,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         try {
             epochFull = true;
             epochUnsafe = true;
+            final UpdateBaseline previous = completedUpdate;
+            completedUpdate = null;
+            pendingUpdate = null;
+            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.FALSE);
             if (!(args instanceof Object[] pair) || pair.length < 2 || pair[0] == null) return;
             final Object model = pair[0], ctx = pair[1];
             epochs.increment();
@@ -341,24 +360,36 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             childMap = null;
             childMapModel = null;
             final Object editMode = ctx == null ? null : (Object) getCurrentEditMode.invokeExact(ctx);
-            final boolean editing = editMode != null
-                    && editModeType.isInstance(editMode)
-                    && (boolean) isEditModeEditing.invokeExact(editMode);
+            final Object source = (Object) getSource.invokeExact(model);
+            final Object parameters = (Object) getParameterSet.invokeExact(model);
+            // Unknown authoring state cannot prove that cached geometry is reusable.
+            final boolean editing = source == null
+                    || !editModeType.isInstance(editMode)
+                    || (boolean) isModelEditing.invokeExact(source)
+                    || (boolean) isEditModeEditing.invokeExact(editMode);
             Object document = ctx == null ? null : (Object) getDoc.invokeExact(ctx);
             if (!modelingDocumentType.isInstance(document)) document = null;
             final long documentModified =
                     document == null ? Long.MIN_VALUE : (long) getLastModifiedTime.invokeExact(document);
-            final boolean documentChanged =
-                    document != null && document == lastDocument && documentModified != lastDocumentModified;
-            lastDocument = document;
-            lastDocumentModified = documentModified;
-            final boolean authoringFull = editing || previousEditing || documentChanged;
-            previousEditing = editing;
             final boolean enabled = enabled();
+            final boolean authoringFull = previous == null
+                    || document == null
+                    || parameters == null
+                    || previous.model() != model
+                    || previous.context() != ctx
+                    || previous.source() != source
+                    || previous.parameters() != parameters
+                    || previous.document() != document
+                    || previous.modified() != documentModified
+                    || !previous.enabled()
+                    || editing
+                    || previous.editing();
+            pendingUpdate =
+                    new UpdateBaseline(model, ctx, source, parameters, document, documentModified, editing, enabled);
             final boolean probe = Boolean.getBoolean(PROBE_PROPERTY);
             epochFull = !enabled || authoringFull || (probe && (epochs.sum() & 1L) == 1L);
-            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(enabled && !epochFull));
             epochUnsafe = !enabled || unsafe(model);
+            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(enabled && !epochFull));
             if (probe) {
                 currentInputs = inputsVersion(model, ctx);
             }
@@ -366,6 +397,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             FatalErrors.rethrowIfFatal(failure);
             epochFull = true;
             epochUnsafe = true;
+            pendingUpdate = null;
             failures.increment();
         }
     }
@@ -379,6 +411,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
+            pendingUpdate = null;
+            epochFull = true;
+            epochUnsafe = true;
             failures.increment();
         }
     }
@@ -412,6 +447,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
+            pendingUpdate = null;
+            epochFull = true;
+            epochUnsafe = true;
             failures.increment();
             try {
                 if (deformer != null) setDirty.invokeExact(deformer, (Object) Boolean.TRUE);
@@ -508,6 +546,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             return (Object) meshTransform.invokeExact(preDeform, transform, out);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
+            pendingUpdate = null;
+            epochFull = true;
+            epochUnsafe = true;
             failures.increment();
             // Rethrow so the injected fallback re-executes the exact native sequence.
             if (failure instanceof RuntimeException runtime) throw runtime;
@@ -519,6 +560,15 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     /** Update-core return: probe digest comparison against the next forced-full epoch. */
     private void afterUpdate(final Object args) {
         try {
+            final UpdateBaseline completed = pendingUpdate;
+            pendingUpdate = null;
+            if (completed != null
+                    && args instanceof Object[] pair
+                    && pair.length >= 2
+                    && pair[0] == completed.model()
+                    && pair[1] == completed.context()) {
+                completedUpdate = completed;
+            }
             if (!Boolean.getBoolean(PROBE_PROPERTY)
                     || !(args instanceof Object[] pair)
                     || pair.length < 1
@@ -551,6 +601,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             previousInputs = currentInputs;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
+            pendingUpdate = null;
+            epochFull = true;
+            epochUnsafe = true;
             failures.increment();
         }
     }
@@ -761,10 +814,22 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         configuredDefault = false;
+        completedUpdate = null;
+        pendingUpdate = null;
+        changedForms.clear();
+        markedDeformers.clear();
+        visited.clear();
+        childMap = null;
+        childMapModel = null;
+        epochFull = true;
+        epochUnsafe = true;
         try {
             setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(priorSkipInterpolation));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
+            pendingUpdate = null;
+            epochFull = true;
+            epochUnsafe = true;
             failures.increment();
         }
         final Properties properties = installedProperties;

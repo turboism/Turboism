@@ -1,0 +1,542 @@
+{
+  "family": "ui-top-menu",
+  "releases": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.3.00",
+    "5.3.01",
+    "5.3.03",
+    "5.3.04"
+  ],
+  "templates": [
+    {
+      "annotations": {
+        "confidence": "medium",
+        "status": "DRAFT",
+        "verifiedAt": null,
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": true
+    },
+    {
+      "annotations": {
+        "confidence": "medium",
+        "status": "DRAFT",
+        "verifiedAt": null,
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": false
+    }
+  ],
+  "entries": {
+    "cubism.editor-command.canvas.begin-edit": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.canvas": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.companion": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.complete-pack": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.current-view-context": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.doc-size": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.edit-mode": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.edit-mode-main": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.editor-command.canvas.end-edit-default": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.group-add": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.handler": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.is-editing": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.mark-dirty": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.model": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.model-source": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.modeling-doc": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.modeling-view": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.editor-command.canvas.notify-size": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.pixel-height": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.pixel-width": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.scale-with-anchor": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.set-pixel-height": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.set-pixel-width": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.simple-undo": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.size-height": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.size-width": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.undo": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.undo-manager": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.undo-pos": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.vector2": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.canvas.vector2-zero": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.config.instance": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.config.read": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.config.write": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.companion": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.connected": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.get-port": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.get-remote": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.instance": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.manager": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.set-port": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.set-remote": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.start": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.external-app.stop": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.file.save-model": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.file.save-scene": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.file.scene-content": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.file.scene-document": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.editor-command.grid.all-view-contexts": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.color-create": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.developer-setting": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.entity": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.entity-from-draw": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.get-bold": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.get-color": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.get-jcolor": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.get-spacing": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.modeling-draw": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.repaint-default": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.set-color": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.set-reset": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.set-spacing": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.grid.update-manager": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.resize.guard": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.resize.guard-active": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.resize.guard-current": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.editor-command.resize.scale-model": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.app-controller.instance": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.app-controller.main-frame": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.main-frame.window": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu-bar.add": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu-bar.menus": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu-bar.swing": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu-item.create": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu.add": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu.create": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.menu.swing": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.widget.name": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.widget.repaint": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.widget.revalidate": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.widget.set-name": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-top-menu.window.menu-bar": [
+      {
+        "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ]
+  },
+  "envelopes": [
+    {
+      "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+      "value": {
+        "cubismVersion": "${version}",
+        "format": "turboism.mapping.pack",
+        "schemaVersion": 1,
+        "source": "derived-from-verified-record",
+        "status": "DRAFT"
+      }
+    }
+  ]
+}

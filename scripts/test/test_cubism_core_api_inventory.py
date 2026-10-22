@@ -30,13 +30,13 @@ API_53 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
 CORE_PREFIX = "com.live2d.sdk.cubism.core."
 CORE_MODEL_READ_PACKS = {
     "5.2.03": ROOT
-    / "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
+    / "build/generated/draft/mapping-packs/cubism-5.2.03-core-model-read.json",
     "5.3.02": ROOT
-    / "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
+    / "build/generated/draft/mapping-packs/cubism-5.3.02-core-model-read.json",
 }
 CORE_PROFILES = {
-    "5.2.03": ROOT / "compatibility/cubism/profiles/draft/cubism-5.2.03.json",
-    "5.3.02": ROOT / "compatibility/cubism/profiles/draft/cubism-5.3.02.json",
+    "5.2.03": ROOT / "build/generated/draft/profiles/cubism-5.2.03.json",
+    "5.3.02": ROOT / "build/generated/draft/profiles/cubism-5.3.02.json",
 }
 
 

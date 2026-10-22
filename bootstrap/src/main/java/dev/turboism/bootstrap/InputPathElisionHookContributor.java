@@ -30,7 +30,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
         final boolean production = NativeOptimizationPolicy.inputPathElisionEnabled(environment);
         if (!validation && !production) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (production
@@ -41,7 +41,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
                         true,
                         Runtime.version())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedInputPathElisionInstaller installer = new VerifiedInputPathElisionInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

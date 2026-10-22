@@ -13,7 +13,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.uniformLocationCacheEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedUniformLocationInstaller.admitted(
@@ -22,7 +22,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
                 true,
                 Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

@@ -38,7 +38,10 @@ supported family. Add the release's evidence fields under `releases`; explicitly
 extend applicable selector, capability, artifact and layout ranges and preserve
 original `mappingId` values. Neither range extension nor evidence review is
 automatic, even for an otherwise unchanged patch. New selector observations
-still require the exact licensed artifact and human review.
+still require the exact licensed artifact and human review. For each new alias,
+add `entries.<alias>` with a template index and an applicable `versions` range in
+`compatibility/cubism/draft-src/<family>.json` (`editor-model-read.json` for
+`editor-model` selectors), then run `materializeDraftContracts`.
 
 ```bash
 python3 scripts/materialize_verification_records.py

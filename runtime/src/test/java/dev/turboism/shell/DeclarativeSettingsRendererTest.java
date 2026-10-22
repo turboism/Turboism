@@ -633,7 +633,7 @@ class DeclarativeSettingsRendererTest {
                     assertTrue(uniform.get(), "click alone must not persist before Apply");
                     assertTrue(rendered.save().getAsBoolean());
                     assertFalse(uniform.get());
-                    assertEquals("false", System.getProperty(key));
+                    assertNull(System.getProperty(key), "Apply saves the next launch without mutating installed hooks");
                     assertFalse(checkboxes(render(windows).tabs()).get(0).isSelected(), "reopen preserves opt-out");
                 }
             });
