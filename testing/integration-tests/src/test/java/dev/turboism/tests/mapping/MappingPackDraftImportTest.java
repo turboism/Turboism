@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 class MappingPackDraftImportTest {
 
     private static final Path DRAFT_DIR = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-            .resolve("compatibility/cubism/mapping-packs/draft");
+            .resolve("build/generated/draft/mapping-packs");
 
     private static String materializedRef(final String reference) {
         return reference.replace("compatibility/cubism/verification/", "build/generated/verification/");

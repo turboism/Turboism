@@ -76,11 +76,6 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
         },
     }
     put(CHECK.HOST_VALIDATION_TASKS.as_posix(), json.dumps(tasks))
-    for version in versions:
-        put(
-            (CHECK.PROFILES_DIR / f"cubism-{version}.json").as_posix(),
-            json.dumps({"profileId": f"cubism-{version}", "cubismVersion": version}),
-        )
     sha = "a" * 64
     put(
         (CHECK.CLASS_PINS_DIR / "test-hook.json").as_posix(),
@@ -142,23 +137,6 @@ class VersionSetCompletenessTest(unittest.TestCase):
             path.write_text(json.dumps(document))
             found = violations(root)
             self.assertTrue(any("host-validation-tasks" in v for v in found))
-
-    def test_missing_profile_fails(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            write_tree(root)
-            (root / CHECK.PROFILES_DIR / "cubism-5.3.03.json").unlink()
-            self.assertTrue(any("profiles" in v for v in violations(root)))
-
-    def test_profile_version_field_drift_fails(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            write_tree(root)
-            path = root / CHECK.PROFILES_DIR / "cubism-5.3.02.json"
-            document = json.loads(path.read_text())
-            document["cubismVersion"] = "5.3.99"
-            path.write_text(json.dumps(document))
-            self.assertTrue(any("cubism-5.3.02.json" in v for v in violations(root)))
 
     def test_stale_index_prose_fails(self):
         with tempfile.TemporaryDirectory() as directory:

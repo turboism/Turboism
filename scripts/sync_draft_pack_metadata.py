@@ -5,7 +5,8 @@ A draft pack whose ``metadata.inventoryRef`` identifies a verification record
 restates four fields derived from materialized bytes in
 ``build/generated/verification/``. Historical references spelled
 ``compatibility/cubism/verification/`` are mapped there before reading; the pack's
-provenance label is preserved. Run the materializer before standalone use.
+provenance label is preserved. Run both materializers before standalone use. This tool checks/patches the generated
+DRAFT view; fix upstream sources and regenerate to retain an intentional change.
 The projected fields are:
 
 - ``selectorCount``            == len(record.selectors)
@@ -33,7 +34,7 @@ from turboism_dev.json_io import read_json
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
-DRAFT_PACKS = Path("compatibility/cubism/mapping-packs/draft")
+DRAFT_PACKS = Path("build/generated/draft/mapping-packs")
 VERIFICATION_RECORDS = Path("build/generated/verification")
 LEGACY_RECORDS = Path("compatibility/cubism/verification")
 MANAGED_FIELDS = (
@@ -224,6 +225,8 @@ def metadata_violations(
 
 def iter_draft_packs(root: Path) -> list[Path]:
     packs_dir = root / DRAFT_PACKS
+    if not packs_dir.is_dir():
+        raise SyncError("run materializeDraftContracts before checking DRAFT metadata")
     return sorted(packs_dir.glob("*.json"))
 
 

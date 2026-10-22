@@ -92,7 +92,7 @@ tasks.register("checkPluginInspectionRuntime") {
 tasks.register<JavaExec>("mappingReview") {
     group = "verification"
     description = "Run the local draft mapping review CLI; apply is dry-run unless --write is passed."
-    dependsOn(":runtime:classes")
+    dependsOn(":runtime:classes", "materializeDraftContracts")
     classpath = project(":runtime").extensions.getByType<SourceSetContainer>()
         .named("main").get().runtimeClasspath
     mainClass.set("dev.turboism.mapping.draft.MappingReviewCli")
@@ -107,7 +107,32 @@ tasks.register<JavaExec>("mappingReview") {
         if (!cliArgsFile.isPresent || cliArgsFile.get().isBlank()) {
             throw GradleException("Pass -PturboismMappingReviewArgsFile=<path> containing one Base64-encoded UTF-8 argument per line.")
         }
-        setArgs(MappingReviewArgsFile.readAndDelete(file(cliArgsFile.get()).toPath()))
+        val reviewArgs = MappingReviewArgsFile.readAndDelete(file(cliArgsFile.get()).toPath()).toMutableList()
+        val packArgument = reviewArgs.indexOf("--pack") + 1
+        if (packArgument > 0 && packArgument < reviewArgs.size) {
+            val supplied = reviewArgs[packArgument]
+            val generatedPrefix = "build/generated/draft/mapping-packs/"
+            val sourcePrefix = "compatibility/cubism/mapping-packs/draft/"
+            val name = when {
+                supplied.startsWith(generatedPrefix) -> supplied.removePrefix(generatedPrefix)
+                supplied.startsWith(sourcePrefix) -> supplied.removePrefix(sourcePrefix)
+                else -> null
+            }
+            if (name != null && Regex("[^/\\\\:]+\\.json").matches(name) && !name.contains("..")) {
+                val generated = file(generatedPrefix + name)
+                val source = file(sourcePrefix + name)
+                if (generated.isFile) {
+                    val pack = groovy.json.JsonSlurper().parse(generated) as Map<*, *>
+                    if (pack["source"] in setOf("derived-from-verified-record", "exact-5.3.03-classfile-observation-and-semantic-remap")) {
+                        throw GradleException("Derived DRAFT pack: edit verification-src/draft-src and regenerate; mapping-review writes observation sources only.")
+                    }
+                    if (supplied.startsWith(generatedPrefix) && source.isFile) {
+                        reviewArgs[packArgument] = sourcePrefix + name
+                    }
+                }
+            }
+        }
+        setArgs(reviewArgs)
     }
 }
 
