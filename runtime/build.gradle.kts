@@ -212,6 +212,29 @@ val asyncHostReadFoundationTest by tasks.registering(Test::class) {
     }
 }
 
+val warpAltMirrorArtifactTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Checks warp Alt-mirror hook and toolbar contracts against every reviewed Cubism JAR."
+    val refRoot = providers.environmentVariable("TURBOISM_CUBISM_REF_ROOT").orElse("")
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    systemProperty("turboism.cubismRefRoot", refRoot.get())
+    inputs.property("cubismRefRoot", refRoot)
+    if (refRoot.get().isNotBlank()) {
+        inputs.files(fileTree(refRoot.get()) { include("*/Live2D_Cubism.jar") })
+    }
+    doFirst {
+        require(refRoot.get().isNotBlank()) {
+            "Set TURBOISM_CUBISM_REF_ROOT to a directory containing <version>/Live2D_Cubism.jar"
+        }
+    }
+    filter {
+        includeTestsMatching("dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest")
+        isFailOnNoMatchingTests = true
+    }
+}
+
 val corePublicApiProviderTest by tasks.registering(Test::class) {
     group = "verification"
     description = "Runs synthetic Cubism Core admission, lease, call-site, and structural projection tests."
