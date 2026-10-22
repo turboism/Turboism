@@ -837,9 +837,26 @@ class ParameterLockPluginTest {
         final FakeParameter p = newModel.findParam("PARAM_S1");
         p.viewScopeReady = false; // Initially viewscope not ready!
 
+        // Keep the background load's UI continuation on this thread, like the real EDT.
+        final java.util.concurrent.BlockingQueue<Runnable> uiWork = new java.util.concurrent.LinkedBlockingQueue<>();
+        final UiScheduler scheduler = context.uiScheduler;
+        context.uiScheduler = new UiScheduler() {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
+                uiWork.add(work);
+                return () -> uiWork.remove(work);
+            }
+
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final java.time.Duration delay) {
+                return scheduler.runOnUiThreadLater(work, delay);
+            }
+        };
         context.activeModel = newModel;
         plugin.checkActivation();
-        awaitCondition(() -> plugin.lockState().hasLoaded("guid-scope-retry"));
+        final Runnable initialDecoration = uiWork.poll(5, TimeUnit.SECONDS);
+        assertNotNull(initialDecoration, "the initial load must dispatch its decoration attempt");
+        initialDecoration.run();
 
         // Not fully decorated because viewscope wasn't ready
         assertFalse(plugin.isFullyDecorated());
@@ -989,7 +1006,7 @@ class ParameterLockPluginTest {
         boolean simulateDocumentMissing = false;
         java.util.function.Supplier<CubismModel> modelAccessOverride;
         final List<Runnable> scheduledWork = new ArrayList<>();
-        final UiScheduler uiScheduler = new UiScheduler() {
+        UiScheduler uiScheduler = new UiScheduler() {
             @Override
             public Registration runOnUiThread(final Runnable work) {
                 work.run();
