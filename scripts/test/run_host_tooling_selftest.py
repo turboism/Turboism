@@ -30,10 +30,10 @@ def main() -> int:
             [sys.executable, "-m", "unittest", "discover", "-s", "scripts/test", "-p", pattern],
             cwd=ROOT, check=False,
         )
-        status = max(status, result.returncode)
+        status = max(status, int(result.returncode != 0))
     for name in SHELL_TESTS:
         result = subprocess.run(["bash", str(ROOT / "scripts/test" / name)], cwd=ROOT, check=False)
-        status = max(status, result.returncode)
+        status = max(status, int(result.returncode != 0))
     return status
 
 
