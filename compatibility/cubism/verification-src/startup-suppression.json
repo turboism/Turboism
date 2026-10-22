@@ -1,0 +1,510 @@
+{
+  "format": "turboism.verification-family/v1",
+  "family": "startup-suppression",
+  "base": {
+    "format": "turboism.static.verification.record",
+    "schemaVersion": 1,
+    "adapterSliceId": "adapter.cubism.startup-suppression",
+    "capabilityIds": [
+      "cubism.startup.suppression"
+    ],
+    "capabilityConditions": {
+      "cubism.startup.suppression": [
+        "declaredGeneration"
+      ]
+    },
+    "evidenceType": "JAR_METADATA",
+    "owner": "bootstrap-startup-suppression-hook",
+    "status": "VERIFIED_STATIC",
+    "verifiedBy": "turboism-startup-suppression-static-verifier",
+    "safeMode": "Startup suppression stays disabled with bounded premain diagnostics when the exact artifact, declared reviewed release, pinned class bytes, or the selector cardinality contract does not match; a partial startup rewrite is never installed."
+  },
+  "fieldRanges": [],
+  "artifactRanges": [],
+  "selectors": [
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.startup_suppression.class.app"
+        },
+        {
+          "versions": "5.0.03-5.0.06",
+          "id": "cubism.mapping.v5_0_06.startup_suppression.class.app"
+        },
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.startup_suppression.class.app"
+        },
+        {
+          "versions": "5.3.00-5.3.01,5.3.04",
+          "id": "cubism.mapping.v5_3_04.startup_suppression.class.app"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.startup_suppression.class.app"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.startup_suppression.class.app"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app.startup",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+        "memberName": "a",
+        "descriptor": "([Ljava/lang/String;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.startup_suppression.method.startup"
+        },
+        {
+          "versions": "5.0.03-5.0.06",
+          "id": "cubism.mapping.v5_0_06.startup_suppression.method.startup"
+        },
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.startup_suppression.method.startup"
+        },
+        {
+          "versions": "5.3.00-5.3.01,5.3.04",
+          "id": "cubism.mapping.v5_3_04.startup_suppression.method.startup"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.startup_suppression.method.startup"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.startup_suppression.method.startup"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app.splash-factory",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+        "memberName": "c",
+        "descriptor": "()Lcom/live2d/ui/window/Y;",
+        "requiredAccessFlags": 2,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.02",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.startup_suppression.method.splash_factory"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app-controller.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.startup_suppression.class.app_ctrl"
+        },
+        {
+          "versions": "5.0.03-5.0.06",
+          "id": "cubism.mapping.v5_0_06.startup_suppression.class.app_ctrl"
+        },
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl"
+        },
+        {
+          "versions": "5.3.00-5.3.01,5.3.04",
+          "id": "cubism.mapping.v5_3_04.startup_suppression.class.app_ctrl"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.startup_suppression.class.app_ctrl"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.startup_suppression.class.app_ctrl"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app-controller.update-check",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "command_checkUpdate",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.startup_suppression.method.update_check"
+        },
+        {
+          "versions": "5.0.03-5.0.06",
+          "id": "cubism.mapping.v5_0_06.startup_suppression.method.update_check"
+        },
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.startup_suppression.method.update_check"
+        },
+        {
+          "versions": "5.3.00-5.3.01,5.3.04",
+          "id": "cubism.mapping.v5_3_04.startup_suppression.method.update_check"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.startup_suppression.method.update_check"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.startup_suppression.method.update_check"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app.splash-factory",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+        "memberName": "e",
+        "descriptor": "()Lcom/live2d/ui/window/X;",
+        "requiredAccessFlags": 2,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.03-5.2.03",
+      "mappingId": [
+        {
+          "versions": "5.0.03-5.0.06",
+          "id": "cubism.mapping.v5_0_06.startup_suppression.method.splash_factory"
+        },
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app-controller.show-information",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "showInformation",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.startup_suppression.method.show_information"
+        },
+        {
+          "versions": "5.3.00-5.3.01,5.3.04",
+          "id": "cubism.mapping.v5_3_04.startup_suppression.method.show_information"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.startup_suppression.method.show_information"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.startup_suppression.method.show_information"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.startup-suppression.app.splash-factory",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+        "memberName": "e",
+        "descriptor": "()Lcom/live2d/ui/window/V;",
+        "requiredAccessFlags": 2,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.01,5.3.04",
+          "id": "cubism.mapping.v5_3_04.startup_suppression.method.splash_factory"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.startup_suppression.method.splash_factory"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.startup_suppression.method.splash_factory"
+        }
+      ]
+    }
+  ],
+  "selectorOrder": [
+    {
+      "versions": "5.0.00-5.0.02",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "versions": "5.0.03-5.0.06",
+      "value": [
+        0,
+        1,
+        5,
+        3,
+        4
+      ]
+    },
+    {
+      "versions": "5.1.00-5.2.03",
+      "value": [
+        0,
+        1,
+        5,
+        3,
+        4,
+        6
+      ]
+    },
+    {
+      "versions": "5.3.00-5.3.04",
+      "value": [
+        0,
+        1,
+        7,
+        3,
+        4,
+        6
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "versions": "5.0.00-5.3.04",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "verificationId",
+          "adapterSliceId",
+          "capabilityIds",
+          "capabilityConditions",
+          "cubismVersion",
+          "profileId",
+          "artifact",
+          "evidenceType",
+          "evidencePath",
+          "owner",
+          "status",
+          "verifiedBy",
+          "verifiedAt",
+          "safeMode",
+          "selectors"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    }
+  ],
+  "releases": {
+    "5.0.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.05": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.06": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.03": {
+      "verifiedAt": "2026-10-09T00:00:00Z"
+    },
+    "5.3.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.02": {
+      "verifiedAt": "2026-10-09T00:00:00Z"
+    },
+    "5.3.03": {
+      "verifiedAt": "2026-10-09T00:00:00Z"
+    },
+    "5.3.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    }
+  }
+}
