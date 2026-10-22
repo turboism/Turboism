@@ -35,10 +35,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     }
 
     public ProjectFileLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.callbacks = new LifecycleCallbackExecutor(
-                "Project-file",
-                executors,
-                new dev.turboism.core.runtime.QuiescencePolicy(java.time.Duration.ofSeconds(2)));
+        this.callbacks = new LifecycleCallbackExecutor("Project-file", executors);
     }
 
     /** Attaches the session event broker used by the preview plugin runtime. */

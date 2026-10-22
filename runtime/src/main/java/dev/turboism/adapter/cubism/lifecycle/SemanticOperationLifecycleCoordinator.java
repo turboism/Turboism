@@ -38,10 +38,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
 
     /** Creates a coordinator with an explicit bounded callback executor. */
     public SemanticOperationLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.callbacks = new LifecycleCallbackExecutor(
-                "Semantic operation",
-                executors,
-                new dev.turboism.core.runtime.QuiescencePolicy(java.time.Duration.ofSeconds(2)));
+        this.callbacks = new LifecycleCallbackExecutor("Semantic operation", executors);
     }
 
     /** Attaches the session event broker used by the preview plugin runtime. */

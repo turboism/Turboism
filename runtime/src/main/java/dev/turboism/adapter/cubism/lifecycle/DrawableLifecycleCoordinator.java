@@ -36,8 +36,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
     }
 
     public DrawableLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
-        this.callbacks = new LifecycleCallbackExecutor(
-                "Drawable", executors, new dev.turboism.core.runtime.QuiescencePolicy(java.time.Duration.ofSeconds(2)));
+        this.callbacks = new LifecycleCallbackExecutor("Drawable", executors);
     }
 
     /** Attaches the session event broker used by the preview plugin runtime. */
