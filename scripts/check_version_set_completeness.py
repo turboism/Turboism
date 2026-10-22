@@ -1,25 +1,8 @@
 #!/usr/bin/env python3
-"""Fail when the admitted Cubism Editor version set drifts between restatements.
+"""Check generated Java == reviewed-releases.json and remaining version rosters.
 
-``ReviewedHostArtifacts`` is the canonical declaration. Every other surface that
-restates the admitted exact versions must carry the identical set:
-
-- ``ReviewedHostArtifacts.CUBISM_*_VERSION`` constants and artifact constants
-- ``CubismEditorReleaseDetector.pinnedBuild`` switch arms
-- ``CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS``
-- ``bootstrap/build.gradle.kts`` verification record filenames
-- ``scripts/preview/host-validation-tasks.json`` task versions (union; every
-  listed version must be admitted)
-- ``compatibility/cubism/profiles/draft/cubism-*.json`` filenames, profileIds
-  and cubismVersion fields
-- ``compatibility/cubism/index.md`` exact-version prose
-- ``scripts/preview/host_validation.py`` supported-version whitelist
-- ``class-pins/*.json`` version keys (subset rule: a hook may pin only the
-  versions it supports, but may never name an unadmitted version)
-- integration-test probe ``hostCloseRoute`` switch arms (a probe that forgets
-  an admitted version throws instead of closing the real host)
-
-Usage: check_version_set_completeness.py [repo-root]
+Bootstrap records, profiles, prose and close probes still cover the table.
+Host tasks and class pins may cover subsets, but never unknown versions.
 """
 from __future__ import annotations
 
@@ -30,11 +13,14 @@ import sys
 from pathlib import Path
 
 from turboism_dev.json_io import read_json
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
+import generate_reviewed_releases as generated
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
 
-CANONICAL = "ReviewedHostArtifacts.CUBISM_*_VERSION"
+CANONICAL = "reviewed-releases.json"
+RELEASES = Path(SOURCE_RELATIVE)
 REVIEWED_HOST_ARTIFACTS = Path(
     "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
 )
@@ -72,19 +58,11 @@ CLOSE_ROUTE_SWITCH = re.compile(
 )
 COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
 
-DOTTED = re.compile(r"^5\.\d{1,2}\.\d{2}$")
 COMPACT = re.compile(r"^5\d{3}$")
 
-VERSION_CONSTANT = re.compile(
-    r'CUBISM_(\d+)_(\d+)_(\d+)_VERSION\s*=\s*"([^"]+)"'
-)
-ARTIFACT_CONSTANT = re.compile(
-    r'CUBISM_(\d+)_(\d+)_(\d+)\s*=\s*new HostArtifactDigest'
-)
 RECORD_FILENAME = re.compile(r'"cubism-(\d+\.\d+\.\d+)-[^"]+\.json"')
 PROFILE_FILENAME = re.compile(r"^cubism-(\d+\.\d+\.\d+)\.json$")
 INDEX_VERSION = re.compile(r"\b5\.\d{1,2}\.\d{2}\b")
-SUPPORTED_SET = re.compile(r"version not in \{([^}]*)\}")
 
 
 class CompletenessError(Exception):
@@ -110,28 +88,11 @@ def _read(root: Path, relative: Path) -> str:
 
 
 def reviewed_host_artifacts(root: Path) -> tuple[set[str], list[str]]:
-    text = _read(root, REVIEWED_HOST_ARTIFACTS)
-    problems = []
-    versions = set()
-    artifacts = set()
-    for major, minor, patch, literal in VERSION_CONSTANT.findall(text):
-        expected = dotted(major, minor, patch)
-        if literal != expected:
-            problems.append(
-                f"{REVIEWED_HOST_ARTIFACTS}: CUBISM_{major}_{minor}_{patch}_VERSION "
-                f"is {literal!r}, expected {expected!r}"
-            )
-        versions.add(expected)
-    for major, minor, patch in ARTIFACT_CONSTANT.findall(text):
-        artifacts.add(dotted(major, minor, patch))
-    if not versions:
-        problems.append(f"{REVIEWED_HOST_ARTIFACTS}: no CUBISM_*_VERSION constants found")
-    if artifacts != versions:
-        problems.append(
-            f"{REVIEWED_HOST_ARTIFACTS}: artifact constants {sorted(artifacts)} "
-            f"!= version constants {sorted(versions)}"
-        )
-    return versions, problems
+    try:
+        versions = {r['version'] for r in load_releases(root / RELEASES)}
+        return versions, generated.check(root)
+    except (ValueError, OSError) as exc:
+        raise CompletenessError(str(exc)) from exc
 
 
 def compatibility_catalog(root: Path) -> set[str]:
@@ -150,12 +111,17 @@ def compatibility_catalog(root: Path) -> set[str]:
     return versions
 
 
-def availability_policy(root: Path) -> set[str]:
-    text = _read(root, AVAILABILITY_POLICY)
-    match = re.search(r"REVIEWED_VERSIONS\s*=\s*List\.of\(([^)]*)\)", text)
-    if match is None:
-        raise CompletenessError(f"{AVAILABILITY_POLICY}: REVIEWED_VERSIONS not found")
-    return set(re.findall(r'"(5\.\d{1,2}\.\d{2})"', match.group(1)))
+def derived_consumers(root: Path) -> list[str]:
+    """Reject a stale consumer that stops using the generated table."""
+    expected = {
+        AVAILABILITY_POLICY: 'REVIEWED_VERSIONS = ReviewedReleaseTable.versions()',
+        Path('runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java'): 'ReviewedReleaseTable.find(version)',
+        Path('runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java'): 'ReviewedReleaseTable.find(profile)',
+        Path('runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java'): 'ReviewedReleaseTable.find(profile)',
+        HOST_VALIDATION_PY: 'reviewed_host_artifacts.load()',
+    }
+    return [f'{path}: must derive reviewed versions from the table'
+            for path, expression in expected.items() if expression not in _read(root, path)]
 
 
 def bootstrap_records(root: Path) -> set[str]:
@@ -179,18 +145,6 @@ def host_validation_tasks(root: Path) -> tuple[set[str], list[str]]:
             versions.add(compact_to_dotted(str(token)))
     return versions, problems
 
-
-def host_validation_py(root: Path) -> set[str]:
-    text = _read(root, HOST_VALIDATION_PY)
-    match = SUPPORTED_SET.search(text)
-    if match is None:
-        raise CompletenessError(
-            f"{HOST_VALIDATION_PY}: supported-version whitelist not found"
-        )
-    return {
-        compact_to_dotted(token)
-        for token in re.findall(r'"(\d+)"', match.group(1))
-    }
 
 
 def draft_profiles(root: Path) -> tuple[set[str], list[str]]:
@@ -283,18 +237,17 @@ def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     tasks, task_problems = host_validation_tasks(root)
     profiles, profile_problems = draft_profiles(root)
     pins, pin_problems = class_pin_tables(root)
+    problems.extend(derived_consumers(root))
     problems.extend(task_problems)
     problems.extend(profile_problems)
     problems.extend(pin_problems)
     sites = {
         CANONICAL: canonical,
         "compatibility-catalog.json record versions": compatibility_catalog(root),
-        "CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS": availability_policy(root),
         "bootstrap/build.gradle.kts record list": bootstrap_records(root),
-        "host-validation-tasks.json task versions": tasks,
+        "host-validation-tasks.json task versions (subset)": tasks,
         "profiles/draft/cubism-*.json": profiles,
         "compatibility/cubism/index.md": index_md(root),
-        "host_validation.py supported versions": host_validation_py(root),
         "class-pins/*.json version keys (subset)": pins,
         **probe_close_routes(root),
     }
