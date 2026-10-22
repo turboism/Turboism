@@ -73,6 +73,7 @@ interface: swing
 ### MCP 接入方式
 
 - 当 MCP 服务器发布 stdio 启动描述符时，会话以 `{name:"turboism", command, args, env:[]}` 接入，桥接进程自行携带持久化的 bearer token。Agent 可以使用读写工具。
+- stdio 写入收到 HTTP 401 时，桥接会重新读取令牌，仅在令牌已变化时重试一次。认证仍失败时明确返回认证错误，不会降级为只读；无需手动把令牌交给 Agent。
 - 当只有 HTTP 端点可用且 Agent 声明 HTTP MCP 支持时，会话以只读形式接入端点；写操作仍受 bearer token 限制，该 token 从不离开 MCP 状态目录。
 - 当两种形式都不可用时，会话不带 MCP 工具运行。
 
