@@ -243,7 +243,7 @@ def outside_alpha(rows, shift_x):
 
 
 def all_transparent(rows):
-    return all(v == 0 for row in rows for i, v in enumerate(row) if i % 4 == 3)
+    return not any(any(row[3::4]) for row in rows)
 
 
 def _positions_close(actual, expected, where):

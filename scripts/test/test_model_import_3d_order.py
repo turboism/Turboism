@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Synthetic order protocol controls; no host, queue, or exact-host evidence is produced."""
 import copy
-import importlib.util
+import json
 import math
-from pathlib import Path
 import sys
 import unittest
 
@@ -95,19 +94,27 @@ def attach(r):
 
 
 def load_protocol():
-    spec = importlib.util.spec_from_file_location('mi3d_protocol_for_order', Path(__file__).with_name('test_model_import_3d_host_validation.py'))
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+    from scripts.test import test_model_import_3d_host_validation
+    return test_model_import_3d_host_validation
 
 
 class OrderProtocolTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = load_protocol(); cls.verify = cls.protocol.VERIFY
+        # JSON copies model the wire boundary and avoid repeatedly building unrelated matrices.
+        cls.fixture_json = json.dumps(cls.protocol.ordinary_fixture())
+
     def setUp(self):
-        self.protocol = load_protocol(); self.verify = self.protocol.VERIFY
-        self.fixture = self.protocol.ordinary_fixture()
+        self.fixture = json.loads(self.fixture_json)
+
+    def verify_section(self, report):
+        return self.verify.ORDER['verify_order'](report, self.verify.snapshot, self.verify.EVALUATION)
 
     def test_positive_and_missing_order(self):
         self.verify.verify_native(self.fixture, 'synthetic')
         for field in ('order', 'evaluation', 'ordinaryWrite'):
-            r = copy.deepcopy(self.fixture); r.pop(field)
+            r = json.loads(self.fixture_json); r.pop(field)
             with self.subTest(field=field), self.assertRaises((ValueError, KeyError, TypeError)):
                 self.verify.verify_native(r, 'synthetic')
 
@@ -148,9 +155,9 @@ class OrderProtocolTest(unittest.TestCase):
             ('receipt_diagnostic_wrong_type', lambda e: e['controls']['rollback-triple']['result'].update(diagnosticId=7)),
         ]
         for name, mutate in mutations:
-            r = copy.deepcopy(self.fixture); mutate(r['order'])
+            r = json.loads(self.fixture_json); mutate(r['order'])
             with self.subTest(name=name), self.assertRaises((ValueError, KeyError, TypeError)):
-                self.verify.verify_native(r, 'synthetic')
+                self.verify_section(r)
 
     def test_first_consumed_order_cannot_be_waited_away(self):
         changes = [
@@ -168,20 +175,20 @@ class OrderProtocolTest(unittest.TestCase):
             ('space', lambda s: s['actual']['calculated'].update(coordinateType='Basic Coord')),
         ]
         for name, mutate in changes:
-            r = copy.deepcopy(self.fixture); s = r['order']['samples'][4]; mutate(s)
+            r = json.loads(self.fixture_json); s = r['order']['samples'][4]; mutate(s)
             s['lastObservation'] = copy.deepcopy(s['actual'])  # Re-seal copies; require the semantic oracle to reject.
             with self.subTest(name=name), self.assertRaises((ValueError, KeyError, TypeError)):
-                self.verify.verify_native(r, 'synthetic')
-        r = copy.deepcopy(self.fixture); r['order']['samples'][4]['lastObservation']['calculated']['drawOrder'] = 751
-        with self.assertRaises(ValueError): self.verify.verify_native(r, 'synthetic')
+                self.verify_section(r)
+        r = json.loads(self.fixture_json); r['order']['samples'][4]['lastObservation']['calculated']['drawOrder'] = 751
+        with self.assertRaises(ValueError): self.verify_section(r)
 
     def test_exact_order_but_tolerant_positions_and_local_clocks(self):
-        r = copy.deepcopy(self.fixture); s = r['order']['samples'][4]
+        r = json.loads(self.fixture_json); s = r['order']['samples'][4]
         s['actual']['calculated']['positions'][0] = [16.05, 24.05]; s['maxErrorPixels'] = math.hypot(.05, .05)
-        s['lastObservation'] = copy.deepcopy(s['actual']); self.verify.verify_native(r, 'synthetic')
+        s['lastObservation'] = copy.deepcopy(s['actual']); self.verify_section(r)
         s['actual']['calculated']['positions'][0] = [16.08, 24.08]; s['maxErrorPixels'] = math.hypot(.08, .08)
         s['lastObservation'] = copy.deepcopy(s['actual'])
-        with self.assertRaises(ValueError): self.verify.verify_native(r, 'synthetic')
+        with self.assertRaises(ValueError): self.verify_section(r)
 
 
 if __name__ == '__main__':
