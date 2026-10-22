@@ -1,0 +1,3487 @@
+{
+  "format": "turboism.verification-family/v1",
+  "family": "ui-embedded-panel",
+  "base": {
+    "format": "turboism.static.verification.record",
+    "schemaVersion": 1,
+    "adapterSliceId": "adapter.editor-ui.embedded-panel",
+    "capabilityIds": [
+      "cubism.editor-ui.embedded-panel"
+    ],
+    "evidenceType": "JAR_METADATA",
+    "owner": "runtime-editor-ui-embedded-panel-provider",
+    "status": "VERIFIED_STATIC",
+    "verifiedBy": "turboism-editor-ui-embedded-panel-static-verifier",
+    "safeMode": "Fail closed and keep embedded-panel contributions unavailable when exact artifact identity, classloader identity, provider generation, dock/palette selectors, Window-menu attachment, workspace activation, reversible cleanup, or host-thread dispatch do not match.",
+    "capabilityConditions": {
+      "cubism.editor-ui.embedded-panel": [
+        "hook:editor-ui"
+      ]
+    }
+  },
+  "fieldRanges": [],
+  "artifactRanges": [],
+  "selectors": [
+    {
+      "base": {
+        "alias": "cubism.ui-panel.app-controller.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.app_controller_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.app-controller.instance",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "access$get_instance$cp",
+        "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.app_controller_instance"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_instance"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.app-controller.main-frame",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "getMainFrameCtrl",
+        "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.app_controller_main_frame"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_main_frame"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.app-controller.repaint",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "memberName": "forceRepaintCanvas$cubism",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.app_controller_repaint"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_repaint"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.main-frame.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.main_frame_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.main-frame.dock-manager",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "memberName": "getDockManager",
+        "descriptor": "()Lcom/live2d/cubism/view/CEDockWrapper;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.main_frame_dock_manager"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_dock_manager"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.dock_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock.palette-manager",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "memberName": "getPaletteManager",
+        "descriptor": "()Lcom/live2d/ui/dock/CPMPaletteManager;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.dock_palette_manager"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_palette_manager"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock.set-palette-visible",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "memberName": "setPaletteVisible",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;Z)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.dock_set_palette_visible"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_set_palette_visible"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock.update-window-menu",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "memberName": "updatePaletteMenuCheck",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.05",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.ui_embedded_panel.dock_update_window_menu"
+        },
+        {
+          "versions": "5.0.03-5.0.05",
+          "id": "cubism.mapping.v5_0_05.ui_embedded_panel.dock_update_window_menu"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.get",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "getPalette",
+        "descriptor": "(Lcom/live2d/ui/dock/CPaletteId;)Lcom/live2d/ui/dock/CPMPalette;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_get"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_get"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.add",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "addPalette",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_add"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_add"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.close",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "closePalette",
+        "descriptor": "(Lcom/live2d/ui/dock/CPaletteId;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_close"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_close"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.current-workspace",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "getCurrentWorkspace",
+        "descriptor": "()Lcom/live2d/ui/dock/CPMLayoutWorkspace;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_current_workspace"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_current_workspace"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.activate",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": "activate",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)Z",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_activate"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_activate"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-id.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/dock/CPaletteId",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_id_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-id.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/dock/CPaletteId",
+        "memberName": "<init>",
+        "descriptor": "(Ljava/lang/String;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_id_create"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
+        "memberName": "<init>",
+        "descriptor": "(Lcom/live2d/ui/dock/CPaletteId;Ljava/lang/String;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_create"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette.set-panel",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
+        "memberName": "setPanel",
+        "descriptor": "(Lcom/live2d/ui/CWidget;II)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_set_panel"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_set_panel"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.swing-container.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/container/CSwingContainer",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.swing_container_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.swing-container.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/container/CSwingContainer",
+        "memberName": "<init>",
+        "descriptor": "(Ljavax/swing/JComponent;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.swing_container_create"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.main-frame.window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "memberName": "getMainFrame",
+        "descriptor": "()Lcom/live2d/ui/window/CFrame;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.main_frame_window"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.window.menu-bar",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/window/CFrame",
+        "memberName": "getMenuBar",
+        "descriptor": "()Lcom/live2d/ui/menu/CMenuBar;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.window_menu_bar"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.window_menu_bar"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu-bar.menus",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/CMenuBar",
+        "memberName": "getMenus",
+        "descriptor": "()Ljava/util/List;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_bar_menus"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_bar_menus"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.widget.name",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "memberName": "getName",
+        "descriptor": "()Ljava/lang/String;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.widget_name"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_name"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.widget.set-name",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "memberName": "setName",
+        "descriptor": "(Ljava/lang/String;)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.widget_set_name"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_set_name"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.widget.revalidate",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "memberName": "revalidate",
+        "descriptor": "()V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.widget_revalidate"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_revalidate"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.widget.repaint",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "memberName": "repaint",
+        "descriptor": "()V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.widget_repaint"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_repaint"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu.items",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/CMenu",
+        "memberName": "getItems",
+        "descriptor": "()Ljava/util/List;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_items"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_items"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu.add",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/CMenu",
+        "memberName": "add",
+        "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_add"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_add"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu.swing",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/CMenu",
+        "memberName": "getJMenu",
+        "descriptor": "()Lcom/live2d/ui/swingImpl/s;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_swing"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_swing"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu-item.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/menu/CMenuItem",
+        "memberName": "<init>",
+        "descriptor": "(Ljava/lang/String;Lcom/live2d/type/CIcon;Lkotlin/jvm/functions/Function1;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_item_create"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu-item.swing",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/CMenuItem",
+        "memberName": "getJMenuItem",
+        "descriptor": "()Ljavax/swing/JMenuItem;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_item_swing"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_swing"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.palette-box-for",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": "getPaletteBoxFor",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)Lcom/live2d/ui/dock/layout/CPMPaletteBox;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_palette_box_for"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_palette_box_for"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.remove-tab",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": "removeTab",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_remove_tab"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_remove_tab"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.remove-update",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "removePaletteUpdate",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMLayoutWorkspace;Lcom/live2d/ui/dock/layout/CPMPaletteBox;[Lcom/live2d/ui/dock/CPMPalette;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_remove_update"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_remove_update"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.main-frame-window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "getMainFrameWindow",
+        "descriptor": "()Lcom/live2d/ui/window/Y;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.02",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_main_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.verify-cleanup",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "verifyAndCleanUp",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_verify_cleanup"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_verify_cleanup"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.fire-state",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "firePaletteStateEvent",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_fire_state"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_fire_state"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.add-palette-frame",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": "addPaletteFrame",
+        "descriptor": "(Lcom/live2d/ui/dock/ui/CPMPaletteFrame;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_add_palette_frame"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_add_palette_frame"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.remove-palette-frame",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": "removePaletteFrame",
+        "descriptor": "(Lcom/live2d/ui/dock/ui/CPMPaletteFrame;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_remove_palette_frame"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_remove_palette_frame"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.first-palette-box",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": "getFirstPaletteBox",
+        "descriptor": "()Lcom/live2d/ui/dock/layout/CPMPaletteBox;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_first_palette_box"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_first_palette_box"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": "<init>",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPaletteManager;[Lcom/live2d/ui/dock/CPMPalette;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_create"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.add-tab",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": "addTab",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_add_tab"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_add_tab"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.set-selected",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": "setSelected",
+        "descriptor": "(Lcom/live2d/ui/dock/CPaletteId;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_set_selected"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_set_selected"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.palettes",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": "getPalettes",
+        "descriptor": "()Ljava/util/ArrayList;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_palettes"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_palettes"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-box.tab-panel",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
+        "memberName": "getTabPanel$core",
+        "descriptor": "()Lcom/live2d/ui/dock/tab/a;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_box_tab_panel"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_tab_panel"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.tab-panel.entries",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/tab/a",
+        "memberName": "a",
+        "descriptor": "(Lcom/live2d/ui/dock/tab/a;)Ljava/util/ArrayList;",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.tab_panel_entries"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_panel_entries"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.tab-entry.palette",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/tab/a$a",
+        "memberName": "a",
+        "descriptor": "()Lcom/live2d/ui/dock/CPMPalette;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.tab_entry_palette"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_palette"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.tab-entry.button",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/tab/a$a",
+        "memberName": "c",
+        "descriptor": "()Lcom/live2d/ui/dock/tab/CTabButton;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.tab_entry_button"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_button"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.widget.jcomponent",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "memberName": "getJComponent",
+        "descriptor": "()Ljavax/swing/JComponent;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.widget_jcomponent"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_jcomponent"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.root",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "getRootContainer",
+        "descriptor": "()Lcom/live2d/ui/dock/layout/CPMRootContainer;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_root"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_root"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.dispose",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "disposeFrame",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_dispose"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_dispose"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.raw-disposed",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "rawWindowDisposed$core",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_raw_disposed"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_raw_disposed"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.root.set-component",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMRootContainer",
+        "memberName": "setComponent",
+        "descriptor": "(Lcom/live2d/ui/dock/layout/ICPMComponent;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.root_set_component"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.root_set_component"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "<init>",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/Y;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.02",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "getWindow",
+        "descriptor": "()Lcom/live2d/ui/window/Y;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.02",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.window.set-visible",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/window/Y",
+        "memberName": "setVisible",
+        "descriptor": "(Z)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.02",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.window_set_visible"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette.id",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
+        "memberName": "getPaletteId",
+        "descriptor": "()Lcom/live2d/ui/dock/CPaletteId;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.id"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.id"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock-tab-popup.operation",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/tab/c",
+        "memberName": "a",
+        "descriptor": "(Lcom/live2d/ui/event/m;)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.operation"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.operation"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock-tab-popup.palette-field",
+        "kind": "field",
+        "ownerInternalName": "com/live2d/ui/dock/tab/c",
+        "memberName": "b",
+        "descriptor": "Lcom/live2d/ui/dock/CPMPalette;",
+        "requiredAccessFlags": 16,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_field"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_field"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock-tab-popup.menu-append",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/k",
+        "memberName": "b",
+        "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.0.06",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.0.02",
+          "id": "cubism.mapping.v5_0_02.ui_embedded_panel.menu_append"
+        },
+        {
+          "versions": "5.0.03-5.0.05",
+          "id": "cubism.mapping.v5_0_05.ui_embedded_panel.menu_append"
+        },
+        {
+          "versions": "5.0.06",
+          "id": "cubism.mapping.v5_0_06.ui_embedded_panel.menu_append"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.floating-tab-close.operation",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/tab/d",
+        "memberName": "a",
+        "descriptor": "(Lcom/live2d/ui/event/a;)V",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.floating_tab_close_operation"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_operation"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.floating-tab-close.palette-field",
+        "kind": "field",
+        "ownerInternalName": "com/live2d/ui/dock/tab/d",
+        "memberName": "b",
+        "descriptor": "Lcom/live2d/ui/dock/CPMPalette;",
+        "requiredAccessFlags": 16,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.floating_tab_close_palette_field"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_palette_field"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.workspace.root-container",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+        "memberName": "getRootContainer",
+        "descriptor": "()Lcom/live2d/ui/dock/layout/CPMRootContainer;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.workspace_root_container"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_root_container"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.root.component",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMRootContainer",
+        "memberName": "getCompnent",
+        "descriptor": "()Lcom/live2d/ui/dock/layout/ICPMComponent;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.root_component"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.root_component"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.split.class",
+        "kind": "class",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer",
+        "memberName": null,
+        "descriptor": null,
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.split_class"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.split_class"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.split.contents",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer",
+        "memberName": "getContents",
+        "descriptor": "()Ljava/util/ArrayList;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.split_contents"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.split_contents"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.split.remove",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer",
+        "memberName": "remove",
+        "descriptor": "(Lcom/live2d/ui/dock/layout/ICPMComponent;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.split_remove"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.split_remove"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.component.palette-count",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/layout/ICPMComponent",
+        "memberName": "getPaletteCount",
+        "descriptor": "()I",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.component_palette_count"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.component_palette_count"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu-item.check.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/menu/CCheckMenuItem",
+        "memberName": "<init>",
+        "descriptor": "(Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.check_menu_item_create"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.check_menu_item_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock.main-frame-ctrl",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "memberName": "getMainFrameCtrl",
+        "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.dock_main_frame_ctrl"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_main_frame_ctrl"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.main-frame.palette-menu-map",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "memberName": "getPaletteMenuMap",
+        "descriptor": "()Ljava/util/HashMap;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.main_frame_palette_menu_map"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_palette_menu_map"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.menu-item.is-selected",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "memberName": "isSelected",
+        "descriptor": "()Z",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_item_is_selected"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_is_selected"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.main-frame-window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "getMainFrameWindow",
+        "descriptor": "()Lcom/live2d/ui/window/X;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.03-5.2.03",
+      "mappingId": [
+        {
+          "versions": "5.0.03-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_manager_main_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "<init>",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/X;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.03-5.2.03",
+      "mappingId": [
+        {
+          "versions": "5.0.03-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "getWindow",
+        "descriptor": "()Lcom/live2d/ui/window/X;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.03-5.2.03",
+      "mappingId": [
+        {
+          "versions": "5.0.03-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.palette_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.window.set-visible",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/window/X",
+        "memberName": "setVisible",
+        "descriptor": "(Z)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.03-5.2.03",
+      "mappingId": [
+        {
+          "versions": "5.0.03-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.window_set_visible"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock.update-window-menu",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+        "memberName": "updateWindowMenuItem",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.06-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.06-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.dock_update_window_menu"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_update_window_menu"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.dock-tab-popup.menu-append",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/k",
+        "memberName": "c",
+        "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.1.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.1.00-5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_embedded_panel.menu_append"
+        },
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_append"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-manager.main-frame-window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
+        "memberName": "getMainFrameWindow",
+        "descriptor": "()Lcom/live2d/ui/window/V;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_main_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "<init>",
+        "descriptor": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/V;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.palette-frame.window",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
+        "memberName": "getWindow",
+        "descriptor": "()Lcom/live2d/ui/window/V;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_window"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-panel.window.set-visible",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/window/V",
+        "memberName": "setVisible",
+        "descriptor": "(Z)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.00-5.3.04",
+          "id": "cubism.mapping.v5_3_02.ui_embedded_panel.window_set_visible"
+        }
+      ]
+    }
+  ],
+  "selectorOrder": [
+    {
+      "versions": "5.0.00-5.0.02",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77
+      ]
+    },
+    {
+      "versions": "5.0.03-5.0.05",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        78,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        79,
+        80,
+        81,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77
+      ]
+    },
+    {
+      "versions": "5.0.06",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        82,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        78,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        79,
+        80,
+        81,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77
+      ]
+    },
+    {
+      "versions": "5.1.00-5.2.03",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        82,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        78,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        79,
+        80,
+        81,
+        62,
+        63,
+        64,
+        83,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77
+      ]
+    },
+    {
+      "versions": "5.3.00-5.3.04",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        82,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        84,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        85,
+        86,
+        87,
+        62,
+        63,
+        64,
+        83,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "versions": "5.0.00-5.3.04",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "verificationId",
+          "adapterSliceId",
+          "capabilityIds",
+          "cubismVersion",
+          "profileId",
+          "artifact",
+          "evidenceType",
+          "evidencePath",
+          "owner",
+          "status",
+          "verifiedBy",
+          "verifiedAt",
+          "safeMode",
+          "selectors",
+          "capabilityConditions"
+        ],
+        "artifactKeyOrder": [
+          "name",
+          "size",
+          "sha256"
+        ],
+        "indent": 2,
+        "fieldStyle": {},
+        "duplicateValues": {}
+      }
+    }
+  ],
+  "releases": {
+    "5.0.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.05": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.0.06": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.1.03": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.02": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.2.03": {
+      "verifiedAt": "2026-07-29T07:45:00Z"
+    },
+    "5.3.00": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.01": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.02": {
+      "verifiedAt": "2026-07-29T07:45:00Z"
+    },
+    "5.3.03": {
+      "verifiedAt": "2026-08-15T00:00:00Z"
+    },
+    "5.3.04": {
+      "verifiedAt": "2026-09-27T00:00:00Z"
+    }
+  }
+}
