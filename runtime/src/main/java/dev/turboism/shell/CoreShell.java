@@ -310,9 +310,9 @@ public final class CoreShell implements ShellHandle {
         props.setProperty("maxMB", Integer.toString(current.maxMB()));
         current.backupDirDisplay().ifPresent(dir -> props.setProperty("backupDir", dir));
         java.nio.file.Files.createDirectories(file.getParent());
-        try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(file)) {
-            props.store(out, "host auto-backup settings before Turboism opt-in reduction");
-        }
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        props.store(out, "host auto-backup settings before Turboism opt-in reduction");
+        dev.turboism.update.UpdateFileSupport.writeAtomic(file, new java.io.ByteArrayInputStream(out.toByteArray()));
         return true;
     }
 

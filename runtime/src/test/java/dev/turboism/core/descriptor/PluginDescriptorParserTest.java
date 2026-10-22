@@ -21,6 +21,17 @@ class PluginDescriptorParserTest {
     }
 
     @Test
+    void capsStreamDescriptorsAtOneMiB() throws Exception {
+        final String json = validDescriptor();
+        final String atLimit = json + " ".repeat(1024 * 1024 - json.getBytes(StandardCharsets.UTF_8).length);
+        assertEquals("dev.turboism.plugin.demo", parser.parse(toStream(atLimit)).id());
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(atLimit + " ")));
+        assertEquals("PLUGIN_META_TOO_LARGE", failure.code());
+        assertEquals("plugin.json exceeds 1 MiB", failure.getMessage());
+    }
+
+    @Test
     void parsesValidDescriptorWithMultipleEntrypointsAndResources() throws DescriptorParseException {
         final String json = """
             {
