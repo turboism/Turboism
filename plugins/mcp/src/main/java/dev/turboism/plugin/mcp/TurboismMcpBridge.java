@@ -90,6 +90,19 @@ public final class TurboismMcpBridge {
                 writeBody(connection, line);
                 final int status = connection.getResponseCode();
                 final String body = readBody(connection, status);
+                if (status == 401) {
+                    // Authentication is checked before dispatch, so this rejected request
+                    // cannot have mutated the model. Retry once only if the persisted
+                    // credential changed; never turn a write rejection into read-only mode.
+                    if (attempt == 0 && refreshToken()) continue;
+                    return id == null
+                            ? null
+                            : error(
+                                    id,
+                                    -32001,
+                                    "Turboism MCP authentication failed (HTTP 401). Reconnect the stdio bridge; "
+                                            + "this is a credential failure, not a read-only tool limitation.");
+                }
                 captureSession(connection, line, status, body);
                 if (status == 404) {
                     sessionId = null;
@@ -176,6 +189,17 @@ public final class TurboismMcpBridge {
     private String readToken() throws IOException {
         return Files.readString(stateDir.resolve("mcp.token"), StandardCharsets.UTF_8)
                 .strip();
+    }
+
+    private boolean refreshToken() {
+        try {
+            final String current = readToken();
+            if (current.isEmpty() || current.equals(token)) return false;
+            token = current;
+            return true;
+        } catch (IOException unavailable) {
+            return false;
+        }
     }
 
     private String awaitEndpoint() throws InterruptedException {
@@ -450,8 +474,12 @@ public final class TurboismMcpBridge {
     }
 
     private static String error(final String id, final String message) {
+        return error(id, -32000, message);
+    }
+
+    private static String error(final String id, final int code, final String message) {
         return "{\"jsonrpc\":\"2.0\",\"id\":" + id
-                + ",\"error\":{\"code\":-32000,\"message\":\""
+                + ",\"error\":{\"code\":" + code + ",\"message\":\""
                 + escape(message) + "\"}}";
     }
 
