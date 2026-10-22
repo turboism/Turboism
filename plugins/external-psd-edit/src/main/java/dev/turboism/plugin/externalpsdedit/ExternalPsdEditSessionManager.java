@@ -692,6 +692,11 @@ final class ExternalPsdEditSessionManager {
         return sessions.values().stream().anyMatch(Session::isRefreshCandidate);
     }
 
+    private CompletionStage<PsdFileOperationResult> openFile(final PsdEditFile file) {
+        final String application = new ExternalPsdEditSettings(context).applicationPath();
+        return application.isBlank() ? file.openInDefaultApplication() : file.openInApplication(application);
+    }
+
     private void reopenSession(final Session session) {
         final PsdEditFile file;
         synchronized (sessions) {
@@ -704,8 +709,7 @@ final class ExternalPsdEditSessionManager {
             return;
         }
         try {
-            file.openInDefaultApplication()
-                    .whenComplete((result, failure) -> onReopenComplete(session, result, failure));
+            openFile(file).whenComplete((result, failure) -> onReopenComplete(session, result, failure));
         } catch (RuntimeException failure) {
             onReopenComplete(session, null, failure);
         }
@@ -797,7 +801,7 @@ final class ExternalPsdEditSessionManager {
         }
 
         try {
-            final CompletionStage<PsdFileOperationResult> open = exportedFile.openInDefaultApplication();
+            final CompletionStage<PsdFileOperationResult> open = openFile(exportedFile);
             if (open == null) {
                 throw new IllegalStateException("open returned no completion");
             }

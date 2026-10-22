@@ -79,6 +79,39 @@ class ExternalPsdEditPluginTest {
     }
 
     @Test
+    void settingsPersistCustomEditorAndUseItForTheExportedDocument() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final var control = (dev.turboism.sdk.ui.settings.SettingsControl.FilePath)
+                context.uiHost().settings.get(0).control();
+        assertEquals("", control.binding().read());
+        context.uiHost().setChosenFile("C:/Program Files/PaintTool SAI/sai.exe");
+        assertEquals(
+                Optional.of("C:/Program Files/PaintTool SAI/sai.exe"),
+                control.browse().get());
+        assertEquals("", control.binding().read(), "browsing does not save until Apply");
+        control.binding().write("C:/Program Files/PaintTool SAI/sai.exe");
+        assertEquals("C:/Program Files/PaintTool SAI/sai.exe", new ExternalPsdEditSettings(context).applicationPath());
+        context.actions()
+                .execute(
+                        ExternalPsdEditPlugin.OPEN_ACTION_ID,
+                        selection(
+                                BINDING,
+                                ContextMenuRegistry.Location.PART_TAB,
+                                item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        assertEquals("C:/Program Files/PaintTool SAI/sai.exe", file.applicationPath);
+        assertTrue(file.subscribedBeforeOpen);
+        control.binding().write("   ");
+        assertEquals("", new ExternalPsdEditSettings(context).applicationPath());
+        context.disposableScope().close();
+        assertTrue(context.uiHost().settings.isEmpty());
+    }
+
+    @Test
     void actionResolvesArtMeshToCurrentRawImageExportsSubscribesThenOpens() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A), artMesh("mesh-2", IMAGE_B))));

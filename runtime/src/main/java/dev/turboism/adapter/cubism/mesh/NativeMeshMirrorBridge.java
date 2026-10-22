@@ -260,21 +260,13 @@ public final class NativeMeshMirrorBridge {
             binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
             final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
             if (line == null) return false;
-            final float radius = (float) Math.hypot(
-                            nativeSegment.end.x() - nativeSegment.start.x(),
-                            nativeSegment.end.y() - nativeSegment.start.y())
-                    * 0.5f;
-            final MeshMirrorGeometry.Point start = new MeshMirrorGeometry.Point(
-                    line.anchor().x() - line.direction().x() * radius,
-                    line.anchor().y() - line.direction().y() * radius);
-            final MeshMirrorGeometry.Point end = new MeshMirrorGeometry.Point(
-                    line.anchor().x() + line.direction().x() * radius,
-                    line.anchor().y() + line.direction().y() * radius);
+            final MeshMirrorGeometry.Segment segment =
+                    MeshMirrorGeometry.covering(line, nativeSegment.firstCorner, nativeSegment.oppositeCorner);
             if (!invokeVoid(
                     nativeSegment.drawer,
                     "a",
-                    vector(drawImpl, start),
-                    vector(drawImpl, end),
+                    vector(drawImpl, segment.start()),
+                    vector(drawImpl, segment.end()),
                     color,
                     lineWidth,
                     0.0f)) {
@@ -323,17 +315,25 @@ public final class NativeMeshMirrorBridge {
                 binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
                 final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
                 if (line != null) {
-                    final float radius = (float) Math.hypot(endX - startX, endY - startY) * 0.5f;
-                    final Object resolvedStart = vector(
-                            start,
-                            new MeshMirrorGeometry.Point(
-                                    line.anchor().x() - line.direction().x() * radius,
-                                    line.anchor().y() - line.direction().y() * radius));
-                    final Object resolvedEnd = vector(
-                            start,
-                            new MeshMirrorGeometry.Point(
-                                    line.anchor().x() + line.direction().x() * radius,
-                                    line.anchor().y() + line.direction().y() * radius));
+                    MeshMirrorGeometry.Point firstCorner = new MeshMirrorGeometry.Point(startX, startY);
+                    MeshMirrorGeometry.Point oppositeCorner = new MeshMirrorGeometry.Point(endX, endY);
+                    try {
+                        final Object panel = CURRENT_PANEL.get();
+                        final Object controller = invoke(property(panel, "toolMode"), "getCtrl$cubism");
+                        final Object pack = property(controller, "completePack");
+                        final MeshMirrorGeometry.Point[] bounds = viewportBounds(
+                                property(pack, "currentViewContext"),
+                                pack,
+                                drawer.getClass().getClassLoader());
+                        firstCorner = bounds[0];
+                        oppositeCorner = bounds[1];
+                    } catch (ReflectiveOperationException | RuntimeException ignored) {
+                        // Retain the native segment's extent if viewport access is unavailable.
+                    }
+                    final MeshMirrorGeometry.Segment segment =
+                            MeshMirrorGeometry.covering(line, firstCorner, oppositeCorner);
+                    final Object resolvedStart = vector(start, segment.start());
+                    final Object resolvedEnd = vector(start, segment.end());
                     invokeLegacyAxisCall(drawer, resolvedStart, resolvedEnd, color, first, second, flags, defaults);
                     return;
                 }
@@ -391,6 +391,15 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
+    static void repaintCanvas(final Object panel) {
+        try {
+            final Object controller = invoke(property(panel, "toolMode"), "getCtrl$cubism");
+            invoke(property(controller, "completePack"), "repaintCanvas", true);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // A missing host refresh surface must not break angle input.
+        }
+    }
+
     /** Clears cached host UI and context identities after a context transition. */
     public static void clearHostContext() {
         CURRENT_PANEL.set(null);
@@ -413,6 +422,25 @@ public final class NativeMeshMirrorBridge {
                 || !invokeVoid(drawer, "a", sortingLayer)
                 || !invokeVoid(drawer, "a", 51)) return null;
 
+        final MeshMirrorGeometry.Point[] bounds =
+                viewportBounds(viewContext, completePack, drawImpl.getClass().getClassLoader());
+        final MeshMirrorGeometry.Point first = bounds[0];
+        final MeshMirrorGeometry.Point opposite = bounds[1];
+        return new NativeSegment(
+                drawer,
+                vertical
+                        ? new MeshMirrorGeometry.Point(axisValue, opposite.y())
+                        : new MeshMirrorGeometry.Point(first.x(), axisValue),
+                vertical
+                        ? new MeshMirrorGeometry.Point(axisValue, first.y())
+                        : new MeshMirrorGeometry.Point(opposite.x(), axisValue),
+                first,
+                opposite);
+    }
+
+    private static MeshMirrorGeometry.Point[] viewportBounds(
+            final Object viewContext, final Object completePack, final ClassLoader loader)
+            throws ReflectiveOperationException {
         final Object viewport = invoke(invoke(viewContext, "getViewArea"), "getViewAreaViewport");
         final Object panelRect = invoke(invoke(completePack, "getMainViewPanel"), "getRect");
         final Object camera = invoke(viewContext, "getCameraManager");
@@ -421,23 +449,13 @@ public final class NativeMeshMirrorBridge {
         final int viewW = number(invoke(viewport, "getW")).intValue();
         final int viewH = number(invoke(viewport, "getH")).intValue();
         final int panelH = number(invoke(panelRect, "getH")).intValue();
-        final Object topLeft = point(drawImpl.getClass().getClassLoader(), viewX, -viewY);
-        final Object bottomRight = point(drawImpl.getClass().getClassLoader(), viewX + viewW, -viewY + viewH + panelH);
-        final Object docTopLeft = invoke(camera, "componentToDocument", topLeft);
-        final Object docBottomRight = invoke(camera, "componentToDocument", bottomRight);
-        final float left = coordinate(docTopLeft, "getX");
-        final float top = coordinate(docTopLeft, "getY");
-        final float right = coordinate(docBottomRight, "getX");
-        final float bottom = coordinate(docBottomRight, "getY");
-        return vertical
-                ? new NativeSegment(
-                        drawer,
-                        new MeshMirrorGeometry.Point(axisValue, bottom),
-                        new MeshMirrorGeometry.Point(axisValue, top))
-                : new NativeSegment(
-                        drawer,
-                        new MeshMirrorGeometry.Point(left, axisValue),
-                        new MeshMirrorGeometry.Point(right, axisValue));
+        final Object docTopLeft = invoke(camera, "componentToDocument", point(loader, viewX, -viewY));
+        final Object docBottomRight =
+                invoke(camera, "componentToDocument", point(loader, viewX + viewW, -viewY + viewH + panelH));
+        return new MeshMirrorGeometry.Point[] {
+            new MeshMirrorGeometry.Point(coordinate(docTopLeft, "getX"), coordinate(docTopLeft, "getY")),
+            new MeshMirrorGeometry.Point(coordinate(docBottomRight, "getX"), coordinate(docBottomRight, "getY"))
+        };
     }
 
     private static MeshMirrorGeometry.Point rotate(
@@ -620,7 +638,12 @@ public final class NativeMeshMirrorBridge {
         return number(invoke(point, getter)).floatValue();
     }
 
-    private record NativeSegment(Object drawer, MeshMirrorGeometry.Point start, MeshMirrorGeometry.Point end) {}
+    private record NativeSegment(
+            Object drawer,
+            MeshMirrorGeometry.Point start,
+            MeshMirrorGeometry.Point end,
+            MeshMirrorGeometry.Point firstCorner,
+            MeshMirrorGeometry.Point oppositeCorner) {}
 
     private record CanvasPivot(
             Object viewContext,

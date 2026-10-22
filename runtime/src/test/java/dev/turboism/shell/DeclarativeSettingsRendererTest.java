@@ -321,6 +321,40 @@ class DeclarativeSettingsRendererTest {
     }
 
     @Test
+    void filePathSupportsBrowseCancelManualInputAndDeferredSave() throws Exception {
+        final CoreWindows windows = new CoreWindows(
+                localization(),
+                settings(),
+                List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
+        final JPanel panel = new JPanel(new GridBagLayout());
+        final java.util.concurrent.atomic.AtomicReference<String> stored =
+                new java.util.concurrent.atomic.AtomicReference<>("");
+        final java.util.concurrent.atomic.AtomicReference<java.util.Optional<String>> chosen =
+                new java.util.concurrent.atomic.AtomicReference<>(java.util.Optional.of("C:/Paint Tool/sai.exe"));
+        final SettingsControl.FilePath control = new SettingsControl.FilePath(
+                "editor", "Editor", 36, SettingsBinding.of(stored::get, stored::set), "Browse", chosen::get);
+        final var saver = windows.renderControl(null, panel, 0, control);
+        final JPanel input = (JPanel) panel.getComponent(1);
+        final JTextField field = (JTextField) input.getComponent(0);
+        final javax.swing.JButton browse = (javax.swing.JButton) input.getComponent(1);
+        browse.doClick();
+        assertEquals("C:/Paint Tool/sai.exe", field.getText());
+        assertEquals("", stored.get());
+        chosen.set(java.util.Optional.empty());
+        browse.doClick();
+        assertEquals("C:/Paint Tool/sai.exe", field.getText());
+        field.setText("C:/Other Editor/editor.exe");
+        assertTrue(saver.getAsBoolean());
+        assertEquals("C:/Other Editor/editor.exe", stored.get());
+        field.setText("");
+        assertTrue(saver.getAsBoolean());
+        assertEquals("", stored.get());
+    }
+
+    @Test
     void noteRendersAsDisabledSmallCaptionWithNothingToSave() throws Exception {
         final CoreWindows windows = new CoreWindows(
                 localization(),
