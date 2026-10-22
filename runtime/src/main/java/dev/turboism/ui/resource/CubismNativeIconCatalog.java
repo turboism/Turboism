@@ -1,5 +1,6 @@
 package dev.turboism.ui.resource;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.ui.resource.CubismIcon;
@@ -12,18 +13,13 @@ final class CubismNativeIconCatalog {
     private CubismNativeIconCatalog() {}
 
     static Optional<HostArtifactDigest> artifact(final String version) {
-        return switch (version) {
-            case ReviewedHostArtifacts.CUBISM_5_2_00_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_00);
-            case ReviewedHostArtifacts.CUBISM_5_2_01_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_01);
-            case ReviewedHostArtifacts.CUBISM_5_2_02_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_02);
-            case ReviewedHostArtifacts.CUBISM_5_2_03_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_03);
-            case ReviewedHostArtifacts.CUBISM_5_3_00_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_00);
-            case ReviewedHostArtifacts.CUBISM_5_3_01_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_01);
-            case ReviewedHostArtifacts.CUBISM_5_3_02_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_02);
-            case ReviewedHostArtifacts.CUBISM_5_3_03_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_03);
-            case ReviewedHostArtifacts.CUBISM_5_3_04_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_04);
-            default -> Optional.empty();
-        };
+        java.util.Objects.requireNonNull(version, "version");
+        if (!ReviewedVersions.since("5.2.00").contains(version)) {
+            return Optional.empty();
+        }
+        return ReviewedHostArtifacts.all().stream()
+                .filter(artifact -> ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow().equals(version))
+                .findFirst();
     }
 
     // Rows: object, theme, disabled, then SHA-256 for scales 100/125/150/175/200.

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
 import java.util.Map;
 import java.util.Optional;
@@ -59,108 +60,14 @@ public final class VerifiedTextureAtlasSelectorContract {
                 Set.of());
     }
 
-    private static final Map<String, Profile> PROFILES = Map.ofEntries(
-            Map.entry("5.0.00", profile520AndBelow("5.0.00")),
-            Map.entry("5.0.01", profile520AndBelow("5.0.01")),
-            Map.entry("5.0.02", profile520AndBelow("5.0.02")),
-            Map.entry("5.0.03", profile520AndBelow("5.0.03")),
-            Map.entry("5.0.04", profile520AndBelow("5.0.04")),
-            Map.entry("5.0.05", profile520AndBelow("5.0.05")),
-            Map.entry("5.0.06", profile520AndBelow("5.0.06")),
-            Map.entry("5.1.00", profile520AndBelow("5.1.00")),
-            Map.entry("5.1.01", profile520AndBelow("5.1.01")),
-            Map.entry("5.1.02", profile520AndBelow("5.1.02")),
-            Map.entry("5.1.03", profile520AndBelow("5.1.03")),
-            Map.entry(
-                    "5.2.00",
-                    new Profile(
-                            "5.2.00",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.2.01",
-                    new Profile(
-                            "5.2.01",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.2.02",
-                    new Profile(
-                            "5.2.02",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.2.03",
-                    new Profile(
-                            "5.2.03",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.3.00",
-                    new Profile(
-                            "5.3.00",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.3.01",
-                    new Profile(
-                            "5.3.01",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.3.02",
-                    new Profile(
-                            "5.3.02",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.3.03",
-                    new Profile(
-                            "5.3.03",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)),
-            Map.entry(
-                    "5.3.04",
-                    new Profile(
-                            "5.3.04",
-                            REQUIRED_ALIASES,
-                            HOOK_ALIASES,
-                            AUTO_LAYOUT_HOOK_ALIASES,
-                            NATIVE_INVOCATION_ALIASES,
-                            DIALOG_INJECTION_ALIASES,
-                            STATISTICS_ALIASES)));
+    private static final Map<String, Profile> PROFILES = ReviewedVersions.since("5.0.00").stream()
+            .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                    java.util.function.Function.identity(),
+                    version -> ReviewedVersions.since("5.2.00").contains(version)
+                            ? new Profile(version, REQUIRED_ALIASES, HOOK_ALIASES,
+                                    AUTO_LAYOUT_HOOK_ALIASES, NATIVE_INVOCATION_ALIASES,
+                                    DIALOG_INJECTION_ALIASES, STATISTICS_ALIASES)
+                            : profile520AndBelow(version)));
 
     /**
      * Returns the reviewed profile for one exact Cubism version.
