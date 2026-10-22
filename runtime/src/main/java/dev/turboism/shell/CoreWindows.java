@@ -472,6 +472,20 @@ final class CoreWindows implements AutoCloseable {
                 return true;
             };
         }
+        if (control instanceof SettingsControl.FilePath path) {
+            final JTextField field =
+                    new JTextField(Objects.toString(path.binding().read(), ""), path.columns());
+            final JButton browse = new JButton(path.browseLabel());
+            browse.addActionListener(ignored -> path.browse().get().ifPresent(field::setText));
+            final JPanel input = new JPanel(new java.awt.BorderLayout(6, 0));
+            input.add(field, java.awt.BorderLayout.CENTER);
+            input.add(browse, java.awt.BorderLayout.EAST);
+            add(panel, row, new JLabel(path.label()), input);
+            return () -> {
+                path.binding().write(field.getText());
+                return true;
+            };
+        }
         if (control instanceof SettingsControl.Note note) {
             final JLabel caption = new JLabel(note.label());
             caption.setFont(caption.getFont().deriveFont(caption.getFont().getSize2D() - 2.0f));

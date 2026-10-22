@@ -16,7 +16,7 @@ interface: embedded
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Right-click ArtMeshes to edit their complete raw PSD in the operating system's default PSD application; each stable save applies a Cubism native explicit-target raw-image replacement.
+Right-click ArtMeshes to edit their complete raw PSD in the configured or system default application; each stable save applies a Cubism native explicit-target raw-image replacement.
 
 | Detail | Value |
 |---|---|
@@ -28,12 +28,16 @@ Right-click ArtMeshes to edit their complete raw PSD in the operating system's d
 | Interface | `embedded` |
 | License | Project License |
 
+## Choose an external editor
+
+In Turboism plugin settings, open **External PSD Edit** and enter the full executable path or use **Browse…** to select an exe. Apply the setting to use it for newly opened or reopened documents. Leave the field blank for the system default application. Paths may contain spaces; do not add quotes or command-line arguments. Invalid paths report an open failure and retain the temporary PSD.
+
 ## What it does
 
 - Adds an "Edit Externally (PSD)" entry to ArtMesh-capable context menus (Parts, Deformer, and workspace object views).
 - Resolves each selected ArtMesh to its current raw image through the typed texture-relation graph and opens one editing session per distinct raw image; duplicated selections and already-open raw images are deduplicated.
 - When an ArtMesh currently renders from a texture atlas, follows its retained model-image inputs only if all resolve to one current raw image. Missing, unknown, or ambiguous sources are rejected; the rendering input is never switched. This path still requires Windows host validation.
-- Exports the complete raw PSD through Cubism's native layered-image export into a runtime-owned temporary file, then launches the operating system's default PSD application.
+- Exports the complete raw PSD through Cubism's native layered-image export into a runtime-owned temporary file, then launches the configured or system default application.
 - Watches the temporary file and applies Cubism's native explicit-target raw-image replacement for every stable save.
 - While a session is live, performs a bounded read-only relation refresh so Undo/Redo raw-image
   changes are observed without queuing a replacement or replaying a save.
@@ -80,7 +84,10 @@ The manifest declares `cubism.psd.external-edit` for the ArtMesh-to-PSD editing 
 - `turboism.cubism.model.observe` — receive model-close and editor-exit lifecycle callbacks that stop external edit sessions; undeclared, the lifecycle registry filters them out.
 - `turboism.file.read` — read the runtime-issued temporary PSD revision for replacement.
 - `turboism.file.write` — export the complete raw PSD into the runtime-owned temporary file.
-- `turboism.process.run` — open the temporary PSD with the operating system's default PSD application.
+- `turboism.process.run` — open the temporary PSD with the configured or system default application.
+- `turboism.config.plugin.read` / `turboism.config.plugin.write` — read and save the editor path.
+- `turboism.ui.settings.contribute` — show the path field and browse button.
+- `turboism.ui.file-chooser.request` — select an editor executable.
 - `turboism.ui.status.notify` — surface session, import, and pause/failure notifications.
 - `turboism.ui.dialog.contribute` — ask once before opening multiple temporary PSDs.
 - `turboism.action.register` — register the action invoked from the context menus.
