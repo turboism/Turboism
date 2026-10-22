@@ -14,9 +14,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * One-shot timer driven by the test thread. Worker threads may schedule or cancel timers;
+ * Timer driven by the test thread. Worker threads may schedule or cancel timers;
  * callbacks run only when the test calls {@link #advanceBy} or {@link #runDueTasks}.
- * Periodic scheduling is deliberately unsupported: production owners reschedule one-shot timers.
+ * Supports one-shot and fixed-delay callbacks; fixed-rate scheduling is deliberately unsupported.
  */
 public final class ManualScheduledExecutor extends AbstractExecutorService implements ScheduledExecutorService {
     private final PriorityQueue<Timer<?>> timers = new PriorityQueue<>();
@@ -63,7 +63,8 @@ public final class ManualScheduledExecutor extends AbstractExecutorService imple
         if (shutdown) {
             throw new RejectedExecutionException("timer is shut down");
         }
-        Timer<V> timer = new Timer<>(callable, Math.addExact(nowNanos, Math.max(0, unit.toNanos(delay))), sequence++);
+        Timer<V> timer =
+                new Timer<>(callable, Math.addExact(nowNanos, Math.max(0, unit.toNanos(delay))), sequence++, 0);
         timers.add(timer);
         return timer;
     }
@@ -84,8 +85,21 @@ public final class ManualScheduledExecutor extends AbstractExecutorService imple
     }
 
     @Override
-    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initial, long delay, TimeUnit unit) {
-        throw new UnsupportedOperationException("use one-shot timers");
+    public synchronized ScheduledFuture<?> scheduleWithFixedDelay(
+            Runnable command, long initial, long delay, TimeUnit unit) {
+        if (delay <= 0) {
+            throw new IllegalArgumentException("delay must be positive");
+        }
+        if (shutdown) {
+            throw new RejectedExecutionException("timer is shut down");
+        }
+        Timer<?> timer = new Timer<>(
+                java.util.concurrent.Executors.callable(command, null),
+                Math.addExact(nowNanos, Math.max(0, unit.toNanos(initial))),
+                sequence++,
+                unit.toNanos(delay));
+        timers.add(timer);
+        return timer;
     }
 
     @Override
@@ -123,13 +137,31 @@ public final class ManualScheduledExecutor extends AbstractExecutorService imple
     }
 
     private final class Timer<V> extends FutureTask<V> implements ScheduledFuture<V> {
-        private final long deadline;
+        private long deadline;
+        private final long interval;
         private final long order;
 
-        Timer(Callable<V> callable, long deadline, long order) {
+        Timer(Callable<V> callable, long deadline, long order, long interval) {
             super(callable);
             this.deadline = deadline;
             this.order = order;
+            this.interval = interval;
+        }
+
+        @Override
+        public void run() {
+            if (interval == 0) {
+                super.run();
+            } else if (super.runAndReset()) {
+                synchronized (ManualScheduledExecutor.this) {
+                    if (shutdown || isCancelled()) {
+                        cancel(false);
+                    } else {
+                        deadline = Math.addExact(nowNanos, interval);
+                        timers.add(this);
+                    }
+                }
+            }
         }
 
         @Override
