@@ -10,6 +10,9 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- `SettingsControl`에 `FilePath` 변형이 추가되었습니다. 플러그인을 다시 컴파일할 때 `SettingsControl`의 완전한 switch에 해당 case를 추가해야 합니다.
+- 텍스처 아틀라스 SDK에 페이지별 크기, 패킹 실패 진단 및 플래너 협상 지원을 추가했습니다.
+
 - `acp` 정밀 실기 검증 기능이 로컬 검증 큐에 합류: test-only 프로브가 실제 Cubism 세션 안에서
   공개 action catalog 을 통해 ACP 에이전트 창을 열고, 스크립트화된 페이크 에이전트(디폴트 패키지
   `acp` 엔트리)가 자격 증명 없는 stdio MCP 부착을 단언하며 토큰 게이트 `TurboismMcpBridge` 를
