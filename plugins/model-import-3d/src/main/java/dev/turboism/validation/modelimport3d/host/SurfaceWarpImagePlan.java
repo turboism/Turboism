@@ -95,6 +95,24 @@ final class SurfaceWarpImagePlan {
         }
     }
 
+    /** Changes only image colors, retaining image-space geometry and sampling. */
+    static Plan faceColors(Plan source) throws IOException {
+        var pngs = new ArrayList<byte[]>();
+        for (int color : SurfaceBaseColorPlan.FACE_PALETTE) {
+            var image = new BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB);
+            int[] row = new int[source.width];
+            Arrays.fill(row, color);
+            for (int y = 0; y < source.height; y++) image.setRGB(0, y, source.width, 1, row, 0, source.width);
+            var out = new ByteArrayOutputStream();
+            if (!ImageIO.write(image, "png", out)) throw new IOException("PNG encoder unavailable");
+            pngs.add(out.toByteArray());
+        }
+        var images = new ArrayList<Integer>();
+        for (int i = 0; i < source.inputs.size(); i++) images.add(i % pngs.size());
+        return new Plan(
+                source.width, source.height, source.sourceMaterialTiles, source.inputs, pngs, images, source.derived);
+    }
+
     private record SourceSlot(int surface, int sourceSlot) {}
 
     private record SourceMesh(List<SourceSlot> slots, List<Integer> indices, List<Point2> defaults) {}
