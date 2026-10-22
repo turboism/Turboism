@@ -322,20 +322,22 @@ public final class EdtDispatch {
         boolean warned = false;
         final long waitStart = System.nanoTime();
         while (true) {
+            // The acceptance wait may already have consumed an interrupt after the EDT
+            // started. Compensate that handoff too, without requiring a second interrupt.
+            if (interrupted && abandonCompensation != null && !compensated) {
+                compensated = true;
+                try {
+                    SwingUtilities.invokeLater(abandonCompensation);
+                } catch (RuntimeException rejected) {
+                    RuntimeDiagnostics.warn(COMPONENT, label + " abandon compensation could not be scheduled");
+                }
+            }
             try {
                 if (queued.awaitDone(COMPLETION_TICK_MILLIS)) {
                     break;
                 }
             } catch (InterruptedException interruptedWait) {
                 interrupted = true;
-                if (abandonCompensation != null && !compensated) {
-                    compensated = true;
-                    try {
-                        SwingUtilities.invokeLater(abandonCompensation);
-                    } catch (RuntimeException rejected) {
-                        RuntimeDiagnostics.warn(COMPONENT, label + " abandon compensation could not be scheduled");
-                    }
-                }
             }
             if (!warned
                     && System.nanoTime() - waitStart >= TimeUnit.MILLISECONDS.toNanos(SLOW_COMPLETION_WARN_MILLIS)) {
