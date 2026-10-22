@@ -17,7 +17,9 @@ import java.lang.annotation.Target;
  * incubating surface.</p>
  *
  * <p>Removal of {@code @Incubating} is a one-way promotion: once an element
- * ships without it, the standard additive/compatible evolution rules apply.
+ * ships without it, the standard additive/compatible evolution rules apply
+ * after the first stable release establishes the SDK compatibility baseline.
+ * Before that freeze, unannotated APIs may also undergo reviewed breaking changes.
  * Plugin authors should treat incubating dependencies as version-pinned.</p>
  */
 @Documented

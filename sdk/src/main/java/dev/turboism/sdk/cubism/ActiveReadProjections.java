@@ -6,10 +6,11 @@ import java.util.Optional;
 /**
  * Shared active-document projection helpers.
  *
- * <p>Internal contract helpers used by {@link CubismFacade} and
+ * <p>Projection helpers used by {@link CubismFacade} and
  * {@link dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService}
  * default methods so the derived-read logic has a single source of truth.
- * Not part of the stable plugin API surface.</p>
+ * This public helper is included in the reviewed SDK surface; it does not grant
+ * host access beyond the supplied snapshots.</p>
  */
 @CubismEditor
 public final class ActiveReadProjections {

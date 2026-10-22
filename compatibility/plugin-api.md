@@ -1,5 +1,8 @@
 # Plugin SDK API compatibility
 
+See the [plugin author guide](../sdk/plugin-author-guide.md) for lifecycle,
+permissions, settings and packaging.
+
 The runtime's Turboism API version is the framework base version: `0.67.0`,
 `0.67.0-beta.2`, `0.67.0-0.nightly.32` and local `-SNAPSHOT` builds all expose
 API `0.67.0`. The version comes from `gradle/common-java.gradle.kts` through the
