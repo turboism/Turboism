@@ -173,9 +173,9 @@ baseline are untouched. Gradle has one R1–R4 task and one SelfTest, shared by
 
 ## Gate log and operational caveats
 
-The final full gate is run with the requested command and judged only by the
-literal BUILD SUCCESSFUL / BUILD FAILED in `/tmp/vt4-gate.log`; the final response
-records its result. An initial attempt failed before tests because the Gradle
+The final full gate on implementation commit `7118b2052` used the requested
+command: **BUILD SUCCESSFUL in 10m 9s**, 382 tasks (`/tmp/vt4-gate.log`).
+This report-only update changes no executable inputs. An initial attempt failed before tests because the Gradle
 daemon could not stat sandbox-only `.agents` directories. Empty worktree-local
 `.agents`, `.codex` and `.aws` directories align the filesystem views; no
 configuration/state files were written.
@@ -186,7 +186,9 @@ and `EdtDispatchTest.postStartInterruptWithCompensationReleasesTheCaller`. Both
 classes passed in isolation without code changes (`/tmp/vt4-followup.log`); the
 failed full log is retained at `/tmp/vt4-gate-runtime-failures.log`.
 
-An earlier incorrectly filtered runtime invocation remains waiting in the
-unrelated Wayland screenshot test (`ScreenshotCaptureHostOperationsTest`, native
-`ScreencastHelper`). It was not killed or stopped. Correctly filtered tests use
-Xvfb and a separate build directory. No Cubism host loops were run.
+An earlier incorrectly filtered runtime invocation waited in the unrelated
+Wayland screenshot test (`ScreenshotCaptureHostOperationsTest`, native
+`ScreencastHelper`) and eventually ended with BUILD FAILED after 23m 15s. No
+process was killed or stopped. Correctly filtered tests used Xvfb and a separate
+build directory; the complete final gate also used Xvfb. No Cubism host loops
+were run.
