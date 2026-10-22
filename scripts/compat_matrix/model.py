@@ -33,6 +33,7 @@ from .extract import (
     load_reviewed_versions,
     load_runtime_gates,
     load_version_boundaries,
+    load_verified_selector_versions,
     parse_sdk_annotations,
     task_base,
 )
@@ -108,10 +109,11 @@ def resolve_declared_capability(
         return {"capabilities": [declared], "pins": [], "source": "exact"}
     alias = DECLARED_CAPABILITY_ALIASES.get(declared)
     if alias:
-        caps = [c for c in alias.get("capabilities", []) if c in cap_index]
         return {
-            "capabilities": caps,
+            # Keep missing dependencies: dropping one would widen admission.
+            "capabilities": alias.get("capabilities", []),
             "pins": alias.get("pins", []),
+            "selectors": alias.get("selectors", []),
             "source": "alias",
         }
     noise = {"cubism", "turboism", "ui"}
@@ -251,6 +253,7 @@ def build_matrix(root: Path) -> dict:
     reviewed = load_reviewed_versions(root)
     reviewed_set = set(reviewed)
     caps = load_capabilities(root)
+    selector_versions = load_verified_selector_versions(root)
     gates = load_contract_gates(root)
     required_caps = load_required_capabilities(root)
     sdk_entries, accessor_map = parse_sdk_annotations(root, reviewed)
@@ -316,13 +319,16 @@ def build_matrix(root: Path) -> dict:
         unmapped: list[str] = []
         for declared in plugin["capabilities"]:
             resolved = resolve_declared_capability(declared, caps)
-            cap_sets = [admitted[c] for c in resolved["capabilities"]]
+            cap_sets = [admitted.get(c, set()) for c in resolved["capabilities"]]
             pin_sets = [
-                set(class_pins[pin]["versions"])
+                set(class_pins.get(pin, {}).get("versions", []))
                 for pin in resolved["pins"]
-                if pin in class_pins
             ]
-            sets = cap_sets + pin_sets
+            selector_sets = [
+                selector_versions.get(alias, set())
+                for alias in resolved.get("selectors", [])
+            ]
+            sets = cap_sets + pin_sets + selector_sets
             if not sets:
                 if not declared.startswith(NON_FUNCTIONAL_PREFIXES):
                     unmapped.append(declared)
@@ -330,7 +336,7 @@ def build_matrix(root: Path) -> dict:
             available = set.intersection(*sets)
             if not declared.startswith(NON_FUNCTIONAL_PREFIXES):
                 functional_sets.append(available)
-            if available and available != reviewed_set:
+            if available != reviewed_set:
                 key = (
                     resolved["capabilities"][0]
                     if len(resolved["capabilities"]) == 1

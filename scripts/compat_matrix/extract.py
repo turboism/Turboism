@@ -88,6 +88,19 @@ def load_capabilities(root: Path) -> dict[str, dict]:
     return caps
 
 
+def load_verified_selector_versions(root: Path) -> dict[str, set[str]]:
+    """Exact versions with a VERIFIED_STATIC record and selector for each alias."""
+    aliases: dict[str, set[str]] = {}
+    for path in sorted((root / VERIFICATION_DIR).glob("*.json")):
+        doc = read_json(path)
+        if doc.get("status") != "VERIFIED_STATIC":
+            continue
+        for selector in doc.get("selectors", []):
+            if selector.get("status") == "VERIFIED_STATIC":
+                aliases.setdefault(selector["alias"], set()).add(doc["cubismVersion"])
+    return aliases
+
+
 def load_contract_gates(root: Path) -> dict[str, list[dict]]:
     """capability id -> narrowing version sets from selector contracts.
 

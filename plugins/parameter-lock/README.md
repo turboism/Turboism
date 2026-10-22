@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: parameter, lock, palette, safety
 turboismApi: "[0.67.0,1.0.0)"
@@ -14,7 +14,7 @@ interface: embedded
 
 # Parameter Lock Plugin
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Protects Cubism parameter values from accidental editing, with cross-session persistence and native per-row/group lock icon integration.
 
@@ -58,15 +58,15 @@ Full feature set (reviewed versions): 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00�
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
+Model observation and parameter interception are included in the version calculation above. Run `:runtime:parameterLockArtifactTest` to check parameter hooks and row UI transformations against each original reviewed JAR; see [version compatibility verification](../../validation/parameter-lock/VERSION-COMPATIBILITY.md).
+
 **Host acceptance:** Native per-parameter row clicks and SDK/native-controller write blocking passed on Cubism 5.2.03 and 5.3.02. On both versions, a real flat group passed MIXED → all locked → all unlocked checks for every descendant; the isolated fixture temporarily gained a second member and its membership was restored without saving. Cross-process row-lock persistence passed on 5.3.02. Deep nested groups are covered offline; live nested groups, physical slider dragging, text keystrokes, Undo/Redo, and multi-model switching remain untested.
 
 See [host acceptance](../../validation/parameter-lock/ROW-UI-ACCEPTANCE.md).
 
 ## Install and enable
 
-This plugin is in development and is not included in the official release bundle or marketplace.
-Build a development JAR with `./gradlew :plugins:parameter-lock:jar`, install it, then enable it
-in **Plugin Management**. Disable it there to release write interception while retaining saved locks.
+This preview plugin is included in the release roster for the next Turboism bundle and Plugin Market publication. Build a JAR with `./gradlew :plugins:parameter-lock:jar` or install it from a release that includes it, then enable it in **Plugin Management**. Disable it there to release write interception while retaining saved locks.
 
 ## How to use
 
@@ -118,7 +118,7 @@ No telemetry is sent by this plugin.
 
 ## Status and limitations
 
-- **Status:** Development.
+- **Status:** Preview.
 - Offline unit and integration tests verify hook mutation blocking, per-row leading actions, recursive group hierarchy handling, persistence, and cross-model isolation; live row-UI acceptance and its explicit limitations are recorded in the linked validation document.
 - The new per-row UI is distinct from and not equivalent to old toolbar live-host test results.
 - The mutation suppression mechanism returns the parameter's current value before host write; native host history interaction depends on the installed Cubism version's exact write pipeline.

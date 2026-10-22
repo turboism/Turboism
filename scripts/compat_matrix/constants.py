@@ -109,6 +109,21 @@ DECLARED_CAPABILITY_ALIASES: dict[str, dict[str, list[str]]] = {
         "capabilities": ["cubism.editor-model.object-hierarchy.edit"]
     },
     "cubism.model.read": {"capabilities": ["cubism.editor-model.read"]},
+    # Model lifecycle observation needs model identity and project/document access.
+    # Native hook installation remains a runtime condition, verified separately.
+    "cubism.model.observe": {
+        "capabilities": ["cubism.editor-model.read", "cubism.project.read"]
+    },
+    # ParameterHooks interception uses these three exact aliases in
+    # VerifiedParameterHookInstaller, in addition to the model write contract.
+    "cubism.model.intercept": {
+        "capabilities": ["cubism.editor-model.write"],
+        "selectors": [
+            "cubism.editor-model.parameter-operation.set-value",
+            "cubism.editor-model.parameter-source.id",
+            "cubism.editor-model.id.value",
+        ],
+    },
     "cubism.model.write": {"capabilities": ["cubism.editor-model.write"]},
     "cubism.parameters.read": {
         "capabilities": [
