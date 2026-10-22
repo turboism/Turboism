@@ -60,6 +60,7 @@ val generatedVerificationRoot = layout.buildDirectory.dir(
 )
 
 val generateVerificationSources by tasks.registering(Exec::class) {
+    dependsOn(rootProject.tasks.named("materializeDraftContracts"))
     dependsOn(rootProject.tasks.named("materializeVerificationRecords"))
     group = "build"
     description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
@@ -69,7 +70,7 @@ val generateVerificationSources by tasks.registering(Exec::class) {
         fileTree(rootProject.file("build/generated/verification")) {
             include("*.json")
         },
-        fileTree(rootProject.file("compatibility/cubism/mapping-packs/draft")) {
+        fileTree(rootProject.file("build/generated/draft/mapping-packs")) {
             include("*.json")
         },
         fileTree(
@@ -93,6 +94,7 @@ val generateVerificationSources by tasks.registering(Exec::class) {
 }
 
 val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
+    dependsOn(rootProject.tasks.named("materializeVerificationRecords"))
     group = "build"
     description = "Generates the exact Cubism Core selector/profile contract."
     inputs.files(
@@ -102,7 +104,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
             "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
         ),
         fileTree(
-            rootProject.file("compatibility/cubism/mapping-packs/draft")
+            rootProject.file("build/generated/verification")
         ) { include("cubism-*-core-model-read.json") }
     )
     outputs.file(generatedCoreSelectorContractFile)
@@ -121,10 +123,6 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
                 logger.lifecycle("removing stale generated ${it.relativeTo(root)}")
                 it.delete()
             }
-        val packs = rootProject.file("compatibility/cubism/mapping-packs/draft")
-            .listFiles { f -> f.name.matches(Regex("cubism-\\d+\\.\\d+\\.\\d+-core-model-read\\.json")) }
-            .sorted()
-            .flatMap { pack -> listOf("--pack", pack.absolutePath) }
         commandLine(
             listOf(
                 "python3",
@@ -134,9 +132,11 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
                 rootProject.file(
                     "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
                 ).absolutePath,
+                "--record-dir",
+                rootProject.file("build/generated/verification").absolutePath,
                 "--output",
                 output.absolutePath
-            ) + packs
+            )
         )
     }
 }
@@ -509,4 +509,10 @@ listOf("admissionPreflightTest", "corePublicApiProviderTest").forEach { name ->
         description += " Also covered by admissionUnitTests when that task is scheduled."
         onlyIf("the admission unit suite is not scheduled") { !gradle.taskGraph.hasTask(":runtime:admissionUnitTests") }
     }
+}
+
+// Live-tree mapping/profile fixtures require the complete generated DRAFT view.
+tasks.withType<Test>().configureEach {
+    dependsOn(rootProject.tasks.named("materializeDraftContracts"))
+    inputs.files(rootProject.tasks.named("materializeDraftContracts"))
 }

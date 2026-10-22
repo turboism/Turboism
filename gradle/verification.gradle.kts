@@ -167,12 +167,12 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
         "scripts/test/test_cubism_core_api_inventory.py",
         "compatibility/cubism/index.md",
         fileTree("compatibility/cubism/core-api/observed") { include("*.json") },
-        "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json",
-        "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
-        "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-model-read.json",
-        "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
-        "compatibility/cubism/profiles/draft/cubism-5.2.03.json",
-        "compatibility/cubism/profiles/draft/cubism-5.3.02.json"
+        "build/generated/draft/mapping-packs/cubism-5.1.03-core-model-read.json",
+        "build/generated/draft/mapping-packs/cubism-5.2.03-core-model-read.json",
+        "build/generated/draft/mapping-packs/cubism-5.3.04-core-model-read.json",
+        "build/generated/draft/mapping-packs/cubism-5.3.02-core-model-read.json",
+        "build/generated/draft/profiles/cubism-5.2.03.json",
+        "build/generated/draft/profiles/cubism-5.3.02.json"
     )
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
@@ -200,7 +200,7 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
         "scripts/cubism_core_selector_policy.py",
         "scripts/test/test_cubism_core_selector_policy.py",
         "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json",
-        fileTree("compatibility/cubism/mapping-packs/draft") {
+        fileTree("build/generated/draft/mapping-packs") {
             include("cubism-*-core-model-read.json")
         }
     )
@@ -396,7 +396,7 @@ tasks.register<Exec>("syncDraftPackMetadata") {
     workingDir(rootDir)
     inputs.files(
         "scripts/sync_draft_pack_metadata.py",
-        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("build/generated/draft/mapping-packs") { include("*.json") },
         fileTree("build/generated/verification") { include("*.json") }
     )
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath)
@@ -411,7 +411,7 @@ val checkDraftPackMetadataSelfTest by tasks.registering(Exec::class) {
         "scripts/test/test_sync_draft_pack_metadata.py"
     )
     inputs.files(
-        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("build/generated/draft/mapping-packs") { include("*.json") },
         fileTree("build/generated/verification") { include("*.json") }
     )
     VerificationStamps.apply(this)
@@ -429,7 +429,7 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/sync_draft_pack_metadata.py",
-        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("build/generated/draft/mapping-packs") { include("*.json") },
         fileTree("build/generated/verification") { include("*.json") }
     )
     VerificationStamps.apply(this)
@@ -494,7 +494,7 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
         "scripts/preview/host-validation-tasks.json",
         "scripts/preview/host_validation.py",
         "compatibility/cubism/index.md",
-        fileTree("compatibility/cubism/profiles/draft") { include("*.json") },
+        fileTree("build/generated/draft/profiles") { include("*.json") },
         fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
             include("*.json")
         }
@@ -915,7 +915,7 @@ val checkVerificationSources by tasks.registering(Exec::class) {
         "scripts/generate_verification_sources.py",
         fileTree("scripts/verification-sources") { include("**/*") },
         fileTree("build/generated/verification") { include("*.json") },
-        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("build/generated/draft/mapping-packs") { include("*.json") },
         fileTree("runtime/src/main/java/dev/turboism/mapping/verification") { include("**/*.java") },
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
         fileTree("runtime/src/main/java/dev/turboism/ui") { include("**/*.java") }
@@ -1972,7 +1972,9 @@ tasks.named("check") {
 // Python gates and their live-tree fixtures read the canonical materialized records.
 // The materializer itself is registered in the root build, outside this gate script.
 tasks.withType<Exec>().configureEach {
-    if (name != "materializeVerificationRecords") {
+    if (name !in setOf("materializeVerificationRecords", "materializeDraftContracts")) {
+        dependsOn("materializeDraftContracts")
+        inputs.files(tasks.named("materializeDraftContracts"))
         dependsOn("materializeVerificationRecords")
         inputs.files(tasks.named("materializeVerificationRecords"))
     }

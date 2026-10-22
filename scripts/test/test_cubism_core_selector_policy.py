@@ -21,13 +21,14 @@ from cubism_core_selector_policy import (  # noqa: E402
     compact_json,
     load_json,
     load_packs,
+    load_records,
     normalize_policy,
     render_java,
     validate_policy,
 )
 
 POLICY = ROOT / "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
-PACK_DIR = ROOT / "compatibility/cubism/mapping-packs/draft"
+PACK_DIR = ROOT / "build/generated/draft/mapping-packs"
 PACK_51 = PACK_DIR / "cubism-5.1.03-core-model-read.json"
 PACK_52 = PACK_DIR / "cubism-5.2.03-core-model-read.json"
 PACK_53 = PACK_DIR / "cubism-5.3.02-core-model-read.json"
@@ -66,7 +67,10 @@ def main() -> int:
     policy = load_json(POLICY)
     packs = load_packs(ALL_PACKS)
     require(len(packs) == 20, "the Core matrix must cover all twenty reviewed versions")
+    record_policy, record_roster = validate_policy(policy, load_records(ROOT / "build/generated/verification"))
     validated, roster = validate_policy(policy, packs)
+    require(render_java(record_policy, record_roster) == render_java(validated, roster),
+            "Core record and pack projections must generate byte-identical Java")
 
     require(len(roster) == 83, "selector count drifted")
     require(
