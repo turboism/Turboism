@@ -17,7 +17,7 @@ from pathlib import Path
 from turboism_dev.json_io import dump_json, read_json
 from turboism_dev.paths import repo_root
 from turboism_dev.versions import (reviewed_range_versions, cubism_version_key, dotted_to_compact,
-    compact_to_dotted as compact_to_dotted_impl, missing_higher, parse_cubism_version)
+    compact_to_dotted as _compact_to_dotted, missing_higher, parse_cubism_version)
 from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
 import generate_reviewed_releases as generated
 from materialize_verification_records import render_records, check_records
@@ -26,30 +26,53 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "preview"))
 from host_validation_static_gates import TASK_REQUIRED_CAPABILITIES
 
 
+ROOT = repo_root()
+RELEASES = Path(SOURCE_RELATIVE)
+VERIFICATION_DIR = Path("build/generated/verification")
+CLASS_PINS_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
+HOST_TASKS = Path("scripts/preview/host-validation-tasks.json")
+COMPACT_TOKEN = re.compile(r"^5\d{3}$")
+COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
+
+
+class ReleaseCheckError(Exception):
+    """A checked source cannot be read or parsed."""
+
+
+def read_source(root: Path, relative: Path | None = None) -> str:
+    path = root / relative if relative is not None else root
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ReleaseCheckError(f"unable to read {relative if relative is not None else path}: {exc}") from exc
+
+
+def admitted_versions(root: Path) -> set[str]:
+    try:
+        return {release["version"] for release in load_releases(root / RELEASES)}
+    except ValueError as exc:
+        raise ReleaseCheckError(str(exc)) from exc
+
+
+def parse_dotted(token: str) -> tuple[int, int]:
+    try:
+        return parse_cubism_version(token)
+    except ValueError as exc:
+        raise ReleaseCheckError(str(exc)) from exc
+
+
+def compact_to_dotted(token: str) -> str:
+    try:
+        return _compact_to_dotted(token)
+    except ValueError as exc:
+        raise ReleaseCheckError(str(exc)) from exc
+
+
 # R1
-#!/usr/bin/env python3
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-r1_ROOT = repo_root()
 
 r1_CANONICAL = "reviewed-releases.json"
-r1_RELEASES = Path(SOURCE_RELATIVE)
+r1_RELEASES = RELEASES
 r1_REVIEWED_HOST_ARTIFACTS = Path(
     "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
 )
@@ -59,12 +82,10 @@ r1_COMPATIBILITY_CATALOG = Path(
 r1_AVAILABILITY_POLICY = Path(
     "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java"
 )
-r1_HOST_VALIDATION_TASKS = Path("scripts/preview/host-validation-tasks.json")
+r1_HOST_VALIDATION_TASKS = HOST_TASKS
 r1_HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
 r1_INDEX_MD = Path("compatibility/cubism/index.md")
-r1_CLASS_PINS_DIR = Path(
-    "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
-)
+r1_CLASS_PINS_DIR = CLASS_PINS_DIR
 r1_PROBE_CLOSE_ROUTES = (
     Path(
         "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/"
@@ -83,39 +104,18 @@ r1_CLOSE_ROUTE_SWITCH = re.compile(
     r"hostCloseRoute\(final String hostVersion\).*?switch \(hostVersion\) \{(.*?)\};",
     re.DOTALL,
 )
-r1_COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
 
-r1_COMPACT = re.compile(r"^5\d{3}$")
 
 r1_RECORD_FILENAME = re.compile(r'"cubism-(\d+\.\d+\.\d+)-[^"]+\.json"')
 r1_INDEX_VERSION = re.compile(r"\b5\.\d{1,2}\.\d{2}\b")
 
 
-class r1_CompletenessError(Exception):
-    """Raised when a restatement site cannot be parsed at all."""
-
-
-def r1_dotted(major: str, minor: str, patch: str) -> str:
-    return f"{int(major)}.{int(minor)}.{int(patch):0>2}"
-
-
-def r1_compact_to_dotted(token: str) -> str:
-    if not r1_COMPACT.fullmatch(token):
-        raise r1_CompletenessError(f"unsupported compact version token: {token!r}")
-    return r1_dotted(token[0], token[1:-2], token[-2:])
-
-
-def r1__read(root: Path, relative: Path) -> str:
-    path = root / relative
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise r1_CompletenessError(f"unable to read {relative}: {exc}") from exc
+r1_CompletenessError = ReleaseCheckError
 
 
 def r1_reviewed_host_artifacts(root: Path) -> tuple[set[str], list[str]]:
     try:
-        versions = {r['version'] for r in load_releases(root / r1_RELEASES)}
+        versions = admitted_versions(root)
         return versions, generated.check(root)
     except (ValueError, OSError) as exc:
         raise r1_CompletenessError(str(exc)) from exc
@@ -123,7 +123,7 @@ def r1_reviewed_host_artifacts(root: Path) -> tuple[set[str], list[str]]:
 
 def r1_compatibility_catalog(root: Path) -> set[str]:
     try:
-        document = json.loads(r1__read(root, r1_COMPATIBILITY_CATALOG))
+        document = json.loads(read_source(root, r1_COMPATIBILITY_CATALOG))
     except json.JSONDecodeError as exc:
         raise r1_CompletenessError(f"{r1_COMPATIBILITY_CATALOG}: invalid JSON: {exc}") from exc
     records = document.get("records")
@@ -147,7 +147,7 @@ def r1_derived_consumers(root: Path) -> list[str]:
         r1_HOST_VALIDATION_PY: 'reviewed_host_artifacts.load()',
     }
     return [f'{path}: must derive reviewed versions from the table'
-            for path, expression in expected.items() if expression not in r1__read(root, path)]
+            for path, expression in expected.items() if expression not in read_source(root, path)]
 
 
 def r1_materialized_record_versions(root: Path) -> set[str]:
@@ -157,25 +157,24 @@ def r1_materialized_record_versions(root: Path) -> set[str]:
 
 def r1_host_validation_tasks(root: Path) -> tuple[set[str], list[str]]:
     try:
-        document = json.loads(r1__read(root, r1_HOST_VALIDATION_TASKS))
+        document = json.loads(read_source(root, r1_HOST_VALIDATION_TASKS))
     except json.JSONDecodeError as exc:
         raise r1_CompletenessError(f"{r1_HOST_VALIDATION_TASKS}: invalid JSON: {exc}") from exc
     versions: set[str] = set()
     problems = []
     for name, task in sorted(document.get("tasks", {}).items()):
         for token in task.get("versions", []):
-            if not r1_COMPACT.fullmatch(str(token)):
+            if not COMPACT_TOKEN.fullmatch(str(token)):
                 problems.append(
                     f"{r1_HOST_VALIDATION_TASKS}: task {name} has non-exact version {token!r}"
                 )
                 continue
-            versions.add(r1_compact_to_dotted(str(token)))
+            versions.add(compact_to_dotted(str(token)))
     return versions, problems
 
 
-
 def r1_index_md(root: Path) -> set[str]:
-    return set(r1_INDEX_VERSION.findall(r1__read(root, r1_INDEX_MD)))
+    return set(r1_INDEX_VERSION.findall(read_source(root, r1_INDEX_MD)))
 
 
 r1_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
@@ -219,14 +218,14 @@ def r1_probe_close_routes(root: Path) -> dict[str, set[str]]:
     routes: dict[str, set[str]] = {}
     for relative in r1_PROBE_CLOSE_ROUTES:
         try:
-            text = r1__read(root, relative)
+            text = read_source(root, relative)
         except r1_CompletenessError:
             continue  # Minimal fixture roots legitimately lack probe sources.
         match = r1_CLOSE_ROUTE_SWITCH.search(text)
         if match is None:
             raise r1_CompletenessError(f"{relative}: hostCloseRoute switch not found")
         routes[f"{relative} hostCloseRoute versions"] = {
-            r1_compact_to_dotted(token) for token in r1_COMPACT_LITERAL.findall(match.group(1))
+            compact_to_dotted(token) for token in COMPACT_LITERAL.findall(match.group(1))
         }
     return routes
 
@@ -252,7 +251,7 @@ def r1_collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
 
 def r1_family_range_coverage(root: Path) -> list[str]:
     """Family-owned range selections require materialized VERIFIED_STATIC records."""
-    admitted = r2_admitted_versions(root)
+    admitted = admitted_versions(root)
     records = {name: json.loads(raw) for name, raw in render_records(root).items()}
     problems = []
     for path in sorted((root / "scripts/verification-sources/families").glob("*.json")):
@@ -265,7 +264,7 @@ def r1_family_range_coverage(root: Path) -> list[str]:
                    for name in family.get("files", [])]
         sources.extend(Path(name) for name in family.get("coverageSources", []))
         for relative in sources:
-            text = r2_strip_comments((root / relative).read_text(encoding="utf-8"))
+            text = strip_comments(read_source(root, relative))
             missing = r2_range_versions(text, admitted) - covered
             if missing:
                 problems.append(
@@ -305,72 +304,12 @@ def r1_check(root: Path) -> list[str]:
     return violations
 
 # R2
-#!/usr/bin/env python3
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-r2_ROOT = repo_root()
-
-r2_REVIEWED_HOST_ARTIFACTS = Path(
-    "compatibility/cubism/reviewed-releases.json"
-)
-r2_VERIFICATION_DIR = Path("build/generated/verification")
-r2_CLASS_PINS_DIR = Path(
-    "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
-)
-r2_HOST_VALIDATION_TASKS = Path("scripts/preview/host-validation-tasks.json")
+r2_REVIEWED_HOST_ARTIFACTS = RELEASES
+r2_VERIFICATION_DIR = VERIFICATION_DIR
+r2_CLASS_PINS_DIR = CLASS_PINS_DIR
+r2_HOST_VALIDATION_TASKS = HOST_TASKS
 r2_MCP_SDK_COVERAGE = Path(
     "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json"
 )
@@ -393,8 +332,6 @@ r2_JAVA_EXCLUDE = re.compile(
     r"(?:^|/)(?:src/test|test|selfcheck|regression-src|isolationFixtures)(?:/|$)"
 )
 
-r2_DOTTED = re.compile(r"^5\.(\d{1,2})\.(\d{2})$")
-r2_COMPACT = re.compile(r"^5\d{3}$")
 
 r2_RECORD_FILENAME = re.compile(r"^cubism-(5\.\d{1,2}\.\d{2})-(.+)\.json$")
 
@@ -405,15 +342,13 @@ r2_COLLECTION_OPEN = re.compile(
     r"(?:of|ofEntries|copyOf)\s*\(")
 r2_DOTTED_LITERAL = re.compile(r'"(5\.\d{1,2}\.\d{2})"')
 r2_RANGE_LITERAL = re.compile(r'"(5\.\d{1,2}\.\d{2})-(5\.\d{1,2}\.\d{2})"')
-r2_COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
 r2_CONST_REF = re.compile(
     r"\bCUBISM_(?:VERSION_)?5_(\d{1,2})_(\d{2})(?:_VERSION)?\b"
     r"|\bCUBISM_5(\d{1,2})(\d{2})\b"
 )
 
 
-class r2_MonotonicityError(Exception):
-    """Raised when a checked surface cannot be parsed at all."""
+r2_MonotonicityError = ReleaseCheckError
 
 
 @dataclass
@@ -435,36 +370,7 @@ class r2_Finding:
         return f"{self.path}: {self.site} skips {missing} ({self.detail})"
 
 
-def r2_parse_dotted(token: str) -> tuple[int, int]:
-    try:
-        return parse_cubism_version(token)
-    except ValueError as exc:
-        raise r2_MonotonicityError(str(exc)) from exc
-
-
-def r2_compact_to_dotted(token: str) -> str:
-    try:
-        return compact_to_dotted_impl(token)
-    except ValueError as exc:
-        raise r2_MonotonicityError(str(exc)) from exc
-
-
-def r2__read(root: Path, relative: Path) -> str:
-    path = root / relative
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise r2_MonotonicityError(f"unable to read {relative}: {exc}") from exc
-
-
-def r2_admitted_versions(root: Path) -> set[str]:
-    try:
-        return {r['version'] for r in load_releases(root / r2_REVIEWED_HOST_ARTIFACTS)}
-    except ValueError as exc:
-        raise r2_MonotonicityError(str(exc)) from exc
-
-
-def r2_strip_comments(text: str) -> str:
+def strip_comments(text: str) -> str:
     """Blank out // and /* */ comments, preserving offsets and newlines."""
     out = list(text)
     i, n = 0, len(text)
@@ -525,7 +431,7 @@ def r2_range_versions(text: str, admitted: set[str]) -> set[str]:
         raise r2_MonotonicityError(str(exc)) from exc
 
 
-def r2_strip_reviewed_ranges(text: str) -> str:
+def strip_reviewed_ranges(text: str) -> str:
     """Range boundaries are selections from generated data, not literal rosters."""
     return re.sub(r'\bReviewedVersions\.(?:since|line|between)\([^)]*\)',
                   lambda match: ' ' * len(match.group()), text)
@@ -575,9 +481,9 @@ def r2_literal_versions(span: str, admitted: set[str]) -> set[str]:
     versions: set[str] = set()
     covered: list[tuple[int, int]] = []
     for match in r2_RANGE_LITERAL.finditer(span):
-        lo, hi = r2_parse_dotted(match.group(1)), r2_parse_dotted(match.group(2))
+        lo, hi = parse_dotted(match.group(1)), parse_dotted(match.group(2))
         for version in admitted:
-            parsed = r2_parse_dotted(version)
+            parsed = parse_dotted(version)
             if lo <= parsed <= hi:
                 versions.add(version)
         covered.append(match.span())
@@ -585,8 +491,8 @@ def r2_literal_versions(span: str, admitted: set[str]) -> set[str]:
         if any(s <= match.start() < e for s, e in covered):
             continue
         versions.add(match.group(1))
-    for match in r2_COMPACT_LITERAL.finditer(span):
-        versions.add(r2_compact_to_dotted(match.group(1)))
+    for match in COMPACT_LITERAL.finditer(span):
+        versions.add(compact_to_dotted(match.group(1)))
     for match in r2_CONST_REF.finditer(span):
         if match.group(1) is not None:
             versions.add(f"5.{int(match.group(1))}.{int(match.group(2)):0>2}")
@@ -608,7 +514,7 @@ def r2_annotation_versions(span: str, admitted: set[str]) -> set[str]:
     for attr in bounds:
         match = re.search(attr + r'\s*=\s*"(5\.\d{1,2}\.\d{2})"', rest)
         if match:
-            bounds[attr] = r2_parse_dotted(match.group(1))
+            bounds[attr] = parse_dotted(match.group(1))
             rest = rest[: match.start()] + " " + rest[match.end() :]
     array = re.search(r"\{([^}]*)\}", rest)
     scalar = re.search(r'"(5\.\d{1,2}\.\d{2})"', rest)
@@ -619,7 +525,7 @@ def r2_annotation_versions(span: str, admitted: set[str]) -> set[str]:
     else:
         selected = set()
         for version in admitted:
-            parsed = r2_parse_dotted(version)
+            parsed = parse_dotted(version)
             if bounds["from"] is not None and parsed < bounds["from"]:
                 continue
             if bounds["to"] is not None and parsed > bounds["to"]:
@@ -637,7 +543,7 @@ def r2_java_findings(
 ) -> tuple[list[r2_Finding], list[str]]:
     findings: list[r2_Finding] = []
     problems: list[str] = []
-    stripped = r2_strip_reviewed_ranges(r2_strip_comments(text))
+    stripped = strip_reviewed_ranges(strip_comments(text))
     spans: list[tuple[int, int]] = []
     for match in r2_ANNOTATION_OPEN.finditer(stripped):
         try:
@@ -655,8 +561,8 @@ def r2_java_findings(
                 r2_Finding(
                     "java-annotation",
                     relative,
-                    ",".join(sorted(declared, key=r2_parse_dotted)),
-                    tuple(sorted(missing, key=r2_parse_dotted)),
+                    ",".join(sorted(declared, key=parse_dotted)),
+                    tuple(sorted(missing, key=parse_dotted)),
                     f"@CubismEditor at line {r2_line_of(text, match.start())} "
                     f"admits {sorted(declared)}",
                 )
@@ -677,8 +583,8 @@ def r2_java_findings(
                 r2_Finding(
                     "java-set",
                     relative,
-                    ",".join(sorted(declared, key=r2_parse_dotted)),
-                    tuple(sorted(missing, key=r2_parse_dotted)),
+                    ",".join(sorted(declared, key=parse_dotted)),
+                    tuple(sorted(missing, key=parse_dotted)),
                     f"collection literal at line {r2_line_of(text, match.start())} "
                     f"admits {sorted(declared)}",
                 )
@@ -695,18 +601,18 @@ def r2_java_findings(
             r2_Finding(
                 "java-file",
                 relative,
-                ",".join(sorted(declared, key=r2_parse_dotted)),
-                tuple(sorted(missing, key=r2_parse_dotted)),
+                ",".join(sorted(declared, key=parse_dotted)),
+                tuple(sorted(missing, key=parse_dotted)),
                 f"version tokens outside collection literals admit "
                 f"{sorted(declared)}",
             )
         )
-    ranges = r2_range_versions(r2_strip_comments(text), admitted)
+    ranges = r2_range_versions(strip_comments(text), admitted)
     missing = missing_higher(ranges, admitted)
     if missing:
         findings.append(r2_Finding("java-range", relative,
-                ",".join(sorted(ranges, key=r2_parse_dotted)),
-                tuple(sorted(missing, key=r2_parse_dotted)), "reviewed range selections"))
+                ",".join(sorted(ranges, key=parse_dotted)),
+                tuple(sorted(missing, key=parse_dotted)), "reviewed range selections"))
     return findings, problems
 
 
@@ -728,7 +634,7 @@ def r2_collect_java(root: Path, admitted: set[str]) -> tuple[list[r2_Finding], l
             if r2_JAVA_EXCLUDE.search(relative):
                 continue
             file_findings, file_problems = r2_java_findings(
-                relative, source.read_text(encoding="utf-8"), admitted
+                relative, read_source(source), admitted
             )
             findings.extend(file_findings)
             problems.extend(file_problems)
@@ -772,13 +678,13 @@ def r2_collect_verification_records(
                     "verification-record",
                     "compatibility/cubism/verification",
                     f"{family} record coverage",
-                    tuple(sorted(coverage_missing, key=r2_parse_dotted)),
+                    tuple(sorted(coverage_missing, key=parse_dotted)),
                     f"{family} has records for {sorted(by_version)}",
                 )
             )
-        known = [v for v in sorted(by_version, key=r2_parse_dotted) if v in admitted]
+        known = [v for v in sorted(by_version, key=parse_dotted) if v in admitted]
         for older, newer in zip(known, known[1:]):
-            if r2_parse_dotted(older)[0] != r2_parse_dotted(newer)[0]:
+            if parse_dotted(older)[0] != parse_dotted(newer)[0]:
                 continue
             old_caps, old_aliases = by_version[older]
             new_caps, new_aliases = by_version[newer]
@@ -826,7 +732,7 @@ def r2_collect_class_pins(
                     "class-pins",
                     f"{r2_CLASS_PINS_DIR.as_posix()}/{pin.name}",
                     pin.name,
-                    tuple(sorted(missing, key=r2_parse_dotted)),
+                    tuple(sorted(missing, key=parse_dotted)),
                     f"pins cover {sorted(declared)}",
                 )
             )
@@ -839,19 +745,19 @@ def r2_collect_host_validation_tasks(
     findings: list[r2_Finding] = []
     problems: list[str] = []
     try:
-        document = json.loads(r2__read(root, r2_HOST_VALIDATION_TASKS))
+        document = json.loads(read_source(root, r2_HOST_VALIDATION_TASKS))
     except json.JSONDecodeError as exc:
         raise r2_MonotonicityError(f"{r2_HOST_VALIDATION_TASKS}: invalid JSON: {exc}") from exc
     for name, task in sorted(document.get("tasks", {}).items()):
         declared = set()
         for token in task.get("versions", []):
-            if not r2_COMPACT.fullmatch(str(token)):
+            if not COMPACT_TOKEN.fullmatch(str(token)):
                 problems.append(
                     f"{r2_HOST_VALIDATION_TASKS}: task {name} has non-exact "
                     f"version {token!r}"
                 )
                 continue
-            declared.add(r2_compact_to_dotted(str(token)))
+            declared.add(compact_to_dotted(str(token)))
         missing = missing_higher(declared, admitted)
         if missing:
             findings.append(
@@ -859,7 +765,7 @@ def r2_collect_host_validation_tasks(
                     "host-validation-task",
                     r2_HOST_VALIDATION_TASKS.as_posix(),
                     name,
-                    tuple(sorted(missing, key=r2_parse_dotted)),
+                    tuple(sorted(missing, key=parse_dotted)),
                     f"task {name} runs on {sorted(declared)}",
                 )
             )
@@ -891,7 +797,7 @@ def r2_collect_mcp_coverage(
                     "mcp-coverage",
                     r2_MCP_SDK_COVERAGE.as_posix(),
                     str(entry.get("sdkMethod", f"entries[{index}]")),
-                    tuple(sorted(missing, key=r2_parse_dotted)),
+                    tuple(sorted(missing, key=parse_dotted)),
                     f"entry {index} covers {sorted(declared)}",
                 )
             )
@@ -975,7 +881,7 @@ def r2_apply_exceptions(
 
 
 def r2_collect(root: Path) -> tuple[list[r2_Finding], list[str]]:
-    admitted = r2_admitted_versions(root)
+    admitted = admitted_versions(root)
     findings: list[r2_Finding] = []
     problems: list[str] = []
     for collector in (
@@ -1001,63 +907,7 @@ def r2_check(root: Path) -> tuple[list[r2_Finding], list[r2_Finding]]:
     return suppressed, live
 
 # R3
-#!/usr/bin/env python3
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-r3_ROOT = repo_root()
 
 r3_LITERAL_EXCEPTIONS = Path("scripts/reviewed-release-literal-exceptions.json")
 r3_LITERAL_EXCEPTIONS_FORMAT = "turboism.reviewed-release-literal-exceptions/v1"
@@ -1067,16 +917,25 @@ r3_SHELL_COMPACT_VERSION = re.compile(r"\b(5[0-3]\d{2})\b")
 r3_SHELL_DOTTED_VERSION = re.compile(r"\b(5\.\d{1,2}\.\d{2})\b")
 
 
-
-class r3_LiteralExceptionError(Exception):
-    """Raised when the registry file cannot be parsed at all."""
+r3_LiteralExceptionError = ReleaseCheckError
 
 
 def r3_sort_versions(versions: set[str]) -> list[str]:
     return sorted(versions, key=cubism_version_key)
 
 
-def r3_collect_sites(root: Path) -> dict[tuple[str, str], int]:
+def wrapper_versions(root: Path, admitted: set[str]):
+    for wrapper in sorted((root / r3_PREVIEW_WRAPPERS_DIR).glob("run-*.sh")):
+        if wrapper.name == r3_GENERIC_RUNNER_NAME:
+            continue
+        code = "\n".join(line for line in read_source(wrapper).splitlines()
+                         if not line.lstrip().startswith("#"))
+        versions = {compact_to_dotted(token) for token in r3_SHELL_COMPACT_VERSION.findall(code)}
+        versions.update(r3_SHELL_DOTTED_VERSION.findall(code))
+        yield wrapper.relative_to(root).as_posix(), versions & admitted
+
+
+def r3_collect_sites(root: Path) -> dict[tuple[str, str, str], int]:
     """Observed sites: (kind, path, sorted-version-csv) -> occurrence count.
 
     ``kind`` is ``collection`` for collection literals and ``file`` for the
@@ -1084,8 +943,8 @@ def r3_collect_sites(root: Path) -> dict[tuple[str, str], int]:
     """
     from generate_reviewed_releases import HOST, TABLE, VERSIONS
     generated_paths = {HOST.as_posix(), TABLE.as_posix(), VERSIONS.as_posix()}
-    admitted = r2_admitted_versions(root)
-    sites: dict[tuple[str, str], int] = {}
+    admitted = admitted_versions(root)
+    sites: dict[tuple[str, str, str], int] = {}
     for base in r2_java_roots(root):
         if not base.is_dir():
             continue
@@ -1094,8 +953,8 @@ def r3_collect_sites(root: Path) -> dict[tuple[str, str], int]:
             # These outputs are checked byte-for-byte against the table by completeness.
             if relative in generated_paths or r2_JAVA_EXCLUDE.search(relative):
                 continue
-            stripped = r2_strip_reviewed_ranges(r2_strip_comments(
-                source.read_text(encoding="utf-8")
+            stripped = strip_reviewed_ranges(strip_comments(
+                read_source(source)
             ))
             spans: list[tuple[int, int]] = []
             for match in r2_ANNOTATION_OPEN.finditer(stripped):
@@ -1129,29 +988,10 @@ def r3_collect_sites(root: Path) -> dict[tuple[str, str], int]:
             if declared:
                 key = ("file", relative, ",".join(r3_sort_versions(declared)))
                 sites[key] = sites.get(key, 0) + 1
-    preview_dir = root / r3_PREVIEW_WRAPPERS_DIR
-    if preview_dir.is_dir():
-        for wrapper in sorted(preview_dir.glob("run-*.sh")):
-            if wrapper.name == r3_GENERIC_RUNNER_NAME:
-                continue
-            relative = wrapper.relative_to(root).as_posix()
-            code_lines = [
-                line
-                for line in wrapper.read_text(encoding="utf-8").splitlines()
-                if not line.lstrip().startswith("#")
-            ]
-            code = "\n".join(code_lines)
-            declared: set[str] = set()
-            for token in r3_SHELL_COMPACT_VERSION.findall(code):
-                dotted = r2_compact_to_dotted(token)
-                if dotted in admitted:
-                    declared.add(dotted)
-            for dotted in r3_SHELL_DOTTED_VERSION.findall(code):
-                if dotted in admitted:
-                    declared.add(dotted)
-            if declared:
-                key = ("file", relative, ",".join(r3_sort_versions(declared)))
-                sites[key] = sites.get(key, 0) + 1
+    for relative, declared in wrapper_versions(root, admitted):
+        if declared:
+            key = ("file", relative, ",".join(r3_sort_versions(declared)))
+            sites[key] = sites.get(key, 0) + 1
     return sites
 
 
@@ -1201,7 +1041,7 @@ def r3_bare_version_sets(root: Path) -> set[tuple[str, str]]:
             relative = source.relative_to(root).as_posix()
             if r2_JAVA_EXCLUDE.search(relative):
                 continue
-            text = r2_strip_comments(source.read_text(encoding="utf-8"))
+            text = strip_comments(read_source(source))
             for match in r2_COLLECTION_OPEN.finditer(text):
                 end = r2_match_paren(text, match.end() - 1)
                 body = text[match.end():end - 1]
@@ -1243,42 +1083,14 @@ def r3_check(root: Path) -> list[str]:
 
 
 # R4
-#!/usr/bin/env python3
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "preview"))
 
 
-
-
-r4_ROOT = repo_root()
+r4_ROOT = ROOT
 r4_MATRIX_PATH = Path("compatibility/cubism/compatibility-matrix.json")
-r4_MANIFEST_PATH = Path("scripts/preview/host-validation-tasks.json")
+r4_MANIFEST_PATH = HOST_TASKS
 
 # Task -> explicit capability dependencies when taskGroupAliases/taskPluginAliases
 # either do not cover the task or name a broader documentation group.
@@ -1401,14 +1213,14 @@ def r4_derive_all_task_versions(
     manifest_file = root / r4_MANIFEST_PATH
     try:
         matrix = read_json(matrix_file)
-    except (OSError, Exception) as exc:
+    except Exception as exc:
         return {}, [f"{r4_MATRIX_PATH}: cannot read compatibility matrix: {exc}"]
     try:
         manifest = read_json(manifest_file)
-    except (OSError, Exception) as exc:
+    except Exception as exc:
         return {}, [f"{r4_MANIFEST_PATH}: cannot read task manifest: {exc}"]
 
-    reviewed = [release["version"] for release in load_releases(root / SOURCE_RELATIVE)]
+    reviewed = sorted(admitted_versions(root), key=parse_dotted)
     reviewed_set = set(reviewed)
     cap_admitted: dict[str, set[str]] = {}
     for raw in render_records(root).values():
@@ -1494,7 +1306,7 @@ def r4_derive_all_task_versions(
                 f"task {task_name}: no capability, plugin, or classPin mapping declared"
             )
 
-        ordered_dotted = sorted(admitted, key=r2_parse_dotted)
+        ordered_dotted = sorted(admitted, key=parse_dotted)
         derived[task_name] = [dotted_to_compact(v) for v in ordered_dotted]
 
     return derived, problems
@@ -1516,7 +1328,7 @@ def r4_check(root: Path = r4_ROOT) -> list[str]:
     manifest_file = root / r4_MANIFEST_PATH
     try:
         manifest = read_json(manifest_file)
-    except (OSError, Exception) as exc:
+    except Exception as exc:
         return [f"{r4_MANIFEST_PATH}: cannot read task manifest: {exc}"]
 
     registry_entries: dict[tuple[str, str], dict] = {}
@@ -1533,7 +1345,7 @@ def r4_check(root: Path = r4_ROOT) -> list[str]:
             reg_key = ("file", f"{r4_MANIFEST_PATH.as_posix()}#{task_name}")
             reg_entry = registry_entries.get(reg_key)
             expected_dotted = [
-                r2_compact_to_dotted(v) for v in actual
+                compact_to_dotted(v) for v in actual
             ]
             if (
                 reg_entry is None
@@ -1544,40 +1356,18 @@ def r4_check(root: Path = r4_ROOT) -> list[str]:
                     f"derived admitted versions {expected}"
                 )
 
-    admitted = r2_admitted_versions(root)
-    preview_dir = root / r3_PREVIEW_WRAPPERS_DIR
-    if preview_dir.is_dir():
-        for wrapper in sorted(preview_dir.glob("run-*.sh")):
-            if wrapper.name == r3_GENERIC_RUNNER_NAME:
-                continue
-            relative = wrapper.relative_to(root).as_posix()
-            code_lines = [
-                line
-                for line in wrapper.read_text(encoding="utf-8").splitlines()
-                if not line.lstrip().startswith("#")
-            ]
-            code = "\n".join(code_lines)
-            found: set[str] = set()
-            for token in r3_SHELL_COMPACT_VERSION.findall(code):
-                dotted = r2_compact_to_dotted(token)
-                if dotted in admitted:
-                    found.add(dotted)
-            for dotted in r3_SHELL_DOTTED_VERSION.findall(code):
-                if dotted in admitted:
-                    found.add(dotted)
-            if found:
-                sorted_found = r3_sort_versions(found)
-                reg_entry = registry_entries.get(("file", relative))
-                if (
-                    reg_entry is None
-                    or reg_entry.get("versions") != sorted_found
-                ):
-                    failures.append(
-                        f"unregistered wrapper version enumeration at {relative}: "
-                        f"{','.join(sorted_found)}; use host-validation-env.sh "
-                        f"manifest helpers or document an evidence-backed exception in "
-                        f"{r3_LITERAL_EXCEPTIONS}"
-                    )
+    admitted = admitted_versions(root)
+    for relative, found in wrapper_versions(root, admitted):
+        if found:
+            sorted_found = r3_sort_versions(found)
+            reg_entry = registry_entries.get(("file", relative))
+            if reg_entry is None or reg_entry.get("versions") != sorted_found:
+                failures.append(
+                    f"unregistered wrapper version enumeration at {relative}: "
+                    f"{','.join(sorted_found)}; use host-validation-env.sh "
+                    f"manifest helpers or document an evidence-backed exception in "
+                    f"{r3_LITERAL_EXCEPTIONS}"
+                )
 
     return failures
 
@@ -1601,25 +1391,9 @@ def r4_update(root: Path = r4_ROOT) -> int:
     return 0
 
 # INDEX
-#!/usr/bin/env python3
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-index_ROOT = repo_root()
-index_VERIFICATION_DIR = Path("build/generated/verification")
+index_VERIFICATION_DIR = VERIFICATION_DIR
 index_MANIFEST_ROOT = Path("runtime/src/main/java/dev/turboism/mapping/verification")
 index_TEMPLATE_ROOT = Path("scripts/verification-sources/templates")
 
@@ -1630,15 +1404,7 @@ index_TEMPLATE_RECORD_PIN = re.compile(
 index_RECORD_FILENAME = re.compile(r"^cubism-(\d+\.\d+\.\d+)-.+\.json$")
 
 
-class index_IndexError_(Exception):
-    """Raised for unreadable or unparseable inputs."""
-
-
-def index__read(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise index_IndexError_(f"unable to read {path}: {exc}") from exc
+index_IndexError_ = ReleaseCheckError
 
 
 def index_on_disk_records(root: Path) -> list[str]:
@@ -1690,18 +1456,12 @@ def index_manifest_verification_ids(root: Path) -> dict[str, str]:
     base = root / index_MANIFEST_ROOT
     if base.is_dir():
         for source in sorted(base.rglob("*.java")):
-            for literal in index_VERIFICATION_ID_LITERAL.findall(index__read(source)):
+            for literal in index_VERIFICATION_ID_LITERAL.findall(read_source(source)):
                 ids.setdefault(literal, source.name)
-    template_base = root / index_TEMPLATE_ROOT
-    if template_base.is_dir():
-        name_to_id = {name: vid for vid, name in index_record_ids(root).items()}
-        for source in sorted(template_base.rglob("*.java")):
-            for record_name in index_TEMPLATE_RECORD_PIN.findall(index__read(source)):
-                if record_name in name_to_id:
-                    ids.setdefault(
-                        name_to_id[record_name],
-                        f"{source.name} (via ${{record:{record_name}}})",
-                    )
+    name_to_id = {name: vid for vid, name in index_record_ids(root).items()}
+    for record_name, source in index_template_record_pins(root).items():
+        if record_name in name_to_id:
+            ids.setdefault(name_to_id[record_name], f"{source} (via ${{record:{record_name}}})")
     return ids
 
 
@@ -1711,7 +1471,7 @@ def index_template_record_pins(root: Path) -> dict[str, str]:
     template_base = root / index_TEMPLATE_ROOT
     if template_base.is_dir():
         for source in sorted(template_base.rglob("*.java")):
-            for record_name in index_TEMPLATE_RECORD_PIN.findall(index__read(source)):
+            for record_name in index_TEMPLATE_RECORD_PIN.findall(read_source(source)):
                 pins.setdefault(record_name, source.name)
     return pins
 
@@ -1764,8 +1524,7 @@ def main() -> int:
         if args.update_host_tasks:
             return r4_update(args.root.resolve())
         failures = check(args.root.resolve())
-    except (ValueError, OSError, r1_CompletenessError, r2_MonotonicityError,
-            r3_LiteralExceptionError, index_IndexError_) as exc:
+    except (ValueError, OSError, ReleaseCheckError) as exc:
         failures = [str(exc)]
     for failure in failures:
         print("FAIL: " + failure)
