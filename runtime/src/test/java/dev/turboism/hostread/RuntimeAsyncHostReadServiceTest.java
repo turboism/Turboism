@@ -25,6 +25,7 @@ import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.concurrent.ManualScheduledExecutor;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 class RuntimeAsyncHostReadServiceTest {
 
+    private final ManualScheduledExecutor deadlines = new ManualScheduledExecutor();
     private final List<DisposableScope> scopes = new ArrayList<>();
     private RuntimeScheduler scheduler;
     private SharedAsyncHostReadLane lane;
@@ -180,6 +182,9 @@ class RuntimeAsyncHostReadServiceTest {
                 .submit(request(Duration.ofMillis(100)))
                 .handle()
                 .orElseThrow();
+        deadlines.advanceBy(Duration.ofMillis(99));
+        assertFalse(queued.completion().toCompletableFuture().isDone());
+        deadlines.advanceBy(Duration.ofMillis(1));
         final AsyncHostReadResult timeout =
                 queued.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
         assertEquals(AsyncHostReadStatus.FAILED, timeout.status());
@@ -221,6 +226,9 @@ class RuntimeAsyncHostReadServiceTest {
                 .handle()
                 .orElseThrow();
         assertTrue(timedSource.started.await(1, TimeUnit.SECONDS));
+        deadlines.advanceBy(Duration.ofMillis(99));
+        assertFalse(timed.completion().toCompletableFuture().isDone());
+        deadlines.advanceBy(Duration.ofMillis(1));
         final AsyncHostReadResult timeout =
                 timed.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
         assertEquals(AsyncHostReadStatus.FAILED, timeout.status());
@@ -395,7 +403,7 @@ class RuntimeAsyncHostReadServiceTest {
                             Clock.systemUTC()),
                     SidecarDispatcher.noop(),
                     ignored -> {});
-            lane = new SharedAsyncHostReadLane(32);
+            lane = new SharedAsyncHostReadLane(32, deadlines);
         }
         final DisposableScope scope = new DisposableScope();
         scopes.add(scope);
@@ -464,7 +472,7 @@ class RuntimeAsyncHostReadServiceTest {
                             Clock.systemUTC()),
                     SidecarDispatcher.noop(),
                     ignored -> {});
-            lane = new SharedAsyncHostReadLane(capacity);
+            lane = new SharedAsyncHostReadLane(capacity, deadlines);
         }
         final DisposableScope scope = new DisposableScope();
         scopes.add(scope);

@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -20,13 +21,19 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
     private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(5);
 
     private final ThreadPoolExecutor executor;
-    private final ScheduledThreadPoolExecutor timer;
+    private final ScheduledExecutorService timer;
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicReference<String> workerThreadName = new AtomicReference<>("");
     private final Object lifecycleLock = new Object();
     private final Set<RuntimeAsyncHostReadHandle> remaining = new HashSet<>();
 
     public SharedAsyncHostReadLane(final int queueCapacity) {
+        this(queueCapacity, createTimer());
+    }
+
+    /** Creates a lane that owns and shuts down the supplied deadline timer. */
+    public SharedAsyncHostReadLane(final int queueCapacity, final ScheduledExecutorService timer) {
+        this.timer = Objects.requireNonNull(timer, "timer");
         if (queueCapacity < 1) {
             throw new IllegalArgumentException("queueCapacity must be positive");
         }
@@ -47,12 +54,16 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
                     return thread;
                 },
                 new ThreadPoolExecutor.AbortPolicy());
-        this.timer = new ScheduledThreadPoolExecutor(1, runnable -> {
+    }
+
+    private static ScheduledExecutorService createTimer() {
+        ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, runnable -> {
             final Thread thread = new Thread(runnable, "turboism-host-read-deadline");
             thread.setDaemon(true);
             return thread;
         });
-        this.timer.setRemoveOnCancelPolicy(true);
+        timer.setRemoveOnCancelPolicy(true);
+        return timer;
     }
 
     Admission admit(final RuntimeAsyncHostReadHandle handle, final Duration timeout, final Runnable action) {
