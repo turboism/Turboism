@@ -11,6 +11,9 @@ def build_parser() -> argparse.ArgumentParser:
     _add_dump_parser(sub)
     _add_capture_parser(sub)
     _add_verify_parsers(sub)
+    current = sub.add_parser("verify-current")
+    current.add_argument("--input", required=True, type=Path)
+    current.add_argument("--current", required=True, type=Path)
     return parser
 
 

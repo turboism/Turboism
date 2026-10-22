@@ -124,6 +124,12 @@ Turboism publishes one public SDK tier. Before the first formal release, maintai
 
 Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
 
+Public SDK changes show up as a diff in `sdk/api-contracts/current.txt`.
+`checkCompletedCommit` runs `checkSdkApiCurrent` against the generated surface;
+refresh with `./gradlew updateSdkApiCurrent` and review the diff. The immutable
+v21/release baselines are separate: new baselines are re-anchored at release,
+without rewriting existing baselines or their anchors.
+
 Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
 
 Ordinary additive SDK APIs do not require a dedicated capability row, permission, schema, ADR, migration report, promotion step, or pre-release baseline re-issue. Those mechanisms remain required only when the underlying security, persistence, compatibility, or migration boundary actually changes.
