@@ -98,6 +98,24 @@ class NativeModelImportTest {
                 glb.array(),
                 json.formatted(",\"uri\":\"" + dataUri + "\"").getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             var prepared = ModelImportPlugin.prepare(input, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL);
+            var colored = ModelImportPlugin.prepare(input, request, SurfaceBaseColorPlan.Appearance.FACE_COLORS);
+            assertNotNull(colored.character());
+            assertTrue(colored.character().faceColors());
+            assertEquals(180, colored.character().geometry().request().yawLimit());
+            assertEquals(180, colored.character().geometry().request().pitchLimit());
+            assertTrue(colored.character().geometry().request().roll().isPresent());
+            assertEquals(
+                    prepared.character().geometry().totalTriangles(),
+                    colored.character().geometry().totalTriangles());
+            assertEquals(
+                    prepared.character().controls().controls(),
+                    colored.character().controls().controls());
+            assertEquals(6, colored.character().materials().images().size());
+            for (int i = 0; i < 6; i++) {
+                var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(
+                        colored.character().materials().images().get(i).png()));
+                assertEquals(SurfaceBaseColorPlan.FACE_PALETTE.get(i).intValue(), image.getRGB(0, 0));
+            }
             assertNotNull(prepared.character());
             assertEquals(1, prepared.character().geometry().totalTriangles());
             assertEquals(1, prepared.character().controls().controls().size());

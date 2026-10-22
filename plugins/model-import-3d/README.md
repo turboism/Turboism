@@ -14,28 +14,17 @@ interface: embedded
 
 # 3D Model Import
 
-## Interactive GLB viewer
-
-Use **Turboism → Plugins → 3D Models → View 3D model…** to open a textured
-GLB character in a plugin-owned window. Drag to rotate, scroll to zoom, or
-choose **Reset view**. An active Cubism document is not required.
-Use **Geometry inspection** for neutral lighting with the source texture alpha.
-This mode helps inspect files whose exported materials are black or use packed
-shader textures as base color. Source-material mode preserves the GLB assignments;
-it cannot restore a custom engine shader or missing diffuse textures.
-
-This viewer uses embedded PNG/JPEG base-color and emissive textures, vertex
-colors, default skin pose and default morph weights. The authorized file budget
-is 128 MiB. It runs locally and does not upload the model. Decoding and rendering
-run in the background. Closing the window or disabling the plugin cancels work.
-
-The viewer does not create editable ArtMeshes, Cubism parameters or a CMO3 file.
-The separate native importer can recognize standard Morph Targets and group source geometry by skin weights. Its source Blend Shape path has import, Undo/Redo and fresh-process persistence evidence for the two-shape fixture on Cubism 5.3.04.
-The native import entry below retains its separate format and size restrictions.
-
 ## What it does
 
 Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes. Input parsing, texture normalization, geometry simplification and parameter authoring run locally without an LLM. Source-material mode binds X/Y rotations to dense joint Warp forms and Z rotation to native scalar forms, each spanning −180° to 180°. An unbound outer “整体定位” deformer moves and scales the entire model. Source textures stay attached to their faces. One native Undo operation removes the import. The Warp path uses dense parameter sampling. The direct source-vertex fallback uses elliptical interpolation; it preserves the 9×9 ordinary pose bank and chooses insertion density per patch from its projected rotation radius. The preparation stage minimizes derived lattice size within the existing global interpolation bound, keeping simplification plus interpolation inside the 5px geometry budget. This is geometry evidence; intermediate occlusion and Editor drag latency require native acceptance.
+
+## Import a preset
+
+Open a model project, then choose **Plugins → 3D Models → Import preset…**. Choose a cube, regular tetrahedron (triangular pyramid), triangle, cylinder, sphere, square, filled circle, flat annulus, short double-sided ring wall or solid torus and confirm. Each preset uses the native source-image import path, supports XYZ ±180° rotation and a single Undo, and needs no external file.
+
+The ten self-contained GLBs total about 48 KiB. Each has one shared 256×256 UV grid image that can be replaced after import. Keep its dimensions and UV layout, and update the texture atlas as needed. Cube faces occupy a 3×2 grid (−X, +X, −Y, +Y, −Z, +Z from low to high V). The cylinder side uses V=0…0.5; the lower/upper caps occupy the left/right halves of V=0.5…1. The sphere uses longitude/latitude UVs, the square and flat ring use planar UVs, and the torus uses major/tube circumferences. The tetrahedron has four equilateral faces, each in its own tile of a 2×2 UV grid. The triangle is equilateral with planar UVs. The square, triangle, filled circle and flat annulus are double-sided. The short ring wall has radius 1 and height 0.3, with both inner and outer faces visible and sharing the same texture; U follows its circumference and V its height. The flat ring has inner/outer radii 0.5/1; the torus has major/tube radii 1/0.3.
+
+Rebuild these original assets with `python3 scripts/generate_model_import_3d_presets.py` (standard library only).
 
 ## Source controls and parts
 
@@ -70,7 +59,7 @@ occlusion for arbitrary intersecting surfaces or all shape-control combinations.
 
 ## Requirements and compatibility
 
-The public primitive corpus is exercised on Cubism Editor 5.3.04 with SDK API range `[0.67.0,1.0.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
+The public primitive corpus is exercised on Cubism Editor 5.3.04 with SDK API range `[0.67.0,1.0.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. Both source-material and distinct-face-color modes use XYZ ranges of −180° to 180°. Explicit probe requests retain their declared camera.
 
 The bounded surface path limits GLB files to 16 MiB. The source-aware native path accepts GLB files up to 128 MiB. The bounded importer supports opaque closed convex surfaces or a single convex quadrilateral plane. A restricted branch for two disjoint, double-sided parallel X-plane rectangles is implemented but has not completed native validation. A separate regular quadrilateral surface branch preserves the original triangle geometry and UVs in chart meshes under one native Warp deformer. The XYZ apple has real menu/save/reopen and source-geometry evidence; strict occlusion and official export of this full-circle apple remain unverified. Sparse chart depth ordering can produce occlusion errors. Arbitrary concave topology and intersecting sheets are not generally supported. OBJ is now a direct menu input for self-contained geometry. Select referenced buffers, MTL and PNG/JPEG resources when prompted, or package them together with exactly one GLB, glTF or OBJ in a ZIP. FBX, DAE and RAR are not direct menu inputs. Earlier apple evidence used an OBJ converted to GLB; it does not verify the newer OBJ menu path.
 

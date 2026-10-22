@@ -205,6 +205,19 @@ final class SurfaceWarpAuthoring {
                 prepared.xy);
     }
 
+    static Prepared faceColors(Prepared prepared) throws IOException {
+        return new Prepared(
+                prepared.request,
+                prepared.geometry,
+                SurfaceWarpImagePlan.faceColors(prepared.images),
+                prepared.grid,
+                prepared.yawKeys,
+                prepared.pitchKeys,
+                prepared.idealErrorBoundPixels,
+                prepared.maximumErrorPixels,
+                prepared.xy);
+    }
+
     private static double maximumPackedResidual(SurfaceWarpChartPlan.Plan geometry) {
         double residual = 0;
         for (var mesh : geometry.meshes())
