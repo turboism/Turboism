@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.startup;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;

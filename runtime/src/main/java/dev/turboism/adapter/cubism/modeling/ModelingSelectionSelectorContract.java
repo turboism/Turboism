@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.modeling;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Set;
 
 /** Independently admitted exact ordinary-modeling point selection and tool lifecycle surface. */

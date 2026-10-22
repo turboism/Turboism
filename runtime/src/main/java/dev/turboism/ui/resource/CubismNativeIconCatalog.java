@@ -2,7 +2,7 @@ package dev.turboism.ui.resource;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -3,7 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.ui.appearance.control.DeformerControlRowAppearanceProvider;
 import dev.turboism.ui.appearance.control.DeformerControlRowRendererMethodTransformer;
 import dev.turboism.ui.appearance.control.DeformerTreeControlAppearanceProvider;

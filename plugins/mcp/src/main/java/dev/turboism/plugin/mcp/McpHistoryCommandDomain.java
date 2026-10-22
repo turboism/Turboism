@@ -1,6 +1,6 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;

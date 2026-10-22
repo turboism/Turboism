@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.integration;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Container;

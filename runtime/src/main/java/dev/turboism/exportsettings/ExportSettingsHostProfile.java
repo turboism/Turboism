@@ -3,7 +3,7 @@ package dev.turboism.exportsettings;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

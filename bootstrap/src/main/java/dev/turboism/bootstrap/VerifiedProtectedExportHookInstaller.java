@@ -4,7 +4,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserRedirectTransformer;
 import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;

@@ -1,6 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
-import dev.turboism.sdk.ReviewedVersions;
+import dev.turboism.internal.ReviewedVersions;
 import java.util.Set;
 
 /** Additive ArtMesh interpolation authoring contract, reviewed on the exact 5.3.02 artifact. */
