@@ -246,7 +246,8 @@ val parameterLockArtifactTest by tasks.registering(Test::class) {
     maxParallelForks = 1
     systemProperty("turboism.cubismRefRoot", refRoot.get())
     inputs.property("cubismRefRoot", refRoot)
-    inputs.files(rootProject.fileTree("compatibility/cubism/verification") {
+    dependsOn(rootProject.tasks.named("materializeVerificationRecords"))
+    inputs.files(rootProject.fileTree("build/generated/verification") {
         include("cubism-*-editor-model.json", "cubism-*-ui-control-appearance.json")
     })
     if (refRoot.get().isNotBlank()) {
@@ -371,8 +372,9 @@ tasks.named<Test>("test") {
     }
     filter {
         legacyEvidenceTests.forEach { excludeTestsMatching(it) }
-        // Needs TURBOISM_CUBISM_REF_ROOT; runs only in warpAltMirrorArtifactTest.
+        // Need TURBOISM_CUBISM_REF_ROOT; run only in warpAltMirrorArtifactTest / parameterLockArtifactTest.
         excludeTestsMatching("dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest")
+        excludeTestsMatching("dev.turboism.mapping.verification.ParameterLockReviewedArtifactsTest")
     }
 }
 

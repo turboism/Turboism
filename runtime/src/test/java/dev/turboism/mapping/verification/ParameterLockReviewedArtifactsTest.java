@@ -42,7 +42,7 @@ final class ParameterLockReviewedArtifactsTest {
     private void verifyVersion(final Path root, final String version) throws Exception {
         final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
         final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
-                .resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+                .resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
         final StaticVerificationRecord record =
                 new StaticVerificationRecordLoader().load(recordPath).record();
         assertEquals(version, record.cubismVersion());
