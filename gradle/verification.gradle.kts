@@ -1641,9 +1641,9 @@ val checkHostToolingSelfTest by tasks.registering(Exec::class) {
 
 val modelImport3dHostToolingTest by tasks.registering(Exec::class) {
     group = "host verification"
-    description = "Runs 3D import tooling tests requiring authorized frozen inputs and MI3D_* environment variables."
+    description = "Runs offline 3D import tooling suites in four processes; missing authorized inputs skip. Opt-in: ~42s exceeds the 30s regular-gate budget (JDK compile, dense matrices and byte-budget controls)."
     workingDir(rootDir)
-    commandLine("python3", "-m", "unittest", "discover", "-s", "scripts/test", "-p", "test_model_import_3d_*.py")
+    commandLine("python3", "validation/model-import-3d-host-probe/test-tooling.py", "test_model_import_3d_*.py")
 }
 
 val worktreeIdGateTest by tasks.registering(Exec::class) {

@@ -2,6 +2,7 @@
 """Synthetic T008 pixel-sampling oracle controls; no host, queue, or exact-host evidence."""
 import copy
 import hashlib
+from functools import lru_cache
 import importlib.util
 from pathlib import Path
 import struct
@@ -176,21 +177,27 @@ def section():
             'frames': []}
 
 
-def blobs():
+@lru_cache(maxsize=1)
+def _blobs():
     mat = material()
     frames = {
         'baseline': png(OUT, OUT, frame(mat, blank=True)),
         'bound-p0': png(OUT, OUT, frame(mat, 0)),
         'bound-p1': png(OUT, OUT, frame(mat, 80)),
         'bound-m1': png(OUT, OUT, frame(mat, -80)),
-        'unbound': png(OUT, OUT, frame(mat, blank=True)),
-        'rebound': png(OUT, OUT, frame(mat, 0)),
-        'blank': png(OUT, OUT, frame(mat, blank=True)),
+        'unbound': b'',
+        'rebound': b'',
+        'blank': b'',
     }
     # unbound must be pixel-equal to baseline; rebound pixel-equal to bound-p0.
     frames['unbound'] = frames['baseline']
     frames['rebound'] = frames['bound-p0']
+    frames['blank'] = frames['baseline']
     return frames
+
+
+def blobs():
+    return dict(_blobs())
 
 
 def fixture():

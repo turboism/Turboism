@@ -3,6 +3,7 @@ package dev.turboism.core.runtime.work;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import java.time.Clock;
 import java.util.Objects;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 /**
@@ -30,10 +31,11 @@ public final class PluginExecutorSet {
             String pluginId,
             PluginWorkExecutorConfiguration configuration,
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
-            Clock clock) {
+            Clock clock,
+            ScheduledExecutorService timeoutScheduler) {
         this.pluginId = pluginId;
         this.configuration = Objects.requireNonNull(configuration, "configuration");
-        this.taskExecutor = new PluginWorkExecutor(pluginId, configuration, diagnosticSink, clock);
+        this.taskExecutor = new PluginWorkExecutor(pluginId, configuration, diagnosticSink, clock, timeoutScheduler);
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
