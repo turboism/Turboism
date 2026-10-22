@@ -1764,8 +1764,12 @@ def check(root: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", nargs="?", type=Path, default=repo_root())
+    parser.add_argument("--update-host-tasks", action="store_true",
+                        help="refresh task version declarations from R4 source intersections")
     args = parser.parse_args()
     try:
+        if args.update_host_tasks:
+            return r4_update(args.root.resolve())
         failures = check(args.root.resolve())
     except (ValueError, OSError, r1_CompletenessError, r2_MonotonicityError,
             r3_LiteralExceptionError, index_IndexError_) as exc:
