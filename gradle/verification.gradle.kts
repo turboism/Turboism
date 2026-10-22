@@ -1816,6 +1816,29 @@ val checkPerformanceProbeReports by tasks.registering(Exec::class) {
     commandLine("python3", "-m", "unittest", "-v", "scripts/test/test_image_performance_probe.py")
 }
 
+val checkHostToolingSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs offline host-tooling Python and worktree shell contracts."
+    dependsOn(":sdk:jar", ":bootstrap:jar")
+    workingDir(rootDir)
+    // Always run: the worktree contracts inspect the current checkout and artifacts.
+    commandLine("python3", "scripts/test/run_host_tooling_selftest.py")
+}
+
+val modelImport3dHostToolingTest by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Runs 3D import tooling tests requiring authorized frozen inputs and MI3D_* environment variables."
+    workingDir(rootDir)
+    commandLine("python3", "-m", "unittest", "discover", "-s", "scripts/test", "-p", "test_model_import_3d_*.py")
+}
+
+val worktreeIdGateTest by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Runs worktree ID gate contracts with multiple isolated Gradle invocations."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_worktree_id_gate.sh")
+}
+
 val ordinaryTestTasks = subprojects
     .filter { it.tasks.findByName("test") != null }
     .map { "${it.path}:test" }
@@ -1847,6 +1870,7 @@ val checkCompletedCommit by tasks.registering {
         checkRemoteHygieneSelfTest,
         checkPluginEventReference,
         checkPerformanceProbeReports,
+        checkHostToolingSelfTest,
         "checkLocalizedChangelogs",
         "checkLocalizedChangelogsSelfTest",
         spotlessCheckTasks,

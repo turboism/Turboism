@@ -369,7 +369,8 @@ class HostValidationSchedulerTest(unittest.TestCase):
         # Atlas measures layout timing: assisted-gl keeps mesaGlThread on so
         # default startup-assistance routing cannot change the measurement.
         self.assertEqual(
-            base_variants | {f"{variant}-assisted-gl" for variant in base_variants},
+            (base_variants | {"ui-heavy-0-polygon"}) |
+            {f"{variant}-assisted-gl" for variant in base_variants | {"ui-heavy-0-polygon"}},
             set(task.variants))
         self.assertEqual("geometry-100-new", self.request("atlas:5303").variant)
         for spec in ("atlas:9999", "atlas:5303@geometry-2500-both",

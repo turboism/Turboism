@@ -25,12 +25,12 @@ fail() {
 cd "${REPO_ROOT}"
 
 # Test 1: an unrelated devCheck Exec gate task succeeds under a forbidden id.
-TURBOISM_WORKTREE_ID=test ./gradlew --no-daemon --max-workers=2 -q checkPackageLayout \
+TURBOISM_WORKTREE_ID=test env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew --project-cache-dir "${TEMP_ROOT}/gradle-cache" --no-daemon --max-workers=2 -q checkPackageLayout \
   > "${TEMP_ROOT}/unrelated.log" 2>&1 \
   || { cat "${TEMP_ROOT}/unrelated.log"; fail "unrelated Exec task must not consume the worktree id"; }
 
 # Test 2: a host-validation package task fails closed before running its script.
-if TURBOISM_WORKTREE_ID=test ./gradlew --no-daemon --max-workers=2 packageThemeHostValidation \
+if TURBOISM_WORKTREE_ID=test env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew --project-cache-dir "${TEMP_ROOT}/gradle-cache" --no-daemon --max-workers=2 packageThemeHostValidation \
     -x previewBundle -x :plugins:ui-theme:jar \
     > "${TEMP_ROOT}/host.log" 2>&1; then
   cat "${TEMP_ROOT}/host.log"
@@ -45,7 +45,7 @@ fi
 
 # Test 3: Gradle resolution reports the script verdict verbatim (single source).
 print_info() {
-  TURBOISM_WORKTREE_ID="$1" ./gradlew --no-daemon --max-workers=2 -q printBuildInfo
+  TURBOISM_WORKTREE_ID="$1" env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew --project-cache-dir "${TEMP_ROOT}/gradle-cache" --no-daemon --max-workers=2 -q printBuildInfo
 }
 for sample in "m15-wrapper-test" "test" "1invalid" "My Weird_ID!"; do
   expected_id=$(TURBOISM_WORKTREE_ID="$sample" bash scripts/dev/worktree-id.sh --resolve 2>/dev/null)
@@ -69,7 +69,7 @@ chmod +x "${TEMP_ROOT}/fakebin/bash"
 for sample in "my-ok-id" "My Weird_ID!"; do
   expected_id=$(TURBOISM_WORKTREE_ID="$sample" bash scripts/dev/worktree-id.sh --resolve 2>/dev/null)
   info=$(PATH="${TEMP_ROOT}/fakebin:$PATH" TURBOISM_WORKTREE_ID="$sample" \
-    ./gradlew --no-daemon --max-workers=2 -q printBuildInfo) \
+    env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew --project-cache-dir "${TEMP_ROOT}/gradle-cache" --no-daemon --max-workers=2 -q printBuildInfo) \
     || fail "printBuildInfo failed without bash for sample: $sample"
   got_id=$(grep '^worktreeId=' <<<"$info" | cut -d= -f2-)
   got_err=$(grep '^worktreeIdError=' <<<"$info" | cut -d= -f2-)

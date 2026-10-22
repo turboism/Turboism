@@ -53,9 +53,11 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(module.path.__globals__['__file__'],str(source.with_name('host_validation_official_core.py')))
 
     def test_real_runtime_command_fits_windows_limit(self):
-        import json
-        root=Path(__file__).resolve().parents[2]
-        m=json.loads((root/'build/model-import-3d-offline/source-texture-viewer-bundle-r1-20261001/bundle.json').read_text())
+        # Exercise the live command builder with a full, long synthetic classpath.
+        # A developer-local generated bundle must never be a CI prerequisite.
+        m=dict(nativePaths=['app/dll64', 'app/dll64/windows-amd64'],
+               classpath=['app/lib/Live2D_Cubism.jar', 'official-viewer-capture.jar'] +
+               [f'app/lib/dependency-{i:03d}-with-a-long-library-name.jar' for i in range(120)])
         task=Path('/var/lib/turboism-validation/official-viewer/5302-source-texture-viewer-r1-20261001/queue-77b5c90ecb254b2d8b7cd712a9dcb808')
         script=viewer.launch_script(task,m)
         self.assertLess(max(map(len,script.splitlines())),8192)
