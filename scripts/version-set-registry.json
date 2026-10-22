@@ -172,83 +172,6 @@
   },
   {
    "kind": "collection",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/startup/StartupSuppressionProfile.java",
-   "versions": [
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "basis": "verification-derived",
-   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
-  },
-  {
-   "kind": "collection",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasSelectorContract.java",
-   "versions": [
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "basis": "verification-derived",
-   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
-  },
-  {
-   "kind": "collection",
-   "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
-   "versions": [
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "basis": "verification-derived",
-   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
-  },
-  {
-   "kind": "collection",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
    "versions": [
     "5.0.00",
@@ -375,18 +298,6 @@
   },
   {
    "kind": "file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/composite/CanvasCompositeElisionTarget.java",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "basis": "verification-derived",
-   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
-  },
-  {
-   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java",
    "versions": [
     "5.3.02",
@@ -503,34 +414,6 @@
   },
   {
    "kind": "file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/ui/OffCanvasBackgroundHostAccess.java",
-   "versions": [
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "basis": "evidence",
-   "reason": "Exact-jar CEViewContext.getAppearanceSetting return types determine the obfuscated appearance owner for each reviewed version. OffCanvasBackgroundHostAccessTest verifies the binding, existing background materials, new-view colors, and restoration against all 20 reviewed artifacts."
-  },
-  {
-   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
    "versions": [
     "5.1.00",
@@ -579,23 +462,6 @@
    ],
    "basis": "task-scoped",
    "reason": "Selects the optional 5.3.03 validation-candidate runtime scope; not an admission set (see monotonicity exception)."
-  },
-  {
-   "kind": "file",
-   "path": "runtime/src/main/java/dev/turboism/ui/resource/CubismNativeIconCatalog.java",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "basis": "verification-derived",
-   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
   },
   {
    "kind": "file",

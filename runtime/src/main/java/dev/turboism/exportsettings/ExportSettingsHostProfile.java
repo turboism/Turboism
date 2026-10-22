@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -201,20 +202,9 @@ public record ExportSettingsHostProfile(
 
     /** @return the host versions whose reviewed artifacts carry an export-settings profile */
     public static List<String> supportedHostVersions() {
-        return List.of(
-                CUBISM_5_1_00.hostVersion(),
-                CUBISM_5_1_01.hostVersion(),
-                CUBISM_5_1_02.hostVersion(),
-                CUBISM_5_1_03.hostVersion(),
-                CUBISM_5_2_00.hostVersion(),
-                CUBISM_5_2_01.hostVersion(),
-                CUBISM_5_2_02.hostVersion(),
-                CUBISM_5_2_03.hostVersion(),
-                CUBISM_5_3_00.hostVersion(),
-                CUBISM_5_3_01.hostVersion(),
-                CUBISM_5_3_02.hostVersion(),
-                CUBISM_5_3_03.hostVersion(),
-                CUBISM_5_3_04.hostVersion());
+        return dev.turboism.mapping.verification.ReviewedReleaseTable.versions().stream()
+                .filter(ReviewedVersions.since("5.1.00")::contains)
+                .toList();
     }
 
     /**

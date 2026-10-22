@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
+import dev.turboism.sdk.cubism.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Optional;
@@ -60,18 +61,9 @@ public record CanvasCompositeElisionTarget(String version, HostArtifactDigest di
 
     /** Returns the reviewed target for a host artifact digest, or empty. */
     public static Optional<CanvasCompositeElisionTarget> of(final HostArtifactDigest digest) {
-        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(digest)) {
-            return Optional.of(new CanvasCompositeElisionTarget("5.2.03", digest));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(digest)) {
-            return Optional.of(new CanvasCompositeElisionTarget("5.3.02", digest));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(digest)) {
-            return Optional.of(new CanvasCompositeElisionTarget("5.3.03", digest));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(digest)) {
-            return Optional.of(new CanvasCompositeElisionTarget("5.3.04", digest));
-        }
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(digest)
+                .filter(version -> ReviewedVersions.between("5.2.03", "5.2.03").contains(version)
+                        || ReviewedVersions.since("5.3.02").contains(version))
+                .map(version -> new CanvasCompositeElisionTarget(version, digest));
     }
 }
