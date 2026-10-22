@@ -30,7 +30,7 @@ class EditorParameterBindingSelectorContractTest {
         try (URLClassLoader loader = loader(artifact)) {
             final VerifiedMemberResolver resolver = SliceRegistry.EDITOR_MODEL
                     .resolverFactory()
-                    .create(PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName), artifact, loader);
+                    .create(PROJECT_ROOT.resolve("build/generated/verification/" + recordName), artifact, loader);
             assertTrue(resolver.authorizesFeature(
                     EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
                     EditorParameterBindingReadSelectorContract.CAPABILITY_ID,

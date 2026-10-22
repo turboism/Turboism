@@ -31,7 +31,7 @@ class CubismHostCompatibilityRealSampleTest {
         final Path dir = Optional.ofNullable(System.getProperty("turboism.test.verificationDir"))
                 .map(Path::of)
                 .orElse(Path.of(System.getProperty("user.dir"))
-                        .resolve("../compatibility/cubism/verification")
+                        .resolve("../build/generated/verification")
                         .normalize());
         return name -> {
             try {

@@ -40,7 +40,7 @@ class VerifiedSliceResolverFactoryTest {
     void preservesReviewedSliceContract(final SliceDescriptor descriptor) throws Exception {
         final Path root = EditorSelectorContractTestPaths.projectRoot();
         final Path record =
-                root.resolve("compatibility/cubism/verification/cubism-5.2.03-" + RECORDS.get(descriptor) + ".json");
+                root.resolve("build/generated/verification/cubism-5.2.03-" + RECORDS.get(descriptor) + ".json");
         final var loaded = new StaticVerificationRecordLoader().load(record);
         final var expected = loaded.record().artifact();
         final var manifest = descriptor.manifestFor(new HostArtifactDigest(expected.size(), expected.sha256()));
@@ -59,7 +59,7 @@ class VerifiedSliceResolverFactoryTest {
         assertEquals(
                 "self-issued-test",
                 workflow.requireReviewedRecord(tampered, manifest).verifiedBy());
-        final Path otherRecord = root.resolve("compatibility/cubism/verification/cubism-5.2.03-"
+        final Path otherRecord = root.resolve("build/generated/verification/cubism-5.2.03-"
                 + (descriptor == SliceRegistry.CLIP_MASK ? "project-workspace" : "clipmask") + ".json");
         assertThrows(IllegalArgumentException.class, () -> workflow.requireReviewedRecord(otherRecord, manifest));
 

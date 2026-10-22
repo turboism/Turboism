@@ -30,7 +30,7 @@ dependencies {
 }
 
 tasks.named<ProcessResources>("processTestResources") {
-    from(rootProject.file("compatibility/cubism/verification")) {
+    from(rootProject.tasks.named("materializeVerificationRecords")) {
         include("cubism-*-editor-model.json")
         into("META-INF/turboism/verification")
     }

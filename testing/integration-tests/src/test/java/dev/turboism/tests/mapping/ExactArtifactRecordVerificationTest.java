@@ -37,7 +37,7 @@ class ExactArtifactRecordVerificationTest {
 
     private static final Path PROJECT_ROOT = Path.of(System.getProperty("projectRoot", System.getProperty("user.dir")));
 
-    private static final Path RECORDS = PROJECT_ROOT.resolve("compatibility/cubism/verification");
+    private static final Path RECORDS = PROJECT_ROOT.resolve("build/generated/verification");
 
     private record Slice(String recordFile, ResolverFactory factory) {}
 

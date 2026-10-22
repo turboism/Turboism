@@ -6,6 +6,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -15,18 +16,6 @@ SPEC = importlib.util.spec_from_file_location("verification_record_index", SCRIP
 INDEX = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(INDEX)
-
-BOOTSTRAP = """
-tasks.processResources {
-    listOf(
-%s
-    ).forEach { record ->
-        from(rootProject.file("compatibility/cubism/verification/$record")) {
-            into("META-INF/turboism/verification")
-        }
-    }
-}
-"""
 
 MANIFEST = """
 final class FixtureVerificationManifest {
@@ -54,11 +43,8 @@ def write_tree(root: Path, records: dict[str, dict], listed: list[str]) -> None:
     verification.mkdir(parents=True)
     for name, document in records.items():
         (verification / name).write_text(json.dumps(document) + "\n")
-    bootstrap = root / INDEX.BOOTSTRAP_BUILD
-    bootstrap.parent.mkdir(parents=True, exist_ok=True)
-    bootstrap.write_text(
-        BOOTSTRAP % "\n".join(f'        "{name}",' for name in listed)
-    )
+    # Expected expansion is independent from physical files in the fixture.
+    (root / "expected.txt").write_text("\n".join(listed))
     manifest = root / INDEX.MANIFEST_ROOT
     manifest.mkdir(parents=True)
     (manifest / "FixtureVerificationManifest.java").write_text(MANIFEST)
@@ -72,6 +58,18 @@ def base_records() -> dict[str, dict]:
 
 
 class VerificationRecordIndexTest(unittest.TestCase):
+    def setUp(self):
+        original = INDEX.render_records
+        def render(root):
+            if root == ROOT:
+                return original(root)
+            names = (root / "expected.txt").read_text().splitlines()
+            return {name: (root / INDEX.VERIFICATION_DIR / name).read_bytes()
+                    if (root / INDEX.VERIFICATION_DIR / name).exists() else b"{}" for name in names}
+        self.patch = patch.object(INDEX, "render_records", side_effect=render)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+
     def test_live_tree_is_consistent(self):
         self.assertEqual([], INDEX.check(ROOT))
 
@@ -81,28 +79,27 @@ class VerificationRecordIndexTest(unittest.TestCase):
             write_tree(root, base_records(), list(RECORD_NAMES))
             self.assertEqual([], INDEX.check(root))
 
-    def test_unlisted_record_fails(self):
+    def test_extra_materialized_record_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root, base_records(), [RECORD_NAMES[0]])
             found = INDEX.check(root)
-            self.assertTrue(any("not packaged" in v for v in found), found)
+            self.assertTrue(any("file set differs" in v for v in found), found)
 
-    def test_packaged_phantom_fails(self):
+    def test_missing_materialized_record_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root, base_records(),
                        [*RECORD_NAMES, "cubism-9.9.09-ghost.json"])
             found = INDEX.check(root)
-            self.assertTrue(any("no such record" in v for v in found), found)
+            self.assertTrue(any("file set differs" in v for v in found), found)
 
-    def test_duplicate_packaging_entry_fails(self):
+    def test_modified_materialized_bytes_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write_tree(root, base_records(),
-                       [RECORD_NAMES[0], RECORD_NAMES[0], RECORD_NAMES[1]])
-            found = INDEX.check(root)
-            self.assertTrue(any("duplicate record entry" in v for v in found), found)
+            write_tree(root, base_records(), list(RECORD_NAMES))
+            with patch.object(INDEX, "render_records", return_value={name: b"{}" for name in RECORD_NAMES}):
+                self.assertTrue(any("bytes differ" in v for v in INDEX.check(root)))
 
     def test_manifest_pin_without_record_fails(self):
         with tempfile.TemporaryDirectory() as directory:
