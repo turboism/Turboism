@@ -2,9 +2,10 @@
 """Generate DRAFT packs/profiles; observation packs remain source evidence.
 
 Run after materialize_verification_records.py (no Cubism jars are needed).
---check-against ROOT compares every migrated file with a pre-migration tree.
-Historical DRAFT annotations and presentation live in draft-src; selector facts,
-artifact identities, counts and hashes always come from materialized records.
+--check-against ROOT compares all packs/profiles with a reference tree.
+Historical DRAFT annotations live in draft-src; generated objects use sorted
+keys. Selector facts, artifact identities, counts and hashes always come from
+materialized records.
 """
 from __future__ import annotations
 
@@ -39,7 +40,7 @@ def substitute(value, values: dict):
 
 
 def encode(document: dict) -> bytes:
-    return (json.dumps(document, indent=2) + '\n').encode('utf-8')
+    return (json.dumps(document, indent=2, sort_keys=True) + '\n').encode('utf-8')
 
 
 def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
@@ -97,14 +98,12 @@ def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
                 entry = dict(template['annotations'], semanticName=selector['mappingId'],
                              kind=selector['kind'], name=selector['alias'],
                              runtime=selector['ownerInternalName'] if selector['kind'] == 'class' else selector['memberName'],
-                             profile=f'cubism-{version}', descriptor=selector.get('descriptor'))
+                             profile=f'cubism-{version}')
+                if template['includeDescriptor']:
+                    entry['descriptor'] = selector.get('descriptor')
                 entry['x.verification'] = {'ownerInternalName': selector['ownerInternalName']}
-                entries.append({key: entry[key] for key in template['keys']})
-            # The historical envelope places entries before metadata.
-            metadata = pack.pop('metadata', None)
+                entries.append(entry)
             pack['entries'] = entries
-            if metadata is not None:
-                pack['metadata'] = metadata
             packs[name] = encode(pack)
     source = read_json(root / SOURCES / 'profiles.json')
     profiles = {}
@@ -114,8 +113,6 @@ def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
                                     if f'cubism-{version}-{"editor-model" if family == "editor-model-read" else family}.json' in records]
         document.update(source['overrides'].get(version, {}))
         document = substitute(document, {'${version}': version})
-        layout = select(source['layouts'], version, versions)
-        document = {key: document[key] for key in layout['keyOrder']}
         name = f'cubism-{version}.json'
         if document['profileId'] != f'cubism-{version}' or document['cubismVersion'] != version:
             raise ValueError(f'{name}: profile identity mismatch')
@@ -124,10 +121,7 @@ def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
         for pack in document['mappingPacks']:
             if pack + '.json' not in packs:
                 raise ValueError(f'{name}: missing mapping pack {pack}')
-        raw = encode(document)
-        if layout.get('inlinePackEnd'):
-            raw = raw.replace(b'"cubism-5.3.03-protected-export"\n  ]', b'"cubism-5.3.03-protected-export"  ]')
-        profiles[name] = raw
+        profiles[name] = encode(document)
     return packs, profiles
 
 
@@ -139,7 +133,7 @@ def expand(spec: str, versions: list[str]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
-    parser.add_argument('--check-against', type=Path, help='pre-migration repository root')
+    parser.add_argument('--check-against', type=Path, help='reference repository root')
     args = parser.parse_args()
     try:
         packs, profiles = render(args.root)

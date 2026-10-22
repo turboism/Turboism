@@ -17,57 +17,28 @@
   ],
   "templates": [
     {
-      "keys": [
-        "semanticName",
-        "kind",
-        "owner",
-        "name",
-        "runtime",
-        "profile",
-        "status",
-        "stability",
-        "source",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence",
-        "x.verification"
-      ],
       "annotations": {
+        "confidence": "high",
         "owner": "auto-backup",
-        "status": "DRAFT",
-        "stability": "experimental",
         "source": "derived-from-verified-record",
-        "verifiedBy": "none",
+        "stability": "experimental",
+        "status": "DRAFT",
         "verifiedAt": null,
-        "confidence": "high"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": false
     },
     {
-      "keys": [
-        "semanticName",
-        "kind",
-        "owner",
-        "name",
-        "runtime",
-        "profile",
-        "status",
-        "stability",
-        "source",
-        "verifiedBy",
-        "verifiedAt",
-        "confidence",
-        "descriptor",
-        "x.verification"
-      ],
       "annotations": {
+        "confidence": "high",
         "owner": "auto-backup",
-        "status": "DRAFT",
-        "stability": "experimental",
         "source": "derived-from-verified-record",
-        "verifiedBy": "none",
+        "stability": "experimental",
+        "status": "DRAFT",
         "verifiedAt": null,
-        "confidence": "high"
-      }
+        "verifiedBy": "none"
+      },
+      "includeDescriptor": true
     }
   ],
   "entries": {
@@ -226,11 +197,11 @@
     {
       "versions": "5.1.00-5.3.04",
       "value": {
+        "cubismVersion": "${version}",
         "format": "turboism.mapping.pack",
         "schemaVersion": 1,
-        "status": "DRAFT",
         "source": "derived-from-verified-record",
-        "cubismVersion": "${version}"
+        "status": "DRAFT"
       }
     }
   ]
