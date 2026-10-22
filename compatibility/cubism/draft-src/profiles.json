@@ -1,0 +1,173 @@
+{
+  "template": {
+    "format": "turboism.profile",
+    "schemaVersion": 1,
+    "profileId": "cubism-${version}",
+    "product": "cubism-editor",
+    "fingerprintStrategy": "none",
+    "status": "DRAFT",
+    "source": "legacy-inventory",
+    "verifiedBy": "none",
+    "verifiedAt": null,
+    "inherits": [],
+    "hookSelectorRefs": [],
+    "capabilities": [],
+    "notes": "DRAFT profile for exact Cubism Editor ${version}. Static exact-artifact records and DRAFT mapping packs are repository evidence only; runtime admission remains explicitly capability-scoped and does not claim exact-host readiness.",
+    "cubismVersion": "${version}"
+  },
+  "familyOrder": [
+    "project-workspace",
+    "clipmask",
+    "editor-model-read",
+    "ui-main-toolbar",
+    "ui-embedded-panel",
+    "ui-top-menu",
+    "ui-bounding-box-overlay",
+    "ui-control-appearance",
+    "workspace-control",
+    "ui-status-bar",
+    "autobackup",
+    "performance-render-scene",
+    "startup-suppression",
+    "protected-export",
+    "core-model-read"
+  ],
+  "overrides": {
+    "5.2.03": {
+      "notes": "DRAFT profile for exact Cubism ${version}. Imported legacy inventory plus independently tracked exact public Core and Editor model selector observations; runtime admission remains pinned to reviewed records and exact artifacts.",
+      "mappingPacks": [
+        "cubism-${version}-classes",
+        "cubism-${version}-clipmask",
+        "cubism-${version}-core-model-read",
+        "cubism-${version}-editor-model-read",
+        "cubism-${version}-hook-named-classes",
+        "cubism-${version}-methods",
+        "cubism-${version}-performance-render-scene",
+        "cubism-${version}-project-workspace",
+        "cubism-${version}-ui-bounding-box-overlay",
+        "cubism-${version}-ui-control-appearance",
+        "cubism-${version}-ui-embedded-panel",
+        "cubism-${version}-ui-main-toolbar",
+        "cubism-${version}-ui-status-bar",
+        "cubism-${version}-ui-top-menu",
+        "cubism-${version}-workspace-control",
+        "cubism-${version}-autobackup",
+        "cubism-${version}-protected-export",
+        "cubism-${version}-startup-suppression"
+      ]
+    },
+    "5.3.02": {
+      "notes": "DRAFT profile for exact Cubism ${version}. Imported legacy inventory, probe-derived Editor slices, and exact public Core selector observations; only separately tracked independently reviewed records may authorize runtime binding.",
+      "mappingPacks": [
+        "cubism-${version}-autobackup",
+        "cubism-${version}-classes",
+        "cubism-${version}-core-model-read",
+        "cubism-${version}-editor-model-read",
+        "cubism-${version}-flat-map",
+        "cubism-${version}-hook-named-classes",
+        "cubism-${version}-m14-project-workspace",
+        "cubism-${version}-m15-clipmask",
+        "cubism-${version}-methods",
+        "cubism-${version}-performance-render-scene",
+        "cubism-${version}-protected-export",
+        "cubism-${version}-ui-bounding-box-overlay",
+        "cubism-${version}-ui-control-appearance",
+        "cubism-${version}-ui-embedded-panel",
+        "cubism-${version}-ui-main-toolbar",
+        "cubism-${version}-ui-status-bar",
+        "cubism-${version}-ui-top-menu",
+        "cubism-${version}-workspace-control",
+        "cubism-${version}-startup-suppression"
+      ]
+    },
+    "5.3.03": {
+      "mappingPacks": [
+        "cubism-${version}-project-workspace",
+        "cubism-${version}-clipmask",
+        "cubism-${version}-editor-model-read",
+        "cubism-${version}-ui-main-toolbar",
+        "cubism-${version}-ui-embedded-panel",
+        "cubism-${version}-ui-top-menu",
+        "cubism-${version}-ui-bounding-box-overlay",
+        "cubism-${version}-ui-control-appearance",
+        "cubism-${version}-workspace-control",
+        "cubism-${version}-ui-status-bar",
+        "cubism-${version}-autobackup",
+        "cubism-${version}-performance-render-scene",
+        "cubism-${version}-core-model-read",
+        "cubism-${version}-startup-suppression",
+        "cubism-5.3.02-core-model-read",
+        "cubism-${version}-protected-export"
+      ]
+    }
+  },
+  "layouts": [
+    {
+      "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.04",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "profileId",
+          "product",
+          "fingerprintStrategy",
+          "mappingPacks",
+          "status",
+          "source",
+          "verifiedBy",
+          "verifiedAt",
+          "inherits",
+          "hookSelectorRefs",
+          "capabilities",
+          "notes",
+          "cubismVersion"
+        ]
+      }
+    },
+    {
+      "versions": "5.2.03,5.3.02",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "profileId",
+          "product",
+          "cubismVersion",
+          "fingerprintStrategy",
+          "mappingPacks",
+          "status",
+          "source",
+          "verifiedBy",
+          "verifiedAt",
+          "inherits",
+          "hookSelectorRefs",
+          "capabilities",
+          "notes"
+        ]
+      }
+    },
+    {
+      "versions": "5.3.03",
+      "value": {
+        "keyOrder": [
+          "format",
+          "schemaVersion",
+          "profileId",
+          "product",
+          "fingerprintStrategy",
+          "mappingPacks",
+          "status",
+          "source",
+          "verifiedBy",
+          "verifiedAt",
+          "inherits",
+          "hookSelectorRefs",
+          "capabilities",
+          "notes",
+          "cubismVersion"
+        ],
+        "inlinePackEnd": true
+      }
+    }
+  ]
+}

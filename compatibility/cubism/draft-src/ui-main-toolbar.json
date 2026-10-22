@@ -1,0 +1,443 @@
+{
+  "family": "ui-main-toolbar",
+  "releases": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.3.00",
+    "5.3.01",
+    "5.3.03",
+    "5.3.04"
+  ],
+  "templates": [
+    {
+      "keys": [
+        "semanticName",
+        "name",
+        "kind",
+        "runtime",
+        "profile",
+        "status",
+        "x.verification",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence"
+      ],
+      "annotations": {
+        "status": "DRAFT",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "medium"
+      }
+    },
+    {
+      "keys": [
+        "semanticName",
+        "name",
+        "kind",
+        "runtime",
+        "descriptor",
+        "profile",
+        "status",
+        "x.verification",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence"
+      ],
+      "annotations": {
+        "status": "DRAFT",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "medium"
+      }
+    },
+    {
+      "keys": [
+        "semanticName",
+        "name",
+        "kind",
+        "runtime",
+        "descriptor",
+        "profile",
+        "status",
+        "x.verification",
+        "source",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence"
+      ],
+      "annotations": {
+        "status": "DRAFT",
+        "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "high"
+      }
+    },
+    {
+      "keys": [
+        "semanticName",
+        "name",
+        "kind",
+        "runtime",
+        "profile",
+        "status",
+        "x.verification",
+        "source",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence"
+      ],
+      "annotations": {
+        "status": "DRAFT",
+        "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "high"
+      }
+    },
+    {
+      "keys": [
+        "descriptor",
+        "kind",
+        "name",
+        "profile",
+        "runtime",
+        "semanticName",
+        "status",
+        "x.verification",
+        "source",
+        "verifiedBy",
+        "verifiedAt",
+        "confidence"
+      ],
+      "annotations": {
+        "status": "DRAFT",
+        "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+        "verifiedBy": "none",
+        "verifiedAt": null,
+        "confidence": "high"
+      }
+    }
+  ],
+  "entries": {
+    "cubism.ui-main-toolbar.abstract-button.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 3
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.get-jabstract-button": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 4
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.set-disabled-icon": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 4
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 4
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.set-icon": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 4
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.set-pressed-icon": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 4
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.set-selected": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.abstract-button.set-selected-icon": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 4
+      }
+    ],
+    "cubism.ui-main-toolbar.app-controller.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.app-controller.instance": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.app-controller.main-frame": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.container.add": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.container.children": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.container.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.container.remove": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.icon-button.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.icon-button.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.icon-button.set-rollover-icon": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.icon.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.icon.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.main-frame-view.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.main-frame-view.home-button": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.main-frame-view.main-container": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.main-frame.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.main-frame.view": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.mesh-tool-mode.instance": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.mesh-tool-panel.panel": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 3
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.max": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.min": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.set-max": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.set-min": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.set-on-changed": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.set-value": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.slider.value": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 2
+      }
+    ],
+    "cubism.ui-main-toolbar.vbox.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.class": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 0
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.jcomponent": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.name": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.parent": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.repaint": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.revalidate": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.set-name": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.set-pref-height": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.set-pref-width": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ],
+    "cubism.ui-main-toolbar.widget.set-tooltip": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 1
+      }
+    ]
+  },
+  "envelopes": [
+    {
+      "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+      "value": {
+        "format": "turboism.mapping.pack",
+        "schemaVersion": 1,
+        "status": "DRAFT",
+        "source": "derived-from-verified-record",
+        "cubismVersion": "${version}",
+        "exactArtifactSha256": "${artifactSha256}"
+      }
+    }
+  ]
+}
