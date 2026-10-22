@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 from generate_reviewed_releases import ENV, HOST, TABLE, TEMPLATE, check, render
-from preview.reviewed_host_artifacts import SOURCE_RELATIVE, compact, default_source, load, load_releases
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, compact, load, load_releases
 from scripts.test.reviewed_releases_fixture import table
 
 ROOT = Path(__file__).resolve().parents[2]
