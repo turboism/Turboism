@@ -333,7 +333,7 @@ public final class TurboismAgent {
             if (!contributor.admitted(environment)) {
                 return false;
             }
-            final AutoCloseable handle = contributor.install(environment);
+            final AutoCloseable handle = contributor.install(environment.forHook(contributor.id()));
             if (handle == null) {
                 return false;
             }
@@ -348,7 +348,7 @@ public final class TurboismAgent {
             return true;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            runtimeWarn("Turboism hook disabled safely: " + contributor.id());
+            RuntimeDiagnostics.error("bootstrap", "Turboism hook disabled safely: " + contributor.id(), failure);
             return false;
         } finally {
             if (!installed) disableHookCapabilities(contributor, environment);
@@ -414,7 +414,7 @@ public final class TurboismAgent {
 
     private static void bindRuntimeHook(final HookContributor contributor, final HookEnvironment environment) {
         try {
-            contributor.bind(environment);
+            contributor.bind(environment.forHook(contributor.id()));
             environment.runtime().ifPresent(runtime -> {
                 for (final String hookId : contributor.runtimeHookIds()) {
                     runtime.editorModelResolver().completeHookBinding(hookId);
