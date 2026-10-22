@@ -10,7 +10,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.concurrent.ManualScheduledExecutor;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -22,6 +25,8 @@ import org.junit.jupiter.api.Test;
 
 class PluginWorkExecutorTest {
 
+    private final ManualScheduledExecutor timer = new ManualScheduledExecutor();
+
     private static final String PLUGIN_ID = "dev.turboism.plugin.demo";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC);
 
@@ -29,7 +34,7 @@ class PluginWorkExecutorTest {
     void taskRunsAsynchronouslyWhenSubmitted() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(PLUGIN_ID, 1, 1, events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<String> workerThread = new AtomicReference<>();
         String callerThread = Thread.currentThread().getName();
@@ -51,7 +56,7 @@ class PluginWorkExecutorTest {
     void boundedQueueRejectsOverflowAndEmitsDiagnostic() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(PLUGIN_ID, 1, 1, events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
         CountDownLatch workerStarted = new CountDownLatch(1);
         CountDownLatch releaseWorker = new CountDownLatch(1);
         executor.execute(task("event.subscribe"), () -> {
@@ -82,7 +87,7 @@ class PluginWorkExecutorTest {
     void rejectedOverflowNeverRunsOnCallerThread() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(PLUGIN_ID, 1, 1, events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
         CountDownLatch workerStarted = new CountDownLatch(1);
         CountDownLatch releaseWorker = new CountDownLatch(1);
         AtomicReference<String> overflowThread = new AtomicReference<>();
@@ -109,7 +114,7 @@ class PluginWorkExecutorTest {
     void shutdownDrainsAndTerminatesPool() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(PLUGIN_ID, 1, 2, events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 2, 50.0f));
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch completed = new CountDownLatch(3);
@@ -136,8 +141,7 @@ class PluginWorkExecutorTest {
     void slowWorkIsCancelledByTimeLimiterAndEmitsTimedOutDiagnostic() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(
-                PLUGIN_ID, PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f), events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(50, 1, 1, 50.0f));
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interrupted = new CountDownLatch(1);
 
@@ -154,6 +158,9 @@ class PluginWorkExecutorTest {
 
         // Then
         assertTrue(started.await(1, TimeUnit.SECONDS));
+        timer.advanceBy(Duration.ofMillis(49));
+        assertEquals(1, interrupted.getCount());
+        timer.advanceBy(Duration.ofMillis(1));
         assertTrue(interrupted.await(1, TimeUnit.SECONDS));
         awaitEvent(events, PluginWorkBudgetEvent.Phase.TIMED_OUT);
         executor.shutdown();
@@ -163,8 +170,7 @@ class PluginWorkExecutorTest {
     void circuitBreakerOpensAfterFailuresAndFurtherCallsFailFastWithDiagnostic() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(
-                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
 
         // When: each failed call emits only after its completion stage has updated the
         // circuit breaker, so waiting for the diagnostic makes the four-call window deterministic.
@@ -187,8 +193,7 @@ class PluginWorkExecutorTest {
     @Test
     void admittedImmediateFailureRemainsAcceptedAndCompletesFailed() throws Exception {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final PluginWorkExecutor executor = new PluginWorkExecutor(
-                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
+        final PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
 
         final PluginWorkSubmission submission = executor.submit(task("action.handle"), () -> {
             throw new IllegalStateException("immediate");
@@ -209,8 +214,7 @@ class PluginWorkExecutorTest {
     void workFailureEmitsFailedDiagnostic() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(
-                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
 
         // When
         executor.execute(task("action.handle"), () -> {
@@ -234,8 +238,7 @@ class PluginWorkExecutorTest {
     void lightweightWorkRunsSuccessfullyWhenExecutorIsHealthy() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(
-                PLUGIN_ID, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f), events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
         CountDownLatch completed = new CountDownLatch(1);
 
         // When
@@ -251,7 +254,7 @@ class PluginWorkExecutorTest {
     void workerThreadsAreDaemonAndNamedForPlugin() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutor executor = new PluginWorkExecutor(PLUGIN_ID, 1, 1, events::add, CLOCK);
+        PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<Thread> worker = new AtomicReference<>();
 
@@ -309,7 +312,11 @@ class PluginWorkExecutorTest {
     void releaseShutsClaimedSetWithoutTouchingItsReplacement() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(1, 1, events::add, CLOCK);
+        PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(
+                PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f),
+                events::add,
+                CLOCK,
+                ignored -> new ManualScheduledExecutor());
         PluginExecutorSet first = registry.claim(PLUGIN_ID);
 
         // When the captured generation is released
@@ -334,7 +341,11 @@ class PluginWorkExecutorTest {
     void registryCreatesOneExecutorPerPluginAndShutdownIsIdempotent() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(1, 1, events::add, CLOCK);
+        PluginWorkExecutorRegistry registry = new PluginWorkExecutorRegistry(
+                PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f),
+                events::add,
+                CLOCK,
+                ignored -> new ManualScheduledExecutor());
 
         // When
         PluginWorkExecutor first = registry.get(PLUGIN_ID);
@@ -378,25 +389,17 @@ class PluginWorkExecutorTest {
         assertEquals(PluginWorkBudgetEvent.Phase.FAILED, events.get(eventIndex).phase(), events.toString());
     }
 
+    private PluginWorkExecutor executor(List<PluginWorkBudgetEvent> events, PluginWorkExecutorConfiguration config) {
+        return new PluginWorkExecutor(PLUGIN_ID, config, events::add, CLOCK, timer);
+    }
+
     private static void awaitEventCount(List<PluginWorkBudgetEvent> events, int expectedCount) {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-        while (System.nanoTime() < deadline) {
-            if (events.size() >= expectedCount) {
-                return;
-            }
-            Thread.yield();
-        }
-        throw new AssertionError("Expected at least " + expectedCount + " plugin work budget events in " + events);
+        Await.condition("Expected plugin work budget events", () -> events.size() >= expectedCount);
     }
 
     private static void awaitEvent(List<PluginWorkBudgetEvent> events, PluginWorkBudgetEvent.Phase phase) {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-        while (System.nanoTime() < deadline) {
-            if (events.stream().anyMatch(event -> event.phase() == phase)) {
-                return;
-            }
-            Thread.yield();
-        }
-        throw new AssertionError("Missing plugin work budget event phase " + phase + " in " + events);
+        Await.condition(
+                "Missing plugin work budget phase " + phase,
+                () -> events.stream().anyMatch(event -> event.phase() == phase));
     }
 }
