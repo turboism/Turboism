@@ -60,7 +60,7 @@ final class ImageBindingAssertionsTest {
     static void run() throws Exception {
         var world = new World();
         var data = new LinkedHashMap<String, Object>();
-        ImageBindingProbe.run(world::model, world::history, world::restore, data);
+        runProbe(world, data);
         check(data.get("status").equals("PASS") && data.get("failure") == null
             && data.get("finallyRestored").equals(true), "probe reports PASS with restore");
         var rows = (List<Map<String, Object>>) data.get("checks");
@@ -102,7 +102,7 @@ final class ImageBindingAssertionsTest {
         // the availability-aware read recovers with integer legs.
         var delayed = new World(false, 4);
         var delayedData = new LinkedHashMap<String, Object>();
-        ImageBindingProbe.run(delayed::model, delayed::history, delayed::restore, delayedData);
+        check(runProbe(delayed, delayedData) == 1000, "delayed join polls four times without wall-clock sleep");
         var delayedSamples = (List<Map<String, Object>>) delayedData.get("samples");
         check(delayedData.get("status").equals("PASS")
             && delayedSamples.get(0).get("textureIndexBefore") instanceof Integer,
@@ -112,7 +112,8 @@ final class ImageBindingAssertionsTest {
         // non-blank reason and the probe still completes PASS honestly.
         var unavailable = new World(false, Integer.MAX_VALUE);
         var unavailableData = new LinkedHashMap<String, Object>();
-        ImageBindingProbe.run(unavailable::model, unavailable::history, unavailable::restore, unavailableData);
+        check(runProbe(unavailable, unavailableData) == 6 * EvaluationProbe.WAIT_MILLIS,
+            "six unavailable reads each exhaust the simulated deadline");
         var unavailableSamples = (List<Map<String, Object>>) unavailableData.get("samples");
         check(unavailableData.get("status").equals("PASS")
             && unavailableSamples.get(0).get("textureIndexBefore").equals("UNAVAILABLE")
@@ -149,7 +150,7 @@ final class ImageBindingAssertionsTest {
         var corrupt = new World(true);
         var failed = new LinkedHashMap<String, Object>();
         try {
-            ImageBindingProbe.run(corrupt::model, corrupt::history, corrupt::restore, failed);
+            runProbe(corrupt, failed);
             throw new AssertionError("corrupt binding backend was accepted");
         } catch (IllegalStateException expected) {
             // r7 threading: execute() runs on the caller thread (no EDT task wrap),
@@ -157,6 +158,13 @@ final class ImageBindingAssertionsTest {
             check(failed.get("status").equals("FAIL"), "mutating rejection fails the probe");
         }
         System.out.println("ImageBindingAssertionsTest checks=" + checks + " PASS");
+    }
+
+    private static long runProbe(World world, Map<String, Object> data) throws Exception {
+        var tick = new java.util.concurrent.atomic.AtomicLong();
+        ImageBindingProbe.run(world::model, world::history, world::restore, data,
+            tick::get, millis -> tick.addAndGet(millis * 1_000_000L));
+        return tick.get() / 1_000_000L;
     }
 
     private static void check(boolean value, String message) { NativeAssertions.require(value, message); checks++; }

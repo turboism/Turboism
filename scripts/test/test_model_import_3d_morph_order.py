@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Synthetic N4b morph draw-order protocol controls; no host, queue, or exact-host evidence is produced."""
 import copy
-import importlib.util
 import json
-from pathlib import Path
 import sys
 import unittest
 
@@ -375,8 +373,8 @@ def attach(r):
 
 
 def load_protocol():
-    spec = importlib.util.spec_from_file_location('mi3d_protocol_for_morph_order', Path(__file__).with_name('test_model_import_3d_host_validation.py'))
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+    from scripts.test import test_model_import_3d_host_validation
+    return test_model_import_3d_host_validation
 
 
 def history_of(section, node):
@@ -423,25 +421,33 @@ def change_history(section, path, mutate):
 
 
 class MorphOrderProtocolTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = load_protocol(); cls.verify = cls.protocol.VERIFY
+        # JSON copies model the wire boundary and avoid repeatedly building unrelated matrices.
+        cls.fixture_json = json.dumps(cls.protocol.ordinary_fixture())
+
     def setUp(self):
-        self.protocol = load_protocol(); self.verify = self.protocol.VERIFY
-        self.fixture = attach(self.protocol.ordinary_fixture())
+        self.fixture = json.loads(self.fixture_json)
+
+    def verify_section(self, report):
+        return self.verify.MORPH_ORDER['verify_morph_order'](report, self.verify.snapshot, self.verify.EVALUATION)
 
     def test_positive_and_missing_morph_order(self):
         self.verify.verify_native(self.fixture, 'synthetic')
-        r = copy.deepcopy(self.fixture); r.pop('morphOrder')
+        r = json.loads(self.fixture_json); r.pop('morphOrder')
         with self.assertRaises((ValueError, KeyError, TypeError)):
             self.verify.verify_native(r, 'synthetic')
-        r = copy.deepcopy(self.fixture)
+        r = json.loads(self.fixture_json)
         r['morphOrder']['schemaVersion'] = 'mi3d-native-n4b-v1'
         with self.assertRaises((ValueError, KeyError, TypeError)):
             self.verify.verify_native(r, 'synthetic')
 
     def reject(self, mutation, reason=None):
-        r = copy.deepcopy(self.fixture)
+        r = json.loads(self.fixture_json)
         mutation(r['morphOrder'])
         try:
-            self.verify.verify_native(r, 'synthetic')
+            self.verify_section(r)
         except (ValueError, KeyError, TypeError) as error:
             if reason is not None:
                 self.assertIn(reason, str(error))
