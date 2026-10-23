@@ -22,6 +22,25 @@ function Assert-BatThrows {
 $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('turboism-bat-regression-' + [guid]::NewGuid().ToString('N'))
 [void][System.IO.Directory]::CreateDirectory($fixture)
 try {
+    # Exercise the launcher's actual parameter binder without launching Cubism.
+    $launcherPath = Join-Path $PSScriptRoot 'launch-cubism-turboism.ps1'
+    $tokens = $null
+    $parseErrors = $null
+    $launcherAst = [System.Management.Automation.Language.Parser]::ParseFile($launcherPath, [ref]$tokens, [ref]$parseErrors)
+    Assert-BatRegression ($parseErrors.Count -eq 0) 'managed launcher parses'
+    $attributes = [string]::Join("`n", @($launcherAst.ParamBlock.Attributes | ForEach-Object { $_.Extent.Text }))
+    $binder = [scriptblock]::Create($attributes + "`n" + $launcherAst.ParamBlock.Extent.Text + @'
+
+[pscustomobject]@{ HomePath = $HomePath; CubismRoot = $CubismRoot; CubismJava = $CubismJava; ProjectPath = $ProjectPath; Files = @($CubismArguments) }
+'@)
+    $model = 'C:\Models\中文 model.cmo3'
+    $bound = & $binder -HomePath 'C:\Turboism' -CubismRoot 'C:\Cubism' -Variant normal $model
+    Assert-BatRegression ($bound.CubismJava -eq '' -and $bound.ProjectPath -eq '' -and $bound.Files.Count -eq 1 -and $bound.Files[0] -eq $model) 'official BAT forwards a bare model path as a file, not a Java override'
+    $bound = & $binder $model
+    Assert-BatRegression ($bound.HomePath -eq '' -and $bound.Files.Count -eq 1 -and $bound.Files[0] -eq $model) 'generic launcher preserves a bare model path'
+    $bound = & $binder -ProjectPath $model -CubismJava 'C:\Graal\bin\java.exe'
+    Assert-BatRegression ($bound.ProjectPath -eq $model -and $bound.CubismJava -eq 'C:\Graal\bin\java.exe' -and $bound.Files.Count -eq 0) 'explicit project and Java options still bind by name'
+
     $original = "@echo off`r`nrem synthetic fixture, never executed`r`nexit /b 0`r`n"
     $syntheticRoot = Join-Path $fixture 'synthetic options host'
     [void][System.IO.Directory]::CreateDirectory($syntheticRoot)
