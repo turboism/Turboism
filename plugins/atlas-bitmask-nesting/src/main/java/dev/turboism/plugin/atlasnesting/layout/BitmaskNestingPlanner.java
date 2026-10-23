@@ -125,7 +125,10 @@ public final class BitmaskNestingPlanner implements TextureAtlasPolygonPlanner {
         diagnostics.put("scaleTrials", String.valueOf(trials));
         diagnostics.put("usedHeightPixels", String.valueOf(best.height() * cell));
         diagnostics.put(
-                "search", sources.stream().allMatch(Source::rectangular) ? "exact-rectangle-bssf" : "run-skipping-blf");
+                "search",
+                sources.stream().allMatch(Source::rectangular)
+                        ? "exact-rectangle-bssf"
+                        : exactBounds(sources, constraints) ? "exact-single-outline" : "run-skipping-blf");
         return new TextureAtlasPolygonPlan(
                 constraints.pageWidth(),
                 constraints.pageHeight(),
@@ -136,13 +139,22 @@ public final class BitmaskNestingPlanner implements TextureAtlasPolygonPlanner {
                 diagnostics);
     }
 
+    private static boolean exactBounds(List<Source> sources, TextureAtlasPolygonConstraints constraints) {
+        // One movable outline has no collisions to rasterize. Exact bounds avoid
+        // rejecting a valid edge placement solely because its origin is off-grid.
+        return sources.stream().allMatch(Source::rectangular)
+                || sources.size() == 1
+                        && !fixed(sources.get(0).item())
+                        && constraints.rotationMode() == TextureAtlasRotationMode.NONE;
+    }
+
     private static Result pack(
             final List<Source> sources,
             final TextureAtlasPolygonConstraints c,
             final double scale,
             final int cell,
             final int gap) {
-        if (sources.stream().allMatch(Source::rectangular)) {
+        if (exactBounds(sources, c)) {
             final List<RectanglePacker.Box> boxes = new ArrayList<>();
             for (final Source source : sources) {
                 final var item = source.item();

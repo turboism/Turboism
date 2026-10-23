@@ -1,12 +1,16 @@
 folders.action
 folders.algorithm
 folders.autoSize
+folders.boundsFallback
 folders.cancel
 folders.currentPageOnly
 folders.failed
 folders.groupingHint
+folders.itemPackingFailed
+folders.itemTooLarge
 folders.margin
 folders.maxSize
+folders.meshOutline
 folders.nativeHint
 folders.noAlgorithms
 folders.noAtlas
