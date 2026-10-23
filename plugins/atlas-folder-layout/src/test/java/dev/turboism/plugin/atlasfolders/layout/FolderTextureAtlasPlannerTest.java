@@ -115,6 +115,24 @@ class FolderTextureAtlasPlannerTest {
     }
 
     @Test
+    void distinguishesActualSizeOverflowFromAlgorithmFailure() {
+        var tooLarge = assertThrows(
+                FolderTextureAtlasPlanner.ItemFitFailure.class,
+                () -> planner.plan(root(folder("PSD", item("large", 4096))), 4096, 8, 3, 6));
+        assertEquals("folders.itemTooLarge", tooLarge.messageKey());
+        assertTrue(tooLarge.getMessage().contains("source=4096x4096"));
+        assertTrue(tooLarge.getMessage().contains("margin=3"));
+        TextureAtlasLayoutPlanner rejects = (items, constraints) -> {
+            throw new TextureAtlasPackingException("small", TextureAtlasPackingException.Reason.ITEM_DOES_NOT_FIT);
+        };
+        var algorithmFailure = assertThrows(
+                FolderTextureAtlasPlanner.ItemFitFailure.class,
+                () -> new FolderTextureAtlasPlanner(rejects)
+                        .plan(root(folder("PSD", item("small", 20))), 128, 8, 3, 6));
+        assertEquals("folders.itemPackingFailed", algorithmFailure.messageKey());
+    }
+
+    @Test
     void respectsMarginAndPadding() {
         var result =
                 planner.plan(root(new Folder("head", List.of(item("a", 60), item("b", 60)), List.of())), 128, 8, 3, 6);

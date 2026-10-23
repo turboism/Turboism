@@ -20868,6 +20868,24 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage"
       },
       "descriptor": "()Lcom/live2d/type/CAffine;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.texture_atlas.atlas_update_texture",
+      "kind": "method",
+      "owner": "texture-atlas-authoring",
+      "name": "cubism.texture-atlas.atlas.update-texture",
+      "runtime": "updateTexture",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas"
+      },
+      "descriptor": "(ZZLcom/live2d/util/a/a;)V"
     }
   ],
   "metadata": {
@@ -20879,7 +20897,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 1111
     },
-    "selectorCount": 1129,
+    "selectorCount": 1130,
     "capabilityCount": 119,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -21002,7 +21020,7 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "25b9fc8f2b59d912828b97fca2c5e6a94647308facd3f27527f98f6b7f72dc43",
+    "verificationRecordSha256": "942632cb2a17cea65c75f4e29da5b203e6783ad606085cd32ff6acb39fadb19d",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 41922739,
     "profileId": "cubism-5.3.02",

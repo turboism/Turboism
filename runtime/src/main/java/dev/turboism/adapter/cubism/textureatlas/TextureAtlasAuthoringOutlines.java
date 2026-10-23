@@ -4,8 +4,10 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -23,6 +25,9 @@ final class TextureAtlasAuthoringOutlines {
             Object raw = resolver.invoke("cubism.texture-atlas.image.local-to-canvas", image);
             if (!(raw instanceof AffineTransform transform)) return null;
             AffineTransform inverse = transform.createInverse();
+            int width = ((Number) resolver.invoke("cubism.texture-atlas.image.width", image)).intValue();
+            int height = ((Number) resolver.invoke("cubism.texture-atlas.image.height", image)).intValue();
+            var imageBounds = new Area(new Rectangle2D.Double(0, 0, width, height));
             var shapes = new ArrayList<Shape>();
             for (Object source : sources) {
                 if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", source)) return null;
@@ -42,7 +47,11 @@ final class TextureAtlasAuthoringOutlines {
                         else triangle.lineTo(xy[at], xy[at + 1]);
                     }
                     triangle.closePath();
-                    shapes.add(inverse.createTransformedShape(triangle));
+                    // ArtMesh vertices may overhang the PSD layer. Only pixels inside
+                    // the source bitmap belong to the atlas image being packed.
+                    var sampled = new Area(inverse.createTransformedShape(triangle));
+                    sampled.intersect(imageBounds);
+                    shapes.add(sampled);
                 }
             }
             var extraction = TextureAtlasOutlineExtractor.extract(shapes);
