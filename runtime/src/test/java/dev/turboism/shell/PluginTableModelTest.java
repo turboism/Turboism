@@ -66,6 +66,23 @@ class PluginTableModelTest {
     }
 
     @Test
+    void installedCountExcludesCoreAndIgnoresFiltering() {
+        final CoreWindows.PluginTableModel model = new CoreWindows.PluginTableModel(I18N);
+        assertEquals(0, model.installedPluginCount());
+        model.setPlugins(List.of(
+                row("core", "Core", "system", List.of(), true),
+                row("a.plugin", "Plugin A", "modeling", List.of(), false),
+                row("b.plugin", "Plugin B", "workflow", List.of(), false)));
+        final TableRowSorter<CoreWindows.PluginTableModel> sorter = new TableRowSorter<>(model);
+        sorter.setRowFilter(RowFilter.regexFilter("Plugin A", 0));
+        assertEquals(1, sorter.getViewRowCount());
+        assertEquals(2, model.installedPluginCount());
+
+        model.setPlugins(List.of(row("core", "Core", "system", List.of(), true)));
+        assertEquals(0, model.installedPluginCount());
+    }
+
+    @Test
     void tableShowsDisplayNameAlongsideIdentifierAndAuthors() {
         final CoreWindows.PluginTableModel model = new CoreWindows.PluginTableModel(I18N);
         model.setPlugins(List.of(row("a.plugin", "Localized A", "modeling", List.of("parameter"), false)));
