@@ -178,6 +178,9 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         final Map<Object, Integer> atlasIndexes = new IdentityHashMap<>();
         for (int index = 0; index < atlases.size(); index++) atlasIndexes.put(atlases.get(index), index);
 
+        final boolean contourAuthoring = VerifiedTextureAtlasSelectorContract.profileFor(exactVersion)
+                .map(profile -> !profile.nativeInvocationAliases().isEmpty())
+                .orElse(false);
         final Map<String, TextureAtlasLayoutItem> items = new HashMap<>();
         for (Map.Entry<String, Object> image : images.entrySet()) {
             items.put(
@@ -185,12 +188,19 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                     new TextureAtlasLayoutItem(
                             image.getKey(),
                             integer(resolver.invoke("cubism.texture-atlas.image.width", image.getValue())),
-                            integer(resolver.invoke("cubism.texture-atlas.image.height", image.getValue()))));
+                            integer(resolver.invoke("cubism.texture-atlas.image.height", image.getValue())),
+                            contourAuthoring
+                                    ? TextureAtlasAuthoringOutlines.read(
+                                            resolver, binding.textureManager(), image.getValue())
+                                    : null));
         }
 
         final List<TextureAtlasPlacement> placements = new ArrayList<>();
+        final List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan> polygonPages = new ArrayList<>();
         for (Object atlas : atlases) {
             final int atlasIndex = atlasIndexes.get(atlas);
+            final var polygonPlacements =
+                    new ArrayList<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement>();
             for (Object entry : list(resolver.invoke("cubism.texture-atlas.atlas.entries", atlas))) {
                 if (!resolver.isInstance("cubism.texture-atlas.entry.class", entry)) continue;
                 final Object image = resolver.invoke("cubism.texture-atlas.entry.image", entry);
@@ -205,6 +215,13 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                 final java.awt.geom.Rectangle2D bounds = affine.createTransformedShape(
                                 new java.awt.geom.Rectangle2D.Double(0, 0, item.width(), item.height()))
                         .getBounds2D();
+                polygonPlacements.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement(
+                        id,
+                        affine.getTranslateX(),
+                        affine.getTranslateY(),
+                        Math.toDegrees(Math.atan2(affine.getShearY(), affine.getScaleX())),
+                        Math.sqrt(Math.abs(affine.getDeterminant()))));
+                if (bounds.getMinX() < 0 || bounds.getMinY() < 0) continue;
                 placements.add(new TextureAtlasPlacement(
                         id,
                         atlasIndex,
@@ -214,7 +231,17 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                         Math.max(1, rounded(bounds.getHeight())),
                         Math.abs(affine.getScaleX()) < 1e-9 && Math.abs(affine.getScaleY()) < 1e-9));
             }
+            polygonPages.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan(
+                    pageSizes.get(atlasIndex).width(),
+                    pageSizes.get(atlasIndex).height(),
+                    1D,
+                    polygonPlacements,
+                    List.of(),
+                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.AUTO,
+                    Map.of()));
         }
+
+        // Snapshot plans preserve the issued transforms even when raw image rectangles overlap.
         placements.sort(java.util.Comparator.comparing(TextureAtlasPlacement::textureId));
         final TextureAtlasLayoutConstraints constraints =
                 new TextureAtlasLayoutConstraints(atlasWidth, atlasHeight, 0, 0, DEFAULT_MAX_ATLAS_COUNT, false, false);
@@ -227,14 +254,34 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                 List.copyOf(items.values()).stream()
                         .sorted(java.util.Comparator.comparing(TextureAtlasLayoutItem::textureId))
                         .toList(),
-                new TextureAtlasLayoutPlan(
-                        atlasWidth,
-                        atlasHeight,
-                        atlases.size(),
-                        atlasNames,
-                        placements,
-                        1D,
-                        pageSizes.stream().distinct().count() == 1 ? List.of() : pageSizes));
+                snapshotPlan(atlasWidth, atlasHeight, atlasNames, placements, pageSizes, polygonPages));
+    }
+
+    private static TextureAtlasLayoutPlan snapshotPlan(
+            int width,
+            int height,
+            List<String> names,
+            List<TextureAtlasPlacement> rectangles,
+            List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize> sizes,
+            List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan> polygons) {
+        try {
+            if (rectangles.size()
+                    != polygons.stream()
+                            .mapToInt(page -> page.placements().size())
+                            .sum()) {
+                throw new IllegalArgumentException("Image origins extend outside their pages.");
+            }
+            return new TextureAtlasLayoutPlan(
+                    width,
+                    height,
+                    names.size(),
+                    names,
+                    rectangles,
+                    1D,
+                    sizes.stream().distinct().count() == 1 ? List.of() : sizes);
+        } catch (IllegalArgumentException overlappingBounds) {
+            return new TextureAtlasLayoutPlan(width, height, names.size(), names, List.of(), 1D, sizes, polygons);
+        }
     }
 
     private List<Object> stage(
@@ -247,6 +294,23 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                     pageName(plan, index),
                     plan.pageSize(index).width(),
                     plan.pageSize(index).height()));
+        }
+        for (int pageIndex = 0; pageIndex < plan.polygonPages().size(); pageIndex++) {
+            for (var placement : plan.polygonPages().get(pageIndex).placements()) {
+                final Object image = images.get(placement.textureId());
+                if (image == null) throw new IllegalStateException("Polygon plan references an unavailable image.");
+                final Object affine = resolver.construct("cubism.texture-atlas.affine.create");
+                // Complete-atlas polygon authoring keeps source scale and angle: translation is exact.
+                resolver.invoke(
+                        "cubism.texture-atlas.affine.translate", affine, (float) placement.x(), (float) placement.y());
+                final Object atlas = atlases.get(pageIndex);
+                final Object entry = resolver.construct(
+                        "cubism.texture-atlas.entry.create",
+                        atlas,
+                        resolver.invoke("cubism.texture-atlas.image.guid", image),
+                        affine);
+                append(resolver.invoke("cubism.texture-atlas.atlas.entries", atlas), entry);
+            }
         }
         for (TextureAtlasPlacement placement : plan.placements()) {
             final Object image = images.get(placement.textureId());

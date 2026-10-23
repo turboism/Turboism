@@ -48574,6 +48574,44 @@
           "id": "cubism.mapping.v5_3_04.object_context_menu.method.workspace_selector"
         }
       ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.image.local-to-canvas",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
+        "memberName": "getModelImageLocalToCanvasTransform",
+        "descriptor": "()Lcom/live2d/type/CAffine;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.image_local_to_canvas"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.texture_atlas.image_local_to_canvas"
+        },
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.image_local_to_canvas"
+        }
+      ]
     }
   ],
   "selectorOrder": [
@@ -49640,7 +49678,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -50708,7 +50747,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -51777,7 +51817,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -52848,7 +52889,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -53949,7 +53991,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -55057,7 +55100,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -56170,7 +56214,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -57283,7 +57328,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -58423,7 +58469,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -59556,7 +59603,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -60696,7 +60744,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     },
     {
@@ -61836,7 +61885,8 @@
         1057,
         1058,
         1059,
-        1060
+        1060,
+        1215
       ]
     }
   ],

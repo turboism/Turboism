@@ -31,7 +31,9 @@ interface: swing
 
 ## 安装与启用
 
-通过 Turboism 插件管理安装插件 JAR，启用文件夹排版插件，以及 MaxRects-BSSF 或 Dalsoo 等支持完整纹理集的算法插件。
+通过 Turboism 插件管理安装插件 JAR，启用文件夹排版插件，以及 MaxRects-BSSF、Bitmask Nesting 或 Dalsoo 等支持完整纹理集的算法插件。
+
+Bitmask Nesting 与 Dalsoo 使用图片局部坐标下的网格轮廓；轮廓源不可用时保守回退到完整图片矩形。保持原始尺寸且不旋转。部件树顺序用于优先分组，允许跨文件夹利用剩余空间；叶子文件夹溢出时优先装满已有页，再创建新页。
 
 ## 使用方法
 

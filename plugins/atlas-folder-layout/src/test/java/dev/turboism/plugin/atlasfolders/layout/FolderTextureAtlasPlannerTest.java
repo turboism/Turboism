@@ -89,7 +89,7 @@ class FolderTextureAtlasPlannerTest {
                         new Folder("head", List.of(item("direct", 100)), List.of(folder("eyes", item("eye", 100)))),
                         new Folder("body", List.of(item("a", 100), item("b", 100)), List.of())));
         var plan = plan(tree);
-        assertEquals(5, plan.pageCount());
+        assertEquals(4, plan.pageCount());
         assertEquals(
                 Set.of("unused", "direct", "eye", "a", "b"),
                 new HashSet<>(plan.placements().stream()
@@ -135,6 +135,28 @@ class FolderTextureAtlasPlannerTest {
                 1,
                 plan(root(new Folder("empty", List.of(), List.of()), folder("a", item("x", 10))))
                         .pageCount());
+    }
+
+    @Test
+    void enrichesPagesAcrossManySingleImageFolders() {
+        var folders = java.util.stream.IntStream.range(0, 12)
+                .mapToObj(i -> folder("part" + i, item("image" + i, 30)))
+                .toArray(Folder[]::new);
+        var result = planner.plan(root(folders), 128, 1, 0, 0);
+        assertEquals(1, result.pageCount());
+        assertEquals(12, result.placements().size());
+    }
+
+    @Test
+    void overflowingLeafFillsPagesInsteadOfBinarySplitting() {
+        var images = java.util.stream.IntStream.range(0, 10)
+                .mapToObj(i -> item("i" + i, 40))
+                .toList();
+        var result = planner.plan(root(new Folder("leaf", images, List.of())), 128, 2, 0, 0);
+        assertEquals(2, result.pageCount());
+        assertEquals(10, result.placements().size());
+        assertEquals(
+                9, result.placements().stream().filter(p -> p.pageIndex() == 0).count());
     }
 
     /** Algorithm fixture: stable shelf packing through the public SDK, without any algorithm plugin. */

@@ -40,7 +40,7 @@ class TextureAtlasNestingPluginTest {
         final var algorithm = registry.find("bitmask-nesting").orElseThrow();
         assertFalse(algorithm.supportsParallel());
         assertFalse(algorithm.supportsPolygonOptions());
-        assertFalse(algorithm.planner().supportsCompleteAtlas());
+        assertTrue(algorithm.planner().supportsCompleteAtlas());
         assertTrue(registry.selection().isNative());
         assertInstanceOf(TextureAtlasPolygonLayoutPlanner.class, algorithm.planner());
         // The production facade scopes registrations; verify its cleanup callback works.
@@ -49,7 +49,7 @@ class TextureAtlasNestingPluginTest {
     }
 
     @Test
-    void rectangleAdapterHonorsFixedScaleAndExplicitlyRejectsCompleteAtlas() {
+    void rectangleAdapterHonorsFixedScaleAndSupportsCompleteAtlas() {
         final var plugin = new TextureAtlasNestingPlugin();
         plugin.init(FakePluginContext.builder()
                 .localization(FakePluginContext.passThroughLocalization())
@@ -60,9 +60,10 @@ class TextureAtlasNestingPluginTest {
         assertEquals(.75, plan.scale());
         assertEquals(2, plan.placements().size());
         assertEquals(1, plan.pageCount());
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> planner.plan(items, new TextureAtlasLayoutConstraints(100, 100, 3, 6, 2, false, false)));
+        var complete = planner.plan(items, new TextureAtlasLayoutConstraints(100, 100, 3, 6, 2, false, false));
+        assertEquals(1D, complete.scale());
+        assertEquals(2, complete.placements().size());
+        assertTrue(complete.placements().stream().noneMatch(TextureAtlasPlacement::rotated));
     }
 
     @ParameterizedTest
@@ -78,10 +79,6 @@ class TextureAtlasNestingPluginTest {
                 catalog.text("texture-atlas.algorithm.bitmask-nesting"),
                 registry.find("bitmask-nesting").orElseThrow().displayName());
         assertFalse(catalog.text("plugin.name").startsWith("plugin."));
-        final var scopeError = assertThrows(
-                UnsupportedOperationException.class,
-                () -> planner.plan(List.of(), new TextureAtlasLayoutConstraints(100, 100, 3, 6, 2, false, false)));
-        assertEquals(catalog.text("texture-atlas.nesting.error.current-page-only"), scopeError.getMessage());
         final var duplicate =
                 List.of(new TextureAtlasLayoutItem("part-A", 5, 5), new TextureAtlasLayoutItem("part-A", 5, 5));
         final var shapeError = assertThrows(
@@ -95,6 +92,14 @@ class TextureAtlasNestingPluginTest {
         final var legacyPlanner =
                 legacyRegistry.find("bitmask-nesting").orElseThrow().planner();
         assertFalse(legacyPlanner instanceof TextureAtlasPolygonLayoutPlanner);
+        assertTrue(legacyPlanner.supportsCompleteAtlas());
+        assertEquals(
+                1D,
+                legacyPlanner
+                        .plan(
+                                List.of(new TextureAtlasLayoutItem("whole", 20, 30)),
+                                new TextureAtlasLayoutConstraints(100, 100, 3, 6, 1, false, false))
+                        .scale());
         final var legacyPlan = legacyPlanner.plan(
                 List.of(new TextureAtlasLayoutItem("a", 20, 30)),
                 TextureAtlasLayoutConstraints.currentPage(100, 100, 3, true, .75));

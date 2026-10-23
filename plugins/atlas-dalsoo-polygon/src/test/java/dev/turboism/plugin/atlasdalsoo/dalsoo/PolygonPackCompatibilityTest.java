@@ -14,13 +14,13 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 class PolygonPackCompatibilityTest {
-    // Snapshots captured before allocation changes. Dense L-shapes also cover
-    // overflow and the corner fallback; FREE exercises the continuous kernel.
+    // Deterministic snapshots include the precision-clearance corner retry. Dense L-shapes
+    // cover overflow and the corner fallback; FREE exercises the continuous kernel.
     @Test
-    void scratchAndLazyCandidatesPreserveAllPlacementBits() throws Exception {
+    void packingRemainsDeterministicIncludingClearanceRetry() throws Exception {
         final Map<String, String> expected = Map.of(
-                "lshape-NONE", "0270fbde3d3883637054bfb484fb2a3eac828ce23f26738b02d6613736187293",
-                "lshape-QUARTER", "3fb38699f1d5e7c57eb18acc715cecd9ea755de6be3c7e4686e99e82f17f2334",
+                "lshape-NONE", "e50312d385dcd1b87ccd4a67b8d12a0f08b4bc8a7a594b0086f6a34893d6b976",
+                "lshape-QUARTER", "8a13864480d6786cea1c412c48610b56c815fcaa85def8ecea25d9723ab4e37e",
                 "lshape-FREE", "c5fa6c966b1321499d2bdb2b0a648d05c460a76468153b1540a60b63ae45ead8",
                 "star-NONE", "64673c57238d5e990d114f671dc134e7365264b775ad682f715e667f778ebe37",
                 "star-QUARTER", "103639c3139093ca9e8744293c1c05ccbdd6189a9d0e6253421099303aa7f5aa",
