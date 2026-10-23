@@ -1,9 +1,7 @@
 action.refresh
-button.close
 button.open
 checkbox.show.unrelated
 filter.label
-footer.hint
 legend.both
 legend.pure.mask
 legend.unrelated
