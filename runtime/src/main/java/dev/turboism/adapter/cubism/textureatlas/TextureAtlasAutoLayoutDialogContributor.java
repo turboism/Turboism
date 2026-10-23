@@ -73,7 +73,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
     private static final String DEFAULT_TOLERANCE = "0.005";
 
     private static final int SPACER_ROW = 5;
-    private static final int SPACER_ROW_PUSHED = 16;
+    private static final int CONTRIBUTED_ROWS = 11;
 
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry registry;
     private final TextureAtlasAutoLayoutSelection selection;
@@ -127,12 +127,18 @@ public final class TextureAtlasAutoLayoutDialogContributor {
             return;
         }
 
-        // Push any existing spacer on the native layout row 5 down so the
-        // contributed rows stay visible (port of the legacy dialog injection).
+        // Host versions can add native options after row 5. Append after every
+        // occupied native row, moving only the legacy empty spacer to the end.
+        int firstRow = SPACER_ROW;
         for (Component component : center.getComponents()) {
             final GridBagConstraints constraints = layout.getConstraints(component);
-            if (constraints.gridy == SPACER_ROW) {
-                constraints.gridy = SPACER_ROW_PUSHED;
+            if (isLegacySpacer(component, constraints)) continue;
+            firstRow = Math.max(firstRow, constraints.gridy + Math.max(1, constraints.gridheight));
+        }
+        for (Component component : center.getComponents()) {
+            final GridBagConstraints constraints = layout.getConstraints(component);
+            if (isLegacySpacer(component, constraints)) {
+                constraints.gridy = firstRow + CONTRIBUTED_ROWS;
                 layout.setConstraints(component, constraints);
             }
         }
@@ -142,7 +148,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         final JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
         final GridBagConstraints separatorConstraints = new GridBagConstraints();
         separatorConstraints.gridx = 0;
-        separatorConstraints.gridy = 5;
+        separatorConstraints.gridy = firstRow;
         separatorConstraints.gridwidth = 3;
         separatorConstraints.fill = GridBagConstraints.HORIZONTAL;
         separatorConstraints.insets = new Insets(insetY + 4, 0, insetY + 4, 0);
@@ -151,7 +157,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         final JLabel algorithmLabel = new JLabel(bundle.getString("dialog.algorithm.label"));
         final GridBagConstraints labelConstraints = new GridBagConstraints();
         labelConstraints.gridx = 0;
-        labelConstraints.gridy = 6;
+        labelConstraints.gridy = firstRow + 1;
         labelConstraints.anchor = GridBagConstraints.WEST;
         labelConstraints.insets = new Insets(insetY, 0, insetY, 12);
         center.add(algorithmLabel, labelConstraints);
@@ -298,23 +304,23 @@ public final class TextureAtlasAutoLayoutDialogContributor {
 
         final GridBagConstraints comboConstraints = new GridBagConstraints();
         comboConstraints.gridx = 1;
-        comboConstraints.gridy = 6;
+        comboConstraints.gridy = firstRow + 1;
         comboConstraints.gridwidth = 2;
         comboConstraints.anchor = GridBagConstraints.WEST;
         comboConstraints.weightx = 1.0;
         comboConstraints.insets = new Insets(insetY, 0, insetY, 0);
         center.add(algorithmCombo, comboConstraints);
 
-        addOptionRow(center, 7, "dialog.rotation.label", rotationCombo, insetY);
-        addOptionRow(center, 8, "dialog.lock.label", lockCombo, insetY);
-        addOptionRow(center, 9, "dialog.scale-mode.label", scaleModeCombo, insetY);
-        addOptionRow(center, 10, "dialog.fixed-scale.label", fixedScaleField, insetY);
-        addOptionRow(center, 11, "dialog.auto-scale-tolerance.label", toleranceField, insetY);
-        addOptionRow(center, 12, "dialog.auto-scale-max-try.label", maxTryField, insetY);
-        addOptionRow(center, 13, "dialog.kernel.label", kernelCombo, insetY);
-        final JLabel parallelLabel = addOptionRow(center, 14, "dialog.parallel.label", parallelCheck, insetY);
+        addOptionRow(center, firstRow + 2, "dialog.rotation.label", rotationCombo, insetY);
+        addOptionRow(center, firstRow + 3, "dialog.lock.label", lockCombo, insetY);
+        addOptionRow(center, firstRow + 4, "dialog.scale-mode.label", scaleModeCombo, insetY);
+        addOptionRow(center, firstRow + 5, "dialog.fixed-scale.label", fixedScaleField, insetY);
+        addOptionRow(center, firstRow + 6, "dialog.auto-scale-tolerance.label", toleranceField, insetY);
+        addOptionRow(center, firstRow + 7, "dialog.auto-scale-max-try.label", maxTryField, insetY);
+        addOptionRow(center, firstRow + 8, "dialog.kernel.label", kernelCombo, insetY);
+        final JLabel parallelLabel = addOptionRow(center, firstRow + 9, "dialog.parallel.label", parallelCheck, insetY);
 
-        addOptionRow(center, 15, "dialog.quality.label", qualityCombo, insetY);
+        addOptionRow(center, firstRow + 10, "dialog.quality.label", qualityCombo, insetY);
 
         final Map<String, JComponent> optionControls = new LinkedHashMap<>();
         optionControls.put("rotation", rotationCombo);
@@ -333,6 +339,12 @@ public final class TextureAtlasAutoLayoutDialogContributor {
                 parallelCheck,
                 List.copyOf(algorithms),
                 Map.copyOf(optionControls)));
+    }
+
+    private static boolean isLegacySpacer(final Component component, final GridBagConstraints constraints) {
+        return constraints.gridy == SPACER_ROW
+                && component instanceof JPanel panel
+                && panel.getComponentCount() == 0;
     }
 
     private JLabel addOptionRow(

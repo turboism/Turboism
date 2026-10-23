@@ -135,6 +135,26 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
     }
 
     @Test
+    void contributorKeepsLaterNativeRowsSeparateFromContributedControls() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        final GridBagLayout grid = (GridBagLayout) center.getLayout();
+        final javax.swing.JLabel nativeLabel = new javax.swing.JLabel("Native texture option");
+        final GridBagConstraints constraints = new GridBagConstraints();
+        constraints.gridx = 0;
+        constraints.gridy = 7;
+        constraints.gridheight = 2;
+        center.add(nativeLabel, constraints);
+        contributor().injectInto(center);
+        center.setSize(center.getPreferredSize());
+        center.doLayout();
+        for (java.awt.Component component : center.getComponents()) {
+            if (component == nativeLabel) continue;
+            assertTrue(grid.getConstraints(component).gridy >= 9);
+            assertFalse(nativeLabel.getBounds().intersects(component.getBounds()));
+        }
+    }
+
+    @Test
     void contributorAddsAlgorithmComboAndPersistsSelection() {
         final JPanel center = new JPanel(new GridBagLayout());
         final GridBagLayout grid = (GridBagLayout) center.getLayout();
