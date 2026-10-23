@@ -42,6 +42,30 @@ public record TextureAtlasOutline(List<double[][]> rings) {
         rings = List.copyOf(copies);
     }
 
+    /** Returns detached rings so issued geometry cannot be changed by a planner. */
+    @Override
+    public List<double[][]> rings() {
+        return rings.stream()
+                .map(ring -> java.util.Arrays.stream(ring).map(double[]::clone).toArray(double[][]::new))
+                .toList();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof TextureAtlasOutline outline) || rings.size() != outline.rings.size()) return false;
+        for (int i = 0; i < rings.size(); i++) {
+            if (!java.util.Arrays.deepEquals(rings.get(i), outline.rings.get(i))) return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = 1;
+        for (var ring : rings) result = 31 * result + java.util.Arrays.deepHashCode(ring);
+        return result;
+    }
+
     /** Single-ring outline. */
     public static TextureAtlasOutline of(final double[][] ring) {
         return new TextureAtlasOutline(List.<double[][]>of(ring.clone()));

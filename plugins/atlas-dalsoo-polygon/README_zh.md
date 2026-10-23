@@ -33,6 +33,7 @@ interface: none
 
 ## 功能概述
 
+- 支持完整纹理集一键排版，保持原始尺寸且不旋转。支持的宿主使用源网格轮廓紧密排版，轮廓不可用时回退到原图矩形；文件夹排版可跨文件夹合页，优先填充已有页面。
 - 在现有 MaxRects-BSSF 矩形后端之外注册 `dalsoo` 纹理集排版算法；矩形后端
   保持不变。
 - 按真实凹轮廓打包（material-local `drawDataShapes`，经 verified selector

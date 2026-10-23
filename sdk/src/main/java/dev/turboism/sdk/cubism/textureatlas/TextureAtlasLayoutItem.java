@@ -3,9 +3,20 @@ package dev.turboism.sdk.cubism.textureatlas;
 import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
-/** One immutable texture input for an atlas layout planner. */
+/**
+ * One immutable texture input for an atlas layout planner.
+ * @param textureId stable image identity
+ * @param width full source image width
+ * @param height full source image height
+ * @param outline optional material-local mesh contour; null means full image bounds
+ */
 @CubismEditor
-public record TextureAtlasLayoutItem(String textureId, int width, int height) {
+public record TextureAtlasLayoutItem(String textureId, int width, int height, TextureAtlasOutline outline) {
+
+    /** Retains rectangle-only inputs for existing SDK clients. */
+    public TextureAtlasLayoutItem(String textureId, int width, int height) {
+        this(textureId, width, height, null);
+    }
 
     public TextureAtlasLayoutItem {
         textureId = requireId(textureId);

@@ -199,6 +199,10 @@ public final class RuntimeTextureAtlasLayoutService
     private Optional<String> validate(
             final TextureAtlasAuthoringState state, final TextureAtlasLayoutPlan plan, final boolean completeAtlas) {
         final TextureAtlasLayoutConstraints constraints = state.constraints();
+        if (!plan.polygonPages().isEmpty()) {
+            if (!completeAtlas) return Optional.of("Polygon pages require a complete-atlas target.");
+            return validatePolygonPages(state, plan);
+        }
         if (completeAtlas && plan.scale() != 1D) {
             return Optional.of("Complete-atlas authoring does not support scaled plans.");
         }
@@ -266,6 +270,56 @@ public final class RuntimeTextureAtlasLayoutService
             }
         }
         return Optional.empty();
+    }
+
+    private Optional<String> validatePolygonPages(TextureAtlasAuthoringState state, TextureAtlasLayoutPlan plan) {
+        if (plan.pageCount() > state.constraints().maxPages()) return Optional.of("Atlas page budget exceeded.");
+        if (plan.pageSizes().isEmpty()
+                && (plan.pageWidth() != state.constraints().pageWidth()
+                        || plan.pageHeight() != state.constraints().pageHeight()))
+            return Optional.of("Polygon page size does not match issued constraints.");
+        final Map<String, TextureAtlasLayoutItem> items = new HashMap<>();
+        state.items().forEach(item -> items.put(item.textureId(), item));
+        final Set<String> placed = new HashSet<>();
+        for (var page : plan.polygonPages()) {
+            var inputs = new java.util.ArrayList<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem>();
+            if (page.placements().isEmpty()) return Optional.of("Empty polygon output page.");
+            for (var placement : page.placements()) {
+                if (placement.scale() != 1D) return Optional.of("Complete atlas requires source scale.");
+                var item = items.get(placement.textureId());
+                if (item == null || !placed.add(placement.textureId()))
+                    return Optional.of("Unknown or duplicate polygon image.");
+                inputs.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem(
+                        item.textureId(),
+                        item.width(),
+                        item.height(),
+                        item.outline() == null
+                                ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline.rect(
+                                        item.width(), item.height())
+                                : item.outline(),
+                        dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy.participating(
+                                item.textureId()),
+                        item.outline() == null
+                                ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource.BOUNDS_FALLBACK
+                                : dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource.DRAW_DATA_SHAPES,
+                        null,
+                        false));
+            }
+            var constraints = new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints(
+                    page.pageWidth(),
+                    page.pageHeight(),
+                    state.constraints().edgeMargin(),
+                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.NONE,
+                    1D,
+                    page.backend(),
+                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality.BALANCED);
+            var violations = TextureAtlasPolygonPlanValidator.validate(
+                    inputs, constraints, page, state.constraints().itemPadding());
+            if (!violations.isEmpty()) return Optional.of(violations.get(0).message());
+        }
+        return placed.equals(items.keySet())
+                ? Optional.empty()
+                : Optional.of("The plan must place every issued texture exactly once.");
     }
 
     private boolean tooClose(final TextureAtlasPlacement left, final TextureAtlasPlacement right, final int padding) {

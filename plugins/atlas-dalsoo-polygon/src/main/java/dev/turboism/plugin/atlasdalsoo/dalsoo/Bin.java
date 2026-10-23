@@ -323,30 +323,35 @@ final class Bin {
             // (e.g. one large poly vs a dense blob): fall back to a deterministic
             // corner lattice derived from placed bounding boxes and bin edges
             final CornerAxes axes = cornerAxes();
-            for (int i = 0; i < trigos.length; i++) {
-                final double[][] rotatedOutpoly = Geom.rotate(stp.outpts, trigos[i]);
-                final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
-                final double[] bb = Geom.boundingBox(rotatedOutpoly);
-                final double[][] candidate = new double[rotatedOutpoly.length][2];
-                // Iterate the same y-major Cartesian product without retaining
-                // (2 * placed + 1)^2 small coordinate arrays per rotation.
-                for (final double y : axes.ys) {
-                    checkCancelled();
-                    for (final double x : axes.xs) {
-                        final double tx = x - bb[0];
-                        final double ty = y - bb[1];
-                        if (!insideBin(bb, tx, ty)) {
-                            continue;
-                        }
-                        translateInto(tx, ty, rotatedOutpoly, candidate);
-                        if (isFeasible(candidate)) {
-                            final double[] trans = {tx, ty};
-                            final PlacementScore sc = score(translate(trans, rotatedInpoly), candidate);
-                            if (minArea > sc.area) {
-                                minArea = sc.area;
-                                minRotid = i;
-                                minTrans = trans;
-                                minCon = sc.convex;
+            // Rounded dilation vertices can classify exact contact as overlap. Only after
+            // all exact candidates fail, retry just beyond the collision tolerance.
+            for (int retry = 0; retry < 2 && minRotid < 0; retry++) {
+                final double clearance = retry == 0 ? 0 : Geom.PRECISION * 2;
+                for (int i = 0; i < trigos.length; i++) {
+                    final double[][] rotatedOutpoly = Geom.rotate(stp.outpts, trigos[i]);
+                    final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
+                    final double[] bb = Geom.boundingBox(rotatedOutpoly);
+                    final double[][] candidate = new double[rotatedOutpoly.length][2];
+                    // Iterate the same y-major Cartesian product without retaining
+                    // (2 * placed + 1)^2 small coordinate arrays per rotation.
+                    for (final double y : axes.ys) {
+                        checkCancelled();
+                        for (final double x : axes.xs) {
+                            final double tx = x - bb[0] + clearance;
+                            final double ty = y - bb[1] + clearance;
+                            if (!insideBin(bb, tx, ty)) {
+                                continue;
+                            }
+                            translateInto(tx, ty, rotatedOutpoly, candidate);
+                            if (isFeasible(candidate)) {
+                                final double[] trans = {tx, ty};
+                                final PlacementScore sc = score(translate(trans, rotatedInpoly), candidate);
+                                if (minArea > sc.area) {
+                                    minArea = sc.area;
+                                    minRotid = i;
+                                    minTrans = trans;
+                                    minCon = sc.convex;
+                                }
                             }
                         }
                     }

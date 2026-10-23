@@ -41,6 +41,14 @@ final class TextureAtlasPolygonPlanValidator {
             final List<TextureAtlasPolygonItem> items,
             final TextureAtlasPolygonConstraints constraints,
             final TextureAtlasPolygonPlan plan) {
+        return validate(items, constraints, plan, 0);
+    }
+
+    static List<Violation> validate(
+            final List<TextureAtlasPolygonItem> items,
+            final TextureAtlasPolygonConstraints constraints,
+            final TextureAtlasPolygonPlan plan,
+            final int padding) {
         Objects.requireNonNull(items, "items");
         Objects.requireNonNull(constraints, "constraints");
         Objects.requireNonNull(plan, "plan");
@@ -160,10 +168,16 @@ final class TextureAtlasPolygonPlanValidator {
                 violations.add(new Violation("margin", "item " + placement.textureId() + " violates page margin"));
                 continue;
             }
+            final Area buffered = new Area(area);
+            if (padding > 0)
+                buffered.add(new Area(new java.awt.BasicStroke(
+                                padding, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND)
+                        .createStrokedShape(area)));
+            final var bufferedBounds = buffered.getBounds2D();
             for (int i = 0; i < placedAreas.size(); i++) {
-                if (!bounds.intersects(placedBounds.get(i))) continue;
+                if (!bufferedBounds.intersects(placedBounds.get(i))) continue;
                 final Area other = placedAreas.get(i);
-                final Area test = new Area(area);
+                final Area test = new Area(buffered);
                 test.intersect(other);
                 if (!test.isEmpty()
                         && test.getBounds2D().getWidth() * test.getBounds2D().getHeight() > TOLERANCE) {
@@ -172,8 +186,8 @@ final class TextureAtlasPolygonPlanValidator {
                     break;
                 }
             }
-            placedAreas.add(area);
-            placedBounds.add(bounds);
+            placedAreas.add(buffered);
+            placedBounds.add(bufferedBounds);
             placedNames.add(placement.textureId());
         }
         final java.util.Set<String> overflowIds = new java.util.HashSet<>();

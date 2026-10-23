@@ -35,6 +35,7 @@ supported hosts (`5.2.00`–`5.3.04`).
 
 ## What it does
 
+- Supports complete-atlas one-click layout at original image scale without rotation. On supported hosts, source mesh outlines enable tight packing; unavailable outlines fall back to image rectangles. Folder layout can combine folders and fill existing pages before creating new ones.
 - Registers a `dalsoo` texture-atlas layout algorithm alongside the existing
   MaxRects-BSSF backend; the rectangle backend remains unchanged.
 - Packs real concave item outlines (material-local `drawDataShapes`, read

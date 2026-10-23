@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem;
@@ -20,6 +21,7 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSinglePageOptions;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.ArrayList;
@@ -62,7 +64,7 @@ public final class TextureAtlasNestingPlugin implements TurboismPlugin {
     final class RectanglePlanner implements TextureAtlasLayoutPlanner {
         @Override
         public boolean supportsCompleteAtlas() {
-            return false;
+            return true;
         }
 
         @Override
@@ -75,7 +77,7 @@ public final class TextureAtlasNestingPlugin implements TurboismPlugin {
     final class Planner implements TextureAtlasPolygonLayoutPlanner {
         @Override
         public boolean supportsCompleteAtlas() {
-            return false;
+            return true;
         }
 
         @Override
@@ -99,8 +101,7 @@ public final class TextureAtlasNestingPlugin implements TurboismPlugin {
         public TextureAtlasLayoutPlan plan(
                 final List<TextureAtlasLayoutItem> items, final TextureAtlasLayoutConstraints constraints) {
             if (constraints.singlePageOptions() == null) {
-                throw new UnsupportedOperationException(
-                        context.localization().text("texture-atlas.nesting.error.current-page-only"));
+                return planCompleteAtlas(items, constraints);
             }
             final var polygons = new ArrayList<TextureAtlasPolygonItem>();
             final Map<String, TextureAtlasLayoutItem> byId = new HashMap<>();
@@ -146,6 +147,111 @@ public final class TextureAtlasNestingPlugin implements TurboismPlugin {
             }
             return TextureAtlasLayoutPlan.currentPage(
                     constraints.pageWidth(), constraints.pageHeight(), placements, result.scale());
+        }
+
+        private TextureAtlasLayoutPlan planOutlinedAtlas(
+                List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints constraints) {
+            final var remaining = new ArrayList<>(items);
+            final var pages = new ArrayList<TextureAtlasPolygonPlan>();
+            do {
+                final var polygons = remaining.stream()
+                        .map(item -> new TextureAtlasPolygonItem(
+                                item.textureId(),
+                                item.width(),
+                                item.height(),
+                                item.outline() == null
+                                        ? TextureAtlasOutline.rect(item.width(), item.height())
+                                        : item.outline(),
+                                TextureAtlasItemLayoutPolicy.participating(item.textureId()),
+                                item.outline() == null
+                                        ? TextureAtlasOutlineSource.BOUNDS_FALLBACK
+                                        : TextureAtlasOutlineSource.DRAW_DATA_SHAPES,
+                                null,
+                                false))
+                        .toList();
+                final var page = compute(
+                        polygons,
+                        new TextureAtlasPolygonConstraints(
+                                constraints.pageWidth(),
+                                constraints.pageHeight(),
+                                constraints.edgeMargin(),
+                                TextureAtlasRotationMode.NONE,
+                                1D,
+                                TextureAtlasLayoutBackend.AUTO,
+                                TextureAtlasLayoutQuality.BALANCED),
+                        constraints.itemPadding());
+                if (page.placements().isEmpty())
+                    throw new TextureAtlasPackingException(
+                            remaining.get(0).textureId(), TextureAtlasPackingException.Reason.ITEM_DOES_NOT_FIT);
+                pages.add(new TextureAtlasPolygonPlan(
+                        page.pageWidth(),
+                        page.pageHeight(),
+                        1D,
+                        page.placements(),
+                        List.of(),
+                        page.backend(),
+                        page.diagnostics()));
+                final var placed =
+                        page.placements().stream().map(p -> p.textureId()).collect(java.util.stream.Collectors.toSet());
+                remaining.removeIf(item -> placed.contains(item.textureId()));
+                if (!remaining.isEmpty() && pages.size() >= constraints.maxPages())
+                    throw new TextureAtlasPackingException(
+                            remaining.get(0).textureId(), TextureAtlasPackingException.Reason.PAGE_BUDGET_EXHAUSTED);
+            } while (!remaining.isEmpty());
+            return new TextureAtlasLayoutPlan(
+                    constraints.pageWidth(),
+                    constraints.pageHeight(),
+                    pages.size(),
+                    List.of(),
+                    List.of(),
+                    1D,
+                    List.of(),
+                    pages);
+        }
+
+        /** Reuses fixed-scale rectangle packing; a complete plan must place every image. */
+        private TextureAtlasLayoutPlan planCompleteAtlas(
+                final List<TextureAtlasLayoutItem> items, final TextureAtlasLayoutConstraints constraints) {
+            if (items.stream().anyMatch(item -> item.outline() != null)) return planOutlinedAtlas(items, constraints);
+            final var remaining = new ArrayList<>(items);
+            final var placements = new ArrayList<TextureAtlasPlacement>();
+            final var pageConstraints = new TextureAtlasLayoutConstraints(
+                    constraints.pageWidth(),
+                    constraints.pageHeight(),
+                    constraints.edgeMargin(),
+                    constraints.itemPadding(),
+                    1,
+                    false,
+                    false,
+                    new TextureAtlasSinglePageOptions(1D));
+            int pages = 0;
+            do {
+                final var page = plan(remaining, pageConstraints);
+                if (!remaining.isEmpty() && page.placements().isEmpty()) {
+                    throw new TextureAtlasPackingException(
+                            remaining.get(0).textureId(), TextureAtlasPackingException.Reason.ITEM_DOES_NOT_FIT);
+                }
+                final int pageIndex = pages++;
+                for (final var placement : page.placements()) {
+                    placements.add(new TextureAtlasPlacement(
+                            placement.textureId(),
+                            pageIndex,
+                            placement.x(),
+                            placement.y(),
+                            placement.width(),
+                            placement.height(),
+                            false));
+                }
+                final var placed = page.placements().stream()
+                        .map(TextureAtlasPlacement::textureId)
+                        .collect(java.util.stream.Collectors.toSet());
+                remaining.removeIf(item -> placed.contains(item.textureId()));
+                if (!remaining.isEmpty() && pages >= constraints.maxPages()) {
+                    throw new TextureAtlasPackingException(
+                            remaining.get(0).textureId(), TextureAtlasPackingException.Reason.PAGE_BUDGET_EXHAUSTED);
+                }
+            } while (!remaining.isEmpty());
+            return new TextureAtlasLayoutPlan(constraints.pageWidth(), constraints.pageHeight(), pages, placements);
         }
 
         private TextureAtlasPolygonPlan compute(

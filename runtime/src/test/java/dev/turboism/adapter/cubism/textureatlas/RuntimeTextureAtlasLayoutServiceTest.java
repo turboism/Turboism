@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.sdk.cubism.textureatlas.*;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode;
@@ -33,6 +34,59 @@ class RuntimeTextureAtlasLayoutServiceTest {
     private static final List<TextureAtlasLayoutItem> ITEMS =
             List.of(new TextureAtlasLayoutItem("texture-a", 4, 3), new TextureAtlasLayoutItem("texture-b", 2, 2));
     private static final TextureAtlasLayoutPlan CURRENT = plan(1, 6);
+
+    @Test
+    void completePolygonPlansValidateRealContoursSpacingAndTargetFreshness() {
+        var inputs = List.of(
+                new TextureAtlasLayoutItem("a", 64, 64, TextureAtlasOutline.rect(10, 10)),
+                new TextureAtlasLayoutItem("b", 64, 64, TextureAtlasOutline.rect(10, 10)));
+        var current = new TextureAtlasAuthoringState(
+                "doc",
+                "model",
+                "atlas",
+                1,
+                new TextureAtlasLayoutConstraints(64, 64, 2, 4, 2, false, false),
+                inputs,
+                new TextureAtlasLayoutPlan(64, 64, 1, List.of()));
+        var provider = new RecordingProvider(current);
+        var coordinator = new TextureAtlasLayoutCoordinator();
+        coordinator.connect(provider);
+        var service = service(coordinator, permissions(), new ArrayList<>());
+        var snapshot = service.current().orElseThrow();
+        var valid = polygonPlan(16, 0, 1);
+        assertEquals(
+                Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                service.apply(snapshot.target(), valid).status());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                service.apply(snapshot.target(), polygonPlan(12, 0, 1)).failureCode());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                service.apply(snapshot.target(), polygonPlan(16, 90, 1)).failureCode());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                service.apply(snapshot.target(), polygonPlan(16, 0, .5)).failureCode());
+        provider.state = new TextureAtlasAuthoringState(
+                "doc", "model", "atlas", 2, current.constraints(), inputs, current.currentPlan());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
+                service.apply(snapshot.target(), valid).failureCode());
+        assertEquals(1, provider.applyCount.get());
+    }
+
+    private static TextureAtlasLayoutPlan polygonPlan(double secondX, double angle, double scale) {
+        var page = new TextureAtlasPolygonPlan(
+                64,
+                64,
+                1D,
+                List.of(
+                        new TextureAtlasPolygonPlacement("a", 2, 2, 0, 1),
+                        new TextureAtlasPolygonPlacement("b", secondX, 2, angle, scale)),
+                List.of(),
+                TextureAtlasLayoutBackend.AUTO,
+                java.util.Map.of());
+        return new TextureAtlasLayoutPlan(64, 64, 1, List.of("packed"), List.of(), 1D, List.of(), List.of(page));
+    }
 
     @Test
     void completeAtlasAcceptsExplicitSizesAndChecksTheirOwnEdgeMargins() {

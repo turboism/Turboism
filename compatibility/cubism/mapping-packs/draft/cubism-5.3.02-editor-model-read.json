@@ -20850,6 +20850,24 @@
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.texture_atlas.image_local_to_canvas",
+      "kind": "method",
+      "owner": "texture-atlas-authoring",
+      "name": "cubism.texture-atlas.image.local-to-canvas",
+      "runtime": "getModelImageLocalToCanvasTransform",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage"
+      },
+      "descriptor": "()Lcom/live2d/type/CAffine;"
     }
   ],
   "metadata": {
@@ -20861,7 +20879,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 1111
     },
-    "selectorCount": 1128,
+    "selectorCount": 1129,
     "capabilityCount": 119,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -20984,7 +21002,7 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "c4e82361623e8183876733d51cd952e2161a98c73d4be3814a19c44561afe463",
+    "verificationRecordSha256": "25b9fc8f2b59d912828b97fca2c5e6a94647308facd3f27527f98f6b7f72dc43",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 41922739,
     "profileId": "cubism-5.3.02",

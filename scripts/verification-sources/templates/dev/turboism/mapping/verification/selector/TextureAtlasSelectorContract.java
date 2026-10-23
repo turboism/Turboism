@@ -56,6 +56,7 @@ public final class TextureAtlasSelectorContract {
         "cubism.texture-atlas.image.class",
         "cubism.texture-atlas.image.guid",
         "cubism.texture-atlas.image.width",
+        "cubism.texture-atlas.image.local-to-canvas",
         "cubism.texture-atlas.image.height",
         "cubism.texture-atlas.affine.class",
         "cubism.texture-atlas.affine.create",
