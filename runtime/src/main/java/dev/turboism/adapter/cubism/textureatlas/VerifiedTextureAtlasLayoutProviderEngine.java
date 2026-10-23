@@ -20,6 +20,8 @@ import java.util.Set;
 final class VerifiedTextureAtlasLayoutProviderEngine {
 
     private static final int DEFAULT_MAX_ATLAS_COUNT = 32;
+    private static final int DEFAULT_ATLAS_EDGE = 2048;
+    private static final String UNCREATED_ATLAS_ID = "turboism:uncreated-atlas";
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -152,7 +154,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String modelId = text(guid == null ? null : resolver.invoke("cubism.editor-model.guid.value", guid));
         final Object manager = resolver.invoke("cubism.texture-atlas.model-source.texture-manager", source);
-        if (modelId == null || manager == null || atlases(manager).isEmpty()) return null;
+        if (modelId == null || manager == null) return null;
         return new Binding(
                 document, source, source, manager, sessionIdentity + ":active-model:" + directGeneration, modelId);
     }
@@ -160,21 +162,20 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     private TextureAtlasAuthoringState project(final Binding binding) {
         final List<?> atlases = atlases(binding.textureManager());
         final Map<String, Object> images = imagesById(binding.textureManager());
-        if (atlases.isEmpty()) throw new IllegalStateException("No verified texture atlas is available.");
         final List<String> atlasNames = atlases.stream()
                 .map(atlas -> text(resolver.invoke("cubism.texture-atlas.atlas.name", atlas)))
                 .map(name -> Objects.requireNonNull(name, "Verified texture atlas name is unavailable."))
                 .toList();
-        final String atlasId = String.join("\u001f", atlasNames);
+        final String atlasId = atlases.isEmpty() ? UNCREATED_ATLAS_ID : String.join("\u001f", atlasNames);
         final var pageSizes = atlases.stream()
                 .map(atlas -> new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize(
                         integer(resolver.invoke("cubism.texture-atlas.atlas.width", atlas)),
                         integer(resolver.invoke("cubism.texture-atlas.atlas.height", atlas))))
                 .toList();
         final int atlasWidth =
-                pageSizes.stream().mapToInt(size -> size.width()).max().orElseThrow();
+                pageSizes.stream().mapToInt(size -> size.width()).max().orElse(DEFAULT_ATLAS_EDGE);
         final int atlasHeight =
-                pageSizes.stream().mapToInt(size -> size.height()).max().orElseThrow();
+                pageSizes.stream().mapToInt(size -> size.height()).max().orElse(DEFAULT_ATLAS_EDGE);
         final Map<Object, Integer> atlasIndexes = new IdentityHashMap<>();
         for (int index = 0; index < atlases.size(); index++) atlasIndexes.put(atlases.get(index), index);
 
@@ -264,6 +265,10 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             List<TextureAtlasPlacement> rectangles,
             List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize> sizes,
             List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan> polygons) {
+        // The plan contract requires a page even before the model has an atlas. This
+        // empty planning canvas is read-only; apply stages the actual output pages in
+        // the same Undo transaction as their placements, without native initial packing.
+        if (sizes.isEmpty()) return new TextureAtlasLayoutPlan(width, height, 1, List.of());
         try {
             if (rectangles.size()
                     != polygons.stream()
@@ -327,6 +332,12 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                     resolver.invoke("cubism.texture-atlas.image.guid", image),
                     affine);
             append(resolver.invoke("cubism.texture-atlas.atlas.entries", atlas), entry);
+        }
+        // Native editor confirmation generates the atlas bitmap before registering
+        // its Undo. Merely replacing entries leaves a page awaiting confirmation.
+        // Generate detached pages first so a failure cannot replace the old atlas.
+        for (Object atlas : atlases) {
+            resolver.invoke("cubism.texture-atlas.atlas.update-texture", atlas, Boolean.TRUE, Boolean.TRUE, null);
         }
         return List.copyOf(atlases);
     }

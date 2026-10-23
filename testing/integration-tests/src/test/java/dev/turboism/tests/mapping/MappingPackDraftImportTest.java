@@ -53,8 +53,8 @@ class MappingPackDraftImportTest {
         final var record = mapper.readTree(bytes);
         assertEquals("DRAFT", pack.path("status").asText());
         assertEquals("VERIFIED_STATIC", record.path("status").asText());
-        assertEquals(1129, record.path("selectors").size());
-        assertEquals(1129, pack.path("entries").size());
+        assertEquals(1130, record.path("selectors").size());
+        assertEquals(1130, pack.path("entries").size());
         assertEquals(
                 record.path("selectors").size(),
                 pack.path("metadata").path("selectorCount").asInt());
