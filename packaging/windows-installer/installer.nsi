@@ -53,6 +53,7 @@ Var InstallerConfigurationOperation
 
 ; ---------- 基本属性 ----------
 Name "Turboism ${VER}"
+BrandingText "Turboism v${VER}"
   OutFile "${OUT_DIR}/TurboismInstaller-${VER}.exe"
 Icon "${ICON_FILE}"
 UninstallIcon "${ICON_FILE}"
