@@ -41,12 +41,14 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.ListSelectionModel;
+import javax.swing.RowFilter;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableRowSorter;
 
 /**
  * 剪贴蒙版检查器窗口（JDialog，MODELESS，只读）。
@@ -151,18 +153,24 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         root.add(center, BorderLayout.CENTER);
 
         final JPanel footer = new JPanel(new BorderLayout());
-        final JLabel hint = new JLabel(localization.text("footer.hint"));
-        hint.setForeground(new Color(100, 100, 100));
-        hint.setFont(hint.getFont().deriveFont(Font.PLAIN, 11f));
-        final JButton closeButton = new JButton(localization.text("button.close"));
-        closeButton.addActionListener(ignored -> dispose());
-        // 缩放工具栏（仅图结构模式显示）：滑动条 / 百分比，与 GraphPanel 双向同步。
+        // 过滤栏在所有模式下保留；缩放控件仅在图结构模式显示。
         final JPanel zoomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        // 过滤框（滑条左边）：按显示名称/ID 过滤，保留相邻节点；随 zoomBar 一起显隐。
+        final JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         final JTextField filterField = new JTextField(14);
         filterField.setPreferredSize(new Dimension(140, filterField.getPreferredSize().height));
         filterField.setToolTipText(localization.text("filter.label"));
-        final Runnable applyFilter = () -> graphPanel.setFilter(filterField.getText());
+        final TableRowSorter<ClipMaskTableModels.MaskPrimaryTableModel> maskSorter = new TableRowSorter<>(maskModel);
+        final TableRowSorter<ClipMaskTableModels.UserPrimaryTableModel> userSorter = new TableRowSorter<>(userModel);
+        maskTable.setRowSorter(maskSorter);
+        userTable.setRowSorter(userSorter);
+        final Runnable applyFilter = () -> {
+            final String query = filterField.getText().trim();
+            graphPanel.setFilter(query);
+            final RowFilter<javax.swing.table.TableModel, Integer> rowFilter =
+                    query.isEmpty() ? null : RowFilter.regexFilter("(?iu)" + java.util.regex.Pattern.quote(query));
+            maskSorter.setRowFilter(rowFilter);
+            userSorter.setRowFilter(rowFilter);
+        };
         filterField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(final DocumentEvent event) {
@@ -179,7 +187,8 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
                 applyFilter.run();
             }
         });
-        zoomBar.add(filterField);
+        filterBar.add(filterField);
+        filterBar.add(zoomBar);
         final JSlider zoomSlider = new JSlider(20, 400, 100);
         zoomSlider.setPaintTicks(true);
         zoomSlider.setMajorTickSpacing(20);
@@ -190,9 +199,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         zoomPercentLabel.setFont(zoomPercentLabel.getFont().deriveFont(Font.PLAIN, 11f));
         zoomBar.add(zoomSlider);
         zoomBar.add(zoomPercentLabel);
-        footer.add(hint, BorderLayout.WEST);
-        footer.add(zoomBar, BorderLayout.CENTER);
-        footer.add(closeButton, BorderLayout.EAST);
+        footer.add(filterBar, BorderLayout.CENTER);
         root.add(footer, BorderLayout.SOUTH);
 
         // 拖动时实时生效（getValueIsAdjusting 阶段同样触发 ChangeListener）。
@@ -372,11 +379,11 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
                         baseRenderer.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 if (!isSelected
                         && model instanceof ClipMaskTableModels.MaskPrimaryTableModel mask
-                        && mask.isRowHighlighted(row)) {
+                        && mask.isRowHighlighted(table.convertRowIndexToModel(row))) {
                     component.setBackground(new Color(255, 244, 200));
                 } else if (!isSelected
                         && model instanceof ClipMaskTableModels.UserPrimaryTableModel user
-                        && user.isRowHighlighted(row)) {
+                        && user.isRowHighlighted(table.convertRowIndexToModel(row))) {
                     component.setBackground(new Color(255, 244, 200));
                 }
                 return component;
