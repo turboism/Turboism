@@ -89,12 +89,6 @@ final class FolderAtlasDialog {
         c.gridy = 4;
         c.gridwidth = 2;
         form.add(automatic, c);
-        c.gridy = 5;
-        form.add(new JLabel(texts.text("folders.groupingHint")), c);
-        c.gridy = 6;
-        form.add(new JLabel(texts.text("folders.nativeHint")), c);
-        c.gridy = 7;
-        form.add(new JLabel(texts.text("folders.replaceHint")), c);
         var owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
         int result = JOptionPane.showOptionDialog(
                 owner,
