@@ -11,6 +11,25 @@ import org.junit.jupiter.api.Test;
 
 class TextureAtlasCompletePolygonProviderTest {
     @Test
+    void meshOverhangCannotMakeAnImageLargerThanItsSourceBitmap() {
+        var fixture = new Fixture(false);
+        var image = fixture.source.textureManager.images.get(0);
+        fixture.source.textureManager.handler.drawableUses.put(
+                image.guid, Set.of(new SourceMesh(new float[] {-5000, -5000, 5000, -5000, 5000, 5000, -5000, 5000})));
+        var provider = provider(resolver("5.3.02", true), "session", fixture, PROFILE_5_3_02);
+        var item = provider.current().orElseThrow().items().get(0);
+        var bounds = new java.awt.geom.Area();
+        for (var ring : item.outline().rings()) {
+            var path = new java.awt.geom.Path2D.Double();
+            path.moveTo(ring[0][0], ring[0][1]);
+            for (int i = 1; i < ring.length; i++) path.lineTo(ring[i][0], ring[i][1]);
+            path.closePath();
+            bounds.add(new java.awt.geom.Area(path));
+        }
+        assertEquals(new java.awt.geom.Rectangle2D.Double(0, 0, item.width(), item.height()), bounds.getBounds2D());
+    }
+
+    @Test
     void sourceMeshesAreUnionedInImageLocalCoordinatesAndWrittenAsOneTransaction() {
         var fixture = new Fixture(false);
         var first = fixture.source.textureManager.images.get(0);

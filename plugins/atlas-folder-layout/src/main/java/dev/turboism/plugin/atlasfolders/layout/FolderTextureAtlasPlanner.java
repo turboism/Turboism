@@ -5,6 +5,45 @@ import java.util.*;
 
 /** Splits overflowing folders recursively, retaining tree order and source pixel sizes. */
 public final class FolderTextureAtlasPlanner {
+    /** A single item failed even on the largest page; distinguish size from packing failure. */
+    public static final class ItemFitFailure extends IllegalArgumentException {
+        private final TextureAtlasLayoutItem item;
+        private final int maxEdge;
+        private final int margin;
+        private final int padding;
+
+        private ItemFitFailure(TextureAtlasLayoutItem item, int maxEdge, int margin, int padding) {
+            super("Cannot place image " + item.textureId() + ": source=" + item.width() + "x" + item.height()
+                    + ", outline=" + extent(item, 0) + "x" + extent(item, 1)
+                    + ", page=" + maxEdge + ", margin=" + margin + ", padding=" + padding);
+            this.item = item;
+            this.maxEdge = maxEdge;
+            this.margin = margin;
+            this.padding = padding;
+        }
+
+        /** Returns the localized message key for geometric overflow or algorithm failure. */
+        public String messageKey() {
+            return extent(item, 0) + 2L * margin > maxEdge || extent(item, 1) + 2L * margin > maxEdge
+                    ? "folders.itemTooLarge"
+                    : "folders.itemPackingFailed";
+        }
+
+        /** Returns source and effective dimensions, page limits and the outline-source message key. */
+        public Object[] messageArguments() {
+            return new Object[] {
+                item.textureId(),
+                item.width(),
+                item.height(),
+                String.format(Locale.ROOT, "%.2f × %.2f", extent(item, 0), extent(item, 1)),
+                maxEdge,
+                margin,
+                padding,
+                item.outline() == null ? "folders.boundsFallback" : "folders.meshOutline"
+            };
+        }
+    }
+
     /** A detached folder in palette order; images belong directly to this node. */
     public record Folder(String name, List<TextureAtlasLayoutItem> images, List<Folder> children) {
         public Folder {
@@ -108,9 +147,7 @@ public final class FolderTextureAtlasPlanner {
             enrich(pages, name, items, single, edge, budget, margin, padding);
             return;
         }
-        if (items.size() == 1)
-            throw new IllegalArgumentException(
-                    "Image exceeds maximum page size: " + items.get(0).textureId());
+        if (items.size() == 1) throw new ItemFitFailure(items.get(0), edge, margin, padding);
         // Fill a page greedily before creating another; binary splitting strands small groups.
         List<TextureAtlasLayoutItem> ordered = new ArrayList<>(items);
         ordered.sort(Comparator.comparingLong((TextureAtlasLayoutItem i) -> (long) i.width() * i.height())
@@ -118,7 +155,7 @@ public final class FolderTextureAtlasPlanner {
                 .thenComparing(TextureAtlasLayoutItem::textureId));
         for (var item : ordered) {
             var fit = smallest(List.of(item), edge, margin, padding);
-            if (fit == null) throw new IllegalArgumentException("Image exceeds maximum page size: " + item.textureId());
+            if (fit == null) throw new ItemFitFailure(item, edge, margin, padding);
             enrich(pages, name, List.of(item), fit, edge, budget, margin, padding);
         }
     }

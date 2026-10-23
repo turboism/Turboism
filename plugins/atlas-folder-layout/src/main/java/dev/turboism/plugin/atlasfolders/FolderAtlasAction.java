@@ -78,7 +78,13 @@ final class FolderAtlasAction {
             notifyStatus("INFO", context.localization().format("folders.success", plan.pageCount()));
         } catch (RuntimeException failure) {
             context.logger().error("Folder texture atlas layout failed.", failure);
-            notifyStatus("ERROR", context.localization().format("folders.failed", failure.getMessage()));
+            String message = failure.getMessage();
+            if (failure instanceof FolderTextureAtlasPlanner.ItemFitFailure fit) {
+                Object[] arguments = fit.messageArguments();
+                arguments[7] = text((String) arguments[7]);
+                message = context.localization().format(fit.messageKey(), arguments);
+            }
+            notifyStatus("ERROR", context.localization().format("folders.failed", message));
         }
     }
 
