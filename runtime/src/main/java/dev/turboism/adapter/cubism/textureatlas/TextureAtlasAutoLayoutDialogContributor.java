@@ -342,9 +342,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
     }
 
     private static boolean isLegacySpacer(final Component component, final GridBagConstraints constraints) {
-        return constraints.gridy == SPACER_ROW
-                && component instanceof JPanel panel
-                && panel.getComponentCount() == 0;
+        return constraints.gridy == SPACER_ROW && component instanceof JPanel panel && panel.getComponentCount() == 0;
     }
 
     private JLabel addOptionRow(

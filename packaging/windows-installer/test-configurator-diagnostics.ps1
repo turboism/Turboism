@@ -39,8 +39,9 @@ try {
     $turboismHome = $fixture
     $InstallerDiscoverySnapshot = ''; $InstallerDiscoverySnapshotSha256 = ''
     function Start-Process {
-        param($FilePath, $ArgumentList, $Verb, [switch]$Wait, [switch]$PassThru)
+        param($FilePath, $ArgumentList, $Verb, $WindowStyle, [switch]$Wait, [switch]$PassThru)
         if ($Verb -ne 'RunAs' -or -not $Wait -or -not $PassThru) { throw 'Incorrect elevation launch' }
+        if ($WindowStyle -ne 'Hidden') { throw 'Headless elevation must not open an interactive console window' }
         if ($script:FakeLaunchFailure) { throw [ComponentModel.Win32Exception]::new(1223) }
         $process = [pscustomobject]@{ ExitCode = $script:FakeExitCode; Id = 1234 }
         $process | Add-Member -MemberType ScriptMethod -Name Dispose -Value { $script:ProcessDisposed = $true }
