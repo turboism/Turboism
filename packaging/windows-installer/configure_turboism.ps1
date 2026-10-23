@@ -914,7 +914,8 @@ function Invoke-ElevatedConfiguratorMode {
     }
     Write-InstallerLog "ELEVATION_REQUEST" ("mode={0} pid={1} snapshot={2}" -f $Mode, $PID, $InstallerDiscoverySnapshot)
     try {
-        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
+        # This is a headless worker; keep UAC visible without opening a console.
+        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -Wait -PassThru
         try {
             $exitCode = $process.ExitCode
             if ($null -eq $exitCode) { throw "Elevated configurator returned no exit code" }
