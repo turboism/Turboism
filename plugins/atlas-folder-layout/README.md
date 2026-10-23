@@ -31,7 +31,9 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-Install the plugin JAR through Turboism plugin management and enable Folder Atlas Layout. Enable a complete-atlas algorithm plugin, such as MaxRects-BSSF or Dalsoo.
+Install the plugin JAR through Turboism plugin management and enable Folder Atlas Layout. Enable a complete-atlas algorithm plugin, such as MaxRects-BSSF, Bitmask Nesting or Dalsoo.
+
+Bitmask Nesting and Dalsoo use material-local mesh contours when available, with an explicit full-image rectangle fallback for unsupported sources. Packing preserves source size without rotation. Folder order guides grouping; spare space is reused across folders and overflowing leaves are filled greedily before new pages are created.
 
 ## How to use
 

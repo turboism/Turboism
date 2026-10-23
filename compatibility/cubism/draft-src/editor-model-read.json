@@ -8127,6 +8127,12 @@
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
         "template": 93
       }
+    ],
+    "cubism.texture-atlas.image.local-to-canvas": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 90
+      }
     ]
   },
   "envelopes": [

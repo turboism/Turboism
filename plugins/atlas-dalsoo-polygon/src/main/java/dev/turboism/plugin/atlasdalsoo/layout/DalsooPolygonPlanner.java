@@ -65,6 +65,7 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
     private final boolean useAbey;
     private final double autoScaleTolerance;
     private final int autoScaleMaxTry;
+    private final int itemGap;
 
     /** Supplies the registered rectangle planner for AUTO/near-rect dispatch; may be null. */
     public interface RectPlanSupplier {
@@ -98,6 +99,20 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             final boolean useAbey,
             final double autoScaleTolerance,
             final int autoScaleMaxTry) {
+        this(cancelled, progress, rectPlanner, useAbey, autoScaleTolerance, autoScaleMaxTry, -1);
+    }
+
+    /** Uses an independent image gap for complete-atlas authoring; -1 retains polygon margin semantics. */
+    public DalsooPolygonPlanner(
+            BooleanSupplier cancelled,
+            IntConsumer progress,
+            RectPlanSupplier rectPlanner,
+            boolean useAbey,
+            double autoScaleTolerance,
+            int autoScaleMaxTry,
+            int itemGap) {
+        if (itemGap < -1) throw new IllegalArgumentException("Invalid image gap.");
+        this.itemGap = itemGap;
         if (!(autoScaleTolerance > 0) || !Double.isFinite(autoScaleTolerance)) {
             throw new IllegalArgumentException("autoScaleTolerance must be positive");
         }
@@ -259,7 +274,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             // conservative buffer: half margin each side => >= margin between
             // raw outlines; the bin is inset by the same half margin so raw
             // outlines keep a full margin from the page edge
-            final double[][] buffered = OutlineGeometry.dilate(merged, constraints.margin() * 0.5);
+            final double[][] buffered =
+                    OutlineGeometry.dilate(merged, (itemGap < 0 ? constraints.margin() : itemGap) * 0.5);
             final double[] matrix = item.currentMatrix();
             final double[] issuedCosSin =
                     matrix == null ? new double[] {1, 0} : normalizeCosSin(item.currentAngleDeg());
@@ -493,7 +509,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
      * configured margin from the page edge (the slack absorbs flattening error
      * in the buffered ring).
      */
-    private static double binInset(final int margin) {
+    private double binInset(final int margin) {
+        if (itemGap >= 0) return Math.max(0D, margin - itemGap * .5) + (margin > 0 || itemGap > 0 ? EDGE_SLACK : 0);
         return margin <= 0 ? 0 : margin + EDGE_SLACK;
     }
 

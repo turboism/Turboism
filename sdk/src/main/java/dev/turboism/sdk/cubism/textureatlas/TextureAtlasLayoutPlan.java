@@ -12,6 +12,8 @@ import java.util.Set;
  * The target's issued constraints, not this factory or constructor, determine which contract
  * applies. A plan cannot turn a complete-atlas target into a current-page target.
  *
+ * @param polygonPages optional complete-atlas polygon pages, mutually exclusive with rectangle placements;
+ *     runtime validation checks source scale, angle, coverage, margins and outline spacing
  * @param pageSizes optional independent complete-atlas sizes; empty retains the issued uniform size
  * @param pageWidth bounding page width in pixels
  * @param pageHeight final page height in pixels
@@ -29,7 +31,20 @@ public record TextureAtlasLayoutPlan(
         List<String> pageNames,
         List<TextureAtlasPlacement> placements,
         double scale,
-        List<TextureAtlasPageSize> pageSizes) {
+        List<TextureAtlasPageSize> pageSizes,
+        List<TextureAtlasPolygonPlan> polygonPages) {
+
+    /** Retains the rectangle-plan constructor with independent page sizes. */
+    public TextureAtlasLayoutPlan(
+            int pageWidth,
+            int pageHeight,
+            int pageCount,
+            List<String> pageNames,
+            List<TextureAtlasPlacement> placements,
+            double scale,
+            List<TextureAtlasPageSize> pageSizes) {
+        this(pageWidth, pageHeight, pageCount, pageNames, placements, scale, pageSizes, List.of());
+    }
 
     /** Retains the uniform-page constructor. */
     public TextureAtlasLayoutPlan(
@@ -109,6 +124,29 @@ public record TextureAtlasLayoutPlan(
         }
         pageNames = List.copyOf(normalizedNames);
         placements = List.copyOf(Objects.requireNonNull(placements, "placements"));
+        polygonPages = List.copyOf(Objects.requireNonNull(polygonPages, "polygonPages"));
+        if (!polygonPages.isEmpty()) {
+            if (polygonPages.size() != pageCount || !placements.isEmpty() || scale != 1D) {
+                throw new IllegalArgumentException(
+                        "Polygon pages require one plan per page, unit scale and no rectangles.");
+            }
+            final Set<String> polygonIds = new HashSet<>();
+            for (int index = 0; index < polygonPages.size(); index++) {
+                var page = polygonPages.get(index);
+                var size = pageSizes.isEmpty() ? new TextureAtlasPageSize(pageWidth, pageHeight) : pageSizes.get(index);
+                if (page.pageWidth() != size.width()
+                        || page.pageHeight() != size.height()
+                        || page.scale() != 1D
+                        || !page.overflowTextureIds().isEmpty()) {
+                    throw new IllegalArgumentException("Polygon pages must be complete and match the page sizes.");
+                }
+                for (var placement : page.placements()) {
+                    if (!polygonIds.add(placement.textureId())) {
+                        throw new IllegalArgumentException("Polygon images must occur exactly once.");
+                    }
+                }
+            }
+        }
         final Set<String> textureIds = new HashSet<>();
         for (int index = 0; index < placements.size(); index++) {
             final TextureAtlasPlacement placement = Objects.requireNonNull(placements.get(index), "placement");

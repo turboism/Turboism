@@ -138,6 +138,16 @@ final class VerifiedTextureAtlasFixture {
             selectors.add(method("cubism.texture-atlas.image.guid", Image.class, "guid", desc(Id.class)));
             selectors.add(method("cubism.texture-atlas.image.width", Image.class, "width", "()I"));
             selectors.add(method("cubism.texture-atlas.image.height", Image.class, "height", "()I"));
+            selectors.add(method(
+                    "cubism.texture-atlas.image.local-to-canvas",
+                    Image.class,
+                    "localToCanvas",
+                    "()Ljava/awt/geom/AffineTransform;"));
+            selectors.add(StaticSelector.classSelector(
+                    "cubism.editor-model.art-mesh-source.class", internal(SourceMesh.class)));
+            selectors.add(
+                    method("cubism.editor-model.art-mesh-source.positions", SourceMesh.class, "positions", "()[F"));
+            selectors.add(method("cubism.editor-model.art-mesh-source.indices", SourceMesh.class, "indices", "()[I"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.affine.class", internal(Affine.class)));
             selectors.add(StaticSelector.constructor(
                     "cubism.texture-atlas.affine.create", internal(Affine.class), "()V", StaticSelector.ACCESS_PUBLIC));
@@ -583,6 +593,28 @@ final class VerifiedTextureAtlasFixture {
 
         public int height() {
             return height;
+        }
+
+        final AffineTransform localToCanvas = new AffineTransform();
+
+        public AffineTransform localToCanvas() {
+            return new AffineTransform(localToCanvas);
+        }
+    }
+
+    public static final class SourceMesh {
+        final float[] xy;
+
+        SourceMesh(float[] xy) {
+            this.xy = xy.clone();
+        }
+
+        public float[] positions() {
+            return xy.clone();
+        }
+
+        public int[] indices() {
+            return new int[] {0, 1, 2, 0, 2, 3};
         }
     }
 
