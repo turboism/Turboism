@@ -115,6 +115,10 @@ final class PluginMarketWindow {
         win.setLayout(new BorderLayout(0, 0));
 
         tableModel = new MarketTableModel();
+        final JLabel pluginCount = new JLabel(" ");
+        pluginCount.setBorder(BorderFactory.createEmptyBorder(4, 8, 6, 8));
+        tableModel.addTableModelListener(
+                ignored -> pluginCount.setText(i18n.format("market.count", tableModel.getRowCount())));
         table = new JTable(tableModel);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setRowHeight(28);
@@ -208,7 +212,11 @@ final class PluginMarketWindow {
         readmePane.setEditable(false);
         readmePane.setCaretPosition(0);
 
-        final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScroll, detailContainer);
+        final JPanel catalogPanel = new JPanel(new BorderLayout());
+        catalogPanel.add(pluginCount, BorderLayout.NORTH);
+        catalogPanel.add(tableScroll, BorderLayout.CENTER);
+
+        final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, catalogPanel, detailContainer);
         splitPane.setDividerLocation(580);
 
         // Bottom Status Bar
