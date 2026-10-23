@@ -1,5 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
-[CmdletBinding()]
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [Alias("Home")]
     [string]$HomePath = "",
