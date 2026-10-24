@@ -12,7 +12,7 @@
   - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-30 项目 / 3 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
+31 项目 / 3 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
 id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
 （如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
 verify-installer.py 与 assemble-release.sh 从各 JAR 的
@@ -29,7 +29,7 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 30 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 31 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 # 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），增加 frame-animation-import。
 EXPECTED_PATHS = [
     ":plugins:acp",
@@ -51,6 +51,7 @@ EXPECTED_PATHS = [
     ":plugins:palette-label-style",
     ":plugins:parameter-batch-transfer",
     ":plugins:parameter-lock",
+    ":plugins:parameter-sync",
     ":plugins:perf-stats",
     ":plugins:physics-editor",
     ":plugins:protected-export",
