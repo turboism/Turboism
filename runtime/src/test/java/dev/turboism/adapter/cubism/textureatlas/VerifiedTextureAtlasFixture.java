@@ -126,6 +126,11 @@ final class VerifiedTextureAtlasFixture {
             selectors.add(method("cubism.texture-atlas.atlas.width", Atlas.class, "width", "()I"));
             selectors.add(method("cubism.texture-atlas.atlas.height", Atlas.class, "height", "()I"));
             selectors.add(method("cubism.texture-atlas.atlas.entries", Atlas.class, "entries", "()Ljava/util/List;"));
+            selectors.add(method(
+                    "cubism.texture-atlas.atlas.update-texture",
+                    Atlas.class,
+                    "updateTexture",
+                    "(ZZLjava/lang/Object;)V"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.entry.class", internal(Entry.class)));
             selectors.add(StaticSelector.constructor(
                     "cubism.texture-atlas.entry.create",
@@ -479,6 +484,7 @@ final class VerifiedTextureAtlasFixture {
         boolean failRefresh;
         boolean failDirty;
         boolean failEnd;
+        boolean failTextureGeneration;
 
         DataModel(final Document document, final ModelSource source) {
             this.document = document;
@@ -511,6 +517,14 @@ final class VerifiedTextureAtlasFixture {
         final int width;
         final int height;
         final List<Entry> entries = new ArrayList<>();
+        boolean textureGenerated;
+
+        public void updateTexture(boolean generate, boolean highQuality, Object progress) {
+            if (!generate || !highQuality || progress != null)
+                throw new IllegalArgumentException("generation required");
+            if (Host.document.data.failTextureGeneration) throw new IllegalStateException("texture generation failed");
+            textureGenerated = true;
+        }
 
         public Atlas(final ModelSource source, final String name, final int width, final int height) {
             if (Host.document != null && name.equals(Host.document.data.failAtlasName))

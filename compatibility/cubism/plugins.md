@@ -30,6 +30,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `parameter` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.00–5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.3.00–5.3.01 |
 | `parameter-batch-transfer` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.0.01, 5.1.00, 5.2.00–5.3.04<br>confirmed boundary 5.0.02–5.0.06, 5.1.01–5.1.03 |
 | `parameter-lock` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `parameter-sync` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
 | `perf-stats` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.0.06, 5.1.01–5.1.03, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `physics-editor` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
 | `project-inspector` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
