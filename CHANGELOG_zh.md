@@ -8,202 +8,25 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
+## [0.67.4] - 2026-10-24
+
 ### 新增
 
-- `acp` 精确实机验证能力加入本机验证队列：test-only 探针在真实 Cubism 会话内经公共 action
-  catalog 打开 ACP Agent 窗口；脚本化 fake agent（默认包 `acp` 入口）断言无凭据的 stdio MCP
-  挂载，并经 token 门控的 `TurboismMcpBridge` 完成一次 rename 写与守护式 undo；SDK 交叉回读
-  复核文档恢复；5.2.03、5.3.02、5.3.03 上宿主正常关闭。
-
-- 将原本仅开发用的 agent 聊天插件重构为通用 `Turboism ACP` 插件
-  (`dev.turboism.plugin.acp`)：启动用户安装的 ACP 兼容 agent（Claude Agent ACP、Codex
-  ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI 或自定义命令），支持 PATH 上的
-  可执行文件检测、ACP 认证与持久会话，并在 agent 声明 HTTP MCP 支持时照旧接入已认证的
-  Turboism MCP 端点。
-
-- SDK 与运行时新增动画工作区支持：插件可以枚举动画文档、工程时间线、轨道、属性与关键帧，
-  激活和重命名场景、定位播放进度、应用批量关键帧编辑与曲线类型，以及录制/烘焙求值结果。
-  纯 SDK 的 `Motion3Validator` 可报告 motion3 数据中的结构问题。该对象模型已通过
-  `animation-timeline-host-probe` 在 Cubism 5.2.03、5.3.02 和 5.3.03 上完成实机验证。
-- `PluginContext.availableServices()` 与 `PluginService` 枚举报告运行时实际安装了哪些可选
-  上下文服务，插件不再需要探测 getter 或猜测 `unavailable()` 哨兵；默认实现以空集合
-  失败关闭（fail closed）。
-- `TurboismWindowFactory.installWindowIcon` 安装进程级窗口图标覆盖，使每个插件拥有的窗口
-  都使用用户为主工具栏按钮选择的产品图标（文本模式或安装器模式），而不是内置默认图标。
-- 性能设置页新增两个启动/编辑控制项：Cubism JVM ZGC 开关（`launcher.zgc`，其默认值见
-  “变更”一节）和“禁用自动备份（会削弱崩溃恢复）”开关——后者在编辑期间暂停宿主的周期性
-  自动备份计时器，同时保留已配置的间隔与上限。首次覆盖前，观察到的宿主设置会捕获到
-  插件状态基线，并在开关关闭时恢复，因此开关开启期间发生崩溃也不会使备份停留在禁用
-  状态。手动 `backupNow`/`backupAfterSave` 不受影响。
-- 纹理图集（texture-atlas）的 tile 包围盒处理与输出缓存复用，两者均默认开启。临时绘制与
-  合成被限制在变换后的 tile 包围盒内，而非整张图集页面；`CTextureAtlas.updateTexture` 上的
-  内容签名守卫在相同签名再次出现时提供已保留记录输出的副本。在经评审的真实宿主 fixture 上，
-  编辑器打开耗时从约 100 秒降至 15–18 秒，导出 EDT 工作从约 127 秒降至约 15 秒，且页面
-  摘要逐位一致；经评审的目标锁定精确受支持的归档，其余一律失败关闭。
-- 受守护的、选择性开启的性能实验：原生纹理准备、PNG 归档复用和 Cubism 图像诊断。全部默认
-  关闭；实机差分探针对其进行测量，但不宣称 GPU/FPS 或加载时间上的提速。
-- SDK 现在直接面向插件开发者发布：每个框架版本都携带 `turboism-sdk-<version>.jar` 及其
-  SHA-256 旁挂文件作为仅限 GitHub 的开发者资产，`./gradlew publishToMavenLocal` 产生干净的
-  `dev.turboism` 坐标，`templates/plugin-template` 是可针对已发布 SDK 构建的独立工程。
-- Warp Deformer Alt Symmetry 插件将包围盒 Alt 语义扩展到 Warp Deformer 控制点：Alt 拖动
-  沿垂直网格轴镜像，Alt+Shift 沿水平轴镜像。画布顶部控制条上的贡献开关用于武装镜像轴，
-  原生画布提示显示武装状态；镜像后的位置通过模型写入路径提交，使对称移动并入原生
-  Undo/Redo。该插件请求 `turboism.cubism.model.read`、`turboism.cubism.model.write`、
-  `turboism.ui.toolbar.contribute` 和 `turboism.ui.canvas.hint` 权限，其原生镜像仅在
-  已验证的宿主钩子安装后绑定。已验证的 drag-tick 钩子仅接纳经评审的 Cubism 5.2.03、
-  5.3.02 和 5.3.03 精确产物——在原生 drag tick 内提供实时镜像预览与单个撤销条目——
-  未经评审的宿主则保留发布时的 AWT 回退路径，结果相同。镜像轴武装期间，选中权重写入
-  （笔刷选择工具及所有加权选中流程）会在同一选中/撤销信封内镜像到轴向对称点，使权重
-  绘制实时保持对称。
-- `Action.of` 与 `MenuContribution.of` 将单点贡献注册构建为普通的
-  `SimpleAction`/`SimpleMenuContribution` 值，插件不再需要为每个动作或菜单项编写匿名类。
-- 由运行时拥有的按键绑定能力与快捷键窗口：Turboism 菜单新增 “Keybindings” 项，打开的
-  表格列出所有可绑定行——插件动作（含核心 shell 自身）与从宿主菜单加速器实时枚举的原生
-  命令：目录始终与当前运行版本实际声明的快捷键一致，未暴露在菜单中的快捷键仍可通过
-  “添加按键转发”行补录。全局 AWT 按键
-  分发器拦截宿主按键事件：命中插件绑定的按键经动作路由器调用插件动作，而原生重绑
-  会翻译回宿主原本的快捷键并抑制被替换的按键。每行携带三态绑定（未设置/已绑定/已
-  禁用），持久化于 `state/runtime/keybindings.properties`；表格标记冲突行；文本框聚焦
-  时无修饰键的单键绑定不触发；录制对话框在捕获期间暂停全局拦截。
-  `ActionRegistry.Action.defaultShortcut()` 与新的
-  `Action.of(id, label, shortcut, handler)` 重载允许插件声明可被用户改绑的默认快捷键。核心 shell 为其窗口动作声明了默认键（设置 Ctrl+Alt+S、插件 Ctrl+Alt+P、日志 Ctrl+Alt+L、快捷键窗口 Ctrl+Shift+K），第一方的网格检查、历史面板与演示动作也带默认键作为 SDK 示例。双击某行的快捷键单元格可直接打开按键捕获对话框。
-
-- 每个第一方插件 JAR 现在都携带派生的 `META-INF/turboism/cubism-versions.json`，声明该插件
-  支持的 Cubism Editor 版本；该文件由兼容矩阵生成器依据审查数据与
-  `compatibility/cubism/compatibility-matrix.json` 一并生成，声明不会与代码实际用法漂移。
-  第三方插件可自行打包同名文件；未打包且声明 `requiresCubism` 的插件照旧加载，并在加载时
-  记录一条“未声明”日志。`devCheck` 新增两条版本适配门禁：
-  `checkSdkCubismEditorAnnotations` 要求 `dev.turboism.sdk.cubism` 下新增公共 API 必须带
-  `@CubismEditor`（存量面冻结于 `sdk/api-contracts/cubism-annotation-baseline.json`）；
-  `checkVersionSetRegistry` 要求生产源码中每个字面量 Cubism 版本集合都在
-  `scripts/version-set-registry.json` 中登记依据与理由。
-
-### 移除
-
-- 彻底移除托管 fx 运行时：不再捆绑或下载任何 agent 二进制，移除运行时清单/哈希钉死、
-  Turboism 托管的 provider 档案与凭据存储、以及 Gateway/OpenAI 适配器——agent 的认证、
-  provider 与模型全部由 agent 自身管理。仅开发用的 `turboism-with-fx` 插件 ID 退役，
-  发布工具链中的 fx 打包与验证夹具引用也已清除。
+- 文件夹一键纹理排版支持 Bitmask 和 Dalsoo 多边形算法，跨文件夹复用页面空余区域，尽可能提高纹理利用率。
+- 插件管理显示已安装及市场插件数量；共用进度窗口居中显示于编辑器。
+- SDK 新增源图像轮廓、多边形输出页面及可复用进度窗口。保留现有纹理排版构造方法签名；记录类型的反射、相等性和字符串表示包含新增组件，原规范构造方法不再提供参数名元数据。
 
 ### 变更
 
-- 插件 Turboism API 现在跟随框架基础版本，忽略 beta/nightly 等后缀。插件 SDK API 范围为 `[0.67.0,1.0.0)`；旧 `[0.1.0,0.2.0)` 插件会被拒绝并显示实际运行时 API 版本。运行时元数据记录实现与 API 版本，已审计的 SDK JAR 保持不变。
-
-- MCP 插件：回环服务器现在要求变更类 `tools/call` 调用与会话关闭携带 `Authorization: Bearer`
-  令牌（以仅所有者权限持久化于 `<插件状态目录>/mcp.token`），并在同目录发布
-  `TurboismMcpBridge.java` stdio↔HTTP 桥接器，使 MCP 客户端仅需一行
-  `{"command":"java","args":[...]}` 即可连接、无需手工处理令牌。只读方法仍保持免认证，
-  仅受回环/Origin/会话检查保护。
-
-- 常规 CI 现在对每次 pull request 和推送到 `main` 都同时运行 `devCheck` 与完整的
-  `checkCompletedCommit` 套件，显示相关测试使用 Xvfb。覆盖率守卫拒绝跳过、过滤或
-  软性失败的门禁；渠道检查现在跟随 `main` 并纳入根构建输入。
-- Javadoc 存在性检查改用 JDK 17 编译器树 API 替代基于行的匹配，覆盖接口的隐式 public
-  方法与公开可达的嵌套类型。解析或工具失败会使检查失败，而不是静默回退到不完整的
-  结果。
-- SDK、运行时与官方插件的公共 API 文档现在描述了此前未文档化的声明，并澄清了生命周期、
-  所有权、失败与结果语义。
-- 内置核心插件并入运行时成为框架 shell（`dev.turboism.shell`）：不再以插件 JAR 形式发布，
-  保留的 `turboism.core` 身份仍用于归属配置、任务与日志，插件管理仍将其列为不可移除的
-  核心行，插件加载报告不再列出它。共享顶部菜单根仍以 “Turboism” 作为路由键，但显示
-  框架本地化的名称。
-- 托管启动现在默认让 Cubism 运行在 ZGC（`-XX:+UseZGC`）上：实机 A/B 显示它消除了 G1 的
-  秒级停顿（加载约 1.4 秒 → 亚毫秒，写入约 0.6 秒 → 亚毫秒），并将稳态 RSS 降低约
-  三分之一。Performance → Cubism JVM 开关在下一次启动时生效，且只存储显式 opt-out。
-- CSV 参数批量导入现在在单个编写事务（authoring transaction）内运行，而不是每次写入都
-  提交。在重模型实机 A/B 上，Update Parameter Structure 重建次数从 37 降到 4（-89%），
-  参数写入中位耗时从 4.71 ms 降到 1.19 ms（-75%），35 次写入突发期间的 EDT 分配
-  降低约 99.8%。
-- 运行时读取通过 SDK 形态的观察接缝，对每次带版本读取或作用域捕获只观察宿主一次，不再
-  对每个访问器重复投影；合成基准测得读路径时间减少约 29%，每次调用分配减少约 41–43%。
-- Cubism 启动抑制（跳过更新检查、启动画面与信息对话框）现在默认开启，包括全新安装以及
-  Turboism home 尚无 `config.json` 的运行。将任一 `hooks.startup.skip*` 标志设为 `false`
-  或启用安全模式可退出；schema 非法的配置仍然失败关闭。Premain 诊断现在缓冲到运行时
-  日志槽安装为止，使 `STARTUP_SUPPRESSION_*` 准入代码能够进入会话日志。
-- 发布门禁现在将本地化要求提升到完整的 Cubism 语言矩阵。市场插件条目必须在每个声明的
-  locale（en、ja、ko、zh-Hans、zh-Hant）中携带 `plugin.name`/`plugin.description`，且
-  除非经评审的 zh、ja、ko 发布说明译文存在，否则 release candidate 将被拒绝。框架消息
-  目录加入官方插件完整性门禁，该门禁现在也作为 `checkIntegration` 的一部分运行。
-- 每个可选的 `PluginContext` 服务访问器现在返回该服务的 `unavailable()` 哨兵，不再从
-  getter 抛出 `UnsupportedOperationException`，且每个服务暴露 `isAvailable()` 用于探测。
-  哨兵仍然失败关闭：在领域提供结构化失败的地方报告结构化失败（任务提交、宿主读取、
-  存储、用户文件、网格编辑、宿主对话框、脚本运行），在没有的地方使用时抛出稳定的
-  `UnsupportedOperationException`。`ScriptService#available` 更名为 `isAvailable`，使
-  探测在各处使用同一个名字。**插件 API 可能需要迁移：** 捕获访问器
-  `UnsupportedOperationException` 的插件应改为调用 `isAvailable()`。
-- 十八个语义事件类型从 `dev.turboism.sdk.event.cubism` 迁移到
-  `dev.turboism.sdk.cubism.event`；已退役的包会被边界与包布局检查拒绝，使废弃形态
-  无法回归。**插件 API 可能需要迁移：** 更新事件 import。
-- 安装期宿主钩子在 `META-INF/turboism/hooks` 中声明并由 agent 扫描，不再手工接线：每个
-  `HookContributor` 检查自身准入并通过 `HookRegistry` 转发 install/bind/uninstall，因此
-  新增钩子只需要一行清单加一个 contributor 类，而不必修改 agent。已验证/失败关闭准入、
-  原子记录提取、mesh-mirror premain/bind 生命周期以及 `installation=`/`cleanup=` 报告行
-  均保持不变。
+- `atlas-folder-layout`、`atlas-bitmask-nesting`、`atlas-dalsoo-polygon` 和 `psd-clip-mask-import` 使用了新增 SDK，最低 API 要求改为 `0.67.4`；其他官方插件保持原有下限。
 
 ### 修复
 
-- ACP 接入的 Agent 恢复使用 Turboism MCP 写工具：MCP 插件在连接快照上发布免凭据 stdio
-  启动描述符，ACP 插件将其作为 stdio MCP 服务器接入——MCP 插件 JAR 内的预编译桥接自行
-  读取 bearer token，因此在缺少 `jdk.compiler` 的 JRE 上同样可用。HTTP 端点保留为只读
-  回退；端点变化现在会重连任何已挂载 MCP 的会话；Agent 转录会报告工具以可写还是只读
-  形式接入。
-- `ClassPinTable.load` 现在在代理类没有定义类加载器时回退到系统类加载器：发行版 agent 的
-  `Boot-Class-Path` 清单项使这些类由引导类加载器加载，pin 表查找在 premain 期间解引用 null，
-  导致整个运行时在真实宿主上以安全方式失败而非正常启动。
-- 清除工具链中机器特定的字面值：预览启动脚本不再探测个人 `F:\Live2D` 安装路径；参数验证的
-  GraalVM 探测改为从 `$HOME` 推导 Proton `Z:` 路径而非写死用户名；发布 API 巡检的故障接收人
-  改由 `TURBOISM_MONITOR_RECIPIENT` 提供（工作流从 `RELEASE_MONITOR_RECIPIENT` 仓库变量注入）；
-  远程卫生检查在 `/home/` 之外还会拒绝 `Users\`、`home\` 形式的开发者主目录写法。
-- 动画文档、场景、轨道与属性现在在整个对象图中强制插件权限、作用域存活性和文档世代。
-  关键帧复制拒绝过期或外来来源，同时保留同一插件拥有的活动视图之间的有效复制。
-- 动画时间缩放现在对关键帧及其贝塞尔控制柄时间应用相同的仿射变换，而不是仅平移控制柄。
-  分数控制柄时间与围绕大原点的恒等缩放保持精度；平移与复制行为不变。
-- 保留的 `cubismRead()` 与 Clip Mask 收集服务现在在其所属插件作用域关闭后拒绝访问，
-  包括直接的 PSD、clip-mask、texture-atlas、render、workspace 与 theme 读取路径，
-  且不影响其他插件。
-- 物理编辑器贡献在其插件作用域关闭时自动释放。已关闭的服务不能注册新贡献，重复关闭
-  也无法移除更晚注册的贡献。
-- 图集缓存复用现在在无法计算输入摘要时回退到原始重建路径，包括超出既有像素预算的
-  图像。未知摘要不再被判定相等而返回过期像素；普通未变更输入仍符合复用条件。
-- `Motion3Validator` 在收窄 `Version` 与段类型标识符之前检查精确数值，拒绝分数值与
-  溢出回绕值，且不会对这些字段中的极端指数抛出异常。数学上等价的合法表示仍然被接受。
-- 托管 Graal 安装在开始另一次下载之前，会先调和首次安装中断遗留的、已验证且当前版本的
-  孤儿激活标记，避免一次完整下载与探测后收到 `GRAAL_RUNTIME_RECOVERY_REQUIRED`。未知
-  标记与既有回滚保护仍然受保护。
-- 每个 `DisposableScope` 注册现在拥有由注册句柄与作用域清理共享的单一释放动作，包括
-  重复或并发关闭。相等资源的不同注册不再互相移除对方的清理项。
-- 接受宿主适配器访问的三到六参数 `CorePluginContext` 便捷构造函数现在通过默认路径组装
-  省略的服务，而不是以空指针失败。显式服务与严格构造函数重载保持既有契约。
-- 运行时测试 fixture 现在将临时宿主类与同名的 classpath fixture 隔离，在独立的无头 JVM
-  中执行无头对话框检查，并关闭自己的设置窗口作用域，消除了相关的 linkage 失败、模态
-  挂起与跨测试窗口泄漏。
-- Cubism 5.3.03 编辑器模型 DRAFT 映射元数据现在与其引用的验证记录一致。回归检查验证
-  精确计数、能力 ID 与记录摘要，不接受有损数值转换；这不启用新的运行时映射。
-- 在两个已打开文档之间切换时现在立即发布新绑定的模型；此前旧模型会保持已发布状态，
-  使求值读取可能在新绑定身份下追踪——并钉住——错误的模型。
-- 编辑器绑定身份缓存不再在整个会话期间保留已关闭的文档图（其缓存身份现在以弱引用
-  持有），借用的 Core 模型在其绑定消失后立即释放。
-- 若干无界增长路径现在已有界：overlay 按钮侧表按 FIFO 驱逐，recent-preview 内存映射与
-  轮询器的发送去重标记被修剪到存活条目，未显示的子树从场景调色板轮询与调色板过滤器
-  组件遍历中剔除。
-- 反射密集的宿主路径缓存已验证的成员、构造函数与所有者类以及永久未命中；mesh-mirror
-  扫描每次派发只索引一次；工作区 `safeSegment` 清洗模式预编译；调色板工具栏在无变化时
-  跳过重新布局。
-- 日志脱敏将每个模式按其严格需要的字节数进行门控，每条观察到的日志减少约 7 次
-  matcher 分配；脱敏输出不变。
-- 框架 shell 获得了覆盖 agent jar 的正式 `URLClassLoader`，并带系统类加载器回退；所有
-  剩余的窗口构造都经由 `TurboismWindowFactory`。
-- 宿主验证与预览打包修复：参数插件 JAR 通过 glob 定位而非过期的带版本文件名，验证探针
-  携带其声明的 i18n 目录，工作区包从规范 agent jar 打包，runner 支持本地宿主传输与
-  Windows 结果行，close 阶段产物计入自动化结果，插件管理重启钩子被接纳进经评审的
-  队列清单，Cubism 5.3.03 精确宿主加入验证队列。
-- 钩子注册表在进程退出关闭与迟到登记竞争时不再损坏或重复关闭句柄：关闭遍历快照并对
-  每个条目原子认领，遍历中途登记的句柄保持已登记状态而不是被半关闭。
-- agent 在引导类路径上读取钩子清单，因此打包在 agent JAR 内的清单无论进程工作目录如何
-  都能解析。
-- 画布（工作区对象）右键菜单不再接收插件贡献项：移除了 UI Theme 插件的"主题管理器"入口
-  以及 Parameter、Parameter Batch Transfer 插件的工作区条目；它们在面板标签页上下文菜单
-  与顶层菜单中的入口保持不变。
+- 新导入的 PSD 尚无纹理集时，一键排版会自动创建并立即生成纹理，无需原生初始放置，也无需另开纹理集窗口确认。
+- 裁剪源图像轮廓，并精确放置单个多边形，避免 Bitmask 在接近 4096 像素页面上限时误报超尺寸。排版失败会区分图像过大和无法放置，并提供相关尺寸。
+- 避免纹理排版弹窗重叠，保留启动模型时的文件参数。
+- Windows 安装器采用 Turboism 品牌样式，并隐藏提权配置控制台。
+- 简化文件夹排版与剪贴蒙版窗口，统一 PSD 导入进度显示。
 
 ## [0.67.2] - 2026-10-23
 

@@ -36,6 +36,7 @@ include(
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
     "plugins:parameter-lock",
+    "plugins:parameter-sync",
     "plugins:warp-deformer-alt-symmetry",
     "plugins:artmesh-mirror",
     "plugins:boundingbox-warp-mirror",

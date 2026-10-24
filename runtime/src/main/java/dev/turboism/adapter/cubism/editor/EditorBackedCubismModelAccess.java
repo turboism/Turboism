@@ -582,7 +582,7 @@ public final class EditorBackedCubismModelAccess
                     operation,
                     source,
                     Float.valueOf(expectedValue));
-            resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
+            resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.FALSE);
             resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
