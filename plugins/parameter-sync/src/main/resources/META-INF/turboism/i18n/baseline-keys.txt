@@ -3,8 +3,6 @@ action.toggle.global
 dialog.btn.clear
 dialog.btn.close
 dialog.btn.save
-dialog.editor.error.min_two
-dialog.editor.test.slider
 dialog.search.label
 dialog.sync.title
 dialog.table.col.current
