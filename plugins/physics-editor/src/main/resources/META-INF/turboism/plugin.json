@@ -2,7 +2,7 @@
   "format": "turboism.plugin.meta",
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.physics-editor",
-  "name": "Physics Editor",
+  "name": "Physics Settings Enhancer",
   "version": "0.1.0",
   "description": "Adds Physics Settings group select-all and reopen retention.",
   "entrypoints": [
