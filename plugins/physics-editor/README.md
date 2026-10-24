@@ -12,11 +12,11 @@ requiresCubism: true
 interface: swing
 ---
 
-# Physics Editor
+# Physics Settings Enhancer
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Adds select-all behavior and reopen retention to Cubism's Physics Settings group list.
+Adds select-all behavior and reopen retention to Cubism's native Physics / Scene Blending Settings group list.
 
 | Detail | Value |
 |---|---|
@@ -30,9 +30,14 @@ Adds select-all behavior and reopen retention to Cubism's Physics Settings group
 
 ## What it does
 
-- Contributes a reviewed Physics Settings policy with group select-all enabled.
-- Requests retention of the group-selection state when the Physics Settings window is reopened.
-- Closes the contribution cleanly when disabled.
+- **Solves native workflow bottlenecks:** In complex Live2D models with dozens of physics groups (e.g. hair strands, clothing folds, ribbons, bust sway), isolating or testing specific groups in Cubism's native Physics Settings requires clicking checkboxes one by one. Native Cubism lacks a master select-all toggle on the group table header, and reopening the dialog during an editing session resets temporary test configurations.
+- **Table header select-all checkbox:** Contributes a native-styled tri-state checkbox directly to the header (`JTableHeader`) of the Physics calculation group table.
+- **Aggregate state reflection:** The header checkbox dynamically reflects row states: checked (all groups enabled), unchecked (all groups disabled), or indeterminate / dash (partially enabled).
+- **One-click bulk toggle:** Clicking the header checkbox toggles all physics groups simultaneously (if mixed or all disabled, enables all; if all enabled, disables all).
+- **Atomic host transactions:** Executes batch changes through Cubism's verified transaction path (`checkpoint` / `commit` / `rollback`), ensuring all rows update in a single atomic operation that rolls back safely if an error occurs.
+- **Selection preservation:** Preserves the active table row selection so inspecting group properties remains uninterrupted.
+- **In-session reopen retention:** Remembers the enabled/disabled state of every physics group across closing and reopening the Physics Settings dialog during the active model editing session.
+- **Safe lifecycle teardown:** Disabling or hot-reloading the plugin uninstalls table listeners, restores the native header renderer, and clears in-memory retention without leaving orphan hooks or altering project files.
 
 ## Requirements and compatibility
 
@@ -40,6 +45,7 @@ Adds select-all behavior and reopen retention to Cubism's Physics Settings group
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
+- **Architecture notice:** Operates strictly through native Swing table hooks on the host Physics Settings panel; it does not replace or modify Cubism's physics calculation pipeline or `.cmo3` / `.moc3` data structures.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
@@ -53,9 +59,14 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 ## How to use
 
-1. Open Cubism's Physics Settings editor after enabling the plugin.
-2. Use the group-list header select-all behavior to enable or disable all groups.
-3. Close and reopen the editor; the contributed retention policy preserves the supported selection state.
+1. Ensure the plugin is enabled in **Plugin Management**.
+2. Open Cubism's native physics window via the top menu: **Modeling** → **Open Physics/Scene Blending Settings...**.
+3. In the left panel's **Physics calculation group** table, locate the column header above the group enable checkboxes.
+4. Click the table header checkbox to toggle all physics groups:
+   - If groups are partially enabled or all disabled, clicking enables all groups.
+   - If all groups are currently enabled, clicking disables all groups.
+5. Individual row changes continue to work normally, and the header checkbox updates immediately to reflect the aggregate state.
+6. Close and reopen the dialog during your session; the contributed retention policy preserves your enabled and disabled group states.
 
 ## Capabilities
 
@@ -75,7 +86,7 @@ Makes no network connections.
 
 ### Local data
 
-Does not write plugin-owned files. State retention is delegated to the reviewed Physics Editor host service.
+Does not write plugin-owned files or alter project files on disk. State retention is stored strictly in-memory during the active model session and discarded upon closing the model or exiting Cubism.
 
 ### Telemetry
 
@@ -87,14 +98,18 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 - **Status:** Preview.
 - Requires a supported Physics Editor contribution service in the active Cubism host.
-- The plugin is intentionally limited to select-all and reopen retention; it does not replace Cubism's physics editor.
+- **Workflow-only scope:** The plugin is intentionally limited to group table select-all and in-session reopen retention. It is not an alternative physics simulator and does not alter pendulum physical calculations, reaction times, gravity, wind forces, or motion sync parameters.
+- **Session-scoped retention:** Retention operates within the active model session memory and does not serialize custom tags into the `.cmo3` model file.
+- Disabling the plugin while the dialog is open safely restores the native header renderer without affecting current model state.
 
 ## Troubleshooting
 
 | Symptom | What to check |
 |---|---|
-| Select-all is missing | Confirm the plugin is enabled before opening Physics Settings and check host-service availability. |
-| Selection is not retained | Inspect the plugin log for contribution attachment failure and reopen the editor after the plugin is active. |
+| Select-all checkbox is missing | Confirm the plugin is enabled before opening Physics Settings. If opened prior to enabling, close and reopen the dialog. Check logs for host-service availability. |
+| Clicking header does nothing | Verify the model is not locked in another modal dialog. Inspect the session log for transaction rollback or editor exceptions. |
+| Selection is not retained on reopen | Retention is scoped to the active model session in memory. Verify the model was not closed and reopened, and that the plugin was not disabled between dialog openings. |
+| Header displays a minus/dash | The indeterminate state indicates that some groups are enabled and others are disabled. Clicking the checkbox will enable all groups. |
 
 ## Support and license
 
