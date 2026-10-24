@@ -19,7 +19,9 @@ public final class RuntimeWarpAltMirrorParticipation implements WarpAltMirrorPar
             public synchronized void close() {
                 if (closed) return;
                 closed = true;
-                participants.updateAndGet(count -> Math.max(0, count - 1));
+                if (participants.updateAndGet(count -> Math.max(0, count - 1)) == 0) {
+                    NativeWarpAltMirrorBridge.setArmedAxis(0);
+                }
             }
         };
     }

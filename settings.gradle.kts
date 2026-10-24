@@ -37,6 +37,7 @@ include(
     "plugins:parameter-batch-transfer",
     "plugins:parameter-lock",
     "plugins:warp-deformer-alt-symmetry",
+    "plugins:artmesh-mirror",
     "plugins:boundingbox-warp-mirror",
     "plugins:frame-animation-import",
     "testing:test-support",

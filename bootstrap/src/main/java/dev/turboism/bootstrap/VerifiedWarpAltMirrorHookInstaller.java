@@ -27,6 +27,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     private final String greenTickClassName;
     private final String actionDispatchClassName;
     private final String inputIngressClassName;
+    private final String artMeshMoveClassName;
     private final Consumer<String> diagnostic;
     private final Object lifecycleLock = new Object();
     private boolean installed;
@@ -66,6 +67,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
                 pinnedClassSha256,
                 this::report);
+        this.artMeshMoveClassName = profile.artMeshMoveOwner().replace('/', '.');
         this.pointMoveClassName = profile.pointMoveOwner().replace('/', '.');
         this.dragTickClassName = profile.dragTickOwner().replace('/', '.');
         this.weightWriteClassName = profile.weightWriteOwner().replace('/', '.');
@@ -123,9 +125,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                     throw new IllegalStateException("warp alt mirror host loader is not admitted");
                 }
                 for (final String name : List.of(
-                        pointMoveClassName, dragTickClassName,
-                        weightWriteClassName, greenTickClassName,
-                        actionDispatchClassName, inputIngressClassName)) {
+                        artMeshMoveClassName,
+                        pointMoveClassName,
+                        dragTickClassName,
+                        weightWriteClassName,
+                        greenTickClassName,
+                        actionDispatchClassName,
+                        inputIngressClassName)) {
                     currentName = name;
                     final Class<?> defined = Class.forName(name, false, loader);
                     if (defined.getClassLoader() != loader) {
@@ -142,6 +148,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             if (!transformer
                     .transformedOwners()
                     .containsAll(List.of(
+                            artMeshMoveClassName.replace('.', '/'),
                             pointMoveClassName.replace('.', '/'),
                             dragTickClassName.replace('.', '/'),
                             weightWriteClassName.replace('.', '/'),
@@ -266,6 +273,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     /** Premain guarantee: the exact targets must not already be defined when we register. */
     private void rejectLoadedTargets() {
         for (final String name : List.of(
+                artMeshMoveClassName,
                 pointMoveClassName,
                 dragTickClassName,
                 weightWriteClassName,

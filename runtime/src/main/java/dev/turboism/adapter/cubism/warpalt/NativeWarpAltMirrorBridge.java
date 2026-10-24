@@ -116,6 +116,7 @@ public final class NativeWarpAltMirrorBridge {
         REPORTED_SKIPS.clear();
         LAST_THROTTLE.set(0);
         ARMED_AXIS.set(0);
+        NativeArtMeshSymmetryBridge.service().resetSession();
         GREEN_APPLIED_REPORTED.set(false);
         WEIGHT_MIRRORING.remove();
         WEIGHT_APPLIED_REPORTED.set(false);
@@ -318,6 +319,7 @@ public final class NativeWarpAltMirrorBridge {
      */
     private static void mirrorWeightWrite(
             final Object selector, final Object ref, final float weight, final boolean reorder, final boolean setOnly) {
+        NativeArtMeshSymmetryBridge.weight(selector, ref, weight, reorder, setOnly);
         try {
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || selector == null || ref == null) {
@@ -734,6 +736,7 @@ public final class NativeWarpAltMirrorBridge {
      * action object owns them — used to trace where bezier-handle drags die.
      */
     public static void diagMouseAction(final Object manager, final Object event) {
+        NativeArtMeshSymmetryBridge.beginTick(event);
         try {
             if (!REPORTED_SKIPS.add(
                     "mouse:" + (event == null ? "null" : event.getClass().getSimpleName()))) {

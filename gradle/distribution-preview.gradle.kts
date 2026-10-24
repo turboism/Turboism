@@ -66,6 +66,10 @@ private fun configureScenePaletteEnhancerJar(task: Sync) {
 }
 
 private fun configurePreviewMeshJar(task: Sync) {
+    task.from(project(":plugins:artmesh-mirror").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "artmesh-mirror.jar" }
+    }
     task.from(project(":plugins:selection-brush").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
         into("plugins")
         rename { "selection-brush.jar" }
@@ -124,6 +128,7 @@ val previewBundle by tasks.registering(Sync::class) {
         ":plugins:scene-palette-enhancer:jar",
         ":plugins:mesh-edit-mirror-axis-enhance:jar",
         ":plugins:selection-brush:jar",
+        ":plugins:artmesh-mirror:jar",
         ":graal-host:windowsPreviewDist"
     )
     configurePreviewSource(this, previewBundleDir)

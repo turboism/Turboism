@@ -1193,7 +1193,7 @@ fun registerWarpAltSymmetryHostValidation(name: String, version: String) {
     tasks.register<Exec>(name) {
         group = "host verification"
         description = "Runs the exact-host Cubism $version Warp deformer Alt-symmetry reconnaissance probe."
-        dependsOn("previewBundle", ":sdk:jar", ":plugins:warp-deformer-alt-symmetry:jar", buildWarpAltSymmetryHostProbe)
+        dependsOn("previewBundle", ":sdk:jar", ":plugins:warp-deformer-alt-symmetry:jar", ":plugins:artmesh-mirror:jar", buildWarpAltSymmetryHostProbe)
         workingDir(rootDir)
         exportHostValidationWorktreeId()
         commandLine("bash", "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh", version)
