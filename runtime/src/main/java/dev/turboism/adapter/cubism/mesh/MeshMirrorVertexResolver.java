@@ -10,8 +10,10 @@ import java.util.Map;
 public final class MeshMirrorVertexResolver {
     private MeshMirrorVertexResolver() {}
 
+    /** Computes the distance from a candidate to a reflected source vertex. */
     @FunctionalInterface
     public interface Distance<T> {
+        /** Returns the candidate distance, or a non-finite value when it cannot be measured. */
         double from(T candidate) throws ReflectiveOperationException;
     }
 
