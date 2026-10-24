@@ -24,7 +24,6 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSlider;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
@@ -49,8 +48,6 @@ public class ParameterSyncDialog extends JDialog {
     private final JCheckBox globalEnabledCheck;
     private final JLabel countLabel;
     private final JTextField searchField;
-    private final JSlider testSlider;
-    private final JLabel testResultLabel;
 
     private final List<ParamRow> allRows = new ArrayList<>();
     private final List<ParamRow> filteredRows = new ArrayList<>();
@@ -152,18 +149,7 @@ public class ParameterSyncDialog extends JDialog {
         tableScroll.setPreferredSize(new Dimension(680, 280));
         content.add(tableScroll, BorderLayout.CENTER);
 
-        // ── Bottom Panel: Preview Slider & Action Buttons ──
-        final JPanel bottomContainer = new JPanel(new BorderLayout(0, 8));
-
-        final JPanel previewPanel = new JPanel(new BorderLayout(6, 2));
-        previewPanel.setBorder(BorderFactory.createTitledBorder(
-                i18n != null ? i18n.text("dialog.editor.test.slider") : "Test Preview Slider (0% - 100%)"));
-        testSlider = new JSlider(0, 1000, 500);
-        testResultLabel = new JLabel();
-        previewPanel.add(testSlider, BorderLayout.NORTH);
-        previewPanel.add(testResultLabel, BorderLayout.SOUTH);
-        bottomContainer.add(previewPanel, BorderLayout.NORTH);
-
+        // ── Bottom Panel: Action Buttons ──
         final JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         final JButton saveBtn = new JButton(i18n != null ? i18n.text("dialog.btn.save") : "Save & Close");
         saveBtn.addActionListener(e -> {
@@ -174,17 +160,14 @@ public class ParameterSyncDialog extends JDialog {
         closeBtn.addActionListener(e -> dispose());
         buttonPanel.add(saveBtn);
         buttonPanel.add(closeBtn);
-        bottomContainer.add(buttonPanel, BorderLayout.SOUTH);
 
-        content.add(bottomContainer, BorderLayout.SOUTH);
+        content.add(buttonPanel, BorderLayout.SOUTH);
 
-        testSlider.addChangeListener(e -> updatePreview());
         updateCountLabel();
-        updatePreview();
 
         setContentPane(content);
         pack();
-        setMinimumSize(new Dimension(640, 500));
+        setMinimumSize(new Dimension(640, 420));
         setLocationRelativeTo(null);
     }
 
@@ -241,35 +224,6 @@ public class ParameterSyncDialog extends JDialog {
         }
         tableModel.fireTableDataChanged();
         updateCountLabel();
-        updatePreview();
-    }
-
-    private void updatePreview() {
-        final float t = testSlider.getValue() / 1000.0f;
-        final List<ParamRow> selected = allRows.stream().filter(r -> r.sync).toList();
-
-        if (selected.size() < 2) {
-            testResultLabel.setText(
-                    i18n != null
-                            ? i18n.text("dialog.editor.error.min_two")
-                            : "Please check at least 2 parameters above to synchronize.");
-            return;
-        }
-
-        final StringBuilder sb = new StringBuilder();
-        sb.append(String.format("Progress: %d%%  -->  ", Math.round(t * 100)));
-
-        int count = 0;
-        for (final ParamRow r : selected) {
-            count++;
-            final float val = r.min + t * (r.max - r.min);
-            sb.append(String.format("[%s: %.2f] ", r.id, val));
-            if (count >= 5) {
-                sb.append(String.format("(+%d more)", selected.size() - count));
-                break;
-            }
-        }
-        testResultLabel.setText(sb.toString().trim());
     }
 
     private void persist() {
@@ -388,7 +342,6 @@ public class ParameterSyncDialog extends JDialog {
                 }
                 fireTableCellUpdated(rowIndex, columnIndex);
                 updateCountLabel();
-                updatePreview();
             }
         }
     }
