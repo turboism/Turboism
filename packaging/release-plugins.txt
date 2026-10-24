@@ -17,6 +17,7 @@
 :plugins:palette-label-style
 :plugins:parameter-batch-transfer
 :plugins:parameter-lock
+:plugins:parameter-sync
 :plugins:perf-stats
 :plugins:physics-editor
 :plugins:protected-export
