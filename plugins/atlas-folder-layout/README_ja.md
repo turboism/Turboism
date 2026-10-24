@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, auto-layout
-turboismApi: "[0.67.2,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -23,7 +23,7 @@ interface: swing
 
 ## 要件と互換性
 
-Java 17 以降、Turboism API [0.67.2,1.0.0)、編集可能な Cubism モデルが必要です。アトラス全体の配置に対応するアルゴリズムを有効にしてください。
+Java 17 以降、Turboism API [0.67.4,1.0.0)、編集可能な Cubism モデルが必要です。アトラス全体の配置に対応するアルゴリズムを有効にしてください。
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
