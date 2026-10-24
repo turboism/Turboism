@@ -56,7 +56,7 @@ private val sdkBaselineAnchors = listOf(
         "Reconstructs the reviewed v21 plugin lifecycle and JSON sanitization SDK from its pinned Git commit."),
     SdkBaselineAnchor(22, "428f15ff8078659771ae90e84226e053105e3017",
         "Reconstructs the reviewed v22 file-path settings and texture-atlas SDK for 0.67.2 from its pinned Git commit."),
-    SdkBaselineAnchor(23, "63993968018d88e8158303dd6f363bd4411f2721",
+    SdkBaselineAnchor(23, "46b21e5ca6e2761aec2d168c135f919e1fca6159",
         "Reconstructs the reviewed v23 polygon atlas and progress dialog SDK for 0.67.4 from its pinned Git commit.")
 )
 

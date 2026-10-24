@@ -18,7 +18,7 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
-- `atlas-folder-layout`、`atlas-bitmask-nesting`、`atlas-dalsoo-polygon` 和 `clipmask-viewer` 使用了新增 SDK，最低 API 要求改为 `0.67.4`；其他官方插件保持原有下限。
+- `atlas-folder-layout`、`atlas-bitmask-nesting`、`atlas-dalsoo-polygon` 和 `psd-clip-mask-import` 使用了新增 SDK，最低 API 要求改为 `0.67.4`；其他官方插件保持原有下限。
 
 ### 修复
 

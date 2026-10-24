@@ -18,7 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- `atlas-folder-layout`, `atlas-bitmask-nesting`, `atlas-dalsoo-polygon` and `clipmask-viewer` now require API `0.67.4` because they consume the new SDK. Other official plugins retain their previous minimum.
+- `atlas-folder-layout`, `atlas-bitmask-nesting`, `atlas-dalsoo-polygon` and `psd-clip-mask-import` now require API `0.67.4` because they consume the new SDK. Other official plugins retain their previous minimum.
 
 ### Fixed
 
