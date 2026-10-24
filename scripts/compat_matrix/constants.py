@@ -87,6 +87,10 @@ MEMBER_RE = re.compile(
 # capabilityIds on their own. Values are name mappings only: the associated
 # version sets are always re-derived from records, contracts and pin tables.
 DECLARED_CAPABILITY_ALIASES: dict[str, dict[str, list[str]]] = {
+    "cubism.artmesh.mirror": {
+        "capabilities": ["cubism.editor-model.warp-mirror"],
+        "pins": ["warp-alt-mirror"],
+    },
     "cubism.deformer.read": {
         "capabilities": [
             "cubism.editor-model.edit.deformer.get-deformer-structure",

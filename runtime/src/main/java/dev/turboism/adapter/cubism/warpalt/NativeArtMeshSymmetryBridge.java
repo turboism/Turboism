@@ -23,6 +23,7 @@ public final class NativeArtMeshSymmetryBridge {
     private static volatile int mode;
     private static final RuntimeArtMeshMirrorService SERVICE = new RuntimeArtMeshMirrorService();
 
+    /** Returns the participation service for independent ArtMesh mirror editing. */
     public static RuntimeArtMeshMirrorService service() {
         return SERVICE;
     }
@@ -183,6 +184,7 @@ public final class NativeArtMeshSymmetryBridge {
                 return true;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report(failure);
             CURRENT.remove();
         }
@@ -199,6 +201,7 @@ public final class NativeArtMeshSymmetryBridge {
                 CURRENT.set(state);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report(failure);
             CURRENT.remove();
         }
@@ -311,11 +314,13 @@ public final class NativeArtMeshSymmetryBridge {
             for (int side = 0; side < 4; side++) {
                 float dx = side == 0 ? -1 : side == 1 ? 1 : 0;
                 float dy = side == 2 ? -1 : side == 3 ? 1 : 0;
-                angleText(drawer, state.angleLabel, resources, handle.x() + 15 + dx, handle.y() + 6 + dy, resources.dark);
+                angleText(
+                        drawer, state.angleLabel, resources, handle.x() + 15 + dx, handle.y() + 6 + dy, resources.dark);
             }
             call(drawer, "a", 98);
             angleText(drawer, state.angleLabel, resources, handle.x() + 15, handle.y() + 6, resources.light);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report(failure);
         }
     }
@@ -361,6 +366,7 @@ public final class NativeArtMeshSymmetryBridge {
             written.add(index);
             written.add(counterpart);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report(failure);
         }
         return false;
@@ -395,6 +401,7 @@ public final class NativeArtMeshSymmetryBridge {
                 APPLYING.set(false);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             report(failure);
         }
     }
@@ -517,7 +524,8 @@ public final class NativeArtMeshSymmetryBridge {
         }
     }
 
-    private static void angleText(Object drawer, String text, DrawingResources resources, float x, float y, Object color)
+    private static void angleText(
+            Object drawer, String text, DrawingResources resources, float x, float y, Object color)
             throws ReflectiveOperationException {
         call(drawer, "a", text, resources.font, x, y, 0f, 20f, color);
     }
@@ -538,8 +546,13 @@ public final class NativeArtMeshSymmetryBridge {
         for (int layer = 0; layer < 2; layer++) {
             call(drawer, "a", 92 + layer);
             for (int edge = 0; edge < 4; edge++) {
-                line(drawer, view, corners[edge], corners[(edge + 1) % 4],
-                        layer == 0 ? resources.dark : resources.light, layer == 0 ? 4 : 1.5f);
+                line(
+                        drawer,
+                        view,
+                        corners[edge],
+                        corners[(edge + 1) % 4],
+                        layer == 0 ? resources.dark : resources.light,
+                        layer == 0 ? 4 : 1.5f);
             }
         }
     }

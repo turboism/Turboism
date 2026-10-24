@@ -65,6 +65,7 @@ public record WarpAltMirrorHostProfile(
         String inputIngressMethod,
         String inputIngressDescriptor) {
 
+    /** Returns the native ArtMesh point-movement hook owner. */
     public String artMeshMoveOwner() {
         return "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx";
     }
