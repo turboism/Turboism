@@ -62,12 +62,13 @@ class ArtMeshMirrorAxisTest {
             var pivot = p(137, -52);
             var axis = new ArtMeshMirrorAxis(pivot, false);
             double radians = Math.toRadians(degrees);
-            axis.rotate(p(pivot.x() + (float) Math.cos(radians) * 100,
-                    pivot.y() + (float) Math.sin(radians) * 100));
+            axis.rotate(p(pivot.x() + (float) Math.cos(radians) * 100, pivot.y() + (float) Math.sin(radians) * 100));
             var source = p(173, -18);
             var mirrored = axis.reflect(source);
             if (Math.hypot(source.x() - mirrored.x(), source.y() - mirrored.y()) < .1) continue;
-            assertArrayEquals(new int[] {1, 0}, axis.pair(new ArtMeshMirrorAxis.Point[] {source, mirrored}, .01f),
+            assertArrayEquals(
+                    new int[] {1, 0},
+                    axis.pair(new ArtMeshMirrorAxis.Point[] {source, mirrored}, .01f),
                     "angle=" + degrees);
             var delta = p(11, -7);
             var expected = axis.reflect(source.plus(delta));

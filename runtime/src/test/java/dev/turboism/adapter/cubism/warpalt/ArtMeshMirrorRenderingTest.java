@@ -76,7 +76,8 @@ final class ArtMeshMirrorRenderingTest {
     void rotatedAxisMatchesNearbyVerticesWithinNativeScreenTolerance() throws Exception {
         try (var loader = host()) {
             Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
-                    .getConstructor().newInstance();
+                    .getConstructor()
+                    .newInstance();
             Object camera = view.getClass().getField("camera").get(view);
             var pivot = new ArtMeshMirrorAxis.Point(10000010, 10000010);
             var axis = new ArtMeshMirrorAxis(pivot, false);
@@ -89,11 +90,14 @@ final class ArtMeshMirrorRenderingTest {
             };
             for (float zoom : new float[] {1, 2, .2f}) {
                 camera.getClass().getField("zoom").setFloat(camera, zoom);
-                assertArrayEquals(new int[] {1, 0, 3, 2},
-                        NativeArtMeshSymmetryBridge.pairForView(view, axis, points), "zoom=" + zoom);
+                assertArrayEquals(
+                        new int[] {1, 0, 3, 2},
+                        NativeArtMeshSymmetryBridge.pairForView(view, axis, points),
+                        "zoom=" + zoom);
             }
             camera.getClass().getField("zoom").setFloat(camera, 20);
-            assertArrayEquals(new int[] {-1, -1, -1, -1},
+            assertArrayEquals(
+                    new int[] {-1, -1, -1, -1},
                     NativeArtMeshSymmetryBridge.pairForView(view, axis, points),
                     "Do not link distant vertices outside the native screen tolerance");
         }
