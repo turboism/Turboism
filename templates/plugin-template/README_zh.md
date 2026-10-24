@@ -64,7 +64,7 @@
 
 - **稳定版渠道（默认）**：`./scripts/setup.sh --channel stable`
 - **测试版渠道（Beta）**：`./scripts/setup.sh --channel beta`
-- **指定版本**：`./scripts/setup.sh --version 0.67.0-beta.2`
+- **指定版本**：`./scripts/setup.sh --version 0.67.4`
 
 选定的版本号会写入 `gradle.properties` 的 `turboismSdkVersion`，校验通过的 JAR 放入 `libs/`。若所选版本早于独立 SDK 分发阶段（不含 `turboism-sdk-<version>.jar`），脚本会给出明确提示（改用 `--channel beta` 或 `--version <含 SDK 的版本>`）；若所选版本仅含 SDK 而不含 `turboism-event-processor-<version>.jar`，脚本会打印警告并仅配置 SDK 编译（此时请使用 `EventBus#subscribe`）。脚本具有幂等性，重复运行会安全替换旧版本 JAR 并就地更新包名、类名和描述文件。
 
