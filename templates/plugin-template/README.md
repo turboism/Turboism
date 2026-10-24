@@ -80,7 +80,7 @@ GitHub Releases API (`https://api.github.com/repos/turboism/Turboism/releases`):
 
 - **Stable channel (default)**: `./scripts/setup.sh --channel stable`
 - **Beta channel**: `./scripts/setup.sh --channel beta`
-- **Pinned version**: `./scripts/setup.sh --version 0.67.0-beta.2`
+- **Pinned version**: `./scripts/setup.sh --version 0.67.4`
 
 The chosen version is recorded in `gradle.properties` (`turboismSdkVersion`),
 and the verified JARs are placed in `libs/`. Re-running the setup script is
