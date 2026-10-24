@@ -41,13 +41,7 @@ public final class TurboismProgressDialog implements AutoCloseable {
         this(null, title, message);
     }
 
-    /**
-     * Creates a progress window centered on an explicit owner, or automatically on Cubism.
-     * @param owner owner window, or {@code null} for automatic selection
-     * @param title localized window title
-     * @param message localized initial message
-     */
-    public TurboismProgressDialog(final Window owner, final String title, final String message) {
+    private TurboismProgressDialog(final Window owner, final String title, final String message) {
         this.owner = owner;
         this.title = Objects.requireNonNull(title, "title");
         this.message = Objects.requireNonNull(message, "message");
