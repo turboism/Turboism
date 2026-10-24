@@ -52,7 +52,7 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 
 Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory and launch options. All first-party plugins are included; enable or disable them through plugin management. Choose English, Simplified Chinese, Japanese or Korean before the welcome page. Use the generated Turboism shortcut afterward.
 
-Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
+Integration with the official Cubism startup BAT is **selected by default**. Clear it on the launch-options page if you do not want it. It uses hash-guarded backups, and uninstall restores the original BAT files. Later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
 The installer upgrades existing installations, installs the current first-party plugins and preserves existing `disabledPlugins` settings.
 

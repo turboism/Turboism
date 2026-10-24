@@ -17,6 +17,16 @@ import org.junit.jupiter.api.Test;
 
 class BitmaskNestingPlannerTest {
     @Test
+    void singleOutlineNear4096PageLimitDoesNotRequireAnAlignedRasterOrigin() {
+        var image = item("PSD", new double[][] {{0, 0}, {4090, 0}, {4090, 4000}, {0, 3999}});
+        var constraints = constraints(4096, 4096, 3, TextureAtlasRotationMode.NONE, 1);
+        var result = new BitmaskNestingPlanner(6).plan(List.of(image), constraints);
+        assertTrue(
+                result.overflowTextureIds().isEmpty(), "A contour fitting at x=3 must not require an 8px grid origin");
+        assertValid(List.of(image), result, constraints, 6);
+    }
+
+    @Test
     void rectangleShortcutPreservesShiftedOriginsIssuedQuarterTurnsAndScaleLocks() {
         final var items = new ArrayList<TextureAtlasPolygonItem>();
         for (int i = 0; i < 24; i++) {

@@ -691,6 +691,11 @@ final class CoreWindows implements AutoCloseable {
         final JDialog dialog = CoreDialogs.create(text("window.plugins.title"), 900, 560);
         dialog.setLayout(new BorderLayout(8, 8));
         pluginTableModel = new PluginTableModel(i18n);
+        final JLabel pluginCount = new JLabel(" ");
+        pluginCount.setBorder(BorderFactory.createEmptyBorder(8, 8, 0, 8));
+        pluginTableModel.addTableModelListener(
+                ignored -> pluginCount.setText(i18n.format("plugins.count", pluginTableModel.installedPluginCount())));
+        dialog.add(pluginCount, BorderLayout.NORTH);
         pluginTable = new JTable(pluginTableModel);
         pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         pluginSorter = new TableRowSorter<>(pluginTableModel);
@@ -1395,6 +1400,10 @@ final class CoreWindows implements AutoCloseable {
         void setPlugins(final List<CorePluginManagement.PluginInfo> values) {
             rows = List.copyOf(values);
             fireTableDataChanged();
+        }
+
+        long installedPluginCount() {
+            return rows.stream().filter(plugin -> !plugin.core()).count();
         }
 
         CorePluginManagement.PluginInfo plugin(final int row) {

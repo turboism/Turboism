@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, auto-layout
-turboismApi: "[0.67.2,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ Creates texture pages by top-level Part folders, recursively splitting overflowi
 
 ## Requirements and compatibility
 
-Requires Java 17+, Turboism API [0.67.2,1.0.0), an active Cubism model and a texture atlas. Enable at least one algorithm that supports complete-atlas layout.
+Requires Java 17+, Turboism API [0.67.4,1.0.0), an active editable Cubism model. Enable at least one algorithm that supports complete-atlas layout.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
@@ -38,6 +38,9 @@ Bitmask Nesting and Dalsoo use material-local mesh contours when available, with
 ## How to use
 
 Open **Turboism → Arrange Atlas by Part Folders**. Choose the maximum texture edge (1024, 2048, 4096 or 8192), algorithm, margin, padding and automatic page sizing. The operation replaces the complete atlas as one undoable edit; page order follows the Parts tree.
+
+
+For a newly imported PSD without an atlas, the operation creates the output pages directly without native initial placement. It generates the texture images and commits the result in one undoable edit; opening the atlas editor to confirm is unnecessary.
 
 ## Capabilities
 

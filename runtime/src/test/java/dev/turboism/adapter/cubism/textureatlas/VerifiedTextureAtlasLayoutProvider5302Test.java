@@ -98,12 +98,12 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
     }
 
     @Test
-    void noAtlasOrActiveDocumentDoesNotIssueDirectTarget() {
+    void missingAtlasStillIssuesTargetButMissingActiveDocumentDoesNot() {
         final Fixture fixture = new Fixture();
         final var provider = new VerifiedTextureAtlasLayoutProvider(
                 resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02);
         fixture.source.textureManager.atlases.clear();
-        assertTrue(provider.current().isEmpty());
+        assertTrue(provider.current().isPresent());
         Host.document = null;
         assertTrue(provider.current().isEmpty());
     }
