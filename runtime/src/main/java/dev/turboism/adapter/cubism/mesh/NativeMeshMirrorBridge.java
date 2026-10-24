@@ -1484,20 +1484,12 @@ public final class NativeMeshMirrorBridge {
         if (target == null) return null;
         final Class<?> vector = target.getClass();
 
-        Object nearest = null;
-        float best = Float.MAX_VALUE;
-        for (Object candidate : index.points()) {
+        return MeshMirrorVertexResolver.nearest(index.points(), tolerance, candidate -> {
             final Object candidatePosition = call(candidate, "getPos", NO_PARAMS);
-            if (candidatePosition == null) continue;
+            if (candidatePosition == null) return Double.NaN;
             final Object distance = call(candidatePosition, "distance", new Class<?>[] {vector}, target);
-            if (!(distance instanceof Number number)) continue;
-            final float value = number.floatValue();
-            if (value < best) {
-                best = value;
-                nearest = candidate;
-            }
-        }
-        return nearest != null && best < tolerance ? nearest : null;
+            return distance instanceof Number number ? number.doubleValue() : Double.NaN;
+        });
     }
 
     /** Edge counterpart: mirror both endpoints, rebuild the edge id-ordered, keep it only if it exists. */

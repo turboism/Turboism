@@ -65,6 +65,10 @@ public record WarpAltMirrorHostProfile(
         String inputIngressMethod,
         String inputIngressDescriptor) {
 
+    public String artMeshMoveOwner() {
+        return "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx";
+    }
+
     /**
      * Reviewed 5.0.x/5.1.x generations sharing the 5.2.03 obfuscation generation: every
      * profile selector resolves to the same member names, including the

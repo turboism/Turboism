@@ -11,13 +11,16 @@ import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.warpalt.AuthorizedArtMeshMirrorService;
 import dev.turboism.adapter.cubism.warpalt.AuthorizedViewContextMenuRegistry;
 import dev.turboism.adapter.cubism.warpalt.AuthorizedWarpAltMirrorParticipation;
+import dev.turboism.adapter.cubism.warpalt.NativeArtMeshSymmetryBridge;
 import dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge;
 import dev.turboism.adapter.cubism.warpalt.RuntimeViewContextMenuRegistry;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
@@ -41,6 +44,7 @@ record MeshCapabilityBundle(
         MeshMirrorCounterparts meshMirrorCounterpartsService,
         MeshMirrorToolEligibility meshMirrorToolEligibilityService,
         MeshMirrorMoveParticipation meshMirrorMoveParticipationService,
+        ArtMeshMirrorService artMeshMirrorService,
         WarpAltMirrorParticipation warpAltMirrorParticipationService,
         ViewContextMenuRegistry viewContextMenuRegistry)
         implements PluginCapabilityBundle {
@@ -53,6 +57,7 @@ record MeshCapabilityBundle(
         Objects.requireNonNull(meshMirrorCounterpartsService, "meshMirrorCounterpartsService");
         Objects.requireNonNull(meshMirrorToolEligibilityService, "meshMirrorToolEligibilityService");
         Objects.requireNonNull(meshMirrorMoveParticipationService, "meshMirrorMoveParticipationService");
+        Objects.requireNonNull(artMeshMirrorService, "artMeshMirrorService");
         Objects.requireNonNull(warpAltMirrorParticipationService, "warpAltMirrorParticipationService");
         Objects.requireNonNull(viewContextMenuRegistry, "viewContextMenuRegistry");
     }
@@ -85,6 +90,8 @@ record MeshCapabilityBundle(
                         NativeMeshMirrorBridge.moveParticipation(),
                         meshPermissionChecker,
                         dependencies.disposableScope());
+        final ArtMeshMirrorService artMeshMirrorService = new AuthorizedArtMeshMirrorService(
+                NativeArtMeshSymmetryBridge.service(), meshPermissionChecker, dependencies.disposableScope());
         final WarpAltMirrorParticipation warpAltMirrorParticipationService = new AuthorizedWarpAltMirrorParticipation(
                 NativeWarpAltMirrorBridge.moveParticipation(), meshPermissionChecker, dependencies.disposableScope());
         final ViewContextMenuRegistry viewContextMenuRegistry = new AuthorizedViewContextMenuRegistry(
@@ -97,6 +104,7 @@ record MeshCapabilityBundle(
                 meshMirrorCounterpartsService,
                 meshMirrorToolEligibilityService,
                 meshMirrorMoveParticipationService,
+                artMeshMirrorService,
                 warpAltMirrorParticipationService,
                 viewContextMenuRegistry);
     }
@@ -114,6 +122,7 @@ record MeshCapabilityBundle(
         directory.installWhenPresent(
                 PluginService.WARP_ALT_MIRROR_PARTICIPATION, () -> warpAltMirrorParticipationService);
         directory.installWhenPresent(PluginService.VIEW_CONTEXT_MENU, () -> viewContextMenuRegistry);
+        directory.installWhenPresent(PluginService.ART_MESH_MIRROR, () -> artMeshMirrorService);
         directory.installWhenPresent(PluginService.MESH_EDIT_UI, () -> meshEditUiService);
     }
 }
