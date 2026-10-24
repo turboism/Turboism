@@ -121,6 +121,20 @@ final class WarpAltMirrorNativeMethodTransformerTest {
     }
 
     @Test
+    void replaysAdmittedHooksWhenAnotherAgentRetransformsTheClass() {
+        final var profile = WarpAltMirrorHostProfile.reviewed5302And5303();
+        final var transformer = new WarpAltMirrorNativeMethodTransformer(profile, null);
+        final byte[] original = fixture(profile, profile.pointMoveOwner());
+        assertNotNull(transformer.transform(null, null, profile.pointMoveOwner(), null, null, original));
+
+        // The JVM supplies the original bytes again, not this transformer's previous output.
+        final byte[] replayed =
+                transformer.transform(null, null, profile.pointMoveOwner(), Object.class, null, original);
+        assertNotNull(replayed, "An unrelated optimization must not erase an installed mirror hook");
+        assertTrue(containsBridgeCall(replayed, "mirrorPointMove", "(Ljava/lang/Object;Ljava/lang/Object;F)V"));
+    }
+
+    @Test
     void rejectsRetransformationFailClosed() {
         final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final WarpAltMirrorNativeMethodTransformer transformer =

@@ -97,6 +97,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
             final ProtectionDomain protectionDomain,
             final byte[] classfileBuffer) {
         if (!active.get() || className == null || classfileBuffer == null) return null;
+        final boolean isArtMeshMove = profile.artMeshMoveOwner().equals(className);
         final boolean isPointMove = profile.pointMoveOwner().equals(className);
         final boolean isDragTick = profile.dragTickOwner().equals(className);
         final boolean isStrip = profile.stripOwner().equals(className);
@@ -104,14 +105,18 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean isWeightWrite = profile.weightWriteOwner().equals(className);
         final boolean isActionDispatch = profile.actionDispatchOwner().equals(className);
         final boolean isInputIngress = profile.inputIngressOwner().equals(className);
-        if (!isPointMove
+        if (!isArtMeshMove
+                && !isPointMove
                 && !isDragTick
                 && !isGreenTick
                 && !isStrip
                 && !isWeightWrite
                 && !isActionDispatch
                 && !isInputIngress) return null;
-        if (classBeingRedefined != null) {
+        // Other optimization agents retransform CEViewContext during startup. The JVM
+        // supplies its original bytes again; returning null would erase our existing hooks.
+        // Only replay a target admitted at initial definition, with all identity/pin checks below.
+        if (classBeingRedefined != null && !transformedOwners.contains(className)) {
             reject(Outcome.RETRANSFORM_REJECTED, "WARP_ALT_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
         }
@@ -154,6 +159,13 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                             final MethodVisitor delegate =
                                     super.visitMethod(access, name, descriptor, signature, exceptions);
 
+                            final boolean artMeshMoveHere = isArtMeshMove
+                                    && name.equals("a")
+                                    && descriptor.equals(profile.pointMoveDescriptor());
+                            final boolean renderHere = isInputIngress
+                                    && name.equals("renderScene_exe")
+                                    && descriptor.equals(
+                                            "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V");
                             final boolean pointMoveHere = isPointMove
                                     && profile.pointMoveMethod().equals(name)
                                     && profile.pointMoveDescriptor().equals(descriptor);
@@ -184,7 +196,9 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                             final boolean inputIngressHere = isInputIngress
                                     && profile.inputIngressMethod().equals(name)
                                     && profile.inputIngressDescriptor().equals(descriptor);
-                            if (!pointMoveHere
+                            if (!artMeshMoveHere
+                                    && !renderHere
+                                    && !pointMoveHere
                                     && !dragTickHere
                                     && !stripMountHere
                                     && !stripLayoutTail
@@ -201,11 +215,24 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                 @Override
                                 public void visitCode() {
                                     super.visitCode();
-                                    if (stripLayoutTail) {
+                                    if (stripLayoutTail || renderHere) {
                                         return;
                                     }
                                     visitVarInsn(Opcodes.ALOAD, 0);
-                                    if (stripMountHere) {
+                                    if (artMeshMoveHere) {
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitVarInsn(Opcodes.FLOAD, 2);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                "dev/turboism/adapter/cubism/warpalt/NativeArtMeshSymmetryBridge",
+                                                "move",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;F)Z",
+                                                false);
+                                        final org.objectweb.asm.Label proceed = new org.objectweb.asm.Label();
+                                        visitJumpInsn(Opcodes.IFEQ, proceed);
+                                        visitInsn(Opcodes.RETURN);
+                                        visitLabel(proceed);
+                                    } else if (stripMountHere) {
                                         visitMethodInsn(
                                                 Opcodes.INVOKESTATIC,
                                                 BRIDGE,
@@ -278,6 +305,18 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                         visitVarInsn(Opcodes.ALOAD, 1);
                                         visitMethodInsn(
                                                 Opcodes.INVOKESTATIC,
+                                                "dev/turboism/adapter/cubism/warpalt/NativeArtMeshSymmetryBridge",
+                                                "input",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)Z",
+                                                false);
+                                        final org.objectweb.asm.Label proceed = new org.objectweb.asm.Label();
+                                        visitJumpInsn(Opcodes.IFEQ, proceed);
+                                        visitInsn(Opcodes.RETURN);
+                                        visitLabel(proceed);
+                                        visitVarInsn(Opcodes.ALOAD, 0);
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
                                                 BRIDGE,
                                                 "diagInputEvent",
                                                 "(Ljava/lang/Object;Ljava/lang/Object;)V",
@@ -287,6 +326,23 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                                 Opcodes.INVOKESTATIC,
                                                 BRIDGE,
                                                 "mountViewContextMenu",
+                                                "(Ljava/lang/Object;)V",
+                                                false);
+                                    }
+                                }
+
+                                @Override
+                                public void visitMethodInsn(
+                                        int opcode, String owner, String method, String desc, boolean isInterface) {
+                                    super.visitMethodInsn(opcode, owner, method, desc, isInterface);
+                                    if (renderHere
+                                            && method.equals("updateScene")
+                                            && desc.equals("(Lcom/live2d/graphics3d/a;)V")) {
+                                        super.visitVarInsn(Opcodes.ALOAD, 0);
+                                        super.visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                "dev/turboism/adapter/cubism/warpalt/NativeArtMeshSymmetryBridge",
+                                                "draw",
                                                 "(Ljava/lang/Object;)V",
                                                 false);
                                     }

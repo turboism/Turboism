@@ -225,6 +225,12 @@ val warpAltMirrorArtifactTest by tasks.registering(Test::class) {
     if (refRoot.get().isNotBlank()) {
         inputs.files(fileTree(refRoot.get()) { include("*/Live2D_Cubism.jar") })
     }
+    // Real host constructors create a relative data/.tmp tree. Keep it in this worktree's build output.
+    val isolatedHostDir = layout.buildDirectory.dir("warp-alt-mirror-artifact-host")
+    doFirst {
+        isolatedHostDir.get().asFile.mkdirs()
+        workingDir(isolatedHostDir.get().asFile)
+    }
     doFirst {
         require(refRoot.get().isNotBlank()) {
             "Set TURBOISM_CUBISM_REF_ROOT to a directory containing <version>/Live2D_Cubism.jar"

@@ -26,6 +26,7 @@ public record InstalledBuild(
 
     public static final Set<String> FIRST_PARTY_PLUGIN_JARS = Set.of(
             "acp.jar",
+            "artmesh-mirror.jar",
             "atlas-maxrects-bssf.jar",
             "boundingbox-warp-mirror.jar",
             "clipmask-viewer.jar",

@@ -6,7 +6,9 @@
     "com/live2d/cubism/view/context/a/b": "e0a10508504133336b73a505c1ed9b99c59d4c5f14dbe2163a484febc491960f",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.0.01": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -15,7 +17,9 @@
     "com/live2d/cubism/view/context/a/b": "e0a10508504133336b73a505c1ed9b99c59d4c5f14dbe2163a484febc491960f",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.0.02": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -24,7 +28,9 @@
     "com/live2d/cubism/view/context/a/b": "e0a10508504133336b73a505c1ed9b99c59d4c5f14dbe2163a484febc491960f",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.0.03": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -33,7 +39,9 @@
     "com/live2d/cubism/view/context/a/b": "84653976c30d59b58317143b6a7ac687427577a0729712fd7515fcd76c6d223b",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.0.04": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -42,7 +50,9 @@
     "com/live2d/cubism/view/context/a/b": "84653976c30d59b58317143b6a7ac687427577a0729712fd7515fcd76c6d223b",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.0.05": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -51,7 +61,9 @@
     "com/live2d/cubism/view/context/a/b": "84653976c30d59b58317143b6a7ac687427577a0729712fd7515fcd76c6d223b",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.0.06": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -60,7 +72,9 @@
     "com/live2d/cubism/view/context/a/b": "2de469bb038298b0c028bf603bca66087e081104a15aa031f60f11035e871efc",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.1.00": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -69,7 +83,9 @@
     "com/live2d/cubism/view/context/a/b": "37c1617a3c2dbaf9aff356d78be4f6679ef001247878e0be8dcfe811d75abc1d",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.1.01": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -78,7 +94,9 @@
     "com/live2d/cubism/view/context/a/b": "37c1617a3c2dbaf9aff356d78be4f6679ef001247878e0be8dcfe811d75abc1d",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.1.02": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -87,7 +105,9 @@
     "com/live2d/cubism/view/context/a/b": "1bc935f57d135fd229da851d627a3ca86476eb978402823c1de08fc70ec65c85",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.1.03": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -96,7 +116,9 @@
     "com/live2d/cubism/view/context/a/b": "1bc935f57d135fd229da851d627a3ca86476eb978402823c1de08fc70ec65c85",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
     "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
-    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.2.00": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -105,7 +127,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
+    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.2.01": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -114,7 +138,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
+    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.2.02": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -123,7 +149,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
+    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.2.03": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -132,7 +160,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-    "com/live2d/cubism/view/context/CEViewContext": "096b41d6fb53fa540953a46a9b51ebe3efe91c3def555152c48d7c70eabf375a"
+    "com/live2d/cubism/view/context/CEViewContext": "096b41d6fb53fa540953a46a9b51ebe3efe91c3def555152c48d7c70eabf375a",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.3.00": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -141,7 +171,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-    "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5"
+    "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.3.01": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -150,7 +182,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-    "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5"
+    "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.3.02": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -159,7 +193,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-    "com/live2d/cubism/view/context/CEViewContext": "5bd6c34d0b5a0213f2762396fb13eb81e78354156013210df4121a82494bfb8e"
+    "com/live2d/cubism/view/context/CEViewContext": "5bd6c34d0b5a0213f2762396fb13eb81e78354156013210df4121a82494bfb8e",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.3.03": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -168,7 +204,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "d85901df5f0ae742ee7cb3d8019295240d9d9ca3d9c6deb59b8a75c50286a56a",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-    "com/live2d/cubism/view/context/CEViewContext": "6f888ce6f10a79a71f4409ecfc22e6f0cabe190f7eab13bf61279da7f033fd57"
+    "com/live2d/cubism/view/context/CEViewContext": "6f888ce6f10a79a71f4409ecfc22e6f0cabe190f7eab13bf61279da7f033fd57",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   },
   "5.3.04": {
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
@@ -177,6 +215,8 @@
     "com/live2d/cubism/doc/model/deformer/warp/a$b": "5a2a7651f053e2f393c70b9b2bb5454801e4accff78e367036636f51e70daf83",
     "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
     "com/live2d/cubism/view/context/actionManager/CEActionManager": "4153f6ec3ad24ca27f22227869dfc6029f562c4427c0ef413e9c78b87b6e02a0",
-    "com/live2d/cubism/view/context/CEViewContext": "b466712176901018494bcbaf7a7750106177a73d1094797dd4bb036ae465a9ce"
+    "com/live2d/cubism/view/context/CEViewContext": "b466712176901018494bcbaf7a7750106177a73d1094797dd4bb036ae465a9ce",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef": "63e6e59754374c1e31aa26474a6f19d6877ad85bf482df17816cec03c3530864",
+    "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx": "714110d0acdc3d0e11d548cdc016ccc88f2a64da1ab45dcce451610b8d89abde"
   }
 }
