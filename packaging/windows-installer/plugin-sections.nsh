@@ -70,61 +70,65 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
+    File "/oname=parameter-sync.jar" "${STAGING_DIR}/plugins/parameter-sync.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0016.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+    File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0017.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
+    File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0018.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
+    File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0019.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+    File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0020.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+    File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0021.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
+    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+    File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-dalsoo-polygon.jar" "${STAGING_DIR}/plugins/atlas-dalsoo-polygon.jar"
+    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0024.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-folder-layout.jar" "${STAGING_DIR}/plugins/atlas-folder-layout.jar"
+    File "/oname=atlas-dalsoo-polygon.jar" "${STAGING_DIR}/plugins/atlas-dalsoo-polygon.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0025.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-bitmask-nesting.jar" "${STAGING_DIR}/plugins/atlas-bitmask-nesting.jar"
+    File "/oname=atlas-folder-layout.jar" "${STAGING_DIR}/plugins/atlas-folder-layout.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0026.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    File "/oname=atlas-bitmask-nesting.jar" "${STAGING_DIR}/plugins/atlas-bitmask-nesting.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0027.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0028.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0029.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0030.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
     File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
   ${EndIf}
@@ -260,6 +264,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_parameter_lock ${LANG_JAPANESE} "パ�
 LangString PLUGIN_DESC_dev_turboism_plugin_parameter_lock ${LANG_JAPANESE} "Cubism パラメータ値の偶発的な変更を防ぎ、セッション間での永続化およびネイティブアイコンの統合を提供します。"
 LangString PLUGIN_NAME_dev_turboism_plugin_parameter_lock ${LANG_KOREAN} "매개변수 잠금 플러그인 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_parameter_lock ${LANG_KOREAN} "Cubism 매개변수 값의 의도치 않은 수정을 방지하고 세션 간 지속성 및 기본 아이콘 통합을 제공합니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_sync ${LANG_ENGLISH} "Parameter Sync Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_sync ${LANG_ENGLISH} "Synchronize parameter values in real time with normalized range mapping across checked parameters."
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_sync ${LANG_SIMPCHINESE} "参数同步插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_sync ${LANG_SIMPCHINESE} "基于归一化百分比进度的参数数值实时同步联动插件。"
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_sync ${LANG_JAPANESE} "パラメータ同期プラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_sync ${LANG_JAPANESE} "正規化範囲マッピングに基づくパラメータ値のリアルタイム同期プラグイン。"
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_sync ${LANG_KOREAN} "매개변수 동기화 플러그인 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_sync ${LANG_KOREAN} "정규화 범위 매핑을 지원하는 매개변수 값 실시간 동기화 플러그인."
 LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Performance Statistics 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window."
 LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_SIMPCHINESE} "性能统计 0.1.0"
@@ -383,7 +395,7 @@ LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDA
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-lock;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-lock;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留。
@@ -407,6 +419,7 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\palette-label-style.jar"
   Delete "$INSTDIR\plugins\parameter-batch-transfer.jar"
   Delete "$INSTDIR\plugins\parameter-lock.jar"
+  Delete "$INSTDIR\plugins\parameter-sync.jar"
   Delete "$INSTDIR\plugins\perf-stats.jar"
   Delete "$INSTDIR\plugins\physics-editor.jar"
   Delete "$INSTDIR\plugins\protected-export.jar"
