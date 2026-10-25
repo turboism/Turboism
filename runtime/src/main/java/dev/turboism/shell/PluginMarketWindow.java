@@ -13,6 +13,7 @@ import dev.turboism.pluginmanagement.PluginMarketService.StatusType;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -32,6 +33,7 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JEditorPane;
@@ -467,6 +469,14 @@ final class PluginMarketWindow {
         }
         actions.add(browserBtn);
 
+        // BoxLayout aligns children by alignmentX; JLabel defaults to LEFT but JPanel to CENTER,
+        // which shifts the badge row, grid and buttons relative to the title and summary.
+        for (final JComponent part : new JComponent[] {nameLabel, metaRow, summaryLabel, infoGrid, actions}) {
+            part.setAlignmentX(Component.LEFT_ALIGNMENT);
+        }
+        nameLabel.setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 0));
+        summaryLabel.setBorder(BorderFactory.createEmptyBorder(4, 6, 6, 2));
+
         header.add(nameLabel);
         header.add(metaRow);
         header.add(summaryLabel);
@@ -544,7 +554,7 @@ final class PluginMarketWindow {
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(2, 2, 2, 8);
+        gbc.insets = new Insets(2, 6, 2, 8);
         final JLabel lbl = new JLabel(label);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD));
         panel.add(lbl, gbc);
