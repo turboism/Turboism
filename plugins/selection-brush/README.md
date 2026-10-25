@@ -89,6 +89,12 @@ The plugin has Preview status and is included in official release packages. Its 
 | Selection is unchanged | Confirm the stroke hits vertices and inspect the runtime log for rejected-session or projection diagnostics. |
 | Radius change takes effect later | Radius is locked when the stroke starts; the new value applies to the next stroke. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - Website: [turboism.dev](https://turboism.dev)

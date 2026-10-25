@@ -535,6 +535,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         "compatibility/cubism/version-boundaries.json",
         "compatibility/cubism/official-feature-timeline.json",
         "packaging/release-plugins.txt",
+        "packaging/market-plugins.txt",
         "packaging/market-plugins.json",
         fileTree("build/generated/verification") { include("*.json") },
         fileTree("scripts/verification-sources/families") { include("*.json") },
@@ -837,11 +838,13 @@ val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     description = "Verifies every first-party plugin has a README matching its descriptor and delivery role."
     workingDir(rootDir)
     inputs.file("packaging/release-plugins.txt")
+    inputs.file("packaging/market-plugins.txt")
     inputs.file("scripts/test/check_official_plugin_readmes.py")
     inputs.files(fileTree("plugins") {
         include("*/README.md")
         include("*/README_zh.md")
         include("*/README_ja.md")
+        include("*/README_ko.md")
         include("*/src/main/resources/META-INF/turboism/plugin.json")
     })
     VerificationStamps.apply(this)
@@ -920,6 +923,7 @@ val checkMarketReleaseMetadata by tasks.registering(Exec::class) {
         "scripts/release/prepare-market-release.py",
         "scripts/test/test_prepare_market_release.py",
         "packaging/release-plugins.txt",
+        "packaging/market-plugins.txt",
         "packaging/market-plugins.json",
         ".github/workflows/publish-selected-plugins.yml"
     )

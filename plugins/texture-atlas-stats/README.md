@@ -102,6 +102,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Counts remain zero | Confirm a model and texture are active, then wait for the next one-second refresh. |
 | Unavailable text appears | Check the Turboism log for texture-atlas session read failure. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

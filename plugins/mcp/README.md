@@ -309,6 +309,12 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 | Resource returns `UNAVAILABLE` | Check active document/model state and exact-host capability admission; do not treat it as an empty successful value. |
 | Resource returns permission denied | Check the plugin descriptor grant and the specific runtime permission named above. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

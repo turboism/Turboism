@@ -62,6 +62,12 @@ Preview. Matching searches within approximately 20 screen pixels of the reflecti
 
 If the axis is absent, enable the plugin and its canvas button, select an ArtMesh in ordinary modeling mode, and check runtime hook availability. If no counterpart moves, check that a corresponding vertex exists near the reflected position.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 [Issues](https://github.com/turboism/Turboism/issues) · [Project License](../../LICENSE)

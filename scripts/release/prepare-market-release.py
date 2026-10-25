@@ -458,20 +458,22 @@ def source_catalog_reader(repo_root: Path, module: str):
 
 
 def verify_release_roster_sync(repo_root: Path, manifest_path: Path, entries: list) -> None:
-    """Ensure the repository's market manifest stays in sync with release-plugins.txt and cubism-versions.json."""
+    """Ensure the repository's market manifest stays in sync with market-plugins.txt/release-plugins.txt and cubism-versions.json."""
     default_manifest = (repo_root / "packaging/market-plugins.json").resolve()
+    market_roster = repo_root / "packaging/market-plugins.txt"
     release_roster = repo_root / "packaging/release-plugins.txt"
-    if manifest_path.resolve() != default_manifest or not release_roster.is_file():
+    roster = market_roster if market_roster.is_file() else release_roster
+    if manifest_path.resolve() != default_manifest or not roster.is_file():
         return
     expected_projects = [
         line.strip()
-        for line in release_roster.read_text(encoding="utf-8").splitlines()
+        for line in roster.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#") and line.strip() != ":plugins:core"
     ]
     actual_projects = [entry["project"] for entry in entries]
     if actual_projects != expected_projects:
         raise MarketError(
-            f"{manifest_path}: project list does not match {release_roster} "
+            f"{manifest_path}: project list does not match {roster} "
             f"(expected {expected_projects}, got {actual_projects})"
         )
     for entry in entries:

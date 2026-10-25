@@ -187,9 +187,10 @@ The legacy orchestrator is planned by one public command and published by protec
 The framework bundle roster and Plugin Directory roster are independent contracts:
 
 - `packaging/release-plugins.txt` controls plugins bundled in the Full installer/archive.
-- `packaging/market-plugins.json` controls which first-party plugins are eligible for independent store publication.
+- `packaging/market-plugins.txt` controls which first-party plugins are published to the Plugin Directory (generating `packaging/market-plugins.json`).
+- `packaging/market-plugins.json` is the Git-reviewed publication manifest with derived compatibility and channel metadata.
 
-A plugin bundled in Full is not thereby published to the Plugin Directory.
+A plugin bundled in Full is not thereby published to the Plugin Directory, and a plugin published to the Plugin Directory does not need to be bundled in the Full installer.
 
 ## One-command dry run
 

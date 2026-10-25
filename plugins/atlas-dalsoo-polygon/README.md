@@ -211,6 +211,12 @@ No telemetry is sent by this plugin.
 | Layout is slow | Concave packing is expensive; lower the quality preset, use `QUARTER`/`NONE`, or choose the `AUTO`/rectangle backend for near-rectangular inputs. |
 | Layout is not applied | Check the Turboism log for validation failure; plans are rejected atomically. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)
