@@ -8,7 +8,7 @@ include(
     "event-processor",
     "graal-host",
     "plugins:demo",
-    "plugins:deformer-rename",
+    "plugins:deformer-batch-rename",
     "plugins:model-import-3d",
     "plugins:ui-theme",
     "plugins:cubism-tab-filter",
