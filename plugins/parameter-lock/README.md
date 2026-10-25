@@ -35,7 +35,7 @@ Protects Cubism parameter values from accidental editing, with cross-session per
 - Clicking a parameter row lock icon toggles its individual lock state without altering editor selection.
 - Clicking a parameter group folder row lock icon recursively affects all descendant parameters across nested sub-groups (with cycle prevention): partially locked (mixed) groups lock all children, fully locked groups unlock all children, and empty groups remain safely unlocked without false locking.
 - Single-parameter lock changes immediately reflect in the visual state of ancestor parameter groups (unlocked, mixed, or locked).
-- Provides context-menu actions on the Parameter Tab (Lock Selected, Unlock Selected, Toggle Parameter Lock) as secondary entry points. The main toolbar toggle button has been removed in favor of independent per-row locking.
+- The main toolbar toggle button has been removed in favor of independent per-row locking.
 - Returns the existing value through the write hook without directly modifying the Editor history stack. Native Undo/Redo behavior still needs live-host acceptance.
 - Persists locks across sessions using the model's native serialized GUID (`CModelSource.guid`).
 - Cleans up state when the plugin is disabled or uninstalled, while safely retaining stored configuration files for future re-enabling.
@@ -72,16 +72,13 @@ This preview plugin is included in the release roster for the next Turboism bund
 
 1. In the **Parameters** palette, click the lock icon on any parameter row to toggle its individual lock state.
 2. Click the lock icon on any parameter folder row to recursively toggle or lock all descendant parameters in that folder.
-3. Alternatively, right-click one or more parameters or folders to access **Lock Selected Parameters**, **Unlock Selected Parameters**, or **Toggle Parameter Lock**.
-4. Try modifying a locked parameter using sliders or input fields: the value will not change.
+3. Try modifying a locked parameter using sliders or input fields: the value will not change.
 5. Reopen the model in a new session to confirm that locked parameters remain protected.
 
 ## Capabilities
 
 | Declared capability | User effect |
 |---|---|
-| `action.register` | Registers parameter lock, unlock, and toggle actions. |
-| `ui.context-menu.contribute` | Contributes lock and unlock actions to the parameter palette context menu. |
 | `ui.appearance.modify` | Overrides parameter and parameter group palette entry leading actions with native lock icons. |
 | `cubism.model.read` | Reads active model parameters and native model GUID. |
 | `cubism.model.observe` | Receives model lifecycle events to load and manage lock persistence. |
@@ -93,8 +90,6 @@ This preview plugin is included in the release roster for the next Turboism bund
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
-| `turboism.action.register` | `application` | Register parameter lock, unlock, and toggle actions. |
-| `turboism.ui.context-menu.contribute` | `application` | Contribute lock and unlock actions to parameter palette context menu. |
 | `turboism.ui.appearance.modify` | `application` | Override parameter and parameter group palette entry leading actions with native lock icons. |
 | `turboism.cubism.model.read` | `application` | Read active model parameter IDs and native model GUID for locking. |
 | `turboism.cubism.model.observe` | `application` | Receive model open/create/close lifecycle callbacks to manage lock persistence. |
@@ -132,7 +127,6 @@ No telemetry is sent by this plugin.
 | Symptom | What to check |
 |---|---|
 | Parameter value still modifies | Verify that the plugin is enabled in Plugin Management and that the parameter appears in the locked list. |
-| Lock entries missing from context menu | Verify that a model is currently active and that the context-menu contribution capability is granted. |
 | Row lock icons not displaying | Verify that the active model has loaded and that palette appearance modification permission is granted. |
 | Locks not restored after reopening | Ensure the model was saved and that the `.cmo3` file's native GUID has not been manually altered. |
 

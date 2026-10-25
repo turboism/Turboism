@@ -5,6 +5,7 @@ import dev.turboism.sdk.ui.appearance.PaletteRowAction;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconRef;
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Insets;
@@ -92,6 +93,36 @@ final class NativeRowActionTracker {
         private final int slotWidth;
         private final Icon unlocked;
         private final MouseAdapter listener = new MouseAdapter() {
+            // A listener on the label makes Swing stop delivering mouse events to its
+            // ancestors, which would swallow the native row popup menu and selection.
+            private void forward(final MouseEvent event) {
+                final JLabel current = label.get();
+                if (current == null || event.isConsumed()) return;
+                final Container parent = current.getParent();
+                if (parent == null) return;
+                parent.dispatchEvent(SwingUtilities.convertMouseEvent(current, event, parent));
+            }
+
+            @Override
+            public void mousePressed(final MouseEvent event) {
+                forward(event);
+            }
+
+            @Override
+            public void mouseReleased(final MouseEvent event) {
+                forward(event);
+            }
+
+            @Override
+            public void mouseEntered(final MouseEvent event) {
+                forward(event);
+            }
+
+            @Override
+            public void mouseExited(final MouseEvent event) {
+                forward(event);
+            }
+
             @Override
             public void mouseClicked(final MouseEvent event) {
                 final JLabel current = label.get();
@@ -99,13 +130,19 @@ final class NativeRowActionTracker {
                         || !current.isShowing()
                         || current.getIcon() != Binding.this
                         || !SwingUtilities.isLeftMouseButton(event)
-                        || event.getClickCount() != 1) return;
+                        || event.getClickCount() != 1) {
+                    forward(event);
+                    return;
+                }
                 final Rectangle icon = new Rectangle(
                         originalInsets(current).left,
                         (current.getHeight() - normal.getIconHeight()) / 2,
                         normal.getIconWidth(),
                         normal.getIconHeight());
-                if (!icon.contains(event.getPoint())) return;
+                if (!icon.contains(event.getPoint())) {
+                    forward(event);
+                    return;
+                }
                 event.consume();
                 try {
                     action.onClick().run();
