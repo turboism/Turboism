@@ -90,7 +90,7 @@ class ParameterSyncPluginTest {
                 .map(ContextMenuRegistry.ContextMenuContribution::id)
                 .toList();
         assertTrue(menuIds.contains(ParameterSyncPlugin.CONTEXT_MENU_SYNC_ID));
-        assertTrue(menuIds.contains(ParameterSyncPlugin.CONTEXT_MENU_TOGGLE_ID));
+        assertFalse(menuIds.contains("parameter-sync.menu.toggle"));
     }
 
     @Test
