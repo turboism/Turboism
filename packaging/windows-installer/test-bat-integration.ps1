@@ -161,6 +161,17 @@ try {
     Assert-BatRegression ((Get-CubismSha256 $bat) -eq $editedHash) 'rejected upgrade preserves user edit'
     Assert-BatThrows { Restore-CubismBatIntegrations -Records $records } 'conflicting BAT refuses restoration'
     Assert-BatRegression (Test-Path -LiteralPath $records[0].BackupPath) 'conflict retains recovery backup'
+
+    # Cubism restored its own BAT and the backup vanished: the record is stale.
+    $staleRecords = $records
+    [System.IO.File]::WriteAllText($bat, $original, $encoding)
+    Remove-Item -LiteralPath $staleRecords[0].BackupPath -Force
+    $healed = @(Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate) -ExistingRecords $staleRecords)
+    Assert-BatRegression ($healed.Count -eq 1 -and $healed[0].OriginalSha256 -eq $originalHash -and (Test-Path -LiteralPath $healed[0].BackupPath)) 'stale record with restored BAT and missing backup re-integrates'
+    Restore-CubismBatIntegrations -Records $healed
+    [System.IO.File]::WriteAllText($bat, $original, $encoding)
+    Restore-CubismBatIntegrations -Records $staleRecords
+    Assert-BatRegression ((Get-CubismSha256 $bat) -eq $originalHash) 'stale record restoration is a no-op that does not throw'
     Assert-BatThrows { Get-CubismBatIntegrationText -OriginalText $original -TurboismHome ($homePath + '&bad') } 'command metacharacter is rejected'
     Write-Output "BAT_INTEGRATION_REGRESSION_PASS assertions=$script:Assertions PowerShell=$($PSVersionTable.PSVersion)"
 }

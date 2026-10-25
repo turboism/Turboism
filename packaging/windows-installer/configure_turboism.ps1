@@ -898,6 +898,11 @@ function Test-CurrentProcessElevated {
     catch { return $false }
 }
 
+# Distinct exit codes let the installer tell a declined/unanswered UAC prompt
+# apart from a failed BAT integration (exit code 1).
+$script:ElevationCanceledExitCode = 3
+$script:ElevationTimeoutExitCode = 4
+
 function Invoke-ElevatedConfiguratorMode {
     param([string]$Mode)
     if (@("IntegrateBat", "DisableBat", "Cleanup") -notcontains $Mode) { throw "invalid elevated mode" }
@@ -919,7 +924,8 @@ function Invoke-ElevatedConfiguratorMode {
         try {
             # An unanswered or hidden UAC prompt must not block the caller forever.
             if (-not $process.WaitForExit(180000)) {
-                throw ("Elevated configurator {0} did not finish within 180 seconds; confirm the UAC prompt or rerun configure_turboism.ps1" -f $Mode)
+                Write-InstallerLog "ELEVATION_TIMEOUT" ("mode={0} childPid={1}" -f $Mode, $process.Id)
+                return $script:ElevationTimeoutExitCode
             }
             $exitCode = $process.ExitCode
             if ($null -eq $exitCode) { throw "Elevated configurator returned no exit code" }
@@ -932,6 +938,13 @@ function Invoke-ElevatedConfiguratorMode {
         finally { $process.Dispose() }
     }
     catch {
+        # ERROR_CANCELLED (1223): the user declined the UAC prompt.
+        # Windows PowerShell 5.1 wraps it in an InvalidOperationException.
+        $nativeFailure = if ($_.Exception -is [System.ComponentModel.Win32Exception]) { $_.Exception } else { $_.Exception.InnerException }
+        if ($nativeFailure -is [System.ComponentModel.Win32Exception] -and $nativeFailure.NativeErrorCode -eq 1223) {
+            Write-InstallerLog "ELEVATION_CANCELED" ("mode={0}" -f $Mode)
+            return $script:ElevationCanceledExitCode
+        }
         Write-InstallerLog "ELEVATION_FAILED" ("mode={0} type={1} error={2}" -f $Mode, $_.Exception.GetType().FullName, $_.Exception.Message)
         throw
     }
