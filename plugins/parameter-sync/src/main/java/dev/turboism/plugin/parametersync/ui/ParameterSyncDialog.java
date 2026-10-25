@@ -27,6 +27,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.Timer;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.AbstractTableModel;
@@ -62,6 +63,7 @@ public class ParameterSyncDialog extends JDialog {
             final PluginLocalization i18n) {
         super((Frame) null, i18n != null ? i18n.text("dialog.sync.title") : "Parameter Synchronization", false);
         TurboismWindowFactory.style(this);
+        setAlwaysOnTop(true);
         this.model = model;
         this.ruleSet = ruleSet;
         this.plugin = plugin;
@@ -83,7 +85,7 @@ public class ParameterSyncDialog extends JDialog {
         globalEnabledCheck = new JCheckBox(
                 i18n != null ? i18n.text("dialog.top.enable") : "Enable Parameter Synchronization",
                 ruleSet != null && ruleSet.isGlobalEnabled());
-        globalEnabledCheck.setFont(globalEnabledCheck.getFont().deriveFont(Font.BOLD, 14f));
+        globalEnabledCheck.setFont(globalEnabledCheck.getFont().deriveFont(Font.PLAIN, 14f));
         globalEnabledCheck.addActionListener(e -> {
             if (ruleSet != null) {
                 ruleSet.setGlobalEnabled(globalEnabledCheck.isSelected());
@@ -96,7 +98,7 @@ public class ParameterSyncDialog extends JDialog {
         gbc.gridy = 0;
         gbc.weightx = 1.0;
         countLabel = new JLabel();
-        countLabel.setFont(countLabel.getFont().deriveFont(Font.BOLD));
+        countLabel.setFont(countLabel.getFont().deriveFont(Font.PLAIN));
         final JPanel countPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         countPanel.add(countLabel);
         final JButton clearBtn = new JButton(i18n != null ? i18n.text("dialog.btn.clear") : "Clear Selection");
@@ -169,6 +171,21 @@ public class ParameterSyncDialog extends JDialog {
         pack();
         setMinimumSize(new Dimension(640, 420));
         setLocationRelativeTo(null);
+
+        // The dialog is non-modal: keep the Current column in step with the editor values.
+        final Timer refreshTimer = new Timer(250, e -> {
+            if (isShowing() && tableModel != null && !filteredRows.isEmpty()) {
+                tableModel.fireTableChanged(
+                        new javax.swing.event.TableModelEvent(tableModel, 0, filteredRows.size() - 1, 3));
+            }
+        });
+        refreshTimer.start();
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosed(final java.awt.event.WindowEvent e) {
+                refreshTimer.stop();
+            }
+        });
     }
 
     private void initRows(final CubismModel model, final String focusedId) {
@@ -183,7 +200,7 @@ public class ParameterSyncDialog extends JDialog {
                         sync = true;
                         ruleSet.setSynchronized(id, true);
                     }
-                    allRows.add(new ParamRow(sync, id, name, p.getMinimumValue(), p.getMaximumValue(), p.getValue()));
+                    allRows.add(new ParamRow(sync, id, name, p.getMinimumValue(), p.getMaximumValue(), p));
                 }
             } catch (RuntimeException ignored) {
             }
@@ -258,7 +275,7 @@ public class ParameterSyncDialog extends JDialog {
         final String name;
         final float min;
         final float max;
-        final float current;
+        final Parameter parameter;
 
         ParamRow(
                 final boolean sync,
@@ -266,13 +283,21 @@ public class ParameterSyncDialog extends JDialog {
                 final String name,
                 final float min,
                 final float max,
-                final float current) {
+                final Parameter parameter) {
             this.sync = sync;
             this.id = id;
             this.name = name;
             this.min = min;
             this.max = max;
-            this.current = current;
+            this.parameter = parameter;
+        }
+
+        float current() {
+            try {
+                return parameter.getValue();
+            } catch (RuntimeException failure) {
+                return Float.NaN;
+            }
         }
 
         String displayName() {
@@ -323,7 +348,7 @@ public class ParameterSyncDialog extends JDialog {
                 case 0 -> row.sync;
                 case 1 -> row.displayName();
                 case 2 -> String.format("[%.1f, %.1f]", row.min, row.max);
-                case 3 -> String.format("%.2f", row.current);
+                case 3 -> String.format(Locale.ROOT, "%.2f", row.current());
                 default -> "";
             };
         }
