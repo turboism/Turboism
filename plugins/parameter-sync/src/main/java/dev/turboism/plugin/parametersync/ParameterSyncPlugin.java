@@ -57,7 +57,6 @@ public final class ParameterSyncPlugin implements CubismPlugin {
     public static final String CONTEXT_MENU_SYNC_ID = "parameter-sync.menu.sync";
     public static final String CONTEXT_MENU_MANAGER_ID = "parameter-sync.menu.manager";
     public static final String CONTEXT_MENU_QUICK_SYNC_ID = "parameter-sync.menu.quick-sync";
-    public static final String CONTEXT_MENU_TOGGLE_ID = "parameter-sync.menu.toggle";
 
     private static final int MENU_PRIORITY = 85;
 
@@ -107,8 +106,6 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         registerAction(ACTION_TOGGLE_GLOBAL, i18n.text("action.toggle.global"), this::handleToggleGlobal);
 
         registerContextMenu(CONTEXT_MENU_SYNC_ID, ACTION_OPEN_SYNC, i18n.text("menu.parameter.sync"), MENU_PRIORITY);
-        registerContextMenu(
-                CONTEXT_MENU_TOGGLE_ID, ACTION_TOGGLE_GLOBAL, i18n.text("menu.parameter.toggle"), MENU_PRIORITY + 1);
 
         cachedActiveModel = null;
         parameterCache.clear();
