@@ -14,7 +14,7 @@ final class RenameDialog {
         return new SelectionTableDialogRequest(
                 "deformer.rename.preview",
                 text.text("action.rename"),
-                text.text("dialog.hint"),
+                "",
                 List.of(
                         text.text("column.type"),
                         text.text("column.original"),
