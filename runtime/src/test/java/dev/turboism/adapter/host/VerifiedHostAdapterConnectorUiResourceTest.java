@@ -54,6 +54,29 @@ class VerifiedHostAdapterConnectorUiResourceTest {
                     "5.3.02", 1, "a".repeat(64), "adapter.editor-ui.embedded-panel", "b".repeat(64));
 
     @Test
+    void nativeDialogIconsSurviveTheDynamicHostAdapterView() throws Exception {
+        final RuntimeUiResourceService owner = cachedOwner();
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        try {
+            dynamic.connect(RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), owner.sdkView()));
+            assertEquals(
+                    UiIconAvailability.AVAILABLE, dynamic.view().uiResources().availability(ICON));
+            assertTrue(
+                    RuntimeUiResourceService.resolveForPresentation(
+                                    dynamic.view().uiResources(), ICON, false)
+                            .isPresent(),
+                    "An available native icon must reach the dialog renderer through the production dynamic host view");
+            dynamic.deactivate();
+            assertTrue(RuntimeUiResourceService.resolveForPresentation(
+                            dynamic.view().uiResources(), ICON, false)
+                    .isEmpty());
+        } finally {
+            dynamic.deactivate();
+            owner.close();
+        }
+    }
+
+    @Test
     void panelBearingConnectionPublishesTheOneOwnerSdkViewAndClosesIt() throws Exception {
         final VerifiedEmbeddedPanelHostOperationsTest.InstallHost host =
                 new VerifiedEmbeddedPanelHostOperationsTest.InstallHost();
