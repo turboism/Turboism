@@ -5,7 +5,6 @@ column.apply
 column.original
 column.target
 column.type
-dialog.hint
 plugin.description
 plugin.name
 status.done
