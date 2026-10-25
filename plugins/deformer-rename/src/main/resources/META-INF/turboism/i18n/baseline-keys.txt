@@ -1,0 +1,16 @@
+action.rename
+button.cancel
+button.confirm
+column.apply
+column.original
+column.target
+column.type
+dialog.hint
+plugin.description
+plugin.name
+status.done
+status.empty
+status.failed
+status.noModel
+type.rotation
+type.warp

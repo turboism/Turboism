@@ -182,6 +182,16 @@ public interface UiHostCapabilityService {
     }
 
     /**
+     * Opens a non-blocking preview table with runtime-resolved native icons. Requires
+     * {@code turboism.ui.dialog.contribute}. Closing the returned registration cancels the dialog.
+     * The runtime owns all widgets; result values contain only stable row identities.
+     */
+    default Registration openSelectionTableDialog(
+            final SelectionTableDialogRequest request, final SelectionTableDialogResultListener listener) {
+        throw new UnsupportedOperationException("selection table dialogs are unavailable");
+    }
+
+    /**
      * Opens a bounded runtime-rendered color picker without blocking the caller.
      * The listener receives {@code true} with a canonical {@code #RRGGBB} value
      * when the user confirms, or {@code false} with {@code null} on cancel.

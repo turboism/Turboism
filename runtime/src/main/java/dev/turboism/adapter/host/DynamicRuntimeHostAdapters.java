@@ -8,9 +8,6 @@ import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.core.runtime.UncheckedThrowableException;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.resource.UiIconAvailability;
-import dev.turboism.sdk.ui.resource.UiIconRef;
-import dev.turboism.sdk.ui.resource.UiResourceService;
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
@@ -260,12 +257,11 @@ final class DynamicRuntimeHostAdapters {
                         return call(adapters -> adapters.autoBackup().available());
                     }
                 },
-                new UiResourceService() {
-                    @Override
-                    public UiIconAvailability availability(final UiIconRef reference) {
-                        return call(adapters -> adapters.uiResources().availability(reference));
-                    }
-                });
+                dev.turboism.ui.resource.RuntimeUiResourceService.forwardingView(
+                        reference -> call(adapters -> adapters.uiResources().availability(reference)),
+                        (reference, disabled) -> call(
+                                adapters -> dev.turboism.ui.resource.RuntimeUiResourceService.resolveForPresentation(
+                                        adapters.uiResources(), reference, disabled))));
     }
 
     private void enterAdapterCall() {
