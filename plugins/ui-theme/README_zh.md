@@ -107,6 +107,12 @@ interface: none
 | 导入的包被拒绝 | 验证它是受限且有效的 Turboism 主题 ZIP，具有有效主题 ID 和受支持的条目。 |
 | 重启后主题缺失 | 检查 `ui-theme/selection.cfg`，并确认所选用户包仍存在于插件数据中。 |
 
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
+
 ## 支持与许可证
 
 - **项目网站：**[https://turboism.dev](https://turboism.dev)

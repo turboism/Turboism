@@ -50,9 +50,13 @@ def render_all(root: Path) -> dict[str, str]:
                 readme_name,
                 matrix["reviewedVersions"],
             )
+    market_plugins_path = root / "packaging/market-plugins.txt"
     release_plugins_path = root / "packaging/release-plugins.txt"
-    if release_plugins_path.is_file():
+    market_source_path = (
+        market_plugins_path if market_plugins_path.is_file() else release_plugins_path
+    )
+    if market_source_path.is_file():
         outputs["packaging/market-plugins.json"] = render_market_plugins(
-            root, release_plugins_path, matrix["plugins"]
+            root, market_source_path, matrix["plugins"]
         )
     return outputs

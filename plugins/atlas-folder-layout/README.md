@@ -69,6 +69,12 @@ Preview. Current-page-only algorithms are listed but disabled for complete-atlas
 
 If no algorithm is available, enable a compatible algorithm plugin. If no atlas is open, create or open one for the active model. Use Undo to restore the previous layout.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 Report reproducible issues at https://github.com/turboism/Turboism/issues with the Editor version and selected algorithm. Covered by the repository Project License.

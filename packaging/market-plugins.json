@@ -1,5 +1,5 @@
 {
-  "_comment": "Git-reviewed manifest selecting first-party :plugins:* modules eligible for independent Plugin Directory publication. Derived from packaging/release-plugins.txt and each plugin's cubism-versions.json; validated by scripts/release/prepare-market-release.py (project/channel/cubismVersions/repository/support, ASCII-sorted, unique).",
+  "_comment": "Git-reviewed manifest selecting first-party :plugins:* modules eligible for independent Plugin Directory publication. Derived from packaging/market-plugins.txt (or packaging/release-plugins.txt) and each plugin's cubism-versions.json; validated by scripts/release/prepare-market-release.py (project/channel/cubismVersions/repository/support, ASCII-sorted, unique).",
   "schemaVersion": 1,
   "plugins": [
     {

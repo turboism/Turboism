@@ -84,6 +84,12 @@ Release candidate. The preview and both native deformer icon types were verified
 
 Open a model first. If you switch models or change hierarchy, names or parameter bindings while the preview is open, cancel and reopen it. Confirmation rejects a stale preview. For failed transactions, check the plugin log and the reported transaction outcome.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 [Report issues](https://github.com/turboism/Turboism/issues). Distributed under the repository license.

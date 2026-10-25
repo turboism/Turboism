@@ -118,6 +118,12 @@ The plugin logs lifecycle messages and safe setter-failure diagnostics. Plugin l
 | Import partially changes values | A setter failed after earlier writes. Use Cubism Undo as needed and inspect the status warning. |
 | Transfer does nothing | Confirm source, distinct destination, and eligible ArtMesh or deformer targets; a context-menu confirmation may have been cancelled. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

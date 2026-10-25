@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -44,6 +45,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
 import javax.swing.event.DocumentEvent;
@@ -59,6 +61,12 @@ final class PluginMarketWindow {
 
     private static final String MARKET_BASE_URL = "https://turboism.dev/plugins/";
 
+    private enum QuickStatusFilter {
+        ALL,
+        INSTALLED,
+        NOT_INSTALLED
+    }
+
     private final PluginLocalization i18n;
     private final PluginMarketService marketService;
     private final CorePluginManagement plugins;
@@ -67,6 +75,9 @@ final class PluginMarketWindow {
     private MarketTableModel tableModel;
     private JTable table;
     private TableRowSorter<MarketTableModel> sorter;
+
+    private QuickStatusFilter quickFilter = QuickStatusFilter.ALL;
+    private JLabel pluginStatsLabel;
 
     private JTextField searchField;
     private JComboBox<String> categoryCombo;
@@ -117,16 +128,44 @@ final class PluginMarketWindow {
         win.setLayout(new BorderLayout(0, 0));
 
         tableModel = new MarketTableModel();
-        final JLabel pluginCount = new JLabel(" ");
-        pluginCount.setBorder(BorderFactory.createEmptyBorder(4, 8, 6, 8));
-        tableModel.addTableModelListener(
-                ignored -> pluginCount.setText(i18n.format("market.count", tableModel.getRowCount())));
+        pluginStatsLabel = new JLabel(" ");
+        pluginStatsLabel.setBorder(BorderFactory.createEmptyBorder(4, 8, 6, 8));
+        tableModel.addTableModelListener(ignored -> updateStatsLabel());
+
+        final JPanel quickFilterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        final JToggleButton allBtn = new JToggleButton(i18n.text("market.filter.quick.all"), true);
+        final JToggleButton installedBtn = new JToggleButton(i18n.text("market.filter.quick.installed"), false);
+        final JToggleButton notInstalledBtn = new JToggleButton(i18n.text("market.filter.quick.not-installed"), false);
+
+        final ButtonGroup quickGroup = new ButtonGroup();
+        quickGroup.add(allBtn);
+        quickGroup.add(installedBtn);
+        quickGroup.add(notInstalledBtn);
+
+        allBtn.addActionListener(e -> {
+            quickFilter = QuickStatusFilter.ALL;
+            applyFilters();
+        });
+        installedBtn.addActionListener(e -> {
+            quickFilter = QuickStatusFilter.INSTALLED;
+            applyFilters();
+        });
+        notInstalledBtn.addActionListener(e -> {
+            quickFilter = QuickStatusFilter.NOT_INSTALLED;
+            applyFilters();
+        });
+
+        quickFilterPanel.add(allBtn);
+        quickFilterPanel.add(installedBtn);
+        quickFilterPanel.add(notInstalledBtn);
+
         table = new JTable(tableModel);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setRowHeight(28);
         table.getTableHeader().setReorderingAllowed(false);
 
         sorter = new TableRowSorter<>(tableModel);
+        sorter.addRowSorterListener(e -> updateStatsLabel());
         table.setRowSorter(sorter);
 
         table.getColumnModel().getColumn(0).setPreferredWidth(180);
@@ -214,8 +253,12 @@ final class PluginMarketWindow {
         readmePane.setEditable(false);
         readmePane.setCaretPosition(0);
 
+        final JPanel catalogHeader = new JPanel(new BorderLayout(8, 0));
+        catalogHeader.add(pluginStatsLabel, BorderLayout.WEST);
+        catalogHeader.add(quickFilterPanel, BorderLayout.EAST);
+
         final JPanel catalogPanel = new JPanel(new BorderLayout());
-        catalogPanel.add(pluginCount, BorderLayout.NORTH);
+        catalogPanel.add(catalogHeader, BorderLayout.NORTH);
         catalogPanel.add(tableScroll, BorderLayout.CENTER);
 
         final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, catalogPanel, detailContainer);
@@ -304,6 +347,20 @@ final class PluginMarketWindow {
                 final CatalogPlugin plugin = tableModel.getPlugin(entry.getIdentifier());
                 final PluginMarketStatus status = tableModel.getStatus(entry.getIdentifier());
 
+                final boolean isInstalled = status.installedVersion().isPresent()
+                        || status.type() == StatusType.INSTALLED
+                        || status.type() == StatusType.UPDATE_AVAILABLE;
+
+                if (quickFilter == QuickStatusFilter.INSTALLED) {
+                    if (!isInstalled) {
+                        return false;
+                    }
+                } else if (quickFilter == QuickStatusFilter.NOT_INSTALLED) {
+                    if (isInstalled) {
+                        return false;
+                    }
+                }
+
                 if (selStatus != null && selStatus.type != null && status.type() != selStatus.type) {
                     return false;
                 }
@@ -335,6 +392,27 @@ final class PluginMarketWindow {
                 return true;
             }
         });
+        updateStatsLabel();
+    }
+
+    private void updateStatsLabel() {
+        if (pluginStatsLabel == null || tableModel == null) return;
+        final int marketTotal = tableModel.getRowCount();
+        final int visibleCount = table != null ? table.getRowCount() : marketTotal;
+        int localInstalled = 0;
+        try {
+            localInstalled = (int) plugins.plugins().stream()
+                    .filter(p -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(p.id()))
+                    .count();
+        } catch (RuntimeException ignored) {
+        }
+        if (marketTotal == 0) {
+            pluginStatsLabel.setText(" ");
+        } else if (visibleCount == marketTotal) {
+            pluginStatsLabel.setText(i18n.format("market.stats", marketTotal, localInstalled));
+        } else {
+            pluginStatsLabel.setText(i18n.format("market.stats.filtered", marketTotal, localInstalled, visibleCount));
+        }
     }
 
     private void updateDetailPane(final CatalogPlugin plugin) {

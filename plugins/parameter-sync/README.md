@@ -118,6 +118,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Context menu entry is missing | Ensure an active model is loaded in the Editor. |
 | Synchronization paused | Use Toggle Parameter Sync from the context menu or check the global switch in the dialog. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)
