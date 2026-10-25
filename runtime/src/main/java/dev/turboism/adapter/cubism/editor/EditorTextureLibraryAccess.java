@@ -344,6 +344,7 @@ final class EditorTextureLibraryAccess {
                             EnumSet.of(
                                     EditorRefreshRequirement.MODEL_INSTANCES,
                                     EditorRefreshRequirement.PART_PALETTE,
+                                    EditorRefreshRequirement.PROJECT_PALETTE,
                                     EditorRefreshRequirement.CANVAS,
                                     EditorRefreshRequirement.MARK_DIRTY));
             return;
@@ -394,6 +395,7 @@ final class EditorTextureLibraryAccess {
     private void refresh(final Object app) {
         final Object completePack = resolver.invoke(COMPLETE_PACK, app);
         resolver.invoke(UPDATE_PART_PALETTE, completePack, Boolean.TRUE);
+        resolver.invoke("cubism.editor-model.complete-pack.update-project", completePack);
         resolver.invoke(REPAINT_CANVAS, completePack, Boolean.TRUE);
     }
 

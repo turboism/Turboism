@@ -133,6 +133,7 @@ public final class EditorTextureSelectorContract {
         final HashSet<String> aliases = new HashSet<>(READ_REQUIRED_ALIASES);
         aliases.addAll(Set.of(
             "cubism.editor-model.undo.add",
+            "cubism.editor-model.complete-pack.update-project",
             "cubism.editor-model.model-source.all-art-meshes",
             "cubism.editor-model.art-mesh.class",
             "cubism.editor-model.art-mesh.source",
@@ -228,6 +229,7 @@ public final class EditorTextureSelectorContract {
             "cubism.editor-model.undo-listener.class",
             "cubism.editor-model.model-source.update-instances",
             "cubism.editor-model.complete-pack.update-part-palette",
+            "cubism.editor-model.complete-pack.update-project",
             "cubism.editor-model.complete-pack.repaint-canvas",
             "cubism.editor-model.model-image-group.create",
             "cubism.editor-model.texture-handler.add-model-image-group",

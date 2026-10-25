@@ -476,6 +476,7 @@ final class EditorTextureRegistrationBindingAccess {
                 () -> members.unregistered(textureManager),
                 EnumSet.of(
                         EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PROJECT_PALETTE,
                         EditorRefreshRequirement.MARK_DIRTY,
                         EditorRefreshRequirement.CANVAS),
                 members.registrationDetail(binding.pluginId(), operationId));

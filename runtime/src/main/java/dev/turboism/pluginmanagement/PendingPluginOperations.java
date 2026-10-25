@@ -100,6 +100,18 @@ public final class PendingPluginOperations {
         return List.copyOf(readOperations());
     }
 
+    synchronized boolean canHotApply(final String pluginId) {
+        try {
+            final List<Path> existing = installed(pluginId);
+            // Renaming or consolidating packages needs the startup transaction:
+            // no live classloader may retain a competing archive on Windows.
+            return existing.isEmpty()
+                    || (existing.size() == 1 && existing.get(0).equals(plugins.resolve(pluginId + ".jar")));
+        } catch (IOException | RuntimeException failure) {
+            return false;
+        }
+    }
+
     synchronized boolean recoveryRequired() {
         try {
             readOperations();
@@ -192,7 +204,6 @@ public final class PendingPluginOperations {
         if (!stagedJar.startsWith(packages) || Files.isSymbolicLink(stagedJar))
             throw new IOException("staged path rejected");
         files.rejectLinks(stagedJar);
-        if (existing.size() > 1) throw new IOException("duplicate installed plugin ID");
         final Path target = plugins.resolve(operation.pluginId + ".jar");
         final Path temporary = plugins.resolve("." + operation.pluginId + "-" + UUID.randomUUID() + ".tmp");
         try {

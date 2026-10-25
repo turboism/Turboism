@@ -304,6 +304,7 @@ final class EditorTextureAtlasAppendAccess {
                             EnumSet.of(
                                     EditorRefreshRequirement.MODEL_INSTANCES,
                                     EditorRefreshRequirement.PART_PALETTE,
+                                    EditorRefreshRequirement.PROJECT_PALETTE,
                                     EditorRefreshRequirement.CANVAS,
                                     EditorRefreshRequirement.MARK_DIRTY));
             return createdPageIds;
@@ -528,6 +529,7 @@ final class EditorTextureAtlasAppendAccess {
     private void refreshAtlas(final Object modelSource, final Object completePack) {
         resolver.invoke(UPDATE_INSTANCES, modelSource);
         if (completePack != null) {
+            resolver.invoke("cubism.editor-model.complete-pack.update-project", completePack);
             resolver.invoke(REPAINT_CANVAS, completePack, Boolean.TRUE);
         }
     }
