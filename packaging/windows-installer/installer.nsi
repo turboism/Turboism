@@ -414,6 +414,10 @@ LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not c
 LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_KOREAN} "Cubism BAT 통합이 완료되지 않았거나 관리자 승인이 취소되었습니다. 설치 로그를 확인하고 Turboism_Configurator를 실행하여 점검하거나 다시 시도하세요. 알 수 없는 변경이 감지된 해시 보호 파일은 절대 덮어쓰지 않습니다.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString ElevationWaitNotice ${LANG_ENGLISH} "Waiting for administrator approval (UAC) to update Cubism BAT files. If no prompt is visible, check the taskbar; this step times out after 3 minutes."
+LangString ElevationWaitNotice ${LANG_SIMPCHINESE} "正在等待管理员授权（UAC）以更新 Cubism BAT 文件。若没有看到弹窗，请检查任务栏；此步骤 3 分钟后超时。"
+LangString ElevationWaitNotice ${LANG_JAPANESE} "Cubism BAT を更新するため、管理者の承認（UAC）を待っています。表示されない場合はタスクバーを確認してください。この手順は 3 分でタイムアウトします。"
+LangString ElevationWaitNotice ${LANG_KOREAN} "Cubism BAT 파일을 업데이트하기 위해 관리자 승인(UAC)을 기다리는 중입니다. 표시되지 않으면 작업 표시줄을 확인하세요. 이 단계는 3분 후 시간 초과됩니다."
 LangString StartMenuResultCreated ${LANG_ENGLISH} "Turboism Start-menu shortcuts are enabled."
 LangString StartMenuResultCreated ${LANG_SIMPCHINESE} "已启用 Turboism 开始菜单快捷方式。"
 LangString StartMenuResultCreated ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを有効にしました。"
@@ -1377,6 +1381,7 @@ Function .onInstSuccess
     ${If} $CubismDiscoverySupported == 0
       Goto InstallerConfigurationDone
     ${EndIf}
+    DetailPrint "$(ElevationWaitNotice)"
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${Else}
