@@ -102,6 +102,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | An old thumbnail remains | Reopen or save the project to trigger reconciliation; invalid or stale cache entries are ignored. |
 | Cache grows | Clear this plugin's cache through Turboism's storage management or remove the plugin cache while Turboism is stopped. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

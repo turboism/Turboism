@@ -57,6 +57,12 @@ Java 17+、Turboism API [0.67.4,1.0.0)、自動生成一覧にある Cubism 5.0�
 
 一覧に表示されない場合は有効状態、宿主バージョン、ログを確認してください。固定倍率で入らない部品は現在ページのオーバーフロー契約に従います。`./gradlew :plugins:atlas-bitmask-nesting:test` で幾何回帰、`:plugins:atlas-bitmask-nesting:nestingBenchmark` で合成入力の計算時間を測定できます。宿主 UI 全体の時間とは異なります。
 
+## 変更履歴
+
+### 0.1.0
+
+- 初回リリース。
+
 ## サポートとライセンス
 
 https://turboism.dev で再現手順、宿主バージョン、診断ログを添えて報告してください。MIT ライセンス。リポジトリの LICENSE を参照してください。

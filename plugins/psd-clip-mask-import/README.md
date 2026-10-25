@@ -117,6 +117,12 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 | Confirmation makes no change | Review the preview for already-matching rows, cancellation, ambiguity, or a document/model/plan change that caused a safe failure. |
 | Import fails safely | Check the localized status summary and the plugin log; confirm the required PSD, clip-mask, dialog, write/Undo, and status services are present. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

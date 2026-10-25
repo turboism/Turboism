@@ -116,6 +116,12 @@ Plugin lifecycle and diagnostic records appear in Turboism's local session log w
 | Image loading fails | Verify the chosen image file is a valid PNG or supported raster format. |
 | Import is aborted | Check the status notification and runtime log for validation details. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

@@ -111,6 +111,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Selection is not retained on reopen | Retention is scoped to the active model session in memory. Verify the model was not closed and reopened, and that the plugin was not disabled between dialog openings. |
 | Header displays a minus/dash | The indeterminate state indicates that some groups are enabled and others are disabled. Clicking the checkbox will enable all groups. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)
