@@ -105,7 +105,7 @@ final class RuntimeSelectionTableDialog extends JDialog {
         buttons.add(confirm);
         JPanel root = new JPanel(new BorderLayout(0, 8));
         root.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        root.add(new JLabel(request.hint()), BorderLayout.NORTH);
+        if (!request.hint().isBlank()) root.add(new JLabel(request.hint()), BorderLayout.NORTH);
         root.add(new JScrollPane(table), BorderLayout.CENTER);
         root.add(buttons, BorderLayout.SOUTH);
         setContentPane(root);
