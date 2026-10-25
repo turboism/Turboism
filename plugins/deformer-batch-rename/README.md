@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
 turboismApi: "[0.67.0,1.0.0)"
@@ -78,7 +78,7 @@ Works locally; no network, file export or persistent settings.
 
 ## Status and limitations
 
-Development build. The preview and both native deformer icon types were verified in Cubism 5.3.03 (12 native icon cells, no text fallbacks). Full rename/Undo validation across supported versions remains pending. Duplicate display names are allowed; IDs stay unchanged. The batch uses one native Undo transaction.
+Release candidate. The preview and both native deformer icon types were verified in Cubism 5.3.03 (12 native icon cells, no text fallbacks). Full rename/Undo validation across supported versions remains pending. Duplicate display names are allowed; IDs stay unchanged. The batch uses one native Undo transaction.
 
 ## Troubleshooting
 
