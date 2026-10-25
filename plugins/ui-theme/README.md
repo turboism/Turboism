@@ -107,6 +107,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Imported package is rejected | Verify it is a bounded valid Turboism theme ZIP with a valid theme ID and supported entries. |
 | Theme is missing after restart | Check `ui-theme/selection.cfg` and confirm the selected user package still exists in plugin data. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

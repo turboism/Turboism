@@ -115,6 +115,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Color is not restored | Confirm the same project and object ID are active and inspect storage/read diagnostics. |
 | Custom color is rejected | Enter a valid six-digit RGB color through the provided dialog. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

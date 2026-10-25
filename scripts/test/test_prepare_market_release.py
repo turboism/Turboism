@@ -236,9 +236,14 @@ class ManifestValidationTest(unittest.TestCase):
         self.assertFalse((self.tmp / "out").exists())
 
     def test_real_repo_manifest_plan(self):
+        roster_path = (
+            REPO_ROOT / "packaging/market-plugins.txt"
+            if (REPO_ROOT / "packaging/market-plugins.txt").is_file()
+            else REPO_ROOT / "packaging/release-plugins.txt"
+        )
         expected_projects = [
             line.strip()
-            for line in (REPO_ROOT / "packaging/release-plugins.txt").read_text(encoding="utf-8").splitlines()
+            for line in roster_path.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.strip().startswith("#") and line.strip() != ":plugins:core"
         ]
         result = run_script(REPO_ROOT, "--manifest",
@@ -248,6 +253,29 @@ class ManifestValidationTest(unittest.TestCase):
         default_result = run_script(REPO_ROOT, "--plan")
         self.assertEqual(default_result.returncode, 0, default_result.stderr)
         self.assertEqual(default_result.stdout.strip(), f"selected={len(expected_projects)}")
+
+    def test_market_roster_prefers_market_plugins_txt(self):
+        (self.tmp / "packaging/release-plugins.txt").write_text(
+            ":plugins:webdav-backup\n",
+            encoding="utf-8",
+        )
+        (self.tmp / "packaging/market-plugins.txt").write_text(
+            ":plugins:mcp\n:plugins:webdav-backup\n",
+            encoding="utf-8",
+        )
+        self.fixture.write_manifest([
+            {"project": ":plugins:mcp", "channel": "stable",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/mcp",
+             "support": "https://example.invalid/mcp/support"},
+            {"project": ":plugins:webdav-backup", "channel": "stable",
+             "cubismVersions": ["5.2.03", "5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
+        ])
+        result = run_script(self.tmp, "--plan")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=2")
 
     def test_release_roster_sync_gate_rejects_drift(self):
         (self.tmp / "packaging/release-plugins.txt").write_text(

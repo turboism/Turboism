@@ -121,6 +121,12 @@ Cubism's host log with the plugin ID attached.
 | Drag does not mirror | Confirm a state other than off is armed, the dragged object is a Warp Deformer, and the mirrored point exists across the axis. |
 | Hint does not appear | Check that the canvas-hint permission is granted and the host exposes the native hint surface. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

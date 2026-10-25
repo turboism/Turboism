@@ -108,6 +108,12 @@ interface: swing
 | 重复出现服务器错误 | 检查 HTTP 状态和重试设置；插件仅重试有边界的瞬态失败。 |
 | 升级后出现两个 WebDAV 条目 | 插件已改名为 `plugins/webdav-backup.jar`；托管升级会按内嵌插件 id 删除改名前的 `backup.jar`，旧 id `dev.turboism.plugin.backup` 会被运行时拒绝。只有在安装器无法删除被占用的文件时才需要手动删除残留的 `backup.jar`。 |
 
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
+
 ## 支持与许可证
 
 - **项目网站：**[https://turboism.dev](https://turboism.dev)

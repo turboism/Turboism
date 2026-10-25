@@ -108,6 +108,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Repeated server errors | Check HTTP status and retry settings; the plugin retries only bounded transient failures. |
 | Two WebDAV entries after an upgrade | The plugin was renamed to `plugins/webdav-backup.jar`; a managed upgrade deletes the stale pre-rename `backup.jar` by its embedded plugin id, and the old id `dev.turboism.plugin.backup` is refused by the runtime. Delete a leftover `backup.jar` manually only if the installer could not remove a locked file. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)
