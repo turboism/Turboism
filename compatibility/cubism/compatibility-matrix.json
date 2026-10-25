@@ -12111,9 +12111,9 @@
    "hostValidation": {}
   },
   {
-   "id": "dev.turboism.plugin.deformer-rename",
-   "name": "Deformer Rename",
-   "directory": "deformer-rename",
+   "id": "dev.turboism.plugin.deformer-batch-rename",
+   "name": "Batch Rename Deformers",
+   "directory": "deformer-batch-rename",
    "requiresCubism": true,
    "supportedVersions": [
     "5.0.00",
