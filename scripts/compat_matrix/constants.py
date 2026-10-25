@@ -47,8 +47,14 @@ README_HEADINGS = {
     "README.md": "## Requirements and compatibility",
     "README_zh.md": "## 要求与兼容性",
     "README_ja.md": "## 要件と互換性",
+    "README_ko.md": "## 요구 사항 및 호환성",
 }
-README_LOCALE = {"README.md": "en", "README_zh.md": "zh", "README_ja.md": "ja"}
+README_LOCALE = {
+    "README.md": "en",
+    "README_zh.md": "zh",
+    "README_ja.md": "ja",
+    "README_ko.md": "ko",
+}
 DOC_SUFFIX = {"en": "", "zh": "_zh", "ja": "_ja", "ko": "_ko"}
 
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")

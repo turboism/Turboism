@@ -5,12 +5,12 @@ import json
 from pathlib import Path
 
 def render_market_plugins(
-    root: Path, release_plugins_path: Path, matrix_plugins: list[dict]
+    root: Path, roster_plugins_path: Path, matrix_plugins: list[dict]
 ) -> str:
     by_dir = {plugin["directory"]: plugin for plugin in matrix_plugins}
     projects = [
         line.strip()
-        for line in release_plugins_path.read_text(encoding="utf-8").splitlines()
+        for line in roster_plugins_path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#") and line.strip() != ":plugins:core"
     ]
     entries = []
@@ -18,7 +18,7 @@ def render_market_plugins(
         module = project.removeprefix(":plugins:")
         plugin_info = by_dir.get(module)
         if plugin_info is None:
-            raise ValueError(f"release plugin {project} is missing from compatibility matrix")
+            raise ValueError(f"plugin {project} in {roster_plugins_path.name} is missing from compatibility matrix")
         descriptor_path = (
             root / "plugins" / module / "src/main/resources/META-INF/turboism/plugin.json"
         )
@@ -37,8 +37,9 @@ def render_market_plugins(
     document = {
         "_comment": (
             "Git-reviewed manifest selecting first-party :plugins:* modules eligible for "
-            "independent Plugin Directory publication. Derived from packaging/release-plugins.txt "
-            "and each plugin's cubism-versions.json; validated by scripts/release/prepare-market-release.py "
+            "independent Plugin Directory publication. Derived from packaging/market-plugins.txt "
+            "(or packaging/release-plugins.txt) and each plugin's cubism-versions.json; "
+            "validated by scripts/release/prepare-market-release.py "
             "(project/channel/cubismVersions/repository/support, ASCII-sorted, unique)."
         ),
         "schemaVersion": 1,

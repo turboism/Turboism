@@ -10,6 +10,7 @@ on:
     branches: ["main"]
     paths:
       - "plugins/**"
+      - "packaging/market-plugins.txt"
       - "packaging/market-plugins.json"
       - "scripts/release/prepare-market-release.py"
       - "scripts/release/turboism-release.py"

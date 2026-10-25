@@ -108,7 +108,7 @@ val releasePluginPaths = file("packaging/release-plugins.txt").readLines()
     .map(String::trim)
     .filter(String::isNotEmpty)
 val releasePluginProjects = releasePluginPaths.map { project(it) }
-val readmeVariants = listOf("README.md", "README_zh.md", "README_ja.md")
+val readmeVariants = listOf("README.md", "README_zh.md", "README_ja.md", "README_ko.md")
 val releasePluginReadmeFiles = files(
     releasePluginProjects.flatMap { plugin -> readmeVariants.map(plugin::file) }
 )

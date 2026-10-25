@@ -121,6 +121,12 @@ Plugin metadata names and descriptions have five language catalogs; the import d
 
 If the menu is missing, confirm that this development JAR is installed and enabled. If import is rejected, check the canvas size, file size and supported geometry/material limits above. Open the intended target model and start again after switching documents. At 0 / 0, adjust both angle parameters to see the side faces. File-picker cancellation makes no model changes.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 Report the input profile, host version and local diagnostic message to the Turboism project. License: Project License. This development plugin is not a claim of compatibility with adjacent Cubism versions.

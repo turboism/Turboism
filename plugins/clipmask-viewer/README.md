@@ -109,6 +109,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Viewer is empty | Open a model with ArtMeshes and clip-mask relationships, then refresh. |
 | Window does not open | Check for a headless environment or an unavailable clip-mask read capability in the log. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

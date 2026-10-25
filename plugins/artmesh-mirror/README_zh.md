@@ -62,6 +62,12 @@ Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 轴未显示时，确认插件和画布按钮已启用，在普通建模模式选择图形网格，并检查运行时钩子可用性。对应点不跟随时，检查镜像位置附近是否存在可匹配顶点。
 
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
+
 ## 支持与许可证
 
 [Issues](https://github.com/turboism/Turboism/issues) · [Project License](../../LICENSE)

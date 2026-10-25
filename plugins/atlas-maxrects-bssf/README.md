@@ -222,6 +222,12 @@ Offline follow-up: parallel requests below 32 items try serial packing first and
 | Automatic layout choice is missing | Confirm the plugin is enabled and the current host exposes the texture-atlas layout capability. |
 | Layout is not applied | Check the Turboism log for packing or validation failure and verify that a texture-atlas session is active. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

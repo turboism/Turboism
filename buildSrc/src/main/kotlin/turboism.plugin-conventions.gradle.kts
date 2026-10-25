@@ -27,7 +27,7 @@ tasks.named<ProcessResources>("processResources") {
         }
     }
     from(layout.projectDirectory.dir(".")) {
-        include("README.md", "README_zh.md", "README_ja.md")
+        include("README.md", "README_zh.md", "README_ja.md", "README_ko.md")
         into("META-INF/turboism/readme")
     }
 }

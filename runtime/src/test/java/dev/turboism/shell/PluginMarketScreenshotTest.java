@@ -118,7 +118,36 @@ class PluginMarketScreenshotTest {
                     .getClass()
                     .getDeclaredMethod("setCatalog", PluginCatalog.class)
                     .invoke(tableModel, catalog);
+            invokeMethod(marketWindow, "applyFilters");
             invokeMethod(marketWindow, "updateDetailPane", mcpPlugin);
+
+            final javax.swing.JTable table = (javax.swing.JTable) getField(marketWindow, "table");
+            final javax.swing.JLabel statsLabel = (javax.swing.JLabel) getField(marketWindow, "pluginStatsLabel");
+            org.junit.jupiter.api.Assertions.assertEquals(3, table.getRowCount());
+            org.junit.jupiter.api.Assertions.assertEquals("市场插件总数：3 | 当前本地安装：2", statsLabel.getText());
+
+            // Test QuickStatusFilter: INSTALLED
+            final Class<?> filterEnum = Class.forName("dev.turboism.shell.PluginMarketWindow$QuickStatusFilter");
+            final Object filterInstalled = Enum.valueOf((Class<Enum>) filterEnum, "INSTALLED");
+            final Object filterNotInstalled = Enum.valueOf((Class<Enum>) filterEnum, "NOT_INSTALLED");
+            final Object filterAll = Enum.valueOf((Class<Enum>) filterEnum, "ALL");
+
+            setField(marketWindow, "quickFilter", filterInstalled);
+            invokeMethod(marketWindow, "applyFilters");
+            org.junit.jupiter.api.Assertions.assertEquals(2, table.getRowCount());
+            org.junit.jupiter.api.Assertions.assertEquals("市场插件总数：3（显示 2）| 当前本地安装：2", statsLabel.getText());
+
+            // Test QuickStatusFilter: NOT_INSTALLED
+            setField(marketWindow, "quickFilter", filterNotInstalled);
+            invokeMethod(marketWindow, "applyFilters");
+            org.junit.jupiter.api.Assertions.assertEquals(1, table.getRowCount());
+            org.junit.jupiter.api.Assertions.assertEquals("市场插件总数：3（显示 1）| 当前本地安装：2", statsLabel.getText());
+
+            // Reset back to ALL
+            setField(marketWindow, "quickFilter", filterAll);
+            invokeMethod(marketWindow, "applyFilters");
+            org.junit.jupiter.api.Assertions.assertEquals(3, table.getRowCount());
+            org.junit.jupiter.api.Assertions.assertEquals("市场插件总数：3 | 当前本地安装：2", statsLabel.getText());
 
             marketDialog.validate();
             marketDialog.repaint();
@@ -199,6 +228,12 @@ class PluginMarketScreenshotTest {
         return f.get(target);
     }
 
+    private static void setField(Object target, String name, Object value) throws Exception {
+        var f = target.getClass().getDeclaredField(name);
+        f.setAccessible(true);
+        f.set(target, value);
+    }
+
     private static CatalogPlugin createPlugin(
             String id, String slug, String name, String zhName, String version, boolean official) {
         return new CatalogPlugin(
@@ -275,6 +310,9 @@ class PluginMarketScreenshotTest {
                     case "plugins.details.state" -> "状态";
                     case "plugin-settings.title" -> "插件设置";
                     case "plugin-settings.no-plugins" -> "当前没有插件提供设置项。";
+                    case "market.filter.quick.all" -> "全部";
+                    case "market.filter.quick.installed" -> "已安装";
+                    case "market.filter.quick.not-installed" -> "未安装";
                     case "common.close" -> "关闭";
                     case "common.ok" -> "确定";
                     case "common.cancel" -> "取消";
@@ -286,6 +324,15 @@ class PluginMarketScreenshotTest {
 
             @Override
             public String format(String key, Object... arguments) {
+                if ("market.stats".equals(key) && arguments.length >= 2) {
+                    return "市场插件总数：" + arguments[0] + " | 当前本地安装：" + arguments[1];
+                }
+                if ("market.stats.filtered".equals(key) && arguments.length >= 3) {
+                    return "市场插件总数：" + arguments[0] + "（显示 " + arguments[2] + "）| 当前本地安装：" + arguments[1];
+                }
+                if ("market.count".equals(key) && arguments.length >= 1) {
+                    return "市场插件：" + arguments[0] + " 个";
+                }
                 return text(key);
             }
 

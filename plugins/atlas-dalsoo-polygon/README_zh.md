@@ -186,6 +186,12 @@ Dalsoo 使用 `QUARTER` 旋转。
 | 排版缓慢 | 凹形打包代价高；降低质量预设、改用 `QUARTER`/`NONE`，或对近矩形输入选 `AUTO`/矩形后端。 |
 | 排版未应用 | 查看 Turboism 日志中的校验失败；计划是原子拒绝的。 |
 
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
+
 ## 支持与许可证
 
 - **项目网站：** [https://turboism.dev](https://turboism.dev)
