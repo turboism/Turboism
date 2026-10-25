@@ -8,6 +8,7 @@
 :plugins:clipmask-viewer
 :plugins:command-palette
 :plugins:cubism-tab-filter
+:plugins:deformer-batch-rename
 :plugins:external-psd-edit
 :plugins:frame-animation-import
 :plugins:history-panel

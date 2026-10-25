@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
 turboismApi: "[0.67.0,1.0.0)"
@@ -78,7 +78,7 @@ Turboism 0.67.0 以降と開いたモデルが必要です。以下の互換性�
 
 ## 状態と制限
 
-開発版です。Cubism 5.3.03 でプレビューと両種類のネイティブアイコンを実機確認しました（12 行、テキストへのフォールバックなし）。各対応バージョンでの名前変更と Undo の実機検証は未完了です。ID は変更せず、変更全体を一度で元に戻せます。
+リリース候補版です。Cubism 5.3.03 でプレビューと両種類のネイティブアイコンを実機確認しました（12 行、テキストへのフォールバックなし）。各対応バージョンでの名前変更と Undo の実機検証は未完了です。ID は変更せず、変更全体を一度で元に戻せます。
 
 ## トラブルシューティング
 
