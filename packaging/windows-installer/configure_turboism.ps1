@@ -915,8 +915,12 @@ function Invoke-ElevatedConfiguratorMode {
     Write-InstallerLog "ELEVATION_REQUEST" ("mode={0} pid={1} snapshot={2}" -f $Mode, $PID, $InstallerDiscoverySnapshot)
     try {
         # This is a headless worker; keep UAC visible without opening a console.
-        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -PassThru
         try {
+            # An unanswered or hidden UAC prompt must not block the caller forever.
+            if (-not $process.WaitForExit(180000)) {
+                throw ("Elevated configurator {0} did not finish within 180 seconds; confirm the UAC prompt or rerun configure_turboism.ps1" -f $Mode)
+            }
             $exitCode = $process.ExitCode
             if ($null -eq $exitCode) { throw "Elevated configurator returned no exit code" }
             Write-InstallerLog "ELEVATION_EXIT" ("mode={0} childPid={1} exitCode={2}" -f $Mode, $process.Id, $exitCode)
