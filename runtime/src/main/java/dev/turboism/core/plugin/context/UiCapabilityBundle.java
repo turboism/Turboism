@@ -183,6 +183,8 @@ record UiCapabilityBundle(
                                         callback),
                         dependencies.logger());
 
+        ((RuntimeUiHostCapabilityService) uiHostCapabilityService).withUiResources(uiResourceService);
+
         if (hostAccess != null) {
             UiContributionContextBinder.bind(
                     dependencies.menus(),
