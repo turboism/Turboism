@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
 turboismApi: "[0.67.0,1.0.0)"
@@ -78,7 +78,7 @@ interface: swing
 
 ## 状态与限制
 
-开发版本，已在 Cubism 5.3.03 实机验证预览及两种原生变形器图标（12 行原生图标，无文字回退）。各支持版本的完整重命名与撤销流程仍待实机验证。允许重复显示名，不修改 ID。所有选中修改通过一个原生事务提交，可一次撤销。名称不变的行不参与修改。
+发布候选版本，已在 Cubism 5.3.03 实机验证预览及两种原生变形器图标（12 行原生图标，无文字回退）。各支持版本的完整重命名与撤销流程仍待实机验证。允许重复显示名，不修改 ID。所有选中修改通过一个原生事务提交，可一次撤销。名称不变的行不参与修改。
 
 ## 故障排除
 
