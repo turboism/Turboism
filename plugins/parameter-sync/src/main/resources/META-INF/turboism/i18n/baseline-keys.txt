@@ -12,7 +12,6 @@ dialog.table.col.sync
 dialog.top.count
 dialog.top.enable
 menu.parameter.sync
-menu.parameter.toggle
 notify.global.disabled
 notify.global.enabled
 notify.no.active.model
