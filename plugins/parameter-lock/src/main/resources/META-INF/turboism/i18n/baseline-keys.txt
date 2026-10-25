@@ -1,9 +1,3 @@
-action.lock.selected
-action.toggle.selected
-action.unlock.selected
-menu.parameter.lock
-menu.parameter.toggle
-menu.parameter.unlock
 plugin.description
 plugin.name
 row.action.empty_group
