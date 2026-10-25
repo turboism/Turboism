@@ -29,6 +29,74 @@ def digest(path: Path) -> str:
     return result.hexdigest()
 
 
+def payload_upgrade_test() -> None:
+    """Run the actual copy helper against installer/marketplace filename collisions."""
+    powershell = os.environ.get("POWERSHELL") or shutil.which("pwsh") or shutil.which("powershell")
+    if not powershell:
+        print("PAYLOAD_UPGRADE_SKIP: set POWERSHELL or install pwsh to exercise the copy helper")
+        return
+    with tempfile.TemporaryDirectory(prefix="turboism-payload-upgrade-") as temp:
+        work = Path(temp)
+        source, destination = work / "source", work / "installed"
+        (source / "plugins").mkdir(parents=True)
+        (destination / "plugins").mkdir(parents=True)
+        plugin_id = "dev.turboism.plugin.model-import-3d"
+
+        def jar(path: Path, identity: str, content: str) -> None:
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("META-INF/turboism/plugin.json", json.dumps(
+                    {"id": identity, "version": "0.67.5"}))
+                archive.writestr("behavior.txt", content)
+
+        current = source / "plugins/model-import-3d.jar"
+        jar(current, plugin_id, "presets")
+        stale = destination / "plugins" / (plugin_id + ".jar")
+        jar(stale, plugin_id, "old viewer")
+        stale_bytes = stale.read_bytes()
+        unrelated = destination / "plugins/unrelated.jar"
+        jar(unrelated, "dev.turboism.plugin.other", "keep")
+        unrelated_bytes = unrelated.read_bytes()
+        broken = destination / "plugins/broken.jar"
+        broken.write_bytes(b"not a zip")
+        manifest = work / "plugins.sha256"
+        manifest.write_text(digest(current) + "  plugins/model-import-3d.jar\n")
+
+        def invoke(*extra: str, success: bool = True) -> subprocess.CompletedProcess:
+            result = subprocess.run([
+                powershell, "-NoProfile", "-NonInteractive", "-File",
+                str(PACKAGE / "install-jar-payload.ps1"),
+                "-SourceRoot", str(source), "-DestinationRoot", str(destination),
+                "-ManifestPath", str(manifest), *extra,
+            ], text=True, capture_output=True)
+            assert (result.returncode == 0) == success, result.stdout + result.stderr
+            return result
+
+        invoke("-PlanOnly", "-PlanRoot", str(work / "plan"))
+        assert stale.read_bytes() == stale_bytes, "planning must not retire a plugin"
+        invoke()
+        assert not stale.exists(), "old ID-named JAR must no longer compete with the installer payload"
+        assert (destination / "plugins/model-import-3d.jar").read_bytes() == current.read_bytes()
+        assert any(path.read_bytes() == stale_bytes for path in
+                   (destination / "backups/plugins").rglob("*.jar")), "old package must remain recoverable"
+        assert unrelated.read_bytes() == unrelated_bytes
+        assert broken.read_bytes() == b"not a zip"
+
+        # Repair must also run when the canonical JAR already has the expected hash.
+        renamed = destination / "plugins/arbitrary-name.jar"
+        renamed.write_bytes(stale_bytes)
+        invoke()
+        assert not renamed.exists(), "duplicate detection must use embedded ID, including on checksum skip"
+        invoke()  # Repeated installs are harmless.
+
+        # A damaged new payload must not retire the working old package.
+        stale.write_bytes(stale_bytes)
+        current.write_bytes(b"damaged download")
+        (destination / "plugins/model-import-3d.jar").unlink()
+        invoke(success=False)
+        assert stale.read_bytes() == stale_bytes
+        print("PAYLOAD_UPGRADE_PASS: duplicate ID backup, checksum skip, unrelated files and failed-copy recovery")
+
+
 def production_blocks() -> tuple[str, str]:
     text = (PACKAGE / "assemble-release.sh").read_text(encoding="utf-8")
     blocks = [part.split("\nPYEOF", 1)[0] for part in text.split("<<'PYEOF'\n")[1:]]
@@ -177,6 +245,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path)
     parser.add_argument("--version", default="0.67.0")
     args = parser.parse_args()
+    payload_upgrade_test()
     synthetic_test()
     if args.repack_existing:
         if args.output is None:

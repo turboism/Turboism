@@ -50,6 +50,8 @@ import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 final class RuntimePluginAutoUpdaterTest {
     private static final Instant NOW = Instant.parse("2026-10-01T00:00:00Z");
@@ -351,12 +353,17 @@ final class RuntimePluginAutoUpdaterTest {
                 .isEmpty());
     }
 
-    @Test
-    void disabledPluginIsUpdatedAndMigratedFromInstallerFilenameWhileStayingDisabled() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void disabledPluginIsUpdatedAndMigratedFromInstallerFilenameWhileStayingDisabled(final boolean duplicate)
+            throws Exception {
         final String pluginId = "dev.turboism.plugin.uitheme";
         // Simulate installer-released filename: plugins/ui-theme.jar (not plugins/dev.turboism.plugin.uitheme.jar)
         final Path installerJar = home.resolve("plugins/ui-theme.jar");
         installJarAt(installerJar, pluginId, "0.1.0", false, List.of());
+        if (duplicate) {
+            installJarAt(home.resolve("plugins/" + pluginId + ".jar"), pluginId, "0.1.0", false, List.of());
+        }
 
         final RuntimeConfigRepository config = new RuntimeConfigRepository(home, ignored -> {});
         config.setPluginEnabled(pluginId, false);
