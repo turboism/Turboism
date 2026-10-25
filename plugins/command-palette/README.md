@@ -116,6 +116,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | A plugin action is missing from the list | The owning plugin is disabled or registers no actions; shell-internal `turboism.core` actions are intentionally hidden. |
 | A command or action does not run on Enter | Check the host log; the result status is logged when execution is denied or fails, and action invocations are audited with this plugin's identity. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

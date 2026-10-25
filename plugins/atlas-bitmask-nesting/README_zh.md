@@ -57,6 +57,12 @@ interface: none
 
 算法入口缺失时检查插件启用状态、宿主兼容性和日志。固定倍率下放不下的项遵守框架当前页溢出契约。执行 `./gradlew :plugins:atlas-bitmask-nesting:test` 运行碰撞及几何回归；`:plugins:atlas-bitmask-nesting:nestingBenchmark` 测量合成样例的内核耗时，不等于 Cubism 界面总耗时。
 
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
+
 ## 支持与许可证
 
 通过 https://turboism.dev 向项目提交可复现问题，附宿主版本及诊断日志。采用 MIT 许可证，见仓库 LICENSE。

@@ -69,6 +69,12 @@ Bitmask Nesting 与 Dalsoo 使用图片局部坐标下的网格轮廓；轮廓�
 
 没有可用算法时，先启用兼容的算法插件；没有纹理集时，先为当前模型创建或打开纹理集。使用撤销恢复上一次布局。
 
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
+
 ## 支持与许可证
 
 请在 https://github.com/turboism/Turboism/issues 提交可复现问题，并注明编辑器版本和所选算法。适用仓库的 Project License。

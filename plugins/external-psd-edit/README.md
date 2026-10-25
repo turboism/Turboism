@@ -137,6 +137,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log with t
 | A second right-click shows "already open" | That raw image already has a live session; the existing editor window remains the active one. |
 | Nothing opened after confirming | Export can fail closed when permissions are revoked or the native export reports the raw image unavailable. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

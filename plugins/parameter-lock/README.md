@@ -66,7 +66,7 @@ See [host acceptance](../../validation/parameter-lock/ROW-UI-ACCEPTANCE.md).
 
 ## Install and enable
 
-This preview plugin is included in the release roster for the next Turboism bundle and Plugin Market publication. Build a JAR with `./gradlew :plugins:parameter-lock:jar` or install it from a release that includes it, then enable it in **Plugin Management**. Disable it there to release write interception while retaining saved locks.
+This preview plugin is published through **Plugin Market** and is not bundled with the Turboism installer. Install it directly from the Plugin Market or build a JAR with `./gradlew :plugins:parameter-lock:jar`, then enable it in **Plugin Management**. Disable it there to release write interception while retaining saved locks.
 
 ## How to use
 
@@ -129,6 +129,12 @@ No telemetry is sent by this plugin.
 | Parameter value still modifies | Verify that the plugin is enabled in Plugin Management and that the parameter appears in the locked list. |
 | Row lock icons not displaying | Verify that the active model has loaded and that palette appearance modification permission is granted. |
 | Locks not restored after reopening | Ensure the model was saved and that the `.cmo3` file's native GUID has not been manually altered. |
+
+## Changelog
+
+### 0.1.0
+
+- Initial release.
 
 ## Support and license
 

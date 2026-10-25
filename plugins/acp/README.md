@@ -121,6 +121,12 @@ OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` an
 - **Cubism tools unavailable in the session**: the Agent transcript reports whether MCP attached writable (stdio bridge), read-only (HTTP), or not at all. Check that the `dev.turboism.plugin.mcp` plugin is enabled and started.
 - **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - Report issues through the Turboism support channels.

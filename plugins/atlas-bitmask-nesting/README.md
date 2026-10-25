@@ -57,6 +57,12 @@ Development build. Native invocations pack the current page with real contours. 
 
 If the selector is missing, check plugin enablement, host compatibility and the runtime log. Overflow at fixed scale is left to the runtime current-page contract. Run `./gradlew :plugins:atlas-bitmask-nesting:test` for collision and geometry regressions. `:plugins:atlas-bitmask-nesting:nestingBenchmark` measures synthetic planner time; it is separate from Cubism UI time.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 Report reproducible cases to the Turboism project at https://turboism.dev with the host version and diagnostic log. MIT license; see the repository LICENSE.
