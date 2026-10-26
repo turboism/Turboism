@@ -60,6 +60,12 @@ final class NativePiProvider extends NativeAgentProvider {
             final String current = text(model.get("provider")) + "/" + text(model.get("id"));
             if (models.containsKey(current)) selected.put("model", current);
         }
+        final var model = object(state.get("model"));
+        final String current = text(model.get("provider")) + "/" + text(model.get("id"));
+        if (!current.equals("/")) {
+            models.putIfAbsent(current, model);
+            selected.put("model", current);
+        }
         // Query the runtime rather than inventing thinking levels that a provider may not support.
     }
 
@@ -74,7 +80,7 @@ final class NativePiProvider extends NativeAgentProvider {
     }
 
     @Override
-    CompletableFuture<String> prompt(final List<Object> blocks) throws Exception {
+    synchronized CompletableFuture<String> prompt(final List<Object> blocks) throws Exception {
         final var params = new LinkedHashMap<String, Object>();
         params.put("message", promptText(blocks));
         final var images = new ArrayList<Map<String, Object>>();
@@ -84,15 +90,25 @@ final class NativePiProvider extends NativeAgentProvider {
                 images.add(Map.of(
                         "type", "image", "data", text(block.get("data")), "mimeType", text(block.get("mimeType"))));
         }
-        if (!images.isEmpty()) params.put("images", images);
+        if (!images.isEmpty()) {
+            final var model = models.getOrDefault(selected.get("model"), Map.of());
+            if (!list(model.get("input")).contains("image"))
+                throw new IOException(
+                        "The selected Pi model has no verified image input support; select a vision model");
+            params.put("images", images);
+        }
+        final var future = beginPrompt();
         textStreamed = false;
         thoughtStreamed = false;
         lastError = null;
-        final var future = beginPrompt();
         command("prompt", params).whenComplete((result, failure) -> {
-            if (failure != null) future.completeExceptionally(failure);
-            else if ("handled".equals(result.get("disposition")) || Boolean.FALSE.equals(result.get("agentInvoked")))
-                complete("end_turn");
+            synchronized (this) {
+                if (!ownsPrompt(future)) return;
+                if (failure != null) uncertainPrompt(future, "Pi prompt", failure);
+                else if ("handled".equals(result.get("disposition"))
+                        || Boolean.FALSE.equals(result.get("agentInvoked")))
+                    future.complete(cancelled ? "cancelled" : "end_turn");
+            }
         });
         return future;
     }
@@ -106,10 +122,13 @@ final class NativePiProvider extends NativeAgentProvider {
     }
 
     @Override
-    void cancel() {
+    synchronized void cancel() {
+        final var future = runningPrompt();
+        if (future == null || cancelled) return;
         cancelled = true;
+        host.cancelPermissions(future);
         command("abort", Map.of()).whenComplete((result, failure) -> {
-            if (failure != null) failed(failure);
+            if (failure != null) uncertainPrompt(future, "Pi abort", failure);
         });
     }
 
@@ -119,7 +138,14 @@ final class NativePiProvider extends NativeAgentProvider {
         else complete("end_turn");
     }
 
-    private void event(final Map<String, Object> message) {
+    private synchronized void event(final Map<String, Object> message) {
+        final var future = runningPrompt();
+        if (future == null) {
+            if ("extension_ui_request".equals(message.get("type"))
+                    && List.of("confirm", "select", "input", "editor").contains(text(message.get("method"))))
+                uiResponse(message, false);
+            return;
+        }
         switch (text(message.get("type"))) {
             case "message_start" -> {
                 textStreamed = false;
@@ -170,14 +196,19 @@ final class NativePiProvider extends NativeAgentProvider {
                 if (Boolean.TRUE.equals(message.get("success"))) lastError = null;
             }
             case "extension_ui_request" -> {
-                if ("confirm".equals(message.get("method")))
+                if ("confirm".equals(message.get("method")) && !cancelled)
                     host.permission(
+                            future,
                             text(message.get("title")),
                             "other",
                             text(message.get("id")),
                             message.getOrDefault("message", ""),
-                            allow -> uiResponse(message, allow));
-                else if (List.of("select", "input", "editor").contains(text(message.get("method"))))
+                            allow -> {
+                                synchronized (this) {
+                                    uiResponse(message, allow && ownsPrompt(future) && !cancelled);
+                                }
+                            });
+                else if (List.of("confirm", "select", "input", "editor").contains(text(message.get("method"))))
                     uiResponse(message, false);
             }
             default -> {}

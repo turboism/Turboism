@@ -257,14 +257,17 @@ public class ParameterSyncDialog extends JDialog {
         }
     }
 
+    /** Returns the parameter selection table. */
     public JTable table() {
         return table;
     }
 
+    /** Returns the model-wide synchronization checkbox. */
     public JCheckBox globalEnabledCheck() {
         return globalEnabledCheck;
     }
 
+    /** Returns the selected parameter count label. */
     public JLabel countLabel() {
         return countLabel;
     }

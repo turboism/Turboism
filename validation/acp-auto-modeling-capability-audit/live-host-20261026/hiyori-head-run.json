@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "fixtureLabel": "Official Hiyori PRO t11 (internal head candidate read inspection)",
+  "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "jobId": "1a8a0596-aee7-4eb5-805a-fca3bf23165e",
+  "preparedId": "cf5c52d6dc115f05609ebe5a3a7d56035353d75ef530e391c7010886fb6d9917",
+  "runId": "queue-33b26f842ab94b68b09b145fd2586cf2",
+  "task": "mcp:5303@inspect",
+  "status": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "goldenUnchanged": true,
+  "cleanup": "safe",
+  "modelMutation": "NONE",
+  "evidenceSha256": {
+    "hiyori-head-candidates.json": "633dc7caf1063f97bd4c02d538fe062ac073d82711d831552d74c76f22e9a1e5",
+    "hiyori-head-inventory.json": "63df36cb6e6439f7b98e072a9980ad78ab76f2137783e5d591367ecb8b9a7206",
+    "hiyori-head-inspection.json": "50edde91aea414b076bf8b517b788adf3dabbcfa00cd7736a334cc83325f8523",
+    "hiyori-head-verified.properties": "a4bc1b1369b609e2195c5d67b774fca2a59e4acdbdd913cf7ee10f1bd002524e",
+    "hiyori-head-native-render.json": "f3b5a09fa96ba8e361410e0c2d3d1c8b29b982aacd71f0d7bd9e740e5fa6b813"
+  },
+  "privateArtifacts": [
+    "full hierarchy/parameter/binding resources",
+    "complete head candidate authoring rows",
+    "native render PNG"
+  ],
+  "limits": [
+    "Head candidates only; no semantic or artistic acceptance",
+    "Host write admission unproven",
+    "No write, Undo/Redo or persistence test",
+    "External MCP inspection; no ACP model image consumption"
+  ]
+}

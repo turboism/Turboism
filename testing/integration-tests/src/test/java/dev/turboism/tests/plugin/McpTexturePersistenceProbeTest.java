@@ -84,6 +84,26 @@ class McpTexturePersistenceProbeTest {
     }
 
     @Test
+    void geometryOutputIsSeparateFromTextureAndRejectsExistingGeometryTarget() throws Exception {
+        final Path task = Files.createDirectory(temporary.resolve(RUN));
+        final Path home = Files.createDirectory(task.resolve("turboism-home"));
+        final Path fixture = Files.writeString(task.resolve(RUN + ".cmo3"), "fixture");
+        final Path texture = McpTexturePersistenceProbe.requireTaskPaths(home, fixture, RUN);
+        Files.createDirectories(texture.getParent());
+        Files.writeString(texture, "earlier texture proof");
+        final Path geometry = McpTexturePersistenceProbe.requireTaskPaths(home, fixture, RUN, true);
+        assertNotEquals(texture, geometry);
+        assertTrue(geometry.startsWith(home.resolve("state/geometry-persistence")));
+        Files.createDirectories(geometry.getParent());
+        Files.writeString(geometry, "geometry proof");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> McpTexturePersistenceProbe.requireTaskPaths(home, fixture, RUN, true));
+        assertEquals("fixture", Files.readString(fixture));
+        assertEquals("earlier texture proof", Files.readString(texture));
+    }
+
+    @Test
     void outputIsNewAndInsideTheSameTaskHome() throws Exception {
         final Path task = Files.createDirectory(temporary.resolve(RUN));
         final Path home = Files.createDirectory(task.resolve("turboism-home"));

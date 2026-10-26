@@ -39,6 +39,10 @@ final class McpSdkCoverageGuardTest {
     private static final Pattern EXACT_VERSION = Pattern.compile("[0-9]+\\.[0-9]+\\.[0-9]+");
     private static final Set<String> CLASSIFICATIONS = Set.of(
             "MCP_READ",
+            "MCP_AUTHORIZED_JOB",
+            "MCP_AUTHORIZED_EXPORT_JOB",
+            "MCP_NATIVE_UNDO_JOB",
+            "MCP_TRANSACTION_CONTROL",
             "MCP_WRITE_UNDOABLE",
             "MCP_WRITE_STANDALONE_UNDO",
             "MCP_COMMAND_NON_UNDOABLE",
@@ -58,7 +62,12 @@ final class McpSdkCoverageGuardTest {
             ParameterBindingOperations.class,
             ParameterBindingBatchOperations.class,
             Parameter.class,
-            ModelTextures.class);
+            ModelTextures.class,
+            dev.turboism.sdk.ui.UserFileAccessService.class,
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService.class,
+            dev.turboism.sdk.cubism.model.ParameterGroup.class,
+            dev.turboism.sdk.cubism.model.ParameterGroups.class,
+            dev.turboism.sdk.cubism.model.Drawables.class);
 
     @Test
     void ledgerClassifiesEveryTrackedPublicSdkMethodExactlyOnce() throws Exception {
@@ -122,6 +131,58 @@ final class McpSdkCoverageGuardTest {
                                 "remove_texture_atlas",
                                 "remove_raw_image")
                         .contains(row.get("operation")));
+            }
+            if ("MCP_TRANSACTION_CONTROL".equals(classification)) {
+                assertEquals("TRANSACTION_CONTROL", effect);
+                assertFalse(transactionEligible);
+                assertEquals("RUNTIME_VERIFIED", undoVerification);
+                assertEquals(
+                        Map.of(
+                                        McpKeyformWriteDomain.WRITE,
+                                        "ordinary_stored_batch",
+                                        McpPoseGridDomain.SCAN,
+                                        "pose_grid",
+                                        McpMaskDomain.WRITE,
+                                        "clip_mask_batch",
+                                        McpSourcePropertiesDomain.WRITE,
+                                        "source_properties_batch",
+                                        McpImageBindingDomain.BIND,
+                                        "existing_model_image_binding",
+                                        McpParameterStructureDomain.APPLY,
+                                        "parameter_structure_batch",
+                                        McpMeshCreationDomain.CREATE,
+                                        "source_mesh_creation_batch",
+                                        McpBindingInitializationDomain.APPLY,
+                                        "initialize_ordinary_grid")
+                                .get(row.get("endpoint")),
+                        row.get("operation"));
+                assertNotNull(row.get("operation"));
+                assertFalse(versions.isEmpty());
+            }
+            if ("MCP_AUTHORIZED_EXPORT_JOB".equals(classification)) {
+                assertEquals("EXTERNAL_SIDE_EFFECT", effect);
+                assertFalse(transactionEligible);
+                assertEquals("NOT_APPLICABLE", undoVerification);
+                assertEquals(McpMocExportDomain.EXECUTE, row.get("endpoint"));
+                assertEquals("authorized_moc_package_job", row.get("operation"));
+                assertFalse(versions.isEmpty());
+                assertTrue(versions.stream().allMatch(version -> version.startsWith("5.3.")));
+            }
+            if ("MCP_NATIVE_UNDO_JOB".equals(classification)) {
+                assertEquals("UNDOABLE_WRITE", effect);
+                assertFalse(transactionEligible);
+                assertEquals("RUNTIME_VERIFIED", undoVerification);
+                assertEquals(McpAtlasDomain.APPLY, row.get("endpoint"));
+                assertEquals("complete_rectangle_apply_job", row.get("operation"));
+                assertFalse(versions.isEmpty());
+            }
+            if ("MCP_AUTHORIZED_JOB".equals(classification)) {
+                assertEquals("EXTERNAL_SIDE_EFFECT", effect);
+                assertFalse(transactionEligible);
+                assertEquals("RUNTIME_VERIFIED", undoVerification);
+                assertEquals(McpImageRegistrationDomain.START, row.get("endpoint"));
+                assertEquals("authorized_png_registration", row.get("operation"));
+                assertFalse(versions.isEmpty());
             }
             if ("MCP_COMMAND_NON_UNDOABLE".equals(classification)) {
                 assertFalse(transactionEligible);

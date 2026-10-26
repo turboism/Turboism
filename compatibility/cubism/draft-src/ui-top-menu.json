@@ -525,6 +525,12 @@
         "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
         "template": 0
       }
+    ],
+    "cubism.editor-command.file.open-model": [
+      {
+        "versions": "5.3.03",
+        "template": 0
+      }
     ]
   },
   "envelopes": [

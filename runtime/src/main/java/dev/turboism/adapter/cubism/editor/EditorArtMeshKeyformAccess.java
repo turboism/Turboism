@@ -168,6 +168,62 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
         });
     }
 
+    static void writeValues(
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformValues> edits,
+            final Runnable requireTransaction,
+            final Writer writer) {
+        Objects.requireNonNull(expected, "expected");
+        final var input = List.copyOf(edits);
+        if (input.size() > 4096
+                || (long) input.size() * expected.sourceGeometry().positions().size() > 2_000_000)
+            throw new IllegalArgumentException("keyform batch exceeds target/vertex budget");
+        EditorHostThread.dispatch("ArtMesh ordinary stored values batch", () -> {
+            requireWriteAuthorized(resolver);
+            final boolean opacityWrite =
+                    input.stream().anyMatch(e -> e.opacity().isPresent());
+            if (opacityWrite
+                    && !resolver.authorizesFeature(
+                            EditorArtMeshKeyformSelectorContract.ADAPTER_SLICE_ID,
+                            EditorArtMeshKeyformSelectorContract.CAPABILITY_ID,
+                            EditorArtMeshKeyformSelectorContract.OPACITY_REQUIRED_ALIASES))
+                throw new UnsupportedOperationException("verified stored ordinary opacity writing is unavailable");
+            requireTransaction.run();
+            final Object source = currentSource.get();
+            if (!new EditorArtMeshAuthoringReadAccess(resolver).read(id, source).equals(expected)) throw stale();
+            final var defaults = expected.axes().stream()
+                    .map(a -> new Coordinate(a.parameterGuid(), a.defaultValue()))
+                    .toList();
+            final var access =
+                    new EditorArtMeshKeyformAccess(resolver, id, currentSource, defaults, requireTransaction, writer);
+            if (access.source != source || !access.layout.equals(expected)) throw stale();
+            final var orders = new HashMap<String, Integer>();
+            final var opacities = new HashMap<String, Float>();
+            final var forms = new HashMap<String, Form>();
+            expected.forms().forEach(f -> forms.put(f.formGuid(), f));
+            final var positions = new java.util.ArrayList<ArtMeshKeyformPositions>();
+            for (var edit : input) {
+                final var before = forms.get(edit.formGuid());
+                if (before == null) throw new IllegalArgumentException("missing stored form");
+                edit.opacity().ifPresent(value -> {
+                    final float old = before.opacity()
+                            .orElseThrow(() -> new UnsupportedOperationException("stored ordinary opacity is unknown"));
+                    if (old < 0 || old > 1)
+                        throw new UnsupportedOperationException("stored ordinary opacity is outside supported range");
+                    opacities.put(edit.formGuid(), value);
+                });
+                edit.drawOrder().ifPresent(value -> orders.put(edit.formGuid(), value));
+                positions.add(new ArtMeshKeyformPositions(
+                        edit.coordinates(), edit.formGuid(), edit.positions().orElse(before.positions())));
+            }
+            access.writeBatch(positions, orders, true, opacities);
+            return null;
+        });
+    }
+
     private void writeBatch(final List<ArtMeshKeyformPositions> edits) {
         writeBatch(edits, Map.of());
     }
@@ -178,6 +234,14 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
 
     private void writeBatch(
             final List<ArtMeshKeyformPositions> edits, final Map<String, Integer> orders, final boolean combined) {
+        writeBatch(edits, orders, combined, Map.of());
+    }
+
+    private void writeBatch(
+            final List<ArtMeshKeyformPositions> edits,
+            final Map<String, Integer> orders,
+            final boolean combined,
+            final Map<String, Float> opacities) {
         // Build the tuple/reference index once: no per-target host snapshot or grid scan.
         final var cells = new HashMap<Map<String, Float>, Cell>();
         final var references = new HashMap<String, Integer>();
@@ -220,7 +284,10 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                         .map(f -> new Form(
                                 f.formGuid(),
                                 replacements.getOrDefault(f.formGuid(), f.positions()),
-                                orders.getOrDefault(f.formGuid(), f.drawOrder())))
+                                orders.getOrDefault(f.formGuid(), f.drawOrder()),
+                                opacities.containsKey(f.formGuid())
+                                        ? java.util.Optional.of(opacities.get(f.formGuid()))
+                                        : f.opacity()))
                         .toList(),
                 layout.morphKeys());
         if (expected.equals(layout)) return;
@@ -248,6 +315,10 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                         final var order = orders.get(old.formGuid());
                         if (order != null && order != old.drawOrder())
                             setNativeDrawOrder(nativeForms.get(old.formGuid()), order);
+                        final var opacity = opacities.get(old.formGuid());
+                        if (opacity != null
+                                && Float.compare(opacity, old.opacity().orElseThrow()) != 0)
+                            setNativeOpacity(nativeForms.get(old.formGuid()), opacity);
                     }
                 },
                 () -> {
@@ -256,7 +327,7 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                 },
                 () -> {
                     requireFormIdentities(nativeForms);
-                    restoreSnapshot(layout);
+                    restoreSnapshot(layout, !opacities.isEmpty());
                 },
                 () -> read().equals(layout));
     }
@@ -361,7 +432,7 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
             if (target(before).drawOrder() == drawOrder) return null;
             final var forms = before.forms().stream()
                     .map(value -> value.formGuid().equals(selection.formGuid())
-                            ? new Form(value.formGuid(), value.positions(), drawOrder)
+                            ? new Form(value.formGuid(), value.positions(), drawOrder, value.opacity())
                             : value)
                     .toList();
             final var expected = new ArtMeshAuthoringSnapshot(
@@ -402,6 +473,10 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     }
 
     private void restoreSnapshot(final ArtMeshAuthoringSnapshot before) {
+        restoreSnapshot(before, false);
+    }
+
+    private void restoreSnapshot(final ArtMeshAuthoringSnapshot before, final boolean restoreOpacity) {
         final ArtMeshAuthoringSnapshot now = read();
         if (!sameLayout(before, now)) throw stale();
         final Map<String, Integer> references = new HashMap<>();
@@ -429,7 +504,20 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
             if (old.drawOrder() != current.drawOrder()) {
                 setNativeDrawOrder(nativeForm(old.formGuid()), old.drawOrder());
             }
+            if (restoreOpacity && !old.opacity().equals(current.opacity())) {
+                // Restore only the verified ordinary editable domain. Never repair unknown,
+                // default/shared/Morph opacity or manufacture an absolute value for it.
+                if (!Integer.valueOf(1).equals(references.get(old.formGuid()))
+                        || old.opacity().isEmpty()
+                        || old.opacity().get() < 0
+                        || old.opacity().get() > 1) return;
+                setNativeOpacity(nativeForm(old.formGuid()), old.opacity().get());
+            }
         }
+    }
+
+    private void setNativeOpacity(final Object target, final float opacity) {
+        resolver.invoke("cubism.editor-model.drawable-form.set-opacity", target, opacity);
     }
 
     private ArtMeshAuthoringSnapshot checked() {
@@ -570,7 +658,9 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                 snapshot.axes(),
                 snapshot.cells(),
                 snapshot.forms().stream()
-                        .map(form -> form.formGuid().equals(guid) ? new Form(guid, positions, form.drawOrder()) : form)
+                        .map(form -> form.formGuid().equals(guid)
+                                ? new Form(guid, positions, form.drawOrder(), form.opacity())
+                                : form)
                         .toList(),
                 snapshot.morphKeys());
     }

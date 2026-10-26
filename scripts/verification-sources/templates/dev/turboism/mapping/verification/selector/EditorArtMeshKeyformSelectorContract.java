@@ -23,5 +23,14 @@ public final class EditorArtMeshKeyformSelectorContract {
         "cubism.editor-model.complete-pack.repaint-canvas"
     );
 
+    /** Opacity is an independent extension; old geometry writers retain their admission. */
+    public static final Set<String> OPACITY_REQUIRED_ALIASES;
+    static {
+        final var aliases = new java.util.HashSet<>(REQUIRED_ALIASES);
+        aliases.add("cubism.editor-model.drawable-form.opacity");
+        aliases.add("cubism.editor-model.drawable-form.set-opacity");
+        OPACITY_REQUIRED_ALIASES = Set.copyOf(aliases);
+    }
+
     private EditorArtMeshKeyformSelectorContract() { }
 }

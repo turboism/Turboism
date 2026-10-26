@@ -37,6 +37,65 @@ import org.junit.jupiter.params.provider.ValueSource;
 class PermissionCheckedModelForwardingTest {
 
     @Test
+    void valueBasedBindingChecksWritePermissionAndActiveScope() {
+        var calls = new ArrayList<String>();
+        boolean[] read = {true}, write = {true}, active = {true};
+        var recording = new RecordingModel(calls);
+        recording.bindingProjectionAvailable = true;
+        var model = facade(recording, List.of(readPermission(read), writePermission(write)), () -> active[0])
+                .model()
+                .active();
+        var operations = model.parameterBindings(PARAMETER_ID);
+        var target = ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshA"));
+        operations.bindValues(target, List.of(-1f, 0f, 1f));
+        assertEquals(List.of("binding.values:ArtMeshA:[-1.0, 0.0, 1.0]"), calls);
+        write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> operations.bindValues(target, List.of(0f)));
+        write[0] = true;
+        active[0] = false;
+        assertThrows(IllegalStateException.class, () -> operations.bindValues(target, List.of(0f)));
+        assertEquals(1, calls.size());
+    }
+
+    @Test
+    void ordinaryWriterObservationChecksReadAndReportsRevokedWriteWithoutMutation() {
+        final var calls = new ArrayList<String>();
+        final boolean[] read = {true}, write = {false}, active = {true};
+        var model = facade(
+                        new RecordingModel(calls),
+                        List.of(readPermission(read), writePermission(write)),
+                        () -> active[0])
+                .model()
+                .active();
+        var mesh = model.drawables().find(new ArtMeshId("ArtMeshA"));
+        var warp = model.warpDeformers().find(new dev.turboism.sdk.cubism.id.DeformerId("WarpA"));
+        var rotation = model.rotationDeformers().find(new dev.turboism.sdk.cubism.id.DeformerId("RollA"));
+        calls.clear();
+        for (var target : List.of(warp, rotation)) {
+            assertEquals(
+                    dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.ABSENT,
+                    target.ordinaryKeyformWriteSupport().writePermission());
+            assertEquals(
+                    dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.UNKNOWN,
+                    target.ordinaryKeyformWriteSupport().writerSelectors());
+        }
+        assertEquals(
+                dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.ABSENT,
+                mesh.ordinaryKeyformWriteSupport().writePermission());
+        write[0] = true;
+        assertEquals(
+                dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.PRESENT,
+                mesh.ordinaryKeyformWriteSupport().writePermission());
+        read[0] = false;
+        assertThrows(CubismPermissionException.class, mesh::ordinaryKeyformWriteSupport);
+        assertThrows(CubismPermissionException.class, warp::ordinaryKeyformWriteSupport);
+        assertThrows(CubismPermissionException.class, rotation::ordinaryKeyformWriteSupport);
+        active[0] = false;
+        assertThrows(IllegalStateException.class, mesh::ordinaryKeyformWriteSupport);
+        assertTrue(calls.isEmpty(), calls.toString());
+    }
+
+    @Test
     void interpolationChecksRevokedPermissionsAndActiveScopeOnRetainedOperations() {
         var calls = new ArrayList<String>();
         boolean[] read = {true}, write = {true}, active = {true};
@@ -325,6 +384,51 @@ class PermissionCheckedModelForwardingTest {
     }
 
     @Test
+    void parameterGuidRequiresReadAndActiveScopeWithoutWritePermission() {
+        var calls = new ArrayList<String>();
+        boolean[] read = {true}, active = {true};
+        var parameter = facade(
+                        new RecordingModel(calls),
+                        List.of(readPermission(read), writePermission(false)),
+                        () -> active[0])
+                .model()
+                .active()
+                .parameters()
+                .find(PARAMETER_ID);
+        calls.clear();
+        assertEquals("native-parameter-guid", parameter.guid());
+        assertEquals(List.of("parameter.guid"), calls);
+        calls.clear();
+        read[0] = false;
+        assertThrows(CubismPermissionException.class, parameter::guid);
+        assertTrue(calls.isEmpty());
+        read[0] = true;
+        active[0] = false;
+        assertThrows(IllegalStateException.class, parameter::guid);
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void indexedParameterMoveAndMixedReadCheckPermissionsOnEveryCall() {
+        final List<String> calls = new ArrayList<>();
+        final boolean[] read = {true}, write = {true};
+        final var groups = facade(List.of(readPermission(read), writePermission(write)), calls)
+                .model()
+                .active()
+                .parameterGroups();
+        final var root = groups.root();
+        groups.moveParameter(PARAMETER_ID, GROUP_ID, 2);
+        assertEquals(1, root.orderedChildren().size());
+        assertEquals(List.of("moveParameter:" + PARAMETER_ID.value() + ":2", "orderedChildren"), calls);
+        calls.clear();
+        write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> groups.moveParameter(PARAMETER_ID, GROUP_ID, 0));
+        read[0] = false;
+        assertThrows(CubismPermissionException.class, root::orderedChildren);
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
     void parameterGroupRenameDelegatesWhenWriteIsGrantedAndFailsClosedWithout() {
         final List<String> calls = new ArrayList<>();
         final ParameterGroup group = facade(List.of(readPermission(true), writePermission(true)), calls)
@@ -602,6 +706,7 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(CubismPermissionException.class, () -> target.setDrawOrder(600));
         assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyforms(null, List.of(), List.of()));
         assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyformPositions(null, List.of()));
+        assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyformValues(null, List.of()));
         assertTrue(calls.isEmpty());
         read[0] = false;
         assertThrows(CubismPermissionException.class, target::snapshot);
@@ -610,6 +715,12 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(CubismPermissionException.class, () -> drawable.ordinaryKeyform(coordinates));
         assertTrue(calls.isEmpty());
         write[0] = true;
+        drawable.setOrdinaryKeyformValues(null, List.of());
+        assertEquals(
+                1,
+                calls.stream()
+                        .filter("drawable.keyformSparseValuesBatch"::equals)
+                        .count());
         drawable.setOrdinaryKeyforms(null, List.of(), List.of());
         assertEquals(
                 1, calls.stream().filter("drawable.keyformValuesBatch"::equals).count());
@@ -623,6 +734,7 @@ class PermissionCheckedModelForwardingTest {
         write[0] = false;
         assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyforms(null, List.of(), List.of()));
         assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyformPositions(null, List.of()));
+        assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyformValues(null, List.of()));
         assertThrows(CubismPermissionException.class, () -> target.setDrawOrder(700));
         assertTrue(calls.isEmpty());
         write[0] = true;
@@ -632,6 +744,7 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(IllegalStateException.class, target::snapshot);
         assertThrows(IllegalStateException.class, () -> drawable.setOrdinaryKeyforms(null, List.of(), List.of()));
         assertThrows(IllegalStateException.class, () -> drawable.setOrdinaryKeyformPositions(null, List.of()));
+        assertThrows(IllegalStateException.class, () -> drawable.setOrdinaryKeyformValues(null, List.of()));
         assertThrows(IllegalStateException.class, target::coordinates);
         assertThrows(IllegalStateException.class, target::defaultKeyform);
         assertThrows(IllegalStateException.class, () -> target.setPositions(List.of()));

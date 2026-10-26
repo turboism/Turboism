@@ -102,6 +102,47 @@ class EditorArtMeshAuthoringReadAccessTest {
     }
 
     @Test
+    void readsStoredOpacityOnlyWhenItsSelectorIsAdmittedAndPreservesRawMorphValues() {
+        var source = new Source();
+        source.forms.get(0).storedOpacity = .25F;
+        source.forms.get(9).storedOpacity = -.5F;
+        var observed = read(source, opacityResolver());
+        assertEquals(Optional.of(.25F), observed.forms().get(0).opacity());
+        assertEquals(Optional.of(-.5F), observed.forms().get(9).opacity());
+        source.forms.get(0).storedOpacity = .75F;
+        assertEquals(Optional.of(.25F), observed.forms().get(0).opacity(), "Detached value is immutable");
+        assertNotEquals(observed, read(source, opacityResolver()), "CAS must observe same-revision opacity changes");
+        var unknown = read(source, resolver("5.3.02", null, null));
+        assertTrue(unknown.forms().stream().allMatch(f -> f.opacity().isEmpty()));
+        assertNotEquals(unknown, observed);
+    }
+
+    @Test
+    void admittedMalformedStoredOpacityFailsInsteadOfFallingBackToUnknown() {
+        for (float value : new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            var source = new Source();
+            source.forms.get(0).storedOpacity = value;
+            assertThrows(IllegalStateException.class, () -> read(source, opacityResolver()));
+            assertTrue(read(source, resolver("5.3.02", null, null))
+                    .forms()
+                    .get(0)
+                    .opacity()
+                    .isEmpty());
+        }
+    }
+
+    static VerifiedMemberResolver opacityResolver() {
+        var selectors = new ArrayList<>(selectors());
+        selectors.add(method(M + "drawable-form.opacity", StoredForm.class, "opacity"));
+        return TestVerifiedResolvers.create(
+                "5.3.02",
+                EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorArtMeshAuthoringReadSelectorContract.CAPABILITY_IDS,
+                selectors,
+                Source.class.getClassLoader());
+    }
+
+    @Test
     void reportsNativeIndexRangeWithoutAcceptingInvalidSourceGeometry() {
         final Source source = new Source();
         source.indices[0] = 99;
@@ -358,7 +399,9 @@ class EditorArtMeshAuthoringReadAccessTest {
         Guid guid;
         float[] positions;
         int order;
+        float storedOpacity = 1;
         Runnable afterSetPositions;
+        Runnable afterSetOpacity;
 
         StoredForm(final String guid, final int value) {
             this.guid = new Guid(guid);
@@ -383,7 +426,7 @@ class EditorArtMeshAuthoringReadAccessTest {
 
         public float opacity() {
             edt();
-            return 1;
+            return storedOpacity;
         }
 
         public void setPositions(final float[] value) {
@@ -391,6 +434,14 @@ class EditorArtMeshAuthoringReadAccessTest {
             positions = value;
             var action = afterSetPositions;
             afterSetPositions = null;
+            if (action != null) action.run();
+        }
+
+        public void setOpacity(final float value) {
+            edt();
+            storedOpacity = value;
+            var action = afterSetOpacity;
+            afterSetOpacity = null;
             if (action != null) action.run();
         }
 

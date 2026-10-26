@@ -444,7 +444,20 @@ final class EditorParameterStructureAccess {
             final ParameterId parameterId,
             final ParameterGroupId targetGroupId) {
         EditorHostThread.dispatch("Cubism parameter structure", () -> {
-            moveParameterOnHostThread(identity, source, model, parameterId, targetGroupId);
+            moveParameterOnHostThread(identity, source, model, parameterId, targetGroupId, null);
+            return null;
+        });
+    }
+
+    void moveParameter(
+            final String identity,
+            final Object source,
+            final Object model,
+            final ParameterId parameterId,
+            final ParameterGroupId targetGroupId,
+            final int insertIndex) {
+        EditorHostThread.dispatch("Cubism parameter structure", () -> {
+            moveParameterOnHostThread(identity, source, model, parameterId, targetGroupId, insertIndex);
             return null;
         });
     }
@@ -454,14 +467,22 @@ final class EditorParameterStructureAccess {
             final Object source,
             final Object model,
             final ParameterId parameterId,
-            final ParameterGroupId targetGroupId) {
+            final ParameterGroupId targetGroupId,
+            final Integer insertIndex) {
         requireAuthorization();
         Objects.requireNonNull(parameterId, "parameterId");
         Objects.requireNonNull(targetGroupId, "targetGroupId");
         modelGuard.requireCurrent(identity, model);
         final Object current = requireSource(source, model, parameterId);
         final Object targetGroup = requireGroup(source, model, targetGroupId);
-        final int index = groupChildCount(targetGroup);
+        final List<?> children = groupChildren(targetGroup);
+        final int oldIndex = children.indexOf(current);
+        final int remaining = children.size() - (oldIndex >= 0 ? 1 : 0);
+        final int index = insertIndex == null ? remaining : insertIndex;
+        if (index < 0 || index > remaining) {
+            throw new IllegalArgumentException("insertIndex is outside the target folder's mixed children.");
+        }
+        if (oldIndex == index) return;
         write(
                 identity,
                 source,

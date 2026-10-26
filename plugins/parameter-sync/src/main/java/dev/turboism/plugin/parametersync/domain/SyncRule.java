@@ -73,6 +73,7 @@ public final class SyncRule {
                 enabled);
     }
 
+    /** Creates an enabled group for two parameters with normalized-range synchronization. */
     public static SyncRule createDefault(final String paramA, final String paramB) {
         return new SyncRule(
                 UUID.randomUUID().toString(),
@@ -81,6 +82,7 @@ public final class SyncRule {
                 true);
     }
 
+    /** Creates an enabled peer group from the supplied parameter IDs. */
     public static SyncRule of(final List<String> parameterIds) {
         final List<SyncGroupMember> list =
                 parameterIds.stream().map(SyncGroupMember::of).toList();
@@ -104,22 +106,27 @@ public final class SyncRule {
         return list;
     }
 
+    /** Returns the synchronization group ID. */
     public String id() {
         return id;
     }
 
+    /** Returns the synchronization group display name. */
     public String name() {
         return name;
     }
 
+    /** Returns the immutable synchronization group members. */
     public List<SyncGroupMember> members() {
         return members;
     }
 
+    /** Returns whether the group is enabled. */
     public boolean enabled() {
         return enabled;
     }
 
+    /** Returns whether the parameter belongs to this group. */
     public boolean contains(final String parameterId) {
         if (parameterId == null) {
             return false;
@@ -127,6 +134,7 @@ public final class SyncRule {
         return members.stream().anyMatch(m -> m.parameterId().equals(parameterId));
     }
 
+    /** Returns the matching member, or empty when the parameter is absent. */
     public Optional<SyncGroupMember> member(final String parameterId) {
         if (parameterId == null) {
             return Optional.empty();
@@ -134,20 +142,24 @@ public final class SyncRule {
         return members.stream().filter(m -> m.parameterId().equals(parameterId)).findFirst();
     }
 
+    /** Returns parameter IDs in group order. */
     public List<String> memberIds() {
         return members.stream().map(SyncGroupMember::parameterId).toList();
     }
 
     // ── Legacy Compatibility Accessors ──
 
+    /** Returns the first member ID for compatibility with source-target rules. */
     public String sourceId() {
         return members.isEmpty() ? "" : members.get(0).parameterId();
     }
 
+    /** Returns the second member ID for compatibility with source-target rules. */
     public String targetId() {
         return members.size() > 1 ? members.get(1).parameterId() : "";
     }
 
+    /** Projects every member after the first as a compatibility target. */
     public List<SyncTarget> targets() {
         if (members.size() <= 1) {
             return List.of();
@@ -157,42 +169,52 @@ public final class SyncRule {
                 .toList();
     }
 
+    /** Returns the second member synchronization mode for legacy callers. */
     public SyncMode mode() {
         return members.size() > 1 ? members.get(1).mode() : SyncMode.NORMALIZED_RANGE;
     }
 
+    /** Returns the second member ratio for legacy callers. */
     public float ratio() {
         return members.size() > 1 ? members.get(1).ratio() : 1.0f;
     }
 
+    /** Returns the second member offset for legacy callers. */
     public float offset() {
         return members.size() > 1 ? members.get(1).offset() : 0.0f;
     }
 
+    /** Returns true because synchronization group members are peers. */
     public boolean bidirectional() {
         return true;
     }
 
+    /** Returns whether the parameter is a member, including the first member. */
     public boolean hasTarget(final String parameterId) {
         return contains(parameterId);
     }
 
+    /** Returns a copy with the supplied enabled state. */
     public SyncRule withEnabled(final boolean enabled) {
         return new SyncRule(id, name, members, enabled);
     }
 
+    /** Returns a copy with the supplied display name. */
     public SyncRule withName(final String name) {
         return new SyncRule(id, name, members, enabled);
     }
 
+    /** Returns a copy with the supplied group members. */
     public SyncRule withMembers(final List<SyncGroupMember> newMembers) {
         return new SyncRule(id, name, newMembers, enabled);
     }
 
+    /** Returns this peer group; the legacy direction flag is ignored. */
     public SyncRule withBidirectional(final boolean ignored) {
         return this;
     }
 
+    /** Rebuilds the group from its first member and the supplied legacy targets. */
     public SyncRule withTargets(final List<SyncTarget> newTargets) {
         return new SyncRule(id, sourceId(), newTargets, true, enabled);
     }

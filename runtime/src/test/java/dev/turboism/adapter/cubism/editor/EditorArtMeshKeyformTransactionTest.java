@@ -53,6 +53,143 @@ class EditorArtMeshKeyformTransactionTest {
                 tuple(x, y), f.target(x, y).snapshot().formGuid(), positions);
     }
 
+    private static dev.turboism.sdk.cubism.model.ArtMeshKeyformValues opacityEdit(
+            Fixture f, float x, float y, float value) {
+        return new dev.turboism.sdk.cubism.model.ArtMeshKeyformValues(
+                tuple(x, y),
+                f.target(x, y).snapshot().formGuid(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(value));
+    }
+
+    @Test
+    void storedOpacityAndGeometryCommitAsOneContributionAndEqualValuesDoNotCreateUndo() {
+        onEdt(f -> {
+            var before = f.mesh.authoringSnapshot();
+            var opacity = opacityEdit(f, 1, 1, .25F);
+            var combined = new dev.turboism.sdk.cubism.model.ArtMeshKeyformValues(
+                    opacity.coordinates(), opacity.formGuid(), Optional.of(A), Optional.of(750), opacity.opacity());
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("stored appearance"), () -> {
+                f.mesh.setOrdinaryKeyformValues(before, List.of(combined, opacityEdit(f, -1, -1, .75F)));
+                return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome(), result.toString());
+            assertEquals(1, f.host.snapshots);
+            assertEquals(1, f.host.entries.size());
+            assertEquals(A, f.target(1, 1).snapshot().positions());
+            assertEquals(750, f.target(1, 1).snapshot().drawOrder());
+            assertEquals(Optional.of(.25F), f.target(1, 1).snapshot().opacity());
+            assertEquals(before.sourceGeometry(), f.mesh.authoringSnapshot().sourceGeometry());
+            assertEquals(
+                    before.forms().get(4), f.mesh.authoringSnapshot().forms().get(4));
+            var same = f.mesh.authoringSnapshot();
+            f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("equal opacity"), () -> {
+                f.mesh.setOrdinaryKeyformValues(same, List.of(opacity));
+                return null;
+            });
+            assertEquals(1, f.host.snapshots);
+            assertEquals(same, f.mesh.authoringSnapshot());
+        });
+    }
+
+    @Test
+    void storedOpacitySetterFailureRollsBackAllFieldsWithAndWithoutNativeAbort() {
+        for (boolean nativeAbort : List.of(false, true))
+            onEdt(f -> {
+                f.host.nativeAbort = nativeAbort;
+                var before = f.mesh.authoringSnapshot();
+                var first = opacityEdit(f, -1, -1, .25F);
+                var second = opacityEdit(f, 1, 1, .75F);
+                f.source.data.forms.get(8).afterSetOpacity = () -> {
+                    throw new IllegalStateException("injected opacity failure");
+                };
+                var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("opacity fault"), () -> {
+                    f.mesh.setOrdinaryKeyformValues(
+                            before,
+                            List.of(
+                                    new dev.turboism.sdk.cubism.model.ArtMeshKeyformValues(
+                                            first.coordinates(),
+                                            first.formGuid(),
+                                            Optional.of(A),
+                                            Optional.of(600),
+                                            first.opacity()),
+                                    second));
+                    return null;
+                });
+                assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), result.toString());
+                assertEquals(before, f.mesh.authoringSnapshot());
+                assertEquals(0, f.host.dirtyMarks);
+                assertTrue(f.host.entries.isEmpty());
+            });
+    }
+
+    @Test
+    void multipleOpacityContributionsRecoverIntermediateSnapshotsInReverse() {
+        for (boolean nativeAbort : List.of(false, true))
+            onEdt(f -> {
+                f.host.nativeAbort = nativeAbort;
+                var before = f.mesh.authoringSnapshot();
+                var result = f.coordinator.execute(
+                        f.binding, AuthoringTransactionOptions.of("opacity reverse recovery"), () -> {
+                            f.mesh.setOrdinaryKeyformValues(before, List.of(opacityEdit(f, -1, -1, .25F)));
+                            f.mesh.setOrdinaryKeyformValues(
+                                    f.mesh.authoringSnapshot(), List.of(opacityEdit(f, 1, 1, .75F)));
+                            throw new IllegalStateException("abort both contributions");
+                        });
+                assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), result.toString());
+                assertEquals(before, f.mesh.authoringSnapshot());
+            });
+    }
+
+    @Test
+    void opacityRejectsUnavailableSelectorsAndAllUnsafeFormTargetsBeforeAnyUndoContribution() {
+        onEdt(f -> {
+            var unavailable = f.access(resolver(false, false, true), f.coordinator)
+                    .drawables("model", f.model, f.model)
+                    .find(ID);
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("opacity unavailable"), () -> {
+                unavailable.setOrdinaryKeyformValues(
+                        unavailable.authoringSnapshot(), List.of(opacityEdit(f, 1, 1, .25F)));
+                return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+            assertEquals(0, f.host.snapshots);
+            // The optional opacity extension must not disable existing geometry writes.
+            var geometry = f.coordinator.execute(
+                    f.binding, AuthoringTransactionOptions.of("geometry remains admitted"), () -> {
+                        unavailable.setOrdinaryKeyformPositions(
+                                unavailable.authoringSnapshot(), List.of(edit(f, 1, 1, A)));
+                        return null;
+                    });
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, geometry.outcome(), geometry.toString());
+        });
+        for (String kind : List.of("default", "shared", "morph", "duplicate", "wrong-guid", "stale"))
+            onEdt(f -> {
+                var edit = opacityEdit(f, kind.equals("default") ? 0 : 1, kind.equals("default") ? 0 : 1, .25F);
+                if (kind.equals("shared"))
+                    f.source
+                            .data
+                            .grid
+                            .rows
+                            .get("f8")
+                            .add(f.source.data.grid.rows.get("f7").get(0));
+                if (kind.equals("morph")) f.source.data.targets.targets.add(new Target(new Guid("f8"), null));
+                if (kind.equals("wrong-guid"))
+                    edit = new dev.turboism.sdk.cubism.model.ArtMeshKeyformValues(
+                            edit.coordinates(), "f0", edit.positions(), edit.drawOrder(), edit.opacity());
+                var before = f.mesh.authoringSnapshot();
+                if (kind.equals("stale")) f.source.data.forms.get(8).storedOpacity = .75F;
+                final var edits = kind.equals("duplicate") ? List.of(edit, edit) : List.of(edit);
+                var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("opacity reject"), () -> {
+                    f.mesh.setOrdinaryKeyformValues(before, edits);
+                    return null;
+                });
+                assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), kind);
+                assertEquals(0, f.host.snapshots, kind);
+            });
+    }
+
     @Test
     void combinedRotationValuesReduceSourceReadsAndRecoverFromRefreshFailure() {
         int[] reads = new int[2];
@@ -932,7 +1069,8 @@ class EditorArtMeshKeyformTransactionTest {
                     .map(form -> new ArtMeshAuthoringSnapshot.Form(
                             form.formGuid(),
                             form.formGuid().equals(positionGuid) ? A : form.positions(),
-                            form.formGuid().equals(orderGuid) ? 600 : form.drawOrder()))
+                            form.formGuid().equals(orderGuid) ? 600 : form.drawOrder(),
+                            form.opacity()))
                     .toList();
             assertEquals(
                     new ArtMeshAuthoringSnapshot(
@@ -1143,6 +1281,11 @@ class EditorArtMeshKeyformTransactionTest {
     }
 
     private static VerifiedMemberResolver resolver(final boolean denyHistory, final boolean denyParent) {
+        return resolver(denyHistory, denyParent, false);
+    }
+
+    private static VerifiedMemberResolver resolver(
+            final boolean denyHistory, final boolean denyParent, final boolean denyOpacity) {
         final var selectors = new LinkedHashMap<String, StaticSelector>();
         for (final var selector : EditorArtMeshAuthoringReadAccessTest.selectors()) {
             final var mapped =
@@ -1201,6 +1344,8 @@ class EditorArtMeshKeyformTransactionTest {
                 method(M + "parameter-controllable-source.handler", NativeSource.class, "handler"),
                 method(M + "art-mesh-form.set-positions", StoredForm.class, "setPositions", float[].class),
                 method(M + "drawable-form.set-draw-order", StoredForm.class, "setDrawOrder", int.class),
+                method(M + "drawable-form.opacity", StoredForm.class, "opacity"),
+                method(M + "drawable-form.set-opacity", StoredForm.class, "setOpacity", float.class),
                 method(
                         M + "parameter-controllable-handler.create-undo-for-keyform-edit",
                         NativeSource.class,
@@ -1234,6 +1379,7 @@ class EditorArtMeshKeyformTransactionTest {
         if (!denyParent) capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorArtMeshKeyformSelectorContract.CAPABILITY_ID);
         if (!denyHistory) capabilities.add("cubism.editor-history.read");
+        if (denyOpacity) selectors.remove(M + "drawable-form.set-opacity");
         return TestVerifiedResolvers.create(
                 "5.3.02",
                 EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
@@ -1405,6 +1551,7 @@ class EditorArtMeshKeyformTransactionTest {
         final List<StoredForm> forms;
         final List<float[]> before;
         final List<Integer> beforeOrders;
+        final List<Float> beforeOpacities;
         final List<NativeListener> listeners = new ArrayList<>();
         Runnable specialUndo;
         Runnable afterUndo = () -> {};
@@ -1413,6 +1560,7 @@ class EditorArtMeshKeyformTransactionTest {
             this.forms = List.copyOf(forms);
             before = forms.stream().map(f -> f.positions.clone()).toList();
             beforeOrders = forms.stream().map(f -> f.order).toList();
+            beforeOpacities = forms.stream().map(f -> f.storedOpacity).toList();
         }
 
         public void addListener(final NativeListener listener) {
@@ -1430,6 +1578,7 @@ class EditorArtMeshKeyformTransactionTest {
             for (int i = 0; i < forms.size(); i++) {
                 forms.get(i).positions = before.get(i).clone();
                 forms.get(i).order = beforeOrders.get(i);
+                forms.get(i).storedOpacity = beforeOpacities.get(i);
             }
             afterUndo.run();
             listeners.forEach(l -> l.changed(this));

@@ -43,11 +43,13 @@ class DeformerBatchRenamePluginTest {
         plugin.init(context);
         plugin.enable();
         assertEquals(1, actions.actions().size());
-        assertEquals("变形器批量重命名", actions.require(DeformerBatchRenamePlugin.ACTION_ID).label());
+        assertEquals(
+                "变形器批量重命名", actions.require(DeformerBatchRenamePlugin.ACTION_ID).label());
         assertEquals(1, menus.contributions().size());
         assertEquals("Turboism/变形器批量重命名", menus.contributions().get(0).menuPath());
         assertEquals(
-                DeformerBatchRenamePlugin.ACTION_ID, menus.contributions().get(0).actionId());
+                DeformerBatchRenamePlugin.ACTION_ID,
+                menus.contributions().get(0).actionId());
         plugin.disable();
         context.disposableScope().close();
         assertTrue(actions.actions().isEmpty());

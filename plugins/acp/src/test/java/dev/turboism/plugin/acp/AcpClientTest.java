@@ -425,6 +425,7 @@ final class AcpClientTest {
 
     @Test
     void streamsUpdatesAndAnswersPermissionRequests() throws Exception {
+        final AtomicReference<Long> promptId = new AtomicReference<>();
         final AtomicReference<String> agentText = new AtomicReference<>();
         final AtomicReference<String> agentThought = new AtomicReference<>();
         final AtomicReference<AcpListener.PermissionRequest> permission = new AtomicReference<>();
@@ -433,6 +434,7 @@ final class AcpClientTest {
                     if ("initialize".equals(method)) {
                         output.response((Long) request.get("id"), initializeResult());
                     } else if ("session/prompt".equals(method)) {
+                        promptId.set((Long) request.get("id"));
                         output.notification(
                                 "session/update",
                                 Map.of(
@@ -467,12 +469,12 @@ final class AcpClientTest {
                                                         "kind", "edit",
                                                         "rawInput", Map.of("name", "Renamed")),
                                         "options", permissionOptions()));
-                        output.response((Long) request.get("id"), Map.of("stopReason", "end_turn"));
                     } else if (!request.containsKey("method")
                             && Long.valueOf(99L).equals(request.get("id"))) {
                         final Map<String, Object> result = object(request.get("result"));
                         final Map<String, Object> outcome = object(result.get("outcome"));
                         assertEquals("allow_once", outcome.get("optionId"));
+                        output.response(promptId.get(), Map.of("stopReason", "end_turn"));
                     }
                 });
                 AcpClient client = new AcpClient(transport, new AcpListener() {
@@ -585,6 +587,7 @@ final class AcpClientTest {
                                                         "kind", "edit",
                                                         "rawInput", Map.of("name", "Renamed")),
                                         "options", permissionOptions()));
+                        assertTrue(permissionOpened.await(2, TimeUnit.SECONDS));
                         output.response((Long) request.get("id"), Map.of("stopReason", "end_turn"));
                     }
                 });
@@ -612,13 +615,284 @@ final class AcpClientTest {
     }
 
     @Test
+    void cancelRetiresPermissionBeforeUiReturnsAndLateAllowCannotAnswerTwice() throws Exception {
+        var promptId = new AtomicReference<Long>();
+        var permissionId = new java.util.concurrent.atomic.AtomicLong(900L);
+        var opened = new java.util.concurrent.CompletableFuture<AcpListener.PermissionRequest>();
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var replies = new java.util.concurrent.LinkedBlockingQueue<Map<String, Object>>();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    if ("initialize".equals(request.get("method")))
+                        output.response((Long) request.get("id"), Map.of("protocolVersion", 1L));
+                    else if ("session/prompt".equals(request.get("method"))) {
+                        promptId.set((Long) request.get("id"));
+                        output.request(
+                                permissionId.getAndIncrement(),
+                                "session/request_permission",
+                                Map.of(
+                                        "sessionId",
+                                        "s1",
+                                        "toolCall",
+                                        Map.of("title", "write", "kind", "edit", "toolCallId", "t1"),
+                                        "options",
+                                        permissionOptions()));
+                    } else if (request.containsKey("result")) {
+                        replies.add(request);
+                        output.response(promptId.get(), Map.of("stopReason", "end_turn"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public PermissionDecision permission(
+                            AcpClient source, String sessionId, PermissionRequest request) {
+                        opened.complete(request);
+                        try {
+                            release.await();
+                        } catch (InterruptedException failure) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return PermissionDecision.ALLOW_ONCE;
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            var first = client.prompt("s1", "work");
+            var permission = opened.get(2, TimeUnit.SECONDS);
+            client.cancel("s1");
+            assertTrue(permission.cancellation().isCancelled());
+            var reply = replies.poll(2, TimeUnit.SECONDS);
+            assertNotNull(reply, "Cancellation must answer without waiting for the UI worker");
+            assertEquals(
+                    "cancelled",
+                    object(object(reply.get("result")).get("outcome")).get("outcome"));
+            assertEquals("end_turn", first.get(2, TimeUnit.SECONDS));
+            release.countDown();
+            var next = client.prompt("s1", "next");
+            var nextReply = replies.poll(2, TimeUnit.SECONDS);
+            assertNotNull(nextReply);
+            assertEquals(901L, nextReply.get("id"), "Late reply from the retired UI must not be sent");
+            assertEquals(
+                    "selected",
+                    object(object(nextReply.get("result")).get("outcome")).get("outcome"));
+            assertEquals("end_turn", next.get(2, TimeUnit.SECONDS));
+            assertTrue(replies.isEmpty());
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void permissionSessionBudgetRejectsNewIdentitiesAndAllowsKnownSessionReuse() throws Exception {
+        var prompts = new java.util.concurrent.atomic.AtomicInteger();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    if ("initialize".equals(request.get("method")))
+                        output.response((Long) request.get("id"), initializeResult());
+                    else if ("session/prompt".equals(request.get("method"))) {
+                        prompts.incrementAndGet();
+                        output.response((Long) request.get("id"), Map.of("stopReason", "end_turn"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {})) {
+            client.initialize(Duration.ofSeconds(2));
+            for (int i = 0; i < 64; i++)
+                assertEquals("end_turn", client.prompt("s" + i, "work").get(2, TimeUnit.SECONDS));
+            var rejected = client.prompt("new-session", "work");
+            assertThrows(java.util.concurrent.ExecutionException.class, () -> rejected.get(2, TimeUnit.SECONDS));
+            assertEquals("end_turn", client.prompt("s0", "work").get(2, TimeUnit.SECONDS));
+            assertEquals(65, prompts.get(), "Over-budget request must not reach the peer");
+        }
+    }
+
+    @Test
+    void sessionResumeAndClientCloseRetireOldApprovalLifetime() throws Exception {
+        for (boolean resume : List.of(false, true)) {
+            var opened = new java.util.concurrent.CompletableFuture<AcpListener.PermissionRequest>();
+            var release = new java.util.concurrent.CountDownLatch(1);
+            try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                        if ("initialize".equals(request.get("method")))
+                            output.response((Long) request.get("id"), initializeResult());
+                        else if ("session/resume".equals(request.get("method")))
+                            output.response((Long) request.get("id"), Map.of("sessionId", "s1"));
+                        else if ("session/prompt".equals(request.get("method")))
+                            output.request(
+                                    900L,
+                                    "session/request_permission",
+                                    Map.of(
+                                            "sessionId",
+                                            "s1",
+                                            "toolCall",
+                                            Map.of("title", "write", "kind", "edit", "toolCallId", "t1"),
+                                            "options",
+                                            permissionOptions()));
+                    });
+                    AcpClient client = new AcpClient(transport, new AcpListener() {
+                        @Override
+                        public PermissionDecision permission(
+                                AcpClient source, String sessionId, PermissionRequest request) {
+                            opened.complete(request);
+                            try {
+                                release.await();
+                            } catch (InterruptedException failure) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return PermissionDecision.ALLOW_ONCE;
+                        }
+                    })) {
+                client.initialize(Duration.ofSeconds(2));
+                client.prompt("s1", "work");
+                var permission = opened.get(2, TimeUnit.SECONDS);
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> client.resumeSession("", Path.of("."), connection(), Duration.ofSeconds(2)));
+                assertFalse(
+                        permission.cancellation().isCancelled(),
+                        "Invalid resume must not retire an unrelated approval");
+                if (resume)
+                    assertEquals(
+                            "s1",
+                            client.resumeSession("s1", Path.of("."), connection(), Duration.ofSeconds(2))
+                                    .sessionId());
+                else client.close();
+                assertTrue(permission.cancellation().isCancelled());
+            } finally {
+                release.countDown();
+            }
+        }
+    }
+
+    @Test
+    void cancelledQueuedPermissionsNeverOpenAndNewPromptHasCapacity() throws Exception {
+        var opened = new java.util.concurrent.LinkedBlockingQueue<String>();
+        var releases = new java.util.concurrent.CountDownLatch(1);
+        var replies = new java.util.concurrent.LinkedBlockingQueue<Long>();
+        var firstPromptId = new AtomicReference<Long>();
+        var round = new java.util.concurrent.atomic.AtomicInteger();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    if ("initialize".equals(request.get("method")))
+                        output.response((Long) request.get("id"), initializeResult());
+                    else if ("session/prompt".equals(request.get("method"))) {
+                        if (round.getAndIncrement() == 0) {
+                            firstPromptId.set((Long) request.get("id"));
+                            for (int i = 0; i < 9; i++)
+                                output.request(
+                                        900L + i,
+                                        "session/request_permission",
+                                        Map.of(
+                                                "sessionId",
+                                                "s1",
+                                                "toolCall",
+                                                Map.of("title", "write", "kind", "edit", "toolCallId", "old-" + i),
+                                                "options",
+                                                permissionOptions()));
+                        } else {
+                            output.request(
+                                    1000L,
+                                    "session/request_permission",
+                                    Map.of(
+                                            "sessionId",
+                                            "s1",
+                                            "toolCall",
+                                            Map.of("title", "write", "kind", "edit", "toolCallId", "fresh"),
+                                            "options",
+                                            permissionOptions()));
+                        }
+                    } else if ("session/cancel".equals(request.get("method")))
+                        output.response(firstPromptId.get(), Map.of("stopReason", "cancelled"));
+                    else if (request.containsKey("result")) replies.add((Long) request.get("id"));
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public PermissionDecision permission(
+                            AcpClient source, String sessionId, PermissionRequest request) {
+                        opened.add(request.toolCallId());
+                        if (request.toolCallId().startsWith("old-")) {
+                            try {
+                                releases.await();
+                            } catch (InterruptedException failure) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                        return PermissionDecision.REJECT_ONCE;
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            var first = client.prompt("s1", "queued");
+            assertEquals("old-0", opened.poll(2, TimeUnit.SECONDS));
+            client.cancel("s1");
+            for (int i = 0; i < 9; i++) assertNotNull(replies.poll(2, TimeUnit.SECONDS));
+            assertEquals("cancelled", first.get(2, TimeUnit.SECONDS));
+            releases.countDown();
+            client.prompt("s1", "fresh");
+            assertEquals("fresh", opened.poll(2, TimeUnit.SECONDS));
+            assertEquals(1000L, replies.poll(2, TimeUnit.SECONDS));
+            assertTrue(opened.isEmpty(), "Old queued UI tasks must be removed rather than shown");
+        } finally {
+            releases.countDown();
+        }
+    }
+
+    @Test
+    void promptTerminalRetiresPermissionUiLifetime() throws Exception {
+        var opened = new java.util.concurrent.CompletableFuture<AcpListener.PermissionRequest>();
+        var terminate = new java.util.concurrent.CompletableFuture<Runnable>();
+        var release = new java.util.concurrent.CountDownLatch(1);
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    if ("initialize".equals(request.get("method")))
+                        output.response((Long) request.get("id"), Map.of("protocolVersion", 1L));
+                    else if ("session/prompt".equals(request.get("method"))) {
+                        output.request(
+                                900L,
+                                "session/request_permission",
+                                Map.of(
+                                        "sessionId",
+                                        "s1",
+                                        "toolCall",
+                                        Map.of("title", "write", "kind", "edit", "toolCallId", "t1"),
+                                        "options",
+                                        permissionOptions()));
+                        long id = (Long) request.get("id");
+                        terminate.complete(() -> {
+                            try {
+                                output.response(id, Map.of("stopReason", "end_turn"));
+                            } catch (Exception failure) {
+                                throw new RuntimeException(failure);
+                            }
+                        });
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public PermissionDecision permission(
+                            AcpClient source, String sessionId, PermissionRequest request) {
+                        opened.complete(request);
+                        try {
+                            release.await();
+                        } catch (InterruptedException failure) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return PermissionDecision.ALLOW_ONCE;
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            var prompt = client.prompt("s1", "work");
+            var permission = opened.get(2, TimeUnit.SECONDS);
+            terminate.get(2, TimeUnit.SECONDS).run();
+            assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+            assertTrue(permission.cancellation().isCancelled());
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
     void permissionUiFailureCancelsWithoutTerminatingAcp() throws Exception {
+        final AtomicReference<Long> promptId = new AtomicReference<>();
         final AtomicReference<Map<String, Object>> permissionResponse = new AtomicReference<>();
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
                     final String method = string(request.get("method"));
                     if ("initialize".equals(method)) {
                         output.response((Long) request.get("id"), initializeResult());
                     } else if ("session/prompt".equals(method)) {
+                        promptId.set((Long) request.get("id"));
                         output.request(
                                 99L,
                                 "session/request_permission",
@@ -631,12 +905,12 @@ final class AcpClientTest {
                                                         "kind", "edit",
                                                         "rawInput", Map.of("name", "Renamed")),
                                         "options", permissionOptions()));
-                        output.response((Long) request.get("id"), Map.of("stopReason", "end_turn"));
                     } else if ("session/list".equals(method)) {
                         output.response((Long) request.get("id"), Map.of("sessions", List.of()));
                     } else if (!request.containsKey("method")
                             && Long.valueOf(99L).equals(request.get("id"))) {
                         permissionResponse.set(request);
+                        output.response(promptId.get(), Map.of("stopReason", "end_turn"));
                     }
                 });
                 AcpClient client = new AcpClient(transport, new AcpListener() {
@@ -926,6 +1200,7 @@ final class AcpClientTest {
 
     @Test
     void permissionDetailsAreBoundedAndBearerRedacted() throws Exception {
+        final AtomicReference<Long> promptId = new AtomicReference<>();
         final AtomicReference<AcpListener.PermissionRequest> permission = new AtomicReference<>();
         final String secret = "Bearer permission-secret";
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
@@ -937,6 +1212,7 @@ final class AcpClientTest {
                                 (Long) request.get("id"),
                                 Map.of("sessionId", "sess-1", "configOptions", options("gateway", "model-a")));
                     } else if ("session/prompt".equals(method)) {
+                        promptId.set((Long) request.get("id"));
                         output.request(
                                 99L,
                                 "session/request_permission",
@@ -949,7 +1225,9 @@ final class AcpClientTest {
                                                         "kind", "execute",
                                                         "rawInput", oversizedPermissionInput(secret)),
                                         "options", permissionOptions()));
-                        output.response((Long) request.get("id"), Map.of("stopReason", "end_turn"));
+                    } else if (!request.containsKey("method")
+                            && Long.valueOf(99L).equals(request.get("id"))) {
+                        output.response(promptId.get(), Map.of("stopReason", "end_turn"));
                     }
                 });
                 AcpClient client = new AcpClient(transport, new AcpListener() {
@@ -978,6 +1256,7 @@ final class AcpClientTest {
         final AtomicReference<List<String>> toolCall = new AtomicReference<>();
         final AtomicReference<List<String>> toolUpdate = new AtomicReference<>();
         final AtomicReference<String> toolInput = new AtomicReference<>();
+        final var permissionOpened = new java.util.concurrent.CountDownLatch(1);
         final AtomicReference<AcpListener.PermissionRequest> permission = new AtomicReference<>();
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
                     final String method = string(request.get("method"));
@@ -1064,6 +1343,7 @@ final class AcpClientTest {
                                                         "kind", "execute " + secret,
                                                         "rawInput", Map.of("authorization", secret)),
                                         "options", permissionOptions()));
+                        assertTrue(permissionOpened.await(2, TimeUnit.SECONDS));
                         output.response((Long) request.get("id"), Map.of("stopReason", "end_turn"));
                     }
                 });
@@ -1113,6 +1393,7 @@ final class AcpClientTest {
                     public PermissionDecision permission(
                             final AcpClient source, final String sessionId, final PermissionRequest request) {
                         permission.set(request);
+                        permissionOpened.countDown();
                         return PermissionDecision.REJECT_ONCE;
                     }
                 })) {
@@ -1252,6 +1533,223 @@ final class AcpClientTest {
     @FunctionalInterface
     private interface Script {
         void handle(Map<String, Object> request, ScriptOutput output) throws Exception;
+    }
+
+    @Test
+    void acpPoseImagesCarryExactToolFrameLabelsIntoDecodedSwingPreviews() throws Exception {
+        var image = AcpAttachment.fromClipboard(
+                new java.awt.image.BufferedImage(2, 3, java.awt.image.BufferedImage.TYPE_INT_ARGB));
+        String secret = "caption-secret-".repeat(20);
+        var left = AcpToolImageLabelTest.capture("first", "left", 1);
+        left.put("state", Map.of("documentId", "doc", "modelId", "Bearer " + secret, "historyRevision", 7));
+        var metadata =
+                Map.<String, Object>of("frames", List.of(AcpToolImageLabelTest.capture("second", "right", 2), left));
+        var contents = AcpToolImageLabelTest.contents(
+                metadata,
+                AcpToolImageLabelTest.wrap(image.promptBlock(true, true)),
+                AcpToolImageLabelTest.wrap(image.promptBlock(true, true)));
+        var images = new java.util.concurrent.CopyOnWriteArrayList<AcpAttachment>();
+        var received = new java.util.concurrent.CountDownLatch(2);
+        var text = new StringBuilder();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    long id = (Long) request.get("id");
+                    if ("initialize".equals(request.get("method")))
+                        output.response(id, Map.of("protocolVersion", 1L, "agentCapabilities", Map.of()));
+                    else if ("session/prompt".equals(request.get("method"))) {
+                        output.notification(
+                                "session/update",
+                                Map.of(
+                                        "sessionId",
+                                        "s1",
+                                        "update",
+                                        Map.of(
+                                                "sessionUpdate",
+                                                "tool_call_update",
+                                                "toolCallId",
+                                                "pose-tool",
+                                                "status",
+                                                "completed",
+                                                "content",
+                                                contents)));
+                        output.response(id, Map.of("stopReason", "end_turn"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public void agentImage(AcpClient source, String sessionId, AcpAttachment attachment) {
+                        images.add(attachment);
+                        received.countDown();
+                    }
+
+                    @Override
+                    public void toolCallUpdate(
+                            AcpClient source, String sessionId, String toolId, String status, String content) {
+                        text.append(content);
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            assertEquals("end_turn", client.prompt("s1", "inspect").get(2, TimeUnit.SECONDS));
+            assertTrue(received.await(2, TimeUnit.SECONDS));
+            assertEquals(2, images.size());
+            assertTrue(images.get(0).name().contains("pose=left"));
+            assertTrue(images.get(0).name().contains("capture=first"));
+            assertFalse(images.get(0).name().contains("caption-secret-"));
+            assertTrue(images.get(0).name().contains("<redacted>"));
+            assertTrue(images.get(1).name().contains("pose=right"));
+            assertTrue(images.get(1).name().contains("capture=second"));
+            for (var attachment : images) {
+                assertEquals(image.data(), attachment.data());
+                assertNotNull(attachment.preview());
+                var document = new javax.swing.text.DefaultStyledDocument();
+                AcpMessageRenderer.insert(
+                        document, 0, attachment.name(), new javax.swing.text.SimpleAttributeSet(), false);
+                assertTrue(document.getText(0, document.getLength()).contains("reported:"));
+            }
+            assertFalse(text.toString().contains(image.data()));
+        }
+    }
+
+    @Test
+    void rawOutputOnlyReceiptsRemainReadableAndKeepOriginalToolStatus() throws Exception {
+        for (String kind : List.of("tool_call", "tool_call_update")) {
+            var statuses = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            var texts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            var receipt = Map.of(
+                    "operationId",
+                    "write-17",
+                    "outcome",
+                    "OUTCOME_UNKNOWN",
+                    "retryable",
+                    false,
+                    "message",
+                    "Bearer ui-secret");
+            try (ScriptedTransport transport = rawOutputTransport(kind, Map.of("rawOutput", receipt));
+                    AcpClient client = new AcpClient(transport, new AcpListener() {
+                        @Override
+                        public void toolCallUpdate(
+                                AcpClient source, String sessionId, String toolId, String status, String content) {
+                            statuses.add(status);
+                            texts.add(content);
+                        }
+                    })) {
+                client.initialize(Duration.ofSeconds(2));
+                client.prompt("s1", "inspect").get(2, TimeUnit.SECONDS);
+                assertEquals(List.of("failed"), statuses);
+                assertEquals(1, texts.size());
+                assertTrue(texts.get(0).contains("OUTCOME_UNKNOWN"));
+                assertTrue(texts.get(0).contains("write-17"));
+                assertTrue(texts.get(0).contains("false"));
+                assertFalse(texts.get(0).contains("ui-secret"));
+            }
+        }
+    }
+
+    @Test
+    void rawOutputMcpImageRetainsPixelsAndReportedCaptureIdentity() throws Exception {
+        var image = AcpAttachment.fromClipboard(
+                new java.awt.image.BufferedImage(2, 3, java.awt.image.BufferedImage.TYPE_INT_ARGB));
+        var metadata = AcpToolImageLabelTest.capture("raw-capture", "", 1);
+        metadata.put("ok", true);
+        var raw = Map.of(
+                "content",
+                List.of(Map.of("type", "text", "text", Json.stringify(metadata)), image.promptBlock(true, true)),
+                "structuredContent",
+                metadata);
+        var images = new java.util.concurrent.CopyOnWriteArrayList<AcpAttachment>();
+        var text = new StringBuilder();
+        try (ScriptedTransport transport =
+                        rawOutputTransport("tool_call_update", Map.of("rawOutput", raw, "content", List.of()));
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public void agentImage(AcpClient source, String sessionId, AcpAttachment attachment) {
+                        images.add(attachment);
+                    }
+
+                    @Override
+                    public void toolCallUpdate(
+                            AcpClient source, String sessionId, String toolId, String status, String content) {
+                        text.append(content);
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            client.prompt("s1", "inspect").get(2, TimeUnit.SECONDS);
+            assertEquals(1, images.size());
+            assertEquals(image.data(), images.get(0).data());
+            assertNotNull(images.get(0).preview());
+            assertTrue(images.get(0).name().contains("capture=raw-capture"));
+            assertFalse(text.toString().contains(image.data()));
+        }
+    }
+
+    @Test
+    void explicitAcpContentWinsOverRawOutputWithoutDuplicateOrStaleImages() throws Exception {
+        var images = new java.util.concurrent.atomic.AtomicInteger();
+        var texts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var image = AcpAttachment.fromClipboard(
+                new java.awt.image.BufferedImage(2, 3, java.awt.image.BufferedImage.TYPE_INT_ARGB));
+        var content = List.of(AcpToolImageLabelTest.wrap(Map.of("type", "text", "text", "canonical-result")));
+        try (ScriptedTransport transport = rawOutputTransport(
+                        "tool_call_update",
+                        Map.of(
+                                "content",
+                                content,
+                                "rawOutput",
+                                Map.of("content", List.of(image.promptBlock(true, true)))));
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public void agentImage(AcpClient source, String sessionId, AcpAttachment attachment) {
+                        images.incrementAndGet();
+                    }
+
+                    @Override
+                    public void toolCallUpdate(
+                            AcpClient source, String sessionId, String toolId, String status, String text) {
+                        texts.add(text);
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            client.prompt("s1", "inspect").get(2, TimeUnit.SECONDS);
+            assertEquals(List.of("canonical-result"), texts);
+            assertEquals(0, images.get());
+        }
+    }
+
+    @Test
+    void unsupportedRawOutputBinaryIsSummarizedAndTextUsesExistingUiBudget() throws Exception {
+        for (Object raw : List.of(Map.of("type", "audio", "data", "raw-binary-secret"), "x".repeat(300 * 1024))) {
+            var texts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            try (ScriptedTransport transport = rawOutputTransport("tool_call_update", Map.of("rawOutput", raw));
+                    AcpClient client = new AcpClient(transport, new AcpListener() {
+                        @Override
+                        public void toolCallUpdate(
+                                AcpClient source, String sessionId, String toolId, String status, String text) {
+                            texts.add(text);
+                        }
+                    })) {
+                client.initialize(Duration.ofSeconds(2));
+                client.prompt("s1", "inspect").get(2, TimeUnit.SECONDS);
+                assertEquals(1, texts.size());
+                assertFalse(texts.get(0).contains("raw-binary-secret"));
+                assertTrue(texts.get(0).length() <= 256 * 1024 + 100);
+                if (raw instanceof Map<?, ?>) assertTrue(texts.get(0).contains("Unsupported tool content: audio"));
+            }
+        }
+    }
+
+    private static ScriptedTransport rawOutputTransport(String kind, Map<String, Object> fields) throws IOException {
+        return new ScriptedTransport((request, output) -> {
+            long id = (Long) request.get("id");
+            if ("initialize".equals(request.get("method")))
+                output.response(id, Map.of("protocolVersion", 1L, "agentCapabilities", Map.of()));
+            else if ("session/prompt".equals(request.get("method"))) {
+                var update = new java.util.LinkedHashMap<String, Object>(fields);
+                update.put("sessionUpdate", kind);
+                update.put("toolCallId", "raw-tool");
+                update.put("status", "failed");
+                output.notification("session/update", Map.of("sessionId", "s1", "update", update));
+                output.response(id, Map.of("stopReason", "end_turn"));
+            }
+        });
     }
 
     private static final class ScriptedTransport implements AcpTransport {

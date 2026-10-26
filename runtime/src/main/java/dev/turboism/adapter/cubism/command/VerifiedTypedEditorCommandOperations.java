@@ -14,10 +14,10 @@ import java.io.File;
 import java.util.Objects;
 
 /**
- * Typed no-dialog host operations for parameterized and file Editor commands. Every operation
+ * Typed host operations for parameterized and file Editor commands. Every operation
  * mirrors the exact observable call sequence the reviewed native dialog/handler applies, using
- * only exact-version verified selectors. Operations never open dialogs, never simulate menu
- * clicks, and fail closed with sanitized results. Each command is admitted per exact version;
+ * only exact-version verified selectors. File dispatch may reach native dialogs; operations never
+ * simulate menu clicks and fail closed with sanitized results. Each command is admitted per exact version;
  * missing selector tuples or unsupported versions fail closed.
  *
  * <p>Safety guarantees:
@@ -111,6 +111,7 @@ final class VerifiedTypedEditorCommandOperations {
         static final String FILE_SCENE_CONTENT = "cubism.editor-command.file.scene-content";
         static final String FILE_SAVE_SCENE = "cubism.editor-command.file.save-scene";
         static final String FILE_SAVE_MODEL = "cubism.editor-command.file.save-model";
+        static final String FILE_OPEN_MODEL = "cubism.editor-command.file.open-model";
 
         private Aliases() {}
     }
@@ -148,10 +149,11 @@ final class VerifiedTypedEditorCommandOperations {
         if (!command.command().supports(resolver.cubismVersion())) {
             return new EditorCommandResult(EditorCommandResult.Status.UNSUPPORTED_VERSION, command.commandId());
         }
-        // Only SAVE_AS is admitted. OPEN and every other file command fail closed: OPEN's
-        // first-open behavior is not fully verified on either exact version.
+        // Opening is deliberately narrower than the enum: one reviewed host and CMO3 only.
+        // Dispatch does not imply a fresh document, completed loading, or persistence proof.
         return switch (command.command()) {
             case SAVE_AS -> saveAs(command);
+            case OPEN -> openModel(command);
             default -> new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
         };
     }
@@ -567,6 +569,24 @@ final class VerifiedTypedEditorCommandOperations {
         }
         resolver.invoke(Aliases.CANVAS_MARK_DIRTY, context.document);
         return new EditorCommandResult(EditorCommandResult.Status.EXECUTED, request.commandId());
+    }
+
+    private EditorCommandResult openModel(final ResolvedEditorFileCommand command) {
+        if (!resolver.isExactCubismVersion("5.3.03"))
+            return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+        if (!command.file()
+                .getFileName()
+                .toString()
+                .toLowerCase(java.util.Locale.ROOT)
+                .endsWith(".cmo3"))
+            return new EditorCommandResult(EditorCommandResult.Status.REJECTED, command.commandId());
+        requireResolvable(APP_INSTANCE, Aliases.FILE_OPEN_MODEL);
+        final Object app = appInstance();
+        if (app == null) return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, command.commandId());
+        if (!EditorFileUsePointGuard.admit(command).allowed())
+            return new EditorCommandResult(EditorCommandResult.Status.REJECTED, command.commandId());
+        resolver.invoke(Aliases.FILE_OPEN_MODEL, app, command.file().toFile(), false);
+        return new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId());
     }
 
     private EditorCommandResult saveAs(final ResolvedEditorFileCommand command) {
