@@ -56,6 +56,9 @@ final class EditorTextureRegistrationFixture implements EditorAuthoringTransacti
     final List<Undo> history = new ArrayList<>();
     final List<HistoryEntry> entries = new ArrayList<>();
     int position, revision, begins, refreshes, dirty, guidSequence;
+    Set<EditorRefreshRequirement> lastRefreshRequirements = Set.of();
+    final List<Boolean> parameterRefreshes = new ArrayList<>();
+    int projectRefreshes;
     boolean rejectAdd, throwAdd, nativeAbort, failCachedImage, failImageAdd, failUndo;
     final List<String> mutationOrder = new ArrayList<>();
 
@@ -201,6 +204,7 @@ final class EditorTextureRegistrationFixture implements EditorAuthoringTransacti
             final EditorAuthoringTransactionCoordinator.Binding binding,
             final Set<EditorRefreshRequirement> requirements) {
         edt();
+        lastRefreshRequirements = Set.copyOf(requirements);
         refreshes++;
         dirty++;
     }
@@ -261,6 +265,8 @@ final class EditorTextureRegistrationFixture implements EditorAuthoringTransacti
         add.accept(method(M + "edit-mode.begin", EditMode.class, "begin", String.class));
         add.accept(method(M + "edit-mode.end", EditMode.class, "end", boolean.class, Object.class));
         add.accept(method(M + "complete-pack.update-part-palette", App.class, "updateParts", boolean.class));
+        add.accept(method(M + "complete-pack.update-project", App.class, "updateProject"));
+        add.accept(method(M + "complete-pack.update-parameter", App.class, "updateParameter", boolean.class));
         add.accept(method(M + "complete-pack.repaint-canvas", App.class, "repaint", boolean.class));
         add.accept(StaticSelector.classSelector(M + "art-mesh.class", internal(Mesh.class)));
         add.accept(method(M + "art-mesh.source", Mesh.class, "source"));
@@ -561,6 +567,16 @@ final class EditorTextureRegistrationFixture implements EditorAuthoringTransacti
 
         public void updateParts(final boolean update) {
             edt();
+        }
+
+        public void updateProject() {
+            edt();
+            CURRENT.get().projectRefreshes++;
+        }
+
+        public void updateParameter(final boolean structure) {
+            edt();
+            CURRENT.get().parameterRefreshes.add(structure);
         }
 
         public void repaint(final boolean update) {

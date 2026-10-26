@@ -1,0 +1,83 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.deformer-batch-rename",
+  "name": "Batch Rename Deformers",
+  "version": "0.1.0",
+  "description": "Preview and rename Warp and Rotation Deformers from descendant names and bound parameters.",
+  "entrypoints": [
+    "dev.turboism.plugin.deformerbatchrename.DeformerBatchRenamePlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read deformer hierarchy, child names and parameter bindings."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply confirmed deformer names through native undoable authoring."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the rename preview action."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Add the rename action to the Plugins menu."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Report missing models and rename outcomes."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Open the runtime-owned preview table with verified native Cubism icons."
+    }
+  ],
+  "capabilities": [
+    "cubism.model.read",
+    "cubism.model.write",
+    "ui.menu.contribute",
+    "ui.status.notify",
+    "ui.dialog.contribute"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "deformer",
+    "rename",
+    "batch-edit"
+  ],
+  "category": "modeling"
+}

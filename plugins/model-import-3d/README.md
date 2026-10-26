@@ -18,6 +18,8 @@ interface: embedded
 
 Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes. Input parsing, texture normalization, geometry simplification and parameter authoring run locally without an LLM. Source-material mode binds X/Y rotations to dense joint Warp forms and Z rotation to native scalar forms, each spanning −180° to 180°. An unbound outer “整体定位” deformer moves and scales the entire model. Source textures stay attached to their faces. One native Undo operation removes the import. The Warp path uses dense parameter sampling. The direct source-vertex fallback uses elliptical interpolation; it preserves the 9×9 ordinary pose bank and chooses insertion density per patch from its projected rotation radius. The preparation stage minimizes derived lattice size within the existing global interpolation bound, keeping simplification plus interpolation inside the 5px geometry budget. This is geometry evidence; intermediate occlusion and Editor drag latency require native acceptance.
 
+The import confirmation includes a small 3D preview: drag to rotate, scroll to zoom, or reset the view. Preview controls do not change the imported model. After import, the parameter tree and project palette refresh automatically.
+
 ## Import a preset
 
 Open a model project, then choose **Plugins → 3D Models → Import preset…**. Choose a cube, regular tetrahedron (triangular pyramid), triangle, cylinder, sphere, square, filled circle, flat annulus, short double-sided ring wall or solid torus and confirm. Each preset uses the native source-image import path, supports XYZ ±180° rotation and a single Undo, and needs no external file.
@@ -118,6 +120,12 @@ Plugin metadata names and descriptions have five language catalogs; the import d
 ## Troubleshooting
 
 If the menu is missing, confirm that this development JAR is installed and enabled. If import is rejected, check the canvas size, file size and supported geometry/material limits above. Open the intended target model and start again after switching documents. At 0 / 0, adjust both angle parameters to see the side faces. File-picker cancellation makes no model changes.
+
+## Changelog
+
+### 0.1.0
+
+- Initial release.
 
 ## Support and license
 

@@ -64,6 +64,7 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 probe_jar="$repo_root/build/warp-deformer-alt-symmetry-host-validation-probe.jar"
 plugin_jar="$(find "$repo_root/build/worktree/$worktree_id/warp-deformer-alt-symmetry/libs/" -name 'warp-deformer-alt-symmetry-*.jar' 2>/dev/null | head -1)"
+artmesh_jar="$(find "$repo_root/build/worktree/$worktree_id/artmesh-mirror/libs/" -name 'artmesh-mirror-*.jar' 2>/dev/null | head -1)"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
 if [ ! -f "$agent_jar" ]; then
@@ -79,6 +80,11 @@ if [ -z "$plugin_jar" ] || [ ! -f "$plugin_jar" ]; then
   exit 1
 fi
 
+if [ -z "$artmesh_jar" ] || [ ! -f "$artmesh_jar" ]; then
+  echo "error: build :plugins:artmesh-mirror:jar first" >&2
+  exit 1
+fi
+
 exec bash "$runner" \
   --name warp-deformer-alt-symmetry \
   --version "$version" \
@@ -87,6 +93,7 @@ exec bash "$runner" \
   --agent "$agent_jar" \
   --plugin "$probe_jar:warp-deformer-alt-symmetry-host-validation-probe.jar" \
   --plugin "$plugin_jar:warp-deformer-alt-symmetry.jar" \
+  --plugin "$artmesh_jar:artmesh-mirror.jar" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \

@@ -1,0 +1,65 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.artmesh-mirror",
+  "name": "ArtMesh Mirror",
+  "version": "0.1.0",
+  "description": "Independent ArtMesh mirror editing with a freely movable and rotatable axis.",
+  "entrypoints": [
+    "dev.turboism.plugin.artmeshmirror.ArtMeshMirrorPlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Controls independent ArtMesh mirror editing and its canvas axis controls."
+    },
+    {
+      "id": "turboism.ui.toolbar.contribute",
+      "scope": "application",
+      "reason": "Controls independent ArtMesh mirror editing and its canvas axis controls."
+    },
+    {
+      "id": "turboism.ui.canvas.hint",
+      "scope": "application",
+      "reason": "Controls independent ArtMesh mirror editing and its canvas axis controls."
+    }
+  ],
+  "capabilities": [
+    "cubism.artmesh.mirror"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "mesh",
+    "artmesh",
+    "editing",
+    "symmetry"
+  ],
+  "category": "modeling"
+}

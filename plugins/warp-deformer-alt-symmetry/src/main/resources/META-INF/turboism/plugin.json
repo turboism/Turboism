@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.warp-deformer-alt-symmetry",
   "name": "Warp Deformer Alt Symmetry",
   "version": "0.1.0",
-  "description": "Extends bounding-box Alt symmetric semantics to Warp Deformer control points: Alt drags mirror across the vertical grid axis, Alt+Shift across the horizontal grid axis.",
+  "description": "Button-controlled mirror editing for Warp Deformer control points.",
   "entrypoints": [
     "dev.turboism.plugin.warpdeformeraltsymmetry.WarpDeformerAltSymmetryPlugin"
   ],

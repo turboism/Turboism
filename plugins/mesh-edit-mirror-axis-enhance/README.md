@@ -110,6 +110,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Inspection reports no objects | Open a model containing meshes or deformers and ensure the relevant editor context is active. |
 | Angle change is rejected | Check the supported -180° to 180° range and inspect the plugin log for host-service availability. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

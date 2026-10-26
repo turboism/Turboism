@@ -16,8 +16,8 @@ interface: none
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Extends Cubism's native bounding-box Alt symmetric semantics to Warp Deformer
-control points, with a canvas-strip mirror-axis button and a drawing-area hint.
+Button-controlled mirror editing for Warp Deformer control points.
+ArtMesh editing has its own [ArtMesh Mirror](../artmesh-mirror/README.md) entry.
 
 | Detail | Value |
 |---|---|
@@ -31,8 +31,7 @@ control points, with a canvas-strip mirror-axis button and a drawing-area hint.
 
 ## What it does
 
-- Mirrors Warp Deformer control points across the grid axes while you drag with
-  `Alt` (vertical axis) or `Alt+Shift` (horizontal axis), joining native Undo/Redo.
+- Mirrors Warp Deformer control points within the native drag undo group.
 - While an axis is armed, mirrors selection-weight writes (Brush Selection Tool
   strokes and every other weighted-selection flow) onto the axis counterpart
   point inside the same selection/undo envelope, so weight painting stays
@@ -64,8 +63,8 @@ enable and disable it in **Plugin Management**.
 ## How to use
 
 1. Arm the mirror axis by clicking the strip button: off → vertical → horizontal.
-2. Drag a control point with `Alt` (vertical) or `Alt+Shift` (horizontal); the
-   mirrored counterpart follows with the negated displacement.
+2. Drag a Warp Deformer control point directly; its counterpart follows.
+   Mode changes use the button; no mode keyboard shortcuts are registered.
 3. While armed, paint selection weights with the Brush Selection Tool; the same
    weight lands on the axis counterpart point of the same Warp Deformer.
 4. Click the button again until it returns to the off state to disarm; the hint
@@ -121,6 +120,12 @@ Cubism's host log with the plugin ID attached.
 | Strip button is missing | Confirm the plugin is enabled and the modeling view is active; check the host log for `BUTTON_MOUNTED`. |
 | Drag does not mirror | Confirm a state other than off is armed, the dragged object is a Warp Deformer, and the mirrored point exists across the axis. |
 | Hint does not appear | Check that the canvas-hint permission is granted and the host exposes the native hint surface. |
+
+## Changelog
+
+### 0.1.0
+
+- Initial release.
 
 ## Support and license
 

@@ -600,6 +600,8 @@ class EditorTextureAccessAppendAtlasTest {
         selectors.add(method(
                 "cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
         selectors.add(
+                method("cubism.editor-model.complete-pack.update-project", CompletePack.class, "updateProject", "()V"));
+        selectors.add(
                 method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
         selectors.add(method(
                 "cubism.editor-model.model-source.texture-manager",
@@ -880,6 +882,8 @@ class EditorTextureAccessAppendAtlasTest {
         boolean repainted;
 
         public void updateParts(final boolean value) {}
+
+        public void updateProject() {}
 
         public void repaint(final boolean value) {
             repainted = true;

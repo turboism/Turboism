@@ -1,5 +1,8 @@
 package dev.turboism.validation.modelimport3d.host;
 
+import dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader;
+import dev.turboism.plugin.modelimport3d.viewer.ModelPreviewPanel;
+import dev.turboism.plugin.modelimport3d.viewer.ViewerScene;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -61,6 +64,16 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
         default boolean confirmCharacter(NativeModelImport.Prepared prepared, AtlasSummary atlas) {
             return false;
+        }
+
+        default boolean confirmImport(PreparedImport prepared, AtlasSummary atlas) {
+            return prepared.character() != null
+                    ? confirmCharacter(prepared.character(), atlas)
+                    : prepared.simple() != null
+                            ? confirm(prepared.simple(), atlas)
+                            : prepared.vertices() != null
+                                    ? confirmVertices(prepared.vertices(), prepared.optimization(), atlas)
+                                    : confirmLayers(prepared.layered(), atlas);
         }
 
         void message(String text, boolean error);
@@ -133,7 +146,23 @@ public final class ModelImportPlugin implements TurboismPlugin {
             SurfaceWarpLayerAuthoring.Prepared layered,
             SurfaceVertexAuthoring.Prepared vertices,
             OptimizationSummary optimization,
-            NativeModelImport.Prepared character) {
+            NativeModelImport.Prepared character,
+            ViewerScene previewScene) {
+        PreparedImport(
+                SurfaceImport.Prepared simple,
+                SurfaceWarpLayerAuthoring.Prepared layered,
+                SurfaceVertexAuthoring.Prepared vertices,
+                OptimizationSummary optimization,
+                NativeModelImport.Prepared character) {
+            this(
+                    simple,
+                    layered,
+                    vertices,
+                    optimization,
+                    character,
+                    character == null ? null : character.materials().scene());
+        }
+
         PreparedImport(
                 SurfaceImport.Prepared simple,
                 SurfaceWarpLayerAuthoring.Prepared layered,
@@ -331,7 +360,9 @@ public final class ModelImportPlugin implements TurboismPlugin {
     public void init(PluginContext value) {
         context = Objects.requireNonNull(value);
         if (ui == null) {
-            ui = new SwingUi(() -> context != null ? context.localization() : null);
+            ui = new SwingUi(
+                    () -> context != null ? context.localization() : null,
+                    failure -> context.logger().warn("3D import preview failed: " + failure));
         }
     }
 
@@ -584,8 +615,20 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                                     if (normalized.isEmpty() || !active(token))
                                                         return Optional.<PreparedImport>empty();
                                                     try {
-                                                        return Optional.of(prepare(
-                                                                normalized.orElseThrow(), fileRequest, appearance));
+                                                        byte[] source = normalized.orElseThrow();
+                                                        var plan = prepare(source, fileRequest, appearance);
+                                                        var scene = plan.character() != null
+                                                                ? plan.character()
+                                                                        .materials()
+                                                                        .scene()
+                                                                : GlbViewerLoader.load(source, () -> !active(token));
+                                                        return Optional.of(new PreparedImport(
+                                                                plan.simple(),
+                                                                plan.layered(),
+                                                                plan.vertices(),
+                                                                plan.optimization(),
+                                                                plan.character(),
+                                                                scene));
                                                     } catch (Exception failure) {
                                                         throw new CompletionException(failure);
                                                     }
@@ -666,13 +709,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var atlasPlan = planAtlas(target, prepared, pageNames);
         var atlasSummary = new AtlasSummary(atlasPlan.pageCount(), atlasPlan.pageWidth(), atlasPlan.pageHeight());
 
-        boolean confirmed = prepared.character() != null
-                ? ui.confirmCharacter(prepared.character(), atlasSummary)
-                : prepared.simple() != null
-                        ? ui.confirm(prepared.simple(), atlasSummary)
-                        : prepared.vertices() != null
-                                ? ui.confirmVertices(prepared.vertices(), prepared.optimization(), atlasSummary)
-                                : ui.confirmLayers(prepared.layered(), atlasSummary);
+        boolean confirmed = ui.confirmImport(prepared, atlasSummary);
         if (!confirmed) return;
         requireTarget(token, documentId, target);
         java.util.function.Supplier<CubismModel> current = () -> {
@@ -828,7 +865,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         prepared.optimization().outputTriangles(),
                         geometryError,
                         geometryError + vertices.interpolationErrorBoundPixels());
-        return new PreparedImport(null, null, vertices, optimization);
+        return new PreparedImport(null, null, vertices, optimization, null, prepared.previewScene());
     }
 
     private void requireTarget(long token, String documentId, CubismModel target) {
@@ -875,9 +912,57 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
     private static final class SwingUi implements Ui {
         private final java.util.function.Supplier<dev.turboism.sdk.i18n.PluginLocalization> i18nSupplier;
+        private final Consumer<Throwable> log;
+        private ViewerScene previewScene;
 
-        SwingUi(java.util.function.Supplier<dev.turboism.sdk.i18n.PluginLocalization> i18nSupplier) {
+        SwingUi(
+                java.util.function.Supplier<dev.turboism.sdk.i18n.PluginLocalization> i18nSupplier,
+                Consumer<Throwable> log) {
             this.i18nSupplier = Objects.requireNonNull(i18nSupplier);
+            this.log = Objects.requireNonNull(log);
+        }
+
+        @Override
+        public boolean confirmImport(PreparedImport prepared, AtlasSummary atlas) {
+            previewScene = prepared.previewScene();
+            try {
+                return Ui.super.confirmImport(prepared, atlas);
+            } finally {
+                previewScene = null;
+            }
+        }
+
+        private boolean confirmDialog(String message) {
+            if (previewScene == null) {
+                return JOptionPane.showConfirmDialog(
+                                null, message, text("dialog.confirm.title", "确认导入"), JOptionPane.OK_CANCEL_OPTION)
+                        == JOptionPane.OK_OPTION;
+            }
+            try (var preview = new ModelPreviewPanel(previewScene, key -> text(key, key), log)) {
+                var content = new JPanel(new java.awt.BorderLayout(0, 12));
+                var description = new JTextPane();
+                description.setEditable(false);
+                description.setFocusable(false);
+                description.setOpaque(false);
+                description.setBorder(null);
+                description.setFont(UIManager.getFont("Label.font"));
+                description.setText(message);
+                var alignment = new javax.swing.text.SimpleAttributeSet();
+                javax.swing.text.StyleConstants.setAlignment(alignment, javax.swing.text.StyleConstants.ALIGN_CENTER);
+                description.getStyledDocument().setParagraphAttributes(0, message.length(), alignment, false);
+                int width = description.getFontMetrics(description.getFont()).charWidth('m') * 32;
+                description.setSize(width, Short.MAX_VALUE);
+                description.setPreferredSize(new java.awt.Dimension(width, description.getPreferredSize().height));
+                content.add(preview, java.awt.BorderLayout.CENTER);
+                content.add(description, java.awt.BorderLayout.SOUTH);
+                return JOptionPane.showConfirmDialog(
+                                null,
+                                content,
+                                text("dialog.confirm.title", "确认导入"),
+                                JOptionPane.OK_CANCEL_OPTION,
+                                JOptionPane.PLAIN_MESSAGE)
+                        == JOptionPane.OK_OPTION;
+            }
         }
 
         private String text(String key, String fallback) {
@@ -922,18 +1007,13 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     "源形态与显隐：{0} 个融合参数；{1} 个源部位。",
                     p.controls().controls().size(),
                     partCount);
-            return JOptionPane.showConfirmDialog(
-                            null,
-                            format(
-                                    "dialog.confirm.character",
-                                    "将创建 {0} 个原生网格，保留 {1} 个三角形。\nX / Y 参数各 {2} 个绑定点，Z 参数支持整圈旋转。\n遮挡采用分组排序，复杂交叠可能有偏差。\n{3}\n可用一次撤销撤回本次导入。继续？",
-                                    geometry.partitions().size(),
-                                    geometry.totalTriangles(),
-                                    geometry.keys().size(),
-                                    atlasInfo + "\n" + sourceControls),
-                            text("dialog.confirm.title", "确认导入"),
-                            JOptionPane.OK_CANCEL_OPTION)
-                    == JOptionPane.OK_OPTION;
+            return confirmDialog(format(
+                    "dialog.confirm.character",
+                    "将创建 {0} 个原生网格，保留 {1} 个三角形。\nX / Y 参数各 {2} 个绑定点，Z 参数支持整圈旋转。\n遮挡采用分组排序，复杂交叠可能有偏差。\n{3}\n可用一次撤销撤回本次导入。继续？",
+                    geometry.partitions().size(),
+                    geometry.totalTriangles(),
+                    geometry.keys().size(),
+                    atlasInfo + "\n" + sourceControls));
         }
 
         @Override
@@ -993,19 +1073,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             atlas.width(),
                             atlas.height())
                     : "";
-            return JOptionPane.showConfirmDialog(
-                            null,
-                            format(
-                                    "dialog.confirm.simple",
-                                    "将创建 {0} 个网格，共 {1} 个形态。\n水平 / 垂直参数绑定点：{2} / {3}。\n{4}\n可用一次撤销撤回本次导入。继续？",
-                                    faces,
-                                    faces * keys,
-                                    p.geometry.grid().yawKeys().size(),
-                                    p.geometry.grid().pitchKeys().size(),
-                                    atlasInfo),
-                            text("dialog.confirm.title", "确认导入"),
-                            JOptionPane.OK_CANCEL_OPTION)
-                    == JOptionPane.OK_OPTION;
+            return confirmDialog(format(
+                    "dialog.confirm.simple",
+                    "将创建 {0} 个网格，共 {1} 个形态。\n水平 / 垂直参数绑定点：{2} / {3}。\n{4}\n可用一次撤销撤回本次导入。继续？",
+                    faces,
+                    faces * keys,
+                    p.geometry.grid().yawKeys().size(),
+                    p.geometry.grid().pitchKeys().size(),
+                    atlasInfo));
         }
 
         @Override
@@ -1027,22 +1102,17 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             atlas.width(),
                             atlas.height())
                     : "";
-            return JOptionPane.showConfirmDialog(
-                            null,
-                            format(
-                                    "dialog.confirm.layers",
-                                    "将创建 {0} 个曲面网格和 {1} 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：{2} / {3}。{4}\n遮挡层序采样点：{5} / {6}。\n{7}\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
-                                    meshes,
-                                    (p.request.roll().isPresent() ? 3 : 2),
-                                    p.yawKeys.size(),
-                                    p.pitchKeys.size(),
-                                    rollNote,
-                                    layered.layerYawKeys().size(),
-                                    layered.layerPitchKeys().size(),
-                                    atlasInfo),
-                            text("dialog.confirm.title", "确认导入"),
-                            JOptionPane.OK_CANCEL_OPTION)
-                    == JOptionPane.OK_OPTION;
+            return confirmDialog(format(
+                    "dialog.confirm.layers",
+                    "将创建 {0} 个曲面网格和 {1} 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：{2} / {3}。{4}\n遮挡层序采样点：{5} / {6}。\n{7}\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
+                    meshes,
+                    (p.request.roll().isPresent() ? 3 : 2),
+                    p.yawKeys.size(),
+                    p.pitchKeys.size(),
+                    rollNote,
+                    layered.layerYawKeys().size(),
+                    layered.layerPitchKeys().size(),
+                    atlasInfo));
         }
 
         @Override
@@ -1076,32 +1146,22 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 long triangles = p.geometry().meshes().stream()
                         .mapToLong(m -> m.triangles().size())
                         .sum();
-                return JOptionPane.showConfirmDialog(
-                                null,
-                                format(
-                                        "dialog.confirm.vertices",
-                                        "将创建 {0} 个曲面网格，保留原始 {1} 个三角形、UV 和贴图。\n{2}\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
-                                        meshes,
-                                        triangles,
-                                        atlasInfo),
-                                text("dialog.confirm.title", "确认导入"),
-                                JOptionPane.OK_CANCEL_OPTION)
-                        == JOptionPane.OK_OPTION;
+                return confirmDialog(format(
+                        "dialog.confirm.vertices",
+                        "将创建 {0} 个曲面网格，保留原始 {1} 个三角形、UV 和贴图。\n{2}\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
+                        meshes,
+                        triangles,
+                        atlasInfo));
             }
             String bound = String.format(Locale.ROOT, "%.2f", optimization.combinedErrorBoundPixels());
-            return JOptionPane.showConfirmDialog(
-                            null,
-                            format(
-                                    "dialog.confirm.vertices-optimized",
-                                    "将创建 {0} 个曲面网格。\n源模型 {1} 面 → 导入 {2} 面，保留材质边界和 UV 接缝。\n{4}\n曲面几何与参数插值的合计偏差上界：{3} 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
-                                    p.geometry().meshes().size(),
-                                    optimization.sourceTriangles(),
-                                    optimization.outputTriangles(),
-                                    bound,
-                                    atlasInfo),
-                            text("dialog.confirm.title", "确认导入"),
-                            JOptionPane.OK_CANCEL_OPTION)
-                    == JOptionPane.OK_OPTION;
+            return confirmDialog(format(
+                    "dialog.confirm.vertices-optimized",
+                    "将创建 {0} 个曲面网格。\n源模型 {1} 面 → 导入 {2} 面，保留材质边界和 UV 接缝。\n{4}\n曲面几何与参数插值的合计偏差上界：{3} 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
+                    p.geometry().meshes().size(),
+                    optimization.sourceTriangles(),
+                    optimization.outputTriangles(),
+                    bound,
+                    atlasInfo));
         }
 
         @Override

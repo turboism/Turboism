@@ -645,7 +645,7 @@ def validate_native_editor(home, task_id, client, samples):
         tool_call(client,"turboism.history.undo",args)
     try:
         evidence["renderBefore"] = validate_ordinary_pose_capture(client,state_root,task_id+"-before",poses)
-        report = validate_native_observer(home,task_id,client,editing=True)
+        validate_native_observer(home,task_id,client,editing=True)
         trace = json.loads((state_root/"mcp-native-observe-proxy.json").read_text())
         receipt = trace.get("write",{}).get("receipt")
         require(trace.get("previewVerified") and trace.get("agentReadbackVerified") and receipt, "Agent preview/write/readback incomplete")

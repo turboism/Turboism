@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -53,7 +53,7 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.67.4,1.0.0)`。
 - **Cubism:** 正確にレビュー済みの Editor アーティファクト `5.2.00`〜`5.3.04` のみ。Cubism 5.4 は未許可です。SDK 契約には将来の
   公式 5.4 ホストネイティブ provider 用に `HOST_NATIVE` バックエンド
   スロットが予約されています。
@@ -209,6 +209,12 @@ Dalsooは500個のホスト輪郭を取得し、矩形へのフォールバッ�
 | 項目が矩形でパックされる | ホスト輪郭ソースが利用不可の可能性。診断の `BOUNDS_FALLBACK` を確認。 |
 | レイアウトが遅い | 凹型パッキングは高コスト。品質プリセットを下げるか、`QUARTER`/`NONE` を使うか、準矩形入力では `AUTO`/矩形バックエンドを選択。 |
 | レイアウトが適用されない | Turboism ログで検証失敗を確認。プランは原子的に拒否されます。 |
+
+## 変更履歴
+
+### 0.1.0
+
+- 初回リリース。
 
 ## サポートとライセンス
 

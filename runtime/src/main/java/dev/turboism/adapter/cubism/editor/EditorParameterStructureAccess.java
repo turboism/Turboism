@@ -722,7 +722,7 @@ final class EditorParameterStructureAccess {
                         () -> registered.get() == null && !hasChild(parentGroup, hostSource),
                         Set.of(
                                 EditorRefreshRequirement.MODEL_INSTANCES,
-                                EditorRefreshRequirement.PARAMETER_PALETTE,
+                                EditorRefreshRequirement.PARAMETER_STRUCTURE,
                                 EditorRefreshRequirement.CANVAS,
                                 EditorRefreshRequirement.MARK_DIRTY),
                         new HistoryEntryDetail(
@@ -790,7 +790,7 @@ final class EditorParameterStructureAccess {
                             () -> true,
                             EnumSet.of(
                                     EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PARAMETER_PALETTE,
+                                    EditorRefreshRequirement.PARAMETER_STRUCTURE,
                                     EditorRefreshRequirement.CANVAS,
                                     EditorRefreshRequirement.MARK_DIRTY));
             return;
@@ -869,7 +869,7 @@ final class EditorParameterStructureAccess {
                             () -> true,
                             EnumSet.of(
                                     EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PARAMETER_PALETTE,
+                                    EditorRefreshRequirement.PARAMETER_STRUCTURE,
                                     EditorRefreshRequirement.CANVAS,
                                     EditorRefreshRequirement.MARK_DIRTY));
             return;

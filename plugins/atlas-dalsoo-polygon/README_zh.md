@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -47,7 +47,7 @@ interface: none
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.67.4,1.0.0)`。
 - **Cubism：** 仅精确审阅过的 Editor 构件 `5.2.00`–`5.3.04`。
   Cubism 5.4 未被准入；SDK 契约中保留 `HOST_NATIVE` 后端槽位供未来正式
   5.4 宿主 provider 使用。
@@ -185,6 +185,12 @@ Dalsoo 使用 `QUARTER` 旋转。
 | 项按矩形打包 | 宿主轮廓源可能不可用；检查诊断中的 `BOUNDS_FALLBACK`。 |
 | 排版缓慢 | 凹形打包代价高；降低质量预设、改用 `QUARTER`/`NONE`，或对近矩形输入选 `AUTO`/矩形后端。 |
 | 排版未应用 | 查看 Turboism 日志中的校验失败；计划是原子拒绝的。 |
+
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
 
 ## 支持与许可证
 

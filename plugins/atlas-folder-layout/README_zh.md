@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, auto-layout
-turboismApi: "[0.67.2,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ interface: swing
 
 ## 要求与兼容性
 
-需要 Java 17+、Turboism API [0.67.2,1.0.0)、活动的可编辑 Cubism 模型。至少启用一个支持完整纹理集排版的算法。
+需要 Java 17+、Turboism API [0.67.4,1.0.0)、活动的可编辑 Cubism 模型。至少启用一个支持完整纹理集排版的算法。
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
@@ -68,6 +68,12 @@ Bitmask Nesting 与 Dalsoo 使用图片局部坐标下的网格轮廓；轮廓�
 ## 故障排除
 
 没有可用算法时，先启用兼容的算法插件；没有纹理集时，先为当前模型创建或打开纹理集。使用撤销恢复上一次布局。
+
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
 
 ## 支持与许可证
 

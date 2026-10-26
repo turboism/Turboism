@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Render the original Selection Brush artwork. Requires Python 3 and Pillow.
 
-The six 32px states retain the toolbar's neutral palette and pressed/selected
+The six 32px states, each in a light and a "-dark" variant, retain the toolbar's neutral palette and pressed/selected
 contrast, with a Turboism corner signature to identify the plugin tool.
 The default glyph has a transparent background and no frame.
 The artwork is drawn here, without using host assets.
-Run from any directory; only this plugin's six PNG resources are overwritten.
+The runtime picks the "-dark" sibling of each icon when the host look-and-feel is dark.
+Run from any directory; only this plugin's twelve PNG resources are overwritten.
 """
 
 from pathlib import Path
@@ -29,6 +30,20 @@ STATES = (
     ("-selected", "#b3b2b3", "#cbcbca", "#656767"),
     ("-disabled", "#f2f2f2", "#e8e8e8", "#c6c6c6"),
     ("-disabled-selected", "#e2e2e2", "#e8e8e8", "#c6c6c6"),
+)
+
+
+# Dark-theme counterparts. Glyph #a8a8a8 and the 30% disabled alpha are sampled from the
+# native BrushSelection_32x32 dark icon; #e0e0e0 is CubismDarkTheme's foreground; frames follow
+# CubismDarkTheme's border (#323232 lightened 11%). State fills mirror the light ladder
+# (rollover < selected < active) as lightness steps up from the #323232 dark background.
+DARK_STATES = (
+    ("", None, None, "#a8a8a8"),
+    ("-active", "#8c8c8c", "#4e4e4e", "#f0efef"),
+    ("-rollover", "#484848", "#4e4e4e", "#e0e0e0"),
+    ("-selected", "#5e5e5e", "#4e4e4e", "#e0e0e0"),
+    ("-disabled", "#323232", "#393939", "#555555"),
+    ("-disabled-selected", "#3d3d3d", "#393939", "#555555"),
 )
 
 
@@ -97,8 +112,9 @@ def render(background, frame, foreground, mask):
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     mask = glyph_mask()
-    for suffix, background, frame, foreground in STATES:
-        path = OUTPUT / f"selection-brush{suffix}.png"
+    variants = [(s, "") for s in STATES] + [(s, "-dark") for s in DARK_STATES]
+    for (suffix, background, frame, foreground), theme in variants:
+        path = OUTPUT / f"selection-brush{suffix}{theme}.png"
         image = render(background, frame, foreground, mask)
         with_plugin_badge(image, disabled="disabled" in suffix).save(path, optimize=True)
         print(path.relative_to(OUTPUT.parent))

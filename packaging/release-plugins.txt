@@ -1,4 +1,5 @@
 :plugins:acp
+:plugins:artmesh-mirror
 :plugins:atlas-bitmask-nesting
 :plugins:atlas-dalsoo-polygon
 :plugins:atlas-folder-layout
@@ -7,6 +8,7 @@
 :plugins:clipmask-viewer
 :plugins:command-palette
 :plugins:cubism-tab-filter
+:plugins:deformer-batch-rename
 :plugins:external-psd-edit
 :plugins:frame-animation-import
 :plugins:history-panel
@@ -15,7 +17,7 @@
 :plugins:model-import-3d
 :plugins:palette-label-style
 :plugins:parameter-batch-transfer
-:plugins:parameter-lock
+:plugins:parameter-sync
 :plugins:perf-stats
 :plugins:physics-editor
 :plugins:protected-export

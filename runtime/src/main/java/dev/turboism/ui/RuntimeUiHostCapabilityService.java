@@ -66,6 +66,16 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public static final String UI_TOOLBAR_MAIN_CONTRIBUTE = PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE;
     public static final String UI_TOOLBAR_PALETTE_CONTRIBUTE = PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE;
 
+    private dev.turboism.sdk.ui.resource.UiResourceService uiResources =
+            dev.turboism.sdk.ui.resource.UiResourceService.unavailable();
+
+    /** Binds the host-owned native resource view before publishing this service. */
+    public RuntimeUiHostCapabilityService withUiResources(
+            final dev.turboism.sdk.ui.resource.UiResourceService resources) {
+        this.uiResources = Objects.requireNonNull(resources, "resources");
+        return this;
+    }
+
     private final PermissionChecker permissionChecker;
     private final String pluginId;
     private final UiHostStateSource stateSource;
@@ -488,6 +498,24 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(listener, "listener");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
         RuntimeFormDialogs.openAsync(request, listener);
+    }
+
+    @Override
+    public Registration openSelectionTableDialog(
+            final dev.turboism.sdk.ui.SelectionTableDialogRequest request,
+            final dev.turboism.sdk.ui.SelectionTableDialogResultListener listener) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        return enrollAdapterRegistration(RuntimeSelectionTableDialog.openAsync(
+                request,
+                (accepted, ids) -> {
+                    if (!disposableScope.isSealed())
+                        callbackDispatcher.dispatch(request.id(), () -> {
+                            if (!disposableScope.isSealed()) listener.onResult(accepted, ids);
+                        });
+                },
+                uiResources));
     }
 
     @Override

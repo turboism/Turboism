@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: psd, import, clip-mask
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -37,7 +37,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.0,1.0.0)`。
+- **SDK API 范围：**`[0.67.4,1.0.0)`。
 - **Cubism：**需要受支持精确版本提供活动模型 PSD 关系、剪贴蒙版读取、有序替换、事务/Undo、嵌入面板、对话框和状态通知服务。
 - **界面模式：**`embedded`。
 - **插件依赖项：**未声明。
@@ -116,6 +116,12 @@ interface: embedded
 | 预览中只有跳过项 | 确认 PSD 剪贴基础、蒙版和目标都能唯一解析到活动模型 ArtMesh。 |
 | 确认后没有变化 | 检查已匹配项、取消、歧义，或文档/模型/计划变化导致的安全失败。 |
 | 导入安全失败 | 检查本地化状态摘要和插件日志，并确认所需 PSD、剪贴蒙版、对话框、写入/Undo 与状态服务可用。 |
+
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
 
 ## 支持与许可证
 

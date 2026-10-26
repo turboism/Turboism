@@ -24,16 +24,6 @@
   "dependencies": [],
   "permissions": [
     {
-      "id": "turboism.action.register",
-      "scope": "application",
-      "reason": "Register parameter lock, unlock, and toggle actions."
-    },
-    {
-      "id": "turboism.ui.context-menu.contribute",
-      "scope": "application",
-      "reason": "Contribute lock and unlock actions to parameter palette context menu."
-    },
-    {
       "id": "turboism.ui.appearance.modify",
       "scope": "application",
       "reason": "Override parameter and parameter group palette entry leading actions with native lock icons."
@@ -65,8 +55,6 @@
     }
   ],
   "capabilities": [
-    "action.register",
-    "ui.context-menu.contribute",
     "ui.appearance.modify",
     "cubism.model.read",
     "cubism.model.observe",

@@ -1,0 +1,94 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.parameter-sync",
+  "name": "Parameter Sync Plugin",
+  "version": "0.1.0",
+  "description": "Synchronize parameter values in real time with normalized range mapping across checked parameters.",
+  "entrypoints": [
+    "dev.turboism.plugin.parametersync.ParameterSyncPlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register parameter sync manager and toggle actions."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contribute parameter sync actions to the parameter palette context menu."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read parameter values, bounds, names, and active model GUID for synchronization."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Write synchronized values to target parameters."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Observe parameter value changes and model lifecycle events."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Subscribe to parameter value change events."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Read persisted parameter synchronization rules from plugin storage."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Persist parameter synchronization rules to plugin storage."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Notify sync rule changes, cycle warnings, and toggle status."
+    }
+  ],
+  "capabilities": [
+    "cubism.parameter.read",
+    "cubism.parameter.write",
+    "cubism.model.observe",
+    "event.subscribe",
+    "ui.context-menu.contribute",
+    "ui.status.notify",
+    "file.read",
+    "file.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "parameter",
+    "sync",
+    "link",
+    "workflow"
+  ],
+  "category": "modeling"
+}
