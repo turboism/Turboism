@@ -194,6 +194,35 @@ context through `PluginLogger`, handle expected failures at the feature boundary
 and leave the host unchanged on rejection. Do not catch an error merely to retry
 through runtime internals or an unmediated host API.
 
+## UI appearance and dark mode
+
+Every new or changed UI contribution must support both light and dark themes.
+This includes toolbar buttons, canvas/GL controls, overlays, dialogs, labels,
+and code-generated icons, as well as packaged image resources.
+
+- Match the actual toolbar or panel containing the control. Prefer transparent
+  icon backgrounds; when a solid background is needed, resolve the containing
+  surface's theme color rather than baking in white or a sampled light gray.
+  A failed theme lookup must not silently produce a light-theme plate.
+- Check the glyph as well as the background. Black glyphs can disappear on a
+  dark toolbar even when the image has correct alpha. Use theme variants or a
+  palette that remains legible on both surfaces. Preserve antialiased alpha.
+- Verify normal, hover, pressed, selected/on, off, disabled, and disabled-selected
+  appearances where supported. Off is an interactive state, not disabled.
+  Hover/press feedback and the current mode must remain recognizable in both
+  themes; use shape or other cues in addition to color to distinguish modes.
+- Do not bake the startup theme into cached raster/GL images unless they are
+  invalidated and rebuilt on theme changes. Transparent backgrounds with
+  translucent interaction feedback can avoid stale background colors.
+- Review at the host's actual display size and supported DPI scales, on both
+  light and dark containing surfaces. Include theme switching while the control
+  is visible. Asset previews and pixel/alpha checks are useful preliminary
+  evidence; they do not establish correct rendering in the Cubism host. Record
+  which checks ran and explicitly identify any missing host visual verification.
+
+First-party icon source and regeneration rules are in the
+[artwork guide](../scripts/artwork/README.md#深浅色模式适配).
+
 ## Test and review
 
 Test plugin logic without a live host using SDK interfaces and plugin-owned
