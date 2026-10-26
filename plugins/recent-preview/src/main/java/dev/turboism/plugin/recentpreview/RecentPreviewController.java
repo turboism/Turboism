@@ -37,7 +37,7 @@ public final class RecentPreviewController {
     private final Map<RecentFileId, byte[]> images = new ConcurrentHashMap<>();
     private final Map<RecentFileId, Long> inFlight = new ConcurrentHashMap<>();
 
-    /** Last last-modified value a capture was dispatched for, per id (poll-track dedupe). */
+    /** Last last-modified value successfully cached for each id (poll-track dedupe). */
     private final Map<RecentFileId, Long> lastCapturedModified = new ConcurrentHashMap<>();
 
     public RecentPreviewController(
@@ -120,19 +120,18 @@ public final class RecentPreviewController {
 
     /**
      * Hook-track capture (exact timing): always dispatches for the id; only truly
-     * concurrent duplicates are suppressed via the in-flight set. Records the file's
-     * current last-modified value so the poll track does not re-fire for the same
-     * content state.
+     * concurrent duplicates are suppressed via the in-flight set. Successful writes
+     * record the file's last-modified value so the poll track does not re-fire for
+     * the same content state.
      */
     public CompletionStage<PreviewCacheWriteResult> capture(final RecentFileId id) {
         return dispatchCapture(id, false);
     }
 
     /**
-     * Poll-track capture (robustness): skipped when a capture was already dispatched
-     * for the same id + last-modified (by the hook track or an earlier poll tick),
-     * so a poll tick never double-fires an exact-timing hook capture. Records the
-     * dispatched key for later ticks.
+     * Poll-track capture (robustness): skipped when a capture was already stored
+     * for the same id + last-modified (by the hook track or an earlier poll tick).
+     * Failed captures remain eligible for a later tick.
      */
     public CompletionStage<PreviewCacheWriteResult> pollCapture(final RecentFileId id) {
         return dispatchCapture(id, true);
@@ -148,6 +147,19 @@ public final class RecentPreviewController {
             // A capture is already running for this id; the first request refreshes the popup.
             return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
         }
+        try {
+            return captureFile(id, dedupe, captureGeneration)
+                    .whenComplete((ignored, failure) -> inFlight.remove(id, captureGeneration));
+        } catch (RuntimeException failure) {
+            inFlight.remove(id, captureGeneration);
+            return targetUnavailable(failure)
+                    ? CompletableFuture.completedStage(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE)
+                    : CompletableFuture.failedStage(failure);
+        }
+    }
+
+    private CompletionStage<PreviewCacheWriteResult> captureFile(
+            final RecentFileId id, final boolean dedupe, final long captureGeneration) {
         RecentFileSummary file = find(id);
         if (file == null) {
             files = List.copyOf(recentFiles.list());
@@ -155,20 +167,13 @@ public final class RecentPreviewController {
             file = find(id);
         }
         if (file == null) {
-            inFlight.remove(id);
             return CompletableFuture.completedStage(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE);
         }
         final Optional<Instant> modified = file.lastModified();
         if (dedupe
                 && modified.isPresent()
                 && modified.get().toEpochMilli() == lastCapturedModified.getOrDefault(id, Long.MIN_VALUE)) {
-            inFlight.remove(id);
             return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
-        }
-        if (modified.isPresent()) {
-            lastCapturedModified.put(id, modified.get().toEpochMilli());
-        } else {
-            lastCapturedModified.remove(id);
         }
         final RecentFileSummary target = file;
         return screenshots
@@ -178,8 +183,7 @@ public final class RecentPreviewController {
                         : failure != null
                                 ? CompletableFuture.<PreviewCacheWriteResult>failedStage(failure)
                                 : captureResult(id, target, captureGeneration, result))
-                .thenCompose(stage -> stage)
-                .whenComplete((ignored, failure) -> inFlight.remove(id, captureGeneration));
+                .thenCompose(stage -> stage);
     }
 
     private CompletionStage<PreviewCacheWriteResult> captureResult(
@@ -197,6 +201,10 @@ public final class RecentPreviewController {
                 .thenApply(stored -> {
                     if (stored == PreviewCacheWriteResult.STORED && enabled && generation.get() == captureGeneration) {
                         images.put(id, result.image().png());
+                        target.lastModified()
+                                .ifPresentOrElse(
+                                        modified -> lastCapturedModified.put(id, modified.toEpochMilli()),
+                                        () -> lastCapturedModified.remove(id));
                     }
                     return generation.get() == captureGeneration ? stored : PreviewCacheWriteResult.DISABLED;
                 });
