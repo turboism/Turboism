@@ -8,6 +8,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.67.4] - 2026-10-24
+
+### Added
+
+- One-click folder texture-atlas layout now supports Bitmask and Dalsoo polygon packing, with cross-folder page reuse to fill available space more densely.
+- Plugin management displays installed and marketplace plugin counts. A shared progress window centers long-running operations on the editor.
+- The SDK adds source outlines, polygon output pages and a reusable progress dialog. Existing texture-atlas constructor signatures remain available; record reflection, equality and string representations include the new components, and the former canonical constructors no longer expose parameter-name metadata.
+
+### Changed
+
+- `atlas-folder-layout`, `atlas-bitmask-nesting`, `atlas-dalsoo-polygon` and `psd-clip-mask-import` now require API `0.67.4` because they consume the new SDK. Other official plugins retain their previous minimum.
+
+### Fixed
+
+- One-click layout automatically creates a texture atlas for a newly imported PSD and generates its textures immediately, without native initial placement or a separate confirmation in the atlas editor.
+- Clipped source outlines and exact single-polygon placement prevent false Bitmask size errors near the 4096-pixel page limit. Packing failures now distinguish oversized images from unsuccessful placement and report useful dimensions.
+- Atlas layout dialogs no longer overlap, and launching a model preserves its file arguments.
+- Windows installers use Turboism branding and hide the elevated configuration console.
+- Simplified folder-layout and clipping-mask windows and unified PSD import progress presentation.
+
 ## [0.67.2] - 2026-10-23
 
 ### Added

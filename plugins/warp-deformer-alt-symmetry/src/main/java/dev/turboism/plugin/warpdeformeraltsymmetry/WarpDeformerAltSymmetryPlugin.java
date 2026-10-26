@@ -23,33 +23,10 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Extends the native bounding-box Alt symmetric semantics to Warp Deformer
- * control points.
- *
- * <p>Evidence from the exact-host validation probe (host-validation jobs
- * {@code b83d397d} PASS, {@code 54a01dbf}) established that native viewport
- * drags never route through the {@code DeformerHooks} grid-replace family,
- * while the SDK {@code replaceGrid} write path round-trips, fires the hook
- * family and joins native Undo/Redo. Disassembly of the reviewed 5.2.03,
- * 5.3.02 and 5.3.03 hosts located the native drag-tick dispatcher
- * ({@code temporaryHandler.a.b}), which Turboism now instruments with the
- * {@code WarpAltMirror} bridge: while that hook is active the mirroring happens
- * inside the native drag tick itself, giving a live mirrored preview and a
- * single undo entry. This plugin's AWT-level diff path remains armed as a
- * fail-closed fallback for hosts where the hook is not admitted:</p>
- *
- * <ol>
- *   <li>Mouse press with Alt held: snapshot every Warp Deformer grid of the
- *       active model. Alt alone selects the vertical grid axis, Alt+Shift the
- *       horizontal grid axis (v1 product decision).</li>
- *   <li>Mouse release: diff each grid. Every moved point's axis counterpart
- *       receives the displacement with the mirrored component negated, and the
- *       corrected grid is committed through {@link WarpDeformer#replaceGrid}.</li>
- * </ol>
- *
- * <p>The diff-based ingress needs no canvas-to-grid projection and is a no-op
- * whenever the gesture did not move Warp Deformer control points (other tools,
- * other object kinds, plain view panning).</p>
+ * Button-controlled mirror editing for Warp Deformer control points.
+ * Native hooks mirror writes inside the host drag/selection envelope. The plugin owns
+ * the mode button and localized operator hint; the legacy release-diff path remains
+ * a fallback when the native hook is unavailable.
  */
 public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
@@ -77,12 +54,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
 
     @Override
     public void enable() {
-        // Participate so the reviewed native point-write hook mirrors live with a
-        // single undo entry. The mirror axis is toggled by keyboard (the native
-        // editor consumes Alt+drag before control-point drags can start, so the
-        // axis cannot be held-modifier driven): Ctrl+Alt+V vertical, Ctrl+Alt+H
-        // horizontal, Ctrl+Alt+O off. The AWT-level diff fallback stays armed for
-        // the press path when the hook is not active.
+        // The canvas strip button is the only mirror-mode toggle.
         try {
             context.disposableScope()
                     .register(context.services()
@@ -92,10 +64,9 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             logger.warn("warpAltMirrorParticipation unavailable: "
                     + unsupported.getClass().getSimpleName());
         }
-        Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.MOUSE_EVENT_MASK | AWTEvent.KEY_EVENT_MASK);
+        Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.MOUSE_EVENT_MASK);
         contributeStripButton();
-        logger.info("Warp deformer Alt axis-symmetry installed:"
-                + " Ctrl+Alt+V vertical mirror, Ctrl+Alt+H horizontal, Ctrl+Alt+O off");
+        logger.info("Axis-symmetry installed; use the canvas strip button to change mode");
     }
 
     private static final String AXIS_BUTTON_ID = "warp-deformer-alt-symmetry.axis";
@@ -109,9 +80,10 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             icons.put(1, loadIcon("Vertical.png"));
             icons.put(2, loadIcon("Horizon.png"));
             icons.put(0, loadIcon("Off.png"));
-            registry.contributeStateButtons(
-                    new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution(
-                            AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis()));
+            context.disposableScope()
+                    .register(registry.contributeStateButtons(
+                            new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution(
+                                    AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis())));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (RuntimeException | Error unsupported) {
             logger.warn("viewContextMenu unavailable: " + unsupported.getClass().getSimpleName());
@@ -201,6 +173,7 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     public void disable() {
         Toolkit.getDefaultToolkit().removeAWTEventListener(listener);
         armed = null;
+        applyArmedAxis(0);
         showArmedHint(0);
         logger.info("Warp deformer Alt axis-symmetry listener removed");
     }
@@ -211,14 +184,6 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     }
 
     private void onAwtEvent(final AWTEvent event) {
-        if (event instanceof final java.awt.event.KeyEvent keyEvent
-                && event.getID() == java.awt.event.KeyEvent.KEY_PRESSED
-                && keyEvent.isControlDown()
-                && keyEvent.isAltDown()
-                && !keyEvent.isShiftDown()) {
-            handleToggle(keyEvent);
-            return;
-        }
         if (!(event instanceof final MouseEvent mouseEvent)) {
             return;
         }
@@ -273,20 +238,6 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         } finally {
             applying.set(false);
         }
-    }
-
-    private void handleToggle(final java.awt.event.KeyEvent keyEvent) {
-        final int axis;
-        switch (keyEvent.getKeyCode()) {
-            case java.awt.event.KeyEvent.VK_V -> axis = 1;
-            case java.awt.event.KeyEvent.VK_H -> axis = 2;
-            case java.awt.event.KeyEvent.VK_O -> axis = 0;
-            default -> {
-                return;
-            }
-        }
-        keyEvent.consume();
-        applyArmedAxis(axis);
     }
 
     private boolean nativeMirrorActive() {

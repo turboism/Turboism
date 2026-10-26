@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.2,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,7 @@ Independent current-page texture-atlas nesting using material-local concave cont
 
 ## Requirements and compatibility
 
-Java 17+, Turboism API [0.67.2,1.0.0), and the reviewed Cubism 5.0–5.3 versions in the generated inventory. Cubism 5.2–5.3 supports contour nesting; 5.0–5.1 uses rectangle packing when the polygon service is unavailable. The existing AUTO backend slot is used with a concrete bitmask-nesting kernel diagnostic; no new SDK enum is required.
+Java 17+, Turboism API [0.67.4,1.0.0), and the reviewed Cubism 5.0–5.3 versions in the generated inventory. Cubism 5.2–5.3 supports contour nesting; 5.0–5.1 uses rectangle packing when the polygon service is unavailable. The existing AUTO backend slot is used with a concrete bitmask-nesting kernel diagnostic; no new SDK enum is required.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
@@ -56,6 +56,12 @@ Development build. Native invocations pack the current page with real contours. 
 ## Troubleshooting
 
 If the selector is missing, check plugin enablement, host compatibility and the runtime log. Overflow at fixed scale is left to the runtime current-page contract. Run `./gradlew :plugins:atlas-bitmask-nesting:test` for collision and geometry regressions. `:plugins:atlas-bitmask-nesting:nestingBenchmark` measures synthetic planner time; it is separate from Cubism UI time.
+
+## Changelog
+
+### 0.1.0
+
+- Initial release.
 
 ## Support and license
 

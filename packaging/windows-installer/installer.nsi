@@ -410,10 +410,22 @@ LangString InitialConfigurationError ${LANG_ENGLISH} "Cubism launch configuratio
 LangString InitialConfigurationError ${LANG_SIMPCHINESE} "无法应用 Cubism 启动配置。Turboism 已安装；请运行安装目录中的 configure_turboism.ps1 检查所选安装。$\r$\n$\r$\n失败操作：$InstallerConfigurationOperation（$0）$\r$\n日志：$INSTDIR\logs\installer\configure-turboism.log"
 LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の起動設定を適用できませんでした。Turboism はインストール済みです。インストール先の configure_turboism.ps1 で選択したインストールを確認してください。$\r$\n$\r$\n失敗した操作：$InstallerConfigurationOperation ($0)$\r$\nログ：$INSTDIR\logs\installer\configure-turboism.log"
 LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 시작 구성을 적용하지 못했습니다. Turboism은 설치되었습니다. 설치 폴더의 configure_turboism.ps1에서 선택한 설치를 확인하세요.$\r$\n$\r$\n실패한 작업: $InstallerConfigurationOperation ($0)$\r$\n로그: $INSTDIR\logs\installer\configure-turboism.log"
-LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
-LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
-LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
-LangString BatIntegrationError ${LANG_KOREAN} "Cubism BAT 통합이 완료되지 않았거나 관리자 승인이 취소되었습니다. 설치 로그를 확인하고 Turboism_Configurator를 실행하여 점검하거나 다시 시도하세요. 알 수 없는 변경이 감지된 해시 보호 파일은 절대 덮어쓰지 않습니다.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration failed. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成失败。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合に失敗しました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_KOREAN} "Cubism BAT 통합에 실패했습니다. 설치 로그를 확인하고 Turboism_Configurator를 실행하여 점검하거나 다시 시도하세요. 알 수 없는 변경이 감지된 해시 보호 파일은 절대 덮어쓰지 않습니다.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatElevationCanceled ${LANG_ENGLISH} "Administrator approval (UAC) was declined, so Cubism BAT integration was skipped. Turboism is installed; run Turboism_Configurator and enable BAT integration to retry."
+LangString BatElevationCanceled ${LANG_SIMPCHINESE} "管理员授权（UAC）已被拒绝，已跳过 Cubism BAT 集成。Turboism 已安装；可运行 Turboism_Configurator 并启用 BAT 集成后重试。"
+LangString BatElevationCanceled ${LANG_JAPANESE} "管理者承認（UAC）が拒否されたため、Cubism BAT の統合をスキップしました。Turboism はインストール済みです。Turboism_Configurator で BAT 統合を有効にして再試行してください。"
+LangString BatElevationCanceled ${LANG_KOREAN} "관리자 승인(UAC)이 거부되어 Cubism BAT 통합을 건너뛰었습니다. Turboism은 설치되었습니다. Turboism_Configurator에서 BAT 통합을 활성화하여 다시 시도하세요."
+LangString BatElevationTimeout ${LANG_ENGLISH} "Administrator approval (UAC) was not given within 3 minutes, so Cubism BAT integration was skipped. Turboism is installed; run Turboism_Configurator and enable BAT integration to retry."
+LangString BatElevationTimeout ${LANG_SIMPCHINESE} "3 分钟内未收到管理员授权（UAC），已跳过 Cubism BAT 集成。Turboism 已安装；可运行 Turboism_Configurator 并启用 BAT 集成后重试。"
+LangString BatElevationTimeout ${LANG_JAPANESE} "3 分以内に管理者承認（UAC）がなかったため、Cubism BAT の統合をスキップしました。Turboism はインストール済みです。Turboism_Configurator で BAT 統合を有効にして再試行してください。"
+LangString BatElevationTimeout ${LANG_KOREAN} "3분 이내에 관리자 승인(UAC)이 없어 Cubism BAT 통합을 건너뛰었습니다. Turboism은 설치되었습니다. Turboism_Configurator에서 BAT 통합을 활성화하여 다시 시도하세요."
+LangString ElevationWaitNotice ${LANG_ENGLISH} "Waiting for administrator approval (UAC) to update Cubism BAT files. If no prompt is visible, check the taskbar; this step times out after 3 minutes."
+LangString ElevationWaitNotice ${LANG_SIMPCHINESE} "正在等待管理员授权（UAC）以更新 Cubism BAT 文件。若没有看到弹窗，请检查任务栏；此步骤 3 分钟后超时。"
+LangString ElevationWaitNotice ${LANG_JAPANESE} "Cubism BAT を更新するため、管理者の承認（UAC）を待っています。表示されない場合はタスクバーを確認してください。この手順は 3 分でタイムアウトします。"
+LangString ElevationWaitNotice ${LANG_KOREAN} "Cubism BAT 파일을 업데이트하기 위해 관리자 승인(UAC)을 기다리는 중입니다. 표시되지 않으면 작업 표시줄을 확인하세요. 이 단계는 3분 후 시간 초과됩니다."
 LangString StartMenuResultCreated ${LANG_ENGLISH} "Turboism Start-menu shortcuts are enabled."
 LangString StartMenuResultCreated ${LANG_SIMPCHINESE} "已启用 Turboism 开始菜单快捷方式。"
 LangString StartMenuResultCreated ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを有効にしました。"
@@ -1377,13 +1389,20 @@ Function .onInstSuccess
     ${If} $CubismDiscoverySupported == 0
       Goto InstallerConfigurationDone
     ${EndIf}
+    DetailPrint "$(ElevationWaitNotice)"
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${Else}
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${EndIf}
-  ${If} $0 != 0
+  ${If} $0 == 3
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatElevationCanceled)" /SD IDOK
+    SetErrorLevel 2
+  ${ElseIf} $0 == 4
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatElevationTimeout)" /SD IDOK
+    SetErrorLevel 2
+  ${ElseIf} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)" /SD IDOK
     SetErrorLevel 2
   ${EndIf}

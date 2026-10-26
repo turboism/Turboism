@@ -33,6 +33,32 @@ class RuntimeUiResourceServiceTest {
     private static final UiIconRef PART = new UiIconRef(CubismIcon.PART);
 
     @Test
+    void dialogPresentationUsesTheSameNativeResourceOwnerAsHistory() {
+        var warp = new UiIconRef(CubismIcon.WARP_DEFORMER);
+        var rotation = new UiIconRef(CubismIcon.ROTATION_DEFORMER);
+        var service = new RuntimeUiResourceService(new CubismNativeIconResolver(
+                Map.of(
+                        new NativeIconVariant(CubismIcon.WARP_DEFORMER, NativeIconVariant.Theme.LIGHT, 100, false),
+                                image(16, 0xff123456),
+                        new NativeIconVariant(CubismIcon.ROTATION_DEFORMER, NativeIconVariant.Theme.LIGHT, 100, false),
+                                image(16, 0xff654321)),
+                UiIconAvailability.RESOURCE_UNAVAILABLE));
+        assertSame(
+                service.resolve(warp, false).orElseThrow(),
+                RuntimeUiResourceService.resolveForPresentation(service.sdkView(), warp, false)
+                        .orElseThrow());
+        assertEquals(
+                0xff654321,
+                paintedColor(RuntimeUiResourceService.resolveForPresentation(service.sdkView(), rotation, false)
+                        .orElseThrow()));
+        assertTrue(RuntimeUiResourceService.resolveForPresentation(UiResourceService.unavailable(), warp, false)
+                .isEmpty());
+        service.close();
+        assertTrue(RuntimeUiResourceService.resolveForPresentation(service.sdkView(), rotation, false)
+                .isEmpty());
+    }
+
+    @Test
     void unavailableServicePreservesTheSdkCompatibilityDefault() {
         final RuntimeUiResourceService service = RuntimeUiResourceService.unavailable();
 

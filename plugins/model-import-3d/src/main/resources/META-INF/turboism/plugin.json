@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.model-import-3d",
   "name": "3D Model Import",
   "version": "0.1.0",
-  "description": "Views textured GLB characters in an interactive 3D window. Also imports bounded static opaque GLB, glTF, OBJ/MTL and ZIP models as native Cubism meshes.",
+  "description": "Imports GLB, glTF, OBJ/MTL and ZIP models as native Cubism meshes with material textures, XYZ rotation, bundled shape presets and an interactive import preview.",
   "entrypoints": [
     "dev.turboism.validation.modelimport3d.host.ModelImportPlugin"
   ],

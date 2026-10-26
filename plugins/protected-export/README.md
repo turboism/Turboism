@@ -75,6 +75,12 @@ The plugin reads the active model in memory and writes export artifacts only to 
 - **Behavior mismatch:** the staged output diverged from the captured source behavior; the artifact is discarded, not published.
 - **Restore failures and vetoes** are logged with their phase; review the plugin log lines around the failure for the failing stage.
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 | Item | Value |

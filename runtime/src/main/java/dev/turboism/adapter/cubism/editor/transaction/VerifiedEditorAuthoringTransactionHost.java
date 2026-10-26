@@ -153,8 +153,15 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
         if (requested.contains(EditorRefreshRequirement.MODEL_INSTANCES)) {
             resolver.invoke("cubism.editor-model.model-source.update-instances", active.source());
         }
-        if (requested.contains(EditorRefreshRequirement.PARAMETER_PALETTE)) {
-            resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
+        if (requested.contains(EditorRefreshRequirement.PARAMETER_PALETTE)
+                || requested.contains(EditorRefreshRequirement.PARAMETER_STRUCTURE)) {
+            resolver.invoke(
+                    "cubism.editor-model.complete-pack.update-parameter",
+                    completePack,
+                    requested.contains(EditorRefreshRequirement.PARAMETER_STRUCTURE));
+        }
+        if (requested.contains(EditorRefreshRequirement.PROJECT_PALETTE)) {
+            resolver.invoke("cubism.editor-model.complete-pack.update-project", completePack);
         }
         if (requested.contains(EditorRefreshRequirement.PART_PALETTE)) {
             resolver.invoke("cubism.editor-model.complete-pack.update-part-palette", completePack, Boolean.TRUE);

@@ -5,8 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 
 /**
  * Enables runtime policy that mirrors Warp Deformer control-point drags across a
- * grid axis while the operator holds Alt (vertical axis) or Alt+Shift (horizontal
- * axis).
+ * grid axis selected through the plugin's mode button.
  *
  * <p>Participating activates the native drag-tick bridge when the reviewed host
  * hook is installed; without participation the bridge stays inert.</p>

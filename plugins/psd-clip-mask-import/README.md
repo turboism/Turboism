@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: psd, import, clip-mask
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -37,7 +37,7 @@ Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments af
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.67.4,1.0.0)`.
 - **Cubism:** Requires the active-model PSD relationship, clip-mask read, ordered replacement, transaction/Undo, embedded-panel, dialog, and status-notification services exposed by a supported exact Cubism version.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
@@ -116,6 +116,12 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 | Preview has only skipped rows | Confirm the active PSD clipping bases, masks, and targets all resolve to unique ArtMeshes in the active model. |
 | Confirmation makes no change | Review the preview for already-matching rows, cancellation, ambiguity, or a document/model/plan change that caused a safe failure. |
 | Import fails safely | Check the localized status summary and the plugin log; confirm the required PSD, clip-mask, dialog, write/Undo, and status services are present. |
+
+## Changelog
+
+### 0.1.0
+
+- Initial release.
 
 ## Support and license
 

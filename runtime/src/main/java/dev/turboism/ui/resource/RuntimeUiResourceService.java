@@ -251,7 +251,44 @@ public final class RuntimeUiResourceService implements AutoCloseable {
         }
     }
 
-    private final class SdkView implements UiResourceService {
+    /** Runtime-only rendering bridge; never exports native icons through the SDK service. */
+    public static Optional<Icon> resolveForPresentation(
+            final UiResourceService service, final UiIconRef reference, final boolean disabled) {
+        return service instanceof PresentationView view ? view.resolve(reference, disabled) : Optional.empty();
+    }
+
+    /**
+     * Keeps native rendering behind a stable dynamic host view. Both lookups must lease the
+     * current binding; the returned SDK view still exposes only cached availability.
+     */
+    public static UiResourceService forwardingView(
+            final java.util.function.Function<UiIconRef, UiIconAvailability> availability,
+            final java.util.function.BiFunction<UiIconRef, Boolean, Optional<Icon>> resolve) {
+        Objects.requireNonNull(availability, "availability");
+        Objects.requireNonNull(resolve, "resolve");
+        return new PresentationView() {
+            @Override
+            public UiIconAvailability availability(final UiIconRef reference) {
+                return availability.apply(reference);
+            }
+
+            @Override
+            public Optional<Icon> resolve(final UiIconRef reference, final boolean disabled) {
+                return resolve.apply(reference, disabled);
+            }
+        };
+    }
+
+    private interface PresentationView extends UiResourceService {
+        Optional<Icon> resolve(UiIconRef reference, boolean disabled);
+    }
+
+    private final class SdkView implements PresentationView {
+        @Override
+        public Optional<Icon> resolve(final UiIconRef reference, final boolean disabled) {
+            return RuntimeUiResourceService.this.resolve(reference, disabled);
+        }
+
         @Override
         public UiIconAvailability availability(final UiIconRef reference) {
             return RuntimeUiResourceService.this.availability(reference);

@@ -44,7 +44,8 @@ interface: swing
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
-完整功能（审核版本）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
+完整功能（审核版本）：5.3.00–5.3.04。
+- 外部编辑会话 API（edit()） 不适用于 5.0.00–5.1.01（[Cubism 5.1.00 新增外部应用联动（WebSocket API）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/)）
 - 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 - MCP 编辑器命令执行 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 - MCP 编辑器命令清单 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
@@ -295,6 +296,7 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.cubism.parameter.read` | `application` | 为工具面声明参数读取意图；实际参数读取在运行时由上方的模型读取权限强制执行。 |
 | `turboism.cubism.project.read` | `application` | 读取活动项目、工作区、布局和主题状态。 |
 | `turboism.cubism.model.write` | `application` | 应用类型化的模型、参数、绑定、历史记录和模型设置写入。 |
+| `turboism.ui.file-chooser.request` | `application` | 在签发会话内文件授权前，通过文件选择器请求用户批准。 |
 | `turboism.file.read` | `application` | 在发布 loopback 端点前校验 MCP 连接文件元数据（存在性、所有者、符号链接检查）。 |
 | `turboism.file.write` | `application` | 允许直接 Editor `SAVE` 命令，并向 MCP 状态目录写入仅属主可读的 loopback 连接文件。 |
 | `turboism.network.fetch` | `application` | 允许类型化的外部应用程序设置命令，并绑定受 Origin 防护的 loopback HTTP 传输。 |
@@ -340,6 +342,12 @@ url = "http://127.0.0.1:43123/mcp"
 | 请求在分派前被拒绝 | 检查方法、来源、会话、MCP 协议版本、正文大小、内容类型和速率限制。 |
 | 资源返回 `UNAVAILABLE` | 检查活动文档/模型状态和精确宿主能力准入；不要将其视为空的成功值。 |
 | 资源返回权限被拒绝 | 检查插件描述符授权以及上文命名的特定运行时权限。 |
+
+## 更新日志
+
+### 0.1.0
+
+- 初始版本发布。
 
 ## 支持与许可证
 

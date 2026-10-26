@@ -512,19 +512,317 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
         }
     }
 
-    /**
-     * Human-in-the-loop observation window. The probe performs no mutation; it waits a
-     * bounded window while the operator drags Warp deformer control points in the host
-     * window (plain, with Alt, with Alt+Shift) and reports the hook traffic afterwards.
-     * A window that ends without any native grid change event is a FAIL, because the
-     * feature depends on the native ingress being observable at all.
-     */
+    /** Drives native input; asserts axis rotation and a paired ArtMesh vertex displacement. */
+    private void driveArtMeshObservation(final Report report) {
+        final var handles = resolveWeightHostHandles(
+                selectTarget(context.cubism().model().active().warpDeformers().all()), report);
+        try {
+            final Class<?> bridge = Class.forName("dev.turboism.adapter.cubism.warpalt.NativeArtMeshSymmetryBridge",
+                    true, ClassLoader.getSystemClassLoader());
+            final var statesField = bridge.getDeclaredField("STATES");
+            statesField.setAccessible(true);
+            final var states = (java.util.Map<?, ?>) statesField.get(null);
+            Object state;
+            synchronized (states) { state = states.values().iterator().next(); }
+            final var axisField = state.getClass().getDeclaredField("axis");
+            axisField.setAccessible(true);
+            Object axis = axisField.get(state);
+            final var pivotMethod = axis.getClass().getDeclaredMethod("pivot");
+            final var angleMethod = axis.getClass().getDeclaredMethod("angle");
+            pivotMethod.setAccessible(true);
+            angleMethod.setAccessible(true);
+            Object pivot = pivotMethod.invoke(axis);
+            final var xMethod = pivot.getClass().getDeclaredMethod("x");
+            final var yMethod = pivot.getClass().getDeclaredMethod("y");
+            xMethod.setAccessible(true);
+            yMethod.setAccessible(true);
+            float cx = ((Number) xMethod.invoke(pivot)).floatValue();
+            float cy = ((Number) yMethod.invoke(pivot)).floatValue();
+            Class<?> vector = (Class<?>) handles.gv2Class();
+            Object screen = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                    .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class).newInstance(cx, cy));
+            java.awt.Point origin = handles.viewport().getLocationOnScreen();
+            int sx = origin.x + Math.round(((Number) vector.getMethod("getX").invoke(screen)).floatValue());
+            int sy = origin.y + Math.round(((Number) vector.getMethod("getY").invoke(screen)).floatValue());
+            final var rotationHandleMethod = bridge.getDeclaredMethod("rotationHandle", Object.class, Object.class, axis.getClass());
+            rotationHandleMethod.setAccessible(true);
+            final Object zoomAxis = axis;
+            Object normalHandle = rotationHandleMethod.invoke(null, handles.cameraManager(), handles.viewContext(), axis);
+            double normalArm = Math.hypot(((Number) xMethod.invoke(normalHandle)).doubleValue() - (sx - origin.x),
+                    ((Number) yMethod.invoke(normalHandle)).doubleValue() - (sy - origin.y));
+            Object wrapper = handles.cameraManager().getClass().getMethod("getCameraWrapper").invoke(handles.cameraManager());
+            float originalZoom = ((Number) wrapper.getClass().getMethod("getCameraScale").invoke(wrapper)).floatValue();
+            final var frameLines = new java.util.concurrent.atomic.AtomicInteger(-1);
+            final var frameCount = new java.util.concurrent.atomic.AtomicInteger();
+            final var frameFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+            final Class<?> componentType = Class.forName("com.live2d.cubism.view.context.bH", true, handles.hostClassLoader());
+            final Object frameObserver = java.lang.reflect.Proxy.newProxyInstance(handles.hostClassLoader(), new Class<?>[] {componentType},
+                    (proxy, method, arguments) -> {
+                        if (method.getDeclaringClass() == Object.class) return switch (method.getName()) {
+                            case "hashCode" -> System.identityHashCode(proxy);
+                            case "equals" -> proxy == arguments[0];
+                            default -> "ArtMeshAxisFrameObserver";
+                        };
+                        try {
+                            Object graph = handles.viewContext().getClass().getMethod("getSceneGraph").invoke(handles.viewContext());
+                            Object root = graph.getClass().getMethod("getObjectsOnComponent").invoke(graph);
+                            frameLines.set(countArtMeshAxisLines(root));
+                            frameCount.incrementAndGet();
+                        } catch (Throwable failure) { frameFailure.set(failure); }
+                        return null;
+                    });
+            SwingUtilities.invokeAndWait(() -> {
+                try { handles.viewContext().getClass().getMethod("addComponent", componentType).invoke(handles.viewContext(), frameObserver); }
+                catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+            });
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    try {
+                        wrapper.getClass().getMethod("setCameraScale", float.class).invoke(wrapper, originalZoom / 2);
+                        handles.cameraManager().getClass().getMethod("updateCamera", boolean.class).invoke(handles.cameraManager(), true);
+                        handles.viewContext().getClass().getMethod("repaintCanvas").invoke(handles.viewContext());
+                    } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+                });
+                sleep(600);
+                Object zoomHandle = rotationHandleMethod.invoke(null, handles.cameraManager(), handles.viewContext(), zoomAxis);
+                Object zoomPivot = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                        .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class).newInstance(cx, cy));
+                double zoomArm = Math.hypot(((Number) xMethod.invoke(zoomHandle)).doubleValue()
+                                - ((Number) vector.getMethod("getX").invoke(zoomPivot)).doubleValue(),
+                        ((Number) yMethod.invoke(zoomHandle)).doubleValue()
+                                - ((Number) vector.getMethod("getY").invoke(zoomPivot)).doubleValue());
+                if (Math.abs(zoomArm / normalArm - 2) > .05)
+                    throw new IllegalStateException("Rotation arm did not follow zoom: normal=" + normalArm + " zoom=" + zoomArm);
+                logger.info("ARTMESH_NATIVE_ZOOM_PASS arm=" + normalArm + " zoomedArm=" + zoomArm);
+                for (float factor : new float[] {.05f, .1f, .25f, .5f, 1, 2, 4, 8, 1}) {
+                    SwingUtilities.invokeAndWait(() -> {
+                        try {
+                            frameCount.set(0);
+                            wrapper.getClass().getMethod("setCameraScale", float.class).invoke(wrapper, originalZoom / factor);
+                            handles.cameraManager().getClass().getMethod("updateCamera", boolean.class).invoke(handles.cameraManager(), true);
+                            handles.viewContext().getClass().getMethod("repaintCanvas").invoke(handles.viewContext());
+                        } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+                    });
+                    sleep(300);
+                    long frameDeadline = System.currentTimeMillis() + 2000;
+                    while (frameCount.get() == 0 && frameFailure.get() == null && System.currentTimeMillis() < frameDeadline) sleep(20);
+                    if (frameFailure.get() != null) throw new IllegalStateException("Frame observation failed", frameFailure.get());
+                    if (axisField.get(state) != zoomAxis || frameCount.get() == 0 || frameLines.get() != 2)
+                        throw new IllegalStateException("Axis lost during zoom factor=" + factor + " frames=" + frameCount.get() + " activeLines=" + frameLines.get());
+                }
+                logger.info("ARTMESH_NATIVE_ZOOM_SWEEP_PASS factors=.05,.1,.25,.5,1,2,4,8,1");
+            } finally {
+                SwingUtilities.invokeAndWait(() -> {
+                    try {
+                        handles.viewContext().getClass().getMethod("removeComponent", componentType).invoke(handles.viewContext(), frameObserver);
+                        wrapper.getClass().getMethod("setCameraScale", float.class).invoke(wrapper, originalZoom);
+                        handles.cameraManager().getClass().getMethod("updateCamera", boolean.class).invoke(handles.cameraManager(), true);
+                        handles.viewContext().getClass().getMethod("repaintCanvas").invoke(handles.viewContext());
+                    } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+                });
+                sleep(600);
+            }
+            origin = handles.viewport().getLocationOnScreen();
+            Object restoredScreen = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                    .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class).newInstance(cx, cy));
+            sx = origin.x + Math.round(((Number) vector.getMethod("getX").invoke(restoredScreen)).floatValue());
+            sy = origin.y + Math.round(((Number) vector.getMethod("getY").invoke(restoredScreen)).floatValue());
+            final double initialAngle = ((Number) angleMethod.invoke(axis)).doubleValue();
+            final var meshesBefore = (java.util.List<?>) handles.model().getClass().getMethod("getAllArtMeshes")
+                    .invoke(handles.model());
+            Object formBefore = meshesBefore.get(0).getClass().getMethod("getCalculatedForm").invoke(meshesBefore.get(0));
+            float[] untouched = ((float[]) formBefore.getClass().getMethod("getPositions").invoke(formBefore)).clone();
+            dispatchGesture(handles.viewport(), origin, sx, sy, 13, 17);
+            sleep(700);
+            axis = axisField.get(state);
+            Object movedPivot = pivotMethod.invoke(axis);
+            Object movedScreen = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                    .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class).newInstance(
+                            ((Number) xMethod.invoke(movedPivot)).floatValue(),
+                            ((Number) yMethod.invoke(movedPivot)).floatValue()));
+            float movedX = ((Number) vector.getMethod("getX").invoke(movedScreen)).floatValue();
+            float movedY = ((Number) vector.getMethod("getY").invoke(movedScreen)).floatValue();
+            if (Math.hypot(movedX - (sx - origin.x + 13), movedY - (sy - origin.y + 17)) > 2
+                    || Math.abs(((Number) angleMethod.invoke(axis)).doubleValue() - initialAngle) > .001)
+                throw new IllegalStateException("Native center drag mismatch: expected=" + (sx - origin.x + 13) + "," + (sy - origin.y + 17)
+                        + " actual=" + movedX + "," + movedY + " angle=" + angleMethod.invoke(axis));
+            Object unchangedForm = meshesBefore.get(0).getClass().getMethod("getCalculatedForm").invoke(meshesBefore.get(0));
+            if (!java.util.Arrays.equals(untouched, (float[]) unchangedForm.getClass().getMethod("getPositions").invoke(unchangedForm)))
+                throw new IllegalStateException("Moving axis changed mesh vertices");
+            logger.info("ARTMESH_NATIVE_TRANSLATION_PASS delta=13,17");
+            final var rotationHandle = bridge.getDeclaredMethod("rotationHandle", Object.class, Object.class, axis.getClass());
+            rotationHandle.setAccessible(true);
+            Object handle = rotationHandle.invoke(null, handles.cameraManager(), handles.viewContext(), axis);
+            int hx = Math.round(((Number) xMethod.invoke(handle)).floatValue());
+            int hy = Math.round(((Number) yMethod.invoke(handle)).floatValue());
+            dispatchGesture(handles.viewport(), origin, origin.x + hx, origin.y + hy,
+                    Math.round(movedX + 45) - hx, Math.round(movedY - 45) - hy);
+            sleep(700);
+            double angle = ((Number) angleMethod.invoke(axisField.get(state))).doubleValue();
+            if (Math.abs(angle - initialAngle) < .2) throw new IllegalStateException("Native axis rotation did not change angle");
+            logger.info("ARTMESH_NATIVE_ROTATION_PASS angle=" + angle);
+            context.services().require(dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService.class).resetAxis();
+            sleep(500);
+            final var meshes = (java.util.List<?>) handles.model().getClass().getMethod("getAllArtMeshes")
+                    .invoke(handles.model());
+            Object mesh = meshes.get(0);
+            Object form = mesh.getClass().getMethod("getCalculatedForm").invoke(mesh);
+            float[] before = ((float[]) form.getClass().getMethod("getPositions").invoke(form)).clone();
+            Object vertex = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                    .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class)
+                            .newInstance(before[0], before[1]));
+            int vx = origin.x + Math.round(((Number) vector.getMethod("getX").invoke(vertex)).floatValue());
+            int vy = origin.y + Math.round(((Number) vector.getMethod("getY").invoke(vertex)).floatValue());
+            dispatchGesture(handles.viewport(), origin, vx, vy, 18, -12);
+            sleep(700);
+            form = mesh.getClass().getMethod("getCalculatedForm").invoke(mesh);
+            float[] after = (float[]) form.getClass().getMethod("getPositions").invoke(form);
+            int paired = -1;
+            for (int j = 2; j < before.length; j += 2) {
+                if (Math.hypot(before[j] - (2 * cx - before[0]), before[j + 1] - before[1]) < .1) paired = j;
+            }
+            if (paired < 0) throw new IllegalStateException("Fixture first vertex has no mirror partner");
+            float dx = after[0] - before[0], dy = after[1] - before[1];
+            float mx = after[paired] - before[paired], my = after[paired + 1] - before[paired + 1];
+            if (Math.hypot(dx, dy) < .1 || Math.hypot(dx + mx, dy - my) > .2)
+                throw new IllegalStateException("Native vertex mirror mismatch delta=" + dx + "," + dy
+                        + " counterpart=" + mx + "," + my);
+            logger.info("ARTMESH_NATIVE_VERTEX_MIRROR_PASS delta=" + dx + "," + dy + " counterpart=" + mx + "," + my);
+            // Repeat the native vertex gesture with a deliberately non-cardinal axis.
+            // Existing vertices are only approximately mirrored around this tilted line.
+            context.services().require(dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService.class).resetAxis();
+            sleep(500);
+            Object tiltedAxis = axisField.get(state);
+            Object tiltedPivot = pivotMethod.invoke(tiltedAxis);
+            float tx = ((Number) xMethod.invoke(tiltedPivot)).floatValue();
+            float ty = ((Number) yMethod.invoke(tiltedPivot)).floatValue();
+            Object tiltedHandle = rotationHandle.invoke(null, handles.cameraManager(), handles.viewContext(), tiltedAxis);
+            int thx = Math.round(((Number) xMethod.invoke(tiltedHandle)).floatValue());
+            int thy = Math.round(((Number) yMethod.invoke(tiltedHandle)).floatValue());
+            double requestedAngle = Math.toRadians(83);
+            Object tiltedTarget = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                    .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class)
+                            .newInstance(tx + (float) Math.cos(requestedAngle) * 400, ty + (float) Math.sin(requestedAngle) * 400));
+            dispatchGesture(handles.viewport(), origin, origin.x + thx, origin.y + thy,
+                    Math.round(((Number) vector.getMethod("getX").invoke(tiltedTarget)).floatValue()) - thx,
+                    Math.round(((Number) vector.getMethod("getY").invoke(tiltedTarget)).floatValue()) - thy);
+            sleep(500);
+            double tiltedAngle = ((Number) angleMethod.invoke(axisField.get(state))).doubleValue();
+            if (Math.abs(tiltedAngle - requestedAngle) > .04) throw new IllegalStateException("Tilted axis rotation mismatch: " + tiltedAngle);
+            Object tiltedForm = mesh.getClass().getMethod("getCalculatedForm").invoke(mesh);
+            float[] tiltedBefore = ((float[]) tiltedForm.getClass().getMethod("getPositions").invoke(tiltedForm)).clone();
+            Object tiltedVertex = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                    .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class)
+                            .newInstance(tiltedBefore[0], tiltedBefore[1]));
+            dispatchGesture(handles.viewport(), origin,
+                    origin.x + Math.round(((Number) vector.getMethod("getX").invoke(tiltedVertex)).floatValue()),
+                    origin.y + Math.round(((Number) vector.getMethod("getY").invoke(tiltedVertex)).floatValue()), -10, 8);
+            sleep(700);
+            tiltedForm = mesh.getClass().getMethod("getCalculatedForm").invoke(mesh);
+            float[] tiltedAfter = (float[]) tiltedForm.getClass().getMethod("getPositions").invoke(tiltedForm);
+            float tdx = tiltedAfter[0] - tiltedBefore[0], tdy = tiltedAfter[1] - tiltedBefore[1];
+            float tmx = tiltedAfter[paired] - tiltedBefore[paired], tmy = tiltedAfter[paired + 1] - tiltedBefore[paired + 1];
+            double expectedMx = Math.cos(2 * tiltedAngle) * tdx + Math.sin(2 * tiltedAngle) * tdy;
+            double expectedMy = Math.sin(2 * tiltedAngle) * tdx - Math.cos(2 * tiltedAngle) * tdy;
+            if (Math.hypot(tdx, tdy) < .1 || Math.hypot(tmx - expectedMx, tmy - expectedMy) > .2)
+                throw new IllegalStateException("Tilted vertex mirror mismatch angle=" + tiltedAngle + " source=" + tdx + "," + tdy
+                        + " counterpart=" + tmx + "," + tmy + " expected=" + expectedMx + "," + expectedMy);
+            logger.info("ARTMESH_NATIVE_TILTED_VERTEX_MIRROR_PASS angle=" + Math.toDegrees(tiltedAngle)
+                    + " source=" + tdx + "," + tdy + " counterpart=" + tmx + "," + tmy);
+            for (Object selectedMesh : java.util.List.of(meshes.get(1), meshes.get(0))) {
+                Object previousAxis = axisField.get(state);
+                SwingUtilities.invokeAndWait(() -> {
+                    try {
+                        Object source = selectedMesh.getClass().getMethod("getSource").invoke(selectedMesh);
+                        handles.selector().getClass().getMethod("clearSelection").invoke(handles.selector());
+                        handles.selector().getClass().getMethod("addSelected",
+                                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource",
+                                        true, handles.hostClassLoader()), int.class).invoke(handles.selector(), source, -1);
+                        handles.viewContext().getClass().getMethod("repaintCanvas").invoke(handles.viewContext());
+                    } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+                });
+                sleep(700);
+                Object selectedAxis = axisField.get(state);
+                if (selectedAxis == previousAxis) throw new IllegalStateException("Selection change retained the previous mesh axis");
+                Object selectedPivot = pivotMethod.invoke(selectedAxis);
+                Object selectedForm = selectedMesh.getClass().getMethod("getCalculatedForm").invoke(selectedMesh);
+                float[] points = (float[]) selectedForm.getClass().getMethod("getPositions").invoke(selectedForm);
+                float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY;
+                float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
+                for (int j = 0; j < points.length; j += 2) {
+                    minX = Math.min(minX, points[j]); maxX = Math.max(maxX, points[j]);
+                    minY = Math.min(minY, points[j + 1]); maxY = Math.max(maxY, points[j + 1]);
+                }
+                float px = ((Number) xMethod.invoke(selectedPivot)).floatValue();
+                float py = ((Number) yMethod.invoke(selectedPivot)).floatValue();
+                if (Math.hypot(px - (minX + maxX) / 2, py - (minY + maxY) / 2) > .1)
+                    throw new IllegalStateException("Selected mesh axis not centered: pivot=" + px + "," + py);
+                logger.info("ARTMESH_NATIVE_SELECTION_CENTER_PASS pivot=" + px + "," + py);
+            }
+        } catch (Exception failure) {
+            throw new IllegalStateException("Native ArtMesh gesture validation failed: " + failure, failure);
+        }
+    }
+
+    private static int countArtMeshAxisLines(Object entity) throws ReflectiveOperationException {
+        int count = 0;
+        if (!Boolean.TRUE.equals(entity.getClass().getMethod("getEnabled").invoke(entity))) return 0;
+        Object renderer = entity.getClass().getMethod("getRenderer").invoke(entity);
+        if (renderer != null && renderer.getClass().getName().equals("com.live2d.graphics3d.component.GLineRenderer")) {
+            int order = ((Number) renderer.getClass().getMethod("getOrderInLayer").invoke(renderer)).intValue();
+            if (order == 90 || order == 91) count++;
+        }
+        for (Object child : (Iterable<?>) entity.getClass().getMethod("getChildren").invoke(entity))
+            count += countArtMeshAxisLines(child);
+        return count;
+    }
+
+    private void prepareArtMeshObservation(final Report report) {
+        sleep(2000); // Let the production plugin finish registering its participation.
+        final var warps = context.cubism().model().active().warpDeformers().all();
+        final var handles = resolveWeightHostHandles(selectTarget(warps), report);
+        if (handles == null) throw new IllegalStateException("ArtMesh observation host unavailable");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final var meshes = (java.util.List<?>) handles.model().getClass()
+                            .getMethod("getAllArtMeshes").invoke(handles.model());
+                    if (meshes.isEmpty()) throw new IllegalStateException("Fixture contains no ArtMesh");
+                    final Object source = meshes.get(0).getClass().getMethod("getSource").invoke(meshes.get(0));
+                    handles.selector().getClass().getMethod("clearSelection").invoke(handles.selector());
+                    handles.selector().getClass().getMethod("addSelected",
+                            Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource",
+                                    true, handles.hostClassLoader()), int.class)
+                            .invoke(handles.selector(), source, -1);
+                    context.services().require(dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService.class)
+                            .setEnabled(true);
+                    context.services().require(dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.class)
+                            .updateButtonState("artmesh-mirror.toggle", 1);
+                    handles.viewContext().getClass().getMethod("repaintCanvas").invoke(handles.viewContext());
+                    logger.info("ARTMESH_OBSERVE_SELECTED source=" + source);
+                } catch (ReflectiveOperationException failure) {
+                    throw new IllegalStateException(failure);
+                }
+            });
+        } catch (Exception failure) {
+            throw new IllegalStateException("ArtMesh observation setup failed", failure);
+        }
+    }
+
+    /** Observes native editing; optional ArtMesh setup/gestures run only in the task fixture copy. */
     private void recordObserveWindow(final Report report, final List<String> failures) {
         final long seconds = parseLong(System.getProperty(OBSERVE_SECONDS_PROPERTY, ""), DEFAULT_OBSERVE_SECONDS);
         report.put("observe.windowSeconds", Long.toString(seconds));
         report.put("observe.instruction",
-            "drag warp control points: Alt = vertical mirror, Alt+Shift = horizontal mirror");
+            "select mirror mode with the canvas strip button, then drag control points");
         logger.info("WARP_ALT_OBSERVE_WINDOW seconds=" + seconds);
+        if (Boolean.getBoolean("turboism.validation.warpAlt.artMeshObserve")) {
+            prepareArtMeshObservation(report);
+            sleep(1500);
+        }
+        if (Boolean.getBoolean("turboism.validation.warpAlt.artMeshDrive")) {
+            driveArtMeshObservation(report);
+        }
         captureScreen(report, "warp-alt-observe-start.png", "observe.screenshotStart");
         final long deadline = System.currentTimeMillis() + seconds * 1_000L;
         int reported = 0;
@@ -922,7 +1220,7 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
 
             // The interactive mirror is armed-axis driven, not Alt-held: the
             // editor consumes Alt+drag before control-point drags start, so the
-            // plugin arms an axis (strip button / Ctrl+Alt+V/H) and a plain drag
+            // plugin arms an axis (strip button) and a plain drag
             // mirrors. The probe arms through the same participation service.
             participation.setArmedAxis(axis);
             try {

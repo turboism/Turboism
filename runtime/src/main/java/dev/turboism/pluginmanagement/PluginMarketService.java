@@ -333,6 +333,7 @@ public final class PluginMarketService implements AutoCloseable {
 
                     final boolean hotSafe = release.hotReload()
                             && hotReloadCoordinator != null
+                            && pending.canHotApply(plugin.id())
                             && hotReloadCoordinator.isHotReloadSafe(prepared.stagedJar());
 
                     if (hotSafe) {

@@ -119,6 +119,12 @@ The plugin logs lifecycle, refresh, polling, and safe-failure diagnostics. Plugi
 | Clicking an entry has no effect | The row may lack a stable entry ID, or the generation/revision/binding/entry sequence changed after rendering. Refresh and retry; no index fallback is used. |
 | Pane does not close cleanly | Check the plugin log for host floating-frame teardown diagnostics. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

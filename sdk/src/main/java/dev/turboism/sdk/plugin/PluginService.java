@@ -154,6 +154,9 @@ public enum PluginService {
     /** {@link dev.turboism.sdk.performance.PerformanceProbeService} */
     PERFORMANCE_STATS(dev.turboism.sdk.performance.PerformanceProbeService.class),
 
+    /** {@link dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService} */
+    ART_MESH_MIRROR(dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService.class),
+
     /** {@link dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation} */
     WARP_ALT_MIRROR_PARTICIPATION(dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation.class),
 

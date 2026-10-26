@@ -12,7 +12,7 @@ val engine = listOf(
 sourceSets.main {
     java.srcDir(rootProject.file("validation/model-import-3d-host-probe/input-src"))
     java.srcDir(rootProject.file("validation/model-import-3d-host-probe/native-src"))
-    java.setIncludes((engine + listOf("ModelPreset", "ModelImportPlugin", "ModelInputNormalizer", "ModelInputFiles", "SurfaceSimplifier", "SurfacePatchCollapseProof", "SurfaceImportCostPlan", "ObjModelInput", "ModelTextureNormalizer", "ModelTextureAtlasPlanner", "ModelTextureAtlasAuthoring", "NativeModelImport", "NativeControlWarpPlan", "NativeControlAuthoring", "NativeCharacterPlan", "NativeCharacterVisibility", "NativeCharacterAuthoring", "NativeMaterialPlan", "ViewerScene", "GlbViewerLoader", "SoftwareModelRenderer", "ModelViewerWindow", "ModelViewerController")).map { "**/$it.java" }.toSet())
+    java.setIncludes((engine + listOf("ModelPreset", "ModelImportPlugin", "ModelInputNormalizer", "ModelInputFiles", "SurfaceSimplifier", "SurfacePatchCollapseProof", "SurfaceImportCostPlan", "ObjModelInput", "ModelTextureNormalizer", "ModelTextureAtlasPlanner", "ModelTextureAtlasAuthoring", "NativeModelImport", "NativeControlWarpPlan", "NativeControlAuthoring", "NativeCharacterPlan", "NativeCharacterVisibility", "NativeCharacterAuthoring", "NativeMaterialPlan", "ViewerScene", "GlbViewerLoader", "SoftwareModelRenderer", "ModelViewerWindow", "ModelViewerController", "ModelPreviewPanel")).map { "**/$it.java" }.toSet())
 }
 
 tasks.test {

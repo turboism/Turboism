@@ -62,6 +62,7 @@ record PluginArchiveMetadata(
             "readme.txt");
     private static final String CHINESE_README = "META-INF/turboism/readme/README_zh.md";
     private static final String JAPANESE_README = "META-INF/turboism/readme/README_ja.md";
+    private static final String KOREAN_README = "META-INF/turboism/readme/README_ko.md";
     static final int MAX_README_BYTES = 1024 * 1024;
 
     static Optional<PluginArchiveMetadata> read(final Path path) {
@@ -240,6 +241,7 @@ record PluginArchiveMetadata(
         return switch (locale.getLanguage()) {
             case "zh" -> CHINESE_README;
             case "ja" -> JAPANESE_README;
+            case "ko" -> KOREAN_README;
             default -> null;
         };
     }

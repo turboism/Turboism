@@ -11145,6 +11145,60 @@
    }
   },
   {
+   "id": "dev.turboism.plugin.artmesh-mirror",
+   "name": "ArtMesh Mirror",
+   "directory": "artmesh-mirror",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
    "id": "dev.turboism.plugin.texture-atlas-nesting",
    "name": "Bitmask Nesting",
    "directory": "atlas-bitmask-nesting",
@@ -12057,6 +12111,98 @@
    "hostValidation": {}
   },
   {
+   "id": "dev.turboism.plugin.deformer-batch-rename",
+   "name": "Batch Rename Deformers",
+   "directory": "deformer-batch-rename",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [
+    {
+     "key": "cubism.editor-ui.top-menu",
+     "declaredCapability": "ui.menu.contribute",
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "capability",
+     "pins": [],
+     "capabilities": [
+      "cubism.editor-ui.top-menu"
+     ],
+     "sourceFiles": [],
+     "narrowed": false,
+     "missingNature": {
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
+     }
+    }
+   ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
    "id": "dev.turboism.plugin.demo",
    "name": "Demo Plugin",
    "directory": "demo",
@@ -12569,14 +12715,6 @@
    ],
    "supportedGaps": {},
    "fullFeatureVersions": [
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -12584,6 +12722,212 @@
     "5.3.04"
    ],
    "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.model.CubismModel#exportMoc()",
+     "declaredCapability": null,
+     "versions": [
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
+     ],
+     "missingNature": {
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary",
+      "5.2.00": "boundary",
+      "5.2.01": "boundary",
+      "5.2.02": "boundary",
+      "5.2.03": "boundary"
+     },
+     "officialSource": {
+      "version": "5.3.00",
+      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+     }
+    },
+    {
+     "key": "turboism.export.moc.execute",
+     "declaredCapability": null,
+     "versions": [
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03"
+     ],
+     "source": "coverage-manifest",
+     "endpoint": "turboism.export.moc.execute",
+     "operations": [
+      "authorized_moc_package_job"
+     ],
+     "methods": [
+      "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown",
+      "5.2.03": "unknown"
+     }
+    },
+    {
+     "key": "turboism.export.moc.plan",
+     "declaredCapability": null,
+     "versions": [
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03"
+     ],
+     "source": "coverage-manifest",
+     "endpoint": "turboism.export.moc.plan",
+     "operations": [
+      "moc_package_plan"
+     ],
+     "methods": [],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown",
+      "5.2.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.CubismFacade#edit()",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+     ],
+     "missingNature": {
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown"
+     },
+     "officialSource": {
+      "version": "5.1.00",
+      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+      "nameZh": "外部应用联动（WebSocket API）",
+      "nameEn": "External application integration (WebSocket API)"
+     }
+    },
     {
      "key": "cubism.editor-ui.top-menu",
      "declaredCapability": "cubism.editor-commands.execute",
@@ -13480,6 +13824,62 @@
    "hostValidation": {}
   },
   {
+   "id": "dev.turboism.plugin.parameter-sync",
+   "name": "Parameter Sync Plugin",
+   "directory": "parameter-sync",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [],
+   "unmappedCapabilities": [
+    "event.subscribe"
+   ],
+   "hostValidation": {}
+  },
+  {
    "id": "dev.turboism.plugin.perf-stats",
    "name": "Performance Statistics",
    "directory": "perf-stats",
@@ -13674,7 +14074,7 @@
   },
   {
    "id": "dev.turboism.plugin.physics-editor",
-   "name": "Physics Editor",
+   "name": "Physics Settings Enhancer",
    "directory": "physics-editor",
    "requiresCubism": true,
    "supportedVersions": [

@@ -478,6 +478,8 @@ class EditorTextureAccessTest {
                 "cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
         values.add(method(
                 "cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
+        values.add(
+                method("cubism.editor-model.complete-pack.update-project", CompletePack.class, "updateProject", "()V"));
         values.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
         values.add(method(
                 "cubism.editor-model.model-source.texture-manager",
@@ -706,6 +708,8 @@ class EditorTextureAccessTest {
         boolean repainted;
 
         public void updateParts(final boolean value) {}
+
+        public void updateProject() {}
 
         public void repaint(final boolean value) {
             repainted = true;

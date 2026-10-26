@@ -472,6 +472,7 @@ class EditorParameterStructureAccessTest {
                     () -> String.valueOf(result.diagnosticId()));
             assertEquals(1, scoped.fixture.editMode.beginCount);
             assertEquals(1, scoped.roots.size());
+            assertTrue(scoped.lastRefreshRequirements.contains(EditorRefreshRequirement.PARAMETER_STRUCTURE));
             assertEquals(List.of("P1", "X", "Y", "Z"), scoped.ids());
             scoped.roots.get(0).undo();
             assertEquals(List.of("P1"), scoped.ids());
@@ -609,6 +610,7 @@ class EditorParameterStructureAccessTest {
         final EditorParameterStructureAccess access;
         boolean nativeAbort = true;
         boolean envelopeJoin;
+        Set<EditorRefreshRequirement> lastRefreshRequirements = Set.of();
 
         ParameterScopedFixture() {
             this("");
@@ -677,7 +679,9 @@ class EditorParameterStructureAccessTest {
         @Override
         public void refresh(
                 final EditorAuthoringTransactionCoordinator.Binding current,
-                final Set<EditorRefreshRequirement> requirements) {}
+                final Set<EditorRefreshRequirement> requirements) {
+            lastRefreshRequirements = Set.copyOf(requirements);
+        }
 
         @Override
         public Optional<String> committedHistoryEntryId(

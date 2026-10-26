@@ -207,6 +207,19 @@ public final class ModelViewerController implements AutoCloseable {
         });
     }
 
+    /** Shares an already decoded import scene without opening or reading another file. */
+    public synchronized void load(ViewerScene value) {
+        if (closed) return;
+        long token = ++generation;
+        if (decodeTask != null) decodeTask.cancel(true);
+        scene = java.util.Objects.requireNonNull(value, "scene");
+        loading = false;
+        camera = new Camera(0, 0, 1);
+        ++cameraVersion;
+        update(token, () -> view.loaded(value.stats()));
+        requestRender();
+    }
+
     /** Adds camera rotation in radians and coalesces pending renders. */
     public synchronized void rotate(double yawDelta, double pitchDelta) {
         if (closed) return;
@@ -282,7 +295,7 @@ public final class ModelViewerController implements AutoCloseable {
         } finally {
             synchronized (this) {
                 rendering = false;
-                if (active(renderToken) && cameraVersion != renderedVersion) requestRender();
+                if (!closed && cameraVersion != renderedVersion) requestRender();
             }
         }
     }

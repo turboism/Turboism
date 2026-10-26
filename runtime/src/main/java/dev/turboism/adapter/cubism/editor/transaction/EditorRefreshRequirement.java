@@ -6,6 +6,10 @@ public enum EditorRefreshRequirement {
     MODEL_INSTANCES,
     /** Refresh the native parameter palette. */
     PARAMETER_PALETTE,
+    /** Rebuild the parameter tree after structural or folder changes. */
+    PARAMETER_STRUCTURE,
+    /** Rebuild the project palette after model images or atlases change. */
+    PROJECT_PALETTE,
     /** Refresh the native part palette. */
     PART_PALETTE,
     /** Refresh the native deformer palette. */

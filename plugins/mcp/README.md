@@ -45,7 +45,8 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
-Full feature set (reviewed versions): 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
+Full feature set (reviewed versions): 5.3.00–5.3.04.
+- External edit-session API (edit()) not on 5.0.00–5.1.01（[Cubism 5.1.00 added External application integration (WebSocket API)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/)）
 - Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 - MCP editor command execution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 - MCP editor-command listing not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
@@ -323,6 +324,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `turboism.cubism.parameter.read` | `application` | Declares the parameter-read intent for tooling surfaces; parameter reads themselves are enforced at runtime by the model-read permission above. |
 | `turboism.cubism.project.read` | `application` | Reads active project, workspace, layout, and theme state. |
 | `turboism.cubism.model.write` | `application` | Applies typed model, parameter, binding, history, and model-setting writes. |
+| `turboism.ui.file-chooser.request` | `application` | Requests user approval through the file chooser before issuing session-scoped file grants. |
 | `turboism.file.read` | `application` | Verifies MCP connection-file metadata (existence, ownership, symlink checks) before publishing the loopback endpoint. |
 | `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command and writes the owner-only loopback connection file under the MCP state directory. |
 | `turboism.network.fetch` | `application` | Allows the typed external-application settings command and binds the Origin-guarded loopback HTTP transport. |
@@ -368,6 +370,12 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 | Request is rejected before dispatch | Check method, origin, session, MCP protocol version, body size, content type, and rate limit. |
 | Resource returns `UNAVAILABLE` | Check active document/model state and exact-host capability admission; do not treat it as an empty successful value. |
 | Resource returns permission denied | Check the plugin descriptor grant and the specific runtime permission named above. |
+
+## Changelog
+
+### 0.1.0
+
+- Initial release.
 
 ## Support and license
 

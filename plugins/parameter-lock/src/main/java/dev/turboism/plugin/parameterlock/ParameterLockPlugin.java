@@ -1,10 +1,8 @@
 package dev.turboism.plugin.parameterlock;
 
-import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
-import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -20,11 +18,6 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.appearance.PaletteEntry;
 import dev.turboism.sdk.ui.appearance.PaletteRowAction;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
-import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
@@ -69,19 +62,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * the native GUID by host design and thus share the lock configuration.</p>
  */
 public final class ParameterLockPlugin implements CubismPlugin {
-
-    public static final String ACTION_LOCK_SELECTED = "parameter-lock.lock-selected";
-    public static final String ACTION_UNLOCK_SELECTED = "parameter-lock.unlock-selected";
-    public static final String ACTION_TOGGLE_SELECTED = "parameter-lock.toggle-selected";
-
-    public static final String CONTEXT_MENU_LOCK_ID = "parameter-lock.menu.lock";
-    public static final String CONTEXT_MENU_UNLOCK_ID = "parameter-lock.menu.unlock";
-    public static final String CONTEXT_MENU_TOGGLE_ID = "parameter-lock.menu.toggle";
-
     @Deprecated(forRemoval = true)
     public static final String TOOLBAR_TOGGLE_ID = "parameter-lock.toolbar.toggle";
 
-    private static final int MENU_PRIORITY = 80;
     private static final long POLL_INTERVAL_MS = 250;
 
     private PluginContext context;
@@ -143,17 +126,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
         activeLoads = new ConcurrentHashMap<>();
         currentActivationKey = null;
         fullyDecorated = false;
-
-        registerAction(ACTION_LOCK_SELECTED, i18n.text("action.lock.selected"), this::handleLockSelected);
-        registerAction(ACTION_UNLOCK_SELECTED, i18n.text("action.unlock.selected"), this::handleUnlockSelected);
-        registerAction(ACTION_TOGGLE_SELECTED, i18n.text("action.toggle.selected"), this::handleToggleSelected);
-
-        registerContextMenu(
-                CONTEXT_MENU_LOCK_ID, ACTION_LOCK_SELECTED, i18n.text("menu.parameter.lock"), MENU_PRIORITY);
-        registerContextMenu(
-                CONTEXT_MENU_UNLOCK_ID, ACTION_UNLOCK_SELECTED, i18n.text("menu.parameter.unlock"), MENU_PRIORITY + 1);
-        registerContextMenu(
-                CONTEXT_MENU_TOGGLE_ID, ACTION_TOGGLE_SELECTED, i18n.text("menu.parameter.toggle"), MENU_PRIORITY + 2);
 
         // Schedule single initial activation check and poll chain on UI thread
         dispatchToUi(() -> {
@@ -616,7 +588,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
         activeRowRegistrations.clear();
     }
 
-    private void handleParameterClick(final CubismModel model, final String paramId) {
+    void handleParameterClick(final CubismModel model, final String paramId) {
         if (!enabled.get() || model == null || paramId == null) {
             return;
         }
@@ -721,180 +693,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
     }
 
     // ── Internal Helpers ──
-
-    private void registerAction(final String id, final String label, final ActionHandler handler) {
-        final Registration reg = context.actions().register(id, new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String label() {
-                return label;
-            }
-
-            @Override
-            public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
-                return actionContext -> {
-                    if (!enabled.get()) return;
-                    try {
-                        handler.handle(actionContext);
-                    } catch (RuntimeException failure) {
-                        logger.warn("Action " + id + " failed: " + failure.getMessage());
-                    }
-                };
-            }
-        });
-        synchronized (registrations) {
-            registrations.add(reg);
-        }
-        context.disposableScope().register(reg);
-    }
-
-    private void registerContextMenu(final String id, final String actionId, final String label, final int priority) {
-        context.services().find(ContextMenuRegistry.class).ifPresent(registry -> {
-            final Registration reg = registry.contribute(new ContextMenuContribution(
-                    id,
-                    actionId,
-                    label,
-                    "LOCK",
-                    Location.PARAMETER_TAB,
-                    Set.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER),
-                    priority));
-            synchronized (registrations) {
-                registrations.add(reg);
-            }
-            context.disposableScope().register(reg);
-        });
-    }
-
-    private void handleLockSelected(final ActionRegistry.ActionContext actionContext) {
-        final CubismModel model = activeModelOrNull().orElse(null);
-        if (model == null) {
-            return;
-        }
-        final String modelGuid = model.id().value();
-        final List<String> targetIds = resolveTargetParameterIds(model, actionContext);
-        if (targetIds.isEmpty()) {
-            return;
-        }
-        lockState.lockAll(modelGuid, targetIds);
-        saveLocksAsync(modelGuid);
-        logger.info("Locked parameters for model " + modelGuid + ": " + targetIds);
-        dispatchToUi(() -> refreshDecorations(model));
-    }
-
-    private void handleUnlockSelected(final ActionRegistry.ActionContext actionContext) {
-        final CubismModel model = activeModelOrNull().orElse(null);
-        if (model == null) {
-            return;
-        }
-        final String modelGuid = model.id().value();
-        final List<String> targetIds = resolveTargetParameterIds(model, actionContext);
-        if (targetIds.isEmpty()) {
-            return;
-        }
-        lockState.unlockAll(modelGuid, targetIds);
-        saveLocksAsync(modelGuid);
-        logger.info("Unlocked parameters for model " + modelGuid + ": " + targetIds);
-        dispatchToUi(() -> refreshDecorations(model));
-    }
-
-    private void handleToggleSelected(final ActionRegistry.ActionContext actionContext) {
-        final CubismModel model = activeModelOrNull().orElse(null);
-        if (model == null) {
-            return;
-        }
-        final String modelGuid = model.id().value();
-        final List<String> targetIds = resolveTargetParameterIds(model, actionContext);
-        if (targetIds.isEmpty()) {
-            return;
-        }
-        final ParameterLockState state = lockState;
-        if (!state.hasLoaded(modelGuid)) {
-            final var loads = activeLoads;
-            final CompletableFuture<Boolean> save = ensureLoaded(modelGuid, state, loads)
-                    .thenComposeAsync(
-                            loaded -> {
-                                toggleSelection(state, modelGuid, targetIds);
-                                dispatchToUi(() -> refreshDecorations(model));
-                                return storage.save(
-                                        ParameterLockData.of(modelGuid, state.getLockedParameters(modelGuid)));
-                            },
-                            asyncExecutor)
-                    .toCompletableFuture();
-            trackSave(save, modelGuid);
-            return;
-        }
-        toggleSelection(state, modelGuid, targetIds);
-        saveLocksAsync(modelGuid);
-        dispatchToUi(() -> refreshDecorations(model));
-    }
-
-    private void toggleSelection(final ParameterLockState state, final String modelGuid, final List<String> targetIds) {
-        boolean allLocked = true;
-        for (final String id : targetIds) {
-            if (!state.isLocked(modelGuid, id)) {
-                allLocked = false;
-                break;
-            }
-        }
-        if (allLocked) {
-            state.unlockAll(modelGuid, targetIds);
-            logger.info("Toggled (unlocked) parameters for model " + modelGuid + ": " + targetIds);
-        } else {
-            state.lockAll(modelGuid, targetIds);
-            logger.info("Toggled (locked) parameters for model " + modelGuid + ": " + targetIds);
-        }
-    }
-
-    private List<String> resolveTargetParameterIds(
-            final CubismModel model, final ActionRegistry.ActionContext actionContext) {
-        final Set<String> result = new LinkedHashSet<>();
-        final Optional<ContextMenuSelection> menuSelection = actionContext.contextMenuSelection();
-        if (menuSelection.isPresent()) {
-            for (final ContextMenuSelection.Item item : menuSelection.get().items()) {
-                if (item.kind() == ObjectKind.PARAMETER) {
-                    result.add(item.id());
-                } else if (item.kind() == ObjectKind.PARAMETER_FOLDER) {
-                    collectFolderParameters(model, item.id(), result);
-                }
-            }
-        }
-        if (result.isEmpty() && context != null) {
-            try {
-                final SelectionSnapshot selection = context.cubism().runtime().selection();
-                selection.activeParameterId().ifPresent(result::add);
-                for (final String selectedId : selection.selectedObjectIds()) {
-                    if (isModelParameter(model, selectedId)) {
-                        result.add(selectedId);
-                    }
-                }
-            } catch (RuntimeException ignored) {
-            }
-        }
-        return List.copyOf(result);
-    }
-
-    private static boolean isModelParameter(final CubismModel model, final String candidateId) {
-        if (model == null || candidateId == null || candidateId.isBlank()) {
-            return false;
-        }
-        try {
-            return model.parameters().find(new ParameterId(candidateId)) != null;
-        } catch (RuntimeException notFound) {
-            return false;
-        }
-    }
-
-    private void collectFolderParameters(
-            final CubismModel model, final String folderId, final Set<String> accumulator) {
-        if (model == null || folderId == null || folderId.isBlank()) {
-            return;
-        }
-        accumulator.addAll(collectDescendantParameterIds(model, new ParameterGroupId(folderId)));
-    }
 
     private void triggerAsyncPreload(final String modelGuid) {
         ensureLoaded(modelGuid);
@@ -1019,10 +817,5 @@ public final class ParameterLockPlugin implements CubismPlugin {
         } catch (RuntimeException ignored) {
         }
         return Optional.empty();
-    }
-
-    @FunctionalInterface
-    private interface ActionHandler {
-        void handle(ActionRegistry.ActionContext context);
     }
 }

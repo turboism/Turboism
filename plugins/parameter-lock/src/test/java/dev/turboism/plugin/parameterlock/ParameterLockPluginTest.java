@@ -49,8 +49,6 @@ import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
@@ -111,8 +109,6 @@ class ParameterLockPluginTest {
             json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
         final List<String> requiredPermissions = List.of(
-                "turboism.action.register",
-                "turboism.ui.context-menu.contribute",
                 "turboism.ui.appearance.modify",
                 "turboism.cubism.model.read",
                 "turboism.cubism.model.observe",
@@ -265,18 +261,7 @@ class ParameterLockPluginTest {
     @Test
     void contextMenuAndRowRegistrations() {
         final FakeContextMenuRegistry contextMenuRegistry = context.contextMenuRegistry;
-        assertEquals(3, contextMenuRegistry.contributions.size());
-
-        assertTrue(contextMenuRegistry.contributions.stream()
-                .anyMatch(c -> c.id().equals(ParameterLockPlugin.CONTEXT_MENU_LOCK_ID)
-                        && c.location() == Location.PARAMETER_TAB
-                        && c.objectKinds().contains(ObjectKind.PARAMETER)));
-        assertTrue(contextMenuRegistry.contributions.stream()
-                .anyMatch(c -> c.id().equals(ParameterLockPlugin.CONTEXT_MENU_UNLOCK_ID)
-                        && c.location() == Location.PARAMETER_TAB));
-        assertTrue(contextMenuRegistry.contributions.stream()
-                .anyMatch(c -> c.id().equals(ParameterLockPlugin.CONTEXT_MENU_TOGGLE_ID)
-                        && c.location() == Location.PARAMETER_TAB));
+        assertEquals(0, contextMenuRegistry.contributions.size());
 
         // Toolbar contribution removed per user specification
         final FakePaletteToolbarRegistry toolbarRegistry = context.paletteToolbarRegistry;
@@ -284,69 +269,6 @@ class ParameterLockPluginTest {
 
         // Parameter rows have registered leading actions
         assertFalse(plugin.activeRowRegistrations().isEmpty());
-    }
-
-    @Test
-    void contextMenuActionsLockUnlockAndToggleExecution() {
-        final String guid = modelA.id().value();
-        final ContextMenuSelection selection = new ContextMenuSelection(
-                1L,
-                "doc-1",
-                Location.PARAMETER_TAB,
-                List.of(
-                        new ContextMenuSelection.Item(ObjectKind.PARAMETER, "PARAM_ANGLE_X"),
-                        new ContextMenuSelection.Item(ObjectKind.PARAMETER, "PARAM_ANGLE_Y")));
-
-        final FakeActionContext actionContext = new FakeActionContext(selection);
-
-        // Invoke lock action
-        final ActionRegistry.Action lockAction =
-                context.actionRegistry.actions.get(ParameterLockPlugin.ACTION_LOCK_SELECTED);
-        assertNotNull(lockAction);
-        lockAction.handler().accept(actionContext);
-
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_Y"));
-
-        // Invoke unlock action
-        final ActionRegistry.Action unlockAction =
-                context.actionRegistry.actions.get(ParameterLockPlugin.ACTION_UNLOCK_SELECTED);
-        assertNotNull(unlockAction);
-        unlockAction.handler().accept(actionContext);
-
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_ANGLE_Y"));
-
-        // Invoke toggle action (was unlocked -> will lock)
-        final ActionRegistry.Action toggleAction =
-                context.actionRegistry.actions.get(ParameterLockPlugin.ACTION_TOGGLE_SELECTED);
-        assertNotNull(toggleAction);
-        toggleAction.handler().accept(actionContext);
-
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_Y"));
-
-        // Toggle again (was locked -> will unlock)
-        toggleAction.handler().accept(actionContext);
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_ANGLE_Y"));
-    }
-
-    @Test
-    void actionInvocationUsesActiveParameterWhenOutsideContextMenu() {
-        final String guid = modelA.id().value();
-        context.selectionSnapshot =
-                new SelectionSnapshot(List.of(), Optional.of("PARAM_EYE_L_OPEN"), Optional.empty(), Optional.empty());
-
-        // Context with empty contextMenuSelection (as when triggered by shortcut key)
-        final FakeActionContext actionContext = new FakeActionContext(null);
-        final ActionRegistry.Action toggleAction =
-                context.actionRegistry.actions.get(ParameterLockPlugin.ACTION_TOGGLE_SELECTED);
-        assertNotNull(toggleAction);
-
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_EYE_L_OPEN"));
-        toggleAction.handler().accept(actionContext);
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_EYE_L_OPEN"));
     }
 
     @Test
@@ -396,37 +318,6 @@ class ParameterLockPluginTest {
     }
 
     @Test
-    void userUnlocksBBeforeLoadFinishesTombstonePreserved() throws Exception {
-        final String guid = "model-tombstone-test";
-        final FakeModel modelTomb = new FakeModel(guid, List.of("PARAM_B", "PARAM_C"));
-        final StoragePath path = ParameterLockStorage.storagePathFor(guid);
-
-        // Pre-populate disk storage with PARAM_B and PARAM_C
-        final ParameterLockData diskData = ParameterLockData.of(guid, Set.of("PARAM_B", "PARAM_C"));
-        context.storage.seed(path, Json.stringify(diskData.toMap()));
-
-        context.activeModel = modelTomb;
-        // User explicitly triggers the unlock action for PARAM_B before load completes
-        final ContextMenuSelection selection = new ContextMenuSelection(
-                1L,
-                "doc-tomb",
-                Location.PARAMETER_TAB,
-                List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, "PARAM_B")));
-        final ActionRegistry.Action unlockAction =
-                context.actionRegistry.actions.get(ParameterLockPlugin.ACTION_UNLOCK_SELECTED);
-        assertNotNull(unlockAction);
-        unlockAction.handler().accept(new FakeActionContext(selection));
-
-        // Now load finishes
-        plugin.onModelOpened(null);
-        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_C"));
-
-        // PARAM_B must NOT be re-locked (tombstone preserved)! PARAM_C must be locked!
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_B"));
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_C"));
-    }
-
-    @Test
     void nativeLockIconAvailabilityReportsAvailable() {
         final UiIconAvailability availability = plugin.lockIconAvailability();
         assertEquals(UiIconAvailability.AVAILABLE, availability);
@@ -444,7 +335,7 @@ class ParameterLockPluginTest {
         final CompletableFuture<Void> gate = new CompletableFuture<>();
         context.storage.setReadGate(gate);
         context.storage.setReadStarted(new java.util.concurrent.CountDownLatch(1));
-        invokeSelected(ParameterLockPlugin.ACTION_LOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
+        plugin.handleParameterClick(context.activeModel, "PARAM_BODY_ANGLE_Z");
         assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
         plugin.disable();
         plugin.enable();
@@ -462,67 +353,16 @@ class ParameterLockPluginTest {
     }
 
     @Test
-    void unlockActionBeforeInitialLoadPersistsRemovalAndKeepsOtherLocks() throws Exception {
-        final String guid = modelB.id().value();
-        context.activeModel = modelB;
-        final StoragePath path = ParameterLockStorage.storagePathFor(guid);
-        context.storage.seed(
-                path,
-                Json.stringify(ParameterLockData.of(guid, Set.of("PARAM_ANGLE_X", "PARAM_BODY_ANGLE_Z"))
-                        .toMap()));
-        final CompletableFuture<Void> gate = new CompletableFuture<>();
-        context.storage.setReadGate(gate);
-        context.storage.setReadStarted(new java.util.concurrent.CountDownLatch(1));
-        invokeSelected(ParameterLockPlugin.ACTION_UNLOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
-        assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
-        gate.complete(null);
-        awaitCondition(() -> {
-            final String json = context.storage.content(path);
-            return json != null
-                    && ParameterLockData.fromMap(Json.parseObject(json))
-                            .lockedParameterIds()
-                            .equals(Set.of("PARAM_ANGLE_X"));
-        });
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_BODY_ANGLE_Z"));
-        assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
-    }
-
-    @Test
     void immediateShutdownDrainsAcceptedActionPersistence() throws Exception {
         final String guid = modelB.id().value();
         context.activeModel = modelB;
-        invokeSelected(ParameterLockPlugin.ACTION_LOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
+        plugin.handleParameterClick(context.activeModel, "PARAM_BODY_ANGLE_Z");
         plugin.shutdown();
         final String json = context.storage.content(ParameterLockStorage.storagePathFor(guid));
         assertNotNull(json);
         assertEquals(
                 Set.of("PARAM_BODY_ANGLE_Z"),
                 ParameterLockData.fromMap(Json.parseObject(json)).lockedParameterIds());
-    }
-
-    @Test
-    void toggleDuringInitialLoadUsesPersistedLockState() throws Exception {
-        final String guid = modelB.id().value();
-        context.activeModel = modelB;
-        final StoragePath path = ParameterLockStorage.storagePathFor(guid);
-        context.storage.seed(
-                path,
-                Json.stringify(
-                        ParameterLockData.of(guid, Set.of("PARAM_ANGLE_X")).toMap()));
-        final CompletableFuture<Void> gate = new CompletableFuture<>();
-        context.storage.setReadGate(gate);
-        context.storage.setReadStarted(new java.util.concurrent.CountDownLatch(1));
-        invokeSelected(ParameterLockPlugin.ACTION_TOGGLE_SELECTED, "PARAM_ANGLE_X");
-        assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
-        gate.complete(null);
-        awaitCondition(() -> {
-            final String json = context.storage.content(path);
-            return json != null
-                    && ParameterLockData.fromMap(Json.parseObject(json))
-                            .lockedParameterIds()
-                            .isEmpty();
-        });
-        assertFalse(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
     }
 
     // ── Meaningful New Tests ──
@@ -958,15 +798,6 @@ class ParameterLockPluginTest {
         assertNotNull(plugin.currentActivationKey());
         assertEquals("guid-doc-missing", plugin.currentActivationKey().modelGuid());
         assertNotNull(newModel.findParam("PARAM_M1").paletteEntry.currentAction);
-    }
-
-    private void invokeSelected(final String action, final String parameter) {
-        final ContextMenuSelection selection = new ContextMenuSelection(
-                1L,
-                "doc-1",
-                Location.PARAMETER_TAB,
-                List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, parameter)));
-        context.actionRegistry.actions.get(action).handler().accept(new FakeActionContext(selection));
     }
 
     private static void awaitCondition(final java.util.function.BooleanSupplier condition) {

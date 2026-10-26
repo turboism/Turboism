@@ -110,6 +110,12 @@ Lifecycle messages and received demo events are written to the plugin log. Plugi
 | Toolbar buttons have no icons | The referenced icon resources are not currently present in this module. |
 | Entries remain after lifecycle cleanup | Ensure the plugin's disposable scope is closed; its registrations are enrolled in that scope. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

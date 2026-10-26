@@ -138,6 +138,72 @@ function Assert-PayloadParentChain {
     }
 }
 
+# Installer packages use module filenames; marketplace updates use plugin IDs.
+# Reconcile by embedded identity only after every payload file has been verified.
+function Get-PayloadPluginId {
+    param([string]$Path)
+
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        try {
+            $entry = $archive.GetEntry("META-INF/turboism/plugin.json")
+            if ($null -eq $entry -or $entry.Length -gt 1MB) { return $null }
+            $reader = New-Object System.IO.StreamReader($entry.Open())
+            try { $descriptor = $reader.ReadToEnd() | ConvertFrom-Json }
+            finally { $reader.Dispose() }
+            if ($null -eq $descriptor) { return $null }
+            $property = $descriptor.PSObject.Properties["id"]
+            if ($null -eq $property -or $property.Value -isnot [string] -or
+                [string]::IsNullOrWhiteSpace($property.Value)) { return $null }
+            return $property.Value
+        }
+        finally { $archive.Dispose() }
+    }
+    catch {
+        # Unreadable/unrelated user packages never authorize moving a file.
+        return $null
+    }
+}
+
+function Backup-PayloadPluginDuplicates {
+    param([string]$Root, [object[]]$ManifestEntries)
+
+    $pluginEntries = @($ManifestEntries | Where-Object { $_.Relative -match '^plugins/[^/]+\.jar$' })
+    if ($pluginEntries.Count -eq 0) { return }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $installed = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::Ordinal)
+    foreach ($entry in $pluginEntries) {
+        $path = Resolve-PayloadPath $Root $entry.Relative
+        Assert-PayloadParentChain $Root $path
+        if (-not (Test-PayloadFileUnchanged $path $entry.Hash)) {
+            throw "Cannot reconcile plugins before the payload is verified."
+        }
+        $id = Get-PayloadPluginId $path
+        if ([string]::IsNullOrWhiteSpace($id) -or $installed.ContainsKey($id)) {
+            throw "Installer plugin payload contains a missing or duplicate plugin ID."
+        }
+        $installed.Add($id, $path)
+    }
+
+    $plugins = Join-Path $Root "plugins"
+    $backupRelative = "backups/plugins/" + [Guid]::NewGuid().ToString("N")
+    foreach ($candidate in [System.IO.Directory]::GetFiles($plugins)) {
+        if (-not [System.IO.Path]::GetExtension($candidate).Equals(".jar", [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        if (([System.IO.File]::GetAttributes($candidate) -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            continue
+        }
+        $id = Get-PayloadPluginId $candidate
+        if ([string]::IsNullOrWhiteSpace($id) -or -not $installed.ContainsKey($id)) { continue }
+        if ($candidate.Equals($installed[$id], [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        $backup = Resolve-PayloadPath $Root ($backupRelative + "/" + [System.IO.Path]::GetFileName($candidate))
+        Assert-PayloadParentChain $Root $backup
+        [System.IO.File]::Move($candidate, $backup)
+        Write-Output "BACKUP_DUPLICATE|$id|$candidate|$backup"
+    }
+}
+
 $destination = [System.IO.Path]::GetFullPath($DestinationRoot)
 Assert-PayloadDirectory $destination
 $entries = @(Read-PayloadManifest $ManifestPath)
@@ -206,3 +272,5 @@ foreach ($entry in $entries) {
     }
     Write-Output "WRITE|$($entry.Relative)"
 }
+
+Backup-PayloadPluginDuplicates $destination $entries

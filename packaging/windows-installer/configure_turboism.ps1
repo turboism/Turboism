@@ -734,6 +734,29 @@ function Test-RuntimeStringSetEquals {
     return $left.SetEquals($right)
 }
 
+# 卸载后保留 config.json 重装时，launcher.graalVmPath 可能仍指向已被删除的旧安装；
+# 目标 java.exe 不存在则移除该字段，使运行时回落到默认探测。返回是否移除。
+function Remove-StaleGraalVmPath {
+    param([object]$Document)
+    $launcher = $Document.PSObject.Properties["launcher"]
+    if ($null -eq $launcher -or $launcher.Value -isnot [pscustomobject]) { return $false }
+    $pathProperty = $launcher.Value.PSObject.Properties["graalVmPath"]
+    if ($null -eq $pathProperty -or $pathProperty.Value -isnot [string]) { return $false }
+    $value = $pathProperty.Value.Trim()
+    if ($value.Length -eq 0) { return $false }
+    try {
+        $java = $value
+        if (Test-Path -LiteralPath $value -PathType Container) {
+            $java = if ((Split-Path -Leaf $value) -ieq "bin") { Join-Path $value "java.exe" } else { Join-Path $value "bin\java.exe" }
+        }
+        if (Test-Path -LiteralPath $java -PathType Leaf) { return $false }
+    }
+    catch { return $false }
+    $launcher.Value.PSObject.Properties.Remove("graalVmPath")
+    Write-Host "TURBOISM_CONFIG dropped stale launcher.graalVmPath"
+    return $true
+}
+
 function Invoke-InstallerPluginSelection {
     if ($Variant -ieq "thin") {
         # Thin installer: zero bundled first-party plugins.
@@ -762,6 +785,7 @@ function Invoke-InstallerPluginSelection {
             Assert-RuntimeConfigV1 $document
         }
 
+        $staleGraal = Remove-StaleGraalVmPath $document
         $existing = @()
         $existingProperty = $document.PSObject.Properties["disabledPlugins"]
         if ($null -ne $existingProperty) {
@@ -782,7 +806,7 @@ function Invoke-InstallerPluginSelection {
         $desiredList.Sort([System.StringComparer]::Ordinal)
         $desired = [string[]]$desiredList.ToArray()
 
-        if ($hadConfig -and $wasValid `
+        if ($hadConfig -and $wasValid -and -not $staleGraal `
             -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
             Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
             return
@@ -843,6 +867,7 @@ function Invoke-InstallerPluginSelection {
         Assert-RuntimeConfigV1 $document
     }
 
+    $staleGraal = Remove-StaleGraalVmPath $document
     $existing = @()
     $existingProperty = $document.PSObject.Properties["disabledPlugins"]
     if ($null -ne $existingProperty) {
@@ -865,7 +890,7 @@ function Invoke-InstallerPluginSelection {
     $desiredList.Sort([System.StringComparer]::Ordinal)
     $desired = [string[]]$desiredList.ToArray()
 
-    if ($hadConfig -and $wasValid `
+    if ($hadConfig -and $wasValid -and -not $staleGraal `
         -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
         Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
         return
@@ -898,6 +923,11 @@ function Test-CurrentProcessElevated {
     catch { return $false }
 }
 
+# Distinct exit codes let the installer tell a declined/unanswered UAC prompt
+# apart from a failed BAT integration (exit code 1).
+$script:ElevationCanceledExitCode = 3
+$script:ElevationTimeoutExitCode = 4
+
 function Invoke-ElevatedConfiguratorMode {
     param([string]$Mode)
     if (@("IntegrateBat", "DisableBat", "Cleanup") -notcontains $Mode) { throw "invalid elevated mode" }
@@ -915,8 +945,13 @@ function Invoke-ElevatedConfiguratorMode {
     Write-InstallerLog "ELEVATION_REQUEST" ("mode={0} pid={1} snapshot={2}" -f $Mode, $PID, $InstallerDiscoverySnapshot)
     try {
         # This is a headless worker; keep UAC visible without opening a console.
-        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -PassThru
         try {
+            # An unanswered or hidden UAC prompt must not block the caller forever.
+            if (-not $process.WaitForExit(180000)) {
+                Write-InstallerLog "ELEVATION_TIMEOUT" ("mode={0} childPid={1}" -f $Mode, $process.Id)
+                return $script:ElevationTimeoutExitCode
+            }
             $exitCode = $process.ExitCode
             if ($null -eq $exitCode) { throw "Elevated configurator returned no exit code" }
             Write-InstallerLog "ELEVATION_EXIT" ("mode={0} childPid={1} exitCode={2}" -f $Mode, $process.Id, $exitCode)
@@ -928,6 +963,13 @@ function Invoke-ElevatedConfiguratorMode {
         finally { $process.Dispose() }
     }
     catch {
+        # ERROR_CANCELLED (1223): the user declined the UAC prompt.
+        # Windows PowerShell 5.1 wraps it in an InvalidOperationException.
+        $nativeFailure = if ($_.Exception -is [System.ComponentModel.Win32Exception]) { $_.Exception } else { $_.Exception.InnerException }
+        if ($nativeFailure -is [System.ComponentModel.Win32Exception] -and $nativeFailure.NativeErrorCode -eq 1223) {
+            Write-InstallerLog "ELEVATION_CANCELED" ("mode={0}" -f $Mode)
+            return $script:ElevationCanceledExitCode
+        }
         Write-InstallerLog "ELEVATION_FAILED" ("mode={0} type={1} error={2}" -f $Mode, $_.Exception.GetType().FullName, $_.Exception.Message)
         throw
     }

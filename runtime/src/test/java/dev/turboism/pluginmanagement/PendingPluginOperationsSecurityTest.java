@@ -39,7 +39,7 @@ final class PendingPluginOperationsSecurityTest {
     }
 
     @Test
-    void applyRejectsDuplicateInstalledPackagesWithoutChangingEither() throws Exception {
+    void applyReplacesDuplicateInstalledPackagesWithTheVerifiedUpdate() throws Exception {
         final Path plugins = home.resolve("plugins");
         Files.createDirectories(plugins);
         Files.write(plugins.resolve("a.jar"), PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
@@ -49,14 +49,54 @@ final class PendingPluginOperationsSecurityTest {
         final RuntimePluginManagementService service =
                 new RuntimePluginManagementService(home, () -> Optional.of(packageFile), List::of);
         assertTrue(service.install().accepted());
-        final String beforeA = hash(plugins.resolve("a.jar"));
-        final String beforeB = hash(plugins.resolve("b.jar"));
+        service.close();
+        final byte[] unrelated = PluginManagementPackageFixture.pluginJarBytes("other.plugin", "1.0.0");
+        Files.write(plugins.resolve("unrelated.jar"), unrelated);
 
         final PendingPluginOperations.ApplyResult result = RuntimePluginManagementService.applyPending(home);
 
-        assertFalse(result.applied());
-        assertEquals(beforeA, hash(plugins.resolve("a.jar")));
-        assertEquals(beforeB, hash(plugins.resolve("b.jar")));
+        assertTrue(result.applied(), result.code());
+        assertFalse(Files.exists(plugins.resolve("a.jar")));
+        assertFalse(Files.exists(plugins.resolve("b.jar")));
+        assertArrayEquals(Files.readAllBytes(packageFile), Files.readAllBytes(plugins.resolve("example.plugin.jar")));
+        assertArrayEquals(unrelated, Files.readAllBytes(plugins.resolve("unrelated.jar")));
+        assertTrue(new PendingPluginOperations(home).operations().isEmpty());
+    }
+
+    @Test
+    void failedDuplicateRepairPreservesBothInstalledPackages() throws Exception {
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+        final byte[] older = PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0");
+        final byte[] current = PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.1.0");
+        Files.write(plugins.resolve("installer.jar"), older);
+        Files.write(plugins.resolve("example.plugin.jar"), current);
+        final Path packageFile = home.resolve("update.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        final var staged = pending.stage(packageFile);
+        assertTrue(staged.accepted());
+        Files.writeString(staged.prepared().stagedJar(), "tampered");
+
+        assertEquals(PendingPluginOperations.Status.ROLLED_BACK, pending.apply().status());
+        assertArrayEquals(older, Files.readAllBytes(plugins.resolve("installer.jar")));
+        assertArrayEquals(current, Files.readAllBytes(plugins.resolve("example.plugin.jar")));
+        assertEquals(1, pending.operations().size());
+    }
+
+    @Test
+    void hotApplyRequiresAnUnambiguousCanonicalPackage() throws Exception {
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        assertTrue(pending.canHotApply("example.plugin"));
+        final byte[] content = PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0");
+        Files.write(plugins.resolve("installer.jar"), content);
+        assertFalse(pending.canHotApply("example.plugin"));
+        Files.write(plugins.resolve("example.plugin.jar"), content);
+        assertFalse(pending.canHotApply("example.plugin"));
+        Files.delete(plugins.resolve("installer.jar"));
+        assertTrue(pending.canHotApply("example.plugin"));
     }
 
     @Test
