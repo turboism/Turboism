@@ -834,12 +834,14 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             // Swing bounds use logical units; JOGL surfaces use physical pixels (e.g. 150% DPI).
             // Reading logical bounds would capture only the lower-left portion of the canvas.
-            final int width = drawable == null ? 0 : (Integer) MethodHandleCache.method(
-                            drawable.getClass(), "getSurfaceWidth")
-                    .invoke(drawable);
-            final int height = drawable == null ? 0 : (Integer) MethodHandleCache.method(
-                            drawable.getClass(), "getSurfaceHeight")
-                    .invoke(drawable);
+            final int width = drawable == null
+                    ? 0
+                    : (Integer) MethodHandleCache.method(drawable.getClass(), "getSurfaceWidth")
+                            .invoke(drawable);
+            final int height = drawable == null
+                    ? 0
+                    : (Integer) MethodHandleCache.method(drawable.getClass(), "getSurfaceHeight")
+                            .invoke(drawable);
             if (drawable == null || width <= 0 || height <= 0) {
                 diagnose("readJogl:bad-size drawable-null=" + (drawable == null) + " size=" + width + "x" + height);
                 return null;

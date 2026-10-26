@@ -98,20 +98,22 @@ class VerifiedRecentFileListHostOperationsTest {
         final Path shadow = Files.createTempFile(Path.of("."), "recent-preview-shadow-", ".cmo3");
         try {
             assertNull(RecentMenuChain.firstExistingPath(
-                    shadow.getFileName().toString(), projects.resolve(shadow.getFileName()).toString()));
+                    shadow.getFileName().toString(),
+                    projects.resolve(shadow.getFileName()).toString()));
         } finally {
             Files.deleteIfExists(shadow);
         }
     }
 
     @Test
-    void menuAndCurrentDocumentShareTheSameIdWhenTheWorkingDirectoryHasAShadowFile(
-            @TempDir final Path projects) throws Exception {
+    void menuAndCurrentDocumentShareTheSameIdWhenTheWorkingDirectoryHasAShadowFile(@TempDir final Path projects)
+            throws Exception {
         final Path shadow = Files.createTempFile(Path.of("."), "recent-preview-shadow-", ".cmo3");
         final Path project = Files.createFile(projects.resolve(shadow.getFileName()));
         try {
             final javax.swing.JMenu menu = recentMenu();
-            final javax.swing.JMenuItem item = new javax.swing.JMenuItem(shadow.getFileName().toString());
+            final javax.swing.JMenuItem item =
+                    new javax.swing.JMenuItem(shadow.getFileName().toString());
             item.setToolTipText(project.toString());
             menu.add(item);
             ProjectHost.setRoot(projectChain(project));
@@ -124,7 +126,9 @@ class VerifiedRecentFileListHostOperationsTest {
 
             assertEquals(1, listed.size());
             assertEquals(operations.current().orElseThrow(), listed.get(0).id());
-            assertEquals(project.toAbsolutePath().normalize().toString(), listed.get(0).path().orElseThrow());
+            assertEquals(
+                    project.toAbsolutePath().normalize().toString(),
+                    listed.get(0).path().orElseThrow());
         } finally {
             Files.deleteIfExists(shadow);
         }
