@@ -92,6 +92,11 @@ class UniformLocationLifecycleTransformerTest {
                                 getClass(), "error", MethodType.methodType(void.class, Object.class, int.class)));
         System.getProperties()
                 .put(
+                        UniformLocationHookBridge.SYNTHETIC_ERROR_PROPERTY,
+                        lookup.findStatic(
+                                getClass(), "error", MethodType.methodType(void.class, Object.class, int.class)));
+        System.getProperties()
+                .put(
                         UniformLocationHookBridge.INVALIDATE_PROPERTY,
                         lookup.findStatic(getClass(), "invalidate", MethodType.methodType(void.class)));
         System.getProperties()
@@ -145,15 +150,11 @@ class UniformLocationLifecycleTransformerTest {
         assertEquals(2, fixture.errorQueries);
     }
     /**
-     * With the upstream glGetError elision installed, the ERROR body arrives
-     * composed as {@code aload; pop; iconst_0}: the transformer must emit the
-     * same {@code error(gl, 0)} confirmation the elided query stood for, so
-     * pending locations keep confirming. The downstream chain —
-     * {@code bridge.error} → {@code cache.checkedError(0)} → confirmed →
-     * {@code lookup} hits — is covered by the cache/bridge tests.
+     * A removed query reports through the synthetic slot, preserving the host zero
+     * without presenting it as a real GPU-success observation.
      */
     @Test
-    void elidedErrorBodyStillConfirmsWithZero() throws Exception {
+    void elidedErrorBodyReportsSyntheticZeroSeparately() throws Exception {
         callbacks();
         Fixture fixture = new Fixture(UniformLocationLifecycleTransformer.Role.ERROR, true);
         assertEquals(0, fixture.runError(), "the elision result is GL_NO_ERROR");

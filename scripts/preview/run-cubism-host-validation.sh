@@ -940,11 +940,11 @@ fi
 # Resolve preferences, final JVM overrides and prerequisites before generating
 # either half of the combined Mesa/deferred option. Runtime admission still
 # verifies the host bytecode; its ACTIVE marker is checked below.
-mesa_gl_thread=1
-input_path_elision=1
-upload_elision=1
-uniform_location_cache=1
-model_update_skip=1
+mesa_gl_thread=0
+input_path_elision=0
+upload_elision=0
+uniform_location_cache=0
+model_update_skip=0
 incremental_update=0
 safe_mode=0
 uniform_hook_enabled=1
@@ -973,11 +973,11 @@ try:
         raise ValueError('invalid startup policy')
     preferences = {}
     for name, default in (
-        ('mesaGlThread', True),
-        ('inputPathElision', True),
-        ('uploadElision', True),
-        ('uniformLocationCache', True),
-        ('modelUpdateSkip', True),
+        ('mesaGlThread', False),
+        ('inputPathElision', False),
+        ('uploadElision', False),
+        ('uniformLocationCache', False),
+        ('modelUpdateSkip', False),
         ('incrementalUpdate', False),
     ):
         value = launcher.get(name, default)
@@ -990,7 +990,7 @@ try:
     print('uniformHook=%d' % ('cubism.render.uniform-location-cache' not in disabled))
     print('deferredHook=%d' % ('cubism.render.mesa-gl-thread' not in disabled))
 except (OSError, ValueError, TypeError):
-    # Do not turn a parse failure into Proton default-on. The runtime's full
+    # Do not turn a parse failure into optimization opt-in. The runtime's full
     # schema/host admission can reject further cases and emits an INACTIVE warning.
     print('configReadable=0')
 PY

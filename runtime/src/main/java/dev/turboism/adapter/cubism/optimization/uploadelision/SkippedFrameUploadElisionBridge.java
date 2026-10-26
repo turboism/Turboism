@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -42,6 +43,10 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     public static final String LIFECYCLE_PROPERTY = "turboism.upload-elision.lifecycle";
     /** Slot for the {@code Runnable} upload-exception notification. */
     public static final String FAILURE_PROPERTY = "turboism.upload-elision.failure";
+    /** Slot for a normal native-upload return; success still requires a real error check. */
+    public static final String RETURN_PROPERTY = "turboism.upload-elision.return";
+    /** Slot observing an existing real GL error result, never issuing a query. */
+    public static final String ERROR_PROPERTY = "turboism.upload-elision.error";
     /** Payload-free statistics slot. */
     public static final String STATS_PROPERTY = "turboism.upload-elision.stats";
     /**
@@ -63,6 +68,9 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
 
     private final MethodHandle nameHandle;
     private final MethodHandle sizeHandle;
+    private final MethodHandle glContext, currentContext, contextCreated, contextShared, contextHandle;
+    private Object observedGl, observedContext;
+    private long observedHandle;
     private final Map<Class<?>, MethodHandle> bufferHandles = new ConcurrentHashMap<>();
     private final Map<Class<?>, Kind> kinds = new ConcurrentHashMap<>();
     private final SkippedFrameUploadTracker tracker;
@@ -71,6 +79,8 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private final Consumer<Boolean> gate = this::setArmed;
     private final Runnable lifecycle = this::lifecycleNotify;
     private final Runnable failureNotify = this::exceptionNotify;
+    private final Runnable uploadReturn = this::uploadReturned;
+    private final BiConsumer<Object, Integer> errorObserver = this::checkedError;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
     private volatile boolean armed;
     private Properties installedProperties;
@@ -101,6 +111,19 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         sizeHandle = MethodHandles.publicLookup()
                 .unreflect(helper.getMethod("a", Buffer.class))
                 .bindTo(singleton);
+        final Class<?> gl = Class.forName("com.jogamp.opengl.GL", false, loader);
+        final Class<?> context = Class.forName("com.jogamp.opengl.GLContext", false, loader);
+        final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+        glContext = lookup.findVirtual(gl, "getContext", MethodType.methodType(context))
+                .asType(MethodType.methodType(Object.class, Object.class));
+        currentContext = lookup.findStatic(context, "getCurrent", MethodType.methodType(context))
+                .asType(MethodType.methodType(Object.class));
+        contextCreated = lookup.findVirtual(context, "isCreated", MethodType.methodType(boolean.class))
+                .asType(MethodType.methodType(boolean.class, Object.class));
+        contextShared = lookup.findVirtual(context, "isShared", MethodType.methodType(boolean.class))
+                .asType(MethodType.methodType(boolean.class, Object.class));
+        contextHandle = lookup.findVirtual(context, "getHandle", MethodType.methodType(long.class))
+                .asType(MethodType.methodType(long.class, Object.class));
         tracker = new SkippedFrameUploadTracker(
                 production || "content".equals(System.getProperty(COMPARE_PROPERTY, "identity"))
                         ? Compare.CONTENT
@@ -109,9 +132,9 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         armed = production;
     }
 
-    /** Production preference; on by default, an explicit {@code =false} opts out. */
+    /** Production preference; only an explicit opt-in enables reuse. */
     public static boolean enabledByPreference() {
-        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "true"));
+        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "false"));
     }
 
     private static long snapshotBudget() {
@@ -123,11 +146,79 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         }
     }
 
-    private void lifecycleNotify() {
+    private synchronized void lifecycleNotify() {
         tracker.clearedExternally(ClearKind.LIFECYCLE);
+        observedGl = null;
+        observedContext = null;
+        observedHandle = 0L;
     }
 
-    private void exceptionNotify() {
+    /** Invalidates at render boundaries: no content is carried across unproven context generations. */
+    public static void invalidateUploads() {
+        try {
+            Object slot = System.getProperties().get(LIFECYCLE_PROPERTY);
+            if (slot instanceof Runnable callback) callback.run();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    /** Called only for real host error results, including the real deferred frame-end query. */
+    @SuppressWarnings("unchecked")
+    public static void observeError(Object gl, int error) {
+        try {
+            Object slot = System.getProperties().get(ERROR_PROPERTY);
+            if (slot instanceof BiConsumer<?, ?> callback) ((BiConsumer<Object, Integer>) callback).accept(gl, error);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            invalidateUploads();
+        }
+    }
+
+    private boolean validContext(Object gl) throws Throwable {
+        Object context = (Object) glContext.invokeExact(gl);
+        if (context == null
+                || context != (Object) currentContext.invokeExact()
+                || !(boolean) contextCreated.invokeExact(context)
+                || (boolean) contextShared.invokeExact(context)) {
+            lifecycleNotify();
+            return false;
+        }
+        long handle = (long) contextHandle.invokeExact(context);
+        if (handle == 0L) {
+            lifecycleNotify();
+            return false;
+        }
+        if (observedGl != gl || observedContext != context || observedHandle != handle) {
+            lifecycleNotify();
+            observedGl = gl;
+            observedContext = context;
+            observedHandle = handle;
+        }
+        return true;
+    }
+
+    private synchronized void uploadReturned() {
+        try {
+            if (active.get() && observedGl != null && validContext(observedGl)) tracker.uploadReturned(observedGl);
+            else lifecycleNotify();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            tracker.observerFailed();
+        }
+    }
+
+    private synchronized void checkedError(Object gl, Integer error) {
+        try {
+            if (error != null && error != 0) tracker.checkedError(gl, error);
+            else if (active.get() && error != null && validContext(gl)) tracker.checkedError(gl, error);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            tracker.observerFailed();
+        }
+    }
+
+    private synchronized void exceptionNotify() {
         tracker.clearedExternally(ClearKind.EXCEPTION);
     }
 
@@ -140,6 +231,8 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                     || properties.containsKey(GATE_PROPERTY)
                     || properties.containsKey(LIFECYCLE_PROPERTY)
                     || properties.containsKey(FAILURE_PROPERTY)
+                    || properties.containsKey(RETURN_PROPERTY)
+                    || properties.containsKey(ERROR_PROPERTY)
                     || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException("upload elision slots occupied");
             }
@@ -148,6 +241,8 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 properties.put(GATE_PROPERTY, gate);
                 properties.put(LIFECYCLE_PROPERTY, lifecycle);
                 properties.put(FAILURE_PROPERTY, failureNotify);
+                properties.put(RETURN_PROPERTY, uploadReturn);
+                properties.put(ERROR_PROPERTY, errorObserver);
                 properties.put(STATS_PROPERTY, statistics);
                 installedProperties = properties;
                 active.set(true);
@@ -156,6 +251,8 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 properties.remove(GATE_PROPERTY, gate);
                 properties.remove(LIFECYCLE_PROPERTY, lifecycle);
                 properties.remove(FAILURE_PROPERTY, failureNotify);
+                properties.remove(RETURN_PROPERTY, uploadReturn);
+                properties.remove(ERROR_PROPERTY, errorObserver);
                 properties.remove(STATS_PROPERTY, statistics);
                 throw failure;
             }
@@ -182,9 +279,10 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
      * buffer, position, limit)} and defers the decision to
      * {@link SkippedFrameUploadTracker#consider}.
      */
-    private boolean test(final Object wrapper, final Object gl) {
+    private synchronized boolean test(final Object wrapper, final Object gl) {
         if (!active.get()) return false;
         try {
+            if (!validContext(gl)) return false;
             final Class<?> wrapperType = wrapper.getClass();
             final MethodHandle bufferGet = bufferHandle(wrapperType);
             if (bufferGet == null) {
@@ -243,6 +341,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         armed = false;
+        lifecycleNotify();
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null)
@@ -251,12 +350,14 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
                 properties.remove(GATE_PROPERTY, gate);
                 properties.remove(LIFECYCLE_PROPERTY, lifecycle);
                 properties.remove(FAILURE_PROPERTY, failureNotify);
+                properties.remove(RETURN_PROPERTY, uploadReturn);
+                properties.remove(ERROR_PROPERTY, errorObserver);
                 properties.remove(STATS_PROPERTY, statistics);
             }
     }
 
     /** Work counts only; no interaction benefit is inferred from them. */
-    public Map<String, Long> snapshot() {
+    public synchronized Map<String, Long> snapshot() {
         return tracker.snapshot(armed);
     }
 }

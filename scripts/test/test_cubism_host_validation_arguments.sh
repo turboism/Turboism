@@ -133,7 +133,8 @@ expect_rejected jvm-option-quote 'JVM or hook option contains an unsupported quo
   "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 
 # Job-local Linux environment admits only the reviewed Mesa debug names.
-"${base[@]}" --linux-env 'mesa_glthread=true' --linux-env 'MESA_DEBUG=1' \
+"${base[@]}" --jvm-option '-Dturboism.optimization.uniformLocationCache=true' \
+  --linux-env 'mesa_glthread=true' --linux-env 'MESA_DEBUG=1' \
   --linux-env 'GALLIUM_HUD_PERIOD=0.5' > "$tmp/linux-env.out"
 grep -Fq 'linuxEnvironmentCount=4' "$tmp/linux-env.out" \
   || fail 'admitted Linux environment assignments were not accepted'
@@ -144,21 +145,13 @@ grep -Fq 'linuxEnvironment.2=GALLIUM_HUD_PERIOD=0.5' "$tmp/linux-env.out" \
 grep -Fq 'linuxEnvironment.3=TURBOISM_PROTON=1' "$tmp/linux-env.out" \
   || fail 'the managed Proton marker must always be exported on this path'
 
-# Proton-scoped product options default ON here: no staged config still
-# exports mesa_glthread and injects both properties.
+# Rendering optimizations default OFF even on Proton.
 "${base[@]}" > "$tmp/proton-defaults.out"
-grep -Fq 'mesaGlThread=1' "$tmp/proton-defaults.out" \
-  || fail 'absent launcher.mesaGlThread must default on under Proton'
-grep -Fq 'inputPathElision=1' "$tmp/proton-defaults.out" \
-  || fail 'absent launcher.inputPathElision must default on under Proton'
-grep -Fq 'modelUpdateSkip=1' "$tmp/proton-defaults.out" \
-  || fail 'absent launcher.modelUpdateSkip must default on'
-grep -Fq 'incrementalUpdate=0' "$tmp/proton-defaults.out" \
-  || fail 'absent launcher.incrementalUpdate must default off'
-grep -Fq 'TURBOISM_PROTON=1' "$tmp/proton-defaults.out" \
-  || fail 'managed Proton marker missing from the default export set'
-grep -Fq 'mesa_glthread=true' "$tmp/proton-defaults.out" \
-  || fail 'default-on mesaGlThread must export mesa_glthread=true'
+for option in mesaGlThread inputPathElision modelUpdateSkip incrementalUpdate; do
+  grep -Fq "$option=0" "$tmp/proton-defaults.out" || fail "absent $option must default off"
+done
+grep -Fq 'TURBOISM_PROTON=1' "$tmp/proton-defaults.out" || fail 'managed Proton marker missing'
+if grep -Fq 'mesa_glthread=true' "$tmp/proton-defaults.out"; then fail 'default must not enable Mesa'; fi
 
 # Explicit config false always wins over the Proton default.
 printf '{"launcher":{"mesaGlThread":false,"inputPathElision":false,"modelUpdateSkip":false,"incrementalUpdate":true}}\n' \
@@ -182,7 +175,7 @@ if grep -Fq 'linuxEnvironment' "$tmp/proton-off.out" \
 fi
 
 # Explicit config true keeps both halves enabled.
-printf '{"launcher":{"mesaGlThread":true,"inputPathElision":true}}\n' \
+printf '{"launcher":{"mesaGlThread":true,"inputPathElision":true,"uniformLocationCache":true}}\n' \
   > "$tmp/on-config.json"
 "${base[@]}" --home-config "$tmp/on-config.json" > "$tmp/proton-on.out"
 grep -Fq 'mesaGlThread=1' "$tmp/proton-on.out" \
@@ -214,7 +207,7 @@ fi
 # A driver pinning the Mesa half via --linux-env resolves the whole option:
 # mesa_glthread=true implies the deferred check on the JVM side.
 "${base[@]}" --home-config "$tmp/off-config.json" \
-  --linux-env 'mesa_glthread=true' > "$tmp/env-pin.out"
+  --jvm-option "-Dturboism.optimization.uniformLocationCache=true" --linux-env 'mesa_glthread=true' > "$tmp/env-pin.out"
 grep -Fq 'mesaGlThread=1' "$tmp/env-pin.out" \
   || fail 'an explicit mesa_glthread pin must resolve the whole option on'
 grep -Fq 'linuxEnvironment' "$tmp/env-pin.out" \
@@ -222,7 +215,8 @@ grep -Fq 'linuxEnvironment' "$tmp/env-pin.out" \
   || fail 'the pinned mesa_glthread export must be preserved'
 
 # The JVM uses the last duplicate and Boolean.parseBoolean is case-insensitive.
-"${base[@]}" --jvm-option '-Dturboism.optimization.mesaGlThread=false' \
+"${base[@]}" --jvm-option '-Dturboism.optimization.uniformLocationCache=true' \
+  --jvm-option '-Dturboism.optimization.mesaGlThread=false' \
   --jvm-option '-Dturboism.optimization.mesaGlThread=TRUE' \
   --linux-env 'mesa_glthread=true' > "$tmp/mesa-last.out"
 grep -Eq '^jvmOption\.[0-9]+=-Dturboism.optimization.mesaGlThread=true$' "$tmp/mesa-last.out" \
@@ -264,7 +258,8 @@ JSON
   if grep -Fq 'mesa_glthread=true' "$tmp/mesa-config-dependency.out"; then fail 'config dependency left Mesa enabled'; fi
 done
 "${base[@]}" --home-config "$tmp/dependency.json" \
-  --jvm-option '-Dturboism.optimization.uniformLocationCache=true' > "$tmp/uniform-override.out"
+  --jvm-option '-Dturboism.optimization.uniformLocationCache=true' \
+  --jvm-option '-Dturboism.optimization.mesaGlThread=true' > "$tmp/uniform-override.out"
 grep -Fq 'mesaGlThread=1' "$tmp/uniform-override.out" || fail 'last explicit uniform override must precede dependency resolution'
 printf '{malformed\n' > "$tmp/invalid-config.json"
 "${base[@]}" --home-config "$tmp/invalid-config.json" > "$tmp/mesa-invalid-config.out"

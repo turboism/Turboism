@@ -33,10 +33,10 @@ class NativeOptimizationPolicyTest {
             if (previous == null) System.clearProperty(option.property());
             else System.setProperty(option.property(), previous);
         }
-        dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge.setConfiguredDefault(true);
+        dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge.setConfiguredDefault(false);
         dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge.setConfiguredDefault(
                 false);
-        dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.setConfiguredDefault(true);
+        dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.setConfiguredDefault(false);
     }
 
     private HookEnvironment environment() {
@@ -107,6 +107,7 @@ class NativeOptimizationPolicyTest {
 
     @Test
     void successfulContributorReportsInstallationAndCloseSeparatelyFromPreference() throws Exception {
+        writeChoices(true);
         HookEnvironment env = environment();
         NativeOptimizationPolicy.modelUpdateSkipEnabled(env);
         NativeOptimizationHookContributor installed =

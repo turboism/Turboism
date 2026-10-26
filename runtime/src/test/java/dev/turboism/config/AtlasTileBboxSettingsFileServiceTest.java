@@ -23,10 +23,10 @@ class AtlasTileBboxSettingsFileServiceTest {
     Path home;
 
     @Test
-    void defaultsToEnabledWhenNothingIsPersisted() {
+    void defaultsToDisabledWhenNothingIsPersisted() {
         AtlasTileBboxSettingsFileService service = new AtlasTileBboxSettingsFileService(home);
-        assertTrue(service.read());
-        assertTrue(AtlasTileBboxPreference.read(home));
+        assertFalse(service.read());
+        assertFalse(AtlasTileBboxPreference.read(home));
     }
 
     @Test

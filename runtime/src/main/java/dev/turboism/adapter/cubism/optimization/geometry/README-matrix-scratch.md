@@ -1,6 +1,6 @@
 # Invocation-local matrix scratch candidate
 
-This is a default-OFF candidate, separate from the default-on uniform-location
+This is a default-OFF candidate, separate from the opt-in uniform-location
 cache and the opt-in incremental-model-update experiment. It has not yet passed
 whole-Editor performance acceptance. Do not reuse the uniform cache's speedup.
 

@@ -135,22 +135,22 @@ public interface CubismJvmSettingsService {
      * Launcher preference: when false the next managed Cubism launch adds
      * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed
      * JAVA_TOOL_OPTIONS block so the unchanged-frame skip hook is not
-     * installed. On by default; takes effect on the next launch.
+     * installed. Off by default; takes effect on the next launch.
      */
     default boolean modelUpdateSkip() {
-        return true;
+        return false;
     }
 
-    /** Returns the default-on uniform-location cache preference for verified hosts. */
+    /** Returns the opt-in uniform-location cache preference for verified hosts. */
     default boolean uniformLocationCache() {
-        return true;
+        return false;
     }
 
     /**
      * Launcher preference: when true the next managed Cubism launch enables
      * the skipped-frame buffer-upload elision hook (content compare, still
-     * gated on skipped frames). On by default on every platform; an explicit
-     * false opts out. Takes effect on the next launch.
+     * gated on skipped frames). Off by default on every platform; an explicit
+     * true opts in. Takes effect on the next launch.
      */
     default boolean uploadElision() {
         return false;
@@ -165,8 +165,7 @@ public interface CubismJvmSettingsService {
      * Launcher preference: when true the next managed Cubism launch enables
      * the input-path elision hook (redundant focus/cursor forwards are
      * short-circuited before they reach the native query). The elided path
-     * only exists under Wine/Proton, so the unset default is on there and
-     * off on native Windows; an explicit value always wins. Takes effect on
+     * only exists under Wine/Proton; the unset default is off everywhere; an explicit value always wins. Takes effect on
      * the next launch.
      */
     default boolean inputPathElision() {
@@ -179,14 +178,13 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: under the Linux/Proton launch path the unset
-     * default is on — {@code mesa_glthread=true} is exported and
+     * Launcher preference: when explicitly enabled under Linux/Proton, {@code mesa_glthread=true} is exported and
      * {@code -Dturboism.optimization.mesaGlThread=true} is added, so Mesa
      * submits GL work from a dedicated thread while the deferred error-check
      * hook keeps the shader helper's per-call {@code glGetError} from
      * flushing it. The pair is one combined option — Mesa threading without
      * deferred checking was measured a regression. On native Windows the
-     * unset default is off and launches ignore it entirely; an explicit
+     * default is also off and launches ignore it entirely; an explicit
      * value always wins. Requires Mesa. Takes effect on next launch.
      */
     default boolean mesaGlThread() {

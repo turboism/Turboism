@@ -1011,6 +1011,29 @@ class IncrementalUpdateBridgeTest {
     }
 
     @Test
+    void unsupportedInputsMustDisableInterpolationAndDeformerReuseNotJustMeshReuse() throws Exception {
+        for (String input : List.of("paths", "affecters")) {
+            Loader loader = host();
+            World world = new World(loader);
+            System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+            try (IncrementalUpdateBridge bridge = installed(loader)) {
+                begin().accept(world.epoch());
+                end().accept(world.epoch());
+                set(world.model, input, List.of(new Object()));
+                begin().accept(world.epoch());
+                assertFalse((boolean) field(loader.of(N + "view/ay"), "e"), input);
+                mark().accept(world.parent, world.model);
+                mark().accept(world.child, world.model);
+                assertTrue((boolean) field(world.parent, "dirty"), input);
+                assertTrue((boolean) field(world.child, "dirty"), input);
+                deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+                assertEquals(
+                        1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
+            }
+        }
+    }
+
+    @Test
     void closeRestoresPriorSkipFlag() throws Exception {
         Loader loader = host();
         set(loader.of(N + "view/ay"), "e", true);
