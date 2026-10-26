@@ -22,9 +22,9 @@ class TriangulationEdgeIndexSettingsFileServiceTest {
     Path home;
 
     @Test
-    void defaultsToEnabledWhenNothingIsPersisted() {
+    void defaultsToDisabledWhenNothingIsPersisted() {
         TriangulationEdgeIndexSettingsFileService service = new TriangulationEdgeIndexSettingsFileService(home);
-        assertTrue(service.read());
+        assertFalse(service.read());
     }
 
     @Test

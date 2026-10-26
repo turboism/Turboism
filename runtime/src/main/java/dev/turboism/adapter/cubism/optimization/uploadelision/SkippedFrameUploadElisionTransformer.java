@@ -30,9 +30,10 @@ import org.objectweb.asm.Opcodes;
  *   {@code glGenBuffers} regeneration block, dirty-flag clearing and the
  *   trailing {@code a(gl)} bookkeeping are untouched;</li>
  *   <li>each upload call is wrapped in a {@code Throwable} handler that
- *   notifies a {@code Runnable} slot and rethrows;</li>
- *   <li>the {@code glGenBuffers} site notifies a lifecycle {@code Runnable}
- *   slot so a regenerated buffer clears the tracker.</li>
+ *   notifies a {@code Runnable} slot and rethrows; normal returns stage
+ *   candidate content without confirming GL success;</li>
+ *   <li>the regeneration branch notifies a lifecycle {@code Runnable} before
+ *   deleting/generating buffers, so even an exceptional regeneration clears the tracker.</li>
  * </ul>
  *
  * <p>Every consult goes through {@link System#getProperties()} slots holding
@@ -194,7 +195,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
         /** 0 none, 1 = previous instruction was {@code ILOAD 3}, 2 = {@code invokevirtual k()Z}. */
         private int pending;
 
-        private int iload3Ifeq, guards, wrappedCalls, genNotifies, maxVar = 3;
+        private int iload3Ifeq, guards, wrappedCalls, genNotifies, genCalls, maxVar = 3;
 
         UploadVisitor(final MethodVisitor visitor) {
             super(Opcodes.ASM9, visitor);
@@ -241,8 +242,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             if (opcode == Opcodes.INVOKEINTERFACE && itf && GL.equals(methodOwner)) {
                 if (GENBUFFERS.equals(method) && GENBUFFERS_DESC.equals(descriptor)) {
                     super.visitMethodInsn(opcode, methodOwner, method, descriptor, itf);
-                    emitRunnableConsult(SkippedFrameUploadElisionBridge.LIFECYCLE_PROPERTY);
-                    genNotifies++;
+                    genCalls++;
                     return;
                 }
                 if ((SUBDATA.equals(method) && SUBDATA_DESC.equals(descriptor))
@@ -252,6 +252,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
                     super.visitLabel(callStart);
                     super.visitMethodInsn(opcode, methodOwner, method, descriptor, itf);
                     super.visitLabel(callEnd);
+                    emitRunnableConsult(SkippedFrameUploadElisionBridge.RETURN_PROPERTY);
                     wrappedCalls++;
                     return;
                 }
@@ -265,7 +266,11 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             if (opcode == Opcodes.IFEQ && was == 1) {
                 iload3Ifeq++;
                 super.visitJumpInsn(opcode, label);
-                if (iload3Ifeq == 2) {
+                if (iload3Ifeq == 1) {
+                    // Invalidate before deletion/regeneration, including exceptional exits.
+                    emitRunnableConsult(SkippedFrameUploadElisionBridge.LIFECYCLE_PROPERTY);
+                    genNotifies++;
+                } else if (iload3Ifeq == 2) {
                     emitElisionGuard(deferredJoin);
                     guards++;
                 }
@@ -336,7 +341,12 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
         }
 
         boolean complete() {
-            return joinVisited && iload3Ifeq == 2 && guards == 2 && wrappedCalls == 2 && genNotifies == 1;
+            return joinVisited
+                    && iload3Ifeq == 2
+                    && guards == 2
+                    && wrappedCalls == 2
+                    && genNotifies == 1
+                    && genCalls == 1;
         }
 
         String describe() {

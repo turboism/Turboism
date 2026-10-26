@@ -30,12 +30,61 @@ public class SkippedFrameUploadTrackerTest {
             final int limit,
             final boolean skipped,
             final boolean armed) {
-        return tracker.consider(
+        boolean elided = tracker.consider(
                 context, name, size, payload, position, limit, skipped, armed, SkippedFrameUploadTracker.Kind.INDEX);
+        if (!elided) {
+            tracker.uploadReturned(context);
+            tracker.checkedError(context, 0);
+        }
+        return elided;
     }
 
     private boolean upload(final SkippedFrameUploadTracker tracker) {
         return upload(tracker, gl, 7, 16, buffer, 0, 8, true, true);
+    }
+
+    private boolean consult(SkippedFrameUploadTracker tracker) {
+        return tracker.consider(gl, 7, 16, buffer, 0, 8, true, true, SkippedFrameUploadTracker.Kind.INDEX);
+    }
+
+    @Test
+    void candidatesAndNormalReturnsCannotEstablishGpuBaseline() {
+        var tracker = new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        assertFalse(consult(tracker));
+        tracker.checkedError(gl, 0); // Check before the upload cannot confirm it.
+        assertFalse(consult(tracker));
+        tracker.uploadReturned(gl);
+        assertFalse(consult(tracker)); // Native return alone cannot confirm it either.
+        tracker.uploadReturned(gl);
+        tracker.checkedError(new Object(), 0); // Wrong GL cannot confirm this upload.
+        assertFalse(consult(tracker));
+        tracker.uploadReturned(gl);
+        tracker.checkedError(gl, 0);
+        assertTrue(consult(tracker));
+    }
+
+    @Test
+    void silentGlErrorsInvalidateBothConfirmedAndPendingUploads() {
+        var tracker = new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        assertFalse(consult(tracker));
+        tracker.uploadReturned(gl);
+        tracker.checkedError(gl, 1282); // GL error with no Java exception.
+        assertFalse(consult(tracker));
+        tracker.uploadReturned(gl);
+        tracker.checkedError(gl, 0);
+        assertTrue(consult(tracker));
+        tracker.checkedError(gl, 1285);
+        assertFalse(consult(tracker));
+    }
+
+    @Test
+    void lifecycleBetweenUploadAndCheckDiscardsCandidate() {
+        var tracker = new SkippedFrameUploadTracker(SkippedFrameUploadTracker.Compare.CONTENT);
+        assertFalse(consult(tracker));
+        tracker.uploadReturned(gl);
+        tracker.clearedExternally(SkippedFrameUploadTracker.ClearKind.LIFECYCLE);
+        tracker.checkedError(gl, 0);
+        assertFalse(consult(tracker));
     }
 
     @Test

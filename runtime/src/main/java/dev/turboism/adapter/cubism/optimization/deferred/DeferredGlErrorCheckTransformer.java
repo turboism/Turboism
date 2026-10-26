@@ -47,15 +47,11 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     public static final String ENABLE_PROPERTY = "turboism.optimization.mesaGlThread";
 
     /**
-     * The production switch: an unset property defaults to on under
-     * Wine/Proton (the only launch the option targets) and off on native
-     * Windows; an explicit {@code =true}/{@code =false} always wins.
+     * The production switch: an unset property defaults to off everywhere; an explicit {@code =true}/{@code =false} always wins.
      */
     public static boolean enabledByPreference() {
         final String explicit = System.getProperty(ENABLE_PROPERTY);
-        return explicit == null
-                ? dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()
-                : Boolean.parseBoolean(explicit);
+        return Boolean.parseBoolean(explicit);
     }
 
     private static final String GL_OWNER = "com/jogamp/opengl/GL";

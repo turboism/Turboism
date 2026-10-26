@@ -385,7 +385,7 @@ public final class TurboismAgent {
     }
 
     static boolean meshInterpolationRequested(final String option) {
-        return option == null || Boolean.parseBoolean(option);
+        return Boolean.parseBoolean(option);
     }
 
     static boolean modelSerializationEnabled(
@@ -401,7 +401,7 @@ public final class TurboismAgent {
     }
 
     static boolean shaderUniformRequested(final String option) {
-        return option == null || Boolean.parseBoolean(option);
+        return Boolean.parseBoolean(option);
     }
 
     private static void disableHookCapabilities(final HookContributor contributor, final HookEnvironment environment) {

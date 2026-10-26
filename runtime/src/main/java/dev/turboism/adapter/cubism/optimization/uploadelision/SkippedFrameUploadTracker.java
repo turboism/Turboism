@@ -23,14 +23,14 @@ import java.util.Map;
  * position/limit must match the baseline — no payload bytes are compared.
  * In {@link Compare#CONTENT} mode a matching meta signature is additionally
  * verified by raw-bit comparison against a private snapshot of the last
- * uploaded payload; different buffer objects carrying identical bytes elide
+ * confirmed payload; different buffer objects carrying identical bytes elide
  * the same way, and a same-object in-place refill still passes. Snapshots cost
  * memory: {@code snapshotBytes} reports the live retained payload bytes,
  * {@code snapshotBytesPeak} the high-water mark, and
  * {@code compares}/{@code compareNanos} the comparison work.</p>
  *
- * <p>Every executed upload (skipped frame or not) re-records the baseline, so
- * the first qualifying upload always passes. Context changes, buffer lifecycle
+ * <p>Each consult records only candidate content. Native return stages it, and
+ * an existing real error check must confirm it before reuse. No check means no reuse. Context changes, buffer lifecycle
  * events, non-skipped frames and observer failures clear the whole table.
  * Entries live in an open-addressed table that grows from
  * {@link #INITIAL_SLOTS} up to {@link #MAX_SLOTS} on probe exhaustion and
@@ -87,6 +87,7 @@ final class SkippedFrameUploadTracker {
     private final Compare compare;
     private final long maxSnapshotBytes;
     private Entry[] entries;
+    private Entry candidate;
     // Preserve context-change accounting without pinning the host after clearAll.
     private java.lang.ref.WeakReference<Object> currentGl = new java.lang.ref.WeakReference<>(null);
     private Thread observedThread;
@@ -114,7 +115,7 @@ final class SkippedFrameUploadTracker {
         Object gl, buffer, snapshot;
         int name, position, limit;
         long size, snapshotSize;
-        boolean occupied;
+        boolean occupied, uploaded, confirmed;
     }
 
     SkippedFrameUploadTracker() {
@@ -152,6 +153,7 @@ final class SkippedFrameUploadTracker {
             final boolean skipped,
             final boolean armed,
             final Kind kind) {
+        candidate = null;
         calls++;
         if (kind != null) kindCalls[kind.ordinal()]++;
         try {
@@ -189,7 +191,7 @@ final class SkippedFrameUploadTracker {
                 }
             }
             final Entry entry = entries[slot];
-            final boolean matched = entry.occupied && entry.gl == gl && entry.name == name;
+            final boolean matched = entry.occupied && entry.confirmed && entry.gl == gl && entry.name == name;
             final PassReason reason;
             final boolean elide;
             if (!skipped || !armed) {
@@ -250,6 +252,30 @@ final class SkippedFrameUploadTracker {
         }
     }
 
+    /** Normal native return only stages a candidate; it does not prove GL success. */
+    void uploadReturned(final Object gl) {
+        final Entry pending = candidate;
+        candidate = null;
+        if (pending == null) return; // No snapshot/table slot: native upload remains untracked.
+        if (pending.occupied && pending.gl == gl && observedThread == Thread.currentThread()) {
+            pending.uploaded = true;
+        } else {
+            clearAll(ClearKind.EXCEPTION);
+        }
+    }
+
+    /** Observes an existing real GL check, never a synthetic deferred-check zero. */
+    void checkedError(final Object gl, final int error) {
+        if (error != 0 || observedThread != Thread.currentThread()) {
+            clearAll(ClearKind.EXCEPTION);
+            return;
+        }
+        if (gl != currentGl.get()) return;
+        for (final Entry entry : entries) {
+            if (entry.occupied && entry.gl == gl && entry.uploaded) entry.confirmed = true;
+        }
+    }
+
     /** External clear notification (buffer lifecycle or upload exception). */
     void clearedExternally(final ClearKind kind) {
         clearAll(kind);
@@ -283,6 +309,9 @@ final class SkippedFrameUploadTracker {
             final Object buffer,
             final int position,
             final int limit) {
+        entry.confirmed = false;
+        entry.uploaded = false;
+        candidate = entry;
         entry.gl = gl;
         entry.name = name;
         entry.size = size;
@@ -359,10 +388,12 @@ final class SkippedFrameUploadTracker {
      * the table size; snapshots replace older ones per entry.
      */
     private void refreshSnapshot(final Entry entry, final Buffer buffer, final long size) {
-        // Retained-payload budget: refuse the copy and keep any older snapshot
-        // (stale content just mismatches and passes — fail-open, no eviction).
+        // An older snapshot must never be confirmed as the newly uploaded payload.
         if (snapshotBytes - entry.snapshotSize + size > maxSnapshotBytes) {
             snapshotBudgetSkips++;
+            snapshotBytes -= entry.snapshotSize;
+            entry.snapshot = null;
+            entry.snapshotSize = 0;
             return;
         }
         final Buffer duplicate = buffer.duplicate();
@@ -424,6 +455,8 @@ final class SkippedFrameUploadTracker {
                 moved.limit = entry.limit;
                 moved.snapshot = entry.snapshot;
                 moved.snapshotSize = entry.snapshotSize;
+                moved.uploaded = entry.uploaded;
+                moved.confirmed = entry.confirmed;
                 moved.occupied = true;
             }
             entries = bigger;
@@ -443,8 +476,11 @@ final class SkippedFrameUploadTracker {
     }
 
     private void clearAll(final ClearKind kind) {
+        candidate = null;
         for (final Entry entry : entries) {
             entry.occupied = false;
+            entry.uploaded = false;
+            entry.confirmed = false;
             entry.gl = null;
             entry.buffer = null;
             entry.snapshot = null;
