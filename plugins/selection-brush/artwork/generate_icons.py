@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Render the original Selection Brush artwork. Requires Python 3 and Pillow.
 
-The six 32px states retain the toolbar's neutral palette and pressed/selected
+The six 32px states, each in a light and a "-dark" variant, retain the toolbar's neutral palette and pressed/selected
 contrast, with a Turboism corner signature to identify the plugin tool.
 The default glyph has a transparent background and no frame.
 The artwork is drawn here, without using host assets.
-Run from any directory; only this plugin's six PNG resources are overwritten.
+The runtime picks the "-dark" sibling of each icon when the host look-and-feel is dark.
+Run from any directory; only this plugin's twelve PNG resources are overwritten.
 """
 
 from pathlib import Path
@@ -29,6 +30,17 @@ STATES = (
     ("-selected", "#b3b2b3", "#cbcbca", "#656767"),
     ("-disabled", "#f2f2f2", "#e8e8e8", "#c6c6c6"),
     ("-disabled-selected", "#e2e2e2", "#e8e8e8", "#c6c6c6"),
+)
+
+
+# Dark-theme counterparts, mirroring the native dark toolbar contrast.
+DARK_STATES = (
+    ("", None, None, "#c9c9c9"),
+    ("-active", "#5c5c5c", "#7a7a7a", "#f0f0f0"),
+    ("-rollover", "#4a4a4a", "#626262", "#d8d8d8"),
+    ("-selected", "#6a6a6a", "#7a7a7a", "#f0f0f0"),
+    ("-disabled", "#2f2f2f", "#3a3a3a", "#666666"),
+    ("-disabled-selected", "#3a3a3a", "#3a3a3a", "#666666"),
 )
 
 
@@ -97,8 +109,9 @@ def render(background, frame, foreground, mask):
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     mask = glyph_mask()
-    for suffix, background, frame, foreground in STATES:
-        path = OUTPUT / f"selection-brush{suffix}.png"
+    variants = [(s, "") for s in STATES] + [(s, "-dark") for s in DARK_STATES]
+    for (suffix, background, frame, foreground), theme in variants:
+        path = OUTPUT / f"selection-brush{suffix}{theme}.png"
         image = render(background, frame, foreground, mask)
         with_plugin_badge(image, disabled="disabled" in suffix).save(path, optimize=True)
         print(path.relative_to(OUTPUT.parent))
