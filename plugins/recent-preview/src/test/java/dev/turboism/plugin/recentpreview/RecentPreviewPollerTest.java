@@ -89,6 +89,14 @@ final class RecentPreviewPollerTest {
     }
 
     @Test
+    void rechecksUnchangedDocumentsAfterTheCaptureInterval() {
+        assertEquals(Optional.of(ONE), poller.sample(List.of(file(ONE, T0))));
+        assertEquals(Optional.empty(), poller.sample(List.of(file(ONE, T0))));
+        now.addAndGet(RecentPreviewPoller.MIN_CAPTURE_INTERVAL.toMillis());
+        assertEquals(Optional.of(ONE), poller.sample(List.of(file(ONE, T0))));
+    }
+
+    @Test
     void doesNotSuppressTheFirstEmissionEver() {
         assertTrue(poller.sample(List.of(file(ONE, T0))).isPresent());
     }
