@@ -129,6 +129,7 @@ final class StartupLoadingWindow implements AutoCloseable {
 
     private void showWindow() {
         window = new Dialog((Frame) null, "Turboism", false);
+        window.setUndecorated(true);
         window.setName("turboism-startup-loading");
         window.setResizable(false);
         window.setAutoRequestFocus(false);
