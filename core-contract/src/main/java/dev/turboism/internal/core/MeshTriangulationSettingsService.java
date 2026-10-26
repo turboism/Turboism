@@ -14,7 +14,7 @@ package dev.turboism.internal.core;
 public interface MeshTriangulationSettingsService {
 
     /** Default when nothing is persisted: the fix is on. */
-    boolean DEFAULT_ENABLED = true;
+    boolean DEFAULT_ENABLED = false;
 
     /** @return the persisted preference, or {@link #DEFAULT_ENABLED} when unset */
     boolean read();

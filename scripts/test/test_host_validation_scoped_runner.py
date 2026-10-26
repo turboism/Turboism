@@ -212,6 +212,8 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                 # Explicitly opt out; the deferred cases below opt in separately.
                 "--jvm-option", "-Dturboism.optimization.mesaGlThread=" + str(mesa).lower()]
             task_spec = "scoped-test:5302"
+            if mesa:
+                command += ["--jvm-option", "-Dturboism.optimization.uniformLocationCache=true"]
             if deferred is not None:
                 command[command.index("--name") + 1] = "mcp"
                 command[command.index("--result-file") + 1] = "state/mcp-host-validation.properties"

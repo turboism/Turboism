@@ -187,9 +187,9 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
-    void uniformLocationPreferenceDefaultsOnAndSurvivesReopen() throws Exception {
+    void uniformLocationPreferenceDefaultsOffAndSurvivesReopen() throws Exception {
         try (CubismJvmSettingsFileService settings = service(Map.of())) {
-            assertTrue(settings.uniformLocationCache());
+            assertFalse(settings.uniformLocationCache());
             settings.saveModelUpdateSkip(false);
             assertFalse(settings.saveUniformLocationCache(false));
             assertFalse(settings.uniformLocationCache());
@@ -208,9 +208,9 @@ class CubismJvmSettingsFileServiceTest {
     @Test
     void nativeDefaultsAndExplicitOverrides() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
-            assertTrue(service.modelUpdateSkip());
-            assertTrue(service.uniformLocationCache());
-            assertTrue(service.uploadElision(), "upload elision defaults on everywhere");
+            assertFalse(service.modelUpdateSkip());
+            assertFalse(service.uniformLocationCache());
+            assertFalse(service.uploadElision(), "rendering optimizations require opt-in on every platform");
             assertFalse(service.incrementalUpdate());
             assertFalse(service.inputPathElision(), "input-path elision defaults off natively");
             assertFalse(service.mesaGlThread(), "mesa glthread defaults off natively");
@@ -225,7 +225,7 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(reopened.inputPathElision(), "explicit input-path opt-in survives restart");
             assertTrue(reopened.mesaGlThread(), "explicit mesa-glthread opt-in survives restart");
             assertFalse(reopened.uploadElision(), "explicit upload-elision opt-out survives restart");
-            assertTrue(reopened.uniformLocationCache());
+            assertFalse(reopened.uniformLocationCache());
             reopened.saveIncrementalUpdate(false);
             reopened.saveInputPathElision(false);
             reopened.saveMesaGlThread(false);
@@ -246,9 +246,9 @@ class CubismJvmSettingsFileServiceTest {
     void protonDefaultsAndExplicitOverrides() throws Exception {
         final Map<String, String> proton = Map.of(dev.turboism.runtime.env.ProtonEnvironment.MANAGED_MARKER, "1");
         try (CubismJvmSettingsFileService service = service(proton)) {
-            assertTrue(service.uploadElision(), "upload elision defaults on under Proton too");
-            assertTrue(service.inputPathElision(), "input-path elision defaults on under Proton");
-            assertTrue(service.mesaGlThread(), "mesa glthread defaults on under Proton");
+            assertFalse(service.uploadElision(), "rendering optimizations require opt-in on every platform");
+            assertFalse(service.inputPathElision(), "rendering optimizations require opt-in on every platform");
+            assertFalse(service.mesaGlThread(), "rendering optimizations require opt-in on every platform");
             assertFalse(service.incrementalUpdate(), "unrelated opt-in stays off");
             // Explicit choices persist even when they match this platform default.
             assertTrue(service.saveInputPathElision(true));
@@ -276,13 +276,11 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
-    void protonMarkerVariantsDriveThePlatformDefault() throws Exception {
-        // Only the managed marker is authoritative for the platform default;
-        // ambient Wine variables are user-settable on native Windows and must
-        // never flip it.
+    void protonMarkersDoNotEnableRenderingOptimizations() throws Exception {
+        // Platform markers never implicitly enable rendering optimizations.
         try (CubismJvmSettingsFileService service = service(Map.of("TURBOISM_PROTON", "1"))) {
-            assertTrue(service.inputPathElision());
-            assertTrue(service.mesaGlThread());
+            assertFalse(service.inputPathElision());
+            assertFalse(service.mesaGlThread());
         }
         for (final Map<String, String> env : java.util.List.of(
                 Map.of("WINEPREFIX", "/pfx"),

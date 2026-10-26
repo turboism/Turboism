@@ -17,9 +17,9 @@ import org.junit.jupiter.api.Test;
 class TriangulationEdgeIndexSettingsContributionTest {
 
     @Test
-    void defaultIsEnabledWhenNothingWasPersisted() {
-        assertTrue(TriangulationEdgeIndexSettingsService.DEFAULT_ENABLED);
-        assertTrue(TriangulationEdgeIndexSettingsService.unavailable().read());
+    void defaultIsDisabledWhenNothingWasPersisted() {
+        assertFalse(TriangulationEdgeIndexSettingsService.DEFAULT_ENABLED);
+        assertFalse(TriangulationEdgeIndexSettingsService.unavailable().read());
     }
 
     @Test

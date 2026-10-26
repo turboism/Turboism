@@ -142,6 +142,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -160,6 +162,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -178,6 +182,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -196,6 +202,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -214,6 +222,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -232,6 +242,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -250,6 +262,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -268,6 +282,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -286,6 +302,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -304,6 +322,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -322,6 +342,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -340,6 +362,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -358,6 +382,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -376,6 +402,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -394,6 +422,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -412,6 +442,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -430,6 +462,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -448,6 +482,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -466,6 +502,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -484,6 +522,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -502,6 +542,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -520,6 +562,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -538,6 +582,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -556,6 +602,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -574,6 +622,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -592,6 +642,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -610,6 +662,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -628,6 +682,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -646,6 +702,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -664,6 +722,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -682,6 +742,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -700,6 +762,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -718,6 +782,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -736,6 +802,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -754,6 +822,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ]
@@ -1078,6 +1148,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1122,6 +1194,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1164,6 +1238,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1208,6 +1284,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1254,6 +1332,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1513,6 +1593,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1544,6 +1626,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1575,6 +1659,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1629,6 +1715,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1660,6 +1748,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -1691,6 +1781,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2040,6 +2132,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2071,6 +2165,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2102,6 +2198,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2133,6 +2231,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2164,6 +2264,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2195,6 +2297,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2226,6 +2330,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2257,6 +2363,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2288,6 +2396,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2319,6 +2429,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2350,6 +2462,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2860,6 +2974,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -2892,6 +3008,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4378,6 +4496,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4409,6 +4529,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4440,6 +4562,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4541,6 +4665,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4571,6 +4697,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4754,6 +4882,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -4785,6 +4915,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -5023,6 +5155,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -5054,6 +5188,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -5085,6 +5221,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -5139,6 +5277,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -5170,6 +5310,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],
@@ -5201,6 +5343,8 @@
           "-Dturboism.validation.startupAssistance=true",
           "--jvm-option",
           "-Dturboism.optimization.mesaGlThread=true",
+          "--jvm-option",
+          "-Dturboism.optimization.uniformLocationCache=true",
           "--linux-env",
           "mesa_glthread=true"
         ],

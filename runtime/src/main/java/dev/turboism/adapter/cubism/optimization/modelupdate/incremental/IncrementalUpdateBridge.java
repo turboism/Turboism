@@ -387,8 +387,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             pendingUpdate =
                     new UpdateBaseline(model, ctx, source, parameters, document, documentModified, editing, enabled);
             final boolean probe = Boolean.getBoolean(PROBE_PROPERTY);
-            epochFull = !enabled || authoringFull || (probe && (epochs.sum() & 1L) == 1L);
             epochUnsafe = !enabled || unsafe(model);
+            epochFull = epochUnsafe || authoringFull || (probe && (epochs.sum() & 1L) == 1L);
             setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(enabled && !epochFull));
             if (probe) {
                 currentInputs = inputsVersion(model, ctx);

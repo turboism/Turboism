@@ -482,8 +482,8 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         /**
          * When the upstream glGetError elision composed this body, its reviewed
          * {@code pop; iconst_0} pair stands in for the elided query: the
-         * observed result is the constant {@code GL_NO_ERROR} the elision
-         * guarantees, so the same confirmation callback is emitted after the
+         * synthetic result is the constant {@code GL_NO_ERROR} the elision
+         * guarantees, so a separate nonconfirming callback is emitted after the
          * constant is pushed. Inert unless {@link #elision} is set.
          */
         private final boolean elision;
@@ -540,7 +540,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                 super.visitInsn(opcode);
                 super.visitVarInsn(Opcodes.ISTORE, base + 1);
                 guarded(
-                        UniformLocationHookBridge.ERROR_PROPERTY,
+                        UniformLocationHookBridge.SYNTHETIC_ERROR_PROPERTY,
                         "(Ljava/lang/Object;I)V",
                         () -> {
                             super.visitVarInsn(Opcodes.ALOAD, errorGl);
