@@ -194,8 +194,8 @@ final class CubismJvmSettingsContribution {
 
     /**
      * Launch-time preference toggles for the verified model-update
-     * optimizations. Verified unchanged-frame reuse defaults on; experimental
-     * incremental updates require opt-in. The writer persists the
+     * optimizations. Unchanged-frame reuse and incremental updates require
+     * explicit opt-in. The writer persists the
      * global preference for the next launch. Running hooks retain their startup
      * configuration so dependent optimizations cannot enter a partially switched state.
      */
@@ -223,7 +223,7 @@ final class CubismJvmSettingsContribution {
                 81);
     }
 
-    /** Saved default-on preference; unsupported hosts still use their native renderer. */
+    /** Saved opt-in preference; unsupported hosts still use their native renderer. */
     static SettingsContribution createUniformLocationCacheToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         Objects.requireNonNull(settings, "settings");

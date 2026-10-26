@@ -39,7 +39,7 @@ final class MeshInterpolationHookContributor implements HookContributor {
                 policy,
                 TurboismAgent.meshInterpolationRequested(System.getProperty("turboism.meshInterpolation.enabled")));
         final boolean serialization = TurboismAgent.modelSerializationEnabled(
-                policy, Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "true")));
+                policy, Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "false")));
         return interpolation || serialization;
     }
 
@@ -50,7 +50,7 @@ final class MeshInterpolationHookContributor implements HookContributor {
                 policy,
                 TurboismAgent.meshInterpolationRequested(System.getProperty("turboism.meshInterpolation.enabled")));
         final boolean serialization = TurboismAgent.modelSerializationEnabled(
-                policy, Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "true")));
+                policy, Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "false")));
         try {
             return dev.turboism.adapter.cubism.interpolation.VerifiedMeshInterpolationInstaller.install(
                     environment.instrumentation(),

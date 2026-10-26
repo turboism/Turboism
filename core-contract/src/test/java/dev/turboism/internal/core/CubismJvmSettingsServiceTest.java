@@ -25,8 +25,8 @@ class CubismJvmSettingsServiceTest {
         assertFalse(service.graalVmAvailable());
         assertEquals(MemoryProfile.SYSTEM, service.memoryProfile());
         assertTrue(service.zgc());
-        assertTrue(service.modelUpdateSkip());
-        assertTrue(service.uniformLocationCache());
+        assertFalse(service.modelUpdateSkip());
+        assertFalse(service.uniformLocationCache());
         assertFalse(service.reduceAutoBackup());
         assertFalse(service.uploadElision());
         assertFalse(service.inputPathElision());

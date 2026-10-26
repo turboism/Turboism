@@ -72,7 +72,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private static final String AS = "com.live2d.cubism.setting.AppSetting";
     private static final String FT = "com.live2d.cubism.doc.animation.formAnimation.t";
 
-    private static volatile boolean configuredDefault = true;
+    private static volatile boolean configuredDefault = false;
 
     private final ModelUpdateSkipTarget target;
     private final Class<?> modelingViewType, modelingDocumentType, editModeType, meshFormType, pathFormType;
@@ -348,11 +348,11 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         configuredDefault = enabled;
     }
 
-    /** The optimization is enabled unless the property or persisted config is set to {@code false}. */
+    /** Reuse requires an explicit property or persisted opt-in. */
     public static boolean flagEnabled() {
         try {
             final String explicit = System.getProperty(ENABLE_PROPERTY);
-            return explicit == null ? configuredDefault : !"false".equalsIgnoreCase(explicit);
+            return explicit == null ? configuredDefault : Boolean.parseBoolean(explicit);
         } catch (SecurityException denied) {
             return false;
         }
@@ -798,7 +798,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         skippedFrame.set(false);
-        configuredDefault = true;
+        configuredDefault = false;
         lastFrame = null;
         pendingFrame = null;
         lastSource = null;

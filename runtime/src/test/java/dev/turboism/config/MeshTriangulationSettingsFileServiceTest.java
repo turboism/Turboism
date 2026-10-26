@@ -22,9 +22,9 @@ class MeshTriangulationSettingsFileServiceTest {
     Path home;
 
     @Test
-    void defaultsToEnabledWhenNothingIsPersisted() {
+    void defaultsToDisabledWhenNothingIsPersisted() {
         MeshTriangulationSettingsFileService service = new MeshTriangulationSettingsFileService(home);
-        assertTrue(service.read());
+        assertFalse(service.read());
     }
 
     @Test

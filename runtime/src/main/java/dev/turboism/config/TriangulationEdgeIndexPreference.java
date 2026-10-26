@@ -15,7 +15,7 @@ public final class TriangulationEdgeIndexPreference {
     /** Config key holding the preference. */
     public static final String KEY = "meshTriangulationEdgeIndex";
     /** Default when nothing is persisted: the weave is on. */
-    public static final boolean DEFAULT_ENABLED = true;
+    public static final boolean DEFAULT_ENABLED = false;
 
     private TriangulationEdgeIndexPreference() {}
 
