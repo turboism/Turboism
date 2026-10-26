@@ -5,7 +5,7 @@ import java.util.Objects;
 
 /**
  * One dialog row: a bound source snapshot, the chosen target parameter,
- * and whether the transferred binding is inverted.
+ * and whether the binding is inverted (in place when the target is the source).
  */
 public record BatchTransferRow(BoundParameterSnapshot snapshot, ParameterId target, boolean invert) {
     public BatchTransferRow {

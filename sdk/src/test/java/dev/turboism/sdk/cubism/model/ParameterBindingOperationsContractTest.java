@@ -11,6 +11,15 @@ import org.junit.jupiter.api.Test;
 class ParameterBindingOperationsContractTest {
 
     @Test
+    void identicalParametersRequireInversion() {
+        final ParameterId id = new ParameterId("from");
+        final List<ParameterBindingTarget> targets = List.of(ParameterBindingTarget.artMesh(new ArtMeshId("mesh")));
+
+        new ParameterBindingTransferPlan(id, id, targets, true);
+        assertThrows(IllegalArgumentException.class, () -> new ParameterBindingTransferPlan(id, id, targets, false));
+    }
+
+    @Test
     void modelBindingOperationsRemainExplicitAndFailClosedByDefault() {
         final CubismModel model = new CubismModel() {
             @Override

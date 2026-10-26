@@ -24,6 +24,35 @@ class EditorParameterBindingMorphTransferTest {
     private static final ParameterBindingTarget OWNER = ParameterBindingTarget.artMesh(new ArtMeshId("mesh"));
 
     @Test
+    void selfInversionKeepsMorphBindingsAndCanBeUndone() {
+        final Fixture fixture = fixture(-3.0F, 3.0F, -2.0F, 0.25F, 2.0F);
+        final HostMorphTarget other = new HostMorphTarget("to", 0.9F);
+        fixture.objectSource.set.targets.add(other);
+
+        access(fixture)
+                .transferMorphClamped(new ParameterBindingTransferPlan(
+                        new ParameterId("from"), new ParameterId("from"), List.of(OWNER), true));
+
+        assertEquals(
+                List.of("from", "from", "from", "to"),
+                fixture.objectSource.set.targets.stream()
+                        .map(target -> target.parameterGuid.value)
+                        .toList());
+        assertEquals(
+                List.of(2.0F, -0.25F, -2.0F, 0.9F),
+                fixture.objectSource.set.targets.stream()
+                        .map(target -> target.keyValue)
+                        .toList());
+        assertEquals(1, fixture.editMode.edits.size());
+        fixture.editMode.undo();
+        assertEquals(
+                List.of(-2.0F, 0.25F, 2.0F, 0.9F),
+                fixture.objectSource.set.targets.stream()
+                        .map(target -> target.keyValue)
+                        .toList());
+    }
+
+    @Test
     void transfersAllMorphPointsWithWideRangeAndOneUndo() {
         final Fixture fixture = fixture(-3.0F, 3.0F, -2.0F, 0.25F, 2.0F);
 

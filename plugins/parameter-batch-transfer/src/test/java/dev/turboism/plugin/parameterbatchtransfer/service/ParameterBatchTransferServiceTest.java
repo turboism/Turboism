@@ -241,6 +241,76 @@ class ParameterBatchTransferServiceTest {
     }
 
     @Test
+    void selfInvertedRowsApplyAlongsideTransfersAndUnchangedRows() {
+        final FakeModel model = new FakeModel();
+        model.parameters.add(new FakeParameter("p1", "One", ParameterType.NORMAL, false));
+        model.parameters.add(new FakeParameter("p2", "Two", ParameterType.BLEND_SHAPE, false));
+        model.parameters.add(new FakeParameter("p3", "Three", ParameterType.NORMAL, false));
+        model.parameters.add(new FakeParameter("p4", "Four", ParameterType.NORMAL, false));
+        final ParameterBindingTarget owner = ParameterBindingTarget.artMesh(new ArtMeshId("mesh-1"));
+
+        final BatchTransferOutcome outcome = service.apply(
+                model,
+                owner,
+                List.of(
+                        new BatchTransferRow(bound("p1", "One", ""), new ParameterId("p1"), true),
+                        new BatchTransferRow(bound("p2", "Two", "M"), new ParameterId("p2"), true),
+                        BatchTransferRow.keep(bound("p3", "Three", "")),
+                        new BatchTransferRow(bound("p4", "Four", ""), new ParameterId("p5"), false)));
+
+        // The last transfer fails because p5 no longer exists; both inversions still succeed.
+        assertEquals(2, outcome.applied());
+        assertEquals(1, outcome.failed());
+        assertEquals(
+                List.of(new ParameterBindingTransferPlan(
+                        new ParameterId("p1"), new ParameterId("p1"), List.of(owner), true)),
+                model.batch.clampedPlans);
+        assertEquals(
+                List.of(new ParameterBindingTransferPlan(
+                        new ParameterId("p2"), new ParameterId("p2"), List.of(owner), true)),
+                model.batch.morphPlans);
+    }
+
+    @Test
+    void failedSelfInversionDoesNotPreventLaterTransfers() {
+        final FakeModel model = new FakeModel();
+        model.parameters.add(new FakeParameter("p1", "One", ParameterType.NORMAL, false));
+        model.parameters.add(new FakeParameter("p2", "Two", ParameterType.NORMAL, false));
+        model.parameters.add(new FakeParameter("p3", "Three", ParameterType.NORMAL, false));
+        model.batch.failingSources.add(new ParameterId("p1"));
+        final ParameterBindingTarget owner = ParameterBindingTarget.artMesh(new ArtMeshId("mesh-1"));
+
+        final BatchTransferOutcome outcome = service.apply(
+                model,
+                owner,
+                List.of(
+                        new BatchTransferRow(bound("p1", "One", ""), new ParameterId("p1"), true),
+                        new BatchTransferRow(bound("p2", "Two", ""), new ParameterId("p3"), false)));
+
+        assertEquals(1, outcome.applied());
+        assertEquals(1, outcome.failed());
+        assertEquals(new ParameterId("p2"), model.batch.clampedPlans.get(0).sourceParameterId());
+    }
+
+    @Test
+    void duplicateDestinationIncludingSelfInversionFailsBeforeAnyEdit() {
+        final FakeModel model = new FakeModel();
+        final ParameterBindingTarget owner = ParameterBindingTarget.artMesh(new ArtMeshId("mesh-1"));
+
+        final BatchTransferOutcome outcome = service.apply(
+                model,
+                owner,
+                List.of(
+                        new BatchTransferRow(bound("p1", "One", ""), new ParameterId("p1"), true),
+                        new BatchTransferRow(bound("p2", "Two", ""), new ParameterId("p1"), false)));
+
+        assertEquals(0, outcome.applied());
+        assertEquals(2, outcome.failed());
+        assertTrue(model.batch.clampedPlans.isEmpty());
+        assertTrue(model.batch.morphPlans.isEmpty());
+    }
+
+    @Test
     void applyAllSkippedRowsYieldsNoChanges() {
         final FakeModel model = new FakeModel();
         model.parameters.add(new FakeParameter("p1", "One", ParameterType.NORMAL, false));
