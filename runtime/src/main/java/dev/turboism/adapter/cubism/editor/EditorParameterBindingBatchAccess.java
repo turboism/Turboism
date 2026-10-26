@@ -195,7 +195,9 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         }
         final Map<ParameterBindingTarget, List<String>> beforeBindings = tracedTransferBindings(selected);
         mutate("Transfer Parameter Bindings", selected, (grid, ignored) -> {
-            resolver.invoke("cubism.editor-model.keyform-grid.change-parameter", grid, sourceGuid, targetGuid);
+            if (!plan.sourceParameterId().equals(plan.targetParameterId())) {
+                resolver.invoke("cubism.editor-model.keyform-grid.change-parameter", grid, sourceGuid, targetGuid);
+            }
             if (plan.invertAfterTransfer()) {
                 resolver.invoke("cubism.editor-model.keyform-grid.reverse-parameter", grid, targetGuid);
             }
@@ -258,7 +260,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             }
             final Object targetBinding =
                     resolver.invoke("cubism.editor-model.keyform-grid.find-binding", grid, targetGuid);
-            if (targetBinding != null) {
+            if (targetBinding != null && !plan.sourceParameterId().equals(plan.targetParameterId())) {
                 throw new IllegalStateException("The target is already bound to the destination parameter.");
             }
             final List<Float> before =
@@ -273,7 +275,9 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                         ? sourceRange.minimum() + sourceRange.maximum() - value + 0.0F
                         : value;
                 final float mappedValue;
-                if (remaps) {
+                if (plan.sourceParameterId().equals(plan.targetParameterId())) {
+                    mappedValue = requested;
+                } else if (remaps) {
                     // Linear remap from the source range into the destination range, then clamp.
                     final float ratio = (requested - sourceRange.minimum()) / sourceSpan;
                     final float targetSpan = range.maximum() - range.minimum();
@@ -298,7 +302,9 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                 tracedClampedTransferKeyformOrders(selected);
         mutate("Transfer Parameter Bindings", selected, (grid, target) -> {
             final ClampedTransfer transfer = Objects.requireNonNull(transfers.get(target), "transfer");
-            resolver.invoke("cubism.editor-model.keyform-grid.change-parameter", grid, sourceGuid, targetGuid);
+            if (!plan.sourceParameterId().equals(plan.targetParameterId())) {
+                resolver.invoke("cubism.editor-model.keyform-grid.change-parameter", grid, sourceGuid, targetGuid);
+            }
             resolver.invoke(
                     "cubism.editor-model.keyform-grid.rearrange-keys",
                     grid,
@@ -358,7 +364,8 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                     throw new IllegalStateException("Editor Morph Target collection contains an invalid value.");
                 }
                 final ParameterId boundParameter = morphParameterId(parameterSources, morphTarget);
-                if (plan.targetParameterId().equals(boundParameter)) {
+                if (plan.targetParameterId().equals(boundParameter)
+                        && !plan.sourceParameterId().equals(plan.targetParameterId())) {
                     targetBound = true;
                 }
                 if (!plan.sourceParameterId().equals(boundParameter)) {
@@ -538,7 +545,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             throw new IllegalStateException("The target is not bound to the source parameter.");
         }
         final Object targetBinding = resolver.invoke("cubism.editor-model.keyform-grid.find-binding", grid, targetGuid);
-        if (targetBinding != null) {
+        if (targetBinding != null && !Objects.equals(sourceGuid, targetGuid)) {
             throw new IllegalStateException("The target is already bound to the destination parameter.");
         }
     }
