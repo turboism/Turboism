@@ -8,6 +8,7 @@ import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.recentMenu;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class VerifiedRecentFileListHostOperationsTest {
 
@@ -64,6 +66,68 @@ class VerifiedRecentFileListHostOperationsTest {
                 IllegalArgumentException.class,
                 () -> new VerifiedRecentFileListHostOperations(
                         projectResolver("5.3.02", loader), panelResolver("5.2.03", loader)));
+    }
+
+    @Test
+    void absoluteTooltipWinsOverAnExistingRelativeName(@TempDir final Path projects) throws Exception {
+        final Path shadow = Files.createTempFile(Path.of("."), "recent-preview-shadow-", ".cmo3");
+        final Path project = Files.createFile(projects.resolve(shadow.getFileName()));
+        try {
+            assertEquals(
+                    project.toAbsolutePath().normalize(),
+                    RecentMenuChain.firstExistingPath(shadow.getFileName().toString(), project.toString()));
+        } finally {
+            Files.deleteIfExists(shadow);
+        }
+    }
+
+    @Test
+    void relativeNamesStillResolveWhenNoAbsolutePathWasProvided() throws Exception {
+        final Path project = Files.createTempFile(Path.of("."), "recent-preview-relative-", ".cmo3");
+        try {
+            assertEquals(
+                    project.toAbsolutePath().normalize(),
+                    RecentMenuChain.firstExistingPath(project.getFileName().toString()));
+        } finally {
+            Files.deleteIfExists(project);
+        }
+    }
+
+    @Test
+    void missingAbsoluteTooltipDoesNotResolveToAnUnrelatedRelativeFile(@TempDir final Path projects) throws Exception {
+        final Path shadow = Files.createTempFile(Path.of("."), "recent-preview-shadow-", ".cmo3");
+        try {
+            assertNull(RecentMenuChain.firstExistingPath(
+                    shadow.getFileName().toString(), projects.resolve(shadow.getFileName()).toString()));
+        } finally {
+            Files.deleteIfExists(shadow);
+        }
+    }
+
+    @Test
+    void menuAndCurrentDocumentShareTheSameIdWhenTheWorkingDirectoryHasAShadowFile(
+            @TempDir final Path projects) throws Exception {
+        final Path shadow = Files.createTempFile(Path.of("."), "recent-preview-shadow-", ".cmo3");
+        final Path project = Files.createFile(projects.resolve(shadow.getFileName()));
+        try {
+            final javax.swing.JMenu menu = recentMenu();
+            final javax.swing.JMenuItem item = new javax.swing.JMenuItem(shadow.getFileName().toString());
+            item.setToolTipText(project.toString());
+            menu.add(item);
+            ProjectHost.setRoot(projectChain(project));
+            PanelHost.setRoot(panelChain(menu));
+            final ClassLoader loader = getClass().getClassLoader();
+            final VerifiedRecentFileListHostOperations operations = new VerifiedRecentFileListHostOperations(
+                    projectResolver("5.3.02", loader), panelResolver("5.3.02", loader));
+
+            final List<RecentFileSummary> listed = operations.list();
+
+            assertEquals(1, listed.size());
+            assertEquals(operations.current().orElseThrow(), listed.get(0).id());
+            assertEquals(project.toAbsolutePath().normalize().toString(), listed.get(0).path().orElseThrow());
+        } finally {
+            Files.deleteIfExists(shadow);
+        }
     }
 
     @Test

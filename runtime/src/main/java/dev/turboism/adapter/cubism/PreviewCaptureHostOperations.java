@@ -830,8 +830,16 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     }
 
     /** FBO-aware manual GL readback: GL_BACK for the default framebuffer, GL_COLOR_ATTACHMENT0 for FBOs. */
-    private static BufferedImage readJogl(final Object drawable, final int width, final int height) {
+    private static BufferedImage readJogl(final Object drawable, final int logicalWidth, final int logicalHeight) {
         try {
+            // Swing bounds use logical units; JOGL surfaces use physical pixels (e.g. 150% DPI).
+            // Reading logical bounds would capture only the lower-left portion of the canvas.
+            final int width = drawable == null ? 0 : (Integer) MethodHandleCache.method(
+                            drawable.getClass(), "getSurfaceWidth")
+                    .invoke(drawable);
+            final int height = drawable == null ? 0 : (Integer) MethodHandleCache.method(
+                            drawable.getClass(), "getSurfaceHeight")
+                    .invoke(drawable);
             if (drawable == null || width <= 0 || height <= 0) {
                 diagnose("readJogl:bad-size drawable-null=" + (drawable == null) + " size=" + width + "x" + height);
                 return null;
@@ -851,8 +859,9 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final int rgba = constant(glType, "GL_RGBA", 0x1908);
             final int unsignedByte = constant(glType, "GL_UNSIGNED_BYTE", 0x1401);
             final int[] binding = new int[1];
-            MethodHandleCache.method(glType, "glGetIntegerv", int.class, int[].class, int.class)
-                    .invoke(gl, framebufferBinding, binding, 0);
+            final Method glGetIntegerv =
+                    MethodHandleCache.method(glType, "glGetIntegerv", int.class, int[].class, int.class);
+            glGetIntegerv.invoke(gl, framebufferBinding, binding, 0);
             final ByteBuffer pixels =
                     ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
             final Method glReadPixels = MethodHandleCache.method(
@@ -866,9 +875,15 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                     int.class,
                     java.nio.Buffer.class);
             if (binding[0] == 0) {
-                readBufferMethod(glType, loader).invoke(gl, back);
-                glReadPixels.invoke(gl, 0, 0, width, height, rgba, unsignedByte, pixels);
-                drainGlErrors(gl, glType);
+                final int[] previousReadBuffer = new int[1];
+                glGetIntegerv.invoke(gl, constant(glType, "GL_READ_BUFFER", 0x0C02), previousReadBuffer, 0);
+                final Method glReadBuffer = readBufferMethod(glType, loader);
+                try {
+                    glReadBuffer.invoke(gl, back);
+                    glReadPixels.invoke(gl, 0, 0, width, height, rgba, unsignedByte, pixels);
+                } finally {
+                    glReadBuffer.invoke(gl, previousReadBuffer[0]);
+                }
             } else {
                 // MSAA resolve: blit the bound (multisample) FBO into a fresh single-sample FBO, then read it
                 final int framebuffer = constant(glType, "GL_FRAMEBUFFER", 0x8D40);
@@ -921,6 +936,11 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                         MethodHandleCache.method(glType, "glDeleteTextures", int.class, int[].class, int.class);
                 final int[] resolveFramebuffer = new int[1];
                 final int[] resolveTexture = new int[1];
+                final int[] previousReadFramebuffer = new int[1];
+                final int[] previousTexture = new int[1];
+                glGetIntegerv.invoke(
+                        gl, constant(glType, "GL_READ_FRAMEBUFFER_BINDING", 0x8CAA), previousReadFramebuffer, 0);
+                glGetIntegerv.invoke(gl, constant(glType, "GL_TEXTURE_BINDING_2D", 0x8069), previousTexture, 0);
                 glGenFramebuffers.invoke(gl, 1, resolveFramebuffer, 0);
                 glGenTextures.invoke(gl, 1, resolveTexture, 0);
                 try {
@@ -939,14 +959,15 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                     glBindFramebuffer.invoke(gl, framebuffer, resolveFramebuffer[0]);
                     drainGlErrors(gl, glType);
                     readBufferMethod(glType, loader).invoke(gl, colorAttachment0);
+                    glReadPixels.invoke(gl, 0, 0, width, height, rgba, unsignedByte, pixels);
                 } finally {
-                    glBindFramebuffer.invoke(gl, framebuffer, binding[0]); // restore the panel's FBO
-                    glBindTexture.invoke(gl, texture2d, 0);
+                    glBindFramebuffer.invoke(gl, drawFb, binding[0]);
+                    glBindFramebuffer.invoke(gl, readFb, previousReadFramebuffer[0]);
+                    glBindTexture.invoke(gl, texture2d, previousTexture[0]);
                     glDeleteTextures.invoke(gl, 1, resolveTexture, 0);
                     glDeleteFramebuffers.invoke(gl, 1, resolveFramebuffer, 0);
                 }
             }
-            glReadPixels.invoke(gl, 0, 0, width, height, rgba, unsignedByte, pixels);
             drainGlErrors(gl, glType);
             final int[] argb = new int[width * height];
             final java.nio.IntBuffer view = pixels.asIntBuffer();
