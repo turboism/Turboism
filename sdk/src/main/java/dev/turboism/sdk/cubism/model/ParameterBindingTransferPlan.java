@@ -10,7 +10,8 @@ import java.util.Objects;
  * When consumed by {@link ParameterBindingBatchOperations#transferClamped(ParameterBindingTransferPlan)},
  * {@code invertAfterTransfer} means reflect each source keyform coordinate across the source
  * parameter range before linearly remapping it into the destination range (clamped), preserving keyform
- * association. {@code transferMorphClamped} consumers move every Morph Target setting unchanged,
+ * association. Equal source and target parameters are allowed only for inversion, which
+ * operates on the existing binding without changing its parameter. {@code transferMorphClamped} consumers move every Morph Target setting unchanged,
  * negating each key value when inversion is requested. Ordinary {@code transfer}
  * consumers retain their existing native reversal semantics.
  */
@@ -24,8 +25,8 @@ public record ParameterBindingTransferPlan(
         sourceParameterId = Objects.requireNonNull(sourceParameterId, "sourceParameterId");
         targetParameterId = Objects.requireNonNull(targetParameterId, "targetParameterId");
         targets = List.copyOf(Objects.requireNonNull(targets, "targets"));
-        if (sourceParameterId.equals(targetParameterId)) {
-            throw new IllegalArgumentException("source and target parameters must differ");
+        if (sourceParameterId.equals(targetParameterId) && !invertAfterTransfer) {
+            throw new IllegalArgumentException("identical source and target parameters require inversion");
         }
         if (targets.isEmpty()) {
             throw new IllegalArgumentException("targets must not be empty");

@@ -27,6 +27,46 @@ class EditorParameterBindingBatchAccessTest {
     private static final ParameterBindingTarget TARGET_B = ParameterBindingTarget.artMesh(new ArtMeshId("mesh-b"));
 
     @Test
+    void selfInversionReflectsOnlyTheSelectedAxisWithoutChangingItsParameter() {
+        final Fixture fixture = fixture(-70.0F, 50.0F, 0.0F, 0.25F, 1.0F);
+        fixture.parameters.put("from", new Source("from", 0.0F, 1.0F));
+        final Binding original = fixture.owner(TARGET_A).grid.findBinding("from");
+        fixture.owner(TARGET_A).grid.byGuid.put("to", new Binding("to", -1.0F, 1.0F));
+
+        access(fixture)
+                .transferClamped(new ParameterBindingTransferPlan(
+                        new ParameterId("from"), new ParameterId("from"), List.of(TARGET_A), true));
+
+        assertSame(original, fixture.owner(TARGET_A).grid.findBinding("from"));
+        assertEquals(List.of("rearrange"), fixture.owner(TARGET_A).grid.calls);
+        assertEquals(List.of(1.0F, 0.75F, 0.0F), fixture.owner(TARGET_A).grid.rearrangeAfter);
+        assertEquals(List.of(0.0F, 0.75F, 1.0F), fixture.owner(TARGET_A).grid.keys("from"));
+        assertEquals(
+                List.of("keyform-2", "keyform-1", "keyform-0"),
+                fixture.owner(TARGET_A).grid.keyformData());
+        assertEquals(List.of(-1.0F, 1.0F), fixture.owner(TARGET_A).grid.keys("to"));
+        assertEquals(1, fixture.editMode.beginCount);
+        assertEquals(1, fixture.edit.undoAdds);
+        assertEquals(1, fixture.editMode.endCount);
+    }
+
+    @Test
+    void ordinarySelfTransferOnlyReversesTheExistingAxis() {
+        final Fixture fixture = fixture(-70.0F, 50.0F, -30.0F, 0.0F, 30.0F);
+
+        access(fixture)
+                .transfer(new ParameterBindingTransferPlan(
+                        new ParameterId("from"), new ParameterId("from"), List.of(TARGET_A), true));
+
+        assertEquals(List.of("reverse"), fixture.owner(TARGET_A).grid.calls);
+        assertEquals(
+                List.of("keyform-2", "keyform-1", "keyform-0"),
+                fixture.owner(TARGET_A).grid.keyformData());
+        assertEquals(1, fixture.editMode.beginCount);
+        assertEquals(1, fixture.edit.undoAdds);
+    }
+
+    @Test
     void containedKeyformsRemapAndUseOneEditAndUndo() {
         final Fixture fixture = fixture(-70.0F, 50.0F, -30.0F, 0.0F, 30.0F);
         final Binding original = fixture.owner(TARGET_A).grid.findBinding("from");
@@ -244,6 +284,7 @@ class EditorParameterBindingBatchAccessTest {
                         "keyformGrid",
                         descriptor(Grid.class)),
                 method("cubism.editor-model.keyform-grid.bindings", Grid.class, "bindings", descriptor(List.class)),
+                method("cubism.editor-model.guid.value", String.class, "toString", descriptor(String.class)),
                 method("cubism.editor-model.keyform-binding.keys", Binding.class, "keys", descriptor(List.class)),
                 method(
                         "cubism.editor-model.keyform-binding.parameter-guid",
