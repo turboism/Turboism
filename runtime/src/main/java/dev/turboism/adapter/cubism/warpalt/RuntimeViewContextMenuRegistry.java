@@ -187,40 +187,25 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * {@link #updateButtonState}) because the baked {@code GImageEntity}
      * images cannot be swapped in place.
      *
-     * <p>Native strip buttons bake an opaque background plate into every state
-     * image — sampled 5.3.02 pixels are #F0EFEF at rest and #DBDADA on rollover —
-     * which is what produces the gray hover/pressed backdrop. Our contributed
-     * glyphs are alpha-only, so each slot here is composited onto the matching
-     * FlatLaF plate color ({@code CubismCommon.gl.iconButton.*Background},
-     * falling back to the sampled light-theme values).</p>
+     * <p>Keep the strip visible through the icon: normal/selected slots have
+     * no background, while hover/pressed slots use translucent neutral feedback.
+     * No theme color is baked into the resources, so changing themes also works
+     * without rebuilding these GL images.</p>
      */
     private static Object iconSetFor(final BufferedImage glyph, final ClassLoader hostLoader)
             throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
         final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
         final var resourceCtor = resourceClass.getConstructor(BufferedImage.class, boolean.class);
-        // TODO(visual): gray-plate parity with native strip buttons is parked.
-        //   The plates below reproduce the native hover/pressed backdrop in
-        //   most states, but the exact per-slot plate mapping vs the host's
-        //   FlatLaF iconButton.*Background tinting has not been fully verified
-        //   on real hosts across themes. Revisit before polishing visuals.
-        // Native strip buttons keep the same plate family in selected states
-        // (sampled On_RollOver ≈ #D6CEC5 gray, not the accent selectedBackground),
-        // so selected slots reuse the normal/hover/pressed plates.
-        final Object normal =
-                resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
-        final Object selected =
-                resourceCtor.newInstance(plateImage(glyph, iconButtonColor("background", 0xF0EFEF, hostLoader)), true);
-        final Object rollover = resourceCtor.newInstance(
-                plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
-        final Object pressed = resourceCtor.newInstance(
-                plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
-        final Object disabled = resourceCtor.newInstance(
-                plateImage(glyph, iconButtonColor("disabledBackground", 0xF0EFEF, hostLoader)), true);
-        final Object selRollover = resourceCtor.newInstance(
-                plateImage(glyph, iconButtonColor("hoverBackground", 0xDBDADA, hostLoader)), true);
-        final Object selPressed = resourceCtor.newInstance(
-                plateImage(glyph, iconButtonColor("pressedBackground", 0xC6C5C5, hostLoader)), true);
+        final Color hover = new Color(128, 128, 128, 32);
+        final Color pressedPlate = new Color(128, 128, 128, 64);
+        final Object normal = resourceCtor.newInstance(glyph, true);
+        final Object selected = resourceCtor.newInstance(glyph, true);
+        final Object rollover = resourceCtor.newInstance(plateImage(glyph, hover), true);
+        final Object pressed = resourceCtor.newInstance(plateImage(glyph, pressedPlate), true);
+        final Object disabled = resourceCtor.newInstance(glyph, true);
+        final Object selRollover = resourceCtor.newInstance(plateImage(glyph, hover), true);
+        final Object selPressed = resourceCtor.newInstance(plateImage(glyph, pressedPlate), true);
         return setClass.getConstructor(
                         resourceClass,
                         resourceClass,
@@ -232,7 +217,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 .newInstance(normal, selected, rollover, pressed, disabled, selRollover, selPressed);
     }
 
-    /** Composites the alpha-only state glyph onto a solid plate, like the baked native icons. */
+    /** Composites translucent interaction feedback behind the state glyph. */
     private static BufferedImage plateImage(final BufferedImage glyph, final Color plate) {
         final BufferedImage image = new BufferedImage(glyph.getWidth(), glyph.getHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D g = image.createGraphics();
@@ -244,28 +229,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             g.dispose();
         }
         return image;
-    }
-
-    /**
-     * Resolves {@code CubismCommon.gl.iconButton.<key>} through the host's
-     * FlatLaF color registry ({@code FlatLaF$bi.a(String, boolean)}) so the
-     * plated images track the active theme; falls back to the sampled light-
-     * theme value when the registry is unreachable.
-     */
-    private static Color iconButtonColor(final String key, final int fallbackRgb, final ClassLoader hostLoader) {
-        try {
-            final Class<?> registry = Class.forName("com.live2d.ui.FlatLaF$bi", false, hostLoader);
-            final Field instance = registry.getDeclaredField("a");
-            ReflectAccess.open(instance);
-            final Object resolved = registry.getMethod("a", String.class, boolean.class)
-                    .invoke(instance.get(null), "CubismCommon.gl.iconButton." + key, false);
-            if (resolved instanceof Color color) {
-                return color;
-            }
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-        }
-        return new Color(fallbackRgb);
     }
 
     private static void setOnAction(
@@ -476,7 +439,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
     }
     /**
-     * Updates the button's visual state by REBUILDING it: the icon set's plated
+     * Updates the button's visual state by REBUILDING it: the icon set's state
      * images carry the glyph baked at construction (native {@code GImageEntity}
      * exposes no image setter), so an in-place {@code setSelected} would leave
      * the host's hover/pressed entities showing the previous state's glyph.
