@@ -74,7 +74,7 @@ public final class ArtMeshMirrorPlugin implements TurboismPlugin {
         var graphics = image.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(enabled ? new Color(33, 157, 210) : new Color(105, 105, 105));
+            graphics.setColor(enabled ? new Color(33, 157, 210) : new Color(128, 128, 128));
             graphics.setStroke(new BasicStroke(5));
             graphics.drawLine(48, 10, 48, 86);
             graphics.drawLine(20, 24, 30, 70);
