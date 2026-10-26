@@ -17,9 +17,9 @@ import org.junit.jupiter.api.Test;
 class MeshTriangulationSettingsContributionTest {
 
     @Test
-    void defaultIsEnabledWhenNothingWasPersisted() {
-        assertTrue(MeshTriangulationSettingsService.DEFAULT_ENABLED);
-        assertTrue(MeshTriangulationSettingsService.unavailable().read());
+    void defaultIsDisabledWhenNothingWasPersisted() {
+        assertFalse(MeshTriangulationSettingsService.DEFAULT_ENABLED);
+        assertFalse(MeshTriangulationSettingsService.unavailable().read());
     }
 
     @Test

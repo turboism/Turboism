@@ -1,7 +1,6 @@
 package dev.turboism.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.config.RuntimeStartupConfig;
 import java.nio.file.Files;
@@ -36,10 +35,10 @@ final class TurboismAgentAtlasTileBboxPolicyTest {
     }
 
     @Test
-    void enabledPolicyPermitsInstallationWhenNothingIsPersisted() {
+    void enabledPolicyStillRequiresExplicitOptIn() {
         final RuntimeStartupConfig policy =
                 new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of());
-        assertTrue(AtlasTileBboxHookContributor.enabled(policy, home), "the optimization defaults to enabled");
+        assertFalse(AtlasTileBboxHookContributor.enabled(policy, home), "rendering optimizations default off");
     }
 
     @Test

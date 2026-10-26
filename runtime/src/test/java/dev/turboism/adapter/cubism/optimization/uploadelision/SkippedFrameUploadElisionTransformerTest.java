@@ -56,6 +56,7 @@ public class SkippedFrameUploadElisionTransformerTest {
         properties.remove(SkippedFrameUploadElisionBridge.PREDICATE_PROPERTY);
         properties.remove(SkippedFrameUploadElisionBridge.LIFECYCLE_PROPERTY);
         properties.remove(SkippedFrameUploadElisionBridge.FAILURE_PROPERTY);
+        properties.remove(SkippedFrameUploadElisionBridge.RETURN_PROPERTY);
     }
 
     private static byte[] glInterface() {
@@ -77,7 +78,7 @@ public class SkippedFrameUploadElisionTransformerTest {
     private static byte[] glImpl() {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         w.visit(V17, ACC_PUBLIC, IMPL, null, "java/lang/Object", new String[] {GL});
-        for (String field : new String[] {"binds", "gens", "datas", "subs", "throwOnSub"}) {
+        for (String field : new String[] {"binds", "gens", "datas", "subs", "throwOnSub", "throwOnGen"}) {
             w.visitField(ACC_PUBLIC, field, "I", null, null).visitEnd();
         }
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
@@ -88,7 +89,7 @@ public class SkippedFrameUploadElisionTransformerTest {
         m.visitMaxs(0, 0);
         m.visitEnd();
         emitCounter(w, "glBindBuffer", "(II)V", "binds", false);
-        emitCounter(w, "glGenBuffers", "(ILjava/nio/IntBuffer;)V", "gens", false);
+        emitCounter(w, "glGenBuffers", "(ILjava/nio/IntBuffer;)V", "gens", true);
         emitCounter(w, "glBufferData", "(IJLjava/nio/Buffer;I)V", "datas", false);
         emitCounter(w, "glBufferSubData", "(IJJLjava/nio/Buffer;)V", "subs", true);
         w.visitEnd();
@@ -108,7 +109,7 @@ public class SkippedFrameUploadElisionTransformerTest {
         if (throwable) {
             final Label keep = new Label();
             m.visitVarInsn(ALOAD, 0);
-            m.visitFieldInsn(GETFIELD, IMPL, "throwOnSub", "I");
+            m.visitFieldInsn(GETFIELD, IMPL, field.equals("gens") ? "throwOnGen" : "throwOnSub", "I");
             m.visitJumpInsn(IFEQ, keep);
             m.visitTypeInsn(NEW, "java/lang/IllegalStateException");
             m.visitInsn(DUP);
@@ -301,6 +302,19 @@ public class SkippedFrameUploadElisionTransformerTest {
         Method upload = type.getDeclaredMethod("b", glType, int.class);
         upload.setAccessible(true);
 
+        final AtomicInteger returned = new AtomicInteger();
+        System.getProperties().put(SkippedFrameUploadElisionBridge.RETURN_PROPERTY, (Runnable) () -> {
+            try {
+                assertEquals(
+                        returned.get() + 1,
+                        impl.getField("datas").getInt(gl)
+                                + impl.getField("subs").getInt(gl),
+                        "return notification must follow the actual upload");
+            } catch (ReflectiveOperationException failure) {
+                throw new AssertionError(failure);
+            }
+            returned.incrementAndGet();
+        });
         // No predicate installed: every path must execute natively.
         upload.invoke(instance, gl, 1); // reallocate path skips the dirty block
         assertEquals(1, impl.getField("binds").getInt(gl), "bind retained");
@@ -311,6 +325,7 @@ public class SkippedFrameUploadElisionTransformerTest {
         assertEquals(2, impl.getField("binds").getInt(gl));
         assertEquals(1, impl.getField("gens").getInt(gl));
         assertEquals(1, impl.getField("subs").getInt(gl));
+        assertEquals(2, returned.get(), "both native upload sites report normal return");
     }
 
     @Test
@@ -341,7 +356,7 @@ public class SkippedFrameUploadElisionTransformerTest {
         upload.invoke(instance, gl, 1); // reallocate path
         assertEquals(1, impl.getField("binds").getInt(gl), "bind untouched");
         assertEquals(1, impl.getField("gens").getInt(gl), "glGenBuffers untouched");
-        assertEquals(1, lifecycle.get(), "lifecycle notified after glGenBuffers");
+        assertEquals(1, lifecycle.get(), "lifecycle invalidated on the regeneration branch");
         assertEquals(0, impl.getField("datas").getInt(gl), "glBufferData suppressed");
         assertEquals(0, impl.getField("subs").getInt(gl), "glBufferSubData suppressed");
         assertEquals(0, failures.get());
@@ -404,6 +419,9 @@ public class SkippedFrameUploadElisionTransformerTest {
         Method upload = type.getDeclaredMethod("b", glType, int.class);
         upload.setAccessible(true);
 
+        final AtomicInteger returned = new AtomicInteger();
+        System.getProperties()
+                .put(SkippedFrameUploadElisionBridge.RETURN_PROPERTY, (Runnable) returned::incrementAndGet);
         final AtomicInteger failures = new AtomicInteger();
         System.getProperties()
                 .put(SkippedFrameUploadElisionBridge.FAILURE_PROPERTY, (Runnable) failures::incrementAndGet);
@@ -412,6 +430,38 @@ public class SkippedFrameUploadElisionTransformerTest {
         assertInstanceOf(
                 IllegalStateException.class, thrown.getCause(), "native upload exception must propagate unchanged");
         assertEquals(1, failures.get(), "failure slot notified before rethrow");
+        assertEquals(0, returned.get(), "an exceptional upload must never stage a candidate");
+    }
+
+    @Test
+    void regenerationInvalidatesBeforeNativeGenerationCanThrow() throws Exception {
+        Path artifact = Files.createTempFile("host", ".jar");
+        Loader loader = new Loader(artifact);
+        byte[] reference = wrapper(FLOAT, false, false);
+        var transformer = transformer(loader, artifact, reference, FLOAT);
+        byte[] output = transformer.transform(null, loader, FLOAT, null, loader.domain, reference);
+        assertNotNull(output, transformer.failure());
+        Class<?> glType = loader.define(GL, glInterface());
+        Class<?> impl = loader.define(IMPL, glImpl());
+        Class<?> type = loader.define(FLOAT, output);
+        Object gl = impl.getDeclaredConstructor().newInstance();
+        impl.getField("throwOnGen").setInt(gl, 1);
+        Object instance = type.getDeclaredConstructor().newInstance();
+        Method upload = type.getDeclaredMethod("b", glType, int.class);
+        upload.setAccessible(true);
+        AtomicInteger callsAtInvalidation = new AtomicInteger(-1);
+        System.getProperties().put(SkippedFrameUploadElisionBridge.LIFECYCLE_PROPERTY, (Runnable) () -> {
+            try {
+                callsAtInvalidation.set(impl.getField("gens").getInt(gl));
+            } catch (ReflectiveOperationException failure) {
+                throw new AssertionError(failure);
+            }
+        });
+        InvocationTargetException thrown =
+                assertThrows(InvocationTargetException.class, () -> upload.invoke(instance, gl, 1));
+        assertInstanceOf(IllegalStateException.class, thrown.getCause());
+        assertEquals(0, callsAtInvalidation.get(), "old resource content must be invalidated before regeneration");
+        assertEquals(1, impl.getField("gens").getInt(gl));
     }
 
     @Test

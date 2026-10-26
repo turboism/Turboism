@@ -18,8 +18,8 @@ final class TurboismAgentMeshInterpolationPolicyTest {
     }
 
     @Test
-    void verifiedProductInterpolationDefaultsOnWithExplicitDisable() {
-        assertTrue(TurboismAgent.meshInterpolationRequested(null));
+    void verifiedProductInterpolationDefaultsOffWithExplicitOptIn() {
+        assertFalse(TurboismAgent.meshInterpolationRequested(null));
         assertTrue(TurboismAgent.meshInterpolationRequested("true"));
         assertFalse(TurboismAgent.meshInterpolationRequested("false"));
         assertFalse(TurboismAgent.meshInterpolationRequested("invalid"));

@@ -15,6 +15,34 @@ class PerformanceSettingsConfigTest {
     Path home;
 
     @Test
+    void renderingOptimizationsRequireExplicitOptInOnEveryPlatform() {
+        for (boolean proton : new boolean[] {false, true}) {
+            for (Field field : Field.values()) {
+                if (field.nativeOptimization()) assertEquals("false", field.defaultValue(proton), field.key());
+            }
+            assertEquals("true", Field.ZGC.defaultValue(proton));
+            assertEquals("graalvm", Field.CUBISM_JVM.defaultValue(proton));
+        }
+    }
+
+    @Test
+    void legacyToggleNormalizationCannotImplicitlyEnableRenderingOptimizations() {
+        assertFalse(AtlasTileBboxPreference.DEFAULT_ENABLED);
+        assertFalse(AtlasCacheReusePreference.DEFAULT_ENABLED);
+        assertFalse(MeshTriangulationPreference.DEFAULT_ENABLED);
+        assertFalse(TriangulationEdgeIndexPreference.DEFAULT_ENABLED);
+        assertFalse(AtlasTileBboxPreference.normalize("invalid"));
+        assertFalse(AtlasCacheReusePreference.normalize("invalid"));
+        assertFalse(MeshTriangulationPreference.normalize("invalid"));
+        assertFalse(TriangulationEdgeIndexPreference.normalize("invalid"));
+        assertFalse(dev.turboism.internal.core.AtlasCacheReuseSettingsService.unavailable()
+                .read());
+        assertFalse(CubismJvmSettingsService.unavailable().modelUpdateSkip());
+        assertFalse(CubismJvmSettingsService.unavailable().uniformLocationCache());
+        assertTrue(CubismJvmSettingsService.unavailable().zgc());
+    }
+
+    @Test
     void allFifteenFieldsRoundTripWithoutLosingOtherPreferencesAndReloadOnNextLaunch() {
         var repository = new RuntimeConfigRepository(home, ignored -> {});
         for (Field field : Field.values()) {

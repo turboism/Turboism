@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.config.RuntimeStartupConfig;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -30,8 +29,10 @@ class TriangulationEdgeIndexHookContributorTest {
 
     @Test
     void admittedOnlyWhenPolicyAllowsAndPreferenceEnabled() throws Exception {
+        assertFalse(TriangulationEdgeIndexHookContributor.enabled(policy(false), home));
+        new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home).save(true);
         assertTrue(TriangulationEdgeIndexHookContributor.enabled(policy(false), home));
-        Files.writeString(home.resolve("config.json"), "{\"meshTriangulationEdgeIndex\": false}");
+        new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home).save(false);
         assertFalse(TriangulationEdgeIndexHookContributor.enabled(policy(false), home));
     }
 
