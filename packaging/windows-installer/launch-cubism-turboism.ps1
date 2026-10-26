@@ -26,6 +26,7 @@ $messages = @{
         HomeMissing = "Turboism home does not exist: {0}"
         AgentMissing = "Turboism agent is missing: {0}"
         StateMissing = "No managed Cubism installation is selected. Run configure_turboism.ps1 first or pass -CubismRoot."
+        StatePath = "State file read: {0} (TURBOISM_HOME and the launcher folder decide this path)"
         StateInvalid = "Managed Cubism state is invalid: {0}. Run configure_turboism.ps1 again."
         RootInvalid = "The selected Cubism root is invalid or unsupported: {0}"
         Multiple = "Multiple Cubism installations are selected. Choose one or pass -CubismRoot."
@@ -42,6 +43,7 @@ $messages = @{
         HomeMissing = "Turboism home 不存在：{0}"
         AgentMissing = "缺少 Turboism agent：{0}"
         StateMissing = "没有选中的托管 Cubism 安装。请先运行 configure_turboism.ps1，或传入 -CubismRoot。"
+        StatePath = "读取的状态文件：{0}（由 TURBOISM_HOME 或启动器所在目录决定）"
         StateInvalid = "托管 Cubism 状态无效：{0}。请重新运行 configure_turboism.ps1。"
         RootInvalid = "所选 Cubism 根目录无效或不支持：{0}"
         Multiple = "选中了多个 Cubism 安装。请选择一个，或传入 -CubismRoot。"
@@ -58,6 +60,7 @@ $messages = @{
         HomeMissing = "Turboism home が存在しません：{0}"
         AgentMissing = "Turboism agent がありません：{0}"
         StateMissing = "管理対象の Cubism インストールが選択されていません。先に configure_turboism.ps1 を実行するか、-CubismRoot を指定してください。"
+        StatePath = "読み込んだ状態ファイル：{0}（TURBOISM_HOME または起動スクリプトのフォルダで決まります）"
         StateInvalid = "管理対象 Cubism の状態が不正です：{0}。configure_turboism.ps1 を再実行してください。"
         RootInvalid = "選択した Cubism ルートが不正または未対応です：{0}"
         Multiple = "複数の Cubism インストールが選択されています。1 つ選ぶか、-CubismRoot を指定してください。"
@@ -125,10 +128,10 @@ function Resolve-SelectedCandidate {
         return $candidate
     }
     $state = Read-CubismInstallationState -StatePath $statePath
-    if (-not $state.Valid) { throw ($M.StateInvalid -f $state.Error) }
+    if (-not $state.Valid) { throw (($M.StateInvalid -f $state.Error) + " " + ($M.StatePath -f $statePath)) }
 
     $selectedEntries = @($state.Installations | Where-Object { $_.Selected })
-    if ($selectedEntries.Count -eq 0) { throw $M.StateMissing }
+    if ($selectedEntries.Count -eq 0) { throw ($M.StateMissing + " " + ($M.StatePath -f $statePath)) }
     $selected = @()
     foreach ($entry in $selectedEntries) {
         $candidate = New-CubismInstallationCandidate -Root $entry.Root -Source "managed" -TurboismHome $turboismHome
