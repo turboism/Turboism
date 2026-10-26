@@ -33,14 +33,17 @@ STATES = (
 )
 
 
-# Dark-theme counterparts, mirroring the native dark toolbar contrast.
+# Dark-theme counterparts. Glyph #a8a8a8 and the 30% disabled alpha are sampled from the
+# native BrushSelection_32x32 dark icon; #e0e0e0 is CubismDarkTheme's foreground; frames follow
+# CubismDarkTheme's border (#323232 lightened 11%). State fills mirror the light ladder
+# (rollover < selected < active) as lightness steps up from the #323232 dark background.
 DARK_STATES = (
-    ("", None, None, "#c9c9c9"),
-    ("-active", "#5c5c5c", "#7a7a7a", "#f0f0f0"),
-    ("-rollover", "#4a4a4a", "#626262", "#d8d8d8"),
-    ("-selected", "#6a6a6a", "#7a7a7a", "#f0f0f0"),
-    ("-disabled", "#2f2f2f", "#3a3a3a", "#666666"),
-    ("-disabled-selected", "#3a3a3a", "#3a3a3a", "#666666"),
+    ("", None, None, "#a8a8a8"),
+    ("-active", "#8c8c8c", "#4e4e4e", "#f0efef"),
+    ("-rollover", "#484848", "#4e4e4e", "#e0e0e0"),
+    ("-selected", "#5e5e5e", "#4e4e4e", "#e0e0e0"),
+    ("-disabled", "#323232", "#393939", "#555555"),
+    ("-disabled-selected", "#3d3d3d", "#393939", "#555555"),
 )
 
 
