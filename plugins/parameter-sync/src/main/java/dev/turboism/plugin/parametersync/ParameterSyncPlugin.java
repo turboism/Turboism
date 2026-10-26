@@ -350,6 +350,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
 
     // ── Rule Persistence & Cache ──
 
+    /** Returns the cached rule set, creating an empty set when needed. */
     public SyncRuleSet getRuleSet(final String modelGuid) {
         if (modelGuid == null) {
             return new SyncRuleSet();
@@ -357,6 +358,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         return modelRuleSets.computeIfAbsent(modelGuid, k -> new SyncRuleSet());
     }
 
+    /** Loads and caches synchronization settings for the model, sharing in-flight loads. */
     public CompletableFuture<SyncRuleSet> ensureLoaded(final String modelGuid) {
         if (modelGuid == null || modelGuid.isBlank()) {
             return CompletableFuture.completedFuture(new SyncRuleSet());
@@ -380,6 +382,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                         .toCompletableFuture());
     }
 
+    /** Saves cached synchronization settings; returns false when no model settings exist. */
     public CompletableFuture<Boolean> saveRules(final String modelGuid) {
         if (modelGuid == null || modelGuid.isBlank()) {
             return CompletableFuture.completedFuture(false);
@@ -398,6 +401,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         activeModel().ifPresent(model -> ensureLoaded(model.id().value()));
     }
 
+    /** Returns the active model when the host model access is available. */
     public Optional<CubismModel> activeModel() {
         if (context == null) {
             return Optional.empty();
@@ -465,6 +469,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         });
     }
 
+    /** Sends a status notification when a UI host service is available. */
     public void notifyStatus(final String id, final String severity, final String message) {
         if (context == null) {
             return;
@@ -496,10 +501,12 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         return List.copyOf(result);
     }
 
+    /** Returns the parameter synchronization engine. */
     public ParameterSyncEngine engine() {
         return engine;
     }
 
+    /** Returns the synchronization settings storage service. */
     public ParameterSyncStorage storage() {
         return storage;
     }

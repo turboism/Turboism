@@ -12,9 +12,25 @@ import java.util.concurrent.CompletableFuture;
 
 /** Codex's native app-server JSON-RPC protocol; no codex-acp installation. */
 final class NativeCodexProvider extends NativeAgentProvider {
+    static final int MAX_PENDING_START_EVENTS = 64;
+    static final int MAX_PENDING_START_BYTES = 1024 * 1024;
     private String threadId;
-    private volatile String turnId;
-    private final Set<String> streamed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private Turn activeTurn;
+    private boolean unusable;
+
+    private static final class Turn {
+        final CompletableFuture<String> future;
+        final Set<String> streamed = new java.util.HashSet<>();
+        final List<Map<String, Object>> pending = new ArrayList<>();
+        String id;
+        long pendingBytes;
+        boolean cancelRequested;
+        boolean interruptSent;
+
+        Turn(CompletableFuture<String> future) {
+            this.future = future;
+        }
+    }
 
     NativeCodexProvider(final NativeAgentTransport host) {
         super(host);
@@ -115,22 +131,42 @@ final class NativeCodexProvider extends NativeAgentProvider {
         if (selected.containsKey("permissions")) params.put("approvalPolicy", selected.get("permissions"));
         if (selected.containsKey("model")) params.put("model", selected.get("model"));
         if (selected.containsKey("effort")) params.put("effort", selected.get("effort"));
-        turnId = null;
-        streamed.clear();
-        final var future = beginPrompt();
+        final Turn turn;
+        synchronized (this) {
+            if (unusable)
+                throw new IOException("Codex turn identity is unavailable; reconnect and reconcile host operations");
+            turn = new Turn(beginPrompt());
+            activeTurn = turn;
+            turn.future.whenComplete((reason, failure) -> retire(turn));
+        }
         rpc("turn/start", params).whenComplete((result, failure) -> {
-            if (failure != null) future.completeExceptionally(failure);
-            else if (!future.isDone()) {
-                turnId = text(object(result.get("turn")).get("id"));
-                if (cancelled)
-                    try {
-                        cancel();
-                    } catch (Exception exception) {
-                        failed(exception);
-                    }
+            synchronized (this) {
+                if (activeTurn != turn || turn.future.isDone()) return;
+                if (failure != null) {
+                    poison(
+                            turn,
+                            "Codex turn/start failed; reconnect and reconcile host operations: "
+                                    + failure.getMessage());
+                    return;
+                }
+                String id = identity(object(result.get("turn")).get("id"));
+                if (id.isEmpty()) {
+                    poison(
+                            turn,
+                            "Codex turn/start omitted its native turn identity; reconnect and reconcile host operations");
+                    return;
+                }
+                turn.id = id;
+                // Only the response to this exact request establishes ownership. A delayed
+                // turn/started notification cannot redirect an early cancellation.
+                if (turn.cancelRequested) interrupt(turn);
+                var pending = List.copyOf(turn.pending);
+                turn.pending.clear();
+                turn.pendingBytes = 0;
+                for (var message : pending) event(message);
             }
         });
-        return future;
+        return turn.future;
     }
 
     @Override
@@ -144,43 +180,116 @@ final class NativeCodexProvider extends NativeAgentProvider {
     }
 
     @Override
-    void cancel() {
-        cancelled = true;
-        if (turnId != null && !turnId.isBlank())
-            rpc("turn/interrupt", Map.of("threadId", threadId, "turnId", turnId))
-                    .whenComplete((result, failure) -> {
-                        if (failure != null) failed(failure);
-                    });
+    synchronized void cancel() {
+        final var turn = activeTurn;
+        if (turn == null || turn.future.isDone()) return;
+        turn.cancelRequested = true;
+        host.cancelPermissions(turn.future);
+        if (turn.id != null) interrupt(turn);
     }
 
-    private void event(final Map<String, Object> message) {
+    private void interrupt(final Turn turn) {
+        if (activeTurn != turn || turn.future.isDone() || turn.interruptSent) return;
+        turn.interruptSent = true;
+        rpc("turn/interrupt", Map.of("threadId", threadId, "turnId", turn.id)).whenComplete((result, failure) -> {
+            synchronized (this) {
+                if (failure != null && activeTurn == turn && !turn.future.isDone())
+                    poison(
+                            turn,
+                            "Codex interrupt failed; reconnect and reconcile host operations: " + failure.getMessage());
+            }
+        });
+    }
+
+    private synchronized void retire(final Turn turn) {
+        if (activeTurn != turn) return;
+        activeTurn = null;
+        for (var message : turn.pending) {
+            if (message.containsKey("id")) reject(message.get("id"), text(message.get("method")));
+        }
+        turn.pending.clear();
+        turn.streamed.clear();
+        turn.pendingBytes = 0;
+    }
+
+    private void poison(final Turn turn, final String message) {
+        unusable = true;
+        turn.future.completeExceptionally(new IOException(message));
+        connection.close();
+    }
+
+    private static String identity(final Object value) {
+        return value instanceof String id && !id.isBlank() && id.length() <= 512 && id.indexOf('\0') < 0 ? id : "";
+    }
+
+    private synchronized void event(final Map<String, Object> message) {
         final String method = text(message.get("method"));
         final var params = object(message.get("params"));
-        if (message.containsKey("id")) {
-            approval(message.get("id"), method, params);
+        final var turn = activeTurn;
+        if (turn == null || turn.future.isDone() || !threadId.equals(params.get("threadId"))) {
+            if (message.containsKey("id")) reject(message.get("id"), method);
             return;
         }
-        if (params.containsKey("threadId") && threadId != null && !threadId.equals(params.get("threadId"))) return;
+        final String eventTurn = identity(
+                method.equals("turn/started") || method.equals("turn/completed")
+                        ? object(params.get("turn")).get("id")
+                        : params.get("turnId"));
+        if (eventTurn.isEmpty()) {
+            if (message.containsKey("id")) reject(message.get("id"), method);
+            return;
+        }
+        if (turn.id == null) {
+            long bytes = dev.turboism.sdk.json.Json.stringify(message)
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                    .length;
+            if (turn.pending.size() >= MAX_PENDING_START_EVENTS
+                    || bytes > MAX_PENDING_START_BYTES - turn.pendingBytes) {
+                if (message.containsKey("id")) reject(message.get("id"), method);
+                poison(
+                        turn,
+                        "Codex events exceeded the pending turn identity budget; reconnect and reconcile host operations");
+                return;
+            }
+            turn.pending.add(message);
+            turn.pendingBytes += bytes;
+            return;
+        }
+        if (!turn.id.equals(eventTurn)) {
+            if (message.containsKey("id")) reject(message.get("id"), method);
+            return;
+        }
+        if (message.containsKey("id")) {
+            if (turn.cancelRequested) reject(message.get("id"), method);
+            else approval(turn, message.get("id"), method, params);
+            return;
+        }
         switch (method) {
             case "item/agentMessage/delta" -> {
-                streamed.add(text(params.get("itemId")));
+                turn.streamed.add(text(params.get("itemId")));
                 host.text("agent_message_chunk", text(params.get("delta")));
             }
             case "item/reasoning/summaryTextDelta", "item/reasoning/textDelta" ->
                 host.text("agent_thought_chunk", text(params.get("delta")));
-            case "turn/started" -> turnId = text(object(params.get("turn")).get("id"));
-            case "item/started", "item/completed" -> item(object(params.get("item")), method.equals("item/completed"));
+            case "turn/started" -> {
+                /* Identity was established by this request's ACK. */
+            }
+            case "item/started", "item/completed" ->
+                item(turn, object(params.get("item")), method.equals("item/completed"));
             case "turn/completed" -> {
-                final var turn = object(params.get("turn"));
-                turnId = null;
-                final String status = text(turn.get("status"));
-                if ("failed".equals(status) || turn.get("error") != null)
-                    failed(new IOException(text(object(turn.get("error")).get("message"))));
-                else complete("interrupted".equals(status) || cancelled ? "cancelled" : "end_turn");
+                final var result = object(params.get("turn"));
+                final String status = text(result.get("status"));
+                if ("failed".equals(status) || result.get("error") != null)
+                    turn.future.completeExceptionally(
+                            new IOException(text(object(result.get("error")).get("message"))));
+                else if ("completed".equals(status) || "interrupted".equals(status))
+                    turn.future.complete(
+                            "interrupted".equals(status) || turn.cancelRequested ? "cancelled" : "end_turn");
+                else poison(turn, "Codex returned an unknown terminal status; reconnect and reconcile host operations");
             }
             case "error" -> {
                 if (!Boolean.TRUE.equals(params.get("willRetry")))
-                    failed(new IOException(text(object(params.get("error")).get("message"))));
+                    turn.future.completeExceptionally(
+                            new IOException(text(object(params.get("error")).get("message"))));
             }
             default -> {
                 /* Other app-server notifications do not represent conversation output. */
@@ -188,11 +297,11 @@ final class NativeCodexProvider extends NativeAgentProvider {
         }
     }
 
-    private void item(final Map<String, Object> item, final boolean completed) {
+    private void item(final Turn turn, final Map<String, Object> item, final boolean completed) {
         final String type = text(item.get("type"));
         final String id = text(item.get("id"));
         if (type.equals("agentMessage")) {
-            if (completed && !streamed.contains(id)) host.text("agent_message_chunk", text(item.get("text")));
+            if (completed && !turn.streamed.contains(id)) host.text("agent_message_chunk", text(item.get("text")));
         } else if (Set.of("commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch")
                 .contains(type)) {
             final String title = text(item.get("tool")).isBlank() ? type : text(item.get("tool"));
@@ -208,35 +317,64 @@ final class NativeCodexProvider extends NativeAgentProvider {
         }
     }
 
-    private void approval(final Object id, final String method, final Map<String, Object> params) {
+    private void approval(final Turn turn, final Object id, final String method, final Map<String, Object> params) {
         if (method.equals("item/commandExecution/requestApproval")
                 || method.equals("item/fileChange/requestApproval")) {
             host.permission(
+                    turn.future,
                     method.contains("fileChange") ? "Edit files" : "Run command",
                     method.contains("fileChange") ? "edit" : "execute",
                     text(params.get("itemId")),
                     params,
-                    allow -> send(Map.of("id", id, "result", Map.of("decision", allow ? "accept" : "decline"))));
+                    allow -> {
+                        synchronized (this) {
+                            send(Map.of(
+                                    "id",
+                                    id,
+                                    "result",
+                                    Map.of("decision", currentApproval(turn, allow) ? "accept" : "decline")));
+                        }
+                    });
         } else if (method.equals("item/permissions/requestApproval")) {
-            host.permission(
-                    "Agent permissions",
-                    "other",
-                    text(params.get("itemId")),
-                    params,
-                    allow -> send(Map.of(
+            host.permission(turn.future, "Agent permissions", "other", text(params.get("itemId")), params, allow -> {
+                synchronized (this) {
+                    send(Map.of(
                             "id",
                             id,
                             "result",
                             Map.of(
                                     "permissions",
-                                    allow ? object(params.get("permissions")) : Map.of(),
+                                    currentApproval(turn, allow) ? object(params.get("permissions")) : Map.of(),
                                     "scope",
-                                    "turn"))));
+                                    "turn")));
+                }
+            });
         } else if (method.equals("mcpServer/elicitation/request")) {
             send(Map.of("id", id, "result", Map.of("action", "cancel")));
         } else if (method.equals("item/tool/requestUserInput")) {
             send(Map.of("id", id, "result", Map.of("answers", Map.of())));
         } else send(Map.of("id", id, "error", Map.of("code", -32601L, "message", "Unsupported native agent request")));
+    }
+
+    private boolean currentApproval(final Turn turn, final boolean allow) {
+        return allow && activeTurn == turn && !turn.future.isDone() && !turn.cancelRequested;
+    }
+
+    private void reject(final Object id, final String method) {
+        if (method.equals("item/commandExecution/requestApproval") || method.equals("item/fileChange/requestApproval"))
+            send(Map.of("id", id, "result", Map.of("decision", "decline")));
+        else if (method.equals("item/permissions/requestApproval"))
+            send(Map.of("id", id, "result", Map.of("permissions", Map.of(), "scope", "turn")));
+        else if (method.equals("mcpServer/elicitation/request"))
+            send(Map.of("id", id, "result", Map.of("action", "cancel")));
+        else if (method.equals("item/tool/requestUserInput"))
+            send(Map.of("id", id, "result", Map.of("answers", Map.of())));
+        else
+            send(Map.of(
+                    "id",
+                    id,
+                    "error",
+                    Map.of("code", -32601L, "message", "Unsupported or inactive native agent request")));
     }
 
     private void send(final Map<String, Object> message) {

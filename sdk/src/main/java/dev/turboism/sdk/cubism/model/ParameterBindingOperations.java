@@ -25,6 +25,19 @@ public interface ParameterBindingOperations {
     /** Binds {@code target} to the parameter with the given binding points. */
     void bind(ParameterBindingTarget target, List<ParameterBindingPoint> points);
 
+    /**
+     * Binds an unbound target using finite, nonempty, distinct parameter values, without
+     * requiring client-invented binding-point identities. Native identities must be read
+     * back after creation. Implementations may sort the values and reject near duplicates.
+     * This operation does not promise preservation of the original form GUID at the
+     * parameter default, a complete multi-axis grid, or visual correctness. Authoring
+     * admission, transaction and rollback rules are identical to {@link #bind}.
+     * Implementations without verified support fail closed.
+     */
+    default void bindValues(ParameterBindingTarget target, List<Float> values) {
+        throw new UnsupportedOperationException("Native value-based parameter binding is unavailable.");
+    }
+
     /** Adds one binding point to {@code target}'s binding. */
     void createPoint(ParameterBindingTarget target, ParameterBindingPoint point);
 

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "scope": "Milestone A evidence checkpoint; not a full re-audit of all 59 original capabilities",
+  "goalAchieved": false,
+  "milestoneAAccepted": false,
+  "expectedToolCatalogCount": 80,
+  "readinessChecks": [
+    {
+      "gate": "A-HIYORI-THREE-KINDS",
+      "state": "EVIDENCE_PRESENT_LIMITED",
+      "evidence": [
+        "live-host-20261026/head-response-loss.json"
+      ],
+      "limit": "Scripted exact 5.3.03 reversible primitive edits, not real-model orchestration"
+    },
+    {
+      "gate": "A-EXACT-STORED-READBACK",
+      "state": "EVIDENCE_PRESENT_LIMITED",
+      "evidence": [
+        "live-host-20261026/hiyori-head-edit.json"
+      ],
+      "limit": "Named targets and declared preservation checks; no all-object/all-document universal claim"
+    },
+    {
+      "gate": "A-HISTORY-FAILURE-UNKNOWN",
+      "state": "PARTIAL",
+      "evidence": [
+        "live-host-20261026/head-response-loss.json"
+      ],
+      "limit": "Same live MCP session after complete HTTP read; no server crash, host cancellation or cross-session recovery"
+    },
+    {
+      "gate": "A-POSE-QA",
+      "state": "PARTIAL",
+      "evidence": [
+        "live-host-20261026/hiyori-head-qa-run.json"
+      ],
+      "limit": "28 poses before/after; finite sampling, art quality not accepted"
+    },
+    {
+      "gate": "A-MODEL-AND-WINDOW-IMAGE",
+      "state": "PARTIAL",
+      "evidence": [
+        "acp-raw-output-20261026.json",
+        "live-host-20261026/native-observe-runs.json",
+        "claude-observer-preflight-20261026.json",
+        "live-host-20261026/native-observe-codex.json"
+      ],
+      "limit": "Codex 6.1 Sol consumed real synthetic-fixture render through production native ACP and answer was independently reviewed; scripted Swing evidence remains separate, no same real-model/Swing chain"
+    },
+    {
+      "gate": "A-SAVE-REOPEN",
+      "state": "EVIDENCE_PRESENT_LIMITED",
+      "evidence": [
+        "live-host-20261026/hiyori-head-save-run.json"
+      ],
+      "limit": "Production grant/SAVE_AS/OPEN with test chooser in same JVM; no real-model autonomous file workflow"
+    },
+    {
+      "gate": "A-VERSION-HARNESS-SCOPE",
+      "state": "PARTIAL",
+      "evidence": [
+        "harness-reference.md"
+      ],
+      "limit": "Exact 5.3.03 task evidence and local CLI handshakes; not all harness/model/version combinations"
+    }
+  ],
+  "reverifiedTerminalJobs": [
+    {
+      "jobId": "72f3fb03-68e8-4058-a10b-efdeb2a7465e",
+      "state": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe"
+    },
+    {
+      "jobId": "904374cf-8382-4243-b04a-d5f9fa8136e9",
+      "state": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe"
+    },
+    {
+      "jobId": "cfc03a1a-37ac-4062-8d23-750c85b14a20",
+      "state": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe"
+    },
+    {
+      "jobId": "8c279fff-f06a-4543-8345-aecf9615c43e",
+      "state": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe"
+    }
+  ],
+  "reverifiedHistoricalEvidenceSha256": {
+    "live-host-20261026/hiyori-head-save-verified.properties": "bc6eb7a0f03bd72597dcc20caa12f7379dbb19ca54ae24714661925061d27112",
+    "live-host-20261026/hiyori-head-save-baseline.json": "a835da75abe0bf150a200c6b735d14d811f75263fef77e3cf85c82e33f89d28c",
+    "live-host-20261026/hiyori-head-save-closed.json": "6d1c79c860efa65e06b10425f84977062efa3ee45c361290461ba99c6c485bb6",
+    "live-host-20261026/hiyori-head-save-native.json": "be759a9d714833044842ba8851502236f9f4066eedb2313319f5f95ca9f255ea",
+    "live-host-20261026/hiyori-head-save-restore-closed.json": "d971ad8e826728279c069d1d655739f94ea18761a81cf990c12e649f936561a3",
+    "live-host-20261026/hiyori-head-save-restored.json": "a7cc2d9b7e236b93439bde95094f4ac15fe902983c6e12404368a0b29867bed6",
+    "live-host-20261026/hiyori-head-save-open.json": "c40bb9cefdef67577acf8f8c4b9368ca53f2da4235666b2924ac0e1b36a71f4c",
+    "live-host-20261026/hiyori-head-save-render-before.json": "82212d83f621d069b012670e42d28d4c03a6535d7d702c2a229e89338a7cde5e",
+    "live-host-20261026/hiyori-head-save-render-modified.json": "7f7aebd6df20721c289db3d0b553ea0d20af830e6ff2141bfd8c3d6b24710056",
+    "live-host-20261026/hiyori-head-save-render-reloaded.json": "0be19f8bfb44de4a46c7c88bb1aa24b05a32673bf3177ab219d7f10a1a7b4212",
+    "live-host-20261026/hiyori-head-qa-verified.properties": "57b014ab27ae07f7068758f5ed84cdd472e40ce5815e34ef2bb329dfa2487b46",
+    "live-host-20261026/hiyori-head-qa-rollback.json": "5c82f0bf83162603537625c6322966e461265cc3c5d11e134a9552fdc2ccb9fa",
+    "live-host-20261026/hiyori-head-qa-candidates.json": "780ba53bb2b8414b6f45010f845f6389d91383b4e4f08655f2f226f981335018",
+    "live-host-20261026/hiyori-head-qa.json": "d666c7d32ff9bbda1c59959050081e58776d67c44aa809dbdb3f5e1d837a92c8",
+    "live-host-20261026/hiyori-head-qa-render-before.json": "9f521eeefc810bf4b12eea48555f95b9be50f125b1feda95970c1895596aa140",
+    "live-host-20261026/hiyori-head-qa-render-after.json": "948a6b1b7e8b9697d81085513393d784a991861db7bf083dcb9bd8ac43580e4a",
+    "live-host-20261026/hiyori-head-qa-visual-review.json": "ba1be9aab57db0018e19cc1bd886b5825034e99a0e34fe5f88e0f8010f94aa4c"
+  },
+  "nextGate": {
+    "task": "mcp:5303@native-edit",
+    "state": "ONE_ARTMESH_CASE_PASSED",
+    "action": "Extend real-agent planning and controlled verification to Warp/Rotation, same-chain Swing, and recoverable multi-step modeling; Milestone A remains unaccepted",
+    "externalCoordinatesAndBoundedWriteExplicitlyAuthorized": true,
+    "evidence": "live-host-20261026/native-edit-codex.json"
+  },
+  "knownRecoveryLimit": "Keyform results and snapshots are MCP-session scoped. ACP conversation restore does not restore the host state or make old receipts usable.",
+  "realAgentBoundedWrite": {
+    "state": "EVIDENCE_PRESENT_LIMITED",
+    "evidence": "live-host-20261026/native-edit-codex.json",
+    "limit": "One synthetic ArtMesh form with preview/write/readback/target-pose render/Undo/Redo/final restoration; not complete head modeling or three-kind real-agent edits"
+  }
+}

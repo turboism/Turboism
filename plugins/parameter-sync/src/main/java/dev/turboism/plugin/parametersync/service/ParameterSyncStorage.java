@@ -35,6 +35,7 @@ public final class ParameterSyncStorage {
         this.executor = Objects.requireNonNull(executor, "executor");
     }
 
+    /** Loads model settings asynchronously, using empty defaults for unreadable or unsupported data. */
     public CompletionStage<ParameterSyncData> load(final String modelGuid) {
         if (modelGuid == null || modelGuid.isBlank()) {
             return CompletableFuture.completedFuture(null);
@@ -78,6 +79,7 @@ public final class ParameterSyncStorage {
                 });
     }
 
+    /** Queues an asynchronous settings save, serializing writes for the same model. */
     public CompletionStage<Boolean> save(final ParameterSyncData data) {
         if (data == null) {
             return CompletableFuture.completedFuture(false);

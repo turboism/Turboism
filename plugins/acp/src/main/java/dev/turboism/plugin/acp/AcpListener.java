@@ -42,7 +42,7 @@ interface AcpListener {
 
     /**
      * Resolves an agent permission request. Implementations may block this dedicated reader
-     * dispatch while presenting UI; closing or cancellation must return {@link
+     * worker while presenting UI; closing or cancellation must return {@link
      * PermissionDecision#CANCELLED}.
      */
     default PermissionDecision permission(
@@ -65,7 +65,18 @@ interface AcpListener {
      * @param toolCallId opaque tool-call correlation id
      * @param details bounded, bearer-redacted JSON arguments the user must review
      * @param options agent-advertised outcome ids mapped to the client's fixed decisions
+     * @param cancellation local lifetime signal; does not represent host operation cancellation
      */
     record PermissionRequest(
-            String title, String kind, String toolCallId, String details, AcpClient.PermissionOptionSet options) {}
+            String title,
+            String kind,
+            String toolCallId,
+            String details,
+            AcpClient.PermissionOptionSet options,
+            AcpPermissionCancellation cancellation) {
+        PermissionRequest(
+                String title, String kind, String toolCallId, String details, AcpClient.PermissionOptionSet options) {
+            this(title, kind, toolCallId, details, options, new AcpPermissionCancellation());
+        }
+    }
 }

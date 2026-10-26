@@ -3,6 +3,13 @@
 For third-party plugin development, start with the [plugin author guide](sdk/plugin-author-guide.md)
 and the [standalone template](templates/plugin-template/README.md).
 
+## UI appearance
+
+New or changed UI must follow the [UI appearance and dark mode requirements](sdk/plugin-author-guide.md#ui-appearance-and-dark-mode).
+Review the containing surface, glyph contrast, interaction states, actual display
+size/DPI, and live theme switching in both light and dark modes. For first-party
+icon sources and regeneration, see the [artwork guide](scripts/artwork/README.md#深浅色模式适配).
+
 ## Repository hygiene policy
 
 Remote history must never contain:

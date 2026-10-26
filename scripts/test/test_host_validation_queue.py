@@ -684,6 +684,132 @@ class PreparedStoreTest(unittest.TestCase):
         self.assertEqual(descriptor, self.prepared.load(descriptor["digest"]))
         self.assertEqual([], self.store.jobs())
 
+    def test_claude_observer_pins_exact_runtime_and_closed_manifest(self):
+        request = self.mcp_request()
+        argv = request['argv']
+        argv[argv.index('--version') + 1] = '5303'
+        bundle = self.base / 'claude-bundle'
+        helper = bundle / 'native-observe'
+        helper.mkdir(parents=True)
+        (helper / 'probe.jar').write_bytes(b'never executed')
+        release = self.base / '.local/lib/node_modules/@anthropic-ai/claude-code'
+        entry = release / 'bin/claude.exe'
+        entry.parent.mkdir(parents=True)
+        entry.write_bytes(b'isolated fake installed runtime')
+        entry.chmod(0o700)
+        java = self.base / 'java-fixture'
+        java.write_bytes(b'isolated fake java')
+        java.chmod(0o700)
+        manifest = {'schemaVersion': 2, 'harness': 'claude', 'javaExecutable': str(java),
+                    'claudeReleaseRoot': str(release), 'claudeExecutable': str(entry), 'claudeVersion': '2.1.284'}
+        (helper / 'runtime.json').write_text(json.dumps(manifest))
+        argv += ['--bundle-root', str(bundle), '--jvm-option', '-Dturboism.validation.readOnlyInspection=true',
+                 '--jvm-option', '-Dturboism.validation.nativeObservation=true']
+        for name in ('probe.jar', 'runtime.json'):
+            argv += ['--home-file', str(helper / name) + ':native-observe/' + name]
+        with mock.patch('hvq.snapshot.Path.home', return_value=self.base), \
+                mock.patch('hvq.snapshot.shutil.which', side_effect=lambda name: str(java if name == 'java' else entry)):
+            descriptor = self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            for field, value in [('harness', 'other'), ('claudeVersion', 'unknown'), ('claudeExecutable', str(java)),
+                                 ('claudeReleaseRoot', str(self.base)), ('extra', True)]:
+                (helper / 'runtime.json').write_text(json.dumps({**manifest, field: value}))
+                with self.subTest(field=field), self.assertRaises(queue.QueueError):
+                    self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            (helper / 'runtime.json').write_text(json.dumps(manifest))
+        self.assertEqual(3, len([d for d in descriptor['hostDependencies'] if d['option'].startswith('native-observer-')]))
+        entry.write_bytes(b'changed installed runtime')
+        with self.assertRaisesRegex(queue.QueueError, 'runtime dependency changed'):
+            self.prepared.command(descriptor['digest'], self.base / 'evidence')
+
+    def test_codex_observer_pins_model_and_runtime(self):
+        request = self.mcp_request()
+        argv = request['argv']
+        argv[argv.index('--version') + 1] = '5303'
+        bundle = self.base / 'codex-bundle'
+        helper = bundle / 'native-observe'
+        helper.mkdir(parents=True)
+        (helper / 'probe.jar').write_bytes(b'never executed')
+        release = self.base / '.local/lib/node_modules/@openai/codex'
+        entry = release / 'bin/codex.js'
+        entry.parent.mkdir(parents=True)
+        entry.write_bytes(b'fake pinned codex entry')
+        java, node = self.base / 'java-fixture', self.base / 'node-fixture'
+        for path in (java, node):
+            path.write_bytes(b'fake runtime')
+            path.chmod(0o700)
+        manifest = {'schemaVersion': 3, 'harness': 'codex', 'javaExecutable': str(java),
+                    'nodeExecutable': str(node), 'codexReleaseRoot': str(release), 'codexEntrypoint': str(entry),
+                    'codexVersion': '0.159.2', 'model': 'gpt-6.1-sol'}
+        (helper / 'runtime.json').write_text(json.dumps(manifest))
+        argv += ['--bundle-root', str(bundle), '--jvm-option', '-Dturboism.validation.readOnlyInspection=true',
+                 '--jvm-option', '-Dturboism.validation.nativeObservation=true']
+        for name in ('probe.jar', 'runtime.json'):
+            argv += ['--home-file', str(helper / name) + ':native-observe/' + name]
+        with mock.patch('hvq.snapshot.Path.home', return_value=self.base), \
+                mock.patch('hvq.snapshot.shutil.which', side_effect=lambda name: str({'java': java, 'node': node, 'codex': entry}[name])):
+            descriptor = self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            edit_manifest = {**manifest, 'schemaVersion': 4, 'workflow': 'keyform-edit'}
+            (helper / 'runtime.json').write_text(json.dumps(edit_manifest))
+            with self.assertRaises(queue.QueueError):
+                self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            argv[argv.index('-Dturboism.validation.nativeObservation=true')] = '-Dturboism.validation.nativeEditing=true'
+            edit_descriptor = self.prepared.capture(request, self.source, 'mcp:5303@native-edit')
+            self.assertNotEqual(descriptor['digest'], edit_descriptor['digest'])
+            (helper / 'runtime.json').write_text(json.dumps(manifest))
+            with self.assertRaises(queue.QueueError):
+                self.prepared.capture(request, self.source, 'mcp:5303@native-edit')
+            argv[argv.index('-Dturboism.validation.nativeEditing=true')] = '-Dturboism.validation.nativeObservation=true'
+            for field, value in [('model', 'other'), ('codexVersion', 'unknown'), ('codexEntrypoint', str(java)),
+                                 ('codexReleaseRoot', str(self.base)), ('extra', True)]:
+                (helper / 'runtime.json').write_text(json.dumps({**manifest, field: value}))
+                with self.subTest(field=field), self.assertRaises(queue.QueueError):
+                    self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            (helper / 'runtime.json').write_text(json.dumps(manifest))
+        self.assertEqual(4, len([d for d in descriptor['hostDependencies'] if d['option'].startswith('native-observer-')]))
+        entry.write_bytes(b'changed installed runtime')
+        with self.assertRaisesRegex(queue.QueueError, 'runtime dependency changed'):
+            self.prepared.command(descriptor['digest'], self.base / 'evidence')
+
+    def test_native_observer_pins_installed_runtime_and_requires_exact_lane(self):
+        request = self.mcp_request()
+        argv = request['argv']
+        argv[argv.index('--version') + 1] = '5303'
+        bundle = self.base / 'native-bundle'
+        helper = bundle / 'native-observe'
+        helper.mkdir(parents=True)
+        (helper / 'probe.jar').write_bytes(b'isolated-never-executed-jar')
+        release = self.base / '.pi/agent/install/releases/1.2.0'
+        entry = release / 'node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js'
+        entry.parent.mkdir(parents=True)
+        entry.write_text('// isolated never-executed Pi')
+        executable = self.base / 'runtime-executable'
+        executable.write_text('# isolated runtime fixture')
+        executable.chmod(0o700)
+        manifest = {'schemaVersion': 1, 'javaExecutable': str(executable), 'nodeExecutable': str(executable),
+                    'piReleaseRoot': str(release), 'piEntrypoint': str(entry), 'piVersion': '1.2.0', 'excludedVisionProviders': []}
+        (helper / 'runtime.json').write_text(json.dumps(manifest))
+        argv += ['--bundle-root', str(bundle), '--jvm-option', '-Dturboism.validation.readOnlyInspection=true',
+                 '--jvm-option', '-Dturboism.validation.nativeObservation=true']
+        for name in ('probe.jar', 'runtime.json'):
+            argv += ['--home-file', str(helper / name) + ':native-observe/' + name]
+        with mock.patch('hvq.snapshot.Path.home', return_value=self.base), \
+                mock.patch('hvq.snapshot.shutil.which', return_value=str(executable)):
+            descriptor = self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            for field, value in [('excludedVisionProviders', ['p', 'p']), ('excludedVisionProviders', ['../other']),
+                                 ('nodeExecutable', str(entry)), ('piReleaseRoot', str(self.base))]:
+                (helper / 'runtime.json').write_text(json.dumps({**manifest, field: value}))
+                with self.subTest(field=field, value=value), self.assertRaises(queue.QueueError):
+                    self.prepared.capture(request, self.source, 'mcp:5303@native-observe')
+            (helper / 'runtime.json').write_text(json.dumps(manifest))
+        self.assertEqual(3, len([d for d in descriptor['hostDependencies'] if d['option'].startswith('native-observer-')]))
+        with self.assertRaises(queue.QueueError): self.prepared.capture(request, self.source, 'mcp:5303')
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({**request, 'argv': argv + ['--jvm-option', '-Dturboism.validation.headEditing=true']},
+                                  self.source, 'mcp:5303@native-observe')
+        entry.write_text('// installed code changed')
+        with self.assertRaisesRegex(queue.QueueError, 'runtime dependency changed'):
+            self.prepared.command(descriptor['digest'], self.base / 'evidence')
+
     def test_mcp_client_accepts_exact_catalogued_versions_only(self):
         from host_validation_evidence import HOSTS
 
@@ -699,6 +825,65 @@ class PreparedStoreTest(unittest.TestCase):
             argv[argv.index("--version") + 1] = version
             with self.subTest(version=version), self.assertRaises(queue.QueueError):
                 self.prepared.capture(request, self.source, "mcp:" + version)
+
+    def test_mcp_inspection_requires_exact_read_only_mode_without_other_workloads(self):
+        request = self.mcp_request()
+        with self.assertRaisesRegex(queue.QueueError, "read-only mode"):
+            self.prepared.capture(request, self.source, "mcp:5302@inspect")
+        request["argv"].extend(["--jvm-option", "-Dturboism.validation.readOnlyInspection=true"])
+        self.prepared.capture(request, self.source, "mcp:5302@inspect")
+        for extra in ["-Dturboism.validation.readOnlyInspection=false", "-Dturboism.validation.readOnlyInspection=true",
+                      "-Dturboism.validation.freeFixture=true", "-Dturboism.validation.ownedMoc=true"]:
+            with self.subTest(extra=extra), self.assertRaises(queue.QueueError):
+                changed = {**request, "argv": request["argv"] + ["--jvm-option", extra]}
+                self.prepared.capture(changed, self.source, "mcp:5302@inspect")
+
+    def test_head_edit_requires_exact_5303_and_unshadowed_closed_workload(self):
+        request = self.mcp_request()
+        argv = request["argv"]
+        argv[argv.index("--version") + 1] = "5303"
+        with self.assertRaisesRegex(queue.QueueError, "head editing mode"):
+            self.prepared.capture(request, self.source, "mcp:5303@head-edit")
+        argv.extend(["--jvm-option", "-Dturboism.validation.headEditing=true"])
+        self.prepared.capture(request, self.source, "mcp:5303@head-edit")
+        for extra in ("-Dturboism.validation.headEditing=false", "-Dturboism.validation.headEditing=true",
+                      "-Dturboism.validation.readOnlyInspection=true", "-Dturboism.validation.freeFixture=true"):
+            with self.subTest(extra=extra), self.assertRaises(queue.QueueError):
+                changed = {**request, "argv": argv + ["--jvm-option", extra]}
+                self.prepared.capture(changed, self.source, "mcp:5303@head-edit")
+        argv[argv.index("--version") + 1] = "5302"
+        with self.assertRaisesRegex(queue.QueueError, "exact reviewed 5303"):
+            self.prepared.capture(request, self.source, "mcp:5302@head-edit")
+
+    def test_head_save_requires_exact_mode_and_rejects_other_workloads(self):
+        request = self.mcp_request()
+        argv = request["argv"]
+        argv[argv.index("--version") + 1] = "5303"
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture(request, self.source, "mcp:5303@head-save")
+        argv.extend(["--jvm-option", "-Dturboism.validation.headPersistence=true"])
+        self.prepared.capture(request, self.source, "mcp:5303@head-save")
+        for extra in ("-Dturboism.validation.headPersistence=false", "-Dturboism.validation.headPersistence=true",
+                      "-Dturboism.validation.headEditing=true", "-Dturboism.validation.readOnlyInspection=true"):
+            with self.subTest(extra=extra), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**request, "argv": argv + ["--jvm-option", extra]}, self.source, "mcp:5303@head-save")
+        argv[argv.index("--version") + 1] = "5302"
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture(request, self.source, "mcp:5302@head-save")
+
+    def test_head_qa_requires_exact_bounded_workload(self):
+        request = self.mcp_request()
+        argv = request["argv"]
+        argv[argv.index("--version") + 1] = "5303"
+        with self.assertRaises(queue.QueueError): self.prepared.capture(request, self.source, "mcp:5303@head-qa")
+        argv.extend(["--jvm-option", "-Dturboism.validation.headPoseQA=true"])
+        self.prepared.capture(request, self.source, "mcp:5303@head-qa")
+        for extra in ("-Dturboism.validation.headPoseQA=false", "-Dturboism.validation.headPoseQA=true",
+                      "-Dturboism.validation.headEditing=true", "-Dturboism.validation.headPersistence=true"):
+            with self.subTest(extra=extra), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**request, "argv": argv + ["--jvm-option", extra]}, self.source, "mcp:5303@head-qa")
+        argv[argv.index("--version") + 1] = "5302"
+        with self.assertRaises(queue.QueueError): self.prepared.capture(request, self.source, "mcp:5302@head-qa")
 
     def test_mcp_free_fixture_requires_reviewed_variant_and_preparation(self):
         request = self.mcp_request()

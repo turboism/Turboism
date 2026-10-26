@@ -293,8 +293,49 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
             or versions[0] not in {compact(v) for v in load()}
             or task_spec not in {"direct-runner", "mcp:" + versions[0],
                                  "mcp:" + versions[0] + "@standard",
-                                 "mcp:" + versions[0] + "@free-fixture"}):
+                                 "mcp:" + versions[0] + "@free-fixture",
+                                 "mcp:" + versions[0] + "@inspect",
+                                 "mcp:" + versions[0] + "@head-edit",
+                                 "mcp:" + versions[0] + "@head-save",
+                                 "mcp:" + versions[0] + "@head-qa",
+                                 "mcp:" + versions[0] + "@native-observe", "mcp:" + versions[0] + "@native-edit"}):
         raise QueueError("custom client requires reviewed dependency inventory for the exact MCP task")
+    for suffix, property_name in (("native-observe", "nativeObservation"), ("native-edit", "nativeEditing")):
+        native_flag = "-Dturboism.validation." + property_name + "="
+        if (not task_spec.endswith("@" + suffix)
+                and any(v.startswith(native_flag) for v in options.get("--jvm-option", []))):
+            raise QueueError("native workload requires its exact registered variant")
+        if task_spec.endswith("@" + suffix):
+            required = {native_flag + "true", "-Dturboism.validation.readOnlyInspection=true"}
+            jvm = options.get("--jvm-option", [])
+            allowed = required | {"-Dturboism.validation.exitOnComplete=true", "-Dturboism.validation.fixture={FIXTURE}"}
+            if (versions != ["5303"] or any(jvm.count(v) != 1 for v in required)
+                    or any(v.startswith("-Dturboism.validation.") and v not in allowed for v in jvm)):
+                raise QueueError("native workload requires exact 5303 isolated mode")
+            native_observation_dependencies(options)
+            manifest = json.loads((Path(options["--bundle-root"][0]) / "native-observe/runtime.json").read_text())
+            if (manifest.get("workflow") == "keyform-edit") != (suffix == "native-edit"):
+                raise QueueError("native runtime workflow does not match task variant")
+    if task_spec.endswith("@inspect"):
+        inspection_flag = "-Dturboism.validation.readOnlyInspection="
+        jvm = options.get("--jvm-option", [])
+        if [option for option in jvm if option.startswith(inspection_flag)] != [inspection_flag + "true"]:
+            raise QueueError("inspection variant requires exact unshadowed read-only mode")
+        allowed_validation = {inspection_flag + "true", "-Dturboism.validation.exitOnComplete=true",
+                              "-Dturboism.validation.fixture={FIXTURE}"}
+        if any(option.startswith("-Dturboism.validation.") and option not in allowed_validation for option in jvm):
+            raise QueueError("inspection variant cannot include other validation workloads")
+    if task_spec.endswith(("@head-edit", "@head-save", "@head-qa")):
+        if versions != ["5303"]:
+            raise QueueError("head-edit variant requires exact reviewed 5303 host")
+        flag = "-Dturboism.validation." + ({"head-save": "headPersistence=", "head-qa": "headPoseQA="}.get(task_spec.rsplit("@", 1)[-1], "headEditing="))
+        jvm = options.get("--jvm-option", [])
+        if [option for option in jvm if option.startswith(flag)] != [flag + "true"]:
+            raise QueueError("head-edit variant requires exact unshadowed head editing mode")
+        allowed = {flag + "true", "-Dturboism.validation.exitOnComplete=true",
+                   "-Dturboism.validation.fixture={FIXTURE}"}
+        if any(option.startswith("-Dturboism.validation.") and option not in allowed for option in jvm):
+            raise QueueError("head-edit variant cannot include other validation workloads")
     if task_spec.endswith("@free-fixture"):
         required_jvm = {
             "-Dturboism.validation.startFree=true",
@@ -324,6 +365,81 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
         raise QueueError("MCP client requires the preparing Python interpreter")
     return {"option": "mcp-client-python", "path": str(interpreter),
             "sha256": runtime_digest(interpreter)}
+
+
+def native_observation_dependencies(options: dict[str, list[str]]) -> list[dict[str, str]]:
+    """Closed native integration probes; pin installed code, never copy CLI credentials."""
+    bundles = options.get("--bundle-root", [])
+    if len(bundles) != 1:
+        raise QueueError("native observer requires one explicit bundle")
+    root = Path(bundles[0]) / "native-observe"
+    expected = {str(root / name) + ":native-observe/" + name for name in ("probe.jar", "runtime.json")}
+    if (len(options.get("--home-file", [])) != 2 or set(options["--home-file"]) != expected
+            or "--home-dir" in options or "--home-config" in options):
+        raise QueueError("native observer requires exact helper/runtime inventory")
+    try:
+        manifest = json.loads((root / "runtime.json").read_text())
+        if manifest.get("schemaVersion") in {3, 4}:
+            fields = {"schemaVersion", "harness", "javaExecutable", "nodeExecutable", "codexReleaseRoot", "codexEntrypoint", "codexVersion", "model"}
+            if manifest.get("schemaVersion") == 4: fields.add("workflow")
+            if (set(manifest) != fields
+                    or (manifest.get("schemaVersion") == 4 and manifest.get("workflow") != "keyform-edit")
+                    or manifest['harness'] != 'codex' or manifest['codexVersion'] != '0.159.2' or manifest['model'] != 'gpt-6.1-sol'):
+                raise ValueError()
+            release = Path.home() / '.local/lib/node_modules/@openai/codex'
+            installed = shutil.which('codex')
+            entry = release / 'bin/codex.js'
+            if (not installed or Path(installed).resolve(strict=True) != entry
+                    or manifest['codexReleaseRoot'] != str(release) or manifest['codexEntrypoint'] != str(entry) or not entry.is_file()):
+                raise ValueError()
+            for key, executable in [('javaExecutable', 'java'), ('nodeExecutable', 'node')]:
+                installed_runtime = shutil.which(executable)
+                if (not installed_runtime or Path(manifest[key]) != Path(installed_runtime).resolve(strict=True)
+                        or not Path(manifest[key]).is_file() or not os.access(manifest[key], os.X_OK)):
+                    raise ValueError()
+            return [{"option": "native-observer-" + key, "path": manifest[key], "sha256": runtime_digest(Path(manifest[key]))}
+                    for key in ('javaExecutable', 'nodeExecutable', 'codexEntrypoint', 'codexReleaseRoot')]
+        if manifest.get("schemaVersion") == 2:
+            if (set(manifest) != {"schemaVersion", "harness", "javaExecutable", "claudeReleaseRoot", "claudeExecutable", "claudeVersion"}
+                    or manifest['harness'] != 'claude' or manifest['claudeVersion'] != '2.1.284'):
+                raise ValueError()
+            release = Path.home() / '.local/lib/node_modules/@anthropic-ai/claude-code'
+            installed = shutil.which('claude')
+            entry = release / 'bin/claude.exe'
+            java = shutil.which('java')
+            if (not installed or not java or Path(manifest['claudeReleaseRoot']) != release
+                    or Path(installed).resolve(strict=True) != entry
+                    or manifest['claudeExecutable'] != str(entry) or not entry.is_file() or not os.access(entry, os.X_OK)
+                    or Path(manifest['javaExecutable']) != Path(java).resolve(strict=True)):
+                raise ValueError()
+            return [{"option": "native-observer-" + key, "path": manifest[key], "sha256": runtime_digest(Path(manifest[key]))}
+                    for key in ('javaExecutable', 'claudeExecutable', 'claudeReleaseRoot')]
+        if (set(manifest) != {"schemaVersion", "javaExecutable", "nodeExecutable", "piReleaseRoot", "piEntrypoint", "piVersion", "excludedVisionProviders"}
+                or manifest["schemaVersion"] != 1 or manifest["piVersion"] != "1.2.0"):
+            raise ValueError()
+        excluded = manifest['excludedVisionProviders']
+        if (not isinstance(excluded, list) or len(excluded) > 8
+                or any(not isinstance(v, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', v) for v in excluded)
+                or len(set(excluded)) != len(excluded)):
+            raise ValueError()
+        release = Path(manifest["piReleaseRoot"])
+        if release != Path.home() / '.pi/agent/install/releases/1.2.0':
+            raise ValueError()
+        entry = release / "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+        if manifest["piEntrypoint"] != str(entry) or not entry.is_file():
+            raise ValueError()
+        dependencies = []
+        for key in ("javaExecutable", "nodeExecutable", "piReleaseRoot"):
+            path = Path(manifest[key])
+            if key != "piReleaseRoot":
+                installed = shutil.which('java' if key == 'javaExecutable' else 'node')
+                if (not installed or path != Path(installed).resolve(strict=True)
+                        or not path.is_file() or not os.access(path, os.X_OK)):
+                    raise ValueError()
+            dependencies.append({"option": "native-observer-" + key, "path": str(path), "sha256": runtime_digest(path)})
+        return dependencies
+    except (OSError, ValueError, TypeError, KeyError) as failure:
+        raise QueueError("invalid native observer runtime manifest") from failure
 
 
 def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
@@ -479,6 +595,15 @@ class PreparedStore:
                 item for item in (memory_dependency, mcp_dependency, edit_protocol_dependency)
                 if item is not None
             ]
+            if task_spec.endswith(("@native-observe", "@native-edit")):
+                native_options: dict[str, list[str]] = {}
+                index = 0
+                while index < len(argv):
+                    flag = argv[index]
+                    count = 1 if flag in BOOLEAN_FLAGS else 2
+                    native_options.setdefault(flag, []).append("" if count == 1 else argv[index + 1])
+                    index += count
+                host_dependencies.extend(native_observation_dependencies(native_options))
             if task_spec in ("official-viewer:5302", "official-core:5302"):
                 host_dependencies.append({"option": "private-display-server", "path": "/usr/bin/Xvfb",
                                           "sha256": runtime_digest(Path("/usr/bin/Xvfb"))})

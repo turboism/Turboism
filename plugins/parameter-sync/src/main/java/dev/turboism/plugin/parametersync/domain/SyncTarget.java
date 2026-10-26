@@ -20,18 +20,22 @@ public record SyncTarget(String targetId, SyncMode mode, float ratio, float offs
         offset = Float.isFinite(offset) ? offset : 0.0f;
     }
 
+    /** Creates a target binding with the supplied ID and optional mapping settings. */
     public static SyncTarget of(final String targetId) {
         return new SyncTarget(targetId, SyncMode.NORMALIZED_RANGE, 1.0f, 0.0f);
     }
 
+    /** Creates a target binding with the supplied ID and optional mapping settings. */
     public static SyncTarget of(final String targetId, final SyncMode mode) {
         return new SyncTarget(targetId, mode, 1.0f, 0.0f);
     }
 
+    /** Creates a target binding with the supplied ID and optional mapping settings. */
     public static SyncTarget of(final String targetId, final SyncMode mode, final float ratio, final float offset) {
         return new SyncTarget(targetId, mode, ratio, offset);
     }
 
+    /** Returns the serialized configuration fields for storage. */
     public Map<String, Object> toMap() {
         final Map<String, Object> map = new LinkedHashMap<>();
         map.put("targetId", targetId);
@@ -41,6 +45,7 @@ public record SyncTarget(String targetId, SyncMode mode, float ratio, float offs
         return map;
     }
 
+    /** Reads a serialized configuration; returns null when its required identity is missing. */
     public static SyncTarget fromMap(final Map<String, ?> map) {
         if (map == null || map.isEmpty()) {
             return null;

@@ -65,6 +65,22 @@ import org.junit.jupiter.params.provider.ValueSource;
 class DynamicCubismModelAccessTest {
 
     @Test
+    void valueBasedBindingCannotCrossSessionGeneration() {
+        var recording = new RecordingModel();
+        var access = new DynamicCubismModelAccess();
+        access.connect(() -> recording);
+        var operations = access.active().parameterBindings(new ParameterId("ParamA"));
+        var target = ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshA"));
+        operations.bindValues(target, List.of(-1f, 0f, 1f));
+        access.connect(() -> recording);
+        assertThrows(IllegalStateException.class, () -> operations.bindValues(target, List.of(0f)));
+        var current = access.active().parameterBindings(new ParameterId("ParamA"));
+        access.deactivate();
+        assertThrows(IllegalStateException.class, () -> current.bindValues(target, List.of(0f)));
+        assertEquals(List.of("binding.values:ArtMeshA:[-1.0, 0.0, 1.0]"), recording.calls);
+    }
+
+    @Test
     void interpolationOperationsCannotCrossModelReplacementOrDeactivation() {
         var recording = new RecordingModel();
         var access = new DynamicCubismModelAccess();
@@ -432,6 +448,25 @@ class DynamicCubismModelAccessTest {
     }
 
     @Test
+    void indexedMovesAndMixedReadsAreSessionBound() {
+        final RecordingModel recording = new RecordingModel();
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(() -> recording);
+        final var groups = access.active().parameterGroups();
+        final var root = groups.root();
+        groups.moveParameter(new ParameterId("ParamA"), root.id(), 0);
+        assertEquals(1, root.orderedChildren().size());
+        assertEquals(List.of("groups.moveParameter:0", "group.orderedChildren"), recording.calls);
+        recording.calls.clear();
+        access.deactivate();
+        assertThrows(IllegalStateException.class, root::orderedChildren);
+        assertThrows(
+                IllegalStateException.class,
+                () -> groups.moveParameter(new ParameterId("ParamA"), new ParameterGroupId("GroupNew"), 0));
+        assertTrue(recording.calls.isEmpty());
+    }
+
+    @Test
     void wave1WritesFailClosedWithoutAnActiveSession() {
         final RecordingModel recording = new RecordingModel();
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
@@ -700,6 +735,11 @@ class DynamicCubismModelAccessTest {
             }
 
             @Override
+            public String guid() {
+                return "native-cheek-guid";
+            }
+
+            @Override
             public int index() {
                 return 7;
             }
@@ -779,6 +819,7 @@ class DynamicCubismModelAccessTest {
 
         final Parameter parameter = access.active().parameters().find(new ParameterId("ParamCheek"));
         final dev.turboism.sdk.cubism.model.FloatSequence keyValues = parameter.keyValues();
+        assertEquals("native-cheek-guid", parameter.guid());
         assertEquals(7, parameter.index());
         assertEquals(1, keyValues.size());
         assertEquals(0.25F, keyValues.get(0));
@@ -790,6 +831,7 @@ class DynamicCubismModelAccessTest {
         assertEquals(List.of(), parameter.getParameterBindings());
 
         access.deactivate();
+        assertThrows(IllegalStateException.class, parameter::guid);
         assertThrows(IllegalStateException.class, parameter::index);
         assertThrows(IllegalStateException.class, keyValues::size);
         assertThrows(IllegalStateException.class, parameter::name);
@@ -800,6 +842,14 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, parameter::getParameterBindings);
         assertThrows(IllegalStateException.class, () -> parameter.combineWith(new ParameterId("ParamSmile")));
         assertThrows(IllegalStateException.class, parameter::uncombine);
+        access.connect(() -> model("model-a", delegate));
+        assertThrows(
+                IllegalStateException.class,
+                parameter::guid,
+                "same model ID/GUID must not resurrect an old generation");
+        assertEquals(
+                "native-cheek-guid",
+                access.active().parameters().find(new ParameterId("ParamCheek")).guid());
     }
 
     @ParameterizedTest
@@ -940,6 +990,14 @@ class DynamicCubismModelAccessTest {
             public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
                 return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot(
                         id(), "source-guid", geometry[0], List.of(), List.of(), List.of(), List.of());
+            }
+
+            @Override
+            public void setOrdinaryKeyformValues(
+                    dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                    List<dev.turboism.sdk.cubism.model.ArtMeshKeyformValues> edits) {
+                assertEquals("source-guid", expected.sourceGuid());
+                assertTrue(edits.isEmpty());
             }
 
             @Override
@@ -1331,6 +1389,7 @@ class DynamicCubismModelAccessTest {
         final var authoring = wrappedDrawable.authoringSnapshot();
         assertEquals("source-guid", authoring.sourceGuid());
         assertEquals(geometry[0], authoring.sourceGeometry());
+        wrappedDrawable.setOrdinaryKeyformValues(authoring, List.of());
         final var evaluation = wrappedDrawable.evaluationSnapshot();
         assertEquals("source-guid", evaluation.sourceGuid());
         assertEquals(7, evaluation.liveParameters().updateVersion());
@@ -1368,6 +1427,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(
                 IllegalStateException.class,
                 () -> wrappedDrawable.setOrdinaryKeyforms(authoring, List.of(), List.of()));
+        assertThrows(IllegalStateException.class, () -> wrappedDrawable.setOrdinaryKeyformValues(authoring, List.of()));
         assertThrows(IllegalStateException.class, wrappedDrawable::geometry);
         assertThrows(IllegalStateException.class, wrappedDrawable::authoringSnapshot);
         assertThrows(IllegalStateException.class, wrappedDrawable::evaluationSnapshot);

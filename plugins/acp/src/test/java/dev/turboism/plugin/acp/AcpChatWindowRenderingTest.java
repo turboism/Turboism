@@ -786,6 +786,36 @@ final class AcpChatWindowRenderingTest {
         });
     }
 
+    @Test
+    void permissionDialogClosesWhenRequestLifetimeEnds() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        var window = new java.util.concurrent.atomic.AtomicReference<AcpChatWindow>();
+        SwingUtilities.invokeAndWait(() -> window.set(new AcpChatWindow(localization(), "pi", "", "")));
+        var shown = new java.util.concurrent.CompletableFuture<javax.swing.JDialog>();
+        java.awt.event.AWTEventListener events = event -> {
+            if (event.getID() == java.awt.event.WindowEvent.WINDOW_OPENED
+                    && event.getSource() instanceof javax.swing.JDialog dialog
+                    && "turboism-acp.permission".equals(dialog.getName())) shown.complete(dialog);
+        };
+        java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(events, java.awt.AWTEvent.WINDOW_EVENT_MASK);
+        var request = new AcpListener.PermissionRequest(
+                "write", "edit", "tool", "review", new AcpClient.PermissionOptionSet("allow", null, "reject"));
+        try {
+            var result = java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> window.get().requestPermission(request));
+            var dialog = shown.get(3, java.util.concurrent.TimeUnit.SECONDS);
+            request.cancellation().cancel();
+            assertEquals(
+                    AcpListener.PermissionDecision.CANCELLED, result.get(3, java.util.concurrent.TimeUnit.SECONDS));
+            SwingUtilities.invokeAndWait(() -> assertFalse(dialog.isDisplayable()));
+            assertEquals(AcpListener.PermissionDecision.CANCELLED, window.get().requestPermission(request));
+        } finally {
+            request.cancellation().cancel();
+            java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(events);
+            SwingUtilities.invokeAndWait(() -> window.get().dispose());
+        }
+    }
+
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {
         toggleDisclosureWithKeyboard(transcript, transcript.getText().contains("Commands:") ? "Commands:" : "Tools:");
     }

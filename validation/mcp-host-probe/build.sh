@@ -22,9 +22,13 @@ helper_root="testing/integration-tests/src/test/java/dev/turboism/tests/plugin"
 javac --release 17 -cp "$sdk_jar" -d "$out" \
   "validation/shared/src/dev/turboism/validation/NativeFreeStartup.java" \
   "validation/shared/src/dev/turboism/validation/SessionGate.java" \
+  "$helper_root/WindowsProbeHarness.java" \
+  "$helper_root/WindowsHistoryManagerValidationProbe.java" \
   "$helper_root/WindowsHistoryNativeUiHostClose.java" \
   "$helper_root/McpValidationHostClose.java" \
   "$helper_root/McpTexturePersistenceProbe.java" \
+  "$helper_root/McpGeometryRollbackProbe.java" \
+  "$helper_root/McpAuthorizedOpenProbe.java" \
   "$src/dev/turboism/validation/mcp/CoreOwnedMocProbe.java" \
   "$src/dev/turboism/validation/mcp/McpHostValidationPlugin.java"
 cp -r "$src/META-INF" "$out/"

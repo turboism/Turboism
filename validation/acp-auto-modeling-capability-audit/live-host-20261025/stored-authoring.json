@@ -1,0 +1,523 @@
+[
+  {
+    "kind": "art_mesh",
+    "objectId": "ArtMesh7",
+    "rejectedCandidates": [],
+    "sourceGuid": "53b7475e-4af8-451e-82c5-d65bca01ce70",
+    "snapshotId": "ef23d927-e037-4964-94b6-1e605a6a1959",
+    "state": {
+      "modelId": "model-session-3",
+      "documentId": "document-session-2",
+      "historyManagerBinding": "history-manager-1",
+      "historyGeneration": 1,
+      "historyRevision": 1,
+      "historyDocumentBinding": "history-document-1"
+    },
+    "rowCount": 19,
+    "rowsSha256": "ae287f655a0a3f385e82abdc4005151c0561ea4525bbce6da60066544d09779b",
+    "rows": [
+      {
+        "kind": "parent_space",
+        "parentPartId": "PartClip2",
+        "parentDeformerId": null
+      },
+      {
+        "kind": "ordinary_write_support",
+        "transactionCoordinator": "PRESENT",
+        "historySelectors": "PRESENT",
+        "writerSelectors": "PRESENT",
+        "hostVersion": "5.3.03",
+        "reviewedHost": "PRESENT",
+        "writePermission": "PRESENT",
+        "operationSelectors": {
+          "ART_MESH_POSITIONS": "PRESENT",
+          "ART_MESH_VALUES_WITH_OPACITY": "PRESENT",
+          "ART_MESH_VALUES": "PRESENT",
+          "ART_MESH_DRAW_ORDERS": "PRESENT"
+        }
+      },
+      {
+        "reason": "DEFAULT_FORM",
+        "kind": "ordinary_write_eligibility",
+        "snapshotEligible": false,
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+        "hostWriteAdmission": "UNPROVEN"
+      },
+      {
+        "index": 0,
+        "y": 235.0,
+        "x": 192.0,
+        "kind": "source_position"
+      },
+      {
+        "index": 1,
+        "y": 235.0,
+        "x": 90.0,
+        "kind": "source_position"
+      },
+      {
+        "index": 2,
+        "y": 337.0,
+        "x": 192.0,
+        "kind": "source_position"
+      },
+      {
+        "index": 3,
+        "y": 337.0,
+        "x": 90.0,
+        "kind": "source_position"
+      },
+      {
+        "index": 0,
+        "y": -0.0078125,
+        "x": 0.7890625,
+        "kind": "source_uv"
+      },
+      {
+        "index": 1,
+        "y": -0.0078125,
+        "x": -0.0078125,
+        "kind": "source_uv"
+      },
+      {
+        "index": 2,
+        "y": 0.7890625,
+        "x": 0.7890625,
+        "kind": "source_uv"
+      },
+      {
+        "index": 3,
+        "y": 0.7890625,
+        "x": -0.0078125,
+        "kind": "source_uv"
+      },
+      {
+        "kind": "source_triangle",
+        "c": 2,
+        "b": 0,
+        "a": 1,
+        "index": 0
+      },
+      {
+        "kind": "source_triangle",
+        "c": 1,
+        "b": 3,
+        "a": 2,
+        "index": 1
+      },
+      {
+        "kind": "cell",
+        "coordinates": [],
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e"
+      },
+      {
+        "kind": "mesh_form",
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+        "drawOrder": 500,
+        "pointCount": 4,
+        "opacity": 1.0
+      },
+      {
+        "kind": "form_point",
+        "y": 446.4809,
+        "x": 208.38074,
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+        "index": 0
+      },
+      {
+        "kind": "form_point",
+        "y": 446.4809,
+        "x": 106.38074,
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+        "index": 1
+      },
+      {
+        "kind": "form_point",
+        "y": 548.48096,
+        "x": 208.38074,
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+        "index": 2
+      },
+      {
+        "kind": "form_point",
+        "y": 548.48096,
+        "x": 106.38074,
+        "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+        "index": 3
+      }
+    ]
+  },
+  {
+    "kind": "warp_deformer",
+    "objectId": "Warp3",
+    "rejectedCandidates": [],
+    "sourceGuid": "81e8a87c-bdef-4432-8a37-d5a206e801d4",
+    "snapshotId": "57353790-0e73-4afa-9b0a-6a0da92ab24d",
+    "state": {
+      "modelId": "model-session-3",
+      "documentId": "document-session-2",
+      "historyManagerBinding": "history-manager-1",
+      "historyGeneration": 1,
+      "historyRevision": 1,
+      "historyDocumentBinding": "history-document-1"
+    },
+    "rowCount": 42,
+    "rowsSha256": "d3e677f0f55660abbc5125ed990e391b999b796b2f78ffaf49a51367b5ebb0a7",
+    "rows": [
+      {
+        "kind": "parent_space",
+        "parentPartId": "Part5",
+        "parentDeformerId": null
+      },
+      {
+        "kind": "ordinary_write_support",
+        "transactionCoordinator": "PRESENT",
+        "historySelectors": "PRESENT",
+        "writerSelectors": "PRESENT",
+        "hostVersion": "5.3.03",
+        "reviewedHost": "PRESENT",
+        "writePermission": "PRESENT",
+        "operationSelectors": {
+          "WARP_CONTROL_POINTS": "PRESENT"
+        }
+      },
+      {
+        "reason": "DEFAULT_FORM",
+        "kind": "ordinary_write_eligibility",
+        "snapshotEligible": false,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "hostWriteAdmission": "UNPROVEN"
+      },
+      {
+        "rows": 5,
+        "quadTransform": true,
+        "columns": 5,
+        "kind": "warp_grid"
+      },
+      {
+        "kind": "cell",
+        "coordinates": [],
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9"
+      },
+      {
+        "kind": "warp_form",
+        "pointCount": 36,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9"
+      },
+      {
+        "kind": "form_point",
+        "y": 576.4396,
+        "x": 555.6459,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 0
+      },
+      {
+        "kind": "form_point",
+        "y": 576.4396,
+        "x": 578.0859,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 1
+      },
+      {
+        "kind": "form_point",
+        "y": 576.4396,
+        "x": 600.5259,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 2
+      },
+      {
+        "kind": "form_point",
+        "y": 576.4396,
+        "x": 622.96594,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 3
+      },
+      {
+        "kind": "form_point",
+        "y": 576.4396,
+        "x": 645.4059,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 4
+      },
+      {
+        "kind": "form_point",
+        "y": 576.4396,
+        "x": 667.8458,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 5
+      },
+      {
+        "kind": "form_point",
+        "y": 598.87964,
+        "x": 555.6459,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 6
+      },
+      {
+        "kind": "form_point",
+        "y": 598.87964,
+        "x": 578.0859,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 7
+      },
+      {
+        "kind": "form_point",
+        "y": 598.87964,
+        "x": 600.5259,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 8
+      },
+      {
+        "kind": "form_point",
+        "y": 598.87964,
+        "x": 622.96594,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 9
+      },
+      {
+        "kind": "form_point",
+        "y": 598.87964,
+        "x": 645.4059,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 10
+      },
+      {
+        "kind": "form_point",
+        "y": 598.87964,
+        "x": 667.8458,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 11
+      },
+      {
+        "kind": "form_point",
+        "y": 621.3197,
+        "x": 555.6459,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 12
+      },
+      {
+        "kind": "form_point",
+        "y": 621.3197,
+        "x": 578.0859,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 13
+      },
+      {
+        "kind": "form_point",
+        "y": 621.3197,
+        "x": 600.5259,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 14
+      },
+      {
+        "kind": "form_point",
+        "y": 621.3197,
+        "x": 622.96594,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 15
+      },
+      {
+        "kind": "form_point",
+        "y": 621.3197,
+        "x": 645.4059,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 16
+      },
+      {
+        "kind": "form_point",
+        "y": 621.3197,
+        "x": 667.8458,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 17
+      },
+      {
+        "kind": "form_point",
+        "y": 643.75977,
+        "x": 555.6459,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 18
+      },
+      {
+        "kind": "form_point",
+        "y": 643.75977,
+        "x": 578.0859,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 19
+      },
+      {
+        "kind": "form_point",
+        "y": 643.75977,
+        "x": 600.5259,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 20
+      },
+      {
+        "kind": "form_point",
+        "y": 643.75977,
+        "x": 622.96594,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 21
+      },
+      {
+        "kind": "form_point",
+        "y": 643.75977,
+        "x": 645.4059,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 22
+      },
+      {
+        "kind": "form_point",
+        "y": 643.75977,
+        "x": 667.8458,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 23
+      },
+      {
+        "kind": "form_point",
+        "y": 666.19977,
+        "x": 555.6459,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 24
+      },
+      {
+        "kind": "form_point",
+        "y": 666.19977,
+        "x": 578.0859,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 25
+      },
+      {
+        "kind": "form_point",
+        "y": 666.19977,
+        "x": 600.5259,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 26
+      },
+      {
+        "kind": "form_point",
+        "y": 666.19977,
+        "x": 622.96594,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 27
+      },
+      {
+        "kind": "form_point",
+        "y": 666.19977,
+        "x": 645.4059,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 28
+      },
+      {
+        "kind": "form_point",
+        "y": 666.19977,
+        "x": 667.8458,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 29
+      },
+      {
+        "kind": "form_point",
+        "y": 688.63983,
+        "x": 555.6459,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 30
+      },
+      {
+        "kind": "form_point",
+        "y": 688.63983,
+        "x": 578.0859,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 31
+      },
+      {
+        "kind": "form_point",
+        "y": 688.63983,
+        "x": 600.5259,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 32
+      },
+      {
+        "kind": "form_point",
+        "y": 688.63983,
+        "x": 622.96594,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 33
+      },
+      {
+        "kind": "form_point",
+        "y": 688.63983,
+        "x": 645.4059,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 34
+      },
+      {
+        "kind": "form_point",
+        "y": 688.63983,
+        "x": 667.8458,
+        "formGuid": "80014bea-cc9f-472f-a0eb-051843c94de9",
+        "index": 35
+      }
+    ]
+  },
+  {
+    "kind": "rotation_deformer",
+    "objectId": "Rotation4",
+    "rejectedCandidates": [],
+    "sourceGuid": "265bdd47-3182-4afe-b6ec-a8c669f27009",
+    "snapshotId": "e6591ad1-6a04-456e-baf9-6bab38b78631",
+    "state": {
+      "modelId": "model-session-3",
+      "documentId": "document-session-2",
+      "historyManagerBinding": "history-manager-1",
+      "historyGeneration": 1,
+      "historyRevision": 1,
+      "historyDocumentBinding": "history-document-1"
+    },
+    "rowCount": 6,
+    "rowsSha256": "909e3a721b2e20291c21973fea072126e60961b87d518030b770cb7a3d694131",
+    "rows": [
+      {
+        "kind": "parent_space",
+        "parentPartId": "Part5",
+        "parentDeformerId": null
+      },
+      {
+        "kind": "ordinary_write_support",
+        "transactionCoordinator": "PRESENT",
+        "historySelectors": "PRESENT",
+        "writerSelectors": "PRESENT",
+        "hostVersion": "5.3.03",
+        "reviewedHost": "PRESENT",
+        "writePermission": "PRESENT",
+        "operationSelectors": {
+          "ROTATION_FORMS": "PRESENT"
+        }
+      },
+      {
+        "reason": "DEFAULT_FORM",
+        "kind": "ordinary_write_eligibility",
+        "snapshotEligible": false,
+        "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d",
+        "hostWriteAdmission": "UNPROVEN"
+      },
+      {
+        "kind": "rotation_source",
+        "baseAngle": 0.0
+      },
+      {
+        "kind": "cell",
+        "coordinates": [],
+        "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d"
+      },
+      {
+        "originY": 634.02905,
+        "kind": "rotation_form",
+        "angle": 0.0,
+        "originX": 771.08563,
+        "reflectedY": false,
+        "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d",
+        "reflectedX": false,
+        "scale": 1.0
+      }
+    ]
+  }
+]

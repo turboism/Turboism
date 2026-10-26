@@ -28,11 +28,14 @@ public final class ParameterSyncEngine {
         this.suppressionGuard = Objects.requireNonNull(suppressionGuard, "suppressionGuard");
     }
 
+    /** Returns the guard used to suppress synchronization feedback from programmatic writes. */
     public ProgrammaticSuppressionGuard suppressionGuard() {
         return suppressionGuard;
     }
 
+    /** Planned parameter values associated with a triggering value change. */
     public record SyncPlan(String triggerId, float triggerValue, Map<String, Float> plannedValues) {
+        /** Returns whether the plan contains no target parameter changes. */
         public boolean isEmpty() {
             return plannedValues.isEmpty();
         }

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "retrievedDate": "2026-10-26",
+  "model": "Hiyori Momose - PRO",
+  "language": "en",
+  "modelRevision": "hiyori_pro_t11",
+  "releaseDate": "2023-03-08",
+  "modelPage": "https://www.live2d.com/en/learn/sample/momose-hiyori/",
+  "downloadScript": "https://cubism.live2d.com/sample-data/js/download.js",
+  "archiveUrl": "https://cubism.live2d.com/sample-data/bin/hiyori/hiyori_en.zip",
+  "archiveBytes": 46195926,
+  "archiveSha256": "1e4254d561f2a151562aa67036d78e17e4ffee08869b8ce10ab6052a05e2b3a4",
+  "member": "hiyori_pro/hiyori_pro_t11.cmo3",
+  "modelBytes": 28873070,
+  "modelSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "readmeMember": "hiyori_pro/ReadMe.txt",
+  "readmeSha256": "c8b8a9d56b925249539a457720439778d89820c543ba8b0dca213fdbd7bc09f3",
+  "licenseSources": [
+    {
+      "url": "https://www.live2d.com/eula/live2d-free-material-license-agreement_en.html",
+      "htmlSha256": "e7daa8a2a20b491fa9e530455a83faf8f4fe5876d7b85cf9d9ad1bcdddcbaf8f",
+      "relevantSections": [
+        "2.1.3",
+        "2.1.3.2",
+        "2.1.5"
+      ]
+    },
+    {
+      "url": "https://www.live2d.com/en/learn/sample/model-terms/",
+      "htmlSha256": "49e856354affa390890d04cdcc0e33f25ed2c9bd6c30134325fed32ce9c76e06",
+      "relevantSections": [
+        "Live2D original characters",
+        "Individual terms: Hiyori Momose",
+        "Copyright Notice"
+      ]
+    }
+  ],
+  "purpose": "Internal SDK/MCP inspection and bounded reversible rig validation; no character-design changes or material redistribution",
+  "individualRestriction": "No changes of any kind to the design of this character are permitted.",
+  "attribution": "This content uses sample data owned and copyrighted by Live2D Inc. The sample data are utilized in accordance with terms and conditions set by Live2D Inc. This content itself is created at the author’s sole discretion.",
+  "illustration": "Kani Biimu",
+  "modeling": "Live2D",
+  "repositoryIncludesModelBinary": false,
+  "hostAcceptance": "BOUNDED_HEAD_EDIT_AND_PRODUCTION_PERSISTENCE_VERIFIED",
+  "hostEvidence": {
+    "version": "5.3.03",
+    "jobId": "5e3065a5-2d89-4097-ad3f-d4c39a12763b",
+    "summary": "../live-host-20261026/hiyori-read-only-inspection.json",
+    "writeAdmission": "THREE_EXISTING_INDEPENDENT_HEAD_FORMS_VERIFIED_ON_5.3.03",
+    "headSemanticMapping": "NOT_VERIFIED",
+    "inventorySummary": "../live-host-20261026/hiyori-inventory.json",
+    "inventoryJobId": "eff90898-7abc-4215-bdfd-03cee6e46843",
+    "headCandidateSummary": "../live-host-20261026/hiyori-head-candidates.json",
+    "headCandidateJobId": "1a8a0596-aee7-4eb5-805a-fca3bf23165e",
+    "headEditSummary": "../live-host-20261026/hiyori-head-edit.json",
+    "headEditJobId": "0b91006c-fd63-452e-af78-9d6cfc6073ae",
+    "persistence": "PRODUCTION_SAVE_AS_OPEN_SAME_JVM_NEW_NATIVE_DOCUMENT_VERIFIED_ON_5.3.03",
+    "headSaveSummary": "../live-host-20261026/hiyori-head-save-open.json",
+    "headSaveJobId": "70ed7ee6-50ad-49cc-be93-ee1700f4ff45",
+    "crossJvmPersistence": "NOT_VERIFIED",
+    "headPoseQaSummary": "../live-host-20261026/hiyori-head-qa.json",
+    "headPoseQaJobId": "43949ed4-ce6b-4e87-93ee-97bfb2807c7d",
+    "headPoseQa": "28_FINITE_POSES_BEFORE_AFTER_AND_RESTORATION_VERIFIED",
+    "artQuality": "NOT_ACCEPTED_LIMITED_VISUAL_OBSERVATION_ONLY"
+  }
+}

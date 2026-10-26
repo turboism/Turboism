@@ -116,6 +116,26 @@ class ArtMeshAuthoringSnapshotTest {
     }
 
     @Test
+    void storedOpacityIsOptionalFiniteAndPartOfSnapshotIdentity() {
+        assertEquals(Optional.empty(), FORM.opacity());
+        for (float value : new float[] {0, .5F, 1, -.25F, 2}) {
+            var observed = new ArtMeshAuthoringSnapshot.Form("f", GEOMETRY.positions(), 3, Optional.of(value));
+            assertEquals(Optional.of(value), observed.opacity());
+            assertNotEquals(FORM, observed, "Unknown is not an opaque value");
+            assertNotEquals(
+                    snapshot(List.of(AXIS), List.of(CELL), List.of(FORM), List.of()),
+                    snapshot(List.of(AXIS), List.of(CELL), List.of(observed), List.of()));
+        }
+        for (float value : new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY})
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new ArtMeshAuthoringSnapshot.Form("f", GEOMETRY.positions(), 3, Optional.of(value)));
+        assertThrows(
+                NullPointerException.class,
+                () -> new ArtMeshAuthoringSnapshot.Form("f", GEOMETRY.positions(), 3, null));
+    }
+
+    @Test
     void methodIsAdditiveDefaultAndExactlyVersioned() throws Exception {
         final var method = Drawable.class.getMethod("authoringSnapshot");
         assertTrue(method.isDefault());

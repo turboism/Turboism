@@ -42,7 +42,11 @@ final class NativeAgentTransport implements AcpTransport {
                 thread.setDaemon(true);
                 return thread;
             });
-    private final Map<String, java.util.function.Consumer<Map<String, Object>>> permissions = new ConcurrentHashMap<>();
+
+    private record PendingPermission(
+            CompletableFuture<?> scope, java.util.function.Consumer<Map<String, Object>> answer) {}
+
+    private final Map<String, PendingPermission> permissions = new ConcurrentHashMap<>();
     private final OutputStream input = new OutputStream() {
         private final ByteArrayOutputStream line = new ByteArrayOutputStream();
 
@@ -87,7 +91,7 @@ final class NativeAgentTransport implements AcpTransport {
         try {
             if (!request.containsKey("method")) {
                 final var callback = permissions.remove(String.valueOf(id));
-                if (callback != null) callback.accept(object(request.get("result")));
+                if (callback != null) callback.answer().accept(object(request.get("result")));
                 return;
             }
             final String method = String.valueOf(request.get("method"));
@@ -223,20 +227,24 @@ final class NativeAgentTransport implements AcpTransport {
     }
 
     void permission(
+            final CompletableFuture<?> scope,
             final String title,
             final String kind,
             final String callId,
             final Object details,
             final java.util.function.Consumer<Boolean> decision) {
-        if (permissions.size() >= 8) {
+        if (scope.isDone() || permissions.size() >= 8) {
             decision.accept(false);
             return;
         }
         final String id = "native-permission-" + nextId();
-        permissions.put(id, result -> {
+        final var permission = new PendingPermission(scope, result -> {
             final var outcome = object(result.get("outcome"));
             decision.accept("selected".equals(outcome.get("outcome")) && "allow".equals(outcome.get("optionId")));
         });
+        permissions.put(id, permission);
+        scope.whenComplete((result, failure) -> retirePermission(id, permission));
+        if (!permissions.containsKey(id)) return;
         emit(Map.of(
                 "jsonrpc",
                 "2.0",
@@ -254,6 +262,16 @@ final class NativeAgentTransport implements AcpTransport {
                         List.of(
                                 Map.of("optionId", "allow", "name", "Allow once", "kind", "allow_once"),
                                 Map.of("optionId", "reject", "name", "Reject", "kind", "reject_once")))));
+    }
+
+    void cancelPermissions(final CompletableFuture<?> scope) {
+        permissions.forEach((id, permission) -> {
+            if (permission.scope() == scope) retirePermission(id, permission);
+        });
+    }
+
+    private void retirePermission(final String id, final PendingPermission permission) {
+        if (permissions.remove(id, permission)) permission.answer().accept(Map.of());
     }
 
     void reply(final Object id, final Object result) {
@@ -285,8 +303,7 @@ final class NativeAgentTransport implements AcpTransport {
     }
 
     private synchronized void stopProvider() {
-        permissions.values().forEach(callback -> callback.accept(Map.of()));
-        permissions.clear();
+        permissions.forEach(this::retirePermission);
         final var previous = provider;
         provider = null;
         if (previous != null) previous.close();

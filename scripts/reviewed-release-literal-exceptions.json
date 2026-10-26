@@ -177,6 +177,38 @@
     {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/WorkspaceControlVerificationManifest.java",
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/WorkspaceControlVerificationManifest.java: Verification manifest record-version table derived from the verification records it admits."
+    },
+    {
+      "kind": "file",
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/VerifiedTypedEditorCommandOperations.java",
+      "versions": [
+        "5.3.03"
+      ],
+      "evidence": "CMO3 OPEN deliberately exact-gated to 5.3.03: verification-src/ui-top-menu.json open-model selector plus native task-copy persistence evidence in capability audit section 48. SAVE_AS and other typed commands retain their own gates; do not infer later-version OPEN support."
+    },
+    {
+      "kind": "collection",
+      "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpDocumentFileDomain.java",
+      "versions": [
+        "5.3.03"
+      ],
+      "count": 3,
+      "evidence": "The three matching metadata lists describe the same authorized_cmo3_open admission: exact 5.3.03 native selector and independent runtime gate, no PSD or later-version claim. See capability audit section 48 and verified OPEN implementation."
+    },
+    {
+      "kind": "file",
+      "path": "scripts/preview/run-acp-host-validation.sh",
+      "versions": [
+        "5.3.03"
+      ],
+      "evidence": "The additional native-render-to-Swing acceptance scenario is intentionally enabled only on the independently tested 5.3.03 lane; it does not enumerate all ACP hosts. Real task fc419ae2-960e-4b1a-82fc-dac4edf9ab7d and verification.md section52 prove typed PNG, pixel/provenance equality and normal close. Other reviewed ACP versions retain the original scenario."
+    },
+    {
+      "path": "scripts/preview/run-mcp-host-validation.sh",
+      "evidence": "validation/acp-native-host-probe/README.md: The real native Pi observation integration lane is deliberately restricted to the exact 5.3.03 task copy; queue tests reject other versions/workloads. Production MCP admission remains manifest-derived.",
+      "versions": [
+        "5.3.03"
+      ]
     }
   ]
 }

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "jobId": "4bf4be61-2618-42b7-8096-6a50f4228a6a",
+  "runId": "queue-55f18504cdff4a93b87c7584f0ef23c0",
+  "preparedId": "f60f96754a5eeca1b04bee4b2ff1fee4c58efa41ab381bbd693e04cc28354921",
+  "task": "mcp:5303@native-observe",
+  "queueStatus": "failed",
+  "validationStatus": "FAIL",
+  "normalExit": false,
+  "cleanup": "safe",
+  "finalRunnerFileAndIdentityChecksCompleted": false,
+  "fixtureUnchangedField": false,
+  "identityVerifiedField": false,
+  "goldenUnchangedField": null,
+  "failure": "MODEL_PROVIDER_HTTP_429_BEFORE_FIRST_MODEL_TOOL_CALL",
+  "initialModel": "zai-coding-cn/glm-5.3",
+  "harness": "Pi native 1.2.0",
+  "completedMcpMethods": [
+    "initialize",
+    "notifications/initialized",
+    "tools/list"
+  ],
+  "modelToolCalls": 0,
+  "images": 0,
+  "modelMutation": "NONE_ALLOWED_BY_PROXY",
+  "modelVisionAccepted": false,
+  "limits": [
+    "Host final identity/file checks did not complete; false/null fields do not prove a file changed",
+    "Pi performed its own upstream retry; validation client did not replay an MCP tool or model write",
+    "No real model resource read, render call or visual consumption was completed",
+    "Raw CLI sessions, configuration and credentials are not archived"
+  ]
+}
