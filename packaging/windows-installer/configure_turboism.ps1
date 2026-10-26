@@ -734,6 +734,29 @@ function Test-RuntimeStringSetEquals {
     return $left.SetEquals($right)
 }
 
+# 卸载后保留 config.json 重装时，launcher.graalVmPath 可能仍指向已被删除的旧安装；
+# 目标 java.exe 不存在则移除该字段，使运行时回落到默认探测。返回是否移除。
+function Remove-StaleGraalVmPath {
+    param([object]$Document)
+    $launcher = $Document.PSObject.Properties["launcher"]
+    if ($null -eq $launcher -or $launcher.Value -isnot [pscustomobject]) { return $false }
+    $pathProperty = $launcher.Value.PSObject.Properties["graalVmPath"]
+    if ($null -eq $pathProperty -or $pathProperty.Value -isnot [string]) { return $false }
+    $value = $pathProperty.Value.Trim()
+    if ($value.Length -eq 0) { return $false }
+    try {
+        $java = $value
+        if (Test-Path -LiteralPath $value -PathType Container) {
+            $java = if ((Split-Path -Leaf $value) -ieq "bin") { Join-Path $value "java.exe" } else { Join-Path $value "bin\java.exe" }
+        }
+        if (Test-Path -LiteralPath $java -PathType Leaf) { return $false }
+    }
+    catch { return $false }
+    $launcher.Value.PSObject.Properties.Remove("graalVmPath")
+    Write-Host "TURBOISM_CONFIG dropped stale launcher.graalVmPath"
+    return $true
+}
+
 function Invoke-InstallerPluginSelection {
     if ($Variant -ieq "thin") {
         # Thin installer: zero bundled first-party plugins.
@@ -762,6 +785,7 @@ function Invoke-InstallerPluginSelection {
             Assert-RuntimeConfigV1 $document
         }
 
+        $staleGraal = Remove-StaleGraalVmPath $document
         $existing = @()
         $existingProperty = $document.PSObject.Properties["disabledPlugins"]
         if ($null -ne $existingProperty) {
@@ -782,7 +806,7 @@ function Invoke-InstallerPluginSelection {
         $desiredList.Sort([System.StringComparer]::Ordinal)
         $desired = [string[]]$desiredList.ToArray()
 
-        if ($hadConfig -and $wasValid `
+        if ($hadConfig -and $wasValid -and -not $staleGraal `
             -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
             Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
             return
@@ -843,6 +867,7 @@ function Invoke-InstallerPluginSelection {
         Assert-RuntimeConfigV1 $document
     }
 
+    $staleGraal = Remove-StaleGraalVmPath $document
     $existing = @()
     $existingProperty = $document.PSObject.Properties["disabledPlugins"]
     if ($null -ne $existingProperty) {
@@ -865,7 +890,7 @@ function Invoke-InstallerPluginSelection {
     $desiredList.Sort([System.StringComparer]::Ordinal)
     $desired = [string[]]$desiredList.ToArray()
 
-    if ($hadConfig -and $wasValid `
+    if ($hadConfig -and $wasValid -and -not $staleGraal `
         -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
         Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
         return
