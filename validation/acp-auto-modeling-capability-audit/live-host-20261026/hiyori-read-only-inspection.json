@@ -1,0 +1,39 @@
+{
+  "runId": "queue-82cf1783e2334b799d6a74656eeba723",
+  "mode": "READ_ONLY_INSPECTION",
+  "status": "PASS",
+  "modelMutation": "NONE",
+  "historyUnchanged": true,
+  "renderStatePreserved": true,
+  "nativeRenderSha256": "78640fee6440a225ab96b06d172129aba632b5bd1493fb3b083bcb714bd77fe4",
+  "state": {
+    "historyGeneration": 1,
+    "modelId": "model-session-3",
+    "documentId": "document-session-2",
+    "poseHash": "956277c6c5ddc11dfc180978402d38dcac6876f63f75ee7b6c15d8d5dba9832e",
+    "historyRevision": 1
+  },
+  "objects": [
+    {
+      "kind": "art_mesh",
+      "objectId": "ArtMesh123",
+      "sourceGuid": "cc5550ad-945d-43e0-b4c6-7c874ff389cd",
+      "rowCount": 347,
+      "rowsSha256": "2c93788b818b8829d92b1131142c523341f75ed2574002bf954d472f647e68c3"
+    },
+    {
+      "kind": "warp_deformer",
+      "objectId": "Warp1",
+      "sourceGuid": "13d45dee-c645-453d-bd3c-636f63db337a",
+      "rowCount": 121,
+      "rowsSha256": "d9d84c314d4246249f263c9b2e5f02b9fdf7ceb3327d9688fb9d14c6ea394467"
+    },
+    {
+      "kind": "rotation_deformer",
+      "objectId": "Rotation2",
+      "sourceGuid": "32ec41c6-cc79-4b81-a9d3-bec4babd0c9b",
+      "rowCount": 13,
+      "rowsSha256": "6a706a91063c31ad00fb23d8cc89d0538742212bf723ce9ce3f4b32cb46f9294"
+    }
+  ]
+}

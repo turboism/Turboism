@@ -85,7 +85,8 @@ final class EditorParameterCombinedAccess {
         edit(expectedIdentity, expectedModel, group, source, partner, () -> {
             final List<Object> children = groupChildren(group);
             final int sourceIndex = identityIndex(children, source);
-            if (sourceIndex < 0 || identityIndex(children, partner) < 0) {
+            final int partnerIndex = identityIndex(children, partner);
+            if (sourceIndex < 0 || partnerIndex < 0) {
                 throw unavailable("Editor Combined pair membership is unavailable.");
             }
             resolver.invoke(
@@ -93,7 +94,10 @@ final class EditorParameterCombinedAccess {
                     group,
                     resolver.invoke("cubism.editor-model.parameter-source.guid", partner));
             resolver.invoke(
-                    "cubism.editor-model.parameter-group.add", group, partner, Integer.valueOf(sourceIndex + 1));
+                    "cubism.editor-model.parameter-group.add",
+                    group,
+                    partner,
+                    Integer.valueOf(sourceIndex + 1 - (partnerIndex < sourceIndex ? 1 : 0)));
             setCombined(source, true);
             setCombined(partner, false);
         });

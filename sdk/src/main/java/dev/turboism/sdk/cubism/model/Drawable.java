@@ -14,6 +14,10 @@ import java.util.Optional;
     "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
 })
 public interface Drawable {
+    /** Read-only ordinary stored writer prerequisites; success does not promise a write will apply. */
+    default OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        return OrdinaryKeyformWriteSupport.unknown();
+    }
 
     /** Returns this ArtMesh's stable identity within the model. */
     ArtMeshId id();
@@ -311,6 +315,21 @@ public interface Drawable {
             List<ArtMeshKeyformPositions> positions,
             List<ArtMeshKeyformDrawOrder> drawOrders) {
         throw unavailable("ArtMesh combined ordinary keyform batch");
+    }
+
+    /**
+     * Writes sparse positions, draw order and/or absolute ordinary opacity in one bounded
+     * compare-and-set contribution. Every edit identifies an existing independent, non-default
+     * ordinary form by complete GUID tuple and form GUID. Omitted fields retain expected values.
+     * Opacity edits require an observed stored opacity and verified read/write selectors;
+     * unknown opacity, default/shared/Morph targets and unsupported hosts fail closed.
+     * The complete current snapshot must equal expected. At most 4096 distinct forms and
+     * 2000000 target vertices (including retained positions) are admitted before any setter.
+     * Native Undo/Redo and transaction rollback cover the whole contribution.
+     */
+    @CubismEditor(from = "5.0.00")
+    default void setOrdinaryKeyformValues(ArtMeshAuthoringSnapshot expected, List<ArtMeshKeyformValues> edits) {
+        throw unavailable("ArtMesh ordinary keyform values batch");
     }
 
     /**

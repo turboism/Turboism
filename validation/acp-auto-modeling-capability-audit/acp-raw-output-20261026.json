@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "problem": "ACP tool updates containing only rawOutput lost receipts and images before this change",
+  "baselineRegression": {
+    "tests": 3,
+    "failed": 3
+  },
+  "newTests": 4,
+  "offlineTests": {
+    "suites": 20,
+    "tests": 252,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 3,
+    "display": "Xvfb"
+  },
+  "fakeAgentSelfTest": {
+    "validRawOutputEnvelope": "PASS",
+    "rejectedRenderFaults": [
+      "hash",
+      "state",
+      "type"
+    ]
+  },
+  "formatAndJar": "PASS",
+  "reference": {
+    "package": "@getpaseo/server",
+    "version": "0.11.2",
+    "file": "dist/server/server/agent/providers/acp-agent.js",
+    "sha256": "990bc04929092ea0b831d9cdd41783debc4236b377f9296c2fcdd0e0c57b9b7a"
+  },
+  "jobId": "72f3fb03-68e8-4058-a10b-efdeb2a7465e",
+  "runId": "queue-a7fb9e546a284a0c9e9979a2a22d5a99",
+  "preparedId": "f798917e95f868b64b8681f8696a015fda8894378b939e6f309d7d178d5e5a41",
+  "task": "acp:5303",
+  "state": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "cleanup": "safe",
+  "goldenUnchanged": true,
+  "independentOriginalSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+  "agentRenderFormat": "RAW_OUTPUT_ONLY",
+  "uiInspection": {
+    "revisionLabel": true,
+    "iconDimensions": [
+      "256x256"
+    ],
+    "argbPixelsEqual": true,
+    "transcriptChars": 347,
+    "noBase64Text": true,
+    "modelLabel": true,
+    "documentLabel": true,
+    "iconCount": 1,
+    "dimensionsLabel": true,
+    "captureLabel": true,
+    "toolLabel": true
+  },
+  "nativePngSha256": "46eed740b85502158891dfd4d23d29626737499f071a691ae85f9ca1aff7d623",
+  "privateEvidenceSha256": {
+    "acp-host-validation.properties": "92318b6aadf71fbc2263e4ab88fb47289edba524b1247453d1ad1897496f423e",
+    "dev.turboism.plugin.acp/agent-result.properties": "14ff76540507c4525b0eabd9969a3a7b8484b6ebde5c9b6aec9ba8a69e2ad2d6",
+    "dev.turboism.plugin.acp/agent-native-render.json": "77781030a9e52bace417dd03e27bd2d87390eb87639097481ea78ba7a7cdb69d",
+    "dev.turboism.plugin.acp/agent-native-render.png": "46eed740b85502158891dfd4d23d29626737499f071a691ae85f9ca1aff7d623",
+    "acp-transcript-render.png": "46eed740b85502158891dfd4d23d29626737499f071a691ae85f9ca1aff7d623",
+    "acp-agent-window.png": "2a9803893239f083b10268de8d525c579e536f39babef5c1a2033771603c3737"
+  },
+  "sourceSha256": {
+    "plugins/acp/src/main/java/dev/turboism/plugin/acp/AcpClient.java": "54425e1e6622f8647c9711e0dd763c738242667450010658a0d2542725ca6490",
+    "plugins/acp/src/test/java/dev/turboism/plugin/acp/AcpClientTest.java": "1c49c0300e90bdae045dcf2d0da034b33d6502755fe7a9b714a4f091883fb1b1",
+    "validation/acp-fake-agent/src/acpagent/NativeRender.java": "e9fcd1c88120d751c8588cc236e728f406600f3a7249e888e80867516595ee98",
+    "validation/acp-fake-agent/src/acpagent/FakeAgent.java": "360528fa30ae59e886e6420425c1c38229d3e4b9b0a575dc083127a701516953",
+    "validation/acp-fake-agent/selftest/run_selftest.py": "5c55e6d8694ba9e1c7780f0e2388ff21a81832375f27d3d8f2cd73352da5b800",
+    "scripts/preview/README-acp-validation.md": "54f1e96e47fa2fdcb2137aafc13d51a7c40733ba3781400c0d8a9fb17ccbbf63"
+  },
+  "limits": {
+    "externalModelCalled": false,
+    "modelVisionAccepted": false,
+    "durableOperationRecoveryVerified": false,
+    "realAgentModelingVerified": false,
+    "allAdaptersVerified": false
+  }
+}

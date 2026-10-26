@@ -19,10 +19,21 @@
   "resources": [],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
   },
   "dependencies": [],
   "permissions": [
+    {
+      "id": "turboism.ui.file-chooser.request",
+      "scope": "application",
+      "reason": "Shows a native user file chooser only for authenticated MCP grant requests; session-bound grants expire or are revoked without exposing paths."
+    },
     {
       "id": "turboism.mcp.connection.publish",
       "scope": "application",
@@ -41,7 +52,7 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Lists and resolves active Cubism model objects requested through MCP."
+      "reason": "Reads active model objects, stored authoring geometry, registered model-image/ArtMesh binding observations and native current-pose model renders requested through MCP. Reads bounded complete texture atlas planning snapshots without native targets or paths. Reads official MOC export bytes and owned atlas pixels and validates exported MOC consistency through admitted Core inspection. Reads bounded parameter folder mixed order, parameter definitions and Combined metadata for conditional organization plans."
     },
     {
       "id": "turboism.cubism.parameter.read",
@@ -51,22 +62,22 @@
     {
       "id": "turboism.cubism.project.read",
       "scope": "application",
-      "reason": "Reads the active project, workspace, and theme snapshots requested through MCP."
+      "reason": "Reads the active project, workspace, and theme snapshots requested through MCP, including bounded document/content identity inventories for guarded NEW_MODEL admission and observed target readiness."
     },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Renames, creates, and deletes active Cubism model objects requested through MCP."
+      "reason": "Invokes guarded typed NEW_MODEL and checks the newly observed document/model identity. Renames, creates, deletes and edits ordinary stored keyforms of active Cubism model objects requested through MCP, using native Undo transactions. Creates explicit source/default geometry batches with optional existing-model-image binding inside one native authoring transaction. Registers a user-authorized PNG or binds an already registered model image to an unbound ArtMesh with explicit identity checks and a native transaction. Also edits explicit source visibility/lock and ArtMesh culling, conditionally replaces ArtMesh clipping masks/inversion and temporarily sets and restores parameter values for explicit pose render scans. Applies complete rectangle atlas layouts through retained jobs and standalone native atlas Undo, separate from SDK authoring transactions. Applies explicit parameter folder creation/rename/cascading deletion, indexed parameter moves and supported Combined edits in one native authoring transaction."
     },
     {
       "id": "turboism.file.read",
       "scope": "application",
-      "reason": "Verifies MCP connection-file metadata (existence, ownership, symlink checks) before publishing the loopback endpoint."
+      "reason": "Verifies MCP connection-file metadata before publishing the endpoint and reads user-chosen, session-authorized files within explicit byte budgets for SHA-256 inspection or native PNG image registration, never exposing paths or raw file content over MCP."
     },
     {
       "id": "turboism.file.write",
       "scope": "application",
-      "reason": "Allows the direct Editor SAVE command requested through MCP and writes the owner-only loopback connection file under the MCP state directory."
+      "reason": "Allows direct Editor SAVE and typed model SAVE_AS to a user-chosen one-use WRITE grant requested through MCP, and writes the owner-only loopback connection file under the MCP state directory. Atomically replaces a user-authorized ZIP target with a bounded official MOC/PNG/static-model3/manifest package using an explicit byte budget."
     },
     {
       "id": "turboism.network.fetch",

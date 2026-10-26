@@ -8,6 +8,11 @@ one-step rename history. Mutating calls require the bearer token, mirroring
 the production gate.
 """
 
+import base64
+import hashlib
+import os
+import struct
+import zlib
 import json
 import sys
 import threading
@@ -39,8 +44,33 @@ def tool_result(structured):
     }
 
 
+def render_state():
+    return {"ok": True, "state": {"documentId": "test-document", "modelId": "test-model", "historyGeneration": 1,
+            "historyRevision": HISTORY["revision"], "poseHash": "a" * 64}, "parameters": []}
+
+
+def render_result(arguments):
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 256, 256, 8, 6, 0, 0, 0))
+    png += chunk(b"IDAT", zlib.compress((b"\0" + b"\x50\xa0\xe0\xff" * 256) * 256)) + chunk(b"IEND", b"")
+    state = render_state()
+    data = {**state, "renderer": "cubism.native.renderPixels", "captureId": "selftest-capture", "width": 256, "height": 256,
+            "byteLength": len(png), "sha256": hashlib.sha256(png).hexdigest()}
+    assert arguments == {"expectedState": state["state"], "width": 256, "height": 256}
+    fault = os.environ.get("TURBOISM_SELFTEST_RENDER_FAULT", "")
+    if fault == "hash": data["sha256"] = "0" * 64
+    if fault == "state": data["state"] = {**data["state"], "historyRevision": -1}
+    result = tool_result(data)
+    result["result"]["content"].append({"type": "text" if fault == "type" else "image", "mimeType": "image/png",
+                                         "data": base64.b64encode(png).decode()})
+    return result
+
+
 def handle_tools_call(name, arguments):
     global LAST_RENAME
+    if name == "turboism.render.state": return tool_result(render_state())
+    if name == "turboism.render.capture": return render_result(arguments)
     if name == "turboism.history.read":
         with LOCK:
             snapshot = {
@@ -160,6 +190,8 @@ class Handler(BaseHTTPRequestHandler):
                         {"name": "turboism.model_objects.apply"},
                         {"name": "turboism.history.read"},
                         {"name": "turboism.history.undo"},
+                        {"name": "turboism.render.state"},
+                        {"name": "turboism.render.capture"},
                     ]
                 },
             }

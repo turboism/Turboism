@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "jobId": "9ba096e5-3b59-43a9-b79b-63ead39aa90e",
+  "runId": "queue-8a3cd1fd5824428888f0815eea05f10f",
+  "preparedId": "23f1449c80ad9bd6676e70306f340554a9a99a058d54ae60f3fd6eb63d3c81e8",
+  "state": "failed",
+  "validationStatus": "FAIL",
+  "cleanup": "safe",
+  "normalExit": false,
+  "fixtureUnchanged": false,
+  "identityVerified": false,
+  "harness": "Claude native",
+  "version": "2.1.284",
+  "helperFailureType": "IllegalArgumentException",
+  "agentToolEvents": 0,
+  "agentImages": 0,
+  "canaryFilesCreated": false,
+  "nativeCliStarted": false,
+  "modelPromptSent": false,
+  "diagnosis": "AgentLaunchSpec rejects the blank setting-sources argument before NativeAgentTransport creation; initializer/canary not reached",
+  "finalRunnerFileAndIdentityChecksCompleted": false,
+  "sourceSha256AtAttempt": {
+    "validation/acp-native-host-probe/NativeObserve.java": "ce8f3fffb810101a8df0f92588b9b09533353d8a40f9426a11186f2877615953",
+    "validation/acp-native-host-probe/NativeObserveSelfTest.java": "af17ba356e4b003f3ab3d6a7225376127bcbaf69e68f67ec32e905353e823ccb",
+    "validation/acp-native-host-probe/build.sh": "353ac72bdff980a0fff728b5c237f15db4d449bcb0ffd760c637730e5fd8ea41",
+    "scripts/preview/hvq/snapshot.py": "8149834e35a9c64b046fcf423d0a2743f2be414e51260c42b775f022f5c0fd2c",
+    "scripts/preview/mcp-host-validation-client.py": "0e47dce2a7bde1118ac97e0f125dbee16159e6b01431d14cc6c84264087355d8",
+    "scripts/preview/package-mcp-native-observe-validation.sh": "dd1d8acf597db47022a7b5befbe9d9bada3ec0a09e8e15715d41373a6347c5d3"
+  },
+  "independentOriginalFixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10"
+}

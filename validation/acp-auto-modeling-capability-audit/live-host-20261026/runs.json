@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "version": "5.3.03",
+  "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+  "scope": "Local managed Proton/Cubism task-copy production file persistence and scripted ACP-v1 render-to-Swing; not Hiyori or real-model vision acceptance",
+  "runs": [
+    {
+      "label": "production-save-open-verified",
+      "jobId": "a9402ce6-82ae-4a91-b192-942853301514",
+      "runId": "queue-02530bdade5e4c0a952978c3e33b3764",
+      "preparedId": "2e69dd6cf570ef59684c1e95248510404d8e8493d19fce7a2623874c4d1d9e20",
+      "state": "succeeded",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "cleanup": "safe",
+      "goldenUnchanged": true
+    },
+    {
+      "label": "acp-native-render-dependency-failure",
+      "jobId": "e9ccd324-b53f-4e2f-b856-fc7e6ed83617",
+      "runId": "queue-a353fe2483a44a0a884d28457fc09b76",
+      "preparedId": "ab7945d69de3fa11768aa79b490eda5600dad7298e7960f84823064998f3bfa6",
+      "state": "failed",
+      "validationStatus": "FAIL",
+      "normalExit": false,
+      "fixtureUnchanged": false,
+      "identityVerified": false,
+      "cleanup": "safe"
+    },
+    {
+      "label": "acp-native-render-ui-failure",
+      "jobId": "2a09f9fe-261a-4e7e-8843-ba48b9a3fe9d",
+      "runId": "queue-af0a07c3a2034719857d757b0104b262",
+      "preparedId": "d3b2c80ad34f2983d532565826ab69961ea1947ad67f09946dbfe12e531779be",
+      "state": "failed",
+      "validationStatus": "FAIL",
+      "normalExit": false,
+      "fixtureUnchanged": false,
+      "identityVerified": false,
+      "cleanup": "safe"
+    },
+    {
+      "label": "acp-native-render-tool-key-failure",
+      "jobId": "a3951b6a-a243-4d53-9f28-156da35949f1",
+      "runId": "queue-2686c04806d6494eb715d8b5c7f9bbef",
+      "preparedId": "e9bae52f1058b3f1cdc4757594cf229896005ab49e2367c0e2ddfb32318d73d6",
+      "state": "failed",
+      "validationStatus": "FAIL",
+      "normalExit": false,
+      "fixtureUnchanged": false,
+      "identityVerified": false,
+      "cleanup": "safe"
+    },
+    {
+      "label": "acp-native-render-close-failure",
+      "jobId": "c2c1fad6-ede3-4bf9-a7aa-3df23f359c3f",
+      "runId": "queue-f771672fd07d4a49b0dbb3679396ad04",
+      "preparedId": "54e77eda0b841c3c21ad7de708cacf046af987335f9093f58e432de83e47cfa0",
+      "state": "failed",
+      "validationStatus": "FAIL",
+      "normalExit": false,
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "cleanup": "safe"
+    },
+    {
+      "label": "acp-native-render-verified",
+      "jobId": "fc419ae2-960e-4b1a-82fc-dac4edf9ab7d",
+      "runId": "queue-dc403097f8c245a38aae4190a37b0742",
+      "preparedId": "2cb8a8c6f5a583cfb90bafe8112feb870e0642460ce4f58782a5c2460bc00c4b",
+      "state": "succeeded",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "cleanup": "safe",
+      "goldenUnchanged": true
+    }
+  ],
+  "images": [
+    {
+      "file": "production-save-before-0.png",
+      "sha256": "74409151fb74ff7c91157570ec78f8e181e60536dd02674c1fa3ab2c603aed71",
+      "phase": "before",
+      "poseIndex": 0,
+      "label": "art_mesh"
+    },
+    {
+      "file": "production-save-before-1.png",
+      "sha256": "74409151fb74ff7c91157570ec78f8e181e60536dd02674c1fa3ab2c603aed71",
+      "phase": "before",
+      "poseIndex": 1,
+      "label": "warp_deformer"
+    },
+    {
+      "file": "production-save-before-2.png",
+      "sha256": "74409151fb74ff7c91157570ec78f8e181e60536dd02674c1fa3ab2c603aed71",
+      "phase": "before",
+      "poseIndex": 2,
+      "label": "rotation_deformer"
+    },
+    {
+      "file": "production-save-modified-0.png",
+      "sha256": "b375f8117c5f7865d312da9bdb70cc2b687fd7396fa7611c12e3e962a231e706",
+      "phase": "modified",
+      "poseIndex": 0,
+      "label": "art_mesh"
+    },
+    {
+      "file": "production-save-modified-1.png",
+      "sha256": "956fad2f787243bd283764120d65a60e1488bcb64667e083c0562411682828d1",
+      "phase": "modified",
+      "poseIndex": 1,
+      "label": "warp_deformer"
+    },
+    {
+      "file": "production-save-modified-2.png",
+      "sha256": "c227a795e626459282ef6d3997626a396bfa36fafb0c4f45324ac8a31232b73a",
+      "phase": "modified",
+      "poseIndex": 2,
+      "label": "rotation_deformer"
+    },
+    {
+      "file": "production-save-reloaded-0.png",
+      "sha256": "b375f8117c5f7865d312da9bdb70cc2b687fd7396fa7611c12e3e962a231e706",
+      "phase": "reloaded",
+      "poseIndex": 0,
+      "label": "art_mesh"
+    },
+    {
+      "file": "production-save-reloaded-1.png",
+      "sha256": "956fad2f787243bd283764120d65a60e1488bcb64667e083c0562411682828d1",
+      "phase": "reloaded",
+      "poseIndex": 1,
+      "label": "warp_deformer"
+    },
+    {
+      "file": "production-save-reloaded-2.png",
+      "sha256": "c227a795e626459282ef6d3997626a396bfa36fafb0c4f45324ac8a31232b73a",
+      "phase": "reloaded",
+      "poseIndex": 2,
+      "label": "rotation_deformer"
+    }
+  ]
+}

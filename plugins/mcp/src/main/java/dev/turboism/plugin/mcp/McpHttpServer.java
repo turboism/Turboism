@@ -19,6 +19,7 @@ import dev.turboism.sdk.mcp.McpStdioLaunch;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import java.io.ByteArrayOutputStream;
@@ -66,6 +67,11 @@ final class McpHttpServer implements AutoCloseable {
     private final WindowRateLimiter rateLimiter;
     private final boolean requireAuthForRead;
     private final McpSessionRegistry sessions;
+    private final McpFileGrantDomain fileGrants;
+    private final McpFileInspectDomain fileInspect;
+    private final McpImageRegistrationDomain imageRegistration;
+    private final McpAtlasDomain atlas;
+    private final McpMocExportDomain mocExport;
     private final McpConnectionHistory history;
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -83,6 +89,11 @@ final class McpHttpServer implements AutoCloseable {
             final WindowRateLimiter rateLimiter,
             final boolean requireAuthForRead,
             final McpSessionRegistry sessions,
+            final McpFileGrantDomain fileGrants,
+            final McpFileInspectDomain fileInspect,
+            final McpImageRegistrationDomain imageRegistration,
+            final McpAtlasDomain atlas,
+            final McpMocExportDomain mocExport,
             final McpConnectionHistory history) {
         this.server = server;
         this.executor = executor;
@@ -97,6 +108,11 @@ final class McpHttpServer implements AutoCloseable {
         this.rateLimiter = rateLimiter;
         this.requireAuthForRead = requireAuthForRead;
         this.sessions = Objects.requireNonNull(sessions, "sessions");
+        this.fileGrants = Objects.requireNonNull(fileGrants, "fileGrants");
+        this.fileInspect = Objects.requireNonNull(fileInspect, "fileInspect");
+        this.imageRegistration = Objects.requireNonNull(imageRegistration, "imageRegistration");
+        this.atlas = Objects.requireNonNull(atlas, "atlas");
+        this.mocExport = Objects.requireNonNull(mocExport, "mocExport");
         this.history = Objects.requireNonNull(history, "history");
     }
 
@@ -135,6 +151,8 @@ final class McpHttpServer implements AutoCloseable {
                     context.services().find(EditorCommandService.class).orElseGet(EditorCommandService::unavailable);
             stage.enter("context.uiScheduler()");
             final UiScheduler uiScheduler = context.uiScheduler();
+            stage.enter("context.userFiles()");
+            final UserFileAccessService userFiles = context.userFiles();
             stage.enter("context.paths().stateDir()");
             final Path stateDir = context.paths().stateDir();
             stage.enter("port property");
@@ -162,7 +180,8 @@ final class McpHttpServer implements AutoCloseable {
                             stateDir,
                             port,
                             requestsPerMinute,
-                            requireAuthForRead),
+                            requireAuthForRead,
+                            userFiles),
                     stage);
         } catch (McpStartupFailure failure) {
             throw failure;
@@ -212,6 +231,60 @@ final class McpHttpServer implements AutoCloseable {
             final McpResourceCatalog parameterResources = parameters.resourceCatalog();
             final McpGlueDomain glues = new McpGlueDomain(checked.cubism(), execution);
             final McpTextureDomain textures = new McpTextureDomain(checked.cubism());
+            final McpFileGrantDomain fileGrants = new McpFileGrantDomain(checked.userFiles(), execution);
+            final McpFileInspectDomain fileInspect =
+                    new McpFileInspectDomain(checked.userFiles(), fileGrants, execution);
+            final McpRenderDomain render = new McpRenderDomain(checked.cubism(), execution);
+            final McpPoseGridDomain poses = new McpPoseGridDomain(checked.cubism(), execution, render);
+            final McpAuthoringSnapshotStore authoringSnapshots = new McpAuthoringSnapshotStore();
+            final McpStoredAuthoringDomain storedAuthoring =
+                    new McpStoredAuthoringDomain(checked.cubism(), execution, authoringSnapshots);
+            final McpDocumentLifecycleDomain documents = new McpDocumentLifecycleDomain(
+                    checked.cubism(),
+                    checked.editorCommands(),
+                    execution,
+                    () -> storedAuthoring.context().binding());
+            final McpDocumentFileDomain documentFiles = new McpDocumentFileDomain(
+                    checked.editorCommands(),
+                    fileGrants,
+                    execution,
+                    () -> storedAuthoring.context().binding(),
+                    documents);
+            final McpEvaluatedMeshDomain evaluated =
+                    new McpEvaluatedMeshDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpSourcePropertiesDomain properties = new McpSourcePropertiesDomain(
+                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+            final McpAssetSourceDomain assetSources = new McpAssetSourceDomain(execution, storedAuthoring::context);
+            final McpImageBindingDomain imageBindings = new McpImageBindingDomain(
+                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+            final McpImageRegistrationDomain imageRegistration =
+                    new McpImageRegistrationDomain(checked.userFiles(), fileGrants, imageBindings, execution);
+            final McpAtlasDomain atlas = new McpAtlasDomain(checked.cubism(), execution, storedAuthoring::context);
+            final McpMocExportDomain mocExport = new McpMocExportDomain(
+                    checked.cubism(), checked.userFiles(), fileGrants, execution, storedAuthoring::context);
+            final McpParameterStructureDomain parameterStructure =
+                    new McpParameterStructureDomain(checked.cubism(), execution, storedAuthoring::context);
+            final McpBindingInitializationDomain bindingInitialization = new McpBindingInitializationDomain(
+                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+            final McpMeshCreationDomain meshCreation =
+                    new McpMeshCreationDomain(checked.cubism(), execution, storedAuthoring::context);
+            final McpMaskDomain masks = new McpMaskDomain(checked.cubism(), execution, storedAuthoring::context);
+            final McpGeometryValidationDomain geometryValidation =
+                    new McpGeometryValidationDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpContinuityDomain continuity =
+                    new McpContinuityDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpRigTransferDomain rigTransfer =
+                    new McpRigTransferDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpRotationRigDomain rotationRig =
+                    new McpRotationRigDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpWarpValidationDomain warpValidation =
+                    new McpWarpValidationDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpMeshRigDomain meshRig =
+                    new McpMeshRigDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpWarpRigDomain warpRig =
+                    new McpWarpRigDomain(authoringSnapshots, execution, storedAuthoring::context);
+            final McpKeyformWriteDomain keyforms = new McpKeyformWriteDomain(
+                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
             final McpHistoryCommandDomain historyCommands =
                     new McpHistoryCommandDomain(checked.history(), checked.editorCommands(), execution);
             final McpRuntimeDiagnostics runtimeDiagnostics = new McpRuntimeDiagnostics();
@@ -227,9 +300,35 @@ final class McpHttpServer implements AutoCloseable {
                     McpToolCatalog.combine(
                             production.tools(),
                             parameters.toolCatalog(),
+                            parameterStructure.tools(),
+                            meshCreation.tools(),
+                            bindingInitialization.tools(),
+                            documents.tools(),
                             historyCommands.tools(),
                             glues.tools(),
-                            textures.tools(execution)),
+                            textures.tools(execution),
+                            render.tools(),
+                            poses.tools(),
+                            storedAuthoring.tools(),
+                            keyforms.tools(),
+                            geometryValidation.tools(),
+                            continuity.tools(),
+                            rigTransfer.tools(),
+                            warpValidation.tools(),
+                            rotationRig.tools(),
+                            warpRig.tools(),
+                            meshRig.tools(),
+                            masks.tools(),
+                            evaluated.tools(),
+                            properties.tools(),
+                            assetSources.tools(),
+                            imageBindings.tools(),
+                            imageRegistration.tools(),
+                            atlas.tools(),
+                            mocExport.tools(),
+                            fileGrants.tools(),
+                            documentFiles.tools(),
+                            fileInspect.tools()),
                     optionalAuthoringTransactions(checked.cubism()),
                     execution,
                     runtimeDiagnostics::observe);
@@ -259,14 +358,24 @@ final class McpHttpServer implements AutoCloseable {
                     stdioLaunch,
                     new WindowRateLimiter(checked.requestsPerMinute()),
                     checked.requireAuthForRead(),
-                    new McpSessionRegistry(
-                            java.time.Duration.ofMinutes(30),
-                            java.time.Clock.systemUTC(),
-                            ignored -> history.record(McpConnectionHistory.Event.SESSION_EXPIRED, "", "idle timeout")),
+                    new McpSessionRegistry(java.time.Duration.ofMinutes(30), java.time.Clock.systemUTC(), session -> {
+                        fileGrants.dropSession(session);
+                        fileInspect.dropSession(session);
+                        imageRegistration.dropSession(session);
+                        atlas.dropSession(session);
+                        mocExport.dropSession(session);
+                        history.record(McpConnectionHistory.Event.SESSION_EXPIRED, "", "idle timeout");
+                    }),
+                    fileGrants,
+                    fileInspect,
+                    imageRegistration,
+                    atlas,
+                    mocExport,
                     history);
             server.createContext("/mcp", transport::handle);
 
             stage.enter("server start");
+            fileGrants.startMaintenance();
             server.start();
 
             stage.enter("connection-file publication");
@@ -385,6 +494,11 @@ final class McpHttpServer implements AutoCloseable {
                 if (sessionId == null || !sessions.remove(sessionId)) {
                     sendEmpty(exchange, 404);
                 } else {
+                    fileGrants.dropSession(sessionId);
+                    fileInspect.dropSession(sessionId);
+                    imageRegistration.dropSession(sessionId);
+                    atlas.dropSession(sessionId);
+                    mocExport.dropSession(sessionId);
                     history.record(McpConnectionHistory.Event.SESSION_CLOSED, "", "client requested session close");
                     sendEmpty(exchange, 200);
                 }
@@ -721,6 +835,11 @@ final class McpHttpServer implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         server.stop(0);
+        imageRegistration.close();
+        atlas.close();
+        mocExport.close();
+        fileInspect.close();
+        fileGrants.close();
         executor.shutdownNow();
         try {
             if (Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)
@@ -828,7 +947,47 @@ final class McpHttpServer implements AutoCloseable {
             Path stateDir,
             int port,
             int requestsPerMinute,
-            boolean requireAuthForRead) {
+            boolean requireAuthForRead,
+            UserFileAccessService userFiles) {
+        Dependencies(
+                PluginLogger logger,
+                ModelObjectService modelObjects,
+                ModelHierarchyQueryService hierarchyQuery,
+                SelectionQueryService selectionQuery,
+                CubismReadCapabilityService read,
+                CubismClipMaskService clipMasks,
+                CubismFacade cubism,
+                CubismHistory history,
+                WorkspaceService workspace,
+                WorkspaceLayoutService workspaceLayout,
+                DiagnosticReport diagnostics,
+                EditorCommandService editorCommands,
+                UiScheduler uiScheduler,
+                Path stateDir,
+                int port,
+                int requestsPerMinute,
+                boolean requireAuthForRead) {
+            this(
+                    logger,
+                    modelObjects,
+                    hierarchyQuery,
+                    selectionQuery,
+                    read,
+                    clipMasks,
+                    cubism,
+                    history,
+                    workspace,
+                    workspaceLayout,
+                    diagnostics,
+                    editorCommands,
+                    uiScheduler,
+                    stateDir,
+                    port,
+                    requestsPerMinute,
+                    requireAuthForRead,
+                    UserFileAccessService.unavailable());
+        }
+
         Dependencies(
                 final PluginLogger logger,
                 final ModelObjectService modelObjects,
@@ -916,6 +1075,7 @@ final class McpHttpServer implements AutoCloseable {
             workspaceLayout = Objects.requireNonNull(workspaceLayout, "workspaceLayout");
             diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
             editorCommands = Objects.requireNonNull(editorCommands, "editorCommands");
+            userFiles = Objects.requireNonNull(userFiles, "userFiles");
             uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
             stateDir = Objects.requireNonNull(stateDir, "stateDir")
                     .toAbsolutePath()

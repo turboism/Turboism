@@ -147,6 +147,14 @@ final class CubismEditorApiAvailabilityInterceptor {
     }
 
     private Object wrapInterface(final Object value, final Class<?> sdkInterface) {
+        // Deformers.all/find declare the base interface. Preserve this closed SDK union
+        // before proxying, while keeping every subtype method behind the same guard.
+        if (sdkInterface == dev.turboism.sdk.cubism.model.Deformer.class) {
+            if (value instanceof dev.turboism.sdk.cubism.model.WarpDeformer)
+                return wrapInterface(value, dev.turboism.sdk.cubism.model.WarpDeformer.class);
+            if (value instanceof dev.turboism.sdk.cubism.model.RotationDeformer)
+                return wrapInterface(value, dev.turboism.sdk.cubism.model.RotationDeformer.class);
+        }
         if (value == null || !isInterceptableSdkInterface(sdkInterface)) {
             return value;
         }

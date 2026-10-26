@@ -601,7 +601,8 @@ final class AcpChatWindow implements AcpChatController.View {
 
     @Override
     public AcpListener.PermissionDecision requestPermission(final AcpListener.PermissionRequest request) {
-        if (!acceptingEvents.get()) return AcpListener.PermissionDecision.CANCELLED;
+        if (!acceptingEvents.get() || request.cancellation().isCancelled())
+            return AcpListener.PermissionDecision.CANCELLED;
         if (SwingUtilities.isEventDispatchThread()) return permissionDialog(request);
         final AtomicReference<AcpListener.PermissionDecision> decision =
                 new AtomicReference<>(AcpListener.PermissionDecision.CANCELLED);
@@ -615,13 +616,15 @@ final class AcpChatWindow implements AcpChatController.View {
         });
         try {
             if (!settled.await(5, TimeUnit.MINUTES)) {
+                request.cancellation().cancel();
                 return AcpListener.PermissionDecision.CANCELLED;
             }
         } catch (InterruptedException interrupted) {
+            request.cancellation().cancel();
             Thread.currentThread().interrupt();
             return AcpListener.PermissionDecision.CANCELLED;
         }
-        return decision.get();
+        return request.cancellation().isCancelled() ? AcpListener.PermissionDecision.CANCELLED : decision.get();
     }
 
     private void configureComponents(
@@ -1227,13 +1230,16 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private AcpListener.PermissionDecision showPermissionDialog(final AcpListener.PermissionRequest request) {
-        if (!acceptingEvents.get()) return AcpListener.PermissionDecision.CANCELLED;
+        if (!acceptingEvents.get() || request.cancellation().isCancelled())
+            return AcpListener.PermissionDecision.CANCELLED;
         showAgentAndFront();
         final AtomicReference<AcpListener.PermissionDecision> decision =
                 new AtomicReference<>(AcpListener.PermissionDecision.CANCELLED);
         final JDialog dialog = TurboismWindowFactory.dialog(agentFrame, localization.text("permission.title"), true);
         if (dialog == null) return AcpListener.PermissionDecision.CANCELLED;
+        final var cancellation = request.cancellation().onCancel(() -> SwingUtilities.invokeLater(dialog::dispose));
         try {
+            if (request.cancellation().isCancelled()) return AcpListener.PermissionDecision.CANCELLED;
             dialog.setName("turboism-acp.permission");
             dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
             dialog.setMinimumSize(permissionDialogMinimum());
@@ -1293,8 +1299,9 @@ final class AcpChatWindow implements AcpChatController.View {
             ensureMinimumSize(dialog, permissionDialogMinimum());
             dialog.setLocationRelativeTo(agentFrame);
             dialog.setVisible(true);
-            return decision.get();
+            return request.cancellation().isCancelled() ? AcpListener.PermissionDecision.CANCELLED : decision.get();
         } finally {
+            cancellation.close();
             dialog.dispose();
         }
     }

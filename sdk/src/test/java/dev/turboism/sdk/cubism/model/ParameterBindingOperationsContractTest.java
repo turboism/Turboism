@@ -88,6 +88,13 @@ class ParameterBindingOperationsContractTest {
     }
 
     @Test
+    void valueBasedBindingDoesNotInventPointIdentitiesForUnsupportedImplementations() {
+        final RecordingOperations operations = new RecordingOperations();
+        final ParameterBindingTarget target = ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshFace"));
+        assertThrows(UnsupportedOperationException.class, () -> operations.bindValues(target, List.of(-1f, 0f, 1f)));
+    }
+
+    @Test
     void pointIdentityAndTargetAreRequiredForEveryMutation() {
         final RecordingOperations operations = new RecordingOperations();
         final ParameterBindingTarget target = ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshFace"));

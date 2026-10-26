@@ -77,6 +77,34 @@ public interface UserFileAccessService {
     CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content);
 
     /**
+     * Atomically replaces one authorized WRITE target within an explicit byte budget.
+     * The budget must be positive and at most 128 MiB; content may be empty.
+     * The runtime takes an immutable copy before asynchronous I/O and retains the existing
+     * grant, permission, lifetime and atomic-replace checks. This operation does not create
+     * a grant or accept a path. A false result guarantees the target was left unchanged.
+     *
+     * <p>The compatibility default delegates budgets up to 8 MiB to the original writer;
+     * larger budgets fail closed as unsupported. It does not raise the original writer's limit.
+     */
+    default CompletionStage<UserFileWriteResult> writeBytesAtomicBounded(
+            final UserFileHandle handle, final byte[] content, final int maxBytes) {
+        java.util.Objects.requireNonNull(content, "content");
+        if (maxBytes < 1) throw new IllegalArgumentException("maxBytes must be positive");
+        if (maxBytes > 128 * 1024 * 1024 || content.length > maxBytes)
+            return CompletableFuture.completedFuture(new UserFileWriteResult(
+                    false,
+                    Optional.of(new UserFileError(
+                            UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                            "Bounded user-file write exceeds its byte budget."))));
+        if (maxBytes <= 8 * 1024 * 1024) return writeBytesAtomic(handle, content);
+        return CompletableFuture.completedFuture(new UserFileWriteResult(
+                false,
+                Optional.of(new UserFileError(
+                        UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                        "Bounded user-file write above 8 MiB is unavailable."))));
+    }
+
+    /**
      * Reports whether a live runtime surface backs this instance.
      *
      * @return {@code false} only for the {@link #unavailable()} sentinel

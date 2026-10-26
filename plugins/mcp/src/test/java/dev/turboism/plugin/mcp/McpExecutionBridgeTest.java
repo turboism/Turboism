@@ -22,6 +22,29 @@ import org.junit.jupiter.api.Test;
 final class McpExecutionBridgeTest {
 
     @Test
+    void preservesSessionOwnershipAcrossUiQueueAndClearsItAfterInvocation() throws Exception {
+        final QueuedUi scheduler = new QueuedUi();
+        final McpExecutionBridge bridge = new McpExecutionBridge(scheduler);
+        final McpRequestRegistry requests = new McpRequestRegistry();
+        var result = CompletableFuture.supplyAsync(() -> {
+            try (var scope = requests.enter("session-a", 7)) {
+                return bridge.ui(McpRequestRegistry::currentSessionId);
+            }
+        });
+        assertTrue(scheduler.scheduled.await(5, TimeUnit.SECONDS));
+        assertEquals("", McpRequestRegistry.currentSessionId());
+        scheduler.queued.get().run();
+        assertEquals("session-a", result.get(5, TimeUnit.SECONDS));
+        assertEquals("", McpRequestRegistry.currentSessionId());
+        assertThrows(
+                IllegalStateException.class,
+                () -> McpRequestRegistry.inSession("session-b", () -> {
+                    throw new IllegalStateException("failure");
+                }));
+        assertEquals("", McpRequestRegistry.currentSessionId());
+    }
+
+    @Test
     void queuedUiTimeoutPreventsLateExecutionEvenWhenRegistrationCannotCancel() {
         final QueuedUi scheduler = new QueuedUi();
         final McpExecutionBridge bridge = new McpExecutionBridge(scheduler, Duration.ofMillis(30));
