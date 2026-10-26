@@ -17,9 +17,9 @@ import org.junit.jupiter.api.Test;
 class AtlasTileBboxSettingsContributionTest {
 
     @Test
-    void defaultIsEnabledWhenNothingWasPersisted() {
-        assertTrue(AtlasTileBboxSettingsService.DEFAULT_ENABLED);
-        assertTrue(AtlasTileBboxSettingsService.unavailable().read());
+    void defaultIsDisabledWhenNothingWasPersisted() {
+        assertFalse(AtlasTileBboxSettingsService.DEFAULT_ENABLED);
+        assertFalse(AtlasTileBboxSettingsService.unavailable().read());
     }
 
     @Test

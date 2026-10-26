@@ -18,8 +18,8 @@ final class TurboismAgentShaderUniformPolicyTest {
     }
 
     @Test
-    void verifiedProductShaderUniformDefaultsOnWithExplicitDisable() {
-        assertTrue(TurboismAgent.shaderUniformRequested(null));
+    void verifiedProductShaderUniformDefaultsOffWithExplicitOptIn() {
+        assertFalse(TurboismAgent.shaderUniformRequested(null));
         assertTrue(TurboismAgent.shaderUniformRequested("true"));
         assertFalse(TurboismAgent.shaderUniformRequested("false"));
         assertFalse(TurboismAgent.shaderUniformRequested("invalid"));

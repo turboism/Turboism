@@ -48,7 +48,7 @@ Usage:
 T029-TLPROD labels (t029-tlprod-<off|on><N>-<heavy|std>-nolayout[-jfr]) run the
 production edge-index transformer under the pinned tl-dump-only capture agent:
 -off stages a hash-pinned home config carrying meshTriangulationEdgeIndex=false,
--on runs the default-on preference. -off expects pristine class bytes; -on
+-on runs the explicit opt-in preference. -off expects pristine class bytes; -on
 expects the production-patched bytes the transformer emits. The family admits
 5303, 5302, and 5203; every other label family keeps its existing version gates.
 The 5302 profile is admitted only for t029-tlprod-* labels.
@@ -128,7 +128,7 @@ fi
 # T029-TLPROD: production-rollout legs. The aux tlWeave agent runs tl-dump-only on
 # both legs — the production transformer, not the validation weave, is what differs.
 # `off` stages the pinned meshTriangulationEdgeIndex=false home config; `on` relies on
-# the default-on preference. expectClassSha256 is the bytes the aux agent observes:
+# the explicit opt-in preference. expectClassSha256 is the bytes the aux agent observes:
 # pristine on off legs, production-patched on on legs.
 tri_tlprod_leg=''
 if [[ "$run_label" =~ ^t029-tlprod-(off|on)([0-9]+)-(heavy|std)-nolayout(-jfr)?$ ]]; then
@@ -779,6 +779,19 @@ runner_args=(
   --bundle-root "$bundle_root"
   --agent "$production_agent"
 )
+# These comparison legs explicitly request the optimized side; product defaults stay off.
+if [[ "$mesh_pref_off" == 0 ]]; then
+  runner_args+=(--jvm-option '-Dturboism.optimization.meshTriangulationHashFix=true')
+fi
+if [[ "$atlas_pref_off" == 0 ]]; then
+  runner_args+=(--jvm-option '-Dturboism.optimization.atlasTileBbox=true')
+  if [[ "$atlas_reuse_pref_off" == 0 ]]; then
+    runner_args+=(--jvm-option '-Dturboism.optimization.atlasCacheReuse=true')
+  fi
+fi
+if [[ "$tri_tlprod_leg" == on* && -z "$tri_tlprod_home_config" ]]; then
+  runner_args+=(--jvm-option '-Dturboism.optimization.meshTriangulationEdgeIndex=true')
+fi
 # Keep the 5303 agent order identical to the reviewed profile: T039 before the driver.
 if [[ "$version" == 5303 && "$tri_single_agent_flag" == 0 ]]; then
   runner_args+=(--aux-agent "$t039_agent:t039-shadow-agent.jar")
@@ -874,7 +887,10 @@ fi
 # unchanged. Should a future label ever stage a config that legitimately disables
 # mesaGlThread (safeMode/hooks.disabledIds/launcher prefs), this unconditional wait would
 # need review; none of the pinned configs do that today.
-runner_args+=(--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE')
+runner_args+=(--jvm-option '-Dturboism.optimization.mesaGlThread=true'
+  --jvm-option '-Dturboism.optimization.uniformLocationCache=true'
+  --linux-env 'mesa_glthread=true'
+  --ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE')
 
 # Only the production label/flag contract above admits heavy on 5203. The real
 # scene driver uses the same explicit token and fixed name/hash pair; no generic
@@ -1082,14 +1098,14 @@ elif [[ "$atlas_reuse_pref_off" == 1 ]]; then
     "$atlas_reuse_off_config_sha256" >&2
 elif [[ -n "$timing_agent" || "$tilepatch_mode" == hashOnly ]]; then
   # Self-describing evidence: a timing/digest run without -atlasoff measured the
-  # production-patched kernel (the preference defaults to enabled). Under 5303 T039
+  # production-patched kernel (the comparison explicitly opts in). Under 5303 T039
   # pre-weaves before the main agent and the woven digest is admitted explicitly;
   # under 5203 the production transformer sees the pristine e/g bytes directly.
   if [[ "$t039_before_main" == 1 ]]; then
-    printf 'atlasPreference=default-on\natlasAdmitClassSha256=%s\nt039BeforeMain=1\n' \
+    printf 'atlasPreference=explicit-on\natlasAdmitClassSha256=%s\nt039BeforeMain=1\n' \
       "$atlas_admit_sha256" >&2
   else
-    printf 'atlasPreference=default-on\n' >&2
+    printf 'atlasPreference=explicit-on\n' >&2
   fi
 fi
 if [[ -n "$timing_agent" ]]; then
@@ -1118,7 +1134,7 @@ if [[ -n "$tri_tlprod_home_config" ]]; then
 elif [[ "$tlindex_pref_off" == 1 ]]; then
   printf 'tlindexPreference=off\ntlindexOffConfigSha256=%s\n' "$tlindex_off_config_sha256" >&2
 elif [[ -n "$tri_tlprod_leg" ]]; then
-  printf 'tlindexPreference=default-on\n' >&2
+  printf 'tlindexPreference=explicit-on\n' >&2
 fi
 
 # No hook, client, or collector option is permitted here; readiness is limited to the single

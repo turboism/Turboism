@@ -13,8 +13,8 @@ package dev.turboism.internal.core;
  */
 public interface TriangulationEdgeIndexSettingsService {
 
-    /** Default when nothing is persisted: the weave is on. */
-    boolean DEFAULT_ENABLED = true;
+    /** Default when nothing is persisted: the weave is off. */
+    boolean DEFAULT_ENABLED = false;
 
     /** @return the persisted preference, or {@link #DEFAULT_ENABLED} when unset */
     boolean read();

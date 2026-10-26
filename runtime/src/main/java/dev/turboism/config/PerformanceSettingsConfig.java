@@ -14,16 +14,16 @@ import java.util.function.Consumer;
 public final class PerformanceSettingsConfig {
     /** Existing global paths are retained so old launchers and configuration files remain compatible. */
     public enum Field {
-        MODEL_UPDATE_SKIP("modelUpdateSkip", true, "true"),
+        MODEL_UPDATE_SKIP("modelUpdateSkip", true, "false"),
         INCREMENTAL_UPDATE("incrementalUpdate", true, "false"),
-        UNIFORM_LOCATION_CACHE("uniformLocationCache", true, "true"),
-        UPLOAD_ELISION("uploadElision", true, "true"),
+        UNIFORM_LOCATION_CACHE("uniformLocationCache", true, "false"),
+        UPLOAD_ELISION("uploadElision", true, "false"),
         INPUT_PATH_ELISION("inputPathElision", true, "false"),
         MESA_GL_THREAD("mesaGlThread", true, "false"),
-        MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "true"),
-        TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "true"),
-        ATLAS_TILE_BBOX("atlasTileBbox", false, "true"),
-        ATLAS_CACHE_REUSE("atlasCacheReuse", false, "true"),
+        MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "false"),
+        TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "false"),
+        ATLAS_TILE_BBOX("atlasTileBbox", false, "false"),
+        ATLAS_CACHE_REUSE("atlasCacheReuse", false, "false"),
         CUBISM_JVM("cubismJvm", true, "graalvm"),
         GRAAL_VM_PATH("graalVmPath", true, ""),
         REDUCE_AUTO_BACKUP("reduceAutoBackup", false, "false"),
@@ -61,7 +61,7 @@ public final class PerformanceSettingsConfig {
         }
         /** Platform default used only when the user has not made an explicit choice. */
         public String defaultValue(boolean proton) {
-            return this == INPUT_PATH_ELISION || this == MESA_GL_THREAD ? Boolean.toString(proton) : defaultValue;
+            return defaultValue;
         }
         /** Looks up a supported performance field. */
         public static Field forKey(String key) {

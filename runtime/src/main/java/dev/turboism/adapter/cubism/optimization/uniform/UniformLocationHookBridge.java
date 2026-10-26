@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -21,7 +22,7 @@ import java.util.function.Supplier;
  * corresponding transforms before exposing the enabled render path.</p>
  */
 public final class UniformLocationHookBridge implements AutoCloseable {
-    /** Default-on preference sampled per frame; exact host and safety admission still apply. */
+    /** Opt-in preference sampled per frame; exact host and safety admission still apply. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.uniformLocationCache";
     /** Diagnostic mode retaining native queries and comparing cached results. */
     public static final String SHADOW_PROPERTY = "turboism.uniform-location.shadow";
@@ -31,6 +32,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public static final String END_PROPERTY = "turboism.uniform-location.end";
     /** Typed {@code (Object,int)void} native error result callback. */
     public static final String ERROR_PROPERTY = "turboism.uniform-location.error";
+    /** Synthetic validation result; cannot confirm uploads or pending uniform locations. */
+    public static final String SYNTHETIC_ERROR_PROPERTY = "turboism.uniform-location.synthetic-error";
     /** Typed {@code ()void} conservative program mutation callback. */
     public static final String INVALIDATE_PROPERTY = "turboism.uniform-location.invalidate";
     /** Typed {@code ()long} entry around covered native program mutations. */
@@ -227,6 +230,13 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                     lookup.findVirtual(getClass(), "error", MethodType.methodType(void.class, Object.class, int.class))
                             .bindTo(this));
             callbacks.put(
+                    SYNTHETIC_ERROR_PROPERTY,
+                    lookup.findVirtual(
+                                    getClass(),
+                                    "syntheticError",
+                                    MethodType.methodType(void.class, Object.class, int.class))
+                            .bindTo(this));
+            callbacks.put(
                     INVALIDATE_PROPERTY,
                     lookup.findVirtual(getClass(), "invalidate", MethodType.methodType(void.class))
                             .bindTo(this));
@@ -282,6 +292,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 BEGIN_PROPERTY,
                 END_PROPERTY,
                 ERROR_PROPERTY,
+                SYNTHETIC_ERROR_PROPERTY,
                 INVALIDATE_PROPERTY,
                 MUTATION_BEGIN_PROPERTY,
                 MUTATION_END_PROPERTY,
@@ -290,14 +301,14 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 STATS_PROPERTY);
     }
 
-    private static volatile boolean configuredDefault = true;
+    private static volatile boolean configuredDefault = false;
 
     /** Updates the persisted-config fallback used when {@link #ENABLE_PROPERTY} is unset. */
     public static void setConfiguredDefault(final boolean enabled) {
         configuredDefault = enabled;
     }
 
-    /** Returns the default-on preference; explicit false, persisted config false or malformed overrides disable reuse. */
+    /** Returns the opt-in preference; absent or malformed overrides do not enable reuse. */
     public static boolean enabledByPreference() {
         final String explicit = System.getProperty(ENABLE_PROPERTY);
         return explicit == null ? configuredDefault : Boolean.parseBoolean(explicit);
@@ -355,6 +366,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Opens an explicitly scoped render invocation; zero means no nested ownership. */
     public synchronized long begin(Object frame) {
+        SkippedFrameUploadElisionBridge.invalidateUploads();
         if (!installed || closed || retired) return 0L;
         // A report armed by an aborted frame must not be consumed by a nested
         // or later render3d return; any new scope entry disarms it.
@@ -410,6 +422,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             try {
                 int observed = (int) deferredAccessors.glGetError().invokeExact(frameGl);
                 deferredFrames++;
+                SkippedFrameUploadElisionBridge.observeError(frameGl, observed);
                 if (observed == 0) {
                     deferredClean = true;
                 } else {
@@ -431,6 +444,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             deferredContext = null;
             deferredThrowSite = false;
         }
+        SkippedFrameUploadElisionBridge.invalidateUploads();
         cache.end(scope, deferredClean && canRetainDeferredResults());
         completedFrames++;
         frameOwner = null;
@@ -516,6 +530,16 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Observes an existing error result from the current frame's exact GL context. */
     public synchronized void error(Object gl, int error) {
+        if (error != 0
+                || (!deferredMode
+                        && installed
+                        && !closed
+                        && !retired
+                        && frameSupported
+                        && frameOwner == Thread.currentThread()
+                        && frameGl == gl)) {
+            SkippedFrameUploadElisionBridge.observeError(gl, error);
+        }
         // A real out-of-frame error must also discard deferred carry-over.
         if (error != 0 && frameOwner == null) {
             glErrors++;
@@ -540,6 +564,11 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             FatalErrors.rethrowIfFatal(problem);
             retire();
         }
+    }
+    /** A removed validation query supplies no evidence of GPU success. */
+    public synchronized void syntheticError(Object gl, int error) {
+        SkippedFrameUploadElisionBridge.invalidateUploads();
+        if (error != 0) error(gl, error);
     }
     /**
      * Deferred error-check checkpoint emitted by the deferred-GL-error
@@ -643,6 +672,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Conservatively retires the current frame on any covered program mutation. */
     public synchronized void invalidate() {
+        SkippedFrameUploadElisionBridge.invalidateUploads();
         cache.invalidate();
         frameSupported = false;
         expected = false;
@@ -651,6 +681,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Permanently disables reuse after a failed lifecycle transform or callback. */
     public synchronized void retire() {
+        SkippedFrameUploadElisionBridge.invalidateUploads();
         cache.invalidate();
         frameSupported = false;
         retired = true;
@@ -688,9 +719,10 @@ public final class UniformLocationHookBridge implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        SkippedFrameUploadElisionBridge.invalidateUploads();
         closed = true;
         installed = false;
-        configuredDefault = true;
+        configuredDefault = false;
         frameSupported = false;
         cache.close();
         mutations.clear();

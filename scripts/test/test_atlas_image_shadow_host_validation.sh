@@ -1178,7 +1178,7 @@ PYTL2
 # T029-TLPROD: production-rollout legs. The aux agent stays tl-dump-only on both
 # legs; the production transformer differs. -off stages the pinned
 # meshTriangulationEdgeIndex=false home config and expects pristine class bytes;
-# -on relies on the default-on preference and expects the production-patched
+# -on relies on the explicit opt-in preference and expects the production-patched
 # digest. The family admits 5303/5302/5203 — the weave legs stay 5303-only.
 manifest_5302="$test_root/bundle-5302.manifest"
 sed -e 's|^scene=.*|scene=atlas-image-shadow:5302|' \
@@ -1248,7 +1248,7 @@ env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fi
   --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' \
   --prepare-dir "$prepare_tlp_on" > "$test_root/prepare-tlprod-on.log" 2>&1 \
   || fail 'tlprod on-leg prepare failed'
-grep -q 'tlindexPreference=default-on' "$test_root/prepare-tlprod-on.log"
+grep -q 'tlindexPreference=explicit-on' "$test_root/prepare-tlprod-on.log"
 grep -q 'tlWeaveExpectClassSha256=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5' \
   "$test_root/prepare-tlprod-on.log"
 python3 - "$prepare_tlp_on/runner-request.json" <<'PYTP1'

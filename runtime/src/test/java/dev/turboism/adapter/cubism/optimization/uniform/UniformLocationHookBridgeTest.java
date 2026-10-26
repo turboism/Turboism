@@ -12,6 +12,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class UniformLocationHookBridgeTest {
@@ -83,6 +84,11 @@ class UniformLocationHookBridgeTest {
         return current;
     }
 
+    @BeforeEach
+    void optIn() {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+    }
+
     @AfterEach
     void cleanup() {
         System.clearProperty(UniformLocationHookBridge.ENABLE_PROPERTY);
@@ -90,6 +96,63 @@ class UniformLocationHookBridgeTest {
         for (String key : UniformLocationHookBridge.slots())
             System.getProperties().remove(key);
         current = null;
+    }
+
+    @Test
+    void uploadConfirmationObservesOnlyRealErrorsAndInvalidatesAtFrameBoundaries() throws Exception {
+        String errorSlot =
+                dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge.ERROR_PROPERTY;
+        String clearSlot =
+                dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge
+                        .LIFECYCLE_PROPERTY;
+        var checks = new java.util.ArrayList<Integer>();
+        var clears = new java.util.concurrent.atomic.AtomicInteger();
+        System.getProperties()
+                .put(errorSlot, (java.util.function.BiConsumer<Object, Integer>) (gl, error) -> checks.add(error));
+        System.getProperties().put(clearSlot, (Runnable) clears::incrementAndGet);
+        try (var bridge = bridge()) {
+            Context context = new Context();
+            GL gl = new GL(context);
+            current = context;
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertTrue(clears.get() > 0);
+            bridge.error(gl, 0);
+            assertEquals(java.util.List.of(0), checks);
+            bridge.syntheticError(gl, 0);
+            assertEquals(java.util.List.of(0), checks, "a removed query cannot confirm GPU content");
+            int beforeEnd = clears.get();
+            bridge.end(scope);
+            assertTrue(clears.get() > beforeEnd);
+        } finally {
+            System.getProperties().remove(errorSlot);
+            System.getProperties().remove(clearSlot);
+        }
+    }
+
+    @Test
+    void deferredCheckpointsDoNotConfirmUploadsUntilTheRealFrameEndQuery() throws Exception {
+        String errorSlot =
+                dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge.ERROR_PROPERTY;
+        var checks = new java.util.ArrayList<Integer>();
+        System.getProperties()
+                .put(errorSlot, (java.util.function.BiConsumer<Object, Integer>) (gl, error) -> checks.add(error));
+        try (var bridge = deferredBridge()) {
+            Context context = new Context();
+            GL gl = new GL(context);
+            current = context;
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "upload", false));
+            bridge.error(gl, 0);
+            assertTrue(checks.isEmpty());
+            assertEquals(0, gl.queries);
+            bridge.end(scope);
+            assertEquals(java.util.List.of(0), checks);
+            assertEquals(1, gl.queries, "the existing deferred query runs once; no added query");
+        } finally {
+            System.getProperties().remove(errorSlot);
+        }
     }
 
     private UniformLocationHookBridge bridge() throws Exception {
