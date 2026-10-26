@@ -1330,6 +1330,11 @@ final class CubismFacadeTestFixtures {
                     calls.add("interpolation.write:" + target.id() + ":" + settings.insertPointCount());
                 }
 
+                @Override
+                public void bindValues(ParameterBindingTarget target, List<Float> values) {
+                    calls.add("binding.values:" + target.id() + ":" + values);
+                }
+
                 public void bind(ParameterBindingTarget t, List<ParameterBindingPoint> p) {
                     throw new UnsupportedOperationException();
                 }
@@ -1352,12 +1357,19 @@ final class CubismFacadeTestFixtures {
             };
         }
 
+        boolean bindingProjectionAvailable;
         final List<String> calls;
         boolean failKeyformWrite;
         final Parameter parameter = new Parameter() {
             @Override
             public ParameterId id() {
                 return PARAMETER_ID;
+            }
+
+            @Override
+            public String guid() {
+                calls.add("parameter.guid");
+                return "native-parameter-guid";
             }
 
             @Override
@@ -1378,6 +1390,13 @@ final class CubismFacadeTestFixtures {
             @Override
             public float getDefaultValue() {
                 return 0.0F;
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
+                if (!bindingProjectionAvailable)
+                    throw new UnsupportedOperationException("Unavailable fixture binding projection");
+                return List.of();
             }
 
             @Override
@@ -1407,6 +1426,12 @@ final class CubismFacadeTestFixtures {
             @Override
             public List<ParameterId> parameterIds() {
                 return List.of();
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.model.ParameterGroupChild> orderedChildren() {
+                calls.add("orderedChildren");
+                return List.of(dev.turboism.sdk.cubism.model.ParameterGroupChild.parameter(PARAMETER_ID));
             }
 
             @Override
@@ -1558,6 +1583,13 @@ final class CubismFacadeTestFixtures {
             public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
                 calls.add("drawable.evaluationSnapshot");
                 return EVALUATION;
+            }
+
+            @Override
+            public void setOrdinaryKeyformValues(
+                    dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                    List<dev.turboism.sdk.cubism.model.ArtMeshKeyformValues> edits) {
+                calls.add("drawable.keyformSparseValuesBatch");
             }
 
             @Override
@@ -1820,6 +1852,12 @@ final class CubismFacadeTestFixtures {
                 @Override
                 public void moveParameter(final ParameterId parameterId, final ParameterGroupId targetGroupId) {
                     calls.add("moveParameter:" + parameterId.value());
+                }
+
+                @Override
+                public void moveParameter(
+                        final ParameterId parameterId, final ParameterGroupId targetGroupId, final int insertIndex) {
+                    calls.add("moveParameter:" + parameterId.value() + ":" + insertIndex);
                 }
             };
         }

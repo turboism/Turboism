@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "runId": "queue-0e268041ab58451688f82045987d8f34",
+  "status": "PASS",
+  "phase": "RESTORED",
+  "comparison": "SDK_FLOAT32_BITS_AND_EXACT_IDENTITIES",
+  "hashEncoding": "SHA256 canonical JSON from observed SDK readbacks; source/target/nonTarget row filtering, no geometry in this summary",
+  "objects": [
+    {
+      "kind": "art_mesh",
+      "objectId": "ArtMesh51",
+      "sourceGuid": "7da9d33b-cfd9-4cdd-a2db-2306dc82d463",
+      "formGuid": "488c71dc-49ea-4455-a3fe-f32e26d4ad9b",
+      "coordinates": [
+        {
+          "value": 0.0,
+          "parameterGuid": "89fe6311-a73d-4d5f-9992-d4f744c41984"
+        },
+        {
+          "value": 30.0,
+          "parameterGuid": "f187f0b6-03c4-4aec-96e0-e7ecd82c566c"
+        }
+      ],
+      "beforeRowsSha256": "1eab3f6d6fa75f62a1b415096b67e77d75bbd986fd50215597963ef8b66d27c3",
+      "afterRowsSha256": "a19096e00fe578da8c4cec616419d1f3fa3da62b328ea91d912b8103184eec3e",
+      "sourceBeforeSha256": "c5b50abe581a34c9c877011a3f017cfa62fe5ea7a3d566e053973f736e30615f",
+      "sourceAfterSha256": "c5b50abe581a34c9c877011a3f017cfa62fe5ea7a3d566e053973f736e30615f",
+      "targetFormBeforeSha256": "a944e5d159ce5d1ce38419c9c4bf84db62dc7908545d352a6013158c1491ebc7",
+      "targetFormAfterSha256": "a5b1911ceb1ee9a6ca6b21c681c35b11be228a85edc5cc91662fc4d1e625e4e2",
+      "nonTargetBeforeSha256": "f2f4561c2f168a47a43ef2a2ab72ea7c8ca25d78ef2bd91017a4a71e96ba268f",
+      "nonTargetAfterSha256": "f2f4561c2f168a47a43ef2a2ab72ea7c8ca25d78ef2bd91017a4a71e96ba268f",
+      "sourceUnchanged": true,
+      "nonTargetRowsUnchanged": true,
+      "changed": true
+    },
+    {
+      "kind": "warp_deformer",
+      "objectId": "Warp13",
+      "sourceGuid": "5cf2be35-d5e2-4314-9314-fce76d81bf53",
+      "formGuid": "6dd3a4b9-07f0-472d-9dc1-d6d3a836e547",
+      "coordinates": [
+        {
+          "value": 0.0,
+          "parameterGuid": "89fe6311-a73d-4d5f-9992-d4f744c41984"
+        },
+        {
+          "value": 30.0,
+          "parameterGuid": "f187f0b6-03c4-4aec-96e0-e7ecd82c566c"
+        }
+      ],
+      "beforeRowsSha256": "6859c10139bfde6e30a8370eabf4b0a85a6d0ca1cdba8997a2d362e37c8c6c70",
+      "afterRowsSha256": "9ff187552a57168087286758d8c5c00e63be4357265dedea815ddb60f13aa3c5",
+      "sourceBeforeSha256": "56ba934f94e8a57f913aa9084c2f8a3a9aabf6dd262ea4a2d24ff17fcd248535",
+      "sourceAfterSha256": "56ba934f94e8a57f913aa9084c2f8a3a9aabf6dd262ea4a2d24ff17fcd248535",
+      "targetFormBeforeSha256": "e4c9b09dac4eb8806eeb8bc835f3de6b40b2c9cc664c8bdc324e17c6fb21e9f1",
+      "targetFormAfterSha256": "83696c0e458d91fba730f101ed79e3ee041cfd5e3acadb12cc2dcc661fd63198",
+      "nonTargetBeforeSha256": "37df15966eda2851ffe6ccbfef1f16c60da336f6df98b7bf2c087e9a9a423c30",
+      "nonTargetAfterSha256": "37df15966eda2851ffe6ccbfef1f16c60da336f6df98b7bf2c087e9a9a423c30",
+      "sourceUnchanged": true,
+      "nonTargetRowsUnchanged": true,
+      "changed": true
+    },
+    {
+      "kind": "rotation_deformer",
+      "objectId": "Rotation1",
+      "sourceGuid": "709fd2c2-3382-455c-a335-3fccd1cfbb6b",
+      "formGuid": "b563c76b-663a-4264-9a7a-e14a8ca969d8",
+      "coordinates": [
+        {
+          "value": 30.0,
+          "parameterGuid": "5766e6de-ac0e-494a-8c13-9962d50f70f7"
+        }
+      ],
+      "beforeRowsSha256": "e5f031abbe400d62c2ecebf4714c6ae8fa5fd47c8dbf19031d09d7397a33a29a",
+      "afterRowsSha256": "a53e4f97f3e34ad1f4a7898373312aeb89e257a89ed62c6bf14fef11cab31bc1",
+      "sourceBeforeSha256": "cc4dafd29d3288b712dd1236461407da89cb8cf6f4359683a198ef3801157b76",
+      "sourceAfterSha256": "cc4dafd29d3288b712dd1236461407da89cb8cf6f4359683a198ef3801157b76",
+      "targetFormBeforeSha256": "04f49f53101f7de024d49927967efcb4edcae03074a7cec9e8bd15f5985a643e",
+      "targetFormAfterSha256": "9d258e862ab2a30b40f643f5926cd562439c0edd255cb9439f716b58e6eeecd3",
+      "nonTargetBeforeSha256": "6ced08df9b55de9ce1f2282d5e6b45fe5b2a74ca80b5673896690d7b8fe06281",
+      "nonTargetAfterSha256": "6ced08df9b55de9ce1f2282d5e6b45fe5b2a74ca80b5673896690d7b8fe06281",
+      "sourceUnchanged": true,
+      "nonTargetRowsUnchanged": true,
+      "changed": true
+    }
+  ],
+  "writeOutcome": "APPLIED",
+  "receipt": {
+    "transactionId": "authoring-5",
+    "label": "MCP ordinary keyforms",
+    "historyEntryId": "history-entry-2",
+    "historyBefore": {
+      "documentBindingId": "history-document-1",
+      "generation": 1,
+      "managerBindingId": "history-manager-1",
+      "position": 0,
+      "revision": 3,
+      "availability": "AVAILABLE"
+    },
+    "historyAfter": {
+      "documentBindingId": "history-document-1",
+      "generation": 1,
+      "managerBindingId": "history-manager-1",
+      "position": 1,
+      "revision": 4,
+      "availability": "AVAILABLE"
+    }
+  },
+  "writeTargets": [
+    {
+      "objectId": "ArtMesh51",
+      "beforeHash": "de5f93aa8d7101a4bbb6bf8ab79c712d725f37a0bbc05c04edd6d0790d719b6d",
+      "sourceGuid": "7da9d33b-cfd9-4cdd-a2db-2306dc82d463",
+      "readbackVerified": true,
+      "kind": "art_mesh",
+      "expectedAfterHash": "a49e11d8a5b40e97f1c943d9f1edfa87a2a4448ab9b272f51f7f73f097c96e35"
+    },
+    {
+      "objectId": "Warp13",
+      "beforeHash": "4d96b0ca411b25aa72561f42386cce89b45f78f5d34f5367d14918daa80ea594",
+      "sourceGuid": "5cf2be35-d5e2-4314-9314-fce76d81bf53",
+      "readbackVerified": true,
+      "kind": "warp_deformer",
+      "expectedAfterHash": "6b435a0ba14614668df65fd2b5bff7af13976a73dc8338e648d145f4fafa2f6f"
+    },
+    {
+      "objectId": "Rotation1",
+      "beforeHash": "761bddd4c8d7319ba43ab8b4bf1d28aca1f6ffa8537c62fea71d606ac3b71047",
+      "sourceGuid": "709fd2c2-3382-455c-a335-3fccd1cfbb6b",
+      "readbackVerified": true,
+      "kind": "rotation_deformer",
+      "expectedAfterHash": "b032216a46884fab6416ce601361e3ae628da0142ea9226156250622485b65c4"
+    }
+  ],
+  "nativeRollbackVerified": true,
+  "writeRestored": true,
+  "singleUndoRedoAndFinalUndoVerified": true,
+  "geometryPersistenceVerified": false,
+  "preparationRestored": "NOT_NEEDED",
+  "poseImageChanges": [
+    {
+      "label": "art_mesh",
+      "beforeSha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7",
+      "afterSha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90",
+      "changed": true
+    },
+    {
+      "label": "warp_deformer",
+      "beforeSha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7",
+      "afterSha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90",
+      "changed": true
+    },
+    {
+      "label": "rotation_deformer",
+      "beforeSha256": "f81cfb7e26b984a2659d653281e1dda3cdd5d0cbcc41a66ac1cedb4a7754de48",
+      "afterSha256": "f0c864b5532537668e6409b9b5e1dd341923317511c7d8e5e57750476756cca0",
+      "changed": true
+    }
+  ],
+  "distinctPoseCount": 2,
+  "limits": [
+    "Combined edit images do not isolate each object contribution",
+    "No XY grid, blink/mouth or artistic quality acceptance",
+    "No Hiyori save/reopen test",
+    "External MCP client; no ACP model consumption"
+  ]
+}

@@ -32,6 +32,16 @@ public interface ParameterGroup {
     List<ParameterId> parameterIds();
 
     /**
+     * Returns direct folders and parameters in their actual mixed native order.
+     * Separate child-group and parameter lists cannot reconstruct this order.
+     *
+     * @throws UnsupportedOperationException when the backend cannot read the mixed order
+     */
+    default List<ParameterGroupChild> orderedChildren() {
+        throw unavailable("ParameterGroup mixed order");
+    }
+
+    /**
      * Renames this folder through the Editor undo path.
      *
      * @throws IllegalArgumentException when the name is blank

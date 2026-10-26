@@ -34,6 +34,32 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorObjectReadAccessTest {
 
+    @Test
+    void ordinaryWriterSupportIsWiredForAllObjectsWithoutPublishedEffects() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02", true), "session-a").active();
+        var mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+        var warp = model.warpDeformers().find(new DeformerId("WarpFace"));
+        var rotation = model.rotationDeformers().find(new DeformerId("RotationHead"));
+        for (var support : List.of(
+                mesh.ordinaryKeyformWriteSupport(),
+                warp.ordinaryKeyformWriteSupport(),
+                rotation.ordinaryKeyformWriteSupport())) {
+            assertEquals("5.3.02", support.hostVersion());
+            assertEquals(
+                    dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.PRESENT, support.reviewedHost());
+            assertEquals(
+                    dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.PRESENT,
+                    support.transactionCoordinator());
+            assertEquals(
+                    dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.UNKNOWN, support.writePermission());
+        }
+        assertEquals(0, fixture.source.updateCount);
+        assertTrue(fixture.document.editMode.edits.isEmpty());
+        assertFalse(fixture.document.dirty);
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void warpMirrorIgnoresGlueOutsideSelectedHierarchy(final boolean preserveDescendants) {

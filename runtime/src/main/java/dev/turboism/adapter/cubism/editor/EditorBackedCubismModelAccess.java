@@ -1285,6 +1285,12 @@ public final class EditorBackedCubismModelAccess
         }
 
         @Override
+        public String guid() {
+            final Object guid = resolver.invoke("cubism.editor-model.parameter-source.guid", source());
+            return text(resolver.invoke("cubism.editor-model.guid.value", guid));
+        }
+
+        @Override
         public int index() {
             return current().index();
         }

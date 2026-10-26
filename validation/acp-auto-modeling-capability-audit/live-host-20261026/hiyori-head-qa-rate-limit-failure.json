@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "jobId": "f0c0be00-9f08-4b17-aae8-582d4491b046",
+  "runId": "queue-833e3a6694bf4fb5b7ad7e40bd3c6f6b",
+  "preparedId": "5e0efbed584de0b68d7e0a8ac5f4590d173ab3a1f94ee5d7d4deb31cc5b29486",
+  "task": "mcp:5303@head-qa",
+  "status": "failed",
+  "validationStatus": "FAIL",
+  "cleanup": "safe",
+  "normalExit": false,
+  "failure": {
+    "exceptionClass": "ValidationFailure",
+    "message": "tools/call HTTP status=429"
+  },
+  "phase": "RENDER_AFTER",
+  "cleanupError": {
+    "exceptionClass": "ValidationFailure"
+  },
+  "writeRestored": false,
+  "nativeRollbackVerified": true,
+  "beforeFrameCount": 28,
+  "afterFrameCount": 26,
+  "unproven": [
+    "Final Undo",
+    "Normal exit",
+    "Queue runner post-validation identity/fixture/golden checks"
+  ],
+  "officialOriginalSha256IndependentlyRecomputed": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "cause": "Existing wrapper budget 600 HTTP requests/minute; unpaced per-pose verification exceeded it",
+  "noWriteReplay": true,
+  "completeGeometryAndImagesKeptPrivate": true
+}

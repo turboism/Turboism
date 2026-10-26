@@ -25,7 +25,8 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$helper_root/WindowsHistoryManagerValidationProbe.java" \
   "$helper_root/WindowsHistoryNativeUiHostClose.java" \
   "$helper_root/McpValidationHostClose.java" \
-  "$src/dev/turboism/validation/acp/AcpHostValidationPlugin.java"
+  "$src/dev/turboism/validation/acp/AcpHostValidationPlugin.java" \
+  "$src/dev/turboism/validation/acp/AcpRenderUiEvidence.java"
 cp -r "$src/META-INF" "$out/"
 python3 "$repo_root/scripts/materialize_verification_records.py"
 mkdir -p "$out/META-INF/turboism/verification"
@@ -42,3 +43,9 @@ if ! jar tf "$output" | grep -Fq 'META-INF/turboism/plugin.json'; then
 fi
 echo "[probe] $output"
 sha256sum "$output"
+
+
+if [ "${1:-}" = "selftest" ]; then
+  javac --release 17 -cp "$out" -d "$out" "$base/selftest/AcpRenderUiEvidenceSelfTest.java"
+  java -Djava.awt.headless=true -cp "$out" dev.turboism.validation.acp.AcpRenderUiEvidenceSelfTest
+fi

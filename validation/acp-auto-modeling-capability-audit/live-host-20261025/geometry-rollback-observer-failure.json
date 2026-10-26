@@ -1,0 +1,74 @@
+{
+  "runId": "queue-e3de9e02aef649db89f31ebc1ddb41da",
+  "status": "FAIL",
+  "phase": "NATIVE_FAULT_ROLLBACK",
+  "comparison": "SDK_FLOAT32_BITS_AND_EXACT_IDENTITIES",
+  "preparation": {
+    "ok": true,
+    "operationId": "queue-e3de9e02aef649db89f31ebc1ddb41da-rotation-prepare",
+    "outcome": "APPLIED",
+    "code": "COMMITTED",
+    "receipt": {
+      "transactionId": "authoring-4",
+      "historyEntryId": "history-entry-6",
+      "label": "MCP initialize ordinary binding grid",
+      "historyBefore": {
+        "revision": 5,
+        "generation": 3,
+        "documentBindingId": "history-document-1",
+        "managerBindingId": "history-manager-1"
+      },
+      "historyAfter": {
+        "revision": 6,
+        "generation": 3,
+        "documentBindingId": "history-document-1",
+        "managerBindingId": "history-manager-1"
+      }
+    },
+    "diagnosticId": null,
+    "beforeHash": "cfa99b8dc0b6d7e7410d3a77fc9ba1778ced1ba87f416d1a691dcc09f196f0c1",
+    "expectedAfterHash": "19b2a7f559d1a211abad07d718c7e4878d31f8b43d39047f99ebf7e9e11f4396",
+    "readbackVerified": true,
+    "cells": [
+      {
+        "defaultCell": false,
+        "coordinates": [
+          {
+            "value": -10.0,
+            "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e"
+          }
+        ],
+        "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d"
+      },
+      {
+        "defaultCell": true,
+        "coordinates": [
+          {
+            "value": 0.0,
+            "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e"
+          }
+        ],
+        "formGuid": "d0a91144-de3a-47df-a7a6-a1e8844d4e80"
+      },
+      {
+        "defaultCell": false,
+        "coordinates": [
+          {
+            "value": 10.0,
+            "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e"
+          }
+        ],
+        "formGuid": "46e8cd5e-cb83-40c2-a040-cdf22e46c162"
+      }
+    ],
+    "renderVerified": false,
+    "rollbackStateVerified": false
+  },
+  "failure": {
+    "exceptionClass": "ValidationFailure",
+    "message": "Native geometry rollback not proven"
+  },
+  "writeRestored": false,
+  "nativeRollbackVerified": false,
+  "preparationRestored": false
+}

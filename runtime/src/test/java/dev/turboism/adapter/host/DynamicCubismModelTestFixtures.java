@@ -290,6 +290,11 @@ final class DynamicCubismModelTestFixtures {
                     calls.add("interpolation.write:" + target.id() + ":" + settings.insertPointCount());
                 }
 
+                @Override
+                public void bindValues(ParameterBindingTarget target, List<Float> values) {
+                    calls.add("binding.values:" + target.id() + ":" + values);
+                }
+
                 public void bind(ParameterBindingTarget t, List<ParameterBindingPoint> p) {
                     throw new UnsupportedOperationException();
                 }
@@ -451,6 +456,12 @@ final class DynamicCubismModelTestFixtures {
             }
 
             @Override
+            public List<dev.turboism.sdk.cubism.model.ParameterGroupChild> orderedChildren() {
+                calls.add("group.orderedChildren");
+                return List.of(dev.turboism.sdk.cubism.model.ParameterGroupChild.parameter(new ParameterId("ParamA")));
+            }
+
+            @Override
             public void rename(final String newName) {
                 calls.add("group.rename");
                 name = newName;
@@ -534,6 +545,12 @@ final class DynamicCubismModelTestFixtures {
                 @Override
                 public void moveParameter(final ParameterId parameterId, final ParameterGroupId targetGroupId) {
                     calls.add("groups.moveParameter");
+                }
+
+                @Override
+                public void moveParameter(
+                        final ParameterId parameterId, final ParameterGroupId targetGroupId, final int insertIndex) {
+                    calls.add("groups.moveParameter:" + insertIndex);
                 }
             };
         }

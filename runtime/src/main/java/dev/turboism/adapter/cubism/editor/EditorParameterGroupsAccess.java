@@ -216,6 +216,13 @@ final class EditorParameterGroupsAccess {
             structureAccess.moveParameter(identity, source, model, parameterId, targetGroupId);
         }
 
+        @Override
+        public void moveParameter(
+                final ParameterId parameterId, final ParameterGroupId targetGroupId, final int insertIndex) {
+            current();
+            structureAccess.moveParameter(identity, source, model, parameterId, targetGroupId, insertIndex);
+        }
+
         private Object requireGroupById(final ParameterGroupId id) {
             final java.util.ArrayDeque<Object> pending = new java.util.ArrayDeque<>();
             pending.add(rootGroup(source));
@@ -303,6 +310,25 @@ final class EditorParameterGroupsAccess {
                     .map(child -> new ParameterId(text(resolver.invoke(
                             "cubism.editor-model.id.value",
                             resolver.invoke("cubism.editor-model.parameter-source.id", child)))))
+                    .toList();
+        }
+
+        @Override
+        public List<dev.turboism.sdk.cubism.model.ParameterGroupChild> orderedChildren() {
+            current();
+            return children(group).stream()
+                    .map(child -> {
+                        if (resolver.isInstance("cubism.editor-model.parameter-group.class", child)) {
+                            return dev.turboism.sdk.cubism.model.ParameterGroupChild.group(groupId(child));
+                        }
+                        if (resolver.isInstance("cubism.editor-model.parameter-source.class", child)) {
+                            return dev.turboism.sdk.cubism.model.ParameterGroupChild.parameter(
+                                    new ParameterId(text(resolver.invoke(
+                                            "cubism.editor-model.id.value",
+                                            resolver.invoke("cubism.editor-model.parameter-source.id", child)))));
+                        }
+                        throw unavailable("Editor parameter folder contains an unknown entry type.");
+                    })
                     .toList();
         }
 

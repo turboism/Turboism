@@ -130,6 +130,11 @@ final class SessionDrawable implements Drawable {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        return host.guarded(generation, delegate::ordinaryKeyformWriteSupport);
+    }
+
+    @Override
     public ArtMeshId id() {
         return host.guarded(generation, delegate::id);
     }
@@ -477,6 +482,14 @@ final class SessionDrawable implements Drawable {
             final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> positions,
             final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> drawOrders) {
         host.guardedVoid(generation, () -> delegate.setOrdinaryKeyforms(expected, positions, drawOrders));
+    }
+
+    @Override
+    public void setOrdinaryKeyformValues(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformValues> edits) {
+        final var input = List.copyOf(edits);
+        host.guardedVoid(generation, () -> delegate.setOrdinaryKeyformValues(expected, input));
     }
 
     @Override

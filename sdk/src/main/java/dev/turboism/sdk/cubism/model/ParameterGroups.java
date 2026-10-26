@@ -56,4 +56,22 @@ public interface ParameterGroups {
         java.util.Objects.requireNonNull(targetGroupId, "targetGroupId");
         throw new UnsupportedOperationException("ParameterGroup move is unavailable.");
     }
+    /**
+     * Moves a parameter to a zero-based position in the target's mixed folder/parameter list,
+     * measured after removing the moved parameter. The inclusive upper bound appends.
+     * A same-position move is a no-op; negative and oversized indices are rejected before writing.
+     *
+     * @throws IllegalArgumentException when the index is outside the resulting target list
+     * @throws NoSuchElementException when the parameter or folder is absent
+     * @throws UnsupportedOperationException when indexed moves are unavailable
+     */
+    default void moveParameter(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final ParameterGroupId targetGroupId,
+            final int insertIndex) {
+        java.util.Objects.requireNonNull(parameterId, "parameterId");
+        java.util.Objects.requireNonNull(targetGroupId, "targetGroupId");
+        if (insertIndex < 0) throw new IllegalArgumentException("insertIndex must not be negative");
+        throw new UnsupportedOperationException("Indexed ParameterGroup move is unavailable.");
+    }
 }

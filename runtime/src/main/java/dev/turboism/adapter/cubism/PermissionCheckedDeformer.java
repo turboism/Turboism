@@ -25,6 +25,19 @@ class PermissionCheckedDeformer implements dev.turboism.sdk.cubism.model.Deforme
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        facade.requireModelRead("deformer.ordinaryKeyformWriteSupport");
+        var support = delegate.ordinaryKeyformWriteSupport();
+        var permission = dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.PRESENT;
+        try {
+            facade.requireModelWrite("deformer.ordinaryKeyformWriteSupport");
+        } catch (dev.turboism.sdk.permission.CubismPermissionException denied) {
+            permission = dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.ABSENT;
+        }
+        return support.withWritePermission(permission);
+    }
+
+    @Override
     public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
         facade.requireModelRead("deformer.ui");
         return delegate.ui();

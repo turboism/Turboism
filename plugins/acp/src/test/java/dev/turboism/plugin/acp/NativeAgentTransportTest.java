@@ -83,8 +83,13 @@ final class NativeAgentTransportTest {
     void permissionsUseExistingDecisionDialogAndRejectByDefault(AgentProtocol protocol) throws Exception {
         try (Fixture fixture = new Fixture(protocol)) {
             fixture.connect();
+            fixture.client.prompt(fixture.session.sessionId(), "request permission");
+            assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
             fixture.raw.askPermission();
             var decision = fixture.raw.permission.get(2, TimeUnit.SECONDS);
+            var summary = fixture.permissionRequest.get(2, TimeUnit.SECONDS).details();
+            assertFalse(summary.contains("<unavailable>"));
+            if (protocol == AgentProtocol.PI) assertEquals("Run tool?", summary);
             switch (protocol) {
                 case CODEX ->
                     assertEquals("decline", object(decision.get("result")).get("decision"));
@@ -96,6 +101,265 @@ final class NativeAgentTransportTest {
                 case PI -> assertEquals(false, decision.get("confirmed"));
                 default -> fail();
             }
+        }
+    }
+
+    @Test
+    void codexLateCompletionAndOutputCannotEndOrPolluteNextTurn() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            var first = fixture.client.prompt(fixture.session.sessionId(), "first");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.finish(false);
+            assertEquals("end_turn", first.get(2, TimeUnit.SECONDS));
+            var second = fixture.client.prompt(fixture.session.sessionId(), "second");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.codexEvent("turn/started", "thread-1", "turn-1", Map.of());
+            fixture.raw.codexEvent(
+                    "item/agentMessage/delta", "thread-1", "turn-1", Map.of("itemId", "old", "delta", "old"));
+            fixture.raw.codexEvent("turn/completed", "thread-1", "turn-1", Map.of("status", "completed"));
+            fixture.raw.delta("current");
+            assertEquals("current", fixture.chunks.poll(2, TimeUnit.SECONDS));
+            assertFalse(second.isDone(), "A late completion must not terminate another turn");
+            fixture.client.cancel(fixture.session.sessionId());
+            assertEquals(
+                    "turn-2", fixture.raw.interrupts.poll(2, TimeUnit.SECONDS).get("turnId"));
+            fixture.raw.finish(false);
+            assertEquals("cancelled", second.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void codexCancellationBeforeStartAckWaitsForItsAuthoritativeTurnId() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            fixture.raw.deferCodexStart = true;
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "start slowly");
+            var request = fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS);
+            assertNotNull(request);
+            fixture.client.cancel(fixture.session.sessionId());
+            fixture.raw.codexEvent("turn/started", "thread-1", "stale-turn", Map.of());
+            fixture.raw.emit(Map.of(
+                    "id",
+                    "stale-approval",
+                    "method",
+                    "item/commandExecution/requestApproval",
+                    "params",
+                    Map.of("threadId", "thread-1", "turnId", "stale-turn", "itemId", "old", "command", "old")));
+            fixture.raw.emit(Map.of("id", request.get("id"), "result", Map.of("turn", Map.of("id", "turn-1"))));
+            assertEquals(
+                    "turn-1", fixture.raw.interrupts.poll(2, TimeUnit.SECONDS).get("turnId"));
+            assertFalse(prompt.isDone(), "Interrupt ACK is not a terminal turn event");
+            assertEquals(
+                    "decline",
+                    object(fixture.raw.permission.get(2, TimeUnit.SECONDS).get("result"))
+                            .get("decision"));
+            assertFalse(fixture.permissionRequest.isDone(), "Old approvals must not reach the permission UI");
+            fixture.raw.finish(false);
+            assertEquals("cancelled", prompt.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void codexRejectsForeignThreadApprovalWithoutDisplayingIt() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "active");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of(
+                    "id",
+                    "foreign",
+                    "method",
+                    "item/commandExecution/requestApproval",
+                    "params",
+                    Map.of(
+                            "threadId",
+                            "foreign-thread",
+                            "turnId",
+                            "turn-1",
+                            "itemId",
+                            "foreign",
+                            "command",
+                            "foreign")));
+            assertEquals(
+                    "decline",
+                    object(fixture.raw.permission.get(2, TimeUnit.SECONDS).get("result"))
+                            .get("decision"));
+            assertFalse(fixture.permissionRequest.isDone());
+            fixture.raw.finish(false);
+            assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void codexReplaysEventsBeforeStartAckInOrderWithoutDuplicateText() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            fixture.raw.deferCodexStart = true;
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "slow ack");
+            var request = fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS);
+            assertNotNull(request);
+            fixture.raw.delta("buffered");
+            fixture.raw.full("buffered");
+            fixture.raw.finish(false);
+            fixture.raw.emit(Map.of("id", request.get("id"), "result", Map.of("turn", Map.of("id", "turn-1"))));
+            assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+            assertEquals("buffered", fixture.text.toString());
+        }
+    }
+
+    @Test
+    void codexLateAllowAfterTurnCompletionOrCancellationIsDenied() throws Exception {
+        for (boolean cancel : List.of(false, true)) {
+            try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+                fixture.connect();
+                fixture.permissionAnswer = new CompletableFuture<>();
+                var first = fixture.client.prompt(fixture.session.sessionId(), "permission");
+                assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+                fixture.raw.askPermission();
+                fixture.permissionRequest.get(2, TimeUnit.SECONDS);
+                if (cancel) {
+                    fixture.client.cancel(fixture.session.sessionId());
+                    assertNotNull(fixture.raw.interrupts.poll(2, TimeUnit.SECONDS));
+                } else {
+                    fixture.raw.finish(false);
+                    assertEquals("end_turn", first.get(2, TimeUnit.SECONDS));
+                    fixture.client.prompt(fixture.session.sessionId(), "next turn");
+                    assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+                }
+                fixture.permissionAnswer.complete(AcpListener.PermissionDecision.ALLOW_ONCE);
+                assertEquals(
+                        "decline",
+                        object(fixture.raw.permission.get(2, TimeUnit.SECONDS).get("result"))
+                                .get("decision"));
+                fixture.raw.finish(false);
+                if (cancel) assertEquals("cancelled", first.get(2, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
+    void codexMissingStartIdentityRequiresReconnect() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            fixture.raw.deferCodexStart = true;
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "unknown identity");
+            var request = fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS);
+            assertNotNull(request);
+            fixture.raw.emit(Map.of("id", request.get("id"), "result", Map.of("turn", Map.of())));
+            var error = assertThrows(ExecutionException.class, () -> prompt.get(2, TimeUnit.SECONDS));
+            assertTrue(AcpClient.failureDetails(error).contains("reconnect"));
+            var next = fixture.client.prompt(fixture.session.sessionId(), "do not replay");
+            assertThrows(ExecutionException.class, () -> next.get(2, TimeUnit.SECONDS));
+            assertTrue(fixture.raw.turnStarts.isEmpty());
+        }
+    }
+
+    @Test
+    void codexPendingIdentityBudgetsFailClosed() throws Exception {
+        for (boolean bytes : List.of(false, true)) {
+            try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+                fixture.connect();
+                fixture.raw.deferCodexStart = true;
+                var prompt = fixture.client.prompt(fixture.session.sessionId(), "bounded start");
+                assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+                if (bytes) fixture.raw.delta("x".repeat(NativeCodexProvider.MAX_PENDING_START_BYTES));
+                else for (int i = 0; i <= NativeCodexProvider.MAX_PENDING_START_EVENTS; i++) fixture.raw.delta("x");
+                var error = assertThrows(ExecutionException.class, () -> prompt.get(2, TimeUnit.SECONDS));
+                assertTrue(AcpClient.failureDetails(error).contains("budget"));
+                assertTrue(fixture.text.isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void codexLateInterruptFailureCannotFailNextTurnAndCancelIsSentOnce() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            fixture.raw.deferCodexInterrupt = true;
+            var first = fixture.client.prompt(fixture.session.sessionId(), "first");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.client.cancel(fixture.session.sessionId());
+            var interrupt = fixture.raw.interruptRequests.poll(2, TimeUnit.SECONDS);
+            assertNotNull(interrupt);
+            fixture.client.cancel(fixture.session.sessionId());
+            fixture.raw.finish(false);
+            assertEquals("cancelled", first.get(2, TimeUnit.SECONDS));
+            var second = fixture.client.prompt(fixture.session.sessionId(), "next");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of(
+                    "id", interrupt.get("id"), "error", Map.of("code", -32000, "message", "old interrupt failed")));
+            fixture.raw.delta("still active");
+            assertEquals("still active", fixture.chunks.poll(2, TimeUnit.SECONDS));
+            assertFalse(second.isDone());
+            assertTrue(fixture.raw.interruptRequests.isEmpty(), "Repeated cancel must not send another interrupt");
+            fixture.raw.finish(false);
+            assertEquals("end_turn", second.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void codexUnownedErrorsAndItemsCannotPolluteActiveTurn() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "current");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.codexEvent(
+                    "error", "thread-1", "old", Map.of("willRetry", false, "error", Map.of("message", "old failure")));
+            fixture.raw.codexEvent(
+                    "item/completed",
+                    "thread-1",
+                    "old",
+                    Map.of("item", Map.of("id", "stale", "type", "mcpToolCall", "result", "old tool result")));
+            fixture.raw.emit(Map.of(
+                    "method", "item/agentMessage/delta", "params", Map.of("threadId", "thread-1", "delta", "unowned")));
+            fixture.raw.codexEvent(
+                    "error", "thread-1", "turn-1", Map.of("willRetry", true, "error", Map.of("message", "retrying")));
+            fixture.raw.delta("current");
+            assertEquals("current", fixture.chunks.poll(2, TimeUnit.SECONDS));
+            assertFalse(prompt.isDone());
+            assertTrue(fixture.toolOutput.isEmpty());
+            fixture.raw.finish(false);
+            assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void codexFailedStartOrInterruptRequiresReconciliationWithoutReplay() throws Exception {
+        for (boolean interrupt : List.of(false, true)) {
+            try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+                fixture.connect();
+                fixture.raw.deferCodexStart = !interrupt;
+                fixture.raw.deferCodexInterrupt = interrupt;
+                var prompt = fixture.client.prompt(fixture.session.sessionId(), "uncertain request");
+                var start = fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS);
+                assertNotNull(start);
+                Map<String, Object> request = start;
+                if (interrupt) {
+                    fixture.client.cancel(fixture.session.sessionId());
+                    request = fixture.raw.interruptRequests.poll(2, TimeUnit.SECONDS);
+                    assertNotNull(request);
+                }
+                fixture.raw.emit(
+                        Map.of("id", request.get("id"), "error", Map.of("code", -32000, "message", "request failed")));
+                var error = assertThrows(ExecutionException.class, () -> prompt.get(2, TimeUnit.SECONDS));
+                assertTrue(AcpClient.failureDetails(error).contains("reconcile host operations"));
+                var next = fixture.client.prompt(fixture.session.sessionId(), "do not replay");
+                assertThrows(ExecutionException.class, () -> next.get(2, TimeUnit.SECONDS));
+                assertTrue(fixture.raw.turnStarts.isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void codexUnknownTerminalStatusDoesNotClaimSuccess() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "current");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.codexEvent("turn/completed", "thread-1", "turn-1", Map.of("status", "future-status"));
+            var error = assertThrows(ExecutionException.class, () -> prompt.get(2, TimeUnit.SECONDS));
+            assertTrue(AcpClient.failureDetails(error).contains("unknown terminal status"));
         }
     }
 
@@ -165,6 +429,273 @@ final class NativeAgentTransportTest {
         assertFalse(processes.get(1).isAlive());
     }
 
+    @ParameterizedTest
+    @EnumSource(
+            value = AgentProtocol.class,
+            names = {"CODEX", "CLAUDE", "PI"})
+    void toolImagesReachImageListenerWithoutBase64ChatText(AgentProtocol protocol) throws Exception {
+        try (Fixture fixture = new Fixture(protocol)) {
+            fixture.connect();
+            var response = fixture.client.prompt(fixture.session.sessionId(), "render");
+            assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
+            var pixels = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            pixels.setRGB(0, 0, 0xffff0000);
+            var bytes = new ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(pixels, "png", bytes);
+            String encoded = Base64.getEncoder().encodeToString(bytes.toByteArray());
+            fixture.raw.toolImage(encoded);
+            fixture.raw.finish(false);
+            assertEquals("end_turn", response.get(2, TimeUnit.SECONDS));
+            var image = fixture.images.get(2, TimeUnit.SECONDS);
+            assertEquals(encoded, image.data());
+            assertTrue(image.name().contains("capture=native-capture-7"), image.name());
+            assertTrue(image.name().contains("doc=native-doc"), image.name());
+            assertTrue(image.name().contains("revision=7"), image.name());
+            assertNotNull(image.preview(), "The UI must be able to decode the returned pixels");
+            assertTrue(fixture.toolOutput.toString().contains("revision"));
+            assertFalse(fixture.toolOutput.toString().contains(encoded));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AgentProtocol.class,
+            names = {"CLAUDE", "PI"})
+    void idlessNativeLatePermissionCannotAuthorizeAfterCompletionOrCancel(AgentProtocol protocol) throws Exception {
+        for (boolean cancel : List.of(false, true)) {
+            try (Fixture fixture = new Fixture(protocol)) {
+                fixture.connect();
+                fixture.permissionAnswer = new CompletableFuture<>();
+                var first = fixture.client.prompt(fixture.session.sessionId(), "permission");
+                assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
+                fixture.raw.askPermission();
+                fixture.permissionRequest.get(2, TimeUnit.SECONDS);
+                if (cancel) {
+                    fixture.client.cancel(fixture.session.sessionId());
+                    assertTrue(fixture.raw.aborted.await(2, TimeUnit.SECONDS));
+                } else {
+                    fixture.raw.finish(false);
+                    assertEquals("end_turn", first.get(2, TimeUnit.SECONDS));
+                    fixture.client.prompt(fixture.session.sessionId(), "next");
+                    assertNotNull(fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS));
+                    assertNotNull(fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS));
+                }
+                fixture.permissionAnswer.complete(AcpListener.PermissionDecision.ALLOW_ONCE);
+                var decision = fixture.raw.permission.get(2, TimeUnit.SECONDS);
+                if (protocol == AgentProtocol.PI) assertEquals(false, decision.get("confirmed"));
+                else
+                    assertEquals(
+                            "deny",
+                            object(object(decision.get("response")).get("response"))
+                                    .get("behavior"));
+                fixture.raw.finish(false);
+                if (cancel) assertEquals("cancelled", first.get(2, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
+    void piLateHandledAckCannotFinishAnotherPrompt() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.PI)) {
+            fixture.connect();
+            fixture.raw.deferPiPrompt = true;
+            var first = fixture.client.prompt(fixture.session.sessionId(), "first");
+            var request = fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS);
+            assertNotNull(request);
+            fixture.raw.finish(false);
+            assertEquals("end_turn", first.get(2, TimeUnit.SECONDS));
+            var second = fixture.client.prompt(fixture.session.sessionId(), "second");
+            var secondRequest = fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS);
+            assertNotNull(secondRequest);
+            fixture.raw.emit(Map.of(
+                    "id",
+                    request.get("id"),
+                    "type",
+                    "response",
+                    "success",
+                    true,
+                    "data",
+                    Map.of("disposition", "handled")));
+            fixture.raw.delta("active");
+            assertEquals("active", fixture.chunks.poll(2, TimeUnit.SECONDS));
+            assertFalse(second.isDone());
+            fixture.raw.emit(Map.of(
+                    "id",
+                    secondRequest.get("id"),
+                    "type",
+                    "response",
+                    "success",
+                    true,
+                    "data",
+                    Map.of("disposition", "started")));
+            fixture.raw.finish(false);
+            assertEquals("end_turn", second.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AgentProtocol.class,
+            names = {"CLAUDE", "PI"})
+    void idlessNativeLateCancelFailureCannotAffectNextPrompt(AgentProtocol protocol) throws Exception {
+        try (Fixture fixture = new Fixture(protocol)) {
+            fixture.connect();
+            fixture.raw.deferNativeCancel = true;
+            var first = fixture.client.prompt(fixture.session.sessionId(), "first");
+            assertNotNull(fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS));
+            fixture.client.cancel(fixture.session.sessionId());
+            var cancel = fixture.raw.cancelRequests.poll(2, TimeUnit.SECONDS);
+            assertNotNull(cancel);
+            fixture.client.cancel(fixture.session.sessionId());
+            fixture.raw.finish(false);
+            assertEquals("cancelled", first.get(2, TimeUnit.SECONDS));
+            var second = fixture.client.prompt(fixture.session.sessionId(), "next");
+            assertNotNull(fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS));
+            fixture.raw.failCancel(cancel);
+            fixture.raw.delta("current");
+            assertEquals("current", fixture.chunks.poll(2, TimeUnit.SECONDS));
+            assertFalse(second.isDone());
+            assertTrue(fixture.raw.cancelRequests.isEmpty());
+            fixture.raw.finish(false);
+            assertEquals("end_turn", second.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AgentProtocol.class,
+            names = {"CLAUDE", "PI"})
+    void idlessNativeCancelFailureRequiresReconnectWithoutReplay(AgentProtocol protocol) throws Exception {
+        try (Fixture fixture = new Fixture(protocol)) {
+            fixture.connect();
+            fixture.raw.deferNativeCancel = true;
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "current");
+            assertNotNull(fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS));
+            fixture.client.cancel(fixture.session.sessionId());
+            var cancel = fixture.raw.cancelRequests.poll(2, TimeUnit.SECONDS);
+            assertNotNull(cancel);
+            fixture.raw.failCancel(cancel);
+            var failure = assertThrows(ExecutionException.class, () -> prompt.get(2, TimeUnit.SECONDS));
+            assertTrue(AcpClient.failureDetails(failure).contains("reconcile host operations"));
+            var next = fixture.client.prompt(fixture.session.sessionId(), "no replay");
+            assertThrows(ExecutionException.class, () -> next.get(2, TimeUnit.SECONDS));
+            assertTrue(fixture.raw.promptRequests.isEmpty());
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AgentProtocol.class,
+            names = {"CLAUDE", "PI"})
+    void idlessNativeIdleOutputAndPermissionAreNotForwarded(AgentProtocol protocol) throws Exception {
+        try (Fixture fixture = new Fixture(protocol)) {
+            fixture.connect();
+            fixture.client.cancel(fixture.session.sessionId());
+            fixture.raw.delta("idle");
+            fixture.raw.full("idle");
+            fixture.raw.askPermission();
+            var decision = fixture.raw.permission.get(2, TimeUnit.SECONDS);
+            if (protocol == AgentProtocol.PI) assertEquals(false, decision.get("confirmed"));
+            else
+                assertEquals(
+                        "deny",
+                        object(object(decision.get("response")).get("response")).get("behavior"));
+            assertFalse(fixture.permissionRequest.isDone());
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "current");
+            assertNotNull(fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS));
+            fixture.raw.delta("current");
+            assertEquals("current", fixture.chunks.poll(2, TimeUnit.SECONDS));
+            assertTrue(fixture.raw.cancelRequests.isEmpty(), "Idle cancel must not target the next prompt");
+            fixture.raw.finish(false);
+            assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AgentProtocol.class,
+            names = {"CODEX", "CLAUDE", "PI"})
+    void currentNativePermissionCanStillBeAllowed(AgentProtocol protocol) throws Exception {
+        try (Fixture fixture = new Fixture(protocol)) {
+            fixture.connect();
+            fixture.permissionAnswer = CompletableFuture.completedFuture(AcpListener.PermissionDecision.ALLOW_ONCE);
+            var prompt = fixture.client.prompt(fixture.session.sessionId(), "allowed");
+            assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
+            fixture.raw.askPermission();
+            var decision = fixture.raw.permission.get(2, TimeUnit.SECONDS);
+            switch (protocol) {
+                case CODEX ->
+                    assertEquals("accept", object(decision.get("result")).get("decision"));
+                case CLAUDE ->
+                    assertEquals(
+                            "allow",
+                            object(object(decision.get("response")).get("response"))
+                                    .get("behavior"));
+                case PI -> assertEquals(true, decision.get("confirmed"));
+                default -> fail();
+            }
+            fixture.raw.finish(false);
+            assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void piCurrentHandledPromptDoesNotWaitForAgentTerminal() throws Exception {
+        for (var data : List.of(Map.of("disposition", "handled"), Map.of("agentInvoked", false))) {
+            try (Fixture fixture = new Fixture(AgentProtocol.PI)) {
+                fixture.connect();
+                fixture.raw.deferPiPrompt = true;
+                var prompt = fixture.client.prompt(fixture.session.sessionId(), "handled by extension");
+                var request = fixture.raw.promptRequests.poll(2, TimeUnit.SECONDS);
+                assertNotNull(request);
+                fixture.raw.emit(Map.of("id", request.get("id"), "type", "response", "success", true, "data", data));
+                assertEquals("end_turn", prompt.get(2, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
+    void piRequiresSettledBoundaryAndRejectsImagesForUnverifiedModel() throws Exception {
+        try (Fixture fixture = new Fixture(AgentProtocol.PI)) {
+            fixture.connect();
+            var image = AcpAttachment.receivedImage("image/png", "cGl4ZWxz");
+            var rejected = fixture.client.prompt(fixture.session.sessionId(), "inspect", List.of(image));
+            var failure = assertThrows(ExecutionException.class, () -> rejected.get(2, TimeUnit.SECONDS));
+            assertTrue(AcpClient.failureDetails(failure).contains("vision model"));
+            assertEquals(1L, fixture.raw.accepted.getCount(), "Rejected image must not be dispatched");
+            var response = fixture.client.prompt(fixture.session.sessionId(), "text only");
+            assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of("type", "agent_end", "willRetry", false));
+            // A subsequent RPC ACK is a deterministic reader barrier, not a turn terminal.
+            fixture.client.cancel(fixture.session.sessionId());
+            assertTrue(fixture.raw.aborted.await(2, TimeUnit.SECONDS));
+            assertFalse(response.isDone());
+            fixture.raw.emit(Map.of("type", "agent_settled"));
+            assertEquals("cancelled", response.get(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void nativePermissionSlotsRetireWithoutAnyClientReply() throws Exception {
+        try (var transport = new NativeAgentTransport(
+                        new AgentLaunchSpec(List.of("unused"), directory, Map.of(), AgentProtocol.PI));
+                var output = new BufferedReader(new InputStreamReader(transport.stdout(), StandardCharsets.UTF_8))) {
+            transport.sessionId("local-test-session");
+            for (int i = 0; i < 12; i++) {
+                var scope = new CompletableFuture<String>();
+                var replies = new java.util.concurrent.CopyOnWriteArrayList<Boolean>();
+                transport.permission(scope, "tool", "edit", "call-" + i, Map.of(), replies::add);
+                assertTrue(replies.isEmpty(), "A retired prompt must not consume one of the eight slots");
+                var request = object(Json.parseObject(output.readLine().getBytes(StandardCharsets.UTF_8)));
+                assertEquals("session/request_permission", request.get("method"));
+                if (i % 2 == 0) transport.cancelPermissions(scope);
+                scope.complete("end_turn");
+                transport.cancelPermissions(scope);
+                assertEquals(List.of(false), replies, "Cancellation/terminal must answer exactly once");
+            }
+        }
+    }
+
     @Test
     void protocolSelectionSupportsWindowsShimsAndAcpFallback() {
         for (String name : List.of("codex", "codex.exe", "codex.cmd", "codex.bat"))
@@ -179,6 +710,12 @@ final class NativeAgentTransportTest {
     private final class Fixture implements AutoCloseable {
         final AtomicReference<AgentLaunchSpec> spec = new AtomicReference<>();
         final StringBuffer text = new StringBuffer();
+        final BlockingQueue<String> chunks = new LinkedBlockingQueue<>();
+        final StringBuffer toolOutput = new StringBuffer();
+        final CompletableFuture<AcpAttachment> images = new CompletableFuture<>();
+        final CompletableFuture<AcpListener.PermissionRequest> permissionRequest = new CompletableFuture<>();
+        volatile CompletableFuture<AcpListener.PermissionDecision> permissionAnswer =
+                CompletableFuture.completedFuture(AcpListener.PermissionDecision.CANCELLED);
         final FakeCli raw;
         final AcpClient client;
         AcpSession session;
@@ -194,6 +731,27 @@ final class NativeAgentTransportTest {
                 @Override
                 public void agentText(AcpClient source, String id, String value) {
                     text.append(value);
+                    chunks.add(value);
+                }
+
+                @Override
+                public void agentImage(AcpClient source, String id, AcpAttachment image) {
+                    images.complete(image);
+                }
+
+                @Override
+                public void toolCallUpdate(AcpClient source, String id, String callId, String status, String content) {
+                    toolOutput.append(content);
+                }
+
+                @Override
+                public PermissionDecision permission(AcpClient source, String id, PermissionRequest request) {
+                    permissionRequest.complete(request);
+                    try {
+                        return permissionAnswer.get(2, TimeUnit.SECONDS);
+                    } catch (Exception failure) {
+                        return PermissionDecision.CANCELLED;
+                    }
                 }
             });
         }
@@ -219,6 +777,17 @@ final class NativeAgentTransportTest {
         final PipedOutputStream input = new PipedOutputStream(commands);
         final CountDownLatch accepted = new CountDownLatch(1), aborted = new CountDownLatch(1);
         final CompletableFuture<Map<String, Object>> permission = new CompletableFuture<>();
+        final BlockingQueue<Map<String, Object>> turnStarts = new LinkedBlockingQueue<>();
+        final BlockingQueue<Map<String, Object>> interrupts = new LinkedBlockingQueue<>();
+        final BlockingQueue<Map<String, Object>> interruptRequests = new LinkedBlockingQueue<>();
+        final BlockingQueue<Map<String, Object>> promptRequests = new LinkedBlockingQueue<>();
+        final BlockingQueue<Map<String, Object>> cancelRequests = new LinkedBlockingQueue<>();
+        volatile boolean deferNativeCancel;
+        volatile boolean deferPiPrompt;
+        volatile boolean deferCodexInterrupt;
+        volatile boolean deferCodexStart;
+        volatile String codexTurnId = "turn-0";
+        private int codexTurnSequence;
         Map<String, Object> threadParams = Map.of();
         volatile boolean alive = true;
 
@@ -263,16 +832,28 @@ final class NativeAgentTransportTest {
                     case "model/list" ->
                         result = Map.of("data", List.of(Map.of("model", "model-a", "displayName", "Model A")));
                     case "turn/start" -> {
-                        result = Map.of("turn", Map.of("id", "turn-1"));
+                        codexTurnId = "turn-" + ++codexTurnSequence;
+                        turnStarts.add(request);
+                        result = Map.of("turn", Map.of("id", codexTurnId));
                         accepted.countDown();
+                        if (deferCodexStart) return;
                     }
-                    case "turn/interrupt" -> aborted.countDown();
+                    case "turn/interrupt" -> {
+                        interruptRequests.add(request);
+                        interrupts.add(object(request.get("params")));
+                        aborted.countDown();
+                        if (deferCodexInterrupt) return;
+                    }
                     default -> {}
                 }
                 emit(Map.of("id", id, "result", result));
             } else if (protocol == AgentProtocol.CLAUDE) {
                 if ("control_request".equals(request.get("type"))) {
-                    if ("interrupt".equals(object(request.get("request")).get("subtype"))) aborted.countDown();
+                    if ("interrupt".equals(object(request.get("request")).get("subtype"))) {
+                        cancelRequests.add(request);
+                        aborted.countDown();
+                        if (deferNativeCancel) return;
+                    }
                     emit(Map.of(
                             "type",
                             "control_response",
@@ -284,7 +865,10 @@ final class NativeAgentTransportTest {
                                     request.get("request_id"),
                                     "response",
                                     Map.of("models", List.of(Map.of("value", "model-a", "displayName", "Model A"))))));
-                } else if ("user".equals(request.get("type"))) accepted.countDown();
+                } else if ("user".equals(request.get("type"))) {
+                    promptRequests.add(request);
+                    accepted.countDown();
+                }
             } else {
                 String type = text(request.get("type"));
                 Map<String, Object> data = Map.of();
@@ -298,20 +882,44 @@ final class NativeAgentTransportTest {
                         data = Map.of(
                                 "models", List.of(Map.of("provider", "local", "id", "model-a", "name", "Model A")));
                     case "prompt" -> {
+                        promptRequests.add(request);
                         data = Map.of("disposition", "started");
                         accepted.countDown();
+                        if (deferPiPrompt) return;
                     }
-                    case "abort" -> aborted.countDown();
+                    case "abort" -> {
+                        cancelRequests.add(request);
+                        aborted.countDown();
+                        if (deferNativeCancel) return;
+                    }
                     default -> {}
                 }
                 emit(Map.of("id", id, "type", "response", "command", type, "success", true, "data", data));
             }
         }
 
+        void failCancel(Map<String, Object> request) throws IOException {
+            if (protocol == AgentProtocol.PI)
+                emit(Map.of("id", request.get("id"), "type", "response", "success", false, "error", "abort failed"));
+            else
+                emit(Map.of(
+                        "type",
+                        "control_response",
+                        "response",
+                        Map.of(
+                                "subtype",
+                                "error",
+                                "request_id",
+                                request.get("request_id"),
+                                "error",
+                                "interrupt failed")));
+        }
+
         void delta(String value) throws IOException {
             switch (protocol) {
                 case CODEX ->
-                    emit(Map.of("method", "item/agentMessage/delta", "params", Map.of("itemId", "a1", "delta", value)));
+                    codexEvent(
+                            "item/agentMessage/delta", "thread-1", codexTurnId, Map.of("itemId", "a1", "delta", value));
                 case CLAUDE ->
                     emit(Map.of(
                             "type",
@@ -339,7 +947,13 @@ final class NativeAgentTransportTest {
                             "method",
                             "item/completed",
                             "params",
-                            Map.of("item", Map.of("id", "a1", "type", "agentMessage", "text", value))));
+                            Map.of(
+                                    "threadId",
+                                    "thread-1",
+                                    "turnId",
+                                    codexTurnId,
+                                    "item",
+                                    Map.of("id", "a1", "type", "agentMessage", "text", value))));
                 case CLAUDE ->
                     emit(Map.of(
                             "type",
@@ -370,10 +984,18 @@ final class NativeAgentTransportTest {
                             "turn/completed",
                             "params",
                             Map.of(
+                                    "threadId",
+                                    "thread-1",
                                     "turn",
                                     error
-                                            ? Map.of("status", "failed", "error", Map.of("message", "provider failed"))
-                                            : Map.of("status", "completed"))));
+                                            ? Map.of(
+                                                    "id",
+                                                    codexTurnId,
+                                                    "status",
+                                                    "failed",
+                                                    "error",
+                                                    Map.of("message", "provider failed"))
+                                            : Map.of("id", codexTurnId, "status", "completed"))));
                 case CLAUDE ->
                     emit(Map.of("type", "result", "is_error", error, "result", error ? "provider failed" : "answer"));
                 case PI -> {
@@ -390,6 +1012,95 @@ final class NativeAgentTransportTest {
             }
         }
 
+        void codexEvent(String method, String thread, String turn, Map<String, Object> fields) throws IOException {
+            var params = new LinkedHashMap<String, Object>(fields);
+            params.put("threadId", thread);
+            if (method.startsWith("turn/")) {
+                var value = new LinkedHashMap<String, Object>(fields);
+                value.put("id", turn);
+                params.put("turn", value);
+            } else params.put("turnId", turn);
+            emit(Map.of("method", method, "params", params));
+        }
+
+        void toolImage(String encoded) throws IOException {
+            var blocks = List.of(
+                    Map.of(
+                            "type",
+                            "text",
+                            "text",
+                            Json.stringify(Map.of(
+                                    "ok",
+                                    true,
+                                    "revision",
+                                    7,
+                                    "captureId",
+                                    "native-capture-7",
+                                    "width",
+                                    2,
+                                    "height",
+                                    2,
+                                    "state",
+                                    Map.of(
+                                            "documentId",
+                                            "native-doc",
+                                            "modelId",
+                                            "native-model",
+                                            "historyRevision",
+                                            7)))),
+                    protocol == AgentProtocol.CLAUDE
+                            ? Map.of(
+                                    "type",
+                                    "image",
+                                    "source",
+                                    Map.of("type", "base64", "media_type", "image/png", "data", encoded))
+                            : Map.of("type", "image", "mimeType", "image/png", "data", encoded));
+            switch (protocol) {
+                case CODEX ->
+                    emit(Map.of(
+                            "method",
+                            "item/completed",
+                            "params",
+                            Map.of(
+                                    "threadId",
+                                    "thread-1",
+                                    "turnId",
+                                    codexTurnId,
+                                    "item",
+                                    Map.of(
+                                            "id",
+                                            "render-1",
+                                            "type",
+                                            "mcpToolCall",
+                                            "tool",
+                                            "render.capture",
+                                            "status",
+                                            "completed",
+                                            "result",
+                                            Map.of("content", blocks)))));
+                case CLAUDE ->
+                    emit(Map.of(
+                            "type",
+                            "user",
+                            "message",
+                            Map.of(
+                                    "content",
+                                    List.of(Map.of(
+                                            "type", "tool_result", "tool_use_id", "render-1", "content", blocks)))));
+                case PI ->
+                    emit(Map.of(
+                            "type",
+                            "tool_execution_end",
+                            "toolCallId",
+                            "render-1",
+                            "toolName",
+                            "render.capture",
+                            "result",
+                            Map.of("content", blocks, "details", Map.of("revision", 7))));
+                default -> fail();
+            }
+        }
+
         void askPermission() throws IOException {
             switch (protocol) {
                 case CODEX ->
@@ -399,7 +1110,15 @@ final class NativeAgentTransportTest {
                             "method",
                             "item/commandExecution/requestApproval",
                             "params",
-                            Map.of("itemId", "tool-1", "command", "echo hi")));
+                            Map.of(
+                                    "threadId",
+                                    "thread-1",
+                                    "turnId",
+                                    codexTurnId,
+                                    "itemId",
+                                    "tool-1",
+                                    "command",
+                                    "echo hi")));
                 case CLAUDE ->
                     emit(Map.of(
                             "type",

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "fixtureLabel": "Official Hiyori PRO t11 (internal read-only inspection)",
+  "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "jobId": "5e3065a5-2d89-4097-ad3f-d4c39a12763b",
+  "preparedId": "20ba092155346fec7a3970c7b2485f655b62b66c49e2bd00936e61b98d3d38ab",
+  "runId": "queue-82cf1783e2334b799d6a74656eeba723",
+  "task": "mcp:5303@inspect",
+  "status": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "goldenUnchanged": true,
+  "cleanup": "safe",
+  "modelMutation": "NONE",
+  "evidenceSha256": {
+    "hiyori-read-only-inspection.json": "24b5f78c586da608a956e0a7f1c4ac510ae5e2ca4811da0ec37bf2a301cfa9f6",
+    "hiyori-read-only-verified.properties": "41b8c97955dd4b08fa18ad0b40bd8a07062510faa35492898d209e9a17ad579f",
+    "hiyori-native-render.json": "bc777513b1ef9513c0206cb3b5fbc3b68f1b8588e02cec20cb3c7c9eeff06c54"
+  },
+  "privateArtifacts": [
+    "complete authoring rows",
+    "native render PNG"
+  ],
+  "limits": [
+    "No writes, Undo/Redo or persistence verification",
+    "No semantic head identification or visual-detail acceptance",
+    "External MCP client; no ACP model image consumption"
+  ]
+}

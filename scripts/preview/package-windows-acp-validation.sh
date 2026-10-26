@@ -34,6 +34,7 @@ cp "$probe_jar" "$bundle_root/plugins/acp-host-validation-probe.jar"
 cp "$fake_agent_jar" "$bundle_root/acp-validation/acp-fake-agent.jar"
 printf 'stepTimeoutSeconds=120\n' > "$bundle_root/acp-validation/agent.properties"
 cp "$readme" "$bundle_root/README.md"
+python3 "$repo_root/validation/acp-host-probe/check_bundle.py" "$bundle_root/plugins"
 
 (
   cd "$bundle_root"
