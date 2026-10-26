@@ -77,6 +77,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
     private MenuBinding menuBinding;
     private boolean reconcileQueued;
     private boolean selectionHandlingRequested;
+    private int suppressionDepth;
 
     private volatile JPopupMenu activePopupMenu;
     private volatile Popup activePopup;
@@ -136,12 +137,19 @@ public final class VerifiedRecentPreviewPopupHostOperations
 
     @Override
     public void hide() {
-        onEventDispatchThread(this::hideActivePopupNow);
+        onEventDispatchThread(() -> {
+            suppressionDepth++;
+            hidePopupWindow(activePopupMenu);
+        });
     }
 
     @Override
     public void restore() {
-        // Capture suppression intentionally waits for selection or an explicit refresh.
+        onEventDispatchThread(() -> {
+            if (suppressionDepth == 0) return;
+            suppressionDepth--;
+            if (suppressionDepth == 0) refreshActivePopup();
+        });
     }
 
     private void startTracking() {
@@ -383,6 +391,13 @@ public final class VerifiedRecentPreviewPopupHostOperations
             return;
         }
         final String pathKey = RecentMenuChain.pathKey(path);
+        if (suppressionDepth > 0) {
+            if (activePopupMenu != null && activePopupMenu != popupMenu) hideActivePopupNow();
+            popupMenu.putClientProperty(ACTIVE_ITEM_KEY, item);
+            popupMenu.putClientProperty(ACTIVE_PROJECT_KEY, pathKey);
+            activePopupMenu = popupMenu;
+            return;
+        }
         if (popupMenu.getClientProperty(ACTIVE_ITEM_KEY) == item
                 && pathKey.equals(popupMenu.getClientProperty(ACTIVE_PROJECT_KEY))
                 && popupMenu.getClientProperty(POPUP_KEY) instanceof Popup) {
@@ -410,6 +425,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
     }
 
     private void refreshActivePopup() {
+        if (suppressionDepth > 0) return;
         final JPopupMenu popupMenu = activePopupMenu;
         if (popupMenu == null) return;
         final Object item = popupMenu.getClientProperty(ACTIVE_ITEM_KEY);
@@ -426,7 +442,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
         showForItem(menuItem);
     }
 
-    private void hidePopup(final JPopupMenu popupMenu) {
+    private void hidePopupWindow(final JPopupMenu popupMenu) {
         if (popupMenu == null) return;
         final Object raw = popupMenu.getClientProperty(POPUP_KEY);
         if (raw instanceof Popup popup) {
@@ -437,6 +453,12 @@ public final class VerifiedRecentPreviewPopupHostOperations
             }
         }
         popupMenu.putClientProperty(POPUP_KEY, null);
+        if (activePopupMenu == popupMenu) activePopup = null;
+    }
+
+    private void hidePopup(final JPopupMenu popupMenu) {
+        if (popupMenu == null) return;
+        hidePopupWindow(popupMenu);
         popupMenu.putClientProperty(ACTIVE_ITEM_KEY, null);
         popupMenu.putClientProperty(ACTIVE_PROJECT_KEY, null);
         if (activePopupMenu == popupMenu) {
