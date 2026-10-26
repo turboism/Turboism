@@ -939,16 +939,22 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         == JOptionPane.OK_OPTION;
             }
             try (var preview = new ModelPreviewPanel(previewScene, key -> text(key, key), log)) {
-                var content = new JPanel(new java.awt.BorderLayout(16, 0));
-                var description = new JTextArea(message, 0, 24);
+                var content = new JPanel(new java.awt.BorderLayout(0, 12));
+                var description = new JTextPane();
                 description.setEditable(false);
                 description.setFocusable(false);
                 description.setOpaque(false);
-                description.setLineWrap(true);
-                description.setWrapStyleWord(true);
+                description.setBorder(null);
                 description.setFont(UIManager.getFont("Label.font"));
-                content.add(preview, java.awt.BorderLayout.WEST);
-                content.add(description, java.awt.BorderLayout.CENTER);
+                description.setText(message);
+                var alignment = new javax.swing.text.SimpleAttributeSet();
+                javax.swing.text.StyleConstants.setAlignment(alignment, javax.swing.text.StyleConstants.ALIGN_CENTER);
+                description.getStyledDocument().setParagraphAttributes(0, message.length(), alignment, false);
+                int width = description.getFontMetrics(description.getFont()).charWidth('m') * 32;
+                description.setSize(width, Short.MAX_VALUE);
+                description.setPreferredSize(new java.awt.Dimension(width, description.getPreferredSize().height));
+                content.add(preview, java.awt.BorderLayout.CENTER);
+                content.add(description, java.awt.BorderLayout.SOUTH);
                 return JOptionPane.showConfirmDialog(
                                 null,
                                 content,
