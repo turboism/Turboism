@@ -16,21 +16,27 @@ from turboism_dev.paths import repo_root
 ROOT = repo_root()
 PLUGINS = ROOT / "plugins"
 RELEASE_PLUGINS = ROOT / "packaging/release-plugins.txt"
+MARKET_PLUGINS = ROOT / "packaging/market-plugins.txt"
 DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
 README_VARIANTS = {
     "README.md": (
         "## What it does", "## Requirements and compatibility", "## Install and enable",
         "## How to use", "## Capabilities", "## Permissions", "## Privacy and data",
-        "## Status and limitations", "## Troubleshooting", "## Support and license",
+        "## Status and limitations", "## Troubleshooting", "## Changelog", "## Support and license",
     ),
     "README_zh.md": (
         "## 功能概述", "## 要求与兼容性", "## 安装与启用", "## 使用方法", "## 功能能力",
-        "## 权限", "## 隐私与数据", "## 状态与限制", "## 故障排除", "## 支持与许可证",
+        "## 权限", "## 隐私与数据", "## 状态与限制", "## 故障排除", "## 更新日志", "## 支持与许可证",
     ),
     "README_ja.md": (
         "## 機能概要", "## 要件と互換性", "## インストールと有効化", "## 使い方", "## 機能",
-        "## 権限", "## プライバシーとデータ", "## 状態と制限", "## トラブルシューティング",
+        "## 権限", "## プライバシーとデータ", "## 状態と制限", "## トラブルシューティング", "## 変更履歴",
         "## サポートとライセンス",
+    ),
+    "README_ko.md": (
+        "## 기능 개요", "## 요구 사항 및 호환성", "## 설치 및 활성화", "## 사용 방법", "## 기능",
+        "## 권한", "## 개인정보 및 데이터", "## 상태 및 제한 사항", "## 문제 해결", "## 변경 이력",
+        "## 지원 및 라이선스",
     ),
 }
 ALLOWED_KIND = {"core", "feature", "demo", "migration-shell"}
@@ -131,7 +137,11 @@ def validate_readme(
 
     positions: list[int] = []
     for heading in headings:
-        pattern = rf"^{re.escape(heading)}(?: minimization)?$" if heading == "## Privacy and data" else rf"^{re.escape(heading)}$"
+        pattern = (
+            rf"^{re.escape(heading)}(?: minimization)?$"
+            if heading in ("## Privacy and data", "## 개인정보 및 데이터")
+            else rf"^{re.escape(heading)}$"
+        )
         matches = list(re.finditer(pattern, text, re.MULTILINE))
         count = len(matches)
         if count != 1:
@@ -160,8 +170,10 @@ def validate_readme(
     if not descriptor["permissions"]:
         empty_permissions = {
             "README.md": r"The manifest declares no permissions\.",
+            "README.zh_Hans.md": r"(?:未声明|不声明|没有声明|无).*(?:权限)",
             "README_zh.md": r"(?:未声明|不声明|没有声明|无).*(?:权限)",
             "README_ja.md": r"(?:権限).*(?:宣言されていません|宣言していません|ありません)",
+            "README_ko.md": r"(?:권한).*(?:선언되지 않았습니다|선언하지 않았습니다|없습니다)",
         }
         if not re.search(empty_permissions[filename], text):
             errors.append("empty permission inventory is not stated")
@@ -170,26 +182,48 @@ def validate_readme(
             "README.md": r"No capabilities are declared in the plugin manifest\.",
             "README_zh.md": r"(?:未声明|不声明|没有声明|无).*(?:功能能力|能力)",
             "README_ja.md": r"(?:機能|ケイパビリティ).*(?:宣言されていません|宣言していません|ありません)",
+            "README_ko.md": r"(?:기능|역량|capability).*(?:선언되지 않았습니다|선언하지 않았습니다|없습니다)",
         }
         if not re.search(empty_capabilities[filename], text):
             errors.append("empty capability inventory is not stated")
+
+    plugin_version = descriptor["version"]
+    changelog_heading = {
+        "README.md": "## Changelog",
+        "README_zh.md": "## 更新日志",
+        "README_ja.md": "## 変更履歴",
+        "README_ko.md": "## 변경 이력",
+    }.get(filename)
+    if changelog_heading and changelog_heading in text:
+        pattern = rf"^###\s+\[?{re.escape(plugin_version)}\]?"
+        if not re.search(pattern, text, re.MULTILINE):
+            errors.append(f"changelog does not contain entry for current version {plugin_version}")
     return errors
+
+
+def store_candidate_module_names() -> set[str]:
+    rosters = [RELEASE_PLUGINS]
+    if MARKET_PLUGINS.is_file():
+        rosters.append(MARKET_PLUGINS)
+    names: set[str] = set()
+    for roster in rosters:
+        for line in roster.read_text(encoding="utf-8").splitlines():
+            project = line.strip()
+            if project and not project.startswith("#"):
+                names.add(project.removeprefix(":plugins:"))
+    return names
 
 
 def validate_module(module: Path) -> list[tuple[str, str]]:
     descriptor = read_json(module / DESCRIPTOR)
-    release_module_names = {
-        project.strip().removeprefix(":plugins:")
-        for project in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines()
-        if project.strip()
-    }
+    store_candidates = store_candidate_module_names()
     expected_role = (
         ("core", "built-in", "bundled") if module.name == "core" else
-        ("feature", "preview", "store-candidate") if module.name in release_module_names else
+        ("feature", "preview", "store-candidate") if module.name in store_candidates else
         ("demo", "development", "development-only") if module.name == "demo" else
         ("feature", "development", "development-only")
     )
-    variants = README_VARIANTS if module.name in release_module_names else {"README.md": README_VARIANTS["README.md"]}
+    variants = README_VARIANTS if module.name in store_candidates else {"README.md": README_VARIANTS["README.md"]}
     return [
         (filename, error)
         for filename, headings in variants.items()
@@ -198,21 +232,14 @@ def validate_module(module: Path) -> list[tuple[str, str]]:
 
 
 def official_modules() -> list[Path]:
-    release_modules: list[Path] = []
-    for line in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines():
-        project = line.strip()
-        if not project:
-            continue
-        prefix = ":plugins:"
-        if not project.startswith(prefix):
-            raise ValueError(f"invalid release plugin project: {project}")
-        release_modules.append(PLUGINS / project.removeprefix(prefix))
+    store_candidates = store_candidate_module_names()
+    official: list[Path] = [PLUGINS / name for name in sorted(store_candidates) if (PLUGINS / name).is_dir()]
     all_modules = sorted(
         descriptor.parent.parent.parent.parent.parent.parent
         for descriptor in PLUGINS.glob("*/src/main/resources/META-INF/turboism/plugin.json")
     )
-    release_names = {module.name for module in release_modules}
-    return release_modules + [module for module in all_modules if module.name not in release_names]
+    official_names = {module.name for module in official}
+    return official + [module for module in all_modules if module.name not in official_names]
 
 
 def main() -> int:

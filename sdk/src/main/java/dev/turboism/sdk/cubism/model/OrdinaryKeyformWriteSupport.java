@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Map;
 import java.util.Objects;
 
@@ -9,6 +10,7 @@ import java.util.Objects;
  * still be checked at the actual write boundary. No setter or transaction is used to probe.
  * Unknown preserves compatibility with runtimes that do not implement this observation.
  */
+@CubismEditor
 public record OrdinaryKeyformWriteSupport(
         String hostVersion,
         Check reviewedHost,
@@ -45,6 +47,7 @@ public record OrdinaryKeyformWriteSupport(
                 Map.of());
     }
 
+    /** Presence of an observed writer prerequisite; not authorization to write. */
     public enum Check {
         UNKNOWN,
         PRESENT,
@@ -61,6 +64,7 @@ public record OrdinaryKeyformWriteSupport(
         operationSelectors = Map.copyOf(operationSelectors);
     }
 
+    /** Returns UNKNOWN observations without claiming writer availability. */
     public static OrdinaryKeyformWriteSupport unknown() {
         return new OrdinaryKeyformWriteSupport(
                 "", Check.UNKNOWN, Check.UNKNOWN, Check.UNKNOWN, Check.UNKNOWN, Check.UNKNOWN);
@@ -71,6 +75,7 @@ public record OrdinaryKeyformWriteSupport(
         return operationSelectors.getOrDefault(Objects.requireNonNull(operation), Check.UNKNOWN);
     }
 
+    /** Returns a copy with the supplied permission observation; other guards remain unchanged. */
     public OrdinaryKeyformWriteSupport withWritePermission(Check permission) {
         return new OrdinaryKeyformWriteSupport(
                 hostVersion,

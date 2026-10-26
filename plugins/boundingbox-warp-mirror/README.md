@@ -102,6 +102,12 @@ nothing anywhere.
 - A target is reported blocked: read the typed reason in the notice (lock state, Glue
   presence, interpolated edit context, or unsolvable compensation).
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 Project License. Report issues through the standard Turboism support channel.

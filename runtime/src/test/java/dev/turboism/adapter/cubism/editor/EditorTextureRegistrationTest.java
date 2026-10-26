@@ -69,6 +69,8 @@ class EditorTextureRegistrationTest {
                 return image;
             });
             assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+            assertTrue(f.lastRefreshRequirements.contains(
+                    dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.PROJECT_PALETTE));
             assertEquals(1, f.begins);
             assertEquals(1, f.history.size());
             final var image = f.manager.modelImageGroups.get(0).images.get(0);
@@ -91,6 +93,26 @@ class EditorTextureRegistrationTest {
             assertSame(image, f.manager.modelImageGroups.get(0).images.get(0));
             assertSame(texture, f.meshSource.texture);
             assertSame(secondTexture, f.source.meshSource2.texture);
+        });
+    }
+
+    @Test
+    void committedImportRefreshesParameterTreeAndProjectPaletteTogether() throws Exception {
+        onEdt(f -> {
+            final var host = new dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost(
+                    f.resolver,
+                    () ->
+                            new dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost
+                                    .NativeBinding("model:1", 1, f.document, f.source, f.model),
+                    () -> 1);
+            host.refresh(
+                    host.binding("import-test").orElseThrow(),
+                    java.util.EnumSet.of(
+                            dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.PARAMETER_STRUCTURE,
+                            dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.PARAMETER_PALETTE,
+                            dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.PROJECT_PALETTE));
+            assertEquals(List.of(true), f.parameterRefreshes);
+            assertEquals(1, f.projectRefreshes);
         });
     }
 

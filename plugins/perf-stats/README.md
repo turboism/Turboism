@@ -104,6 +104,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Charts show no data | Wait for the one-second sampler and check performance-probe availability in the log. |
 | CPU label disappears | Check status-notification availability and whether the plugin was disabled or reloaded. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)

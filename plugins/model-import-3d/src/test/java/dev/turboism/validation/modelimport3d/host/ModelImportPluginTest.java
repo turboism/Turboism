@@ -47,6 +47,7 @@ class ModelImportPluginTest {
         String error;
         PluginLocalization localization;
         SurfaceImport.Prepared prepared;
+        dev.turboism.plugin.modelimport3d.viewer.ViewerScene importPreview;
         SurfaceWarpLayerAuthoring.Prepared layered;
         SurfaceVertexAuthoring.Prepared vertices;
         int appearances;
@@ -168,6 +169,12 @@ class ModelImportPluginTest {
             return confirm;
         }
 
+        @Override
+        public boolean confirmImport(ModelImportPlugin.PreparedImport p, ModelImportPlugin.AtlasSummary atlas) {
+            importPreview = p.previewScene();
+            return ModelImportPlugin.Ui.super.confirmImport(p, atlas);
+        }
+
         public boolean confirm(SurfaceImport.Prepared p) {
             prepared = p;
             onConfirm.run();
@@ -254,6 +261,7 @@ class ModelImportPluginTest {
         w.done();
         assertNull(w.error);
         assertNotNull(w.character);
+        assertSame(w.character.materials().scene(), w.importPreview);
         assertEquals("正方形", w.character.geometry().request().name());
         assertEquals(1, w.character.materials().images().size());
         assertEquals(0, w.appearances);

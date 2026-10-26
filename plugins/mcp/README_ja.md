@@ -44,7 +44,8 @@ interface: swing
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
-全機能（審査済みバージョン）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
+全機能（審査済みバージョン）：5.3.00–5.3.04。
+- 外部編集セッション API（edit()） 対象外 5.0.00–5.1.01（[Cubism 5.1.00 でExternal application integration (WebSocket API)を追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/)）
 - トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
 - MCP Editor コマンド実行 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
 - MCP Editor コマンド一覧 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
@@ -295,6 +296,7 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.cubism.parameter.read` | `application` | ツール面でのパラメーター読み取り意図を宣言します。実際のパラメーター読み取りは実行時に上記のモデル読み取り権限によって強制されます。 |
 | `turboism.cubism.project.read` | `application` | アクティブなプロジェクト、ワークスペース、レイアウト、テーマ状態を読み取ります。 |
 | `turboism.cubism.model.write` | `application` | 型付きのモデル、パラメーター、バインディング、履歴、モデル設定の書き込みを適用します。 |
+| `turboism.ui.file-chooser.request` | `application` | セッション内のファイル許可を発行する前に、ファイル選択画面でユーザーの承認を求めます。 |
 | `turboism.file.read` | `application` | loopback エンドポイントを公開する前に MCP 接続ファイルのメタデータ（存在、所有者、シンボリックリンク検査）を検証します。 |
 | `turboism.file.write` | `application` | 直接 Editor `SAVE` コマンドを許可し、MCP 状態ディレクトリに所有者専用の loopback 接続ファイルを書き込みます。 |
 | `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可し、Origin 保護付きの loopback HTTP トランスポートをバインドします。 |
@@ -340,6 +342,12 @@ url = "http://127.0.0.1:43123/mcp"
 | リクエストがディスパッチ前に拒否される | メソッド、オリジン、セッション、MCP プロトコルバージョン、本文サイズ、コンテンツタイプ、レート制限を確認します。 |
 | リソースが `UNAVAILABLE` を返す | アクティブなドキュメント/モデル状態と正確なホスト機能の受け入れを確認してください。空の成功値として扱わないでください。 |
 | リソースが権限拒否を返す | プラグインディスクリプターの許可と、上記で指定した特定のランタイム権限を確認します。 |
+
+## 変更履歴
+
+### 0.1.0
+
+- 初回リリース。
 
 ## サポートとライセンス
 

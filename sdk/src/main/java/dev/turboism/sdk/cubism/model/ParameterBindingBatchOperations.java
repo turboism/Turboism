@@ -33,7 +33,8 @@ public interface ParameterBindingBatchOperations {
     void invert(List<ParameterBindingTarget> targets);
 
     /**
-     * Atomically transfers bindings according to {@code plan}.
+     * Atomically transfers bindings according to {@code plan}. Equal source and target
+     * parameters invert only the existing binding.
      *
      * @param plan the source-to-destination transfer plan
      */
@@ -45,7 +46,8 @@ public interface ParameterBindingBatchOperations {
      * range with zero span is left unremapped. When {@code plan.invertAfterTransfer()} is true,
      * each value is reflected across the source range first and then remapped; the keyform
      * association is retained. The
-     * default is fail-closed for binary compatibility.
+     * default is fail-closed for binary compatibility. Equal source and target parameters
+     * reflect the existing coordinates in place without remapping.
      */
     default void transferClamped(final ParameterBindingTransferPlan plan) {
         throw new UnsupportedOperationException("Clamped parameter-binding transfer is not supported.");
@@ -54,7 +56,8 @@ public interface ParameterBindingBatchOperations {
     /**
      * Atomically transfers every Morph Target point bound to the source parameter while keeping
      * each mapped key value unchanged (the whole setting moves, no remapping or clamping). The
-     * default is fail-closed for binary compatibility.
+     * default is fail-closed for binary compatibility. Equal source and target parameters
+     * negate the existing Morph Target keys in place.
      */
     default void transferMorphClamped(final ParameterBindingTransferPlan plan) {
         throw new UnsupportedOperationException("Clamped Morph Target transfer is not supported.");

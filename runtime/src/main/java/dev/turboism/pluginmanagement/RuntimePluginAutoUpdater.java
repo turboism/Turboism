@@ -516,7 +516,9 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 report("PLUGIN_UPDATE_DESCRIPTOR_HASH_MISMATCH");
                 return StageAttempt.FAILED;
             }
-            if (update.release().hotReload() && hotReloadCoordinator != null) {
+            if (update.release().hotReload()
+                    && hotReloadCoordinator != null
+                    && pending.canHotApply(update.pluginId())) {
                 final Path target = pluginsDirectory.resolve(update.pluginId() + ".jar");
                 if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
                         && hotReloadCoordinator.isHotReloadSafe(
@@ -664,7 +666,6 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         try {
             confinedFiles.rejectLinks(home);
             final Map<String, PluginVersion> installedVersions = new LinkedHashMap<>();
-            final Map<String, Integer> jarCounts = new HashMap<>();
             if (Files.isDirectory(pluginsDirectory, LinkOption.NOFOLLOW_LINKS)) {
                 confinedFiles.rejectLinks(pluginsDirectory);
                 try (var entries = Files.list(pluginsDirectory)) {
@@ -677,7 +678,6 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                         final PluginArchiveMetadata value = metadata.orElseThrow();
                         try {
                             final PluginVersion parsedVersion = PluginVersion.parse(value.version());
-                            jarCounts.merge(value.id(), 1, Integer::sum);
                             installedVersions.merge(
                                     value.id(),
                                     parsedVersion,
@@ -688,13 +688,6 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                     }
                 }
             }
-            // Do not stage over a plugin ID that already has duplicate JARs on disk.
-            jarCounts.forEach((id, count) -> {
-                if (count > 1) {
-                    installedVersions.remove(id);
-                }
-            });
-
             final Set<String> pendingUninstalls = new HashSet<>();
             final Map<String, String> alreadyStaged = new LinkedHashMap<>();
             final Map<String, String> persistedStaged = stateStore.read().stagedUpdates();

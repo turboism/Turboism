@@ -1,0 +1,3 @@
+mirror.hint
+plugin.description
+plugin.name

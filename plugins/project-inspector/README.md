@@ -103,6 +103,12 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 | Values show unavailable | Confirm Cubism's project/workspace snapshot service is available, then refresh and inspect the plugin log. |
 | Values do not change | Use **Refresh** after changing the active project or workspace; an earlier in-flight request may have been safely superseded. |
 
+## Changelog
+
+### 0.1.0
+
+- Initial release.
+
 ## Support and license
 
 - **Project website:** [https://turboism.dev](https://turboism.dev)
