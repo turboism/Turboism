@@ -1,0 +1,380 @@
+{
+  "ok": true,
+  "captureId": "aefe7947-8b76-45e9-8cf2-00168752bb18",
+  "capturedAt": "2026-10-25T19:13:35.163879100Z",
+  "state": {
+    "modelId": "model-session-3",
+    "historyGeneration": 1,
+    "historyRevision": 1,
+    "poseHash": "124a091eac9da16064b12db6b21d4b6522f7ece3ed6ce441c679698c74ac1399",
+    "documentId": "document-session-2"
+  },
+  "parameters": [
+    {
+      "value": 0.0,
+      "ordinal": 0,
+      "id": "ParamAngleX"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 1,
+      "id": "ParamAngleY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 2,
+      "id": "ParamAngleZ"
+    },
+    {
+      "value": 1.0,
+      "ordinal": 3,
+      "id": "ParamEyeLOpen"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 4,
+      "id": "ParamEyeLSmile"
+    },
+    {
+      "value": 1.0,
+      "ordinal": 5,
+      "id": "ParamEyeROpen"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 6,
+      "id": "ParamEyeRSmile"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 7,
+      "id": "ParamEyeBallX"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 8,
+      "id": "ParamEyeBallY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 9,
+      "id": "ParamBrowLY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 10,
+      "id": "ParamBrowRY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 11,
+      "id": "ParamBrowLX"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 12,
+      "id": "ParamBrowRX"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 13,
+      "id": "ParamBrowLAngle"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 14,
+      "id": "ParamBrowRAngle"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 15,
+      "id": "ParamBrowLForm"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 16,
+      "id": "ParamBrowRForm"
+    },
+    {
+      "value": 1.0,
+      "ordinal": 17,
+      "id": "ParamMouthForm"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 18,
+      "id": "ParamMouthOpenY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 19,
+      "id": "ParamCheek"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 20,
+      "id": "ParamBodyAngleX"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 21,
+      "id": "ParamBodyAngleY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 22,
+      "id": "ParamBodyAngleZ"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 23,
+      "id": "ParamBreath"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 24,
+      "id": "ParamArmLA"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 25,
+      "id": "ParamArmRA"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 26,
+      "id": "ParamArmLB"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 27,
+      "id": "ParamArmRB"
+    },
+    {
+      "value": 10.0,
+      "ordinal": 28,
+      "id": "ParamHandLB"
+    },
+    {
+      "value": 10.0,
+      "ordinal": 29,
+      "id": "ParamHandRB"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 30,
+      "id": "ParamHandL"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 31,
+      "id": "ParamHandR"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 32,
+      "id": "ParamShoulder"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 33,
+      "id": "ParamBustY"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 34,
+      "id": "ParamHairAhoge"
+    },
+    {
+      "value": 1.0,
+      "ordinal": 35,
+      "id": "ParamLeg"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 36,
+      "id": "ParamHairFront"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 37,
+      "id": "ParamHairBack"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 38,
+      "id": "ParamSideupRibbon"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 39,
+      "id": "ParamRibbon"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 40,
+      "id": "ParamSkirt"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 41,
+      "id": "ParamSkirt2"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 42,
+      "id": "Param_Angle_Rotation_1_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 43,
+      "id": "Param_Angle_Rotation_2_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 44,
+      "id": "Param_Angle_Rotation_3_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 45,
+      "id": "Param_Angle_Rotation_4_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 46,
+      "id": "Param_Angle_Rotation_5_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 47,
+      "id": "Param_Angle_Rotation_6_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 48,
+      "id": "Param_Angle_Rotation_7_ArtMesh61"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 49,
+      "id": "Param_Angle_Rotation_1_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 50,
+      "id": "Param_Angle_Rotation_2_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 51,
+      "id": "Param_Angle_Rotation_3_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 52,
+      "id": "Param_Angle_Rotation_4_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 53,
+      "id": "Param_Angle_Rotation_5_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 54,
+      "id": "Param_Angle_Rotation_6_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 55,
+      "id": "Param_Angle_Rotation_7_ArtMesh62"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 56,
+      "id": "Param_Angle_Rotation_1_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 57,
+      "id": "Param_Angle_Rotation_2_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 58,
+      "id": "Param_Angle_Rotation_3_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 59,
+      "id": "Param_Angle_Rotation_4_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 60,
+      "id": "Param_Angle_Rotation_5_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 61,
+      "id": "Param_Angle_Rotation_6_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 62,
+      "id": "Param_Angle_Rotation_7_ArtMesh54"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 63,
+      "id": "Param_Angle_Rotation_1_ArtMesh55"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 64,
+      "id": "Param_Angle_Rotation_2_ArtMesh55"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 65,
+      "id": "Param_Angle_Rotation_3_ArtMesh55"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 66,
+      "id": "Param_Angle_Rotation_4_ArtMesh55"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 67,
+      "id": "Param_Angle_Rotation_5_ArtMesh55"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 68,
+      "id": "Param_Angle_Rotation_6_ArtMesh55"
+    },
+    {
+      "value": 0.0,
+      "ordinal": 69,
+      "id": "Param_Angle_Rotation_7_ArtMesh55"
+    }
+  ],
+  "width": 256,
+  "height": 256,
+  "renderWidth": 256,
+  "renderHeight": 256,
+  "crop": {
+    "width": 256,
+    "height": 256,
+    "x": 0,
+    "y": 0
+  },
+  "mimeType": "image/png",
+  "byteLength": 26815,
+  "sha256": "78640fee6440a225ab96b06d172129aba632b5bd1493fb3b083bcb714bd77fe4",
+  "renderer": "cubism.native.renderPixels",
+  "pixelCoordinates": "origin-top-left,x-right,y-down",
+  "modelToPixelTransform": null
+}

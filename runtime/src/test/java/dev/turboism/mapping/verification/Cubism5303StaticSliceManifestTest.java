@@ -31,10 +31,13 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
                 TopMenuVerificationManifest.forArtifact(REVIEWED),
                 "cubism-5.3.03.ui-top-menu.static",
-                "8468ba23f43f3176cd20b92851348c719b1b8811b90c5af055fd26bf10f0bfea",
+                "bf2c874c3cf7fe16cc6b5d0da58fdeabf01310d7afe2da78eed853b30d26d59c",
                 TopMenuVerificationManifest.ADAPTER_SLICE_ID,
                 TopMenuVerificationManifest.CAPABILITY_IDS,
-                TopMenuVerificationManifest.REQUIRED_ALIASES);
+                java.util.stream.Stream.concat(
+                                TopMenuVerificationManifest.REQUIRED_ALIASES.stream(),
+                                java.util.stream.Stream.of("cubism.editor-command.file.open-model"))
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet()));
         assertManifest(
                 BoundingBoxOverlayButtonVerificationManifest.forArtifact(REVIEWED),
                 "cubism-5.3.03.ui-bounding-box-overlay.static",
@@ -77,6 +80,19 @@ class Cubism5303StaticSliceManifestTest {
                 AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
                 AutoBackupVerificationManifest.CAPABILITY_IDS,
                 AutoBackupVerificationManifest.REQUIRED_ALIASES);
+    }
+
+    @Test
+    void openAliasIsRequiredOnlyByItsReviewedArtifact() {
+        for (var artifact : java.util.List.of(
+                ReviewedHostArtifacts.CUBISM_5_3_02,
+                ReviewedHostArtifacts.CUBISM_5_3_03,
+                ReviewedHostArtifacts.CUBISM_5_3_04)) {
+            var manifest = TopMenuVerificationManifest.forArtifact(artifact);
+            assertEquals(
+                    artifact.equals(ReviewedHostArtifacts.CUBISM_5_3_03),
+                    manifest.requiredAliases().contains("cubism.editor-command.file.open-model"));
+        }
     }
 
     @Test

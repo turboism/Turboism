@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "fixtureLabel": "Official Hiyori PRO t11 (finite head pose QA and reversible edit)",
+  "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "jobId": "43949ed4-ce6b-4e87-93ee-97bfb2807c7d",
+  "preparedId": "410434ee15bf47bb0991c7e978d6a5fc30af1a771538ce8d3a8226db8ac0ed9c",
+  "runId": "queue-34929a1946d4482fad94b66f253b830a",
+  "task": "mcp:5303@head-qa",
+  "status": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "goldenUnchanged": true,
+  "cleanup": "safe",
+  "modelMutation": "BOUNDED_HEAD_EDIT_AND_56_POSE_SCANS_RESTORED",
+  "evidenceSha256": {
+    "hiyori-head-qa-verified.properties": "57b014ab27ae07f7068758f5ed84cdd472e40ce5815e34ef2bb329dfa2487b46",
+    "hiyori-head-qa-rollback.json": "5c82f0bf83162603537625c6322966e461265cc3c5d11e134a9552fdc2ccb9fa",
+    "hiyori-head-qa-candidates.json": "780ba53bb2b8414b6f45010f845f6389d91383b4e4f08655f2f226f981335018",
+    "hiyori-head-qa.json": "d666c7d32ff9bbda1c59959050081e58776d67c44aa809dbdb3f5e1d837a92c8",
+    "hiyori-head-qa-render-before.json": "9f521eeefc810bf4b12eea48555f95b9be50f125b1feda95970c1895596aa140",
+    "hiyori-head-qa-render-after.json": "948a6b1b7e8b9697d81085513393d784a991861db7bf083dcb9bd8ac43580e4a",
+    "hiyori-head-qa-visual-review.json": "ba1be9aab57db0018e19cc1bd886b5825034e99a0e34fe5f88e0f8010f94aa4c"
+  },
+  "priorFailure": "hiyori-head-qa-rate-limit-failure.json",
+  "privateArtifacts": [
+    "56 native pose PNGs",
+    "all complete source/form geometry and original CMO3"
+  ],
+  "limits": [
+    "Finite sampled poses, not all parameter combinations or interpolated continuity",
+    "MouthForm and other parameters stay at discovered baseline",
+    "No physical/animation or all-object geometry quality acceptance",
+    "No ACP agent/model consumption; external test client and separate Codex image review",
+    "Original materials, full geometry and PNGs remain private"
+  ]
+}

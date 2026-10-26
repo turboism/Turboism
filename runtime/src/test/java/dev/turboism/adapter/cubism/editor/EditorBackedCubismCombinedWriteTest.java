@@ -89,6 +89,25 @@ class EditorBackedCubismCombinedWriteTest {
     }
 
     @Test
+    void partnerBeforeSourceIsInsertedImmediatelyAfterSourceWithUndoRedo() {
+        Fixture fixture = new Fixture();
+        Host.install(fixture);
+        var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
+        var first = model.parameters().find(new ParameterId("ParamB"));
+        var partner = model.parameters().find(new ParameterId("ParamA"));
+        first.combineWith(partner.id());
+        assertEquals(List.of("ParamB", "ParamA", "ParamC"), fixture.group.ids());
+        assertEquals(Optional.of(partner.id()), first.combinedWith());
+        assertEquals(Optional.of(first.id()), partner.combinedWith());
+        fixture.editMode.undo();
+        assertEquals(List.of("ParamA", "ParamB", "ParamC"), fixture.group.ids());
+        assertEquals(Optional.empty(), first.combinedWith());
+        fixture.editMode.redo();
+        assertEquals(List.of("ParamB", "ParamA", "ParamC"), fixture.group.ids());
+        assertEquals(Optional.of(partner.id()), first.combinedWith());
+    }
+
+    @Test
     void samePairRequestIsIdempotentAndStructuralCorruptionFailsClosed() {
         Fixture fixture = new Fixture();
         Host.install(fixture);

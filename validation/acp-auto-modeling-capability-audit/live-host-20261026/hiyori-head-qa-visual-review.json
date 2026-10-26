@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "runId": "queue-34929a1946d4482fad94b66f253b830a",
+  "status": "LIMITED_VISUAL_OBSERVATION",
+  "reviewer": "Codex image inspection outside ACP",
+  "reviewedAfterFrameIndices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+  ],
+  "beforeAfterPairsReviewed": [
+    5,
+    13,
+    14,
+    15,
+    16,
+    23,
+    24,
+    25
+  ],
+  "unchangedBeforeFramesByteIdenticalToReviewedAfter": 20,
+  "artQualityAccepted": false,
+  "observations": [
+    {
+      "scope": "frames 17,18,20,21,23,24",
+      "text": "Closed eyes visible; no obvious large eye-white leak observed at inspected crop scale."
+    },
+    {
+      "scope": "frames 18,19,21,22,24,25",
+      "text": "Open mouth visible; no obvious large mouth-region break observed at inspected crop scale."
+    },
+    {
+      "scope": "frames 26,27",
+      "text": "ParamEyeLOpen=0 closes the viewer-right eye; ParamEyeROpen=0 closes the viewer-left eye in this fixture."
+    },
+    {
+      "scope": "all 28 after frames and 8 changed before/after pairs",
+      "text": "No obvious large face/hair discontinuity observed at inspected crop scale; this is not fine-art acceptance."
+    }
+  ],
+  "notAssessed": [
+    "Subpixel eye/mask leaks and exact clipping boundaries",
+    "Triangle flips/intersections and warp Jacobians",
+    "Intermediate parameter continuity or all combinations",
+    "Style/volume correctness against an artistic reference",
+    "Professional delivery quality and real ACP model reasoning"
+  ]
+}

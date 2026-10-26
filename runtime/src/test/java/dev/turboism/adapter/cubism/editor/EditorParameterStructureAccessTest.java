@@ -28,6 +28,58 @@ import org.junit.jupiter.api.Test;
 class EditorParameterStructureAccessTest {
 
     @Test
+    void parameterGuidReadsNativeSourceAcrossEvaluationRebuildAndRejectsSameIdReplacement() {
+        final Fixture f = new Fixture();
+        Host.document = f.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
+        final var retained = model.parameters().find(new ParameterId("P1"));
+        assertEquals("guid-P1", retained.guid());
+        f.source.model.parameterSet.parameters.set(0, new RuntimeParameter(f.p1));
+        assertEquals("guid-P1", retained.guid());
+        final var replacement =
+                new ParameterSource(new Id("P1"), "P1", 0, 1, 0, "", new Id("replacement-native-guid"), Id.NORMAL);
+        f.root.children.set(0, replacement);
+        f.source.sources.set(0, replacement);
+        f.source.sourceSet.all.set(0, replacement);
+        f.source.model.parameterSet.parameters.set(0, new RuntimeParameter(replacement));
+        assertThrows(IllegalStateException.class, retained::guid);
+        assertEquals(
+                "replacement-native-guid",
+                model.parameters().find(new ParameterId("P1")).guid());
+        assertEquals(0, f.editMode.edits.size());
+        assertEquals(0, f.source.updateCount);
+        Host.document = null;
+        assertThrows(IllegalStateException.class, retained::guid);
+    }
+
+    @Test
+    void missingParameterGuidSelectorFailsInsteadOfUsingDisplayId() {
+        final Fixture f = new Fixture();
+        Host.document = f.document;
+        final var parameter = new EditorBackedCubismModelAccess(
+                        resolver(true, "cubism.editor-model.parameter-source.guid"), "session-a")
+                .active()
+                .parameters()
+                .find(new ParameterId("P1"));
+        assertThrows(RuntimeException.class, parameter::guid);
+        assertEquals(0, f.editMode.edits.size());
+    }
+
+    @Test
+    void blankNativeParameterGuidIsNotAValidIdentity() {
+        final Fixture f = new Fixture();
+        Host.document = f.document;
+        final var invalid = new ParameterSource(new Id("P1"), "P1", 0, 1, 0, "", new Id(" "), Id.NORMAL);
+        f.source.model.parameterSet.parameters.set(0, new RuntimeParameter(invalid));
+        final var parameter = new EditorBackedCubismModelAccess(resolver(true), "session-a")
+                .active()
+                .parameters()
+                .find(new ParameterId("P1"));
+        assertThrows(IllegalStateException.class, parameter::guid);
+        assertEquals(0, f.editMode.edits.size());
+    }
+
+    @Test
     void createsCopiesMovesAndDeletesParametersThroughNativeUndo() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -60,10 +112,60 @@ class EditorParameterStructureAccessTest {
         assertEquals("Folder B", ModelHandler.lastGroup.name);
 
         model.parameterGroups().removeGroup(folder.id());
-        assertEquals(3, fixture.root.children.size());
+        assertEquals(2, fixture.root.children.size());
         model.parameters().remove(new ParameterId("NewParam"));
         assertEquals(2, fixture.root.children.size());
         assertEquals(7, fixture.editMode.edits.size());
+    }
+
+    @Test
+    void indexedMoveUsesMixedPostRemovalOrderAndNativeUndo() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
+        final var groups = model.parameterGroups();
+        final var folder = groups.addGroup("Folder");
+        final var root = groups.root();
+        final var first = dev.turboism.sdk.cubism.model.ParameterGroupChild.parameter(new ParameterId("P1"));
+        final var second = dev.turboism.sdk.cubism.model.ParameterGroupChild.group(folder.id());
+        final var retained = root.orderedChildren();
+        assertEquals(List.of(first, second), retained);
+        assertThrows(UnsupportedOperationException.class, () -> retained.clear());
+        int edits = fixture.editMode.edits.size();
+        groups.moveParameter(new ParameterId("P1"), root.id(), 0);
+        assertEquals(edits, fixture.editMode.edits.size(), "same slot must not create Undo");
+        assertThrows(IllegalArgumentException.class, () -> groups.moveParameter(new ParameterId("P1"), root.id(), 2));
+        assertThrows(IllegalArgumentException.class, () -> groups.moveParameter(new ParameterId("P1"), root.id(), -1));
+        assertEquals(edits, fixture.editMode.edits.size());
+
+        groups.moveParameter(new ParameterId("P1"), root.id(), 1);
+        assertEquals(List.of(second, first), root.orderedChildren());
+        assertEquals(List.of(first, second), retained, "read result is immutable, not a live view");
+        final Undo move = fixture.editMode.edits.get(edits);
+        move.undo();
+        assertEquals(List.of(first, second), root.orderedChildren());
+        move.redo();
+        assertEquals(List.of(second, first), root.orderedChildren());
+        groups.moveParameter(new ParameterId("P1"), folder.id(), 0);
+        assertEquals(List.of(second), root.orderedChildren());
+        assertEquals(List.of(first), folder.orderedChildren());
+        groups.moveParameter(new ParameterId("P1"), root.id(), 0);
+        assertEquals(List.of(first, second), root.orderedChildren());
+        groups.moveParameter(new ParameterId("P1"), root.id());
+        assertEquals(List.of(second, first), root.orderedChildren(), "legacy append also uses post-removal index");
+    }
+
+    @Test
+    void mixedReadRejectsUnknownEntryWithoutSilentlyDroppingIt() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var root = new EditorBackedCubismModelAccess(resolver(true), "session-a")
+                .active()
+                .parameterGroups()
+                .root();
+        fixture.root.children.add(new Object());
+        assertThrows(IllegalStateException.class, root::orderedChildren);
+        assertTrue(fixture.editMode.edits.isEmpty());
     }
 
     @Test
@@ -303,6 +405,53 @@ class EditorParameterStructureAccessTest {
     }
 
     @Test
+    void indexedMovesJoinOneAuthoringRootAndRollbackRestoresOrder() {
+        EditorHostThread.dispatch("parameter reorder transaction test", () -> {
+            for (boolean fail : List.of(false, true)) {
+                final var scoped = new ParameterScopedFixture("", true);
+                // Create a second parameter before the transaction; keep native edits out of its root.
+                scoped.access.create(
+                        "model",
+                        scoped.fixture.source,
+                        scoped.fixture.source.model,
+                        definition("P2"),
+                        Optional.empty());
+                scoped.fixture.editMode.edits.clear();
+                scoped.fixture.editMode.beginCount = 0;
+                final var rootId = new ParameterGroupId(scoped.fixture.root.id.value);
+                final var result = scoped.coordinator.execute(
+                        scoped.binding, AuthoringTransactionOptions.of("reorder parameters"), () -> {
+                            scoped.access.moveParameter(
+                                    "model",
+                                    scoped.fixture.source,
+                                    scoped.fixture.source.model,
+                                    new ParameterId("P1"),
+                                    rootId,
+                                    1);
+                            assertEquals("P2", ((ParameterSource) scoped.fixture.root.children.get(0)).id.value);
+                            if (fail) throw new IllegalStateException("injected after native move");
+                            return null;
+                        });
+                assertEquals(
+                        fail ? AuthoringTransactionOutcome.ROLLED_BACK : AuthoringTransactionOutcome.COMMITTED,
+                        result.outcome(),
+                        () -> String.valueOf(result.diagnosticId()));
+                assertEquals(1, scoped.fixture.editMode.beginCount, "move must not open a nested edit");
+                if (!fail) {
+                    scoped.roots.get(0).undo();
+                    assertEquals("P1", ((ParameterSource) scoped.fixture.root.children.get(0)).id.value);
+                    scoped.roots.get(0).redo();
+                    assertEquals("P2", ((ParameterSource) scoped.fixture.root.children.get(0)).id.value);
+                } else {
+                    assertEquals("P1", ((ParameterSource) scoped.fixture.root.children.get(0)).id.value);
+                }
+                assertEquals(2, scoped.fixture.root.children.size());
+            }
+            return null;
+        });
+    }
+
+    @Test
     void singleAndBatchParameterCreatesShareOneRootAndUndoRedo() {
         EditorHostThread.dispatch("parameter transaction test", () -> {
             final var scoped = new ParameterScopedFixture();
@@ -448,7 +597,9 @@ class EditorParameterStructureAccessTest {
         public void undoEditGroup(
                 final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
                         expected,
-                final Object edit) {}
+                final Object edit) {
+            if (envelopeJoin) ((GroupUndo) edit).undo();
+        }
 
         final Fixture fixture = new Fixture();
         final List<GroupUndo> roots = new ArrayList<>();
@@ -457,15 +608,21 @@ class EditorParameterStructureAccessTest {
                 "parameter-test", "document", 1, "model", 1, Thread.currentThread());
         final EditorParameterStructureAccess access;
         boolean nativeAbort = true;
+        boolean envelopeJoin;
 
         ParameterScopedFixture() {
             this("");
         }
 
         ParameterScopedFixture(final String excludedAlias) {
+            this(excludedAlias, false);
+        }
+
+        ParameterScopedFixture(final String excludedAlias, final boolean envelopeJoin) {
+            this.envelopeJoin = envelopeJoin;
             Host.document = fixture.document;
             access = new EditorParameterStructureAccess(
-                    resolver(true, excludedAlias), (identity, model) -> {}, coordinator, () -> binding);
+                    resolver(true, excludedAlias, envelopeJoin), (identity, model) -> {}, coordinator, () -> binding);
         }
 
         void create(final String id) {
@@ -511,7 +668,7 @@ class EditorParameterStructureAccessTest {
                 final EditorAuthoringTransactionCoordinator.Binding current, final Object edit, final boolean abort) {
             fixture.editMode.end(abort, null);
             if (abort) {
-                if (nativeAbort) ((GroupUndo) edit).undo();
+                if (nativeAbort && !envelopeJoin) ((GroupUndo) edit).undo();
                 roots.remove(edit);
                 fixture.editMode.edits.clear();
             }
@@ -548,6 +705,11 @@ class EditorParameterStructureAccessTest {
     }
 
     private static VerifiedMemberResolver resolver(final boolean includeCapability, final String excludedAlias) {
+        return resolver(includeCapability, excludedAlias, false);
+    }
+
+    private static VerifiedMemberResolver resolver(
+            final boolean includeCapability, final String excludedAlias, final boolean envelopeJoin) {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         selectors.add(StaticSelector.staticMethod(
@@ -777,6 +939,7 @@ class EditorParameterStructureAccessTest {
         selectors.add(method("cubism.editor-model.parameter.id", RuntimeParameter.class, "id", desc(Id.class)));
         selectors.add(method(
                 "cubism.editor-model.parameter.source", RuntimeParameter.class, "source", desc(ParameterSource.class)));
+        if (envelopeJoin) selectors.add(method("cubism.editor-model.undo.group-undo", GroupUndo.class, "undo", "()V"));
         return TestVerifiedResolvers.create(
                 "5.3.02",
                 "adapter.editor-model.readwrite",
@@ -784,6 +947,10 @@ class EditorParameterStructureAccessTest {
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
                                 EditorParameterStructureSelectorContract.CAPABILITY_ID,
+                                envelopeJoin
+                                        ? dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract
+                                                .EDIT_BEGIN_CAPABILITY_ID
+                                        : "test.no-envelope-join",
                                 dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract
                                         .CAPABILITY_ID)
                         : java.util.Set.of("cubism.editor-model.read"),
@@ -1085,9 +1252,25 @@ class EditorParameterStructureAccessTest {
         }
 
         public Undo moveParameter(final ParameterGroup group, final ParameterSource source, final int index) {
-            source.parentGroup = group;
-            group.children.add(source);
-            return new Undo();
+            final ParameterGroup original = source.parentGroup;
+            final int originalIndex = original.children.indexOf(source);
+            final Undo undo = new Undo() {
+                @Override
+                public void undo() {
+                    group.children.remove(source);
+                    original.children.add(originalIndex, source);
+                    source.parentGroup = original;
+                }
+
+                @Override
+                public void redo() {
+                    source.parentGroup.children.remove(source);
+                    group.children.add(index, source);
+                    source.parentGroup = group;
+                }
+            };
+            undo.redo();
+            return undo;
         }
 
         public Undo addParameter(final ParameterSource source, final int index) {

@@ -47,6 +47,14 @@ client_python="$(python3 -I -c 'import pathlib, sys; print(pathlib.Path(sys.exec
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-mcp-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
+native_inputs=()
+for option in "$@"; do
+  if [ "$option" = '-Dturboism.validation.nativeObservation=true' ] || [ "$option" = '-Dturboism.validation.nativeEditing=true' ]; then
+    [ "$version" = 5303 ] || { echo 'error: native observation requires 5303' >&2; exit 2; }
+    native_inputs=(--home-file "$bundle_root/native-observe/probe.jar:native-observe/probe.jar"
+                   --home-file "$bundle_root/native-observe/runtime.json:native-observe/runtime.json")
+  fi
+done
 
 exec bash "$runner" \
   --name mcp \
@@ -58,6 +66,7 @@ exec bash "$runner" \
   --plugin "$bundle_root/plugins/mcp-host-validation-probe.jar:mcp-host-validation-probe.jar" \
   --client-script "$repo_root/scripts/preview/mcp-host-validation-client.py:mcp-host-validation-client.py" \
   --client-python "$client_python" \
+  "${native_inputs[@]}" \
   --fixture-host "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \

@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "state": {
+    "historyGeneration": 1,
+    "modelId": "model-session-3",
+    "documentId": "document-session-2",
+    "poseHash": "956277c6c5ddc11dfc180978402d38dcac6876f63f75ee7b6c15d8d5dba9832e",
+    "historyRevision": 1
+  },
+  "resourceCount": 3,
+  "nodeCount": 272,
+  "nodeKinds": {
+    "MODEL": 1,
+    "PART": 27,
+    "ART_MESH": 140,
+    "WARP_DEFORMER": 50,
+    "ROTATION_DEFORMER": 54
+  },
+  "parameterCount": 70,
+  "parameterBindingGroupCount": 70,
+  "canonicalResourcesBytes": 122616,
+  "canonicalResourcesSha256": "004101a50effe185df62ab63c2cb65617c4a177282ac021f2bc56a0a8b939292",
+  "semanticMapping": "NOT_VERIFIED",
+  "identityLimit": "Display IDs are not native GUIDs"
+}

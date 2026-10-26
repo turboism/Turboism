@@ -1,0 +1,20 @@
+{
+  "runId": "queue-a353fe2483a44a0a884d28457fc09b76",
+  "status": "FAIL",
+  "phase": "DEPENDENCY_RESOLUTION",
+  "nativeRenderAttempted": false,
+  "observedVersions": {
+    "mcp": "0.67.2",
+    "acp": "0.67.2"
+  },
+  "probeRequiredRanges": {
+    "mcp": "[0.1.0,0.2.0)",
+    "acp": "[0.1.0,0.2.0)"
+  },
+  "observedRuntimeCode": "DEPENDENCY_FAILED",
+  "observation": "Probe lifecycle skipped: required MCP dependency version incompatible; ACP and MCP loaded but probe did not run.",
+  "queueCancellationRequested": true,
+  "cleanup": "safe",
+  "fix": "Test-only probe ranges now follow production ACP [0.1.0,0.68.0); packaging verifies stamped identities and required dependency versions.",
+  "runtimeLog": "acp-native-render-dependency-failure.log"
+}

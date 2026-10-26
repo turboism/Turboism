@@ -129,8 +129,17 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
 
     @Override
     public void bind(final ParameterBindingTarget target, final List<ParameterBindingPoint> points) {
+        bindValues(target, values(points, true));
+    }
+
+    @Override
+    public void bindValues(final ParameterBindingTarget target, final List<Float> values) {
         Objects.requireNonNull(target, "target");
-        final List<Float> desired = values(points, true);
+        final List<Float> copy = List.copyOf(Objects.requireNonNull(values, "values"));
+        if (copy.isEmpty()) throw new IllegalArgumentException("values must not be empty");
+        final ArrayList<Float> desired = new ArrayList<>(copy.size());
+        for (float value : copy) requireAbsent(desired, value);
+        desired.sort(Comparator.naturalOrder());
         if (binding(target) != null) {
             throw new IllegalStateException("The target is already bound to this parameter.");
         }

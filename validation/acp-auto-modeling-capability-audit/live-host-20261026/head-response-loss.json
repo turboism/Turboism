@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "jobId": "904374cf-8382-4243-b04a-d5f9fa8136e9",
+  "runId": "queue-763676eb53984a77bf4c5424c31f2534",
+  "preparedId": "27c4f74baf5d2e7813330328f0f782235824b60a8662d27ca3148ccc89b39cc0",
+  "task": "mcp:5303@head-edit",
+  "state": "succeeded",
+  "validationStatus": "PASS",
+  "cleanup": "safe",
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "normalExit": true,
+  "goldenUnchanged": true,
+  "originalFixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "responseLoss": {
+    "boundary": "AFTER_HTTP_READ_BEFORE_JSON_RPC_DECODE",
+    "writeAttempts": 1,
+    "responseDiscarded": true,
+    "resultQueries": 2,
+    "writeReplayed": false,
+    "retainedResultStable": true
+  },
+  "writeOutcome": "APPLIED",
+  "operationId": "queue-763676eb53984a77bf4c5424c31f2534-ordinary-three-kinds",
+  "writeTargets": [
+    {
+      "kind": "art_mesh",
+      "expectedAfterHash": "a49e11d8a5b40e97f1c943d9f1edfa87a2a4448ab9b272f51f7f73f097c96e35",
+      "objectId": "ArtMesh51",
+      "beforeHash": "de5f93aa8d7101a4bbb6bf8ab79c712d725f37a0bbc05c04edd6d0790d719b6d",
+      "sourceGuid": "7da9d33b-cfd9-4cdd-a2db-2306dc82d463",
+      "readbackVerified": true
+    },
+    {
+      "kind": "warp_deformer",
+      "expectedAfterHash": "6b435a0ba14614668df65fd2b5bff7af13976a73dc8338e648d145f4fafa2f6f",
+      "objectId": "Warp13",
+      "beforeHash": "4d96b0ca411b25aa72561f42386cce89b45f78f5d34f5367d14918daa80ea594",
+      "sourceGuid": "5cf2be35-d5e2-4314-9314-fce76d81bf53",
+      "readbackVerified": true
+    },
+    {
+      "kind": "rotation_deformer",
+      "expectedAfterHash": "b032216a46884fab6416ce601361e3ae628da0142ea9226156250622485b65c4",
+      "objectId": "Rotation1",
+      "beforeHash": "761bddd4c8d7319ba43ab8b4bf1d28aca1f6ffa8537c62fea71d606ac3b71047",
+      "sourceGuid": "709fd2c2-3382-455c-a335-3fccd1cfbb6b",
+      "readbackVerified": true
+    }
+  ],
+  "receiptSha256": "d745f9884f22187ef9edd607c4ee6141dfaaa0d89e3cf761c3b9c81d69734773",
+  "storedComparisons": [
+    {
+      "kind": "art_mesh",
+      "objectId": "ArtMesh51",
+      "beforeRowsSha256": "1eab3f6d6fa75f62a1b415096b67e77d75bbd986fd50215597963ef8b66d27c3",
+      "afterRowsSha256": "a19096e00fe578da8c4cec616419d1f3fa3da62b328ea91d912b8103184eec3e"
+    },
+    {
+      "kind": "warp_deformer",
+      "objectId": "Warp13",
+      "beforeRowsSha256": "6859c10139bfde6e30a8370eabf4b0a85a6d0ca1cdba8997a2d362e37c8c6c70",
+      "afterRowsSha256": "9ff187552a57168087286758d8c5c00e63be4357265dedea815ddb60f13aa3c5"
+    },
+    {
+      "kind": "rotation_deformer",
+      "objectId": "Rotation1",
+      "beforeRowsSha256": "e5f031abbe400d62c2ecebf4714c6ae8fa5fd47c8dbf19031d09d7397a33a29a",
+      "afterRowsSha256": "a53e4f97f3e34ad1f4a7898373312aeb89e257a89ed62c6bf14fef11cab31bc1"
+    }
+  ],
+  "writeRestored": true,
+  "nativeRollbackVerified": true,
+  "poseImageChanges": [
+    {
+      "label": "art_mesh",
+      "beforeSha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7",
+      "afterSha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90",
+      "changed": true
+    },
+    {
+      "label": "warp_deformer",
+      "beforeSha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7",
+      "afterSha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90",
+      "changed": true
+    },
+    {
+      "label": "rotation_deformer",
+      "beforeSha256": "f81cfb7e26b984a2659d653281e1dda3cdd5d0cbcc41a66ac1cedb4a7754de48",
+      "afterSha256": "f0c864b5532537668e6409b9b5e1dd341923317511c7d8e5e57750476756cca0",
+      "changed": true
+    }
+  ],
+  "frames": [
+    {
+      "phase": "before",
+      "index": 0,
+      "captureId": "49c4d513-5de4-42b4-836c-1412045aa6fb",
+      "width": 512,
+      "height": 512,
+      "sha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7",
+      "byteLength": 83570
+    },
+    {
+      "phase": "before",
+      "index": 1,
+      "captureId": "54cde36b-8509-404c-a9d4-d4e5b016fa6c",
+      "width": 512,
+      "height": 512,
+      "sha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7",
+      "byteLength": 83570
+    },
+    {
+      "phase": "before",
+      "index": 2,
+      "captureId": "dfe87d8f-ba56-4ce4-bc86-407e8900813b",
+      "width": 512,
+      "height": 512,
+      "sha256": "f81cfb7e26b984a2659d653281e1dda3cdd5d0cbcc41a66ac1cedb4a7754de48",
+      "byteLength": 83959
+    },
+    {
+      "phase": "after",
+      "index": 0,
+      "captureId": "0a2f835b-68eb-4c25-aa1b-c562c3221806",
+      "width": 512,
+      "height": 512,
+      "sha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90",
+      "byteLength": 83583
+    },
+    {
+      "phase": "after",
+      "index": 1,
+      "captureId": "bfa70d92-2009-4f98-9321-a57fbdee8e39",
+      "width": 512,
+      "height": 512,
+      "sha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90",
+      "byteLength": 83583
+    },
+    {
+      "phase": "after",
+      "index": 2,
+      "captureId": "5457f066-eb3e-422d-aa88-3dac60233bd3",
+      "width": 512,
+      "height": 512,
+      "sha256": "f0c864b5532537668e6409b9b5e1dd341923317511c7d8e5e57750476756cca0",
+      "byteLength": 84052
+    }
+  ],
+  "privateEvidenceSha256": {
+    "mcp-ordinary-geometry.json": "7113a91fb93a34990c5640a508573fd27a86e536510ec0d1cd876234415cb19d",
+    "mcp-host-validation.properties": "8ad944a7342cb1666de1580a46fe507f7dcb3bd36393c85dd4cc0c454443c34c"
+  },
+  "sourceSha256": {
+    "scripts/preview/mcp-host-validation-client.py": "1c3b268dba11e3c2c86c2692d9905cd7b5ea7905611a86151ccee18f8a4f72c8",
+    "scripts/test/test_mcp_host_validation_client.py": "a4fd73f6a0712780c6c7e1e84fe573f62e92da14c8ef4501225b1b31092299d9",
+    "scripts/preview/README-mcp-validation.md": "1a478ce5299fb3a42da55c997ef6b1f77f99ea72834dacaa0636cd773063805b"
+  },
+  "offlineTests": {
+    "tests": 182,
+    "failures": 0,
+    "errors": 0,
+    "clientTests": 55,
+    "isolatedQueueTests": 127
+  },
+  "standardPackage": "PASS",
+  "limits": {
+    "externalAgentStarted": false,
+    "realModelVisionVerified": false,
+    "serverCrashVerified": false,
+    "crossSessionRecoveryVerified": false,
+    "hostCancellationVerified": false,
+    "persistenceVerifiedInThisRun": false,
+    "artQualityAccepted": false
+  }
+}

@@ -16,6 +16,7 @@ abstract class NativeAgentProvider implements AutoCloseable {
     final NativeAgentTransport host;
     volatile NativeJsonlConnection connection;
     private CompletableFuture<String> activePrompt;
+    private boolean requiresReconnection;
     volatile boolean cancelled;
     final Map<String, String> selected = new LinkedHashMap<>();
     final Map<String, List<Map<String, String>>> choices = new LinkedHashMap<>();
@@ -38,10 +39,29 @@ abstract class NativeAgentProvider implements AutoCloseable {
     }
 
     final synchronized CompletableFuture<String> beginPrompt() throws IOException {
+        if (requiresReconnection)
+            throw new IOException("Native request outcome is uncertain; reconnect and reconcile host operations");
         if (activePrompt != null && !activePrompt.isDone()) throw new IOException("A native prompt is already running");
         cancelled = false;
         activePrompt = new CompletableFuture<>();
         return activePrompt;
+    }
+
+    final synchronized CompletableFuture<String> runningPrompt() {
+        return activePrompt != null && !activePrompt.isDone() ? activePrompt : null;
+    }
+
+    final synchronized boolean ownsPrompt(final CompletableFuture<String> expected) {
+        return expected != null && activePrompt == expected && !expected.isDone();
+    }
+
+    final synchronized void uncertainPrompt(
+            final CompletableFuture<String> expected, final String operation, final Throwable failure) {
+        if (!ownsPrompt(expected)) return;
+        requiresReconnection = true;
+        expected.completeExceptionally(
+                new IOException(operation + " failed; reconnect and reconcile host operations", failure));
+        if (connection != null) connection.close();
     }
 
     final synchronized void complete(final String reason) {
@@ -113,9 +133,7 @@ abstract class NativeAgentProvider implements AutoCloseable {
         update.put("status", status);
         if (input != null) update.put("rawInput", input);
         if (result != null) {
-            final String content = result instanceof String string ? string : jsonValue(result);
-            update.put(
-                    "content", List.of(Map.of("type", "content", "content", Map.of("type", "text", "text", content))));
+            update.put("content", NativeToolContent.from(result));
         }
         host.update(update);
     }
