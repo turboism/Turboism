@@ -24,7 +24,7 @@ public final class ModelPreviewPanel extends JPanel implements AutoCloseable {
     public ModelPreviewPanel(ViewerScene scene, Function<String, String> text, Consumer<Throwable> log) {
         super(new BorderLayout(0, 6));
         setName("model-import-preview");
-        var status = new JLabel(text.apply("viewer.hint"));
+        var status = new JLabel(text.apply("viewer.hint"), JLabel.CENTER);
         var renderer = new SoftwareModelRenderer();
         controller = new ModelViewerController(
                 UserFileAccessService.unavailable(),
