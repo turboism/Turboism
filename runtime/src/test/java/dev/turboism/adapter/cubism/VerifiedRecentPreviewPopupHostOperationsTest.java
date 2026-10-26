@@ -380,8 +380,7 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
             });
             assertNotNull(fixture.popup.activePopupForTest());
             assertEquals(
-                    next,
-                    fixture.popup.activePopupMenuForTest().getClientProperty("turboism.recentPreviewActiveItem"));
+                    next, fixture.popup.activePopupMenuForTest().getClientProperty("turboism.recentPreviewActiveItem"));
         }
     }
 
@@ -442,8 +441,8 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
                     };
                 }
             });
-            registration = popup.contribute(summary -> Optional.of(new RecentPreviewContent(
-                    summary.id(), PanelView.text(ready.get() ? "ready" : "loading"))));
+            registration = popup.contribute(summary -> Optional.of(
+                    new RecentPreviewContent(summary.id(), PanelView.text(ready.get() ? "ready" : "loading"))));
             SwingUtilities.invokeAndWait(() -> {});
         }
 
