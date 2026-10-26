@@ -47,9 +47,44 @@ import javax.swing.SwingUtilities;
 public final class McpTexturePersistenceProbe {
     public static final String REQUEST = "mcp-texture-roundtrip-request.properties";
     public static final String RESULT = "mcp-texture-roundtrip-result.properties";
+    public static final String GEOMETRY_REQUEST = "mcp-geometry-persistence-request.json";
+    public static final String GEOMETRY_RESULT = "mcp-geometry-persistence-result.properties";
     private static final long MAX_PIXELS = 64L * 1024 * 1024;
 
     private McpTexturePersistenceProbe() {}
+
+    /** Reuses only this validation probe's exact-hash-gated native file workflow. */
+    public static boolean runGeometryIfRequested(final PluginContext context, final Path stateRoot) {
+        final Path path = stateRoot.resolve(GEOMETRY_REQUEST);
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) return false;
+        final String runId = System.getProperty("turboism.validation.runId", "");
+        final var result = new Properties();
+        result.setProperty("runId", runId);
+        result.setProperty("status", "FAIL");
+        try {
+            require(Files.size(path) <= 16384, "Oversize geometry persistence request");
+            final var request = McpGeometryRollbackProbe.parse(Json.parseObject(Files.readString(path)), runId);
+            new Engine(context, stateRoot, runId, result, request).run();
+            result.setProperty("status", "PASS");
+        } catch (Exception failure) {
+            result.setProperty("exceptionClass", failure.getClass().getSimpleName());
+            context.logger().error("MCP geometry native persistence failed", failure);
+        }
+        try {
+            final Path pending = stateRoot.resolve(GEOMETRY_RESULT + ".pending");
+            try (var stream = Files.newOutputStream(pending)) {
+                result.store(stream, "Task-local geometry persistence evidence");
+            }
+            Files.move(
+                    pending,
+                    stateRoot.resolve(GEOMETRY_RESULT),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception failure) {
+            context.logger().error("Geometry persistence evidence publication failed", failure);
+        }
+        return true;
+    }
 
     /** Deterministic, validation-only plan retaining at most two total parameters per object. */
     static List<ParameterBinding> freeBindingPrunePlan(final List<ParameterBinding> bindings) {
@@ -156,6 +191,11 @@ public final class McpTexturePersistenceProbe {
     }
 
     static Path requireTaskPaths(final Path home, final Path fixture, final String runId) throws Exception {
+        return requireTaskPaths(home, fixture, runId, false);
+    }
+
+    static Path requireTaskPaths(final Path home, final Path fixture, final String runId, final boolean geometry)
+            throws Exception {
         if (runId == null
                 || !runId.matches("[a-zA-Z0-9-]{8,96}")
                 || !fixture.getFileName().toString().equals(runId + ".cmo3")
@@ -166,7 +206,7 @@ public final class McpTexturePersistenceProbe {
             throw new IllegalArgumentException("Fixture and home must belong to this exact task");
         }
         Path current = home.toRealPath();
-        for (String name : List.of("state", "texture-persistence")) {
+        for (String name : List.of("state", geometry ? "geometry-persistence" : "texture-persistence")) {
             current = current.resolve(name);
             if (Files.isSymbolicLink(current)) throw new IllegalArgumentException("Symlinked persistence directory");
             if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(current)) {
@@ -310,6 +350,7 @@ public final class McpTexturePersistenceProbe {
         private final Path output;
         private final String runId;
         private final Properties result;
+        private final McpGeometryRollbackProbe.Request geometryRequest;
         private Object app;
         private Object originalDocument;
         private Object savedDocument;
@@ -326,11 +367,22 @@ public final class McpTexturePersistenceProbe {
 
         Engine(final PluginContext context, final Path stateRoot, final String runId, final Properties result)
                 throws Exception {
+            this(context, stateRoot, runId, result, null);
+        }
+
+        Engine(
+                final PluginContext context,
+                final Path stateRoot,
+                final String runId,
+                final Properties result,
+                final McpGeometryRollbackProbe.Request geometryRequest)
+                throws Exception {
             this.context = context;
             this.runId = runId;
             this.result = result;
+            this.geometryRequest = geometryRequest;
             fixture = Path.of(System.getProperty("turboism.validation.fixture", ""));
-            output = requireTaskPaths(stateRoot.getParent(), fixture, runId);
+            output = requireTaskPaths(stateRoot.getParent(), fixture, runId, geometryRequest != null);
         }
 
         private <T> T edt(final Callable<T> action) throws Exception {
@@ -400,7 +452,7 @@ public final class McpTexturePersistenceProbe {
                 originalDocument.getClass().getMethod("closeFile", boolean.class, boolean.class);
                 appClass.getMethod("command_open", File.class, boolean.class);
                 pristine = snapshot();
-                if (Boolean.getBoolean("turboism.validation.freeFixture")) {
+                if (geometryRequest == null && Boolean.getBoolean("turboism.validation.freeFixture")) {
                     pristineBindings = bindings();
                     pristineScreenColors = screenColors();
                     pristineMultiplyColors = multiplyColors();
@@ -412,29 +464,34 @@ public final class McpTexturePersistenceProbe {
                 return null;
             });
             try {
-                edt(() -> {
-                    if (pristineBindings != null) {
-                        prepareFreeFixture();
-                        prepareFreeScreenColors();
-                        prepareFreeMultiplyColors();
-                    }
-                    if (pristine.inputs().isEmpty()) seedNativeLayerInput();
-                    baseline = snapshot();
-                    result.setProperty(
-                            "baselineInputCount",
-                            Integer.toString(baseline.inputs().size()));
-                    result.setProperty(
-                            "baselinePixelLayerCount",
-                            Integer.toString(baseline.pixels().size()));
-                    require(
-                            !baseline.inputs().isEmpty() && !baseline.pixels().isEmpty(),
-                            "Fixture lacks native evidence: inputs="
-                                    + baseline.inputs().size() + ", pixelLayers="
-                                    + baseline.pixels().size());
-                    return null;
-                });
-                verifyNativeRawUndo();
-                verifyPersistence();
+                if (geometryRequest != null) {
+                    verifyGeometryPersistence();
+                } else {
+                    edt(() -> {
+                        if (pristineBindings != null) {
+                            prepareFreeFixture();
+                            prepareFreeScreenColors();
+                            prepareFreeMultiplyColors();
+                        }
+                        if (pristine.inputs().isEmpty()) seedNativeLayerInput();
+                        baseline = snapshot();
+                        result.setProperty(
+                                "baselineInputCount",
+                                Integer.toString(baseline.inputs().size()));
+                        result.setProperty(
+                                "baselinePixelLayerCount",
+                                Integer.toString(baseline.pixels().size()));
+                        require(
+                                !baseline.inputs().isEmpty()
+                                        && !baseline.pixels().isEmpty(),
+                                "Fixture lacks native evidence: inputs="
+                                        + baseline.inputs().size() + ", pixelLayers="
+                                        + baseline.pixels().size());
+                        return null;
+                    });
+                    verifyNativeRawUndo();
+                    verifyPersistence();
+                }
             } finally {
                 if (!nativeTimedOut) restoreOriginalDocument();
                 require(fileHash(fixture).equals(originalHash), "Task fixture bytes changed");
@@ -766,6 +823,129 @@ public final class McpTexturePersistenceProbe {
                 }
                 return null;
             });
+        }
+
+        private List<Object> geometrySnapshots() throws Exception {
+            requireFile(currentDocument(), currentDocument() == originalDocument ? fixtureOrOutput() : output);
+            final var model = context.cubism().model().active();
+            final var snapshots = new ArrayList<Object>();
+            for (final var target : geometryRequest.targets()) {
+                switch (target.kind()) {
+                    case "art_mesh" -> {
+                        final var snapshot = model.drawables()
+                                .find(new dev.turboism.sdk.cubism.id.ArtMeshId(target.objectId()))
+                                .authoringSnapshot();
+                        require(
+                                snapshot.sourceGuid().equals(target.sourceGuid())
+                                        && snapshot.forms().stream()
+                                                .anyMatch(f -> f.formGuid().equals(target.formGuid())),
+                                "Mesh identity changed during persistence");
+                        snapshots.add(snapshot);
+                    }
+                    case "warp_deformer" -> {
+                        final var object = (dev.turboism.sdk.cubism.model.WarpDeformer)
+                                model.deformers().find(new dev.turboism.sdk.cubism.id.DeformerId(target.objectId()));
+                        final var snapshot = object.authoringSnapshot();
+                        require(
+                                snapshot.sourceGuid().equals(target.sourceGuid())
+                                        && snapshot.forms().stream()
+                                                .anyMatch(f -> f.formGuid().equals(target.formGuid())),
+                                "Warp identity changed during persistence");
+                        snapshots.add(snapshot);
+                    }
+                    case "rotation_deformer" -> {
+                        final var object = (dev.turboism.sdk.cubism.model.RotationDeformer)
+                                model.deformers().find(new dev.turboism.sdk.cubism.id.DeformerId(target.objectId()));
+                        final var snapshot = object.authoringSnapshot();
+                        require(
+                                snapshot.sourceGuid().equals(target.sourceGuid())
+                                        && snapshot.forms().stream()
+                                                .anyMatch(f -> f.formGuid().equals(target.formGuid())),
+                                "Rotation identity changed during persistence");
+                        snapshots.add(snapshot);
+                    }
+                    default -> throw new IllegalArgumentException("Unsupported geometry target");
+                }
+            }
+            return List.copyOf(snapshots);
+        }
+
+        private Path fixtureOrOutput() throws Exception {
+            final var file = call(currentDocument(), "getFile");
+            require(file instanceof File, "Task document has no file");
+            final var path = ((File) file).toPath();
+            if (Files.isSameFile(path, fixture)) return fixture;
+            require(Files.exists(output) && Files.isSameFile(path, output), "Foreign active file");
+            return output;
+        }
+
+        private static String recordHash(final Object value) throws Exception {
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256")
+                            .digest(value.toString().getBytes(StandardCharsets.UTF_8)));
+        }
+
+        private static String geometryHashes(final List<Object> snapshots) throws Exception {
+            final var hashes = new ArrayList<String>();
+            for (final var snapshot : snapshots) hashes.add(recordHash(snapshot));
+            return String.join(",", hashes);
+        }
+
+        private void verifyGeometryPersistence() throws Exception {
+            Files.createDirectories(output.getParent());
+            final var expected = edt(() -> {
+                final var document = context.cubism().activeDocument().orElseThrow();
+                require(
+                        document.documentId().equals(geometryRequest.documentId())
+                                && document.model().orElseThrow().modelId().equals(geometryRequest.modelId()),
+                        "Persistence document/model changed");
+                requireFile(currentDocument(), fixture);
+                return geometrySnapshots();
+            });
+            final var expectedBindings = edt(this::bindings);
+            result.setProperty("geometryHashEncoding", "SDK_RECORD_UTF8_SHA256");
+            result.setProperty("savedGeometryHashes", geometryHashes(expected));
+            result.setProperty("savedBindingsHash", recordHash(expectedBindings));
+            result.setProperty("nativePersistenceStage", "GEOMETRY_NATIVE_SAVE_CALL");
+            edt(() -> {
+                requireFile(currentDocument(), fixture);
+                require(
+                        geometrySnapshots().equals(expected) && bindings().equals(expectedBindings),
+                        "Geometry or bindings changed before native save");
+                require(
+                        Boolean.TRUE.equals(invoke(
+                                originalDocument.getClass().getMethod("saveDocument", File.class, boolean.class),
+                                originalDocument,
+                                output.toFile(),
+                                false)),
+                        "Native geometry save rejected");
+                return null;
+            });
+            awaitSaved();
+            result.setProperty("savedFileSha256", fileHash(output));
+            edt(() -> {
+                closeOwned(originalDocument);
+                return null;
+            });
+            result.setProperty("nativePersistenceStage", "GEOMETRY_REOPEN_SAVED");
+            openOwned(output);
+            edt(() -> {
+                savedDocument = currentDocument();
+                require(savedDocument != originalDocument, "Geometry persistence must deserialize a fresh document");
+                final var reopened = geometrySnapshots();
+                require(reopened.equals(expected), "Reopened full geometry snapshot differs from saved state");
+                require(bindings().equals(expectedBindings), "Reopened complete bindings differ from saved state");
+                result.setProperty("reopenedGeometryHashes", geometryHashes(reopened));
+                result.setProperty("reopenedBindingsHash", recordHash(bindings()));
+                result.setProperty("freshNativeDocument", "true");
+                result.setProperty("persistenceObjectKinds", "3");
+                result.setProperty("geometrySaveReopen", "PASS");
+                closeOwned(savedDocument);
+                return null;
+            });
+            result.setProperty("nativePersistenceStage", "GEOMETRY_REOPEN_ORIGINAL");
+            openOwned(fixture);
+            result.setProperty("nativePersistenceStage", "PASS");
         }
 
         private void verifyPersistence() throws Exception {

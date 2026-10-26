@@ -494,6 +494,41 @@ class VerifiedTypedEditorCommandAdapterTest {
     }
 
     @Test
+    void opensOnlyAuthorizedRegularCmo3OnTheReviewedVersionWithoutRevealingFiles() throws Exception {
+        Path model = Files.writeString(temporary.resolve("model.cmo3"), "fixture");
+        FakeHost host = new FakeHost();
+        var adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.03"));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.OPEN, model, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
+        assertEquals(List.of(model.toFile()), host.fileOps.opened);
+        assertTrue(host.onEdt.get());
+        Path psd = Files.writeString(temporary.resolve("layers.psd"), "fixture");
+        assertEquals(
+                EditorCommandResult.Status.REJECTED,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.OPEN, psd, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
+        Files.delete(model);
+        assertEquals(
+                EditorCommandResult.Status.REJECTED,
+                adapter.execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.OPEN, model, EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
+        assertEquals(1, host.fileOps.opened.size());
+        assertEquals(
+                EditorCommandResult.Status.FAILED,
+                new VerifiedEditorCommandAdapter(host.resolver("5.3.03", true, "cubism.editor-command.file.open-model"))
+                        .execute(new ResolvedEditorFileCommand(
+                                EditorFileCommand.OPEN,
+                                psd.resolveSibling("missing.cmo3"),
+                                EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
+    }
+
+    @Test
     void canvasSettingShortCircuitsIdenticalDimensionsWithoutSideEffects() {
         FakeHost host = new FakeHost();
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
@@ -949,6 +984,12 @@ class VerifiedTypedEditorCommandAdapterTest {
                     "saveDocument",
                     "(Ljava/io/File;Z)Z",
                     StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method(
+                    "cubism.editor-command.file.open-model",
+                    host,
+                    "command_open",
+                    "(Ljava/io/File;Z)V",
+                    StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.classSelector("cubism.editor-command.canvas.edit-mode-main", editModeMain));
             selectors.add(StaticSelector.method(
                     "cubism.editor-command.canvas.begin-edit",
@@ -1232,6 +1273,12 @@ class VerifiedTypedEditorCommandAdapterTest {
             public FakeView getCurrentViewContext() {
                 host.onEdt.set(javax.swing.SwingUtilities.isEventDispatchThread());
                 return host.currentView();
+            }
+
+            public void command_open(File file, boolean reveal) {
+                assertFalse(reveal);
+                host.onEdt.set(javax.swing.SwingUtilities.isEventDispatchThread());
+                host.fileOps.opened.add(file);
             }
 
             public FakePack getCompletePack() {

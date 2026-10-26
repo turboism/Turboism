@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "jobId": "cef664c2-e3ff-4596-a2a5-2e786b7083e9",
+  "runId": "queue-6564ca5105c54d6cb282393d4a392d01",
+  "preparedId": "25e124c29daae010692b0b8f733fdcfbb4eef7f2db9f22e16d9624a62abcfc32",
+  "task": "mcp:5303@native-observe",
+  "queueStatus": "failed",
+  "validationStatus": "FAIL",
+  "normalExit": false,
+  "cleanup": "safe",
+  "finalRunnerFileAndIdentityChecksCompleted": false,
+  "fixtureUnchangedField": false,
+  "identityVerifiedField": false,
+  "failure": "MODEL_PROVIDER_HTTP_429_BEFORE_FIRST_MODEL_TOOL_CALL",
+  "harness": "Pi native 1.2.0",
+  "initialModel": "zai-coding-cn/glm-5.3",
+  "model": "zai-coding-cn/glm-4.6v",
+  "runtimeDeclaredImageInput": true,
+  "availableVisionModelCount": 25,
+  "providerHttp429Observed": true,
+  "completedMcpMethods": [
+    "initialize",
+    "notifications/initialized",
+    "tools/list"
+  ],
+  "modelToolCalls": 0,
+  "images": 0,
+  "modelMutation": "NONE_ALLOWED_BY_PROXY",
+  "modelVisionAccepted": false,
+  "limits": [
+    "Runtime-declared vision availability is not a successful provider/model invocation",
+    "Host final checks did not complete; false/null fields do not prove a file changed",
+    "Pi retried upstream; validation client did not replay MCP writes",
+    "No raw CLI session, configuration or credentials archived"
+  ]
+}

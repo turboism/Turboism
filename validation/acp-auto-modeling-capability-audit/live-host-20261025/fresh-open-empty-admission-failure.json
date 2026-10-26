@@ -1,0 +1,2835 @@
+{
+  "runId": "queue-b580d78685f745acbd4a27d6bb0cc688",
+  "status": "FAIL",
+  "phase": "PRODUCTION_OPEN",
+  "testChooserApproval": true,
+  "scope": "CLOSED_TASK_COPY_FRESH_LOAD",
+  "persistenceVerified": false,
+  "before": [
+    {
+      "kind": "art_mesh",
+      "objectId": "ArtMesh4",
+      "sourceGuid": "78c64f54-d033-4aa5-a8f0-ee53c2a390f8",
+      "snapshotId": "991fcff6-110d-4078-aaba-350e6777eb38",
+      "state": {
+        "historyDocumentBinding": "history-document-3",
+        "modelId": "model-session-b",
+        "documentId": "document-session-a",
+        "historyManagerBinding": "history-manager-3",
+        "historyGeneration": 1,
+        "historyRevision": 56
+      },
+      "rowCount": 218,
+      "rowsSha256": "7eaf91d724501b586ec4a010963f4197f02e9c27dc60e7cedcb0f26004f14bed",
+      "rows": [
+        {
+          "kind": "parent_space",
+          "parentPartId": "PartClip",
+          "parentDeformerId": null
+        },
+        {
+          "writePermission": "PRESENT",
+          "operationSelectors": {
+            "ART_MESH_DRAW_ORDERS": "PRESENT",
+            "ART_MESH_VALUES_WITH_OPACITY": "PRESENT",
+            "ART_MESH_POSITIONS": "PRESENT",
+            "ART_MESH_VALUES": "PRESENT"
+          },
+          "kind": "ordinary_write_support",
+          "transactionCoordinator": "PRESENT",
+          "historySelectors": "PRESENT",
+          "writerSelectors": "PRESENT",
+          "hostVersion": "5.3.03",
+          "reviewedHost": "PRESENT"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": false,
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "MORPH_REFERENCED_FORM",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": false,
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "MORPH_REFERENCED_FORM",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": false,
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "DEFAULT_FORM",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "kind": "source_position",
+          "index": 0,
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "kind": "source_position",
+          "index": 1,
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "kind": "source_position",
+          "index": 2,
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "kind": "source_position",
+          "index": 3,
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "source_uv",
+          "index": 0,
+          "y": -0.0078125,
+          "x": 0.7890625
+        },
+        {
+          "kind": "source_uv",
+          "index": 1,
+          "y": -0.0078125,
+          "x": -0.0078125
+        },
+        {
+          "kind": "source_uv",
+          "index": 2,
+          "y": 0.7890625,
+          "x": 0.7890625
+        },
+        {
+          "kind": "source_uv",
+          "index": 3,
+          "y": 0.7890625,
+          "x": -0.0078125
+        },
+        {
+          "b": 0,
+          "a": 1,
+          "index": 0,
+          "kind": "source_triangle",
+          "c": 2
+        },
+        {
+          "b": 3,
+          "a": 2,
+          "index": 1,
+          "kind": "source_triangle",
+          "c": 1
+        },
+        {
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ],
+          "maximum": 10.0,
+          "minimum": -10.0,
+          "kind": "axis",
+          "defaultValue": 0.0,
+          "parameterId": "ParamBodyAngleX",
+          "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e"
+        },
+        {
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ],
+          "maximum": 10.0,
+          "minimum": -10.0,
+          "kind": "axis",
+          "defaultValue": 0.0,
+          "parameterId": "ParamBodyAngleY",
+          "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45"
+        },
+        {
+          "keys": [
+            0.0,
+            0.5,
+            1.0
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "kind": "axis",
+          "defaultValue": 1.0,
+          "parameterId": "ParamEyeROpen",
+          "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 1.0
+            }
+          ],
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": -30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 0.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "3a50837e-ba5d-4f21-b5cc-dd7adf3fdc7e",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "2090e337-467d-4a68-aecf-1f0a80800d45",
+              "value": 30.0
+            },
+            {
+              "parameterGuid": "15834eff-8656-45d2-971e-fe21572c9bcb",
+              "value": 0.5
+            }
+          ],
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7"
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "6f5fd06c-4cb9-400c-a8e4-e202f742952e",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "d87944da-ce0b-40c2-b5d0-bd6d69d97171",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "fcba156b-375f-4b81-aea3-98904cc1fc92",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "7f19217b-ce73-4fc3-97b6-dd9e3d439fff",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "4bde5e56-1246-422a-92a5-053a8dee97d3",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "9db7ec8d-fb7f-4fd4-b9ae-6418e97c163e",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "6395a74d-1e91-477b-a0eb-ddeb06959792",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "2882db6c-29ee-47ac-a1dc-d08e7f1b29a5",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "1e93ad1d-26ff-47c7-b3e0-8146c56c1c2b",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "845de5e2-ce4d-4d29-b92c-d2f4a1f1eeff",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "361e2ad1-62ac-453d-a7d5-6c9ebddafdcc",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "06f3c5e2-cda8-41a7-b530-e20fb9d36829",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "e313dee8-58e4-4dc2-9863-0d36051c6919",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "8999750e-5aff-464a-bceb-89fc02754d3e",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "3c168e10-e088-4d74-84f1-ce2fe20909c2",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "4fd3be77-d494-4a28-9a83-4aa313f82cc1",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "972053f6-203e-4ad6-bc42-55858db11578",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "065a667e-fad6-4e58-a959-136f39152107",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "6de3725e-afd8-45f1-87de-871311ec5c53",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "5828232c-9cc1-4ae1-aced-5df036b54a7a",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "55cdde51-76e6-49b0-bb22-609cbfe7fc96",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "4d49a978-ee47-41be-8f5a-660be13ad585",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "1f54badb-be22-44fa-b4c0-90d0c056c716",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "d23313c5-2039-438d-b6cd-edd7bef1e729",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "d6815586-2e65-4703-9521-ea1693a325ee",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "29b9fbe8-a1f9-49ad-8e80-0724f2cd658e",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "mesh_form",
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7",
+          "drawOrder": 500,
+          "pointCount": 4,
+          "opacity": 1.0
+        },
+        {
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7",
+          "index": 0,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7",
+          "index": 1,
+          "kind": "form_point",
+          "y": 235.0,
+          "x": 90.0
+        },
+        {
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7",
+          "index": 2,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 192.0
+        },
+        {
+          "formGuid": "68e1e9d1-3181-4909-bf64-972dcea949e7",
+          "index": 3,
+          "kind": "form_point",
+          "y": 337.0,
+          "x": 90.0
+        },
+        {
+          "kind": "morph_key",
+          "parameterGuid": "c22a5e83-1f74-4f51-848a-bc7a86be47f3",
+          "formGuid": "9c5ca4f9-fda2-4111-a6f0-090bfdc0c688",
+          "keyValue": -30.0
+        },
+        {
+          "kind": "morph_key",
+          "parameterGuid": "c22a5e83-1f74-4f51-848a-bc7a86be47f3",
+          "formGuid": "ead803fd-51a0-4788-a3cb-15b6694981d6",
+          "keyValue": 30.0
+        }
+      ],
+      "rejectedCandidates": []
+    },
+    {
+      "kind": "warp_deformer",
+      "objectId": "Warp2",
+      "sourceGuid": "97d006bb-fb93-475b-b9f5-cb0aa9f0ce02",
+      "snapshotId": "0d53802e-ebfd-4f42-95ba-e0e29f72d790",
+      "state": {
+        "historyDocumentBinding": "history-document-3",
+        "modelId": "model-session-b",
+        "documentId": "document-session-a",
+        "historyManagerBinding": "history-manager-3",
+        "historyGeneration": 1,
+        "historyRevision": 56
+      },
+      "rowCount": 121,
+      "rowsSha256": "1cdda34f929f5c1f1f59f7449cc425f5ca6d16b7897e786ea589bb7e5daa5d9d",
+      "rows": [
+        {
+          "kind": "parent_space",
+          "parentPartId": "Part3",
+          "parentDeformerId": null
+        },
+        {
+          "writePermission": "PRESENT",
+          "operationSelectors": {
+            "WARP_CONTROL_POINTS": "PRESENT"
+          },
+          "kind": "ordinary_write_support",
+          "transactionCoordinator": "PRESENT",
+          "historySelectors": "PRESENT",
+          "writerSelectors": "PRESENT",
+          "hostVersion": "5.3.03",
+          "reviewedHost": "PRESENT"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": false,
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "DEFAULT_FORM",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "snapshotEligible": true,
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "INDEPENDENT_NON_DEFAULT_ORDINARY",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "quadTransform": true,
+          "columns": 5,
+          "kind": "warp_grid",
+          "rows": 5
+        },
+        {
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ],
+          "maximum": 30.0,
+          "minimum": -30.0,
+          "kind": "axis",
+          "defaultValue": 0.0,
+          "parameterId": "ParamAngleX",
+          "parameterGuid": "f149a631-0f34-4992-8001-4c737297a1b5"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "f149a631-0f34-4992-8001-4c737297a1b5",
+              "value": -30.0
+            }
+          ],
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "f149a631-0f34-4992-8001-4c737297a1b5",
+              "value": 0.0
+            }
+          ],
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [
+            {
+              "parameterGuid": "f149a631-0f34-4992-8001-4c737297a1b5",
+              "value": 30.0
+            }
+          ],
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3"
+        },
+        {
+          "kind": "warp_form",
+          "pointCount": 36,
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f"
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 0,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 1,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 2,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 3,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 652.028
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 4,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 5,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 6,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 7,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 8,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 9,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 652.028
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 10,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 11,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 12,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 13,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 14,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 15,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 652.028
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 16,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 17,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 18,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 19,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 20,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 21,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 652.028
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 22,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 23,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 24,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 25,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 26,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 27,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 652.028
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 28,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 29,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 30,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 31,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 32,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 33,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 652.028
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 34,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "1068e0d4-a9f1-4d23-96d6-29f84961e59f",
+          "index": 35,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 849.1097
+        },
+        {
+          "kind": "warp_form",
+          "pointCount": 36,
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5"
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 0,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 1,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 2,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 3,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 652.028
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 4,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 5,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 6,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 7,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 8,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 9,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 652.028
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 10,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 11,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 12,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 13,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 14,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 15,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 652.028
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 16,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 17,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 18,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 19,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 20,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 21,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 652.028
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 22,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 23,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 24,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 25,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 26,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 27,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 652.028
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 28,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 29,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 30,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 31,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 32,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 33,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 652.028
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 34,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "cbb7afda-2428-412a-abdb-0930410f9db5",
+          "index": 35,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 849.1097
+        },
+        {
+          "kind": "warp_form",
+          "pointCount": 36,
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3"
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 0,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 1,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 2,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 3,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 652.028
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 4,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 5,
+          "kind": "form_point",
+          "y": 80.508606,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 6,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 7,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 8,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 9,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 652.028
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 10,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 11,
+          "kind": "form_point",
+          "y": 102.94861,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 12,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 13,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 14,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 15,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 652.028
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 16,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 17,
+          "kind": "form_point",
+          "y": 125.38861,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 18,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 19,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 20,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 21,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 652.028
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 22,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 23,
+          "kind": "form_point",
+          "y": 147.82858,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 24,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 25,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 26,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 27,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 652.028
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 28,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 29,
+          "kind": "form_point",
+          "y": 170.26859,
+          "x": 849.1097
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 30,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 356.40555
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 31,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 454.94647
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 32,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 553.4873
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 33,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 652.028
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 34,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 750.56903
+        },
+        {
+          "formGuid": "fa0dbd72-f181-4e76-b40d-cb1a99e0e7a3",
+          "index": 35,
+          "kind": "form_point",
+          "y": 192.70859,
+          "x": 849.1097
+        }
+      ],
+      "rejectedCandidates": []
+    },
+    {
+      "kind": "rotation_deformer",
+      "objectId": "Rotation4",
+      "sourceGuid": "265bdd47-3182-4afe-b6ec-a8c669f27009",
+      "snapshotId": "7630c632-62bd-4f00-a0fb-c3f013b84ab1",
+      "state": {
+        "historyDocumentBinding": "history-document-3",
+        "modelId": "model-session-b",
+        "documentId": "document-session-a",
+        "historyManagerBinding": "history-manager-3",
+        "historyGeneration": 1,
+        "historyRevision": 56
+      },
+      "rowCount": 6,
+      "rowsSha256": "909e3a721b2e20291c21973fea072126e60961b87d518030b770cb7a3d694131",
+      "rows": [
+        {
+          "kind": "parent_space",
+          "parentPartId": "Part5",
+          "parentDeformerId": null
+        },
+        {
+          "writePermission": "PRESENT",
+          "operationSelectors": {
+            "ROTATION_FORMS": "PRESENT"
+          },
+          "kind": "ordinary_write_support",
+          "transactionCoordinator": "PRESENT",
+          "historySelectors": "PRESENT",
+          "writerSelectors": "PRESENT",
+          "hostVersion": "5.3.03",
+          "reviewedHost": "PRESENT"
+        },
+        {
+          "snapshotEligible": false,
+          "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d",
+          "hostWriteAdmission": "UNPROVEN",
+          "reason": "DEFAULT_FORM",
+          "kind": "ordinary_write_eligibility"
+        },
+        {
+          "baseAngle": 0.0,
+          "kind": "rotation_source"
+        },
+        {
+          "kind": "cell",
+          "coordinates": [],
+          "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d"
+        },
+        {
+          "reflectedY": false,
+          "formGuid": "5795caa4-0db9-48e5-ba16-8f721000097d",
+          "reflectedX": false,
+          "scale": 1.0,
+          "originY": 634.02905,
+          "kind": "rotation_form",
+          "angle": 0.0,
+          "originX": 771.08563
+        }
+      ],
+      "rejectedCandidates": []
+    }
+  ],
+  "closed": {
+    "runId": "queue-b580d78685f745acbd4a27d6bb0cc688",
+    "status": "CLOSED",
+    "noActiveDocument": true,
+    "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+    "beforeGeometryHashes": [
+      "28dd753175996fd06904df943a9ee6e89e4bdfa091f94cf76a1d271007eef661",
+      "3b9cf162d18a0fe1dac6e8e6679dd24988cec98003c7fe1b99d75f6970830c23",
+      "fde2787711a252c13a55b4e329effbfc395a93df2d526d8a3674415a82a3079c"
+    ],
+    "beforeBindingsHash": "934dce522cfdd9f2394aa58921479836ef6e8ca7220b4fa71fce8321c79ee93d"
+  },
+  "emptyInventory": {
+    "writeAdmission": "NOT_CHECKED",
+    "stateHash": "65b3bde0dab8bd0f79b5a525b054b566e2a4296e90bee861f33e036c544b4bac",
+    "identityScope": "DECLARED_DOCUMENT_METADATA_AND_ACTIVE_AUTHORING_BINDING",
+    "state": {
+      "hostObserved": false,
+      "project": null,
+      "activeDocument": null,
+      "authoringState": null
+    },
+    "ok": true,
+    "snapshotTtlSeconds": 300,
+    "snapshotId": "40b8293d-4df5-4838-bd60-a1fb41c902f3"
+  },
+  "failure": {
+    "exceptionClass": "ValidationFailure",
+    "message": "tool turboism.documents.open failed: {\"outcome\": \"NOT_APPLIED\", \"code\": \"UNAVAILABLE\", \"failedSteps\": [], \"completedStepCount\": 0}"
+  }
+}

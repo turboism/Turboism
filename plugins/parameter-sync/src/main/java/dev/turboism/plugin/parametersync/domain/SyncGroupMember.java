@@ -20,14 +20,17 @@ public record SyncGroupMember(String parameterId, SyncMode mode, float ratio, fl
         offset = Float.isFinite(offset) ? offset : 0.0f;
     }
 
+    /** Creates a group member with the supplied ID and optional synchronization mode. */
     public static SyncGroupMember of(final String parameterId) {
         return new SyncGroupMember(parameterId, SyncMode.NORMALIZED_RANGE, 1.0f, 0.0f);
     }
 
+    /** Creates a group member with the supplied ID and optional synchronization mode. */
     public static SyncGroupMember of(final String parameterId, final SyncMode mode) {
         return new SyncGroupMember(parameterId, mode, 1.0f, 0.0f);
     }
 
+    /** Returns the serialized configuration fields for storage. */
     public Map<String, Object> toMap() {
         final Map<String, Object> map = new LinkedHashMap<>();
         map.put("parameterId", parameterId);
@@ -37,6 +40,7 @@ public record SyncGroupMember(String parameterId, SyncMode mode, float ratio, fl
         return map;
     }
 
+    /** Reads a serialized configuration; returns null when its required identity is missing. */
     public static SyncGroupMember fromMap(final Map<String, ?> map) {
         if (map == null || map.isEmpty()) {
             return null;

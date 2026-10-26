@@ -69,7 +69,7 @@ final class NativeClaudeProvider extends NativeAgentProvider {
     }
 
     @Override
-    CompletableFuture<String> prompt(final List<Object> blocks) throws Exception {
+    synchronized CompletableFuture<String> prompt(final List<Object> blocks) throws Exception {
         final var content = new ArrayList<Map<String, Object>>();
         content.add(Map.of("type", "text", "text", promptText(blocks)));
         for (Object raw : blocks) {
@@ -87,13 +87,13 @@ final class NativeClaudeProvider extends NativeAgentProvider {
                                 "data",
                                 text(block.get("data")))));
         }
+        final var future = beginPrompt();
         textStreamed = false;
         thoughtStreamed = false;
-        final var future = beginPrompt();
         try {
             connection.send(Map.of("type", "user", "message", Map.of("role", "user", "content", content)));
         } catch (IOException failure) {
-            failed(failure);
+            uncertainPrompt(future, "Claude prompt", failure);
         }
         return future;
     }
@@ -111,33 +111,51 @@ final class NativeClaudeProvider extends NativeAgentProvider {
     }
 
     @Override
-    void cancel() {
+    synchronized void cancel() {
+        final var future = runningPrompt();
+        if (future == null || cancelled) return;
         cancelled = true;
+        host.cancelPermissions(future);
         control(Map.of("subtype", "interrupt")).whenComplete((result, failure) -> {
-            if (failure != null) failed(failure);
+            if (failure != null) uncertainPrompt(future, "Claude interrupt", failure);
         });
     }
 
-    private void event(final Map<String, Object> message) {
+    private synchronized void event(final Map<String, Object> message) {
+        final var future = runningPrompt();
+        if (future == null && !"control_request".equals(message.get("type"))) return;
         switch (text(message.get("type"))) {
             case "control_request" -> {
                 final var request = object(message.get("request"));
                 final Object id = message.get("request_id");
                 if ("can_use_tool".equals(request.get("subtype"))) {
+                    if (future == null || cancelled) {
+                        sendControl(id, Map.of("behavior", "deny", "message", "No active authorized turn"));
+                        break;
+                    }
                     host.permission(
+                            future,
                             text(request.get("tool_name")),
                             "other",
                             text(request.get("tool_use_id")),
                             request.getOrDefault("input", Map.of()),
-                            allow -> sendControl(
-                                    id,
-                                    allow
-                                            ? Map.of(
-                                                    "behavior",
-                                                    "allow",
-                                                    "updatedInput",
-                                                    request.getOrDefault("input", Map.of()))
-                                            : Map.of("behavior", "deny", "message", "Rejected by user")));
+                            allow -> {
+                                synchronized (this) {
+                                    sendControl(
+                                            id,
+                                            allow && ownsPrompt(future) && !cancelled
+                                                    ? Map.of(
+                                                            "behavior",
+                                                            "allow",
+                                                            "updatedInput",
+                                                            request.getOrDefault("input", Map.of()))
+                                                    : Map.of(
+                                                            "behavior",
+                                                            "deny",
+                                                            "message",
+                                                            "Rejected or inactive turn"));
+                                }
+                            });
                 } else {
                     try {
                         connection.send(Map.of(

@@ -1,0 +1,50 @@
+[
+  {
+    "label": "art_mesh",
+    "pixelBounds": [
+      0,
+      0,
+      512,
+      512
+    ],
+    "changedPixelCount": 100,
+    "differenceBounds": [
+      72,
+      120,
+      100,
+      147
+    ]
+  },
+  {
+    "label": "warp_deformer",
+    "pixelBounds": [
+      0,
+      0,
+      512,
+      512
+    ],
+    "changedPixelCount": 269,
+    "differenceBounds": [
+      210,
+      43,
+      416,
+      95
+    ]
+  },
+  {
+    "label": "rotation_deformer",
+    "pixelBounds": [
+      0,
+      0,
+      512,
+      512
+    ],
+    "changedPixelCount": 416,
+    "differenceBounds": [
+      367,
+      296,
+      423,
+      353
+    ]
+  }
+]

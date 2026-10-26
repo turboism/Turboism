@@ -31,6 +31,7 @@ public final class FakeAgent {
     private final Ledger ledger = new Ledger();
     private Map<String, Object> stdioServer;
     private boolean scenarioStarted;
+    private Writer protocolOutput;
 
     private FakeAgent(final Scenario scenario) {
         this.scenario = scenario;
@@ -44,6 +45,7 @@ public final class FakeAgent {
 
     private void serve(final InputStream input, final java.io.OutputStream output) {
         final Writer stdout = new OutputStreamWriter(output, StandardCharsets.UTF_8);
+        protocolOutput = stdout;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
             for (String line = reader.readLine(); line != null; line = reader.readLine()) {
                 if (line.isBlank()) continue;
@@ -81,6 +83,13 @@ public final class FakeAgent {
         response.put("id", id);
         response.put("result", result);
         sendLine(stdout, Json.stringify(response));
+        // Publish the session identity before any scenario notifications.
+        if ((name.equals("session/new") || name.equals("session/load")) && !scenarioStarted) {
+            scenarioStarted = true;
+            final Thread scenarioThread = new Thread(this::runScenario, "turboism-acp-fake-scenario");
+            scenarioThread.setDaemon(true);
+            scenarioThread.start();
+        }
     }
 
     private Map<String, Object> initializeResult() {
@@ -102,11 +111,6 @@ public final class FakeAgent {
         assertStdioAttachment(params);
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         result.put("sessionId", "fake-session-1");
-        if (scenarioStarted) return result;
-        scenarioStarted = true;
-        final Thread scenarioThread = new Thread(this::runScenario, "turboism-acp-fake-scenario");
-        scenarioThread.setDaemon(true);
-        scenarioThread.start();
         return result;
     }
 
@@ -200,18 +204,25 @@ public final class FakeAgent {
             ledger.pass("bridgeMcpInitialize");
             bridge.notify("notifications/initialized", new LinkedHashMap<>());
 
-            final Map<String, Object> tools;
-            try {
-                tools = bridge.request("tools/list", new LinkedHashMap<>(), timeout);
-            } catch (IOException failure) {
-                ledger.fail("toolsListHasApply", "tools_list_failed");
-                return;
+            final var names = new java.util.HashSet<String>();
+            final var cursors = new java.util.HashSet<String>();
+            String cursor = null;
+            for (int page = 0; page < 16; page++) {
+                final var tools = bridge.request("tools/list", cursor == null ? Map.of() : Map.of("cursor", cursor), timeout);
+                for (var tool : listValue(tools.get("tools"))) names.add(String.valueOf(objectValue(tool).get("name")));
+                cursor = tools.get("nextCursor") instanceof String value && !value.isBlank() ? value : null;
+                if (cursor == null) break;
+                if (!cursors.add(cursor) || page == 15) throw new IOException("Invalid tool pagination");
             }
-            if (!containsTool(tools, "turboism.model_objects.apply")) {
+            if (!names.contains("turboism.model_objects.apply")) {
                 ledger.fail("toolsListHasApply", "apply_tool_missing");
                 return;
             }
             ledger.pass("toolsListHasApply");
+            if (scenario.nativeRender && !names.containsAll(List.of("turboism.render.state", "turboism.render.capture"))) {
+                ledger.fail("nativeRenderTypedImage", "render_tools_missing");
+                return;
+            }
 
             final Map<String, Object> historyBefore;
             try {
@@ -322,6 +333,25 @@ public final class FakeAgent {
             }
             ledger.pass("historyPositionBalanced");
 
+            if (scenario.nativeRender) {
+                try {
+                    final var capture = NativeRender.capture(bridge, timeout);
+                    Files.write(scenario.resultFile.resolveSibling("agent-native-render.png"), capture.png());
+                    Files.writeString(scenario.resultFile.resolveSibling("agent-native-render.json"), Json.stringify(capture.metadata()) + "\n");
+                    ledger.data("nativeRenderSha256", String.valueOf(capture.metadata().get("sha256")));
+                    ledger.pass("nativeRenderTypedImage");
+                    final String key = "validation-native-render";
+                    sendUpdate(Map.of("sessionUpdate", "tool_call", "toolCallId", key,
+                            "title", "turboism.render.capture", "kind", "read", "status", "in_progress"));
+                    sendUpdate(Map.of("sessionUpdate", "tool_call_update", "toolCallId", key,
+                            "status", "completed", "rawOutput", capture.rawOutput()));
+                    ledger.data("nativeRenderAcpFormat", "RAW_OUTPUT_ONLY");
+                    ledger.pass("nativeRenderAcpForwarded");
+                } catch (IOException | IllegalArgumentException failure) {
+                    ledger.fail("nativeRenderTypedImage", "render_validation_" + failure.getClass().getSimpleName());
+                    return;
+                }
+            }
             final Integer exit = bridge.closeAndWait(timeout);
             if (exit == null || exit != 0) {
                 ledger.fail("bridgeClosed", "bridge_exit_" + (exit == null ? "timeout" : exit));
@@ -329,6 +359,11 @@ public final class FakeAgent {
             }
             ledger.pass("bridgeClosed");
         }
+    }
+
+    private void sendUpdate(final Map<String, Object> update) throws IOException {
+        sendLine(protocolOutput, Json.stringify(Map.of("jsonrpc", "2.0", "method", "session/update",
+                "params", Map.of("sessionId", "fake-session-1", "update", update))));
     }
 
     private void failRenameChain(final String reason) {

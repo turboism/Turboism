@@ -60,6 +60,67 @@ final class McpToolRegistryTest {
     }
 
     @Test
+    void nullableEnumOutputAcceptsNullAndRejectsUnknownWithoutThrowing() {
+        var execution = new McpExecutionBridge(new UiScheduler() {
+            public Registration runOnUiThread(Runnable work) {
+                work.run();
+                return () -> {};
+            }
+
+            public Registration runOnUiThreadLater(Runnable work, Duration delay) {
+                throw new AssertionError();
+            }
+        });
+        var schema = Map.<String, Object>of(
+                "type",
+                "object",
+                "properties",
+                Map.of(
+                        "status",
+                        Map.of(
+                                "oneOf",
+                                List.of(Map.of("enum", List.of("APPLIED", "NO_CHANGE")), Map.of("type", "null")))),
+                "required",
+                List.of("status"),
+                "additionalProperties",
+                false);
+        var status = new java.util.concurrent.atomic.AtomicReference<Object>();
+        var tool = McpRegisteredTool.typed(
+                Map.of(
+                        "name",
+                        "turboism.test.nullable",
+                        "title",
+                        "Nullable",
+                        "description",
+                        "Nullable enum regression",
+                        "inputSchema",
+                        closedObjectSchema(),
+                        "outputSchema",
+                        schema),
+                McpOperationEffect.READ,
+                McpExecutionAffinity.DIRECT,
+                false,
+                execution,
+                args -> {
+                    var value = new LinkedHashMap<String, Object>();
+                    value.put("status", status.get());
+                    return envelope(value);
+                });
+        var catalog = McpToolCatalog.of(List.of(tool));
+        assertEquals(
+                null,
+                ((Map<?, ?>) catalog.call("turboism.test.nullable", Map.of()).get("structuredContent")).get("status"));
+        status.set("APPLIED");
+        assertEquals(
+                "APPLIED",
+                ((Map<?, ?>) catalog.call("turboism.test.nullable", Map.of()).get("structuredContent")).get("status"));
+        status.set("INVALID");
+        assertEquals(
+                false,
+                ((Map<?, ?>) catalog.call("turboism.test.nullable", Map.of()).get("structuredContent")).get("ok"));
+    }
+
+    @Test
     void duplicatePublicNamesAreRejected() {
         final McpRegisteredTool first = directRead("turboism.test.duplicate");
         final McpRegisteredTool second = directRead("turboism.test.duplicate");
@@ -234,6 +295,31 @@ final class McpToolRegistryTest {
                 true,
                 new McpExecutionBridge(immediateScheduler()),
                 arguments -> envelope(Map.of("ok", true)));
+    }
+
+    @Test
+    void permitsNineBoundedPoseImagesButRejectsTenAttachments() {
+        var definition = baseDefinition("turboism.test.images");
+        var count = new AtomicInteger(9);
+        var tool = McpRegisteredTool.typed(
+                definition,
+                McpOperationEffect.READ,
+                McpExecutionAffinity.DIRECT,
+                false,
+                new McpExecutionBridge(immediateScheduler()),
+                args -> {
+                    var body = new LinkedHashMap<String, Object>(envelope(Map.of("ok", true)));
+                    var blocks = new java.util.ArrayList<Map<String, Object>>();
+                    blocks.add(Map.of("type", "text", "text", Json.stringify(Map.of("ok", true))));
+                    for (int i = 0; i < count.get(); i++)
+                        blocks.add(Map.of("type", "image", "mimeType", "image/png", "data", "iVBORw0KGgo="));
+                    body.put("content", blocks);
+                    return body;
+                });
+        var catalog = McpToolCatalog.of(List.of(tool));
+        assertEquals(false, catalog.call("turboism.test.images", Map.of()).get("isError"));
+        count.set(10);
+        assertEquals(true, catalog.call("turboism.test.images", Map.of()).get("isError"));
     }
 
     private static LinkedHashMap<String, Object> baseDefinition(final String name) {

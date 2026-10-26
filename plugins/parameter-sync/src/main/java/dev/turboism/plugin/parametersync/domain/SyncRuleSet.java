@@ -28,22 +28,27 @@ public final class SyncRuleSet {
         this.globalEnabled = globalEnabled;
     }
 
+    /** Returns whether synchronization is globally enabled for this model. */
     public synchronized boolean isGlobalEnabled() {
         return globalEnabled;
     }
 
+    /** Sets the model-wide synchronization enabled state. */
     public synchronized void setGlobalEnabled(final boolean enabled) {
         this.globalEnabled = enabled;
     }
 
+    /** Returns an immutable snapshot of selected parameter IDs. */
     public synchronized Set<String> synchronizedIds() {
         return Collections.unmodifiableSet(new LinkedHashSet<>(synchronizedIds));
     }
 
+    /** Returns the number of selected parameters. */
     public synchronized int synchronizedCount() {
         return synchronizedIds.size();
     }
 
+    /** Returns whether the parameter is selected and global synchronization is enabled. */
     public synchronized boolean isSynchronized(final String parameterId) {
         if (parameterId == null || !globalEnabled) {
             return false;
@@ -51,6 +56,7 @@ public final class SyncRuleSet {
         return synchronizedIds.contains(parameterId.strip());
     }
 
+    /** Adds or removes the parameter from the selected set. */
     public synchronized void setSynchronized(final String parameterId, final boolean sync) {
         Objects.requireNonNull(parameterId, "parameterId");
         final String clean = parameterId.strip();
@@ -61,6 +67,7 @@ public final class SyncRuleSet {
         }
     }
 
+    /** Replaces selected IDs, discarding null and blank entries. */
     public synchronized void setAllSynchronized(final Set<String> ids) {
         synchronizedIds.clear();
         if (ids != null) {
@@ -72,16 +79,19 @@ public final class SyncRuleSet {
         }
     }
 
+    /** Clears the stored synchronization entries. */
     public synchronized void clear() {
         synchronizedIds.clear();
     }
 
+    /** Returns whether this set contains no selected parameters. */
     public synchronized boolean isEmpty() {
         return synchronizedIds.isEmpty();
     }
 
     // ── Backward Compatibility Accessors ──
 
+    /** Projects all selected parameters as one legacy rule when at least two exist. */
     public synchronized List<SyncRule> allRules() {
         if (synchronizedIds.size() < 2) {
             return List.of();
@@ -89,6 +99,7 @@ public final class SyncRuleSet {
         return List.of(SyncRule.of(new ArrayList<>(synchronizedIds)).withEnabled(globalEnabled));
     }
 
+    /** Merges legacy rule members into the selected set and preserves enabled rules. */
     public synchronized void addOrUpdate(final SyncRule rule) {
         if (rule != null) {
             synchronizedIds.addAll(rule.memberIds());
@@ -98,15 +109,18 @@ public final class SyncRuleSet {
         }
     }
 
+    /** Clears all selected parameters; the legacy rule ID is ignored. */
     public synchronized boolean removeRule(final String ruleId) {
         clear();
         return true;
     }
 
+    /** Returns the selected parameter count for legacy callers. */
     public synchronized int size() {
         return synchronizedIds.size();
     }
 
+    /** Returns the shared compatibility rule when this parameter is actively synchronized. */
     public List<SyncRule> findActiveRulesForParameter(final String parameterId) {
         if (isSynchronized(parameterId) && synchronizedIds.size() >= 2) {
             return allRules();
@@ -114,6 +128,7 @@ public final class SyncRuleSet {
         return List.of();
     }
 
+    /** Returns active compatibility rules for the supplied member parameter. */
     public List<SyncRule> findActiveRulesForSource(final String parameterId) {
         return findActiveRulesForParameter(parameterId);
     }

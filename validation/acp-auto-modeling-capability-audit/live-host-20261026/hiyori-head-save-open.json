@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "runId": "queue-f0dec7d50c8a41519c84bc8dad094302",
+  "status": "PASS",
+  "phase": "RESTORED",
+  "scope": "PRODUCTION_GRANT_SAVE_AS_CLOSE_GRANT_OPEN_RESTORE",
+  "testChooserApproval": true,
+  "initialization": "NOT_NEEDED_EXISTING_BINDINGS_PRESERVED",
+  "geometryBindingsPersistenceVerified": true,
+  "posePixelsPersistenceVerified": true,
+  "objects": [
+    {
+      "kind": "art_mesh",
+      "objectId": "ArtMesh51",
+      "sourceGuid": "7da9d33b-cfd9-4cdd-a2db-2306dc82d463",
+      "formGuid": "488c71dc-49ea-4455-a3fe-f32e26d4ad9b",
+      "originalRowsSha256": "1eab3f6d6fa75f62a1b415096b67e77d75bbd986fd50215597963ef8b66d27c3",
+      "modifiedRowsSha256": "a19096e00fe578da8c4cec616419d1f3fa3da62b328ea91d912b8103184eec3e",
+      "reloadedRowsSha256": "a19096e00fe578da8c4cec616419d1f3fa3da62b328ea91d912b8103184eec3e",
+      "sourceSha256": "c5b50abe581a34c9c877011a3f017cfa62fe5ea7a3d566e053973f736e30615f",
+      "sourceUnchanged": true,
+      "nonTargetRowsSha256": "f2f4561c2f168a47a43ef2a2ab72ea7c8ca25d78ef2bd91017a4a71e96ba268f",
+      "nonTargetRowsUnchanged": true,
+      "originalFormSha256": "a944e5d159ce5d1ce38419c9c4bf84db62dc7908545d352a6013158c1491ebc7",
+      "modifiedFormSha256": "a5b1911ceb1ee9a6ca6b21c681c35b11be228a85edc5cc91662fc4d1e625e4e2",
+      "reloadedFormSha256": "a5b1911ceb1ee9a6ca6b21c681c35b11be228a85edc5cc91662fc4d1e625e4e2"
+    },
+    {
+      "kind": "warp_deformer",
+      "objectId": "Warp13",
+      "sourceGuid": "5cf2be35-d5e2-4314-9314-fce76d81bf53",
+      "formGuid": "6dd3a4b9-07f0-472d-9dc1-d6d3a836e547",
+      "originalRowsSha256": "6859c10139bfde6e30a8370eabf4b0a85a6d0ca1cdba8997a2d362e37c8c6c70",
+      "modifiedRowsSha256": "9ff187552a57168087286758d8c5c00e63be4357265dedea815ddb60f13aa3c5",
+      "reloadedRowsSha256": "9ff187552a57168087286758d8c5c00e63be4357265dedea815ddb60f13aa3c5",
+      "sourceSha256": "56ba934f94e8a57f913aa9084c2f8a3a9aabf6dd262ea4a2d24ff17fcd248535",
+      "sourceUnchanged": true,
+      "nonTargetRowsSha256": "37df15966eda2851ffe6ccbfef1f16c60da336f6df98b7bf2c087e9a9a423c30",
+      "nonTargetRowsUnchanged": true,
+      "originalFormSha256": "e4c9b09dac4eb8806eeb8bc835f3de6b40b2c9cc664c8bdc324e17c6fb21e9f1",
+      "modifiedFormSha256": "83696c0e458d91fba730f101ed79e3ee041cfd5e3acadb12cc2dcc661fd63198",
+      "reloadedFormSha256": "83696c0e458d91fba730f101ed79e3ee041cfd5e3acadb12cc2dcc661fd63198"
+    },
+    {
+      "kind": "rotation_deformer",
+      "objectId": "Rotation1",
+      "sourceGuid": "709fd2c2-3382-455c-a335-3fccd1cfbb6b",
+      "formGuid": "b563c76b-663a-4264-9a7a-e14a8ca969d8",
+      "originalRowsSha256": "e5f031abbe400d62c2ecebf4714c6ae8fa5fd47c8dbf19031d09d7397a33a29a",
+      "modifiedRowsSha256": "a53e4f97f3e34ad1f4a7898373312aeb89e257a89ed62c6bf14fef11cab31bc1",
+      "reloadedRowsSha256": "a53e4f97f3e34ad1f4a7898373312aeb89e257a89ed62c6bf14fef11cab31bc1",
+      "sourceSha256": "cc4dafd29d3288b712dd1236461407da89cb8cf6f4359683a198ef3801157b76",
+      "sourceUnchanged": true,
+      "nonTargetRowsSha256": "6ced08df9b55de9ce1f2282d5e6b45fe5b2a74ca80b5673896690d7b8fe06281",
+      "nonTargetRowsUnchanged": true,
+      "originalFormSha256": "04f49f53101f7de024d49927967efcb4edcae03074a7cec9e8bd15f5985a643e",
+      "modifiedFormSha256": "9d258e862ab2a30b40f643f5926cd562439c0edd255cb9439f716b58e6eeecd3",
+      "reloadedFormSha256": "9d258e862ab2a30b40f643f5926cd562439c0edd255cb9439f716b58e6eeecd3"
+    }
+  ],
+  "nativeBaseline": {
+    "runId": "queue-f0dec7d50c8a41519c84bc8dad094302",
+    "status": "BASELINE",
+    "geometryHashes": [
+      "745334b7937bfc67814a00e7c760c74eb39100d42fede6d3e5013b5b58cd16ce",
+      "1e04b38180e985f9413c96522af37b63ea0367d723fe69e87ed291d484f0ed17",
+      "e3afc696cb18effe2a738f3915a2f2112d5b24e83ddff6e61a56ced193e3614a"
+    ],
+    "bindingsHash": "5ce07b90654f80f277560016495c1d3192aa5af97c7d391c4b2b7b255733b29b",
+    "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f"
+  },
+  "nativeSavedVerification": {
+    "runId": "queue-f0dec7d50c8a41519c84bc8dad094302",
+    "status": "PASS",
+    "afterGeometryHashes": [
+      "bad91f1a7858356e7a5df8da78089eafc6732f83e4158c29de3d6e218b3b0839",
+      "82ac04e078c40dda965a77582d578720fd03fa951df0d19cd120c6bf00a566d0",
+      "159fc65f2a3b2f0d74e6b0b37a8809fbd62b11ad2fc3f7b105a6e90a90700c20"
+    ],
+    "afterBindingsHash": "5ce07b90654f80f277560016495c1d3192aa5af97c7d391c4b2b7b255733b29b",
+    "savedFileSha256": "5d262f4c6f64867ac223f12db40225b341f18de4f9e44e5cc8f3e8e72035f5e7",
+    "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+    "beforeGeometryHashes": [
+      "bad91f1a7858356e7a5df8da78089eafc6732f83e4158c29de3d6e218b3b0839",
+      "82ac04e078c40dda965a77582d578720fd03fa951df0d19cd120c6bf00a566d0",
+      "159fc65f2a3b2f0d74e6b0b37a8809fbd62b11ad2fc3f7b105a6e90a90700c20"
+    ],
+    "beforeBindingsHash": "5ce07b90654f80f277560016495c1d3192aa5af97c7d391c4b2b7b255733b29b",
+    "freshNativeDocument": true,
+    "taskFileIdentityVerified": true,
+    "fixtureUnchanged": true,
+    "geometryKinds": 3,
+    "bindingsEqual": true
+  },
+  "restoration": {
+    "runId": "queue-f0dec7d50c8a41519c84bc8dad094302",
+    "status": "PASS",
+    "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+    "savedFileSha256": "5d262f4c6f64867ac223f12db40225b341f18de4f9e44e5cc8f3e8e72035f5e7",
+    "restoredGeometryHashes": [
+      "745334b7937bfc67814a00e7c760c74eb39100d42fede6d3e5013b5b58cd16ce",
+      "1e04b38180e985f9413c96522af37b63ea0367d723fe69e87ed291d484f0ed17",
+      "e3afc696cb18effe2a738f3915a2f2112d5b24e83ddff6e61a56ced193e3614a"
+    ],
+    "restoredBindingsHash": "5ce07b90654f80f277560016495c1d3192aa5af97c7d391c4b2b7b255733b29b",
+    "originalRestored": true
+  },
+  "writeOutcome": "APPLIED",
+  "receipt": {
+    "transactionId": "authoring-2",
+    "label": "MCP ordinary keyforms",
+    "historyEntryId": "history-entry-2",
+    "historyBefore": {
+      "revision": 3,
+      "position": 0,
+      "managerBindingId": "history-manager-1",
+      "generation": 1,
+      "documentBindingId": "history-document-1",
+      "availability": "AVAILABLE"
+    },
+    "historyAfter": {
+      "revision": 4,
+      "position": 1,
+      "managerBindingId": "history-manager-1",
+      "generation": 1,
+      "documentBindingId": "history-document-1",
+      "availability": "AVAILABLE"
+    }
+  },
+  "writeTargets": [
+    {
+      "kind": "art_mesh",
+      "readbackVerified": true,
+      "sourceGuid": "7da9d33b-cfd9-4cdd-a2db-2306dc82d463",
+      "beforeHash": "de5f93aa8d7101a4bbb6bf8ab79c712d725f37a0bbc05c04edd6d0790d719b6d",
+      "objectId": "ArtMesh51",
+      "expectedAfterHash": "a49e11d8a5b40e97f1c943d9f1edfa87a2a4448ab9b272f51f7f73f097c96e35"
+    },
+    {
+      "kind": "warp_deformer",
+      "readbackVerified": true,
+      "sourceGuid": "5cf2be35-d5e2-4314-9314-fce76d81bf53",
+      "beforeHash": "4d96b0ca411b25aa72561f42386cce89b45f78f5d34f5367d14918daa80ea594",
+      "objectId": "Warp13",
+      "expectedAfterHash": "6b435a0ba14614668df65fd2b5bff7af13976a73dc8338e648d145f4fafa2f6f"
+    },
+    {
+      "kind": "rotation_deformer",
+      "readbackVerified": true,
+      "sourceGuid": "709fd2c2-3382-455c-a335-3fccd1cfbb6b",
+      "beforeHash": "761bddd4c8d7319ba43ab8b4bf1d28aca1f6ffa8537c62fea71d606ac3b71047",
+      "objectId": "Rotation1",
+      "expectedAfterHash": "b032216a46884fab6416ce601361e3ae628da0142ea9226156250622485b65c4"
+    }
+  ],
+  "distinctPoseCount": 2,
+  "limits": [
+    "Same JVM new native document; no cross-JVM acceptance",
+    "No XY nine-grid/blink/mouth or artistic quality acceptance",
+    "Test-only UI grant approval and document close; production file commands used",
+    "External MCP client, no ACP model image consumption",
+    "Full geometry and model materials stay private"
+  ]
+}

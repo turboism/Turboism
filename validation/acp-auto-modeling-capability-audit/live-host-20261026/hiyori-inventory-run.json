@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "fixtureLabel": "Official Hiyori PRO t11 (internal read-only inventory)",
+  "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "jobId": "eff90898-7abc-4215-bdfd-03cee6e46843",
+  "preparedId": "df4e0d4918ae2f1abe888c06bd5a37ff65d25e0812dd68a1b5371811b5c1b202",
+  "runId": "queue-5755c0c8a70441f7850debcfc458ee63",
+  "task": "mcp:5303@inspect",
+  "status": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "goldenUnchanged": true,
+  "cleanup": "safe",
+  "modelMutation": "NONE",
+  "evidenceSha256": {
+    "hiyori-inventory.json": "73217cb2305e53477183b82bdb9e72eef4a819b5480cca959ddd99da63c09c6a",
+    "hiyori-inventory-inspection.json": "b5ace30e017452ebc296fd4fad522ad86c7c877fa91571d1a37c4a3e29b18e53",
+    "hiyori-inventory-verified.properties": "42f5ec3718f1146af4ffa75a3a0dbe9ea1e5bdb35f3e67a48af6f20852e1c6ae"
+  },
+  "privateArtifacts": [
+    "full hierarchy/parameter/binding resources",
+    "complete authoring rows",
+    "native render PNG"
+  ],
+  "limits": [
+    "Semantic mapping not verified",
+    "No write, Undo/Redo or persistence test",
+    "External MCP inspection; no ACP model image consumption"
+  ]
+}

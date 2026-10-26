@@ -91,3 +91,60 @@ These host checks use the scripted agent; native CLI smoke tests run separately.
 The bundle keeps the task-scoped evidence directory, the redacted runner log, the
 Turboism home copy, and the re-verified hash manifests. Everything lives under the
 task ID; nothing is written outside `~/TurboismValidation` and the worktree.
+
+## Native render through the real ACP transcript (5.3.03)
+
+The managed `5303` lane also enables `TURBOISM_ACP_FAKE_NATIVE_RENDER=1` for the
+scripted agent. Other versions keep this additional acceptance lane disabled.
+The agent discovers all tool pages with a bounded, non-repeating cursor chain,
+reads `render.state`, calls the production `render.capture` at 256×256, checks the
+native renderer identity, exact document/model/revision/pose, PNG header/size/hash,
+and verifies the capture did not change state or parameters. It forwards the
+original metadata text and image as ACP typed tool content; no image base64 goes
+into a text block. Rendering runs after guarded rename/undo restoration.
+
+The host probe waits for the production preview worker, then inspects the actual
+Agent window's `StyledDocument`. It requires exactly one image icon with all
+256×256 ARGB pixels equal to the native PNG, and a matching tool/capture/document/
+model/revision/dimensions label. It rejects base64 in transcript text and captures
+the window after the checks. This is a scripted ACP-v1 path with a real host,
+bridge, production render and Swing UI; it does **not** prove a real model saw or
+understood the image, nor does it validate native Pi/Codex/Claude providers.
+
+Evidence is `state/dev.turboism.plugin.acp/agent-native-render.{json,png}`,
+`state/acp-transcript-render.png`, `state/acp-agent-window.png`, and the agent/host
+properties reports (`nativeRenderTypedImage`, `nativeRenderAcpForwarded`,
+`nativeRenderSwing`, `nativeRenderNoBase64Text`). The probe never reads plugin
+private fields or injects image icons. Offline checks:
+
+```bash
+bash validation/acp-fake-agent/build.sh selftest
+bash validation/acp-host-probe/build.sh selftest
+```
+
+The first test uses a local stub MCP service and rejects corrupt image hash,
+state and type before forwarding. The second checks the independent Swing evidence
+matcher with matching/missing/wrong/duplicate icons, stale provenance and base64
+text. Neither offline check proves host or model acceptance.
+
+Packaging also checks the three staged JAR identities and every required plugin
+dependency against the actual stamped versions. A stale range fails before host
+launch (`validation/acp-host-probe/check_bundle.py`); the probe follows the
+production ACP plugin's current `[0.1.0,0.68.0)` MCP dependency window.
+
+
+## Raw-output-only render forwarding
+
+For exact 5.3.03, the scripted ACP agent forwards its verified production MCP render
+response as `tool_call_update.rawOutput`, without an ACP `content` projection. The
+production client must convert that MCP envelope into typed text/image content and
+show the same PNG pixels and reported capture provenance in the existing Swing UI.
+The agent records `nativeRenderAcpFormat=RAW_OUTPUT_ONLY`; the host probe retains its
+full ARGB/source identity checks. The fake-agent subprocess selftest rejects wrong
+PNG hash, changed render state and lost image type before forwarding anything.
+
+This tests the ACP result-display path with a scripted agent, not external model
+image consumption, automatic artistic judgment or durable operation recovery.
+Native adapters with explicit nonempty ACP content keep their previous path; raw
+output is a fallback and is never merged into existing images or used to change
+the agent-reported tool status.

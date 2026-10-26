@@ -104,11 +104,21 @@ public record ArtMeshAuthoringSnapshot(
         }
     }
 
-    /** Positions are the native stored values, not the currently evaluated form. */
-    public record Form(String formGuid, List<Point2> positions, int drawOrder) {
+    /**
+     * Native stored values, not the currently evaluated form. Opacity is empty when the
+     * implementation cannot observe it; empty never means opaque. Stored morph values are
+     * preserved without clamping or interpreting them as absolute ordinary opacity.
+     */
+    public record Form(String formGuid, List<Point2> positions, int drawOrder, Optional<Float> opacity) {
+        /** Compatibility constructor for implementations that do not observe stored opacity. */
+        public Form(String formGuid, List<Point2> positions, int drawOrder) {
+            this(formGuid, positions, drawOrder, Optional.empty());
+        }
+
         public Form {
             formGuid = identity(formGuid);
             positions = List.copyOf(positions);
+            Objects.requireNonNull(opacity, "opacity").ifPresent(ArtMeshAuthoringSnapshot::finite);
         }
     }
 

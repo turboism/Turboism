@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "scope": "Real Pi native production ACP sidecar and production MCP in standard 5.3.03 host queue",
+  "status": "NOT_ACCEPTED_MODEL_SERVICES_UNAVAILABLE",
+  "attemptCount": 3,
+  "allAttemptsTerminal": true,
+  "allCleanupSafe": true,
+  "modelToolCalls": 0,
+  "nativeAgentImageCallbacks": 0,
+  "modelVisionAccepted": false,
+  "swingWindowVerified": false,
+  "observedBlockers": [
+    {
+      "provider": "zai-coding-cn",
+      "httpStatus": 429
+    },
+    {
+      "provider": "opencode-go",
+      "httpStatus": 401,
+      "reason": "expired credentials"
+    }
+  ],
+  "evidenceSha256": {
+    "native-observe-rate-limit-failure.json": "512b491a61af9df545bd055f18deb13b446ba93d616cebe8733424f00c2059ba",
+    "native-observe-vision-rate-limit-failure.json": "00bd3bb2a95ff05e632c67851a5cc612d0bca4897246461333fdd477aaf95a61",
+    "native-observe-expired-credentials-failure.json": "57ed64c57719839b2dc9c63f1359479256be27093cfb4a0920ee4845ff2a012a",
+    "native-observe-pi-bridge-tests.txt": "e2c5000619e882d1ecc71c1bba8764fde02b5d272e109c9b0d5b3b1f8a2c452a"
+  },
+  "currentSourceSha256": {
+    "validation/acp-native-host-probe/NativeObserve.java": "036f05c1b5c651ac3cfb715547e867663c131423a1204ea2792a33a17f640dd6",
+    "validation/acp-native-host-probe/NativeObserveSelfTest.java": "ac7739d2eae13d703b518bbdfed2d16c06ae592b31db1f9efc1eb6dbec2ab11d",
+    "validation/acp-native-host-probe/build.sh": "d32c545105ddc1f05c7228c0514ccaf2d0ad646acf0bc3f98494f84d50ea23bb",
+    "scripts/preview/hvq/snapshot.py": "6eb6acc5dea09b0e6413f315744851985aad594af915285f1a4d5a693a4cd600",
+    "scripts/preview/mcp-host-validation-client.py": "4beaaa0334828ab73e412119853a6cbbffc9f0a3e838073a7e2c9efd9b34b292",
+    "scripts/preview/run-mcp-host-validation.sh": "7fb8694daf08afb8e236da7284ef0eece17e4b787697b0f228cbc7b04387268a",
+    "scripts/preview/run-cubism-host-validation.sh": "013bcf0a1779f4596113e2e8c01453271cf6f0c0f85372d29fd0e1c082544a39",
+    "plugins/acp/src/main/resources/native/pi-mcp-extension.mjs": "dc5d37b21435ce576cf5faebe460d0fd643b5dc47d0fbbf9d6ad79effc4d6cd1",
+    "plugins/acp/src/test/js/pi-mcp-extension.test.mjs": "e033a86959b9225fa3194c3894e4efa644a8fc5bdfdccb5aaac180f0685c1827"
+  },
+  "offlineTests": {
+    "client": {
+      "passed": 52
+    },
+    "isolatedFakeQueue": {
+      "passed": 126
+    },
+    "staticGates": {
+      "passed": 34
+    },
+    "releaseSelfTests": {
+      "passed": 66
+    },
+    "nativeMetadataObserverSelfTest": "PASS",
+    "runnerArguments": "PASS",
+    "piBridgeNodeTest": "PASS",
+    "acpJavaSuites": [
+      {
+        "suite": "NativeAgentTransportTest",
+        "tests": 23,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "junitXmlSha256": "7655dda237a9f3d98d501e1fada4d3788437fff8c987e87f2d37f778584df4c7"
+      },
+      {
+        "suite": "AcpClientTest",
+        "tests": 32,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "junitXmlSha256": "145a078542c12b2f00e791760776f297c2143a30bb4eca3efe61f8007c808e61"
+      }
+    ],
+    "standardPackage": "PASS"
+  },
+  "limits": [
+    "No successful model prompt/tool/image consumption",
+    "Failed runners did not complete final file/identity/golden checks",
+    "New production Pi capability notice verified offline only; not part of these earlier live attempts",
+    "No full MCP/Runtime regression rerun",
+    "Raw sessions, account settings, credentials, geometry and model images remain private"
+  ]
+}

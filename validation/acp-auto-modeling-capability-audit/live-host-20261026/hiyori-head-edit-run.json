@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "fixtureLabel": "Official Hiyori PRO t11 (internal bounded rig edit validation)",
+  "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "jobId": "0b91006c-fd63-452e-af78-9d6cfc6073ae",
+  "preparedId": "8d7aed7f587f50c4e8d5c4dba8b33999d36d7083159d6b60a9d2c8c0e831673b",
+  "runId": "queue-0e268041ab58451688f82045987d8f34",
+  "task": "mcp:5303@head-edit",
+  "status": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "goldenUnchanged": true,
+  "cleanup": "safe",
+  "modelMutation": "BOUNDED_HEAD_ORDINARY_GEOMETRY_RESTORED",
+  "evidenceSha256": {
+    "hiyori-head-edit-verified.properties": "2d7a49eb0165cd80702821d62afa7de7e79fe0a5a00535dd6fa6eee99d55a7a7",
+    "hiyori-head-edit-rollback.json": "5120c16ef12b4aa8981280240b32fca0fdd414a7b06d3dd9d45a137976ba5823",
+    "hiyori-head-edit-candidates.json": "533a0200e0b7bd136d5c6b8f6fb8649088d4c3a33d167202878bf40d067a2ffe",
+    "hiyori-head-edit.json": "163caa3ed66a0dff7cea25e9c9a7f762e066259a9f7c241e4daad3ee0b5812ec",
+    "hiyori-head-edit-render-before.json": "6503ad74a892ea034c1e1ad665ad16c1c1c47c0c395f9abfe1a33244b19e4c5d",
+    "hiyori-head-edit-render-after.json": "b47fc83851efc1a7c1438336172b05d760ada31e2ee3cba55f25d29772045d74"
+  },
+  "privateArtifacts": [
+    "complete authoring/source/form rows",
+    "native pose PNGs",
+    "full inventory resources"
+  ],
+  "limits": [
+    "Combined edit images do not isolate each object contribution",
+    "No XY grid, blink/mouth or artistic quality acceptance",
+    "No Hiyori save/reopen test",
+    "External MCP client; no ACP model consumption"
+  ]
+}

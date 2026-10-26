@@ -29,6 +29,12 @@ final class PermissionCheckedParameter implements Parameter {
     }
 
     @Override
+    public String guid() {
+        facade.requireModelRead("parameter.guid");
+        return delegate.guid();
+    }
+
+    @Override
     public int index() {
         facade.requireModelRead("parameter.index");
         return delegate.index();

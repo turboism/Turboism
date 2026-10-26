@@ -1,0 +1,114 @@
+{
+  "status": "READ_VERIFIED_CANDIDATE_ONLY",
+  "state": {
+    "modelId": "model-session-3",
+    "documentId": "document-session-2",
+    "poseHash": "fa0c534a859122f9613d9058c22fefc0e12cb51cfaf055b4bd5f10d79f8121e0",
+    "historyRevision": 1,
+    "historyGeneration": 1
+  },
+  "objects": [
+    {
+      "role": "face_rotation",
+      "kind": "rotation_deformer",
+      "objectId": "Rotation1",
+      "parameterIds": [
+        "ParamAngleZ"
+      ],
+      "sourceGuid": "709fd2c2-3382-455c-a335-3fccd1cfbb6b",
+      "rowCount": 13,
+      "rowsSha256": "e5f031abbe400d62c2ecebf4714c6ae8fa5fd47c8dbf19031d09d7397a33a29a",
+      "axes": [
+        {
+          "parameterId": "ParamAngleZ",
+          "parameterGuid": "5766e6de-ac0e-494a-8c13-9962d50f70f7",
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ]
+        }
+      ],
+      "cellCount": 3,
+      "formCount": 3,
+      "eligibleFormCount": 2,
+      "hostWriteAdmission": "UNPROVEN",
+      "semanticMapping": "CANDIDATE_ONLY"
+    },
+    {
+      "role": "face_warp",
+      "kind": "warp_deformer",
+      "objectId": "Warp13",
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamAngleY"
+      ],
+      "sourceGuid": "5cf2be35-d5e2-4314-9314-fce76d81bf53",
+      "rowCount": 356,
+      "rowsSha256": "6859c10139bfde6e30a8370eabf4b0a85a6d0ca1cdba8997a2d362e37c8c6c70",
+      "axes": [
+        {
+          "parameterId": "ParamAngleY",
+          "parameterGuid": "89fe6311-a73d-4d5f-9992-d4f744c41984",
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ]
+        },
+        {
+          "parameterId": "ParamAngleX",
+          "parameterGuid": "f187f0b6-03c4-4aec-96e0-e7ecd82c566c",
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ]
+        }
+      ],
+      "cellCount": 9,
+      "formCount": 9,
+      "eligibleFormCount": 8,
+      "hostWriteAdmission": "UNPROVEN",
+      "semanticMapping": "CANDIDATE_ONLY"
+    },
+    {
+      "role": "face_contour",
+      "kind": "art_mesh",
+      "objectId": "ArtMesh51",
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamAngleY"
+      ],
+      "sourceGuid": "7da9d33b-cfd9-4cdd-a2db-2306dc82d463",
+      "rowCount": 816,
+      "rowsSha256": "1eab3f6d6fa75f62a1b415096b67e77d75bbd986fd50215597963ef8b66d27c3",
+      "axes": [
+        {
+          "parameterId": "ParamAngleY",
+          "parameterGuid": "89fe6311-a73d-4d5f-9992-d4f744c41984",
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ]
+        },
+        {
+          "parameterId": "ParamAngleX",
+          "parameterGuid": "f187f0b6-03c4-4aec-96e0-e7ecd82c566c",
+          "keys": [
+            -30.0,
+            0.0,
+            30.0
+          ]
+        }
+      ],
+      "cellCount": 9,
+      "formCount": 9,
+      "eligibleFormCount": 8,
+      "hostWriteAdmission": "UNPROVEN",
+      "semanticMapping": "CANDIDATE_ONLY"
+    }
+  ],
+  "profile": "Hiyori PRO t11 names, hierarchy and ordinary bindings; not a general classifier"
+}

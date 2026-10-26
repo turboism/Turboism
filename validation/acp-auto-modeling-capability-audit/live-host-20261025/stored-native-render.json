@@ -1,0 +1,170 @@
+{
+  "ok": true,
+  "captureId": "12097737-c1cb-49e8-8117-2b3c2c24bf47",
+  "capturedAt": "2026-10-25T05:39:27.330682500Z",
+  "state": {
+    "modelId": "model-session-3",
+    "documentId": "document-session-2",
+    "poseHash": "3fb11c28abe2397fcead97359eec143c8c91556cb678f8dc6b91abcdeedfa9dc",
+    "historyRevision": 1,
+    "historyGeneration": 1
+  },
+  "parameters": [
+    {
+      "id": "ParamAngleX",
+      "ordinal": 0,
+      "value": 0.0
+    },
+    {
+      "id": "ParamAngleY",
+      "ordinal": 1,
+      "value": 0.0
+    },
+    {
+      "id": "ParamAngleZ",
+      "ordinal": 2,
+      "value": 0.0
+    },
+    {
+      "id": "ParamEyeLOpen",
+      "ordinal": 3,
+      "value": 1.0
+    },
+    {
+      "id": "ParamEyeLSmile",
+      "ordinal": 4,
+      "value": 0.0
+    },
+    {
+      "id": "ParamEyeROpen",
+      "ordinal": 5,
+      "value": 1.0
+    },
+    {
+      "id": "ParamEyeRSmile",
+      "ordinal": 6,
+      "value": 0.0
+    },
+    {
+      "id": "ParamEyeBallX",
+      "ordinal": 7,
+      "value": 0.0
+    },
+    {
+      "id": "ParamEyeBallY",
+      "ordinal": 8,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowLY",
+      "ordinal": 9,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowRY",
+      "ordinal": 10,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowLX",
+      "ordinal": 11,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowRX",
+      "ordinal": 12,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowLAngle",
+      "ordinal": 13,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowRAngle",
+      "ordinal": 14,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowLForm",
+      "ordinal": 15,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBrowRForm",
+      "ordinal": 16,
+      "value": 0.0
+    },
+    {
+      "id": "ParamMouthForm",
+      "ordinal": 17,
+      "value": 0.0
+    },
+    {
+      "id": "ParamMouthOpenY",
+      "ordinal": 18,
+      "value": 0.0
+    },
+    {
+      "id": "ParamCheek",
+      "ordinal": 19,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBodyAngleX",
+      "ordinal": 20,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBodyAngleY",
+      "ordinal": 21,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBodyAngleZ",
+      "ordinal": 22,
+      "value": 0.0
+    },
+    {
+      "id": "ParamBreath",
+      "ordinal": 23,
+      "value": 0.0
+    },
+    {
+      "id": "ParamHairFront",
+      "ordinal": 24,
+      "value": 0.0
+    },
+    {
+      "id": "ParamHairSide",
+      "ordinal": 25,
+      "value": 0.0
+    },
+    {
+      "id": "ParamHairBack",
+      "ordinal": 26,
+      "value": 0.0
+    },
+    {
+      "id": "ParamAngleY2",
+      "ordinal": 27,
+      "value": 0.0
+    }
+  ],
+  "width": 256,
+  "height": 256,
+  "renderWidth": 256,
+  "renderHeight": 256,
+  "crop": {
+    "y": 0,
+    "x": 0,
+    "height": 256,
+    "width": 256
+  },
+  "mimeType": "image/png",
+  "byteLength": 3297,
+  "sha256": "46eed740b85502158891dfd4d23d29626737499f071a691ae85f9ca1aff7d623",
+  "renderer": "cubism.native.renderPixels",
+  "pixelCoordinates": "origin-top-left,x-right,y-down",
+  "modelToPixelTransform": null
+}

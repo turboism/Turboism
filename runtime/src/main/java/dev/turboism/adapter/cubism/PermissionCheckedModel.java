@@ -518,6 +518,15 @@ final class PermissionCheckedModel implements CubismModel {
                 facade.requireModelWrite("model.parameterGroups.moveParameter");
                 groups.moveParameter(parameterId, targetGroupId);
             }
+
+            @Override
+            public void moveParameter(
+                    final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+                    final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId,
+                    final int insertIndex) {
+                facade.requireModelWrite("model.parameterGroups.moveParameter");
+                groups.moveParameter(parameterId, targetGroupId, insertIndex);
+            }
         };
     }
 
@@ -558,6 +567,15 @@ final class PermissionCheckedModel implements CubismModel {
                         CubismOperation.BIND_PARAMETER,
                         "model.parameterBindings.bind",
                         () -> operations.bind(target, points));
+            }
+
+            @Override
+            public void bindValues(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target, final List<Float> values) {
+                write(
+                        CubismOperation.BIND_PARAMETER,
+                        "model.parameterBindings.bindValues",
+                        () -> operations.bindValues(target, values));
             }
 
             @Override

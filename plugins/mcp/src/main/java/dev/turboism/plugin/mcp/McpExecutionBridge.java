@@ -42,6 +42,7 @@ final class McpExecutionBridge {
     <T> T ui(final Supplier<T> invocation) {
         McpRequestRegistry.throwIfCancelled();
         final McpRequestRegistry.Cancellation cancellation = McpRequestRegistry.currentCancellation();
+        final String sessionId = McpRequestRegistry.currentSessionId();
         final CompletableFuture<T> result = new CompletableFuture<>();
         final AtomicInteger state = new AtomicInteger();
         final Registration cancellationRegistration = McpRequestRegistry.onCancellation(() -> {
@@ -52,7 +53,7 @@ final class McpExecutionBridge {
             if (cancellation.cancelled()) {
                 result.cancel(false);
             } else {
-                complete(result, invocation);
+                complete(result, () -> McpRequestRegistry.inSession(sessionId, invocation));
             }
         });
         try {

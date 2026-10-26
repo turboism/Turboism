@@ -177,6 +177,12 @@ final class SessionModel implements CubismModel {
             }
 
             @Override
+            public void bindValues(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target, final List<Float> values) {
+                host.guardedVoid(generation, () -> operations.bindValues(target, values));
+            }
+
+            @Override
             public void createPoint(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
                     final dev.turboism.sdk.cubism.model.ParameterBindingPoint point) {

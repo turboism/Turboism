@@ -90,6 +90,35 @@ class EditorArtMeshKeyformAccessTest {
     }
 
     @Test
+    void ordinaryWritesPreserveStoredOpacityAndRejectOpacityOnlyStaleness() {
+        var fixture = new Fixture();
+        fixture.source.forms.get(8).storedOpacity = .25F;
+        var target = fixture.open(tuple(1, 1));
+        assertEquals(java.util.Optional.of(.25F), target.snapshot().opacity());
+        target.setPositions(POSITIONS);
+        target = fixture.open(tuple(1, 1));
+        target.setDrawOrder(650);
+        assertEquals(java.util.Optional.of(.25F), fixture.read().forms().get(8).opacity());
+        var stale = fixture.read();
+        fixture.source.forms.get(8).storedOpacity = .75F;
+        int writes = fixture.writes.get();
+        assertThrows(
+                IllegalStateException.class,
+                () -> EditorArtMeshKeyformAccess.writeBatch(
+                        fixture.resolver,
+                        ID,
+                        () -> fixture.source,
+                        stale,
+                        List.of(new dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions(
+                                tuple(1, 1), "f8", POSITIONS)),
+                        () -> {},
+                        (form, property, label, mutation, applied, compensation, restored) ->
+                                fail("No writer on stale snapshot")));
+        assertEquals(writes, fixture.writes.get());
+        assertEquals(.75F, fixture.source.forms.get(8).storedOpacity);
+    }
+
+    @Test
     void invalidTuplesAndTopologyFailBeforeMutation() {
         final var fixture = new Fixture();
         for (final var input : List.of(
@@ -242,7 +271,8 @@ class EditorArtMeshKeyformAccessTest {
             target.setDrawOrder(order);
             final var forms = before.forms().stream()
                     .map(form -> form.formGuid().equals("f8")
-                            ? new ArtMeshAuthoringSnapshot.Form(form.formGuid(), form.positions(), order)
+                            ? new ArtMeshAuthoringSnapshot.Form(
+                                    form.formGuid(), form.positions(), order, form.opacity())
                             : form)
                     .toList();
             assertEquals(
@@ -327,6 +357,7 @@ class EditorArtMeshKeyformAccessTest {
         final var selectors = new ArrayList<>(EditorArtMeshAuthoringReadAccessTest.selectors());
         selectors.add(method(M + "art-mesh-form.set-positions", StoredForm.class, "setPositions", float[].class));
         selectors.add(method(M + "drawable-form.set-draw-order", StoredForm.class, "setDrawOrder", int.class));
+        selectors.add(method(M + "drawable-form.opacity", StoredForm.class, "opacity"));
         // These unused aliases grant only this fake resolver, not production transaction-wiring evidence.
         for (final String alias : EditorArtMeshKeyformSelectorContract.REQUIRED_ALIASES) {
             if (selectors.stream().noneMatch(s -> s.alias().equals(alias))) {

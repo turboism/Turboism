@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "fixtureLabel": "Official Hiyori PRO t11 (bounded head rig production file persistence)",
+  "fixtureSha256": "cd435579a8f12363493049233b97db47a7ac91e6aeb5993c7c5f93dc6374070f",
+  "savedFileSha256": "5d262f4c6f64867ac223f12db40225b341f18de4f9e44e5cc8f3e8e72035f5e7",
+  "jobId": "70ed7ee6-50ad-49cc-be93-ee1700f4ff45",
+  "preparedId": "30f6b4b2a5fccf0c1650d845dfcfc92aa44564cfe017093298cc2bd83fa2dcaa",
+  "runId": "queue-f0dec7d50c8a41519c84bc8dad094302",
+  "task": "mcp:5303@head-save",
+  "status": "succeeded",
+  "validationStatus": "PASS",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "goldenUnchanged": true,
+  "cleanup": "safe",
+  "modelMutation": "BOUNDED_HEAD_EDIT_SAVE_AS_OPEN_ORIGINAL_RESTORED",
+  "evidenceSha256": {
+    "hiyori-head-save-verified.properties": "bc6eb7a0f03bd72597dcc20caa12f7379dbb19ca54ae24714661925061d27112",
+    "hiyori-head-save-baseline.json": "a835da75abe0bf150a200c6b735d14d811f75263fef77e3cf85c82e33f89d28c",
+    "hiyori-head-save-closed.json": "6d1c79c860efa65e06b10425f84977062efa3ee45c361290461ba99c6c485bb6",
+    "hiyori-head-save-native.json": "be759a9d714833044842ba8851502236f9f4066eedb2313319f5f95ca9f255ea",
+    "hiyori-head-save-restore-closed.json": "d971ad8e826728279c069d1d655739f94ea18761a81cf990c12e649f936561a3",
+    "hiyori-head-save-restored.json": "a7cc2d9b7e236b93439bde95094f4ac15fe902983c6e12404368a0b29867bed6",
+    "hiyori-head-save-open.json": "c40bb9cefdef67577acf8f8c4b9368ca53f2da4235666b2924ac0e1b36a71f4c",
+    "hiyori-head-save-render-before.json": "82212d83f621d069b012670e42d28d4c03a6535d7d702c2a229e89338a7cde5e",
+    "hiyori-head-save-render-modified.json": "7f7aebd6df20721c289db3d0b553ea0d20af830e6ff2141bfd8c3d6b24710056",
+    "hiyori-head-save-render-reloaded.json": "0be19f8bfb44de4a46c7c88bb1aa24b05a32673bf3177ab219d7f10a1a7b4212"
+  },
+  "privatePoseImages": [
+    {
+      "phase": "before",
+      "index": 0,
+      "sha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7"
+    },
+    {
+      "phase": "before",
+      "index": 1,
+      "sha256": "c5be670a56747e73896137b1bbd1d4d8be6d001521b093793ccd4907cde2f1f7"
+    },
+    {
+      "phase": "before",
+      "index": 2,
+      "sha256": "f81cfb7e26b984a2659d653281e1dda3cdd5d0cbcc41a66ac1cedb4a7754de48"
+    },
+    {
+      "phase": "modified",
+      "index": 0,
+      "sha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90"
+    },
+    {
+      "phase": "modified",
+      "index": 1,
+      "sha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90"
+    },
+    {
+      "phase": "modified",
+      "index": 2,
+      "sha256": "f0c864b5532537668e6409b9b5e1dd341923317511c7d8e5e57750476756cca0"
+    },
+    {
+      "phase": "reloaded",
+      "index": 0,
+      "sha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90"
+    },
+    {
+      "phase": "reloaded",
+      "index": 1,
+      "sha256": "63582e26ff8a52fabbc68731529a515d96c6465391cbd7b011ee2e3f3c8c4e90"
+    },
+    {
+      "phase": "reloaded",
+      "index": 2,
+      "sha256": "f0c864b5532537668e6409b9b5e1dd341923317511c7d8e5e57750476756cca0"
+    }
+  ],
+  "privateArtifacts": [
+    "all complete authoring/source/form rows",
+    "native pose PNGs",
+    "authorized saved CMO3",
+    "original CMO3"
+  ],
+  "limits": [
+    "Same JVM new native document; no cross-JVM acceptance",
+    "No XY nine-grid/blink/mouth or artistic quality acceptance",
+    "Test-only UI grant approval and document close; production file commands used",
+    "External MCP client, no ACP model image consumption",
+    "Full geometry and model materials stay private"
+  ]
+}
