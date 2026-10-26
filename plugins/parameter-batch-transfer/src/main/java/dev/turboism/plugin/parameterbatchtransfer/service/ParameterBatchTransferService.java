@@ -90,7 +90,8 @@ public final class ParameterBatchTransferService {
 
     /**
      * Applies each non-no-op row as one atomic transfer on the owner. Rows whose target equals the
-     * source are skipped (the SDK plan constructor rejects identical parameters). BLEND_SHAPE rows
+     * source are skipped unless inversion is requested; inverted self-target rows reverse only that
+     * binding in place. BLEND_SHAPE rows
      * transfer every source Morph Target point in one whole-binding operation, while KEYFORM_GRID
      * rows run the existing keyform batch transfer with the requested inversion. Duplicate
      * non-no-op destinations fail closed before any row is edited. A failing row increments
@@ -102,7 +103,7 @@ public final class ParameterBatchTransferService {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(rows, "rows");
         final List<BatchTransferRow> activeRows = rows.stream()
-                .filter(row -> !row.snapshot().parameterId().equals(row.target()))
+                .filter(row -> row.invert() || !row.snapshot().parameterId().equals(row.target()))
                 .toList();
         final Set<ParameterId> destinations = new java.util.HashSet<>();
         if (activeRows.stream().map(BatchTransferRow::target).anyMatch(id -> !destinations.add(id))) {
@@ -114,11 +115,7 @@ public final class ParameterBatchTransferService {
 
         int applied = 0;
         int failed = 0;
-        for (final BatchTransferRow row : rows) {
-            final ParameterId from = row.snapshot().parameterId();
-            if (from.equals(row.target())) {
-                continue;
-            }
+        for (final BatchTransferRow row : activeRows) {
             try {
                 if (row.snapshot().family() == ParameterBindingFamily.BLEND_SHAPE) {
                     morphTransfer(model, owner, row);
@@ -157,8 +154,11 @@ public final class ParameterBatchTransferService {
         final ArrayList<Float> clampedFrom = new ArrayList<>();
         for (ParameterBindingPoint point : points) {
             // + 0.0F normalizes -0.0F back to +0.0F (negating 0 stays 0).
-            final float requested = row.invert() ? -point.value() + 0.0F : point.value();
-            final float mapped = clamp(requested, minimum, maximum);
+            final boolean selfInversion = from.equals(to);
+            final float requested = selfInversion
+                    ? minimum + maximum - point.value() + 0.0F
+                    : row.invert() ? -point.value() + 0.0F : point.value();
+            final float mapped = selfInversion ? requested : clamp(requested, minimum, maximum);
             before.add(point.value());
             after.add(mapped);
             if (Float.compare(mapped, requested) != 0) clampedFrom.add(requested);
