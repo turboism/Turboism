@@ -33,6 +33,7 @@ class StartupLoadingWindowTest {
         try (StartupLoadingWindow loading = StartupLoadingWindow.open()) {
             final Dialog window = awaitWindow();
             EventQueue.invokeAndWait(() -> {
+                assertTrue(window.isUndecorated());
                 assertFalse(window.isModal());
                 assertFalse(window.getFocusableWindowState());
                 if (window.isAlwaysOnTopSupported()) assertTrue(window.isAlwaysOnTop());
