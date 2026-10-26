@@ -55,6 +55,27 @@ if absent. A service's `unavailable()` sentinel supports explicit fallback where
 appropriate. Presence does not guarantee that every version-routed call works.
 New optional services use the directory; do not add per-feature context accessors.
 
+## Parameter folder order
+
+`ParameterGroup.orderedChildren()` returns the actual mixed order of direct folders
+and parameters as immutable `ParameterGroupChild` values. The two existing
+`childGroupIds()` / `parameterIds()` lists each preserve their own order but cannot
+reconstruct interleaving. `Kind` distinguishes a group ID from a parameter ID with
+the same text; these IDs are not native GUIDs and do not resolve duplicate IDs.
+Legacy providers fail closed rather than synthesizing an order.
+
+`ParameterGroups.moveParameter(parameterId, targetGroupId, insertIndex)` uses a
+zero-based position in the target's mixed children **after removing the moved
+parameter**. The inclusive upper bound appends; negative or oversized indices
+are rejected before opening an edit, and an unchanged position creates no Undo.
+The existing two-argument overload appends using the same post-removal rule.
+Indexed moves require a provider implementing the new overload; its default
+does not discard the index by delegating to append. Read/write permission and
+session generation checks also apply to these additions. Native writes still
+require exact reviewed selectors; an ambient authoring transaction additionally
+requires verified group Undo support. These APIs do not add group reordering,
+a multi-call transaction, a MCP structure tool, or live-host acceptance.
+
 ## Lifecycle and threads
 
 [TurboismPlugin](src/main/java/dev/turboism/sdk/plugin/TurboismPlugin.java) defines
@@ -134,6 +155,15 @@ for bounded asynchronous access under plugin-owned `StorageRoot` directories.
 truncation; atomic writes may fail when atomic replacement is unavailable.
 Use [UserFileAccessService](src/main/java/dev/turboism/sdk/ui/UserFileAccessService.java)
 for user-selected external files. Do not bypass mediation with host paths.
+For larger binary exports, `writeBytesAtomicBounded(handle, content, maxBytes)`
+requires an existing WRITE handle and a positive explicit budget up to 128 MiB.
+The current Runtime copies the bytes before asynchronous atomic replacement;
+`written=false` means the target was left unchanged. The original binary writer
+keeps its 8 MiB limit. The compatibility default delegates only budgets up to
+8 MiB and reports unavailable above that, without consuming any new file grant.
+Keep the handle alive until the returned stage actually completes; cancellation
+of a caller's wait does not establish that file I/O stopped. A thrown or lost
+completion requires result reconciliation, not an automatic overwrite retry.
 
 [PluginConfigRegistry](src/main/java/dev/turboism/sdk/config/PluginConfigRegistry.java)
 supports scoped string values and typed schemas, codecs and migrations. Keep
@@ -219,3 +249,19 @@ Treat dependencies on it as version-pinned and review each SDK update. Removing
 the annotation promotes an API to the normal compatibility rules, subject to the
 repository's pre-stable policy. An unannotated API is not proof that the first
 stable release has happened.
+
+
+### Editor parameter identity for authoring plans
+
+`Parameter.id()` is the editable Cubism display ID; `Parameter.guid()` reads the opaque native Editor authoring source GUID. Match it to ordinary snapshot axis `parameterGuid`, together with document/model/generation and the full expected state. A GUID alone neither grants write permission nor revives a stale handle. Renaming a display ID does not redefine source identity, but an old ID-bound handle may be stale; rediscover the handle instead of assuming it survives a rename. A deleted/recreated same-ID parameter may have a different GUID. Do not synthesize GUIDs from display IDs, names, Core indices or object addresses.
+
+The default `guid()` implementation fails closed. Core-only, detached and third-party backends without native authoring identity do not acquire a fabricated identity. Runtime forwards the getter through read-permission and session-generation checks; it reads the verified native parameter source, never the current value or a UI selection, and adds no Undo entry. Exact host selector availability remains authoritative. This identity accessor is a building block for safe binding initialization, not an automatic rig copy or initialization algorithm.
+
+
+### Create parameter bindings from values
+
+`model.parameterBindings(parameterId).bindValues(target, List.of(-1f, 0f, 1f))` creates a binding on a target not already bound to that parameter. The values are examples only; use the discovered parameter definition and an approved plan. Callers provide values, not fabricated native binding-point IDs. Read the binding and authoring snapshot after creation to obtain canonical point identities, axes, cells and stored forms before further edits.
+
+The Editor backend copies and sorts finite, nonempty values and rejects duplicates within its existing binding tolerance. It uses the same exact-host admission, protected-state verification, authoring transaction participation, native Undo and rollback paths as `bind`. Permission and session wrappers check each call. Other backends inherit an explicitly unavailable default; there is no fallback that invents point IDs or invokes UI commands.
+
+This single-axis primitive does not establish a complete independent Cartesian grid, guarantee that the original form GUID belongs to the parameter default, or verify rendered quality. A higher-level initializer must independently validate parameter GUIDs and definitions, complete target state, default-form content, all generated cells/forms and rollback before claiming a modeling workflow. The MCP `authoring.bindings.initialize_plan/initialize/initialize_result` workflow applies these checks to one previously zero-axis source. Its returned tuples still require a fresh authoring snapshot before further form writes; this is not real-host or visual acceptance.

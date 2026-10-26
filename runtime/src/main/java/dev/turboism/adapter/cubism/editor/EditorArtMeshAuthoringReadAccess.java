@@ -79,6 +79,12 @@ final class EditorArtMeshAuthoringReadAccess {
                 throw new IllegalStateException("duplicate native grid binding");
             }
         }
+        // Opacity is an additive observation: older verified resolvers may still expose
+        // all geometry selectors without this property. Never substitute evaluated opacity.
+        final boolean opacityReadable = resolver.authorizesFeature(
+                EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
+                "cubism.editor-model.read",
+                java.util.Set.of(MODEL + "drawable-form.opacity"));
         final var forms = new ArrayList<Form>();
         final var cells = new ArrayList<Cell>();
         for (final Object form : list(model("art-mesh-source.keyforms", source))) {
@@ -88,7 +94,11 @@ final class EditorArtMeshAuthoringReadAccess {
             if (!(order instanceof Integer drawOrder)) {
                 throw new IllegalStateException("stored draw order is not an int");
             }
-            forms.add(new Form(formGuid, points(model("art-mesh-form.positions", form)), drawOrder));
+            forms.add(new Form(
+                    formGuid,
+                    points(model("art-mesh-form.positions", form)),
+                    drawOrder,
+                    opacityReadable ? Optional.of(number(model("drawable-form.opacity", form))) : Optional.empty()));
             // Every reviewed generation exposes form -> rows; the grid -> all rows
             // selector is 5.3.03-only and deliberately not used here.
             for (final Object row : list(semantic("keyform-grid.forms-for-guid", grid, nativeGuid))) {

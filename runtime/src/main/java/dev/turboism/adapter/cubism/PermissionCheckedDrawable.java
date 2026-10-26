@@ -21,6 +21,19 @@ final class PermissionCheckedDrawable implements dev.turboism.sdk.cubism.model.D
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        facade.requireModelRead("artMesh.ordinaryKeyformWriteSupport");
+        var support = delegate.ordinaryKeyformWriteSupport();
+        var permission = dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.PRESENT;
+        try {
+            facade.requireModelWrite("artMesh.ordinaryKeyformWriteSupport");
+        } catch (dev.turboism.sdk.permission.CubismPermissionException denied) {
+            permission = dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport.Check.ABSENT;
+        }
+        return support.withWritePermission(permission);
+    }
+
+    @Override
     public dev.turboism.sdk.ui.appearance.model.DrawableAppearance ui() {
         facade.requireModelRead("artMesh.ui");
         return delegate.ui();
@@ -373,6 +386,19 @@ final class PermissionCheckedDrawable implements dev.turboism.sdk.cubism.model.D
                 delegate.id().value(),
                 delegate::authoringSnapshot,
                 () -> delegate.setOrdinaryKeyforms(expected, input, orders));
+    }
+
+    @Override
+    public void setOrdinaryKeyformValues(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformValues> edits) {
+        facade.requireModelWrite("artMesh.setOrdinaryKeyformValues");
+        final var input = List.copyOf(edits);
+        facade.runSemantic(
+                CubismOperation.SET_DRAWABLE_KEYFORMS_BATCH,
+                delegate.id().value(),
+                delegate::authoringSnapshot,
+                () -> delegate.setOrdinaryKeyformValues(expected, input));
     }
 
     @Override

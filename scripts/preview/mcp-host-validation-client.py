@@ -3,11 +3,15 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import struct
+import subprocess
 import json
 import math
 import os
 import re
+import signal
 import sys
 import time
 import urllib.error
@@ -37,21 +41,90 @@ def reviewed_versions():
 
 
 ALL_REVIEWED_VERSIONS = reviewed_versions()
+# Exact catalog only: discovery does not establish execution or visual acceptance.
 EXPECTED_TOOLS = {
-    "turboism.model_objects.apply",
-    "turboism.parameters.apply",
-    "turboism.parameter_bindings.apply",
+    "turboism.assets.binding.bind",
+    "turboism.assets.binding.read",
+    "turboism.assets.binding.result",
+    "turboism.assets.images.cancel",
+    "turboism.assets.images.register",
+    "turboism.assets.images.result",
+    "turboism.assets.relations.read",
+    "turboism.assets.sources.read",
+    "turboism.atlas.apply",
+    "turboism.atlas.cancel",
+    "turboism.atlas.plan",
+    "turboism.atlas.read",
+    "turboism.atlas.result",
+    "turboism.authoring.bindings.initialize",
+    "turboism.authoring.bindings.initialize_plan",
+    "turboism.authoring.bindings.initialize_result",
+    "turboism.authoring.keyforms.preview",
+    "turboism.authoring.keyforms.result",
+    "turboism.authoring.keyforms.write",
+    "turboism.authoring.masks.read",
+    "turboism.authoring.masks.result",
+    "turboism.authoring.masks.write",
+    "turboism.authoring.meshes.create",
+    "turboism.authoring.meshes.create_plan",
+    "turboism.authoring.meshes.create_result",
+    "turboism.authoring.meshes.evaluated.read",
+    "turboism.authoring.meshes.read",
+    "turboism.authoring.meshes.triangulate",
+    "turboism.authoring.properties.read",
+    "turboism.authoring.properties.result",
+    "turboism.authoring.properties.write",
+    "turboism.authoring.rotations.read",
+    "turboism.authoring.warps.read",
+    "turboism.capabilities.read",
+    "turboism.documents.file_result",
+    "turboism.documents.new_model",
+    "turboism.documents.new_result",
+    "turboism.documents.read",
+    "turboism.documents.save_as",
+    "turboism.documents.open",
+    "turboism.editor_commands.execute",
+    "turboism.export.moc.cancel",
+    "turboism.export.moc.execute",
+    "turboism.export.moc.plan",
+    "turboism.export.moc.result",
+    "turboism.files.grant_status",
+    "turboism.files.inspect",
+    "turboism.files.inspect_result",
+    "turboism.files.request_grant",
+    "turboism.files.revoke_grant",
     "turboism.glues.read",
     "turboism.glues.write",
+    "turboism.history.read",
+    "turboism.history.redo",
+    "turboism.history.undo",
+    "turboism.model_objects.apply",
+    "turboism.parameter_bindings.apply",
+    "turboism.parameters.apply",
+    "turboism.parameters.structure.apply",
+    "turboism.parameters.structure.plan",
+    "turboism.parameters.structure.read",
+    "turboism.parameters.structure.result",
+    "turboism.render.capture",
+    "turboism.render.pose_grid",
+    "turboism.render.pose_grid.cancel",
+    "turboism.render.pose_grid.release",
+    "turboism.render.pose_grid.result",
+    "turboism.render.pose_grid.status",
+    "turboism.render.state",
+    "turboism.rig.mesh.plan",
+    "turboism.rig.rotation.plan",
+    "turboism.rig.transfer_geometry.plan",
+    "turboism.rig.warp.plan",
     "turboism.textures.read",
     "turboism.textures.write",
-    "turboism.history.read",
-    "turboism.history.undo",
-    "turboism.history.redo",
     "turboism.transaction.execute",
-    "turboism.capabilities.read",
-    "turboism.editor_commands.execute",
+    "turboism.validation.geometry",
+    "turboism.validation.keyform_continuity",
+    "turboism.validation.raster",
+    "turboism.validation.warp",
 }
+
 EXPECTED_RESOURCES = {
     "turboism://active/document",
     "turboism://active/model/overview",
@@ -196,6 +269,569 @@ class McpClient:
                 return response.status, lower_headers(response.headers.items()), response.read()
         except urllib.error.HTTPError as failure:
             return failure.code, lower_headers(failure.headers.items()), failure.read()
+
+
+class ReadOnlyInspectionClient(McpClient):
+    """Test-lane allowlist: reject writes before any HTTP request is constructed."""
+    TOOLS = frozenset({"turboism.capabilities.read", "turboism.history.read", "turboism.render.state",
+        "turboism.render.capture", "turboism.authoring.meshes.read", "turboism.authoring.warps.read",
+        "turboism.authoring.rotations.read"})
+    METHODS = frozenset({"tools/list", "resources/list", "resources/templates/list", "prompts/list"})
+
+    def call(self, method, params=None):
+        allowed = method in self.METHODS
+        if method == "tools/call":
+            allowed = isinstance(params, dict) and params.get("name") in self.TOOLS
+        elif method == "resources/read":
+            allowed = isinstance(params, dict) and params.get("uri") in EXPECTED_RESOURCES
+        elif method == "prompts/get":
+            allowed = isinstance(params, dict) and params.get("name") in {
+                "inspect_active_document", "diagnose_environment", "inspect_model_diagnostics"}
+        require(allowed, "Read-only inspection rejected operation")
+        return super().call(method, params)
+
+
+class HeadEditingClient(ReadOnlyInspectionClient):
+    """Closed test lane: geometry and pose/history only; no file or structure mutation."""
+    TOOLS = ReadOnlyInspectionClient.TOOLS | frozenset({
+        "turboism.authoring.keyforms.preview", "turboism.authoring.keyforms.write", "turboism.authoring.keyforms.result",
+        "turboism.history.undo", "turboism.history.redo", "turboism.render.pose_grid",
+        "turboism.render.pose_grid.result", "turboism.render.pose_grid.release"})
+
+
+class InjectedWriteResponseLoss(ConnectionError):
+    """Test-only response discarded after HTTP completion, before JSON-RPC decoding."""
+
+
+class ResponseLossHeadEditingClient(HeadEditingClient):
+    """Drop exactly one keyform-write response; preserve the same live MCP session."""
+    injected_response_losses = 0
+
+    def _post(self, message, **options):
+        response = super()._post(message, **options)
+        params = message.get("params", {})
+        if (message.get("method") == "tools/call" and isinstance(params, dict)
+                and params.get("name") == "turboism.authoring.keyforms.write"
+                and self.injected_response_losses == 0):
+            self.injected_response_losses += 1
+            # Do not inspect, retain, or return the write's status/body to the workflow.
+            # This models loss at the receiving client boundary, not server crash/rollback.
+            raise InjectedWriteResponseLoss("Injected keyform response loss before RPC decode")
+        return response
+
+
+def reconcile_injected_keyform_write(client, request, evidence):
+    loss = {"boundary": "AFTER_HTTP_READ_BEFORE_JSON_RPC_DECODE", "writeAttempts": 1,
+            "responseDiscarded": False, "resultQueries": 0, "writeReplayed": False}
+    evidence["responseLoss"] = loss
+    try:
+        tool_result(client, "turboism.authoring.keyforms.write", request)
+    except InjectedWriteResponseLoss:
+        loss["responseDiscarded"] = True
+    else:
+        raise ValidationFailure("Expected keyform response loss was not injected")
+    # No replay, new operation ID, reconnect or inference from current geometry.
+    # NOT_FOUND/unknown does not authorize cleanup; the caller has no receipt yet.
+    loss["resultQueries"] += 1
+    result = tool_result(client, "turboism.authoring.keyforms.result", {"operationId": request["operationId"]})
+    require(result.get("operationId") == request["operationId"] and result.get("ok") is True
+            and result.get("outcome") == "APPLIED" and isinstance(result.get("receipt"), dict),
+            "Lost write response could not be reconciled; do not replay or clean up")
+    loss["resultQueries"] += 1
+    repeated = tool_result(client, "turboism.authoring.keyforms.result", {"operationId": request["operationId"]})
+    require(repeated == result, "Retained keyform result changed across read-only queries")
+    loss["retainedResultStable"] = True
+    return result
+
+
+class PacedHeadQaClient(HeadEditingClient):
+    """Stay below the reviewed wrapper's existing 600/minute budget; never replay a request."""
+    def _pace(self):
+        previous = getattr(self, "_previous_request", None)
+        now = time.monotonic()
+        if previous is not None:
+            delay = 0.2 - (now - previous)
+            if delay > 0: time.sleep(delay)
+        self._previous_request = time.monotonic()
+
+    def _post(self, message, **options):
+        self._pace()
+        return super()._post(message, **options)
+
+    def delete_session(self):
+        if self.session_id is not None: self._pace()
+        return super().delete_session()
+
+
+class HeadPersistenceClient(HeadEditingClient):
+    """Head rig file validation: grant-bound CMO3 commands only, no binding initialization."""
+    TOOLS = HeadEditingClient.TOOLS | frozenset({"turboism.files.request_grant", "turboism.files.grant_status",
+        "turboism.documents.read", "turboism.documents.open", "turboism.documents.save_as", "turboism.documents.file_result"})
+
+
+class NativeObservationProxy:
+    """Test-only MCP projection. No file paths, history/pose writes or generic dispatch."""
+    TOOLS = frozenset({"turboism.render.state", "turboism.render.capture"})
+    URIS = frozenset({"turboism://active/document", "turboism://active/model/overview"})
+
+    def __init__(self, client, state_root, task_id, require_vision_canary=False, expected_harness="claude"):
+        self.client, self.state_root = client, state_root
+        self.require_vision_canary = require_vision_canary
+        self.expected_harness = expected_harness
+        self.trace = {"runId": task_id, "modelMutation": "NONE", "calls": [], "images": [], "rejected": 0}
+        self.initialized = False
+
+    def dispatch(self, method, params):
+        require(len(self.trace["calls"]) < (64 if isinstance(self, NativeEditingProxy) else 32), "Native observer request budget exceeded")
+        if params is None and method in {"tools/list", "resources/list", "resources/templates/list", "notifications/initialized"}:
+            params = {}
+        require(isinstance(params, dict) and len(params) <= 64, "Invalid observer parameters")
+        # MCP envelope extensions are advisory: project only operation fields and never forward extensions.
+        fields = {"initialize": {"protocolVersion", "capabilities", "clientInfo"},
+                  "notifications/initialized": set(), "tools/list": {"cursor"}, "resources/list": {"cursor"},
+                  "resources/templates/list": {"cursor"}, "resources/read": {"uri"}, "tools/call": {"name", "arguments"}}
+        kept = fields.get(method, set())
+        ignored = len(set(params) - kept)
+        params = {key: value for key, value in params.items() if key in kept}
+        self.trace["calls"].append({"method": method, "ignoredProtocolFields": ignored})
+        if method == "tools/call" and "arguments" not in params:
+            params["arguments"] = {}
+        if method == "initialize":
+            require(not self.initialized, "Observer already initialized")
+            self.initialized = True
+            result = self.client.initialize()
+            return {**result, "capabilities": {"tools": {}, "resources": {}}}
+        require(self.initialized, "Observer not initialized")
+        if method == "notifications/initialized": return None
+        if method == "tools/list":
+            require(set(params) <= {"cursor"} and params.get("cursor") is None, "Observer catalog does not accept cursor")
+            return {"tools": [t for t in collect_pages(self.client, "tools/list", "tools") if t["name"] in self.TOOLS]}
+        if method == "resources/list":
+            require(set(params) <= {"cursor"} and params.get("cursor") is None, "Observer catalog does not accept cursor")
+            return {"resources": [r for r in collect_pages(self.client, "resources/list", "resources") if r["uri"] in self.URIS]}
+        if method == "resources/templates/list":
+            require(set(params) <= {"cursor"} and params.get("cursor") is None, "Observer templates do not accept cursor")
+            return {"resourceTemplates": []}
+        if method in {"resources/read", "tools/call"} and self.require_vision_canary:
+            ready = self.state_root / "native-observe-vision-ready.json"
+            require(ready.is_file() and not ready.is_symlink() and ready.stat().st_size <= 4096, "Image canary not verified")
+            gate = json.loads(ready.read_text())
+            require(set(gate) == {"schemaVersion", "harness", "visionCanaryPassed", "model"}
+                    and gate["schemaVersion"] == 1 and gate["harness"] == self.expected_harness
+                    and gate["visionCanaryPassed"] is True and isinstance(gate["model"], str) and gate["model"]
+                    and (self.expected_harness != "codex" or gate["model"] == "gpt-6.1-sol"),
+                    "Image canary not verified")
+            self.trace["visionCanaryGateVerified"] = True
+        if method == "resources/read":
+            require(set(params) == {"uri"} and params["uri"] in self.URIS, "Observer resource rejected")
+            self.trace["calls"][-1]["uri"] = params["uri"]
+            return self.client.call(method, params)
+        require(method == "tools/call" and set(params) == {"name", "arguments"}
+                and params["name"] in self.TOOLS, "Observer operation rejected")
+        args = params["arguments"]
+        require(isinstance(args, dict), "Invalid observer tool arguments")
+        self.trace["calls"][-1]["tool"] = params["name"]
+        if params["name"] not in NativeObservationProxy.TOOLS:
+            return self.edit_dispatch(params["name"], args)
+        if params["name"] == "turboism.render.state":
+            require(not args, "Observer state arguments rejected")
+        else:
+            require(set(args) == {"expectedState", "width", "height"}
+                    and type(args["width"]) is int and type(args["height"]) is int
+                    and args["width"] == args["height"] == 512
+                    and len(self.trace["images"]) < 2, "Observer capture budget/arguments rejected")
+        result = self.client.call(method, params)
+        if params["name"] == "turboism.render.capture":
+            projection = object_value(result.get("structuredContent"), "observer capture result")
+            require(projection.get("ok") is True, "Native observer capture failed")
+            blocks = [b for b in result.get("content", []) if b.get("type") == "image"]
+            require(len(blocks) == 1 and blocks[0].get("mimeType") == "image/png", "Observer missing typed PNG")
+            data = base64.b64decode(blocks[0]["data"], validate=True)
+            require(len(data) <= 1024 * 1024, "Observer PNG exceeds budget")
+            require(data[:16] == b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" and len(data) >= 33
+                    and struct.unpack(">II", data[16:24]) == (512, 512)
+                    and projection.get("width") == projection.get("height") == 512
+                    and projection.get("byteLength") == len(data)
+                    and projection.get("state") == args["expectedState"], "Observer PNG/state metadata mismatch")
+            digest = hashlib.sha256(data).hexdigest()
+            require(digest == projection.get("sha256"), "Observer PNG hash mismatch")
+            self.trace["images"].append({"sha256": digest, "captureId": projection["captureId"], "state": projection["state"]})
+            (self.state_root / f"mcp-native-observe-{len(self.trace['images'])}.png").write_bytes(data)
+        return result
+
+
+class NativeEditingProxy(NativeObservationProxy):
+    """One model-authored preview/write, scoped to an observed independent synthetic mesh form."""
+    TOOLS = NativeObservationProxy.TOOLS | frozenset({"turboism.authoring.meshes.read",
+        "turboism.authoring.keyforms.preview", "turboism.authoring.keyforms.write", "turboism.authoring.keyforms.result"})
+
+    def __init__(self, client, state_root, task_id, scope):
+        super().__init__(client, state_root, task_id, True, "codex")
+        self.scope, self.snapshots, self.preview, self.expected = scope, {}, None, None
+        self.trace["modelMutation"] = "ONE_BOUNDED_ORDINARY_MESH_FORM"
+
+    def edit_dispatch(self, name, args):
+        if name == "turboism.authoring.meshes.read":
+            require(set(args) <= {"documentId", "modelId", "objectId", "snapshotId", "offset", "limit"}
+                    and all(args.get(k) == self.scope[k] for k in ("documentId", "modelId", "objectId")), "Edit read scope rejected")
+            result = self.client.call("tools/call", {"name": name, "arguments": args})
+            data = object_value(result.get("structuredContent"), "edit read")
+            require(data.get("ok") is True and data.get("totalRows", 100001) <= 2048, "Edit read unavailable/over budget")
+            token = data["snapshotId"]
+            cached = self.snapshots.setdefault(token, {"data": data, "rows": {}})
+            require(data["state"] == cached["data"]["state"] and data["totalRows"] == cached["data"]["totalRows"], "Mixed edit snapshot pages")
+            for index, row in enumerate(data["rows"], data["offset"]):
+                require(index not in cached["rows"] or cached["rows"][index] == row, "Edit snapshot page changed")
+                cached["rows"][index] = row
+            if len(cached["rows"]) == data["totalRows"] and self.expected is not None and self.trace.get("write", {}).get("outcome") == "APPLIED":
+                actual = [cached["rows"][i] for i in range(data["totalRows"])]
+                if stored_rows_equal(actual, self.expected): self.trace["agentReadbackVerified"] = True
+            return result
+        if name == "turboism.authoring.keyforms.result":
+            require(args == {"operationId": self.scope["operationId"]}, "Edit result scope rejected")
+            result = self.client.call("tools/call", {"name": name, "arguments": args})
+            data = object_value(result.get("structuredContent"), "edit retained result")
+            if self.trace.get("writeAttempted") and data.get("operationId") == self.scope["operationId"] and data.get("outcome") == "APPLIED" and data.get("receipt"):
+                self.trace["write"] = data
+            return result
+        require(name in {"turboism.authoring.keyforms.preview", "turboism.authoring.keyforms.write"}, "Edit operation rejected")
+        require(set(args) == {"documentId", "modelId", "operationId", "targets"}
+                and all(args.get(k) == self.scope[k] for k in ("documentId", "modelId", "operationId")), "Edit request identity rejected")
+        targets = args["targets"]
+        require(isinstance(targets, list) and len(targets) == 1, "Edit permits one target")
+        target = targets[0]
+        require(set(target) == {"kind", "objectId", "snapshotId", "edits"}
+                and target["kind"] == "art_mesh" and target["objectId"] == self.scope["objectId"], "Edit target rejected")
+        cached = self.snapshots.get(target["snapshotId"])
+        require(cached is not None and len(cached["rows"]) == cached["data"]["totalRows"], "Read complete stored snapshot before planning")
+        rows = [cached["rows"][i] for i in range(cached["data"]["totalRows"])]
+        require(isinstance(target["edits"], list) and len(target["edits"]) == 1, "Edit permits one form")
+        edit = target["edits"][0]
+        require(set(edit) == {"formGuid", "coordinates", "positions"} and edit["formGuid"] == self.scope["formGuid"]
+                and edit["coordinates"] == self.scope["coordinates"], "Edit form/tuple rejected")
+        require(any(r.get("kind") == "ordinary_write_eligibility" and r.get("formGuid") == edit["formGuid"]
+                    and r.get("snapshotEligible") is True for r in rows), "Edit form not independently eligible")
+        points = sorted([r for r in rows if r.get("kind") == "form_point" and r.get("formGuid") == edit["formGuid"]], key=lambda r:r["index"])
+        require(1 < len(points) <= 128 and [r["index"] for r in points] == list(range(len(points)))
+                and isinstance(edit["positions"], list) and len(edit["positions"]) == len(points), "Edit point count rejected")
+        span = max(r["x"] for r in points) - min(r["x"] for r in points)
+        changed = []
+        expected = json.loads(json.dumps(rows))
+        for index, (old, new) in enumerate(zip(points, edit["positions"])):
+            require(isinstance(new, dict) and set(new) == {"x", "y"}, "Edit point fields rejected")
+            x, y = finite_number(new["x"], "edit x"), finite_number(new["y"], "edit y")
+            require(stored_rows_equal([{"y":old["y"]}], [{"y":y}]), "Only x may change")
+            if not stored_rows_equal([{"x":old["x"]}], [{"x":x}]):
+                require(0 < x-old["x"] <= min(4, span/32), "Edit exceeds small positive x budget")
+                changed.append(index)
+                next(r for r in expected if r.get("kind") == "form_point" and r.get("formGuid") == edit["formGuid"] and r["index"] == index)["x"] = x
+        require(len(changed) == 1, "Edit requires exactly one changed vertex")
+        if name.endswith(".write"):
+            require(self.preview == args and not self.trace.get("writeAttempted"), "Exact successful preview required; no write replay")
+            self.trace["writeAttempted"] = True
+            publish_atomic(self.state_root / "mcp-native-observe-proxy.json", json.dumps(self.trace))
+        result = self.client.call("tools/call", {"name": name, "arguments": args})
+        data = object_value(result.get("structuredContent"), "edit result")
+        if name.endswith(".preview"):
+            require(data.get("ok") is True and data.get("applied") is False, "Edit preview failed")
+            self.preview, self.expected = json.loads(json.dumps(args)), expected
+            publish_atomic(self.state_root / "mcp-native-edit-plan-private.json", json.dumps({"before":rows,"expected":expected,"request":args}))
+            self.trace["previewVerified"] = True
+        else:
+            self.trace["write"] = data
+            require(data.get("outcome") == "APPLIED" and data.get("receipt"), "Edit did not return confirmed commit")
+        return result
+
+
+def native_observation_stdio(home, task_id):
+    state = home / "state"
+    connection = await_connection(state / "dev.turboism.plugin.mcp/mcp-connection.json", 30)
+    token = (state / "dev.turboism.plugin.mcp/mcp.token").read_text().strip()
+    require(bool(re.fullmatch(r"[0-9a-f]{64}", token)), "Malformed observer token")
+    client = McpClient(connection["endpoint"], connection["protocolVersion"], token)
+    runtime = json.loads((home / "native-observe/runtime.json").read_text())
+    editing = runtime.get("workflow") == "keyform-edit"
+    proxy = NativeEditingProxy(client, state, task_id, json.loads((state / "mcp-native-edit-scope.json").read_text())) if editing else NativeObservationProxy(client, state, task_id, require_vision_canary=runtime.get("harness") in {"claude", "codex"},
+                                   expected_harness=runtime.get("harness"))
+    try:
+        while True:
+            line = sys.stdin.buffer.readline(65537)
+            if not line: break
+            require(len(line) <= 65536 and line.endswith(b"\n"), "Observer input budget exceeded")
+            message = json.loads(line)
+            request_id = message.get("id")
+            try:
+                require(isinstance(message, dict) and message.get("jsonrpc") == "2.0", "Invalid observer message")
+                result = proxy.dispatch(message.get("method"), message.get("params", {}))
+                reply = {"jsonrpc": "2.0", "id": request_id, "result": result}
+            except Exception as failure:
+                proxy.trace["rejected"] += 1
+                proxy.trace["lastRejectionType"] = type(failure).__name__
+                reply = {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32602, "message": "Native observer request failed; no automatic replay"}}
+            publish_atomic(state / "mcp-native-observe-proxy.json", json.dumps(proxy.trace, indent=2) + "\n")
+            if request_id is not None:
+                print(json.dumps(reply, separators=(",", ":")), flush=True)
+    finally:
+        client.delete_session()
+
+
+def validate_native_observer(home, task_id, client, *, editing=False):
+    runtime_path = home / "native-observe/runtime.json"
+    runtime = json.loads(runtime_path.read_text())
+    before = tool_call(client, "turboism.render.state", {})
+    process = subprocess.Popen([runtime["javaExecutable"], "-Djava.awt.headless=true", "-cp",
+        str(home / "native-observe/probe.jar"), "dev.turboism.plugin.acp.NativeObserve",
+        str(runtime_path), str(home), task_id, str(Path(sys.executable).resolve()), str(Path(__file__).resolve())],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    try:
+        process.wait(timeout=300)
+    finally:
+        # Only this sidecar's newly created process group; never the shared worker or host.
+        # Closing a harness is not evidence of cancelling any host operation.
+        try: os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError: pass
+        try: process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            try: os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            process.wait(timeout=5)
+    if not editing:
+        require(before == tool_call(client, "turboism.render.state", {}), "Native observer changed render state")
+    require(process.returncode == 0, "Real native observer did not complete; inspect private typed report")
+    report = json.loads((home / "state/mcp-native-observe-private.json").read_text())
+    trace = json.loads((home / "state/mcp-native-observe-proxy.json").read_text())
+    require(report.get("status") == "CAPTURE_DELIVERED_REVIEW_REQUIRED" and trace["rejected"] == 0, "Native observer did not deliver an image")
+    if runtime.get("harness") in {"claude", "codex"}:
+        require(report.get("visionCanaryPassed") is True
+                and trace.get("visionCanaryGateVerified") is True, "Native image canary or tool isolation not verified")
+    if runtime.get("harness") == "claude":
+        require(report.get("systemToolsVerified") is True, "Claude tool catalog not verified")
+    if runtime.get("harness") == "codex":
+        require(report.get("model") == "gpt-6.1-sol" and report.get("runtimeDeclaredImageInput") is True
+                and report.get("configurationIsolationVerified") is True, "Codex model/config isolation not verified")
+    require(trace["images"] and [i["sha256"] for i in report["images"]] == [i["sha256"] for i in trace["images"]], "ACP/proxy image mismatch")
+    require(any(c.get("uri") == "turboism://active/document" for c in trace["calls"]), "Native agent did not read the active document")
+    require(any(c["method"] == "resources/list" for c in trace["calls"]), "Native agent did not discover resources")
+    return report
+
+
+def validate_native_editor(home, task_id, client, samples):
+    state_root = home / "state"
+    before = tool_call(client, "turboism.render.state", {})
+    mesh = next(x for x in samples if x["kind"] == "art_mesh")
+    target, _ = ordinary_edit(mesh)  # Scope only; this generated edit is never sent to the agent or writer.
+    chosen = target["edits"][0]
+    poses = ordinary_poses([mesh], [target])
+    scope = {"documentId": before["state"]["documentId"], "modelId": before["state"]["modelId"],
+             "objectId": mesh["objectId"], "formGuid": chosen["formGuid"], "coordinates":chosen["coordinates"],
+             "operationId":task_id + "-agent-one"}
+    publish_atomic(state_root / "mcp-native-edit-scope.json", json.dumps(scope))
+    evidence = {"runId":task_id,"status":"FAIL","restored":False,"model":"gpt-6.1-sol"}
+    receipt = None
+    def reread():
+        binding = tool_call(client, "turboism.render.state", {})["state"]
+        return [read_stored_object(client, x["kind"], x["objectId"], binding) for x in samples]
+    def verify_rows(expected_mesh):
+        actual = reread()
+        require(all(all(a.get(k) == b.get(k) for k in ("kind", "objectId", "sourceGuid"))
+                    and stored_rows_equal(a["rows"], expected_mesh if a["kind"] == "art_mesh" else b["rows"])
+                    for a,b in zip(actual,samples)), "Mesh or non-target stored forms differ")
+    def undo_known():
+        history = history_snapshot(client)
+        args = history_guard_arguments(history, undo=True)
+        require(history["position"] == receipt["historyAfter"]["position"]
+                and args["expectedTopEntryId"] == receipt["historyEntryId"]
+                and args.get("expectedTransactionId") == receipt["transactionId"], "Edit cleanup history identity mismatch")
+        tool_call(client,"turboism.history.undo",args)
+    try:
+        evidence["renderBefore"] = validate_ordinary_pose_capture(client,state_root,task_id+"-before",poses)
+        validate_native_observer(home,task_id,client,editing=True)
+        trace = json.loads((state_root/"mcp-native-observe-proxy.json").read_text())
+        receipt = trace.get("write",{}).get("receipt")
+        require(trace.get("previewVerified") and trace.get("agentReadbackVerified") and receipt, "Agent preview/write/readback incomplete")
+        plan = json.loads((state_root/"mcp-native-edit-plan-private.json").read_text())
+        require(stored_rows_equal(plan["before"],mesh["rows"]),"Agent read a changed baseline")
+        verify_rows(plan["expected"])
+        evidence["renderAfter"] = validate_ordinary_pose_capture(client,state_root,task_id+"-after",poses)
+        require(evidence["renderBefore"]["frames"][0]["sha256"] != evidence["renderAfter"]["frames"][0]["sha256"], "Edited target pose has no pixel change")
+        undo_known();verify_rows(mesh["rows"]);evidence["undoVerified"] = True
+        tool_call(client,"turboism.history.redo",history_guard_arguments(history_snapshot(client),undo=False))
+        verify_rows(plan["expected"]);evidence["redoVerified"] = True
+        evidence["status"] = "PASS"
+    finally:
+        try:
+            trace_path = state_root/"mcp-native-observe-proxy.json"
+            trace = json.loads(trace_path.read_text()) if trace_path.exists() else {}
+            receipt = trace.get("write",{}).get("receipt") or receipt
+            if receipt:
+                history = history_snapshot(client)
+                if history["position"] == receipt["historyAfter"]["position"]: undo_known()
+                require(history_snapshot(client)["position"] == receipt["historyBefore"]["position"], "Edit final history position mismatch")
+                verify_rows(mesh["rows"])
+                final = tool_call(client,"turboism.render.state",{})
+                require(final["parameters"] == before["parameters"] and all(final["state"][k] == before["state"][k]
+                        for k in ("documentId","modelId","historyGeneration")), "Edit final pose/identity changed")
+                evidence["restored"] = True
+            elif trace.get("writeAttempted"):
+                evidence["outcomeUnknown"] = True
+        finally:
+            publish_atomic(state_root/"mcp-native-edit-verification.json",json.dumps(evidence,indent=2))
+    require(evidence["status"] == "PASS" and evidence["restored"],"Native edit not accepted/restored")
+    return evidence
+
+
+def capture_read_only_inventory(client, state_root, expected_state):
+    """Private semantic inputs, with bounded, repeated reads; no inferred labels or GUIDs."""
+    uris = ("turboism://active/model/hierarchy", "turboism://active/model/parameters",
+            "turboism://active/model/parameter-bindings")
+    before = tool_call(client, "turboism.render.state", {})
+    require(before.get("state") == expected_state, "Inventory started with stale render state")
+    resources = {uri: resource_json(client, uri) for uri in uris}
+    encoded = json.dumps(resources, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    require(len(encoded) <= 4 * 1024 * 1024, "Inventory byte budget exceeded")
+    assert_no_absolute_paths(resources)
+    hierarchy = resources[uris[0]]
+    require(hierarchy.get("availability") == "AVAILABLE", "Inventory hierarchy unavailable")
+    pending = [object_value(hierarchy.get("root"), "inventory root")]
+    counts = {}
+    node_count = 0
+    while pending:
+        node = object_value(pending.pop(), "inventory node")
+        node_count += 1
+        require(node_count <= 100000, "Inventory hierarchy node budget exceeded")
+        kind = text_value(node.get("kind"), "inventory node kind")
+        counts[kind] = counts.get(kind, 0) + 1
+        pending.extend(array_value(node.get("children"), "inventory node children"))
+    parameters = array_value(resources[uris[1]].get("parameters"), "inventory parameters")
+    bindings = array_value(resources[uris[2]].get("parameterBindings"), "inventory parameter bindings")
+    require(len(parameters) <= 10000 and len(bindings) <= 10000, "Inventory parameter budget exceeded")
+    require(resources == {uri: resource_json(client, uri) for uri in uris},
+            "Inventory resources changed between reads")
+    require(before == tool_call(client, "turboism.render.state", {}), "Inventory changed state or pose")
+    summary = {"status": "PASS", "state": expected_state, "resourceCount": len(uris),
+        "nodeCount": node_count, "nodeKinds": counts, "parameterCount": len(parameters),
+        "parameterBindingGroupCount": len(bindings), "canonicalResourcesBytes": len(encoded),
+        "canonicalResourcesSha256": hashlib.sha256(encoded).hexdigest(),
+        "semanticMapping": "NOT_VERIFIED", "identityLimit": "Display IDs are not native GUIDs"}
+    # Full resources remain private to the task, never part of the public audit summary.
+    publish_atomic(state_root / "mcp-read-only-inventory-private.json", encoded.decode() + "\n")
+    publish_atomic(state_root / "mcp-read-only-inventory.json", json.dumps(summary, indent=2) + "\n")
+    return summary
+
+
+# A test-only candidate profile, never an authorization or a general semantic classifier.
+HEAD_CANDIDATE_PROFILE = (
+    ("face_rotation", "ROTATION_DEFORMER", "Face Rotation", "rotation_deformer", ("ParamAngleZ",), None),
+    ("face_warp", "WARP_DEFORMER", "Face Warp", "warp_deformer", ("ParamAngleX", "ParamAngleY"), "face_rotation"),
+    ("face_contour", "ART_MESH", "Contour", "art_mesh", ("ParamAngleX", "ParamAngleY"), "face_warp"),
+)
+
+
+def select_head_candidates(resources):
+    hierarchy = resources["turboism://active/model/hierarchy"]
+    require(hierarchy.get("availability") == "AVAILABLE", "Head candidate hierarchy unavailable")
+    pending = [object_value(hierarchy.get("root"), "head candidate root")]
+    nodes = []
+    while pending:
+        node = object_value(pending.pop(), "head candidate node")
+        nodes.append(node)
+        require(len(nodes) <= 100000, "Head candidate node budget exceeded")
+        pending.extend(array_value(node.get("children"), "head candidate children"))
+    parameters = array_value(resources["turboism://active/model/parameters"].get("parameters"), "head parameters")
+    groups = array_value(resources["turboism://active/model/parameter-bindings"].get("parameterBindings"), "head bindings")
+    selected = {}
+    for role, kind, name, wire_kind, axes, parent_role in HEAD_CANDIDATE_PROFILE:
+        candidates = [n for n in nodes if n.get("kind") == kind and n.get("name") == name]
+        if not candidates:
+            return []  # This fixture does not match the reviewed candidate profile.
+        require(len(candidates) == 1, "Head candidate name is ambiguous")
+        node = candidates[0]
+        require(sum(n.get("kind") == kind and n.get("id") == node.get("id") for n in nodes) == 1,
+                "Head candidate object identity is ambiguous")
+        if parent_role:
+            require(node.get("parentId") == selected[parent_role]["objectId"], "Head candidate parent mismatch")
+        bindings = {}
+        for group in groups:
+            for binding in array_value(group.get("bindings"), "head binding group"):
+                target = object_value(binding.get("target"), "head binding target")
+                if target.get("type") == wire_kind and target.get("id") == node.get("id"):
+                    parameter_id = text_value(group.get("parameterId"), "head binding parameter")
+                    require(binding.get("parameterId") == parameter_id and binding.get("family") == "keyform_grid",
+                            "Head candidate binding family or parameter mismatch")
+                    require(parameter_id not in bindings, "Head candidate duplicate parameter binding")
+                    bindings[parameter_id] = [point.get("value") for point in binding["points"]]
+        require(set(bindings) == set(axes) and all(sorted(v) == [-30.0, 0.0, 30.0] for v in bindings.values()),
+                "Head candidate axis/key profile mismatch")
+        require(all(sum(p.get("id") == axis for p in parameters) == 1 for axis in axes),
+                "Head candidate parameter display identity is ambiguous")
+        selected[role] = {"role": role, "kind": wire_kind, "objectId": text_value(node.get("id"), "head object ID"),
+                          "parameterIds": list(axes)}
+    return list(selected.values())
+
+
+def summarize_head_candidate(candidate, snapshot):
+    rows = snapshot["rows"]
+    axes = [r for r in rows if r.get("kind") == "axis"]
+    require(len(axes) == len(candidate["parameterIds"])
+            and {a["parameterId"] for a in axes} == set(candidate["parameterIds"]),
+            "Head stored axes differ from inspected bindings")
+    by_guid = {a["parameterGuid"]: a for a in axes}
+    require(len(by_guid) == len(axes) and all(sorted(a["keys"]) == [-30.0, 0.0, 30.0] for a in axes),
+            "Head stored native axes are ambiguous or have unexpected keys")
+    cells = [r for r in rows if r.get("kind") == "cell"]
+    form_kind = {"art_mesh": "mesh_form", "warp_deformer": "warp_form", "rotation_deformer": "rotation_form"}[candidate["kind"]]
+    forms = [r["formGuid"] for r in rows if r.get("kind") == form_kind]
+    require(len(forms) == len(set(forms)), "Head stored form identity is ambiguous")
+    tuples = set()
+    for cell in cells:
+        coordinates = cell["coordinates"]
+        require(len(coordinates) == len(axes) and {c["parameterGuid"] for c in coordinates} == set(by_guid),
+                "Head stored cell has an incomplete tuple")
+        require(all(c["value"] in by_guid[c["parameterGuid"]]["keys"] for c in coordinates),
+                "Head stored cell has an unknown axis key")
+        value_tuple = tuple(sorted((c["parameterGuid"], c["value"]) for c in coordinates))
+        require(value_tuple not in tuples and cell["formGuid"] in forms, "Head stored cell duplicates or references an unknown form")
+        tuples.add(value_tuple)
+    require(len(cells) == 3 ** len(axes), "Head stored cell grid is incomplete")
+    eligibility = [r for r in rows if r.get("kind") == "ordinary_write_eligibility"]
+    require(len(eligibility) == len(forms) and {r["formGuid"] for r in eligibility} == set(forms),
+            "Head form eligibility is incomplete")
+    return {**candidate, **{k: snapshot[k] for k in ("sourceGuid", "rowCount", "rowsSha256")},
+        "axes": [{k: a[k] for k in ("parameterId", "parameterGuid", "keys")} for a in axes],
+        "cellCount": len(cells), "formCount": len(forms),
+        "eligibleFormCount": sum(r.get("snapshotEligible") is True for r in eligibility),
+        "hostWriteAdmission": "UNPROVEN", "semanticMapping": "CANDIDATE_ONLY"}
+
+
+def capture_head_candidate_authoring(client, state_root, expected_state):
+    resources = json.loads((state_root / "mcp-read-only-inventory-private.json").read_text(encoding="utf-8"))
+    candidates = select_head_candidates(resources)
+    if not candidates:
+        summary = {"status": "UNAVAILABLE", "reason": "CANDIDATE_PROFILE_NOT_MATCHED", "objects": []}
+    else:
+        before = tool_call(client, "turboism.render.state", {})
+        require(before.get("state") == expected_state, "Head candidates started with stale state")
+        snapshots = [read_stored_object(client, c["kind"], c["objectId"], expected_state) for c in candidates]
+        objects = [summarize_head_candidate(c, s) for c, s in zip(candidates, snapshots)]
+        require(before == tool_call(client, "turboism.render.state", {}), "Head candidate reads changed state or pose")
+        # The ordinary inventory resources are not immutable server snapshots; check them again.
+        require(resources == {uri: resource_json(client, uri) for uri in resources}, "Head candidate inventory changed")
+        summary = {"status": "READ_VERIFIED_CANDIDATE_ONLY", "state": expected_state, "objects": objects,
+                   "profile": "Hiyori PRO t11 names, hierarchy and ordinary bindings; not a general classifier"}
+        publish_atomic(state_root / "mcp-head-candidate-authoring-private.json", json.dumps(snapshots, indent=2) + "\n")
+    publish_atomic(state_root / "mcp-head-candidates.json", json.dumps(summary, indent=2) + "\n")
+    return summary
+
+
+def finish_read_only_inspection(client, state_root, task_id, before, authoring, render):
+    require_history_unchanged(before, history_snapshot(client), "Read-only inspection changed history")
+    summary = {"runId": task_id, "mode": "READ_ONLY_INSPECTION", "status": "PASS", "modelMutation": "NONE",
+        "historyUnchanged": True, "renderStatePreserved": True, "nativeRenderSha256": render["sha256"],
+        "state": render["state"], "objects": [{key: row[key] for key in (
+            "kind", "objectId", "sourceGuid", "rowCount", "rowsSha256")} for row in authoring]}
+    assert_no_absolute_paths(summary)
+    publish_atomic(state_root / "mcp-read-only-inspection.json", json.dumps(summary, indent=2) + "\n")
+    return summary
 
 
 def choose_glue_intensity_mutation(
@@ -918,10 +1554,715 @@ def validate_reversible_glue_authoring(
                 ) from primary_failure
 
 
+
+def validate_native_render(client: McpClient, state_root: Path) -> dict[str, Any]:
+    """Require current native pixels through the public typed MCP result, never a thumbnail."""
+    before = tool_call(client, "turboism.render.state", {})
+    state = object_value(before.get("state"), "render state")
+    parameters = array_value(before.get("parameters"), "render parameters")
+    stale = dict(state)
+    stale["poseHash"] = "0" * 64 if state.get("poseHash") != "0" * 64 else "1" * 64
+    rejected = client.call("tools/call", {"name": "turboism.render.capture", "arguments": {
+        "expectedState": stale, "width": 256, "height": 256}})
+    require(object_value(rejected.get("structuredContent"), "stale render").get("ok") is False,
+            "stale render state was accepted")
+    require(not any(isinstance(block, dict) and block.get("type") == "image"
+                    for block in array_value(rejected.get("content"), "stale content")),
+            "stale render returned an image")
+    result = client.call("tools/call", {"name": "turboism.render.capture", "arguments": {
+        "expectedState": state, "width": 256, "height": 256}})
+    metadata = object_value(result.get("structuredContent"), "render metadata")
+    require(result.get("isError") is not True and metadata.get("ok") is True,
+            "native render capture unavailable or failed")
+    require(metadata.get("state") == state and metadata.get("parameters") == parameters,
+            "native render pose or state mismatch")
+    require(metadata.get("renderer") == "cubism.native.renderPixels", "native renderer identity mismatch")
+    require(metadata.get("width") == 256 and metadata.get("height") == 256,
+            "native render dimensions mismatch")
+    blocks = array_value(result.get("content"), "render content")
+    require(len(blocks) == 2, "typed render must return JSON and one image")
+    text = object_value(blocks[0], "render JSON")
+    require(text.get("type") == "text" and json.loads(text_value(text.get("text"), "render text")) == metadata,
+            "render text differs from metadata")
+    image = object_value(blocks[1], "render image")
+    require(image.get("type") == "image" and image.get("mimeType") == "image/png",
+            "render lost its typed PNG image")
+    encoded = text_value(image.get("data"), "render image data")
+    require(len(encoded) <= 4 * 1024 * 1024, "render image exceeds client budget")
+    pixels = base64.b64decode(encoded, validate=True)
+    require(pixels[:16] == b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" and len(pixels) >= 33,
+            "render image is not PNG")
+    require(struct.unpack(">II", pixels[16:24]) == (256, 256), "PNG dimensions differ from metadata")
+    require(len(pixels) == metadata.get("byteLength")
+            and hashlib.sha256(pixels).hexdigest() == metadata.get("sha256"),
+            "PNG bytes differ from metadata")
+    after = tool_call(client, "turboism.render.state", {})
+    require(after.get("state") == state and after.get("parameters") == parameters,
+            "capture changed document, history or pose")
+    # Write only after every check. No endpoint, token, session header or base64 in reports.
+    (state_root / "mcp-native-render.png").write_bytes(pixels)
+    (state_root / "mcp-native-render.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    return metadata
+
+
+
+def read_stored_object(client: McpClient, kind: str, object_id: str, state: dict[str, Any]) -> dict[str, Any]:
+    domain = {"art_mesh": "meshes", "warp_deformer": "warps", "rotation_deformer": "rotations"}[kind]
+    tool = f"turboism.authoring.{domain}.read"
+    arguments = {"documentId": state["documentId"], "modelId": state["modelId"],
+                 "objectId": object_id, "limit": 128}
+    first = tool_call(client, tool, arguments)
+    snapshot = text_value(first.get("snapshotId"), "authoring snapshot ID")
+    rows: list[Any] = []
+    page = first
+    for _ in range(1000):
+        require(page.get("kind") == kind and page.get("objectId") == arguments["objectId"],
+                "authoring target changed between pages")
+        require(page.get("snapshotId") == snapshot and page.get("sourceGuid") == first.get("sourceGuid")
+                and page.get("state") == first.get("state") and page.get("totalRows") == first.get("totalRows"),
+                "authoring pages do not belong to one snapshot")
+        require(page.get("offset") == len(rows), "authoring page offset mismatch")
+        rows.extend(array_value(page.get("rows"), "authoring rows"))
+        require(len(rows) <= 100000, "authoring row budget exceeded")
+        next_offset = page.get("nextOffset")
+        if next_offset is None:
+            break
+        require(next_offset == len(rows) and bool(page["rows"]), "authoring cursor did not advance")
+        page = tool_call(client, tool, {**arguments, "snapshotId": snapshot, "offset": next_offset})
+    else:
+        raise ValidationFailure("authoring page budget exceeded")
+    require(len(rows) == first.get("totalRows"), "authoring snapshot incomplete")
+    binding = object_value(first.get("state"), "authoring binding")
+    require(all(binding.get(key) == state[key] for key in (
+        "documentId", "modelId", "historyGeneration", "historyRevision")), "authoring state mismatch")
+    repeat = tool_call(client, tool, {**arguments, "snapshotId": snapshot})
+    require(repeat == first, "immutable authoring page changed when reread")
+    encoded = json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
+    require(len(encoded) <= 4 * 1024 * 1024, "authoring byte budget exceeded")
+    return {"kind": kind, "objectId": arguments["objectId"], "sourceGuid": first.get("sourceGuid"),
+            "snapshotId": snapshot, "state": binding, "rowCount": len(rows),
+            "rowsSha256": hashlib.sha256(encoded).hexdigest(), "rows": rows}
+
+
+def validate_stored_authoring(client: McpClient, state_root: Path) -> list[dict[str, Any]]:
+    before = tool_call(client, "turboism.render.state", {})
+    state = object_value(before.get("state"), "authoring state")
+    hierarchy = resource_json(client, "turboism://active/model/hierarchy")
+    require(hierarchy.get("availability") == "AVAILABLE", "authoring hierarchy unavailable")
+    pending = [object_value(hierarchy.get("root"), "hierarchy root")]
+    objects: dict[str, list[str]] = {}
+    count = 0
+    kinds = {"ART_MESH": ("art_mesh", "meshes"), "WARP_DEFORMER": ("warp_deformer", "warps"),
+             "ROTATION_DEFORMER": ("rotation_deformer", "rotations")}
+    while pending:
+        node = object_value(pending.pop(), "hierarchy node")
+        count += 1
+        require(count <= 100000, "hierarchy exceeds client budget")
+        kind = node.get("kind")
+        if kind in kinds:
+            objects.setdefault(kind, []).append(text_value(node.get("id"), "authoring object ID"))
+        pending.extend(array_value(node.get("children"), "hierarchy children"))
+    require(set(objects) == set(kinds), "fixture must contain Mesh, Warp and Rotation objects")
+    evidence = []
+    for kind, (wire_kind, domain) in kinds.items():
+        tool = f"turboism.authoring.{domain}.read"
+        attempts = []
+        first = None
+        arguments = {}
+        for object_id in objects[kind][:32]:
+            arguments = {"documentId": state["documentId"], "modelId": state["modelId"],
+                         "objectId": object_id, "limit": 128}
+            candidate = tool_result(client, tool, arguments)
+            if candidate.get("ok") is True:
+                if first is None:
+                    first = candidate
+                if any(row.get("kind") == "ordinary_write_eligibility" and row.get("snapshotEligible") is True
+                       for row in array_value(candidate.get("rows"), "candidate rows")):
+                    first = candidate
+                    break
+                continue
+            error = candidate.get("error")
+            code = error.get("code") if isinstance(error, dict) else error
+            attempts.append({"objectId": object_id, "code": code})
+            require(code in {"INVALID_ARGUMENT", "UNAVAILABLE"}, "authoring read failed unexpectedly")
+        if first is None:
+            (state_root / "mcp-stored-authoring-rejections.json").write_text(
+                json.dumps({"kind": wire_kind, "rejectedCandidates": attempts}, indent=2) + "\n")
+            (state_root / "mcp-authoring-diagnostic-request").write_text("READ_ONLY\n")
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline and not (state_root / "mcp-authoring-diagnostic.json").is_file():
+                time.sleep(0.1)
+        require(first is not None, f"No readable {wire_kind} in bounded fixture candidates")
+        # Scanning candidates may evict an earlier fallback from the bounded server cache.
+        # Acquire the selected object again before consuming any pages or planning a write.
+        selected = read_stored_object(client, wire_kind, first["objectId"], state)
+        selected["rejectedCandidates"] = attempts
+        evidence.append(selected)
+    after = tool_call(client, "turboism.render.state", {})
+    require(before == after, "stored authoring read changed state or pose")
+    (state_root / "mcp-stored-authoring.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+    return evidence
+
+
+def stored_rows_equal(actual: list[Any], expected: list[Any]) -> bool:
+    """Compare SDK float32 values by bits, retaining exact integer/identity fields."""
+    float_fields = {"x", "y", "angle", "originX", "originY", "scale", "opacity",
+                    "minimum", "maximum", "defaultValue", "value", "keys", "baseAngle"}
+    def native(value, field=""):
+        if isinstance(value, dict): return {key: native(item, key) for key, item in value.items()}
+        if isinstance(value, list): return [native(item, field) for item in value]
+        if field in float_fields and isinstance(value, (int, float)) and not isinstance(value, bool):
+            require(math.isfinite(value), "Nonfinite stored float")
+            return ("float32", struct.pack("!f", value).hex())
+        return value
+    return native(actual) == native(expected)
+
+
+def ordinary_edit(snapshot: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+    """Build a small exact-float edit to an existing independent ordinary form only."""
+    rows = snapshot["rows"]
+    eligible = [row["formGuid"] for row in rows if row.get("kind") == "ordinary_write_eligibility"
+                and row.get("snapshotEligible") is True]
+    require(bool(eligible), "No independent non-default ordinary form")
+    axes = {row["parameterGuid"]: row for row in rows if row.get("kind") == "axis"}
+    renderable = [row["formGuid"] for row in rows if row.get("kind") == "cell" and row.get("formGuid") in eligible
+                  and all(c["parameterGuid"] in axes and axes[c["parameterGuid"]]["minimum"] <= c["value"] <= axes[c["parameterGuid"]]["maximum"]
+                          for c in row["coordinates"])]
+    guid = renderable[0] if renderable else eligible[0]
+    cells = [row for row in rows if row.get("kind") == "cell" and row.get("formGuid") == guid]
+    require(len(cells) == 1, "Ordinary target cell is not independent")
+    edit = {"formGuid": guid, "coordinates": cells[0]["coordinates"]}
+    expected = json.loads(json.dumps(rows))
+    def delta(value, step):
+        result = struct.unpack("!f", struct.pack("!f", value + step))[0]
+        require(math.isfinite(result) and result != value, "No finite representable geometry delta")
+        return result
+    if snapshot["kind"] == "rotation_deformer":
+        forms = [r for r in expected if r.get("kind") == "rotation_form" and r.get("formGuid") == guid]
+        require(len(forms) == 1, "Missing stored Rotation form")
+        forms[0]["angle"] = delta(forms[0]["angle"], 5.0)
+        edit["form"] = {key: forms[0][key] for key in (
+            "angle", "originX", "originY", "scale", "reflectedX", "reflectedY")}
+    else:
+        points = sorted([r for r in expected if r.get("kind") == "form_point" and r.get("formGuid") == guid],
+                        key=lambda row: row["index"])
+        require(0 < len(points) <= 4096 and [r["index"] for r in points] == list(range(len(points))),
+                "Invalid or over-budget ordinary points")
+        points[0]["x"] = delta(points[0]["x"], 4.0)
+        field = "positions" if snapshot["kind"] == "art_mesh" else "controlPoints"
+        edit[field] = [{"x": row["x"], "y": row["y"]} for row in points]
+    return {"kind": snapshot["kind"], "objectId": snapshot["objectId"],
+            "snapshotId": snapshot["snapshotId"], "edits": [edit]}, expected
+
+
+def bounded_head_edit(snapshot):
+    """Test perturbation in the stored parent space; never a character-design algorithm."""
+    rows = snapshot["rows"]
+    axes = {r["parameterGuid"]: r for r in rows if r.get("kind") == "axis"}
+    expected_ids = {"ParamAngleZ"} if snapshot["kind"] == "rotation_deformer" else {"ParamAngleX", "ParamAngleY"}
+    require(len(axes) == len(expected_ids) and {a["parameterId"] for a in axes.values()} == expected_ids,
+            "Head edit has unexpected or ambiguous axes")
+    positive_axis = "ParamAngleZ" if snapshot["kind"] == "rotation_deformer" else "ParamAngleX"
+    cells = [r for r in rows if r.get("kind") == "cell" and len(r["coordinates"]) == len(axes)
+             and {c["parameterGuid"] for c in r["coordinates"]} == set(axes)
+             and all(c["value"] == (30 if axes[c["parameterGuid"]]["parameterId"] == positive_axis else 0)
+                     for c in r["coordinates"])]
+    require(len(cells) == 1, "Head edit requires the exact positive-X or positive-Z cell")
+    cell = cells[0]
+    guid = cell["formGuid"]
+    require(sum(r.get("kind") == "cell" and r.get("formGuid") == guid for r in rows) == 1,
+            "Head edit rejects shared form")
+    eligibility = [r for r in rows if r.get("kind") == "ordinary_write_eligibility" and r.get("formGuid") == guid]
+    require(len(eligibility) == 1 and eligibility[0].get("snapshotEligible") is True,
+            "Head edit requires an independent non-default ordinary form")
+    expected = json.loads(json.dumps(rows))
+    edit = {"formGuid": guid, "coordinates": cell["coordinates"]}
+    def float32(value):
+        require(math.isfinite(value), "Nonfinite head edit")
+        try: return struct.unpack("!f", struct.pack("!f", value))[0]
+        except (OverflowError, struct.error): raise ValidationFailure("Unrepresentable head edit")
+    if snapshot["kind"] == "rotation_deformer":
+        forms = [r for r in expected if r.get("kind") == "rotation_form" and r.get("formGuid") == guid]
+        require(len(forms) == 1, "Head rotation form missing")
+        old = finite_number(forms[0]["angle"], "head angle")
+        changed = float32(old + 0.5)
+        require(changed != float32(old) and abs(changed - float32(old)) <= 0.50001, "Head angular delta exceeds budget")
+        forms[0]["angle"] = changed
+        edit["form"] = {k: forms[0][k] for k in ("angle", "originX", "originY", "scale", "reflectedX", "reflectedY")}
+    else:
+        points = sorted([r for r in expected if r.get("kind") == "form_point" and r.get("formGuid") == guid], key=lambda r: r["index"])
+        require(1 < len(points) <= 4096 and [r["index"] for r in points] == list(range(len(points))), "Head point budget/order invalid")
+        xs = [finite_number(r["x"], "head local x") for r in points]
+        span = max(xs) - min(xs)
+        require(math.isfinite(span) and span > 0, "Head form has no finite positive local x extent")
+        delta = span / 256
+        for point in points:
+            original = float32(point["x"])
+            changed = float32(original + delta)
+            require(math.isfinite(changed) and 0 < changed - original <= span / 128, "Head positional delta is not representable within budget")
+            point["x"] = changed
+        field = "positions" if snapshot["kind"] == "art_mesh" else "controlPoints"
+        edit[field] = [{"x": r["x"], "y": r["y"]} for r in points]
+    return {"kind": snapshot["kind"], "objectId": snapshot["objectId"], "snapshotId": snapshot["snapshotId"], "edits": [edit]}, expected
+
+
+def ordinary_poses(samples: list[dict[str, Any]], targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    require(len(samples) == len(targets) and bool(samples), "Ordinary pose targets missing")
+    poses = []
+    for sample, target in zip(samples, targets):
+        axes = {row["parameterGuid"]: row for row in sample["rows"] if row.get("kind") == "axis"}
+        values = []
+        coordinates = target["edits"][0]["coordinates"]
+        require(len(coordinates) == len(axes) and {c["parameterGuid"] for c in coordinates} == set(axes),
+                "Ordinary pose must cover every native axis exactly once")
+        for coordinate in coordinates:
+            axis = axes[coordinate["parameterGuid"]]
+            require(axis["minimum"] <= coordinate["value"] <= axis["maximum"], "Stored form pose outside live range")
+            values.append({"parameterId": axis["parameterId"], "value": coordinate["value"]})
+        require(values and len({v["parameterId"] for v in values}) == len(values), "Ambiguous ordinary pose parameter IDs")
+        poses.append({"label": sample["kind"], "values": values})
+    return poses
+
+
+HEAD_POSE_IDS = ("ParamAngleX", "ParamAngleY", "ParamAngleZ", "ParamEyeLOpen", "ParamEyeROpen", "ParamMouthOpenY")
+HEAD_CROP = {"x": 256, "y": 0, "width": 512, "height": 384}
+
+
+def head_combination_poses(parameters):
+    for parameter_id in HEAD_POSE_IDS:
+        matches = [p for p in parameters if p.get("id") == parameter_id]
+        require(len(matches) == 1, "Head QA requires unambiguous parameter definitions")
+        p = matches[0]
+        requested = (-30, 0, 30) if parameter_id.startswith("ParamAngle") else (0, 1)
+        require(all(p["minimumValue"] <= value <= p["maximumValue"] for value in requested),
+                "Head QA values exceed discovered parameter range")
+    poses, seen = [], set()
+    def add(label, x=0, y=0, z=0, left=1, right=1, mouth=0):
+        values = (x, y, z, left, right, mouth)
+        if values not in seen:
+            seen.add(values)
+            poses.append({"label": label, "values": [{"parameterId": k, "value": v} for k, v in zip(HEAD_POSE_IDS, values)]})
+    for y in (-30, 0, 30):
+        for x in (-30, 0, 30): add(f"xy-{x}-{y}", x, y)
+    for z in (-30, 30):
+        for y in (-30, 30):
+            for x in (-30, 30): add(f"xyz-{x}-{y}-{z}", x, y, z)
+    for x, y, z in ((0, 0, 0), (-30, -30, -30), (30, 30, 30)):
+        for eye in (0, 1):
+            for mouth in (0, 1): add(f"expression-{x}-{y}-{z}-eye{eye}-mouth{mouth}", x, y, z, eye, eye, mouth)
+    add("wink-left", left=0)
+    add("wink-right", right=0)
+    require(len(poses) == 28, "Head QA coverage changed; review the finite pose set")
+    return poses
+
+
+def validate_head_pose_suite(client, state_root, operation, poses):
+    require(len(poses) == 28, "Head QA pose budget/profile mismatch")
+    initial = tool_call(client, "turboism.render.state", {})
+    history = history_snapshot(client)
+    frames, captures = [], set()
+    summary = {"operationId": operation, "scope": "MULTIPLE_INDEPENDENT_SCANS", "status": "RUNNING",
+               "artQuality": "NOT_AUTOMATICALLY_ACCEPTED", "renderWidth": 1024, "renderHeight": 1024, "crop": HEAD_CROP,
+               "frames": frames, "parametersRestored": False, "historyPositionRestored": False}
+    try:
+        for index, pose in enumerate(poses):
+            scan_id = f"{operation}-q{index:02d}"
+            result = validate_ordinary_pose_capture(client, state_root, scan_id, [pose], width=1024, height=1024, crop=HEAD_CROP)
+            frame = object_value(result["frames"][0], "head QA frame")
+            require(frame["label"] == pose["label"] and frame["captureId"] not in captures, "Head QA frame order or capture mismatch")
+            require(all(frame["state"].get(k) == initial["state"][k] for k in ("documentId", "modelId", "historyGeneration")),
+                    "Head QA frame scope changed between independent scans")
+            captures.add(frame["captureId"])
+            frames.append({**frame, "suiteIndex": index, "scanOperationId": scan_id})
+        final = tool_call(client, "turboism.render.state", {})
+        require(final["parameters"] == initial["parameters"]
+                and all(final["state"][k] == initial["state"][k] for k in ("documentId", "modelId", "historyGeneration")),
+                "Head QA suite failed to restore parameters or scope")
+        require(history_snapshot(client)["position"] == history["position"], "Head QA suite changed final history position")
+        summary.update(status="PASS", parametersRestored=True, historyPositionRestored=True)
+        return summary
+    except Exception as failure:
+        summary.update(status="FAIL", exceptionClass=type(failure).__name__, failedSuiteIndex=len(frames))
+        raise
+    finally:
+        publish_atomic(state_root / f"{operation}-suite.json", json.dumps(summary, indent=2) + "\n")
+
+
+def validate_ordinary_pose_capture(client: McpClient, state_root: Path, operation: str,
+                                   poses: list[dict[str, Any]], *, width=512, height=512, crop=None) -> dict[str, Any]:
+    initial = tool_call(client, "turboism.render.state", {})
+    before = history_snapshot(client)
+    metadata = None
+    primary = None
+    verification = {"operationId": operation, "status": "RUNNING", "scanHistoryRestored": False}
+    image_files = []
+    try:
+        request = {"operationId": operation, "expectedState": initial["state"], "width": width, "height": height,
+                   "poses": poses, "restorePolicy": "always", "timeBudgetMs": 30000}
+        if crop is not None: request["crop"] = crop
+        try:
+            result = client.call("tools/call", {"name": "turboism.render.pose_grid", "arguments": request})
+        except (TimeoutError, urllib.error.URLError):
+            # Result lookup only. A transport timeout never authorizes replay of the scan.
+            result = client.call("tools/call", {"name": "turboism.render.pose_grid.result",
+                                                "arguments": {"operationId": operation}})
+        deadline = time.monotonic() + 30
+        metadata = object_value(result.get("structuredContent"), "pose scan metadata")
+        while metadata.get("outcome") == "RUNNING" and time.monotonic() < deadline:
+            time.sleep(.1)
+            result = client.call("tools/call", {"name": "turboism.render.pose_grid.result",
+                                                "arguments": {"operationId": operation}})
+            metadata = object_value(result.get("structuredContent"), "pose scan metadata")
+        require(metadata.get("ok") is True and metadata.get("outcome") == "COMPLETED"
+                and metadata.get("parametersRestored") is True, "Native pose scan did not complete with verified restoration")
+        require(metadata.get("operationId") == operation and metadata.get("initialState") == initial["state"]
+                and metadata.get("initialParameters") == initial["parameters"], "Pose scan initial identity mismatch")
+        frames = array_value(metadata.get("frames"), "pose frames")
+        contents = array_value(result.get("content"), "pose contents")
+        require(len(frames) == len(poses) and len(contents) == len(poses) + 1, "Pose scan lost frames or typed images")
+        require(contents[0].get("type") == "text" and json.loads(contents[0]["text"]) == metadata,
+                "Pose scan text differs from structured result")
+        baseline = {x["id"]: x["value"] for x in initial["parameters"]}
+        target_ids = {value["parameterId"] for pose in poses for value in pose["values"]}
+        seen_captures = set()
+        for index, (pose, frame) in enumerate(zip(poses, frames)):
+            require(frame.get("index") == index and frame.get("label") == pose["label"]
+                    and frame.get("imageContentIndex") == index + 1, "Pose to image association mismatch")
+            require(frame.get("captureId") not in seen_captures and isinstance(frame.get("captureId"), str),
+                    "Pose scan reused a capture identity")
+            seen_captures.add(frame["captureId"])
+            desired = {key: baseline[key] for key in target_ids}
+            desired.update({v["parameterId"]: v["value"] for v in pose["values"]})
+            actual = {x["id"]: x["value"] for x in frame["parameters"]}
+            require(actual == desired and len(actual) == len(frame["parameters"]), "Frame parameters do not match requested pose")
+            require(all(frame["state"].get(key) == initial["state"][key] for key in (
+                "documentId", "modelId", "historyGeneration")), "Frame document/model/history changed")
+            block = contents[index + 1]
+            require(block.get("type") == "image" and block.get("mimeType") == "image/png", "Pose image lost typed PNG")
+            encoded = text_value(block.get("data"), "pose image data")
+            require(len(encoded) <= 4 * 1024 * 1024, "Pose image exceeds budget")
+            pixels = base64.b64decode(encoded, validate=True)
+            require(pixels[:16] == b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" and len(pixels) >= 33,
+                    "Pose image is not PNG")
+            image_width, image_height = (crop["width"], crop["height"]) if crop is not None else (width, height)
+            require(struct.unpack(">II", pixels[16:24]) == (image_width, image_height)
+                    and frame.get("width") == image_width and frame.get("height") == image_height, "Pose PNG dimensions mismatch")
+            if crop is not None:
+                require(frame.get("crop") == crop and frame.get("renderWidth") == width
+                        and frame.get("renderHeight") == height and frame.get("pixelCoordinates") == "origin-top-left,x-right,y-down",
+                        "Pose crop/source render metadata mismatch")
+            require(len(pixels) == frame.get("byteLength") and hashlib.sha256(pixels).hexdigest() == frame.get("sha256"),
+                    "Pose PNG bytes differ from metadata")
+            image_files.append((f"{operation}-{index}.png", pixels))
+        after = tool_call(client, "turboism.render.state", {})
+        require(after["parameters"] == initial["parameters"], "Pose scan did not restore all parameters")
+        verification["status"] = "PASS"
+        return metadata
+    except Exception as failure:
+        primary = failure
+        verification["failure"] = {"exceptionClass": type(failure).__name__, "message": sanitize(str(failure))}
+        raise
+    finally:
+        try:
+            if metadata is not None and metadata.get("outcome") != "RUNNING" and metadata.get("parametersRestored") is True:
+                after = history_snapshot(client)
+                require(after["generation"] == before["generation"], "Pose scan changed history generation")
+                if after["position"] == before["position"] + 1:
+                    receipt = object_value(metadata.get("receipt"), "pose transaction receipt")
+                    args = history_guard_arguments(after, undo=True)
+                    require(args["expectedTopEntryId"] == receipt.get("historyEntryId")
+                            and args.get("expectedTransactionId") == receipt.get("transactionId"), "Pose history receipt mismatch")
+                    tool_call(client, "turboism.history.undo", args)
+                else:
+                    require(after["position"] == before["position"], "Unexpected pose history delta")
+                restored = tool_call(client, "turboism.render.state", {})
+                require(restored["parameters"] == initial["parameters"] and history_snapshot(client)["position"] == before["position"],
+                        "Pose history cleanup changed restored parameters or position")
+                verification["scanHistoryRestored"] = True
+                tool_call(client, "turboism.render.pose_grid.release", {"operationId": operation})
+        except Exception as cleanup_failure:
+            verification["status"] = "FAIL"
+            verification["cleanupError"] = {"exceptionClass": type(cleanup_failure).__name__}
+            if primary is None: raise
+        finally:
+            if verification["status"] != "PASS" or not verification["scanHistoryRestored"]:
+                verification["status"] = "FAIL"
+            verification["result"] = metadata
+            (state_root / f"{operation}.json").write_text(json.dumps(verification, indent=2) + "\n")
+            for filename, pixels in image_files:
+                (state_root / filename).write_bytes(pixels)
+
+
+def validate_native_geometry_rollback(state_root: Path, task_id: str, samples: list[dict[str, Any]],
+                                      plans: list[dict[str, Any]], *, timeout_seconds: float = 150) -> dict[str, Any]:
+    require(len(samples) == len(plans) == 3, "Missing rollback targets")
+    state = samples[0]["state"]
+    request = {"runId": task_id, "documentId": state["documentId"], "modelId": state["modelId"],
+               "targets": [{"kind": item["kind"], "objectId": item["objectId"], "sourceGuid": item["sourceGuid"],
+                            "formGuid": plan["edits"][0]["formGuid"]} for item, plan in zip(samples, plans)]}
+    publish_atomic(state_root / "mcp-geometry-rollback-request.json", json.dumps(request))
+    path = state_root / "mcp-geometry-rollback-result.json"
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if path.is_file():
+            require(path.stat().st_size <= 65536, "Geometry rollback evidence exceeds budget")
+            report = object_value(json.loads(path.read_text()), "geometry rollback report")
+            require(report.get("runId") == task_id and report.get("status") == "PASS"
+                    and report.get("allSnapshotsRestored") is True, "Native geometry rollback not proven")
+            baseline = report.get("beforeSnapshotHashes")
+            require(isinstance(baseline, list) and len(baseline) == 3
+                    and all(isinstance(x, str) and re.fullmatch(r"[a-f0-9]{64}", x) for x in baseline),
+                    "Missing native baseline fingerprints")
+            attempts = report.get("attempts")
+            require(isinstance(attempts, list) and len(attempts) == 3, "Missing native rollback boundaries")
+            for boundary, attempt in enumerate(attempts, 1):
+                require(attempt.get("failureAfter") == boundary and attempt.get("verifiedSetterCount") == boundary
+                        and attempt.get("injected") is True and attempt.get("outcome") == "ROLLED_BACK",
+                        "Native fault did not follow confirmed setters")
+                require(attempt.get("restoredSnapshotHashes") == baseline
+                        and attempt.get("historyPositionBefore") == attempt.get("historyPositionAfter")
+                        and isinstance(attempt.get("historyPositionBefore"), int)
+                        and bool(attempt.get("transactionId")) and bool(attempt.get("diagnosticId")),
+                        "Missing native restoration receipt")
+                hashes = attempt.get("changedSnapshotHashes")
+                for prefix in ("publicHistory", "transactionHistory"):
+                    before_history = object_value(attempt.get(prefix + "Before"), "native history before")
+                    require(set(before_history) == {"generation", "revision", "position", "entriesSha256", "entryCount",
+                                                    "documentBindingId", "managerBindingId", "canUndo", "canRedo"}
+                            and all(type(before_history[key]) is int and before_history[key] >= 0
+                                    for key in ("generation", "revision", "position", "entryCount"))
+                            and before_history["position"] <= before_history["entryCount"]
+                            and re.fullmatch(r"[a-f0-9]{64}", str(before_history["entriesSha256"]))
+                            and all(isinstance(before_history[key], str) and bool(before_history[key])
+                                    for key in ("documentBindingId", "managerBindingId"))
+                            and all(type(before_history[key]) is bool for key in ("canUndo", "canRedo")),
+                            "Incomplete native history observer evidence")
+                    require(before_history == attempt.get(prefix + "After")
+                            and before_history.get("position") == attempt["historyPositionBefore"],
+                            "Native history observer did not restore its own full baseline")
+                require(isinstance(hashes, list) and len(hashes) == boundary
+                        and all(isinstance(x, str) and re.fullmatch(r"[a-f0-9]{64}", x) and x != baseline[i]
+                                for i, x in enumerate(hashes)), "No actual intermediate native geometry change")
+            return report
+        time.sleep(min(.25, max(0, deadline - time.monotonic())))
+    raise ValidationFailure("Native geometry rollback timed out; no recovery retry is authorized")
+
+
+def validate_native_geometry_persistence(state_root: Path, task_id: str, samples: list[dict[str, Any]],
+                                         plans: list[dict[str, Any]], *, timeout_seconds: float = 420) -> dict[str, str]:
+    require(len(samples) == len(plans) == 3, "Missing geometry persistence targets")
+    state = samples[0]["state"]
+    request = {"runId": task_id, "documentId": state["documentId"], "modelId": state["modelId"],
+               "targets": [{"kind": item["kind"], "objectId": item["objectId"], "sourceGuid": item["sourceGuid"],
+                            "formGuid": plan["edits"][0]["formGuid"]} for item, plan in zip(samples, plans)]}
+    publish_atomic(state_root / "mcp-geometry-persistence-request.json", json.dumps(request))
+    path = state_root / "mcp-geometry-persistence-result.properties"
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if path.is_file():
+            require(path.stat().st_size <= 65536, "Geometry persistence evidence exceeds budget")
+            report: dict[str, str] = {}
+            for line in path.read_text().splitlines():
+                if not line or line.startswith("#"): continue
+                key, separator, value = line.partition("=")
+                require(bool(separator) and key not in report, "Invalid geometry persistence report")
+                report[key] = value
+            require(report.get("runId") == task_id and report.get("status") == "PASS"
+                    and report.get("geometrySaveReopen") == "PASS", "Native geometry persistence not proven")
+            require(all(report.get(key) == "true" for key in ("fixtureUnchanged", "originalReopened", "freshNativeDocument"))
+                    and report.get("persistenceObjectKinds") == "3", "Incomplete native geometry round-trip")
+            before_hashes = report.get("savedGeometryHashes", "").split(",")
+            require(len(before_hashes) == 3 and all(re.fullmatch(r"[a-f0-9]{64}", value) for value in before_hashes)
+                    and report["savedGeometryHashes"] == report.get("reopenedGeometryHashes"), "Stored geometry changed on disk round-trip")
+            require(re.fullmatch(r"[a-f0-9]{64}", report.get("savedBindingsHash", ""))
+                    and report["savedBindingsHash"] == report.get("reopenedBindingsHash")
+                    and re.fullmatch(r"[a-f0-9]{64}", report.get("savedFileSha256", "")), "Missing persisted binding/file fingerprints")
+            return report
+        time.sleep(min(.25, max(0, deadline - time.monotonic())))
+    raise ValidationFailure("Native geometry persistence timed out; old document/history handles must not be reused")
+
+
+def validate_ordinary_geometry(client: McpClient, state_root: Path, task_id: str, *, samples=None, planner=None, persistence=True, pose_override=None, capture=None, response_loss=False) -> None:
+    evidence: dict[str, Any] = {"runId": task_id, "status": "RUNNING", "phase": "DISCOVER", "comparison": "SDK_FLOAT32_BITS_AND_EXACT_IDENTITIES"}
+    path = state_root / "mcp-ordinary-geometry.json"
+    planner = ordinary_edit if planner is None else planner
+    capture = validate_ordinary_pose_capture if capture is None else capture
+    originals = validate_stored_authoring(client, state_root) if samples is None else samples
+    require([x["kind"] for x in originals] == ["art_mesh", "warp_deformer", "rotation_deformer"], "Unexpected geometry target order")
+    current = originals
+    prep_receipt = None
+    prep_position = None
+    write_receipt = None
+    write_restored = False
+    prep_restored = False
+    native_rollback_known = True
+    document_restoration_known = True
+    def state():
+        return tool_call(client, "turboism.render.state", {})["state"]
+    def reread(samples):
+        binding = state()
+        return [read_stored_object(client, item["kind"], item["objectId"], binding) for item in samples]
+    def equal_rows(actual, expected, message):
+        require(len(actual) == len(expected) and all(stored_rows_equal(a["rows"], b["rows"]) for a, b in zip(actual, expected)), message)
+    def undo_receipt(receipt, expected_position=None):
+        history = history_snapshot(client)
+        position = receipt["historyAfter"].get("position") if expected_position is None else expected_position
+        require(position is not None and history["position"] == position, "Cleanup history position changed")
+        args = history_guard_arguments(history, undo=True)
+        require(args["expectedTopEntryId"] == receipt["historyEntryId"], "Cleanup history entry changed")
+        require(args.get("expectedTransactionId") == receipt["transactionId"], "Cleanup transaction changed")
+        tool_call(client, "turboism.history.undo", args)
+    try:
+        rotation = next(x for x in current if x["kind"] == "rotation_deformer")
+        if not any(r.get("snapshotEligible") is True for r in rotation["rows"]):
+            require(not any(r.get("kind") == "axis" for r in rotation["rows"]), "Rotation has unsupported existing axes")
+            # Explicit fixture preparation uses a real discovered axis/GUID and the typed initializer.
+            # This creates bindings/forms; it never edits or unlocks the default stored form.
+            axes = [r for x in current for r in x["rows"] if r.get("kind") == "axis"
+                    and r["minimum"] < r["defaultValue"] < r["maximum"]]
+            require(bool(axes), "No discovered ordinary parameter for fixture preparation")
+            axis = axes[0]
+            plan = tool_call(client, "turboism.authoring.bindings.initialize_plan", {
+                "documentId": rotation["state"]["documentId"], "modelId": rotation["state"]["modelId"],
+                "objectId": rotation["objectId"], "kind": rotation["kind"],
+                "authoringSnapshotId": rotation["snapshotId"], "axes": [{
+                    "parameterId": axis["parameterId"], "parameterGuid": axis["parameterGuid"],
+                    "keys": [axis["minimum"], axis["defaultValue"], axis["maximum"]]}]})
+            evidence["phase"] = "PREPARE_ROTATION"
+            preparation_before = history_snapshot(client)
+            prep_position = preparation_before["position"] + 1
+            prepared = tool_result(client, "turboism.authoring.bindings.initialize", {
+                "documentId": rotation["state"]["documentId"], "modelId": rotation["state"]["modelId"],
+                "operationId": task_id + "-rotation-prepare", "planId": plan["planId"], "target": {
+                    "objectId": rotation["objectId"], "kind": rotation["kind"], "sourceGuid": rotation["sourceGuid"],
+                    "axes": plan["axes"]}})
+            prep_receipt = prepared.get("receipt")
+            evidence["preparation"] = prepared
+            require(prepared.get("ok") is True and prepared.get("outcome") == "APPLIED" and prep_receipt,
+                    "Rotation fixture preparation not confirmed")
+            require(history_snapshot(client)["position"] == prep_position,
+                    "Rotation preparation did not create one native Undo step")
+            current = reread(current)
+        plans = [planner(item) for item in current]
+        evidence["phase"] = "NATIVE_FAULT_ROLLBACK"
+        native_before_state = state()
+        native_rollback_known = False
+        evidence["nativeRollback"] = validate_native_geometry_rollback(
+            state_root, task_id, current, [target for target, _ in plans])
+        native_after_state = state()
+        require(all(native_before_state[key] == native_after_state[key] for key in
+                    ("documentId", "modelId", "historyGeneration", "poseHash")), "Native rollback changed render scope or pose")
+        evidence["nativeRollbackRenderState"] = {"before": native_before_state, "after": native_after_state}
+        restored = reread(current)
+        equal_rows(restored, current, "MCP readback disagrees with native rollback restoration")
+        native_rollback_known = True
+        current = restored
+        plans = [planner(item) for item in current]
+        poses = ordinary_poses(current, [target for target, _ in plans]) if pose_override is None else pose_override
+        evidence["phase"] = "RENDER_BEFORE"
+        evidence["renderBefore"] = capture(client, state_root, task_id + "-poses-before", poses)
+        current = reread(current)
+        plans = [planner(item) for item in current]
+        expected = [{**sample, "rows": expected_rows} for sample, (_, expected_rows) in zip(current, plans)]
+        operation = task_id + "-ordinary-three-kinds"
+        binding = state()
+        request = {"documentId": binding["documentId"], "modelId": binding["modelId"],
+                   "operationId": operation, "targets": [plan for plan, _ in plans]}
+        evidence["phase"] = "PREVIEW"
+        preview = tool_call(client, "turboism.authoring.keyforms.preview", request)
+        require(preview.get("applied") is False, "Preview reported a mutation")
+        before = history_snapshot(client)
+        evidence["request"] = request
+        evidence["before"] = current
+        evidence["phase"] = "WRITE"
+        # Never replay writes after a timeout/unknown outcome. Receipt-based cleanup below is guarded.
+        changed = (reconcile_injected_keyform_write(client, request, evidence) if response_loss
+                   else tool_result(client, "turboism.authoring.keyforms.write", request))
+        evidence["write"] = changed
+        write_receipt = changed.get("receipt")
+        require(changed.get("ok") is True and changed.get("outcome") == "APPLIED" and write_receipt,
+                "Ordinary geometry write not confirmed")
+        require(all(x.get("readbackVerified") is True for x in changed["targets"]), "Writer readback not verified")
+        after = history_snapshot(client)
+        require(after["position"] == before["position"] + 1, "Three-kind edit is not one native Undo step")
+        committed = reread(current)
+        evidence["observedAfter"] = committed
+        evidence["expectedAfter"] = expected
+        equal_rows(committed, expected, "Stored write did not preserve exact expected geometry and other forms")
+        evidence["after"] = committed
+        evidence["phase"] = "RENDER_AFTER"
+        evidence["renderAfter"] = capture(client, state_root, task_id + "-poses-after", poses)
+        before_frames, after_frames = evidence["renderBefore"]["frames"], evidence["renderAfter"]["frames"]
+        evidence["poseImageChanges"] = [{"label": a["label"], "beforeSha256": a["sha256"], "afterSha256": b["sha256"],
+                                         "changed": a["sha256"] != b["sha256"]} for a, b in zip(before_frames, after_frames)]
+        require(any(x["changed"] for x in evidence["poseImageChanges"]), "No rendered pose changed after geometry writes")
+        evidence["phase"] = "UNDO"
+        undo_receipt(write_receipt)
+        equal_rows(reread(current), current, "Undo did not exactly restore all stored rows")
+        write_restored = True
+        evidence["phase"] = "REDO"
+        write_restored = False
+        tool_call(client, "turboism.history.redo", history_guard_arguments(history_snapshot(client), undo=False))
+        equal_rows(reread(current), expected, "Redo did not exactly restore all edited rows")
+        evidence["phase"] = "FINAL_UNDO"
+        undo_receipt(write_receipt)
+        equal_rows(reread(current), current, "Final Undo did not restore prepared geometry")
+        write_restored = True
+        if persistence:
+            evidence["phase"] = "PERSISTENCE_REDO"
+            write_restored = False
+            tool_call(client, "turboism.history.redo", history_guard_arguments(history_snapshot(client), undo=False))
+            persistence_samples = reread(current)
+            equal_rows(persistence_samples, expected, "Persistence Redo differs from verified geometry")
+            evidence["phase"] = "SAVE_REOPEN"
+            # Native close/reopen changes document, model and history bindings. Old receipts cannot
+            # authorize cleanup after dispatch, including a failed or timed-out file workflow.
+            document_restoration_known = False
+            evidence["geometryPersistence"] = validate_native_geometry_persistence(
+                state_root, task_id, persistence_samples, request["targets"])
+            equal_rows(reread(originals), originals, "Fixture preparation was not exactly restored")
+            write_restored = True
+            prep_restored = bool(prep_receipt)
+            document_restoration_known = True
+        evidence["phase"] = "RESTORED"
+        evidence["status"] = "PASS"
+    except Exception as failure:
+        evidence["failure"] = {"exceptionClass": failure.__class__.__name__, "message": sanitize(str(failure))}
+        raise
+    finally:
+        try:
+            if document_restoration_known and native_rollback_known and write_receipt and not write_restored:
+                undo_receipt(write_receipt)
+                equal_rows(reread(current), current, "Failure cleanup did not restore geometry")
+                write_restored = True
+            if document_restoration_known and native_rollback_known and prep_receipt and not prep_restored:
+                undo_receipt(prep_receipt, prep_position)
+                equal_rows(reread(originals), originals, "Failure cleanup did not restore original bindings")
+                prep_restored = True
+        except Exception as cleanup_failure:
+            evidence["cleanupError"] = {"exceptionClass": cleanup_failure.__class__.__name__}
+            if "failure" not in evidence:
+                raise
+        finally:
+            evidence["writeRestored"] = write_restored
+            evidence["nativeRollbackVerified"] = native_rollback_known and "nativeRollback" in evidence
+            evidence["geometryPersistenceVerified"] = document_restoration_known and "geometryPersistence" in evidence
+            evidence["preparationRestored"] = prep_restored if prep_receipt else "NOT_NEEDED"
+            if evidence["status"] != "PASS":
+                evidence["status"] = "FAIL"
+            path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("usage: mcp-host-validation-client.py <turboism-home> <task-id>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in {"--read-only-inspection", "--head-edit", "--head-save", "--head-qa", "--native-observe", "--native-edit"}):
+        print("usage: mcp-host-validation-client.py <turboism-home> <task-id> [--read-only-inspection|--head-edit|--head-save|--head-qa]", file=sys.stderr)
         return 2
+    native_edit = len(sys.argv) == 4 and sys.argv[3] == "--native-edit"
+    native_observe = len(sys.argv) == 4 and sys.argv[3] == "--native-observe"
+    read_only = native_observe or len(sys.argv) == 4 and sys.argv[3] == "--read-only-inspection"
+    head_edit = len(sys.argv) == 4 and sys.argv[3] == "--head-edit"
+    head_save = len(sys.argv) == 4 and sys.argv[3] == "--head-save"
+    head_qa = len(sys.argv) == 4 and sys.argv[3] == "--head-qa"
     home = Path(sys.argv[1]).resolve()
     task_id = sanitize(sys.argv[2])
     state_root = home / "state"
@@ -943,7 +2284,7 @@ def main() -> int:
         advertised_version = text_value(connection.get("protocolVersion"), "protocolVersion")
         report.append("assertion.connectionFile.status=PASS")
         report.append("assertion.tokenGatedConnection.status=PASS")
-        client = McpClient(endpoint, advertised_version, token)
+        client = (ReadOnlyInspectionClient if read_only else ResponseLossHeadEditingClient if head_edit else PacedHeadQaClient if head_qa else HeadPersistenceClient if head_save else McpClient)(endpoint, advertised_version, token)
         initialized = client.initialize()
         report.append("assertion.initialize.status=PASS")
         report.append(f"serverVersion={sanitize(str(initialized.get('protocolVersion')))}")
@@ -1003,6 +2344,70 @@ def main() -> int:
         assert_no_absolute_paths(document)
         report.append("assertion.document.status=PASS")
         report.append("assertion.noAbsolutePaths.status=PASS")
+        inspection_history = history_snapshot(client) if read_only else None
+        authoring = validate_stored_authoring(client, state_root)
+        report.append("assertion.storedAuthoringThreeKindsAndImmutablePages.status=PASS")
+        report.append(f"storedAuthoringObjectCount={len(authoring)}")
+        render = validate_native_render(client, state_root)
+        report.append("assertion.nativeRenderTypedImage.status=PASS")
+        report.append("assertion.nativeRenderStaleAndStatePreservation.status=PASS")
+        report.append(f"nativeRenderSha256={render['sha256']}")
+        if native_edit:
+            mutations.append("NATIVE_CODEX_ONE_KEYFORM_ATTEMPTED")
+            validate_native_editor(home, task_id, client, authoring)
+            report.append("assertion.realNativeAgentKeyformWriteReadbackUndoRedoRestore.status=PASS")
+            client.delete_session()
+            status = "PASS"
+            return 0
+        if read_only:
+            if native_observe:
+                validate_native_observer(home, task_id, client)
+                report.append("assertion.realNativeAgentResourcesAndImageDelivery.status=PASS")
+                report.append("modelVisionAcceptance=REQUIRES_SEPARATE_REVIEW")
+            capture_read_only_inventory(client, state_root, render["state"])
+            report.append("assertion.readOnlyInventoryRepeatedResources.status=PASS")
+            head_candidates = capture_head_candidate_authoring(client, state_root, render["state"])
+            report.append(f"headCandidateStatus={head_candidates['status']}")
+            finish_read_only_inspection(client, state_root, task_id, inspection_history, authoring, render)
+            report.append("assertion.readOnlyInspectionHistoryAndRender.status=PASS")
+            report.append("inspectionMode=READ_ONLY_INSPECTION")
+            client.delete_session()
+            report.append("assertion.sessionDelete.status=PASS")
+            status = "PASS"
+            return 0
+
+        if head_edit or head_save or head_qa:
+            capture_read_only_inventory(client, state_root, render["state"])
+            candidates = capture_head_candidate_authoring(client, state_root, render["state"])
+            require(candidates["status"] == "READ_VERIFIED_CANDIDATE_ONLY", "Head editing requires the complete inspected profile")
+            snapshots = json.loads((state_root / "mcp-head-candidate-authoring-private.json").read_text(encoding="utf-8"))
+            by_kind = {item["kind"]: item for item in snapshots}
+            ordered = [by_kind[k] for k in ("art_mesh", "warp_deformer", "rotation_deformer")]
+            if head_save:
+                mutations.append("BOUNDED_HEAD_PRODUCTION_SAVE_OPEN_ATTEMPTED")
+                validate_production_save_open(client, state_root, task_id, samples=ordered,
+                                              planner=bounded_head_edit, initialize_binding=False)
+                report.append("assertion.headProductionSaveOpenGeometryBindingsAndPixels.status=PASS")
+            elif head_qa:
+                resources = json.loads((state_root / "mcp-read-only-inventory-private.json").read_text(encoding="utf-8"))
+                poses = head_combination_poses(resources["turboism://active/model/parameters"]["parameters"])
+                mutations.append("BOUNDED_HEAD_COMBINATION_SCAN_AND_EDIT_ATTEMPTED")
+                validate_ordinary_geometry(client, state_root, task_id, samples=ordered, planner=bounded_head_edit,
+                                          persistence=False, pose_override=poses, capture=validate_head_pose_suite)
+                report.append("assertion.headCombinationFramesAndParameterRestoration.status=PASS")
+                report.append("artQuality=NOT_AUTOMATICALLY_ACCEPTED")
+            else:
+                mutations.append("BOUNDED_HEAD_ORDINARY_GEOMETRY_ATTEMPTED")
+                validate_ordinary_geometry(client, state_root, task_id, samples=ordered, planner=bounded_head_edit, persistence=False, response_loss=True)
+                report.append("assertion.headWriteResponseLossReconciledWithoutReplay.status=PASS")
+                report.append("assertion.headGeometryWriteUndoRedoRollbackAndRender.status=PASS")
+                report.append("persistence=NOT_TESTED_IN_HEAD_EDIT_LANE")
+            client.delete_session()
+            report.append("assertion.sessionDelete.status=PASS")
+            status = "PASS"
+            return 0
+
+
 
         core = await_resource(
             client,
@@ -1086,6 +2491,9 @@ def main() -> int:
         report.append("assertion.glueRollback.status=PASS")
         report.append("assertion.glueFinalRestoration.status=PASS")
 
+        mutations.append("ORDINARY_GEOMETRY_MATRIX_ATTEMPTED")
+        validate_ordinary_geometry(client, state_root, task_id)
+        report.append("assertion.ordinaryGeometryThreeKindsUndoRedoRestoration.status=PASS")
         inversion = validate_reversible_binding_inversion(client, parameter_values)
         mutations.append(inversion)
         report.append("assertion.explicitBindingScope.status=PASS")
@@ -1166,6 +2574,15 @@ def main() -> int:
         require(unknown.get("code") == -32002, "unknown resource did not map to -32002")
         report.append("assertion.resourceNotFound.status=PASS")
 
+        if glue_version == "5.3.03":
+            validate_authorized_model_open(client, state_root, task_id)
+            report.append("assertion.authorizedOpenExistingTaskCopy.status=PASS")
+            validate_authorized_fresh_model_open(client, state_root, task_id)
+            report.append("assertion.authorizedOpenFreshDocumentGeometryBindings.status=PASS")
+            validate_production_save_open(client, state_root, task_id)
+            report.append("assertion.productionSaveAsOpenModifiedGeometryBindings.status=PASS")
+        else:
+            report.append("authorizedOpenExistingTaskCopy=NOT_ADMITTED_EXACT_VERSION")
         client.delete_session()
         report.append("assertion.sessionDelete.status=PASS")
         status = "PASS"
@@ -1185,6 +2602,351 @@ def main() -> int:
         report.append(f"status={status}")
         publish_atomic(result_path, "\n".join(report) + "\n")
     return 0 if status == "PASS" else 1
+
+
+def validate_authorized_model_open(client: McpClient, state_root: Path, task_id: str,
+                                   *, timeout_seconds: float = 60) -> dict[str, Any]:
+    """Exercise the production chooser grant and OPEN on the already-open task copy.
+
+    The test-only responder approves that exact READ purpose and task fixture once.
+    This proves dispatch/focus behavior, not first-open deserialization or persistence.
+    """
+    before = tool_call(client, "turboism.documents.read", {})
+    operation = task_id + "-authorized-open"
+    grant_operation = operation + "-grant"
+    grant = tool_call(client, "turboism.files.request_grant", {
+        "operationId": grant_operation, "purpose": "Turboism validation CMO3 OPEN " + task_id,
+        "mode": "READ", "allowedExtensions": ["cmo3"]})
+    deadline = time.monotonic() + timeout_seconds
+    while grant.get("state") == "PENDING" and time.monotonic() < deadline:
+        time.sleep(0.25)
+        grant = tool_call(client, "turboism.files.grant_status", {"operationId": grant_operation})
+    require(grant.get("state") == "GRANTED" and grant.get("grantId"), "Test READ chooser grant was not granted")
+    request = {"operationId": operation, "grantId": grant["grantId"],
+               "documentSnapshotId": before["snapshotId"]}
+    result = tool_call(client, "turboism.documents.open", request)
+    require(result.get("outcome") == "EXECUTED" and result.get("code") ==
+            "NATIVE_OPEN_DISPATCHED_REDISCOVER_DOCUMENTS", "Authorized OPEN was not dispatched")
+    require(result.get("persistenceVerified") is False and result.get("reopenVerified") is False,
+            "OPEN incorrectly claimed persistence")
+    require(tool_call(client, "turboism.documents.file_result", {"operationId": operation}) == result,
+            "OPEN retained result differs")
+    require(tool_call(client, "turboism.documents.open", request) == result, "OPEN replay differs")
+    after = tool_call(client, "turboism.documents.read", {})
+    require(before.get("state") == after.get("state"), "Already-open task copy changed document inventory or authoring state")
+    consumed = tool_call(client, "turboism.files.grant_status", {"operationId": grant_operation})
+    require(consumed.get("state") == "CONSUMED", "OPEN did not consume READ grant")
+    evidence = {"status": "PASS", "scope": "ALREADY_OPEN_TASK_COPY", "runId": task_id,
+                "testChooserApproval": True, "result": result, "before": before, "after": after,
+                "grantState": consumed["state"], "firstOpenVerified": False,
+                "persistenceVerified": False, "reopenVerified": False}
+    assert_no_absolute_paths(evidence)
+    publish_atomic(state_root / "mcp-authorized-open.json", json.dumps(evidence, indent=2) + "\n")
+    return evidence
+
+
+def await_fresh_open_report(state_root: Path, name: str, task_id: str, expected_status: str,
+                            timeout_seconds: float = 150) -> dict[str, Any]:
+    path = state_root / name
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if path.is_file():
+            require(not path.is_symlink() and path.stat().st_size <= 256 * 1024, "Invalid fresh OPEN evidence")
+            value = object_value(json.loads(path.read_text()), "fresh OPEN evidence")
+            require(value.get("runId") == task_id and value.get("status") == expected_status,
+                    "Fresh OPEN native stage did not confirm " + expected_status)
+            return value
+        time.sleep(0.25)
+    raise ValidationFailure("Fresh OPEN native stage timed out; no replay or cleanup writes")
+
+
+def validate_authorized_fresh_model_open(client: McpClient, state_root: Path, task_id: str,
+                                         *, timeout_seconds: float = 60) -> dict[str, Any]:
+    """Close only the owned task document via test probe; production MCP alone reopens it."""
+    evidence: dict[str, Any] = {"runId": task_id, "status": "FAIL", "phase": "INSPECT",
+                               "testChooserApproval": True, "scope": "CLOSED_TASK_COPY_FRESH_LOAD",
+                               "persistenceVerified": False}
+    try:
+        samples = validate_stored_authoring(client, state_root)
+        state = tool_call(client, "turboism.render.state", {})["state"]
+        request = {"runId": task_id, "documentId": state["documentId"], "modelId": state["modelId"],
+                   "targets": [{"kind": item["kind"], "objectId": item["objectId"],
+                                "sourceGuid": item["sourceGuid"],
+                                "formGuid": next(row["formGuid"] for row in item["rows"] if row.get("formGuid"))}
+                               for item in samples]}
+        evidence["before"] = samples
+        evidence["phase"] = "CLOSE_OWNED_TASK_DOCUMENT"
+        publish_atomic(state_root / "mcp-fresh-open-prepare.json", json.dumps(request))
+        closed = await_fresh_open_report(state_root, "mcp-fresh-open-closed.json", task_id, "CLOSED")
+        require(closed.get("noActiveDocument") is True, "Probe did not confirm an empty active document")
+        evidence["closed"] = closed
+        empty = tool_call(client, "turboism.documents.read", {})
+        require(empty.get("state", {}).get("activeDocument") is None
+                and empty.get("state", {}).get("authoringState") is None,
+                "Public document inventory still has an authoring document")
+        evidence["emptyInventory"] = empty
+        evidence["phase"] = "READ_GRANT"
+        operation = task_id + "-fresh-open"
+        grant_operation = operation + "-grant"
+        grant = tool_call(client, "turboism.files.request_grant", {
+            "operationId": grant_operation, "purpose": "Turboism validation CMO3 FRESH OPEN " + task_id,
+            "mode": "READ", "allowedExtensions": ["cmo3"]})
+        deadline = time.monotonic() + timeout_seconds
+        while grant.get("state") == "PENDING" and time.monotonic() < deadline:
+            time.sleep(0.25)
+            grant = tool_call(client, "turboism.files.grant_status", {"operationId": grant_operation})
+        require(grant.get("state") == "GRANTED" and grant.get("grantId"), "Fresh READ grant unavailable")
+        evidence["phase"] = "PRODUCTION_OPEN"
+        result = tool_call(client, "turboism.documents.open", {
+            "operationId": operation, "grantId": grant["grantId"], "documentSnapshotId": empty["snapshotId"]})
+        evidence["openResult"] = result
+        require(result.get("outcome") == "EXECUTED" and result.get("code") ==
+                "NATIVE_OPEN_DISPATCHED_REDISCOVER_DOCUMENTS", "Fresh OPEN dispatch unconfirmed; never replay")
+        require(result.get("persistenceVerified") is False and result.get("reopenVerified") is False,
+                "Dispatch incorrectly claims persistence or reopened content")
+        require(tool_call(client, "turboism.documents.file_result", {"operationId": operation}) == result,
+                "Retained fresh OPEN result mismatch")
+        evidence["phase"] = "REDISCOVER"
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            discovered = tool_call(client, "turboism.documents.read", {})
+            active = discovered.get("state", {}).get("activeDocument")
+            if isinstance(active, dict) and active.get("kind") == "MODEL" and discovered["state"].get("authoringState"):
+                break
+            require(time.monotonic() < deadline, "Fresh document readiness timed out; do not redispatch")
+            time.sleep(0.25)
+        evidence["loadedInventory"] = discovered
+        loaded_state = tool_call(client, "turboism.render.state", {})["state"]
+        after = [read_stored_object(client, item["kind"], item["objectId"], loaded_state) for item in samples]
+        for before, observed in zip(samples, after):
+            require(before["sourceGuid"] == observed["sourceGuid"] and stored_rows_equal(before["rows"], observed["rows"]),
+                    "Production fresh OPEN changed source identity or complete stored rows")
+        evidence["after"] = after
+        evidence["phase"] = "VERIFY_NATIVE_IDENTITY_AND_FULL_RECORDS"
+        publish_atomic(state_root / "mcp-fresh-open-verify.json", json.dumps({"runId": task_id}))
+        native = await_fresh_open_report(state_root, "mcp-fresh-open-result.json", task_id, "PASS")
+        require(native.get("freshNativeDocument") is True and native.get("geometryKinds") == 3
+                and native.get("bindingsEqual") is True and native.get("taskFileIdentityVerified") is True
+                and native.get("fixtureUnchanged") is True, "Fresh native identity/geometry/bindings not verified")
+        for key in ("GeometryHashes", "BindingsHash"):
+            require(native.get("before" + key) and native["before" + key] == native.get("after" + key),
+                    "Fresh OPEN complete native record hashes differ")
+        hashes = native.get("beforeGeometryHashes")
+        require(isinstance(hashes, list) and len(hashes) == 3
+                and all(isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h) for h in hashes)
+                and isinstance(native.get("beforeBindingsHash"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", native["beforeBindingsHash"]), "Incomplete native geometry/binding hashes")
+        require(isinstance(closed.get("fixtureSha256"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", closed["fixtureSha256"])
+                and native.get("fixtureSha256") == closed["fixtureSha256"], "Task fixture bytes changed")
+        require(tool_call(client, "turboism.files.grant_status", {"operationId": grant_operation}).get("state") == "CONSUMED",
+                "Fresh OPEN did not consume READ grant")
+        evidence["nativeVerification"] = native
+        evidence["firstOpenFromNoDocumentVerified"] = True
+        evidence["reopenedGeometryBindingsVerified"] = True
+        evidence["phase"] = "READY_VERIFIED"
+        evidence["status"] = "PASS"
+        return evidence
+    except Exception as failure:
+        evidence["failure"] = {"exceptionClass": failure.__class__.__name__, "message": sanitize(str(failure))}
+        raise
+    finally:
+        assert_no_absolute_paths(evidence)
+        publish_atomic(state_root / "mcp-authorized-fresh-open.json", json.dumps(evidence, indent=2) + "\n")
+
+
+def validation_grant(client: McpClient, task_id: str, operation: str, purpose: str, mode: str,
+                     timeout_seconds: float = 60) -> str:
+    value = tool_call(client, "turboism.files.request_grant", {"operationId": operation,
+        "purpose": "Turboism validation " + purpose + " " + task_id,
+        "mode": mode, "allowedExtensions": ["cmo3"]})
+    deadline = time.monotonic() + timeout_seconds
+    while value.get("state") == "PENDING" and time.monotonic() < deadline:
+        time.sleep(.25)
+        value = tool_call(client, "turboism.files.grant_status", {"operationId": operation})
+    require(value.get("state") == "GRANTED" and value.get("grantId"), "Validation file grant unavailable")
+    return value["grantId"]
+
+
+def validation_file_dispatch(client: McpClient, tool: str, args: dict[str, Any]) -> dict[str, Any]:
+    require(tool in {"turboism.documents.open", "turboism.documents.save_as"}, "Unexpected validation file command")
+    try:
+        result = tool_result(client, tool, args)
+    except Exception:
+        # Read-only reconciliation, never repeat the write or invent a new operation ID.
+        result = tool_result(client, "turboism.documents.file_result", {"operationId": args["operationId"]})
+    require(result.get("outcome") == "EXECUTED" and result.get("persistenceVerified") is False
+            and result.get("reopenVerified") is False, "File dispatch outcome unconfirmed; no retry or cleanup writes")
+    require(tool_result(client, "turboism.documents.file_result", {"operationId": args["operationId"]}) == result,
+            "File dispatch retained outcome mismatch")
+    return result
+
+
+def validation_open_from_empty(client: McpClient, grant: str, operation: str,
+                               timeout_seconds: float = 60) -> dict[str, Any]:
+    empty = tool_call(client, "turboism.documents.read", {})
+    require(empty.get("state", {}).get("activeDocument") is None
+            and empty.get("state", {}).get("authoringState") is None, "Owned document was not closed")
+    result = validation_file_dispatch(client, "turboism.documents.open", {
+        "operationId": operation, "grantId": grant, "documentSnapshotId": empty["snapshotId"]})
+    require(result.get("code") == "NATIVE_OPEN_DISPATCHED_REDISCOVER_DOCUMENTS", "OPEN dispatch code mismatch")
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        inventory = tool_call(client, "turboism.documents.read", {})
+        active = inventory.get("state", {}).get("activeDocument")
+        if isinstance(active, dict) and active.get("kind") == "MODEL" and inventory["state"].get("authoringState"):
+            return {"emptyInventory": empty, "result": result, "loadedInventory": inventory}
+        require(time.monotonic() < deadline, "Model readiness timed out; never repeat OPEN")
+        time.sleep(.25)
+
+
+def persistence_request(task_id: str, state: dict[str, Any], samples: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"runId": task_id, "documentId": state["documentId"], "modelId": state["modelId"], "targets": [
+        {"kind": item["kind"], "objectId": item["objectId"], "sourceGuid": item["sourceGuid"],
+         "formGuid": next(row["formGuid"] for row in item["rows"] if row.get("formGuid"))} for item in samples]}
+
+
+def validate_production_save_open(client: McpClient, state_root: Path, task_id: str, *, samples=None, planner=None, initialize_binding=True) -> dict[str, Any]:
+    evidence: dict[str, Any] = {"runId": task_id, "status": "FAIL", "phase": "BASELINE",
+        "scope": "PRODUCTION_GRANT_SAVE_AS_CLOSE_GRANT_OPEN_RESTORE", "testChooserApproval": True}
+    def state(): return tool_call(client, "turboism.render.state", {})["state"]
+    def reread(samples):
+        current = state()
+        return [read_stored_object(client, x["kind"], x["objectId"], current) for x in samples]
+    def equal(actual, expected, message):
+        require(len(actual) == len(expected) and all(a["sourceGuid"] == b["sourceGuid"]
+            and stored_rows_equal(a["rows"], b["rows"]) for a, b in zip(actual, expected)), message)
+    planner = ordinary_edit if planner is None else planner
+    try:
+        original = validate_stored_authoring(client, state_root) if samples is None else samples
+        require([x["kind"] for x in original] == ["art_mesh", "warp_deformer", "rotation_deformer"], "Unexpected persistence target order")
+        evidence["original"] = original
+        publish_atomic(state_root / "mcp-production-save-baseline.json", json.dumps(persistence_request(task_id, state(), original)))
+        baseline = await_fresh_open_report(state_root, "mcp-production-save-baseline-result.json", task_id, "BASELINE")
+        evidence["nativeBaseline"] = baseline
+        rotation = next(x for x in original if x["kind"] == "rotation_deformer")
+        if initialize_binding:
+            require(not any(r.get("kind") == "axis" for r in rotation["rows"]), "Persistence fixture Rotation must start unbound")
+            axis = next(r for x in original for r in x["rows"] if r.get("kind") == "axis"
+                        and r["minimum"] < r["defaultValue"] < r["maximum"])
+            evidence["phase"] = "INITIALIZE_BINDING"
+            plan = tool_call(client, "turboism.authoring.bindings.initialize_plan", {
+                "documentId": rotation["state"]["documentId"], "modelId": rotation["state"]["modelId"],
+                "objectId": rotation["objectId"], "kind": rotation["kind"], "authoringSnapshotId": rotation["snapshotId"],
+                "axes": [{"parameterId": axis["parameterId"], "parameterGuid": axis["parameterGuid"],
+                          "keys": [axis["minimum"], axis["defaultValue"], axis["maximum"]]}]})
+            initialized = tool_call(client, "turboism.authoring.bindings.initialize", {
+                "documentId": rotation["state"]["documentId"], "modelId": rotation["state"]["modelId"],
+                "operationId": task_id + "-production-save-bind", "planId": plan["planId"],
+                "target": {"objectId": rotation["objectId"], "kind": rotation["kind"],
+                           "sourceGuid": rotation["sourceGuid"], "axes": plan["axes"]}})
+            require(initialized.get("outcome") == "APPLIED", "Persistence binding initialization unconfirmed")
+            evidence["initialization"] = initialized
+        else:
+            require(any(r.get("kind") == "axis" for r in rotation["rows"])
+                    and any(r.get("snapshotEligible") is True for r in rotation["rows"]),
+                    "Prebound persistence requires existing eligible Rotation forms")
+            evidence["initialization"] = "NOT_NEEDED_EXISTING_BINDINGS_PRESERVED"
+        prepared = reread(original)
+        edits = [planner(item) for item in prepared]
+        poses = ordinary_poses(prepared, [target for target, _ in edits])
+        evidence["phase"] = "RENDER_BEFORE"
+        evidence["renderBefore"] = validate_ordinary_pose_capture(client, state_root, task_id + "-save-before", poses)
+        prepared = reread(prepared)
+        edits = [planner(item) for item in prepared]
+        request = {"documentId": prepared[0]["state"]["documentId"], "modelId": prepared[0]["state"]["modelId"],
+                   "operationId": task_id + "-production-save-geometry", "targets": [x for x, _ in edits]}
+        evidence["phase"] = "WRITE_GEOMETRY"
+        tool_call(client, "turboism.authoring.keyforms.preview", request)
+        write = tool_call(client, "turboism.authoring.keyforms.write", request)
+        evidence["write"] = write
+        require(write.get("outcome") == "APPLIED" and all(x.get("readbackVerified") is True for x in write["targets"]),
+                "Production persistence geometry write unconfirmed")
+        modified = reread(prepared)
+        expected = [{**sample, "rows": rows} for sample, (_, rows) in zip(prepared, edits)]
+        equal(modified, expected, "Geometry differs from planned complete rows")
+        require(all(not stored_rows_equal(a["rows"], b["rows"]) for a, b in zip(modified, prepared)),
+                "Every primitive must contain an actual geometry edit")
+        evidence["modified"] = modified
+        evidence["phase"] = "RENDER_MODIFIED"
+        evidence["renderModified"] = validate_ordinary_pose_capture(client, state_root, task_id + "-save-modified", poses)
+        require(any(a["sha256"] != b["sha256"] for a, b in zip(evidence["renderBefore"]["frames"],
+                evidence["renderModified"]["frames"])), "Modified geometry has no rendered difference")
+        modified = reread(modified)
+        evidence["phase"] = "WRITE_GRANT_SAVE_AS"
+        save_operation = task_id + "-production-save-as"
+        save_grant_op = save_operation + "-grant"
+        grant = validation_grant(client, task_id, save_grant_op, "SAVE AS", "WRITE")
+        # Chooser interaction may change state; only a fresh complete binding may authorize SAVE_AS.
+        modified = reread(modified)
+        equal(modified, expected, "Geometry changed during SAVE_AS authorization")
+        save = validation_file_dispatch(client, "turboism.documents.save_as", {
+            "operationId": save_operation, "grantId": grant, "expectedState": modified[0]["state"],
+            "overwritePolicy": "REJECT_EXISTING"})
+        evidence["saveResult"] = save
+        require(tool_call(client, "turboism.files.grant_status", {"operationId": save_grant_op}).get("state") == "CONSUMED",
+                "SAVE_AS did not consume WRITE grant")
+        evidence["phase"] = "CLOSE_SAVED_DOCUMENT"
+        saved_samples = reread(modified)
+        equal(saved_samples, expected, "SAVE_AS changed geometry")
+        publish_atomic(state_root / "mcp-production-save-prepare.json", json.dumps(persistence_request(task_id, state(), saved_samples)))
+        closed = await_fresh_open_report(state_root, "mcp-production-save-closed.json", task_id, "CLOSED")
+        evidence["nativeClosed"] = closed
+        evidence["phase"] = "READ_GRANT_OPEN_SAVED"
+        read_op = task_id + "-production-saved-open"
+        grant = validation_grant(client, task_id, read_op + "-grant", "SAVED CMO3 OPEN", "READ")
+        evidence["savedOpen"] = validation_open_from_empty(client, grant, read_op)
+        loaded = reread(saved_samples)
+        equal(loaded, expected, "Saved file did not retain modified complete geometry")
+        evidence["loaded"] = loaded
+        publish_atomic(state_root / "mcp-production-save-verify.json", json.dumps({"runId": task_id}))
+        native = await_fresh_open_report(state_root, "mcp-production-save-result.json", task_id, "PASS")
+        require(native.get("freshNativeDocument") is True and native.get("bindingsEqual") is True
+                and native.get("taskFileIdentityVerified") is True and native.get("geometryKinds") == 3,
+                "Saved file native identity or complete records not verified")
+        for key in ("GeometryHashes", "BindingsHash"):
+            require(native.get("before" + key) and native["before" + key] == native.get("after" + key),
+                    "Saved file complete native records differ")
+        if initialize_binding:
+            require(native["beforeBindingsHash"] != baseline["bindingsHash"], "Binding modification was not exercised")
+        else:
+            require(native["beforeBindingsHash"] == baseline["bindingsHash"], "Existing head bindings changed before save")
+        require(native.get("savedFileSha256") == closed.get("savedFileSha256")
+                and isinstance(native.get("savedFileSha256"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", native["savedFileSha256"]), "Saved file hash unverified")
+        evidence["nativeSavedVerification"] = native
+        evidence["phase"] = "RENDER_RELOADED"
+        evidence["renderReloaded"] = validate_ordinary_pose_capture(client, state_root, task_id + "-save-reloaded", poses)
+        require([x["sha256"] for x in evidence["renderModified"]["frames"]] ==
+                [x["sha256"] for x in evidence["renderReloaded"]["frames"]], "Saved/reloaded pose pixels differ")
+        evidence["phase"] = "RESTORE_ORIGINAL_DOCUMENT"
+        publish_atomic(state_root / "mcp-production-save-restore-close.json", json.dumps({"runId": task_id}))
+        evidence["restoreClosed"] = await_fresh_open_report(state_root, "mcp-production-save-restore-closed.json",
+                                                           task_id, "RESTORE_CLOSED")
+        restore_op = task_id + "-production-restore"
+        grant = validation_grant(client, task_id, restore_op + "-grant", "ORIGINAL CMO3 RESTORE", "READ")
+        evidence["originalOpen"] = validation_open_from_empty(client, grant, restore_op)
+        equal(reread(original), original, "Original task geometry not restored")
+        publish_atomic(state_root / "mcp-production-save-restore-verify.json", json.dumps({"runId": task_id}))
+        restored = await_fresh_open_report(state_root, "mcp-production-save-restore-result.json", task_id, "PASS")
+        require(restored.get("originalRestored") is True and restored.get("fixtureSha256") == baseline.get("fixtureSha256")
+                and restored.get("restoredGeometryHashes") == baseline.get("geometryHashes")
+                and restored.get("restoredBindingsHash") == baseline.get("bindingsHash")
+                and restored.get("savedFileSha256") == native.get("savedFileSha256"), "Original/native/file restoration not proven")
+        evidence["restoration"] = restored
+        evidence["phase"] = "RESTORED"
+        evidence["geometryBindingsPersistenceVerified"] = True
+        evidence["posePixelsPersistenceVerified"] = True
+        evidence["status"] = "PASS"
+        return evidence
+    except Exception as failure:
+        evidence["failure"] = {"exceptionClass": failure.__class__.__name__, "message": sanitize(str(failure))}
+        raise
+    finally:
+        # File dispatch may change document/model/history bindings or have an unknown outcome.
+        # Never undo against old receipts, close another document, or replay SAVE_AS/OPEN here.
+        assert_no_absolute_paths(evidence)
+        publish_atomic(state_root / "mcp-production-save-open.json", json.dumps(evidence, indent=2) + "\n")
 
 
 def validate_native_texture_roundtrip(
@@ -1778,4 +3540,7 @@ def sanitize(value: str) -> str:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if len(sys.argv) == 4 and sys.argv[1] == "--native-mcp-stdio":
+        native_observation_stdio(Path(sys.argv[2]).resolve(), sanitize(sys.argv[3]))
+    else:
+        raise SystemExit(main())

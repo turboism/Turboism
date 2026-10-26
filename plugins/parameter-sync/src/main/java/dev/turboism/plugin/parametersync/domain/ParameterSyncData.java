@@ -27,11 +27,13 @@ public record ParameterSyncData(
         savedAt = savedAt == null || savedAt.isBlank() ? Instant.now().toString() : savedAt;
     }
 
+    /** Creates enabled synchronization settings with no selected parameters. */
     public static ParameterSyncData empty(final String modelGuid) {
         return new ParameterSyncData(
                 CURRENT_VERSION, modelGuid, true, Set.of(), Instant.now().toString());
     }
 
+    /** Creates a timestamped snapshot of the supplied model settings. */
     public static ParameterSyncData of(
             final String modelGuid, final boolean globalEnabled, final Set<String> synchronizedIds) {
         return new ParameterSyncData(
@@ -42,6 +44,7 @@ public record ParameterSyncData(
                 Instant.now().toString());
     }
 
+    /** Projects the selected parameters as one compatibility rule when at least two exist. */
     public List<SyncRule> rules() {
         if (synchronizedParameterIds.size() < 2) {
             return List.of();
@@ -49,6 +52,7 @@ public record ParameterSyncData(
         return List.of(SyncRule.of(new ArrayList<>(synchronizedParameterIds)).withEnabled(globalEnabled));
     }
 
+    /** Returns the serialized configuration fields for storage. */
     public Map<String, Object> toMap() {
         final Map<String, Object> map = new LinkedHashMap<>();
         map.put("version", (long) version);
@@ -59,6 +63,7 @@ public record ParameterSyncData(
         return map;
     }
 
+    /** Reads a serialized configuration; returns null when its required identity is missing. */
     public static ParameterSyncData fromMap(final Map<String, ?> map) {
         if (map == null || map.isEmpty()) {
             return null;

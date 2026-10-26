@@ -21,6 +21,52 @@ import org.junit.jupiter.api.Test;
 class PluginGenerationGuardTest {
 
     @Test
+    void baseDeformerCollectionsPreserveClosedSubtypesAndKeepTheirGuards() {
+        var guard = new PluginGenerationGuard("p");
+        var warp = (dev.turboism.sdk.cubism.model.WarpDeformer) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.model.WarpDeformer.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "id" -> new dev.turboism.sdk.cubism.id.DeformerId("warp");
+                    case "grid" ->
+                        new dev.turboism.sdk.cubism.model.WarpGrid(
+                                1,
+                                1,
+                                false,
+                                java.util.List.of(
+                                        new dev.turboism.sdk.cubism.model.Point2(0, 0),
+                                                new dev.turboism.sdk.cubism.model.Point2(1, 0),
+                                        new dev.turboism.sdk.cubism.model.Point2(0, 1),
+                                                new dev.turboism.sdk.cubism.model.Point2(1, 1)));
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+        var rotation = (dev.turboism.sdk.cubism.model.RotationDeformer) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.model.RotationDeformer.class},
+                (proxy, method, arguments) -> new dev.turboism.sdk.cubism.id.DeformerId("rotation"));
+        var source = (dev.turboism.sdk.cubism.model.Deformers) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.model.Deformers.class},
+                (proxy, method, arguments) ->
+                        method.getName().equals("all") ? java.util.List.of(warp, rotation) : warp);
+        var wrapped = guard.wrapForTesting(source, dev.turboism.sdk.cubism.model.Deformers.class);
+        var values = wrapped.all();
+        assertTrue(values.get(0) instanceof dev.turboism.sdk.cubism.model.WarpDeformer);
+        assertTrue(values.get(1) instanceof dev.turboism.sdk.cubism.model.RotationDeformer);
+        assertSame(values.get(0), wrapped.find(new dev.turboism.sdk.cubism.id.DeformerId("warp")));
+        assertEquals(
+                1,
+                ((dev.turboism.sdk.cubism.model.WarpDeformer) values.get(0))
+                        .grid()
+                        .rows());
+        assertEquals("rotation", values.get(1).id().value());
+        guard.fence();
+        assertThrows(
+                IllegalStateException.class, () -> ((dev.turboism.sdk.cubism.model.WarpDeformer) values.get(0)).grid());
+        assertThrows(IllegalStateException.class, values.get(1)::id);
+    }
+
+    @Test
     void fencedContextDeniesNewAdmissionButKeepsDiagnostics() {
         final AtomicReference<String> logSink = new AtomicReference<>();
         final PluginContext delegate = stubContext(new DisposableScope(), new SinkLogger(logSink));

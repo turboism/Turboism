@@ -25,8 +25,23 @@ import java.util.Optional;
 @CubismEditor
 public interface Parameter {
 
-    /** Returns this parameter's stable identity within the model. */
+    /** Returns this parameter's user-editable Cubism display ID, not its native authoring GUID. */
     ParameterId id();
+
+    /**
+     * Returns the Editor-native authoring parameter GUID as opaque text.
+     * It is distinct from the display ID and parameter index, and can be matched to ordinary
+     * authoring snapshot axis GUIDs. Scope it by document/model and generation; a GUID alone
+     * does not make a stale handle valid or authorize editing. Renaming a display ID does not
+     * redefine the authoring source identity; deletion and same-ID recreation may change it.
+     * No Core-index, display-ID or generated-string fallback is permitted.
+     *
+     * @throws UnsupportedOperationException when native Editor identity is unavailable,
+     * including Core-only or detached implementations without authoring GUID evidence
+     */
+    default String guid() {
+        throw new UnsupportedOperationException("Native parameter authoring GUID is unavailable.");
+    }
 
     /** Returns this Parameter's Cubism parameter-palette UI projection. */
     default ParameterAppearance ui() {

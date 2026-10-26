@@ -17,6 +17,87 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Real binding adapter, snapshot decoder and coordinator; only native members are substitutes. */
 class EditorParameterBindingTransactionTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"mesh", "warp", "rotation"})
+    void valueBasedBindingUsesNativeIdentitiesAndPreservesTransactionRecovery(String kind) {
+        EditorHostThread.dispatch("Value-based binding", () -> {
+            for (boolean abort : List.of(false, true)) {
+                var f = new Fixture("", kind.equals("warp"), kind.equals("rotation"));
+                java.util.function.Supplier<Object> read = () -> switch (kind) {
+                    case "warp" -> f.warpRead();
+                    case "rotation" -> f.rotationRead();
+                    default -> f.read();
+                };
+                var before = read.get();
+                var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("Bind values"), () -> {
+                    f.access.bindValues(f.target, List.of(1f, -1f, 0f));
+                    if (abort) throw new IllegalStateException("after binding");
+                    return null;
+                });
+                assertEquals(
+                        abort ? AuthoringTransactionOutcome.ROLLED_BACK : AuthoringTransactionOutcome.COMMITTED,
+                        result.outcome());
+                if (abort) {
+                    assertEquals(before, read.get());
+                    assertTrue(f.history.isEmpty());
+                } else {
+                    assertEquals(List.of(-1f, 0f, 1f), f.grid.bindings().get(0).keys);
+                    var after = read.get();
+                    assertThrows(
+                            IllegalStateException.class, () -> f.access.bindValues(f.target, List.of(-1f, 0f, 1f)));
+                    assertEquals(after, read.get());
+                    f.edit.undo();
+                    assertEquals(before, read.get());
+                    f.edit.redo();
+                    assertEquals(after, read.get());
+                }
+                assertEquals(1, f.begins);
+            }
+            return null;
+        });
+    }
+
+    @Test
+    void invalidBindingValuesRejectBeforeNativeMutation() {
+        EditorHostThread.dispatch("Invalid binding values", () -> {
+            var f = new Fixture();
+            var before = f.read();
+            assertThrows(NullPointerException.class, () -> f.access.bindValues(f.target, null));
+            assertThrows(NullPointerException.class, () -> f.access.bindValues(f.target, Arrays.asList(0f, null)));
+            assertThrows(IllegalArgumentException.class, () -> f.access.bindValues(f.target, List.of()));
+            for (float value : new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY})
+                assertThrows(IllegalArgumentException.class, () -> f.access.bindValues(f.target, List.of(value)));
+            for (float value : new float[] {0f, .0000001f})
+                assertThrows(IllegalStateException.class, () -> f.access.bindValues(f.target, List.of(0f, value)));
+            assertEquals(before, f.read());
+            assertEquals(0, f.begins);
+            return null;
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"mesh", "warp", "rotation"})
+    void valueBasedPartialNativeInsertionRollsBack(String kind) {
+        EditorHostThread.dispatch("Partial value-based binding", () -> {
+            var f = new Fixture("", kind.equals("warp"), kind.equals("rotation"));
+            java.util.function.Supplier<Object> read = () -> switch (kind) {
+                case "warp" -> f.warpRead();
+                case "rotation" -> f.rotationRead();
+                default -> f.read();
+            };
+            var before = read.get();
+            f.grid.failAt = 2;
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("Partial bind"), () -> {
+                f.access.bindValues(f.target, List.of(-1f, 0f, 1f));
+                return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+            assertEquals(before, read.get());
+            assertTrue(f.history.isEmpty());
+            return null;
+        });
+    }
+
     @Test
     void composedBindingHistoryRefreshesOnceAfterAllChildRestores() {
         EditorHostThread.dispatch("Binding history refresh", () -> {

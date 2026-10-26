@@ -222,6 +222,14 @@ final class SessionParameterGroups implements ParameterGroups {
             final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId) {
         host.guardedVoid(generation, () -> delegate.moveParameter(parameterId, targetGroupId));
     }
+
+    @Override
+    public void moveParameter(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final dev.turboism.sdk.cubism.id.ParameterGroupId targetGroupId,
+            final int insertIndex) {
+        host.guardedVoid(generation, () -> delegate.moveParameter(parameterId, targetGroupId, insertIndex));
+    }
 }
 
 final class SessionParameterGroup implements ParameterGroup {
@@ -276,6 +284,11 @@ final class SessionParameterGroup implements ParameterGroup {
     }
 
     @Override
+    public List<dev.turboism.sdk.cubism.model.ParameterGroupChild> orderedChildren() {
+        return host.guarded(generation, delegate::orderedChildren);
+    }
+
+    @Override
     public void rename(final String name) {
         host.guardedVoid(generation, () -> delegate.rename(name));
     }
@@ -310,6 +323,11 @@ final class SessionParameter implements Parameter {
     public ParameterAppearance ui() {
         final dev.turboism.sdk.cubism.id.ParameterId id = id();
         return host.appearanceParameter(modelId, id, modelGeneration);
+    }
+
+    @Override
+    public String guid() {
+        return host.guarded(generation, delegate::guid);
     }
 
     @Override

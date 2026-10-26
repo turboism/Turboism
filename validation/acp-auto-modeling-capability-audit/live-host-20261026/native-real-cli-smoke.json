@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "scope": "Linux installed native CLI isolated initialize/session-new only; no credentials/model prompt/Cubism/vision/resume acceptance",
+  "command": "TURBOISM_NATIVE_SMOKE=1 ./gradlew :plugins:acp:test --tests dev.turboism.plugin.acp.NativeRealCliSmokeTest",
+  "counts": {
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "versions": {
+    "PI": "1.2.0",
+    "CODEX": "0.159.2",
+    "CLAUDE": "2.1.284"
+  },
+  "cases": [
+    {
+      "name": "[1] CODEX",
+      "seconds": 0.743,
+      "status": "PASS"
+    },
+    {
+      "name": "[2] CLAUDE",
+      "seconds": 0.923,
+      "status": "PASS"
+    },
+    {
+      "name": "[3] PI",
+      "seconds": 0.644,
+      "status": "PASS"
+    }
+  ],
+  "testSourceSha256": "3353839acf1dd80c22031cb255913c0c56f1a48926af0d05f5a9e209fd566516",
+  "junitXml": "native-real-cli-smoke.xml"
+}

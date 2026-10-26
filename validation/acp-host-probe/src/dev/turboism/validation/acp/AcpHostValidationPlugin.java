@@ -301,6 +301,22 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
 
     /** Captures only the task's Agent window and verifies its actual Swing controls. */
     private void captureAgentUi(final Ledger ledger) throws InterruptedException {
+        final boolean renderRequired = "5303".equals(System.getProperty("turboism.validation.hostVersion"));
+        final byte[] renderPng;
+        final Map<String, ?> renderMetadata;
+        final java.awt.image.BufferedImage expectedRender;
+        try {
+            final Path root = validationStateRoot().resolve(AGENT_PLUGIN_ID);
+            renderPng = renderRequired ? Files.readAllBytes(root.resolve("agent-native-render.png")) : null;
+            renderMetadata = renderRequired ? dev.turboism.sdk.json.Json.parseObject(Files.readString(root.resolve("agent-native-render.json"))) : null;
+            expectedRender = renderRequired ? javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(renderPng)) : null;
+            if (renderRequired && (!"cubism.native.renderPixels".equals(renderMetadata.get("renderer"))
+                    || !java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(renderPng)).equals(renderMetadata.get("sha256"))))
+                throw new IllegalStateException("Render evidence identity/hash mismatch");
+        } catch (IOException | RuntimeException | java.security.NoSuchAlgorithmException failure) {
+            ledger.fail("nativeRenderSwing", failure.getClass().getSimpleName());
+            return;
+        }
         final long deadline = System.currentTimeMillis() + 15_000L;
         while (enabled && System.currentTimeMillis() < deadline) {
             final java.util.concurrent.atomic.AtomicBoolean captured = new java.util.concurrent.atomic.AtomicBoolean();
@@ -312,6 +328,31 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
                         if (!(component instanceof javax.swing.JButton button) || !button.isEnabled()) continue;
                         final java.awt.Component sessionList = findComponent(window, "turboism-acp.sessions");
                         if (sessionList instanceof javax.swing.JList<?> list && list.getModel().getSize() == 0) continue;
+                        if (renderRequired) {
+                            final var transcript = findComponent(window, "turboism-acp.transcript");
+                            if (!(transcript instanceof javax.swing.JTextPane pane)) continue;
+                            final var inspection = AcpRenderUiEvidence.inspect(pane, renderMetadata, renderPng, expectedRender);
+                            ledger.data("ui.nativeRenderInspection", dev.turboism.sdk.json.Json.stringify(inspection.details()));
+                            final var displayed = inspection.image();
+                            if (displayed == null) {
+                                if (System.currentTimeMillis() >= deadline - 750L) {
+                                    final var diagnostic = new java.awt.image.BufferedImage(window.getWidth(), window.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
+                                    final var graphics = diagnostic.createGraphics();
+                                    try { window.printAll(graphics); } finally { graphics.dispose(); }
+                                    try { javax.imageio.ImageIO.write(diagnostic, "png", validationStateRoot().resolve("acp-agent-window-failure.png").toFile()); }
+                                    catch (IOException failure) { ledger.data("ui.failureCaptureError", failure.getClass().getSimpleName()); }
+                                }
+                                continue; // Wait for the production preview SwingWorker.
+                            }
+                            try {
+                                javax.imageio.ImageIO.write(displayed, "png", validationStateRoot().resolve("acp-transcript-render.png").toFile());
+                                ledger.pass("nativeRenderSwing");
+                                ledger.data("ui.nativeRenderSha256", String.valueOf(renderMetadata.get("sha256")));
+                                ledger.data("ui.nativeRenderPixels", "256x256_exact_argb");
+                                ledger.data("ui.nativeRenderProvenance", "tool_capture_document_model_revision_dimensions");
+                                ledger.pass("nativeRenderNoBase64Text");
+                            } catch (IOException failure) { ledger.fail("nativeRenderSwing", failure.getClass().getSimpleName()); }
+                        }
                         final java.awt.Color foreground = button.getForeground();
                         ledger.data("ui.harnessForeground", String.format("#%06x", foreground.getRGB() & 0xffffff));
                         if (Math.max(foreground.getRed(), Math.max(foreground.getGreen(), foreground.getBlue())) < 128) ledger.pass("harnessForeground");
@@ -341,7 +382,7 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
             if (captured.get()) return;
             Thread.sleep(200L);
         }
-        ledger.fail("agentUi", "connected_agent_window_not_visible_before_timeout");
+        ledger.fail("agentUi", renderRequired ? "native_render_pixels_or_provenance_not_displayed_before_timeout" : "connected_agent_window_not_visible_before_timeout");
     }
 
     private static java.awt.Component findComponent(final java.awt.Component component, final String name) {

@@ -1,0 +1,126 @@
+{
+  "status": "PASS",
+  "scope": "ALREADY_OPEN_TASK_COPY",
+  "runId": "queue-7838088db79a43e9ac6667b642b7c344",
+  "testChooserApproval": true,
+  "result": {
+    "ok": true,
+    "operationId": "queue-7838088db79a43e9ac6667b642b7c344-authorized-open",
+    "outcome": "EXECUTED",
+    "code": "NATIVE_OPEN_DISPATCHED_REDISCOVER_DOCUMENTS",
+    "nativeStatus": "EXECUTED",
+    "afterState": {
+      "historyManagerBinding": "history-manager-3",
+      "historyGeneration": 1,
+      "historyRevision": 56,
+      "historyDocumentBinding": "history-document-3",
+      "modelId": "model-session-b",
+      "documentId": "document-session-a"
+    },
+    "persistenceVerified": false,
+    "reopenVerified": false,
+    "retrySafe": false
+  },
+  "before": {
+    "snapshotTtlSeconds": 300,
+    "snapshotId": "8447f466-d5f9-4c93-a5e9-6ce81c46aae8",
+    "writeAdmission": "NOT_CHECKED",
+    "stateHash": "8e47286341f44b29b7e749114afd3fa6542be89bf2f69a900a8bb6539005263a",
+    "identityScope": "DECLARED_DOCUMENT_METADATA_AND_ACTIVE_AUTHORING_BINDING",
+    "state": {
+      "hostObserved": true,
+      "project": {
+        "documents": [
+          {
+            "documentId": "document-session-a",
+            "name": "\u6d4b\u8bd5 \u6df7\u5408\u6a21\u5f0f",
+            "kind": "MODEL",
+            "contentId": "model:5125d947",
+            "modelId": "model-session-b"
+          }
+        ],
+        "projectId": "project-session-1",
+        "name": "queue-7838088db79a43e9ac6667b642b7c344.cmo3",
+        "contents": [
+          {
+            "documentIds": [
+              "document-session-a"
+            ],
+            "kind": "MODEL",
+            "contentId": "model:5125d947",
+            "name": "\u6d4b\u8bd5 \u6df7\u5408\u6a21\u5f0f"
+          }
+        ]
+      },
+      "activeDocument": {
+        "documentId": "document-session-a",
+        "name": "\u6d4b\u8bd5 \u6df7\u5408\u6a21\u5f0f",
+        "kind": "MODEL",
+        "contentId": "model:5125d947",
+        "modelId": "model-session-b"
+      },
+      "authoringState": {
+        "historyManagerBinding": "history-manager-3",
+        "historyGeneration": 1,
+        "historyRevision": 56,
+        "historyDocumentBinding": "history-document-3",
+        "modelId": "model-session-b",
+        "documentId": "document-session-a"
+      }
+    },
+    "ok": true
+  },
+  "after": {
+    "snapshotTtlSeconds": 300,
+    "snapshotId": "d0eeaa8a-60dc-4ffd-bcee-5c9e971e5e24",
+    "writeAdmission": "NOT_CHECKED",
+    "stateHash": "8e47286341f44b29b7e749114afd3fa6542be89bf2f69a900a8bb6539005263a",
+    "identityScope": "DECLARED_DOCUMENT_METADATA_AND_ACTIVE_AUTHORING_BINDING",
+    "state": {
+      "hostObserved": true,
+      "project": {
+        "documents": [
+          {
+            "documentId": "document-session-a",
+            "name": "\u6d4b\u8bd5 \u6df7\u5408\u6a21\u5f0f",
+            "kind": "MODEL",
+            "contentId": "model:5125d947",
+            "modelId": "model-session-b"
+          }
+        ],
+        "projectId": "project-session-1",
+        "name": "queue-7838088db79a43e9ac6667b642b7c344.cmo3",
+        "contents": [
+          {
+            "documentIds": [
+              "document-session-a"
+            ],
+            "kind": "MODEL",
+            "contentId": "model:5125d947",
+            "name": "\u6d4b\u8bd5 \u6df7\u5408\u6a21\u5f0f"
+          }
+        ]
+      },
+      "activeDocument": {
+        "documentId": "document-session-a",
+        "name": "\u6d4b\u8bd5 \u6df7\u5408\u6a21\u5f0f",
+        "kind": "MODEL",
+        "contentId": "model:5125d947",
+        "modelId": "model-session-b"
+      },
+      "authoringState": {
+        "historyManagerBinding": "history-manager-3",
+        "historyGeneration": 1,
+        "historyRevision": 56,
+        "historyDocumentBinding": "history-document-3",
+        "modelId": "model-session-b",
+        "documentId": "document-session-a"
+      }
+    },
+    "ok": true
+  },
+  "grantState": "CONSUMED",
+  "firstOpenVerified": false,
+  "persistenceVerified": false,
+  "reopenVerified": false
+}

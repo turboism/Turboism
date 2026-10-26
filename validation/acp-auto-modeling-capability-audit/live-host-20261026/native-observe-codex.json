@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "task": "mcp:5303@native-observe",
+  "harness": "Codex native",
+  "version": "0.159.2",
+  "requestedModel": "gpt-6.1-sol",
+  "runtimeDeclaredImageInput": true,
+  "runtimeModelListHasMore": false,
+  "externalTestContentExplicitlyAuthorized": true,
+  "modelMutation": "NONE_ALLOWED_BY_PROXY",
+  "offlineTests": {
+    "count": 185,
+    "failed": 0
+  },
+  "sourceHashes": {
+    "validation/acp-native-host-probe/NativeObserve.java": "edf378609c581ccf2177b7c3764f77eb5a7e409e01a0de96b71da923096a0d22",
+    "validation/acp-native-host-probe/NativeObserveSelfTest.java": "74c087a1f1593e3e666992072a263040bdff5d95906d760627c3f158d5956a29",
+    "validation/acp-native-host-probe/build.sh": "a313bc8fce6c5476701a582f166fcd2d013b80cef8e414c27c675a82fbe2e413",
+    "scripts/preview/hvq/snapshot.py": "4491a174d486167a5c0012d61ed991eeb7c90b2d557aeeabce966cb009da981b",
+    "scripts/preview/mcp-host-validation-client.py": "36648e551986a6c4ddc677061598c1a958d811dbddab854869886b278797f77f",
+    "scripts/test/test_mcp_host_validation_client.py": "447ca3308202f2243aa7e883859af32c37a7aaa78805b4b21850715b497e0584",
+    "scripts/test/test_host_validation_queue.py": "0a343579c9902537368ca6633396f4a2e2a336502e64d7d6dcf082e7db040e21"
+  },
+  "runs": [
+    {
+      "jobId": "6614e3ab-93e9-4220-9f00-6cc5e9ad27aa",
+      "runId": "queue-00a19f17eb694e2ebcc199c7b2c37e4b",
+      "preparedId": "b3f5498555d313a9d65f2c15374626fcbc198366d502ab8ff0151574581fb079",
+      "queueStatus": "failed",
+      "failure": "MCP_PROGRESS_METADATA_REJECTED",
+      "visionCanaryPassed": true,
+      "hostImages": 0,
+      "cleanup": "safe",
+      "finalRunnerFileAndIdentityChecksCompleted": false
+    },
+    {
+      "jobId": "27a490ef-057b-477f-8735-3d36b081aca9",
+      "runId": "queue-17656936fbb344a5a7da43033399c5dd",
+      "preparedId": "3604cd045f72fbeb3828961d2bc7ea9a4de52ac430d7399c3f9de0c45bcc42ef",
+      "queueStatus": "failed",
+      "failure": "CODEX_INTERNAL_CODE_MODE_HOST_DISABLED",
+      "visionCanaryPassed": true,
+      "hostImages": 0,
+      "cleanup": "safe",
+      "finalRunnerFileAndIdentityChecksCompleted": false
+    },
+    {
+      "jobId": "cfc03a1a-37ac-4062-8d23-750c85b14a20",
+      "runId": "queue-a74dd675468640d4992451a33f272c77",
+      "preparedId": "7599470e53f68e2b5dc01732a111eabd796aeb71ac9370d3ac7dea30e184d59d",
+      "queueStatus": "succeeded",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "cleanup": "safe",
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "visionCanaryPassed": true,
+      "configurationIsolationVerified": true,
+      "runtimeDeclaredImageInput": true,
+      "hostImages": 1,
+      "toolEvents": 10,
+      "rejectedRequests": 0,
+      "ignoredProtocolFieldCount": 6,
+      "methods": [
+        "initialize",
+        "notifications/initialized",
+        "tools/list",
+        "resources/list",
+        "resources/read",
+        "resources/read",
+        "tools/call",
+        "tools/call"
+      ],
+      "captureSha256": "74409151fb74ff7c91157570ec78f8e181e60536dd02674c1fa3ab2c603aed71",
+      "pngProxyCallbackHashMatch": true,
+      "captureDocumentModelIdentitiesInAnswer": true,
+      "renderDescriptionReviewedAgainstActualPng": true,
+      "goldenUnchanged": true
+    }
+  ],
+  "modelVisionAccepted": true,
+  "swingWindowVerified": false,
+  "milestoneAAccepted": false,
+  "goalAchieved": false,
+  "limits": [
+    "Configuration checks are not an independently retrieved full model tool catalog",
+    "Sidecar does not verify a Swing window",
+    "Random image canary is separate from host render interpretation",
+    "No modeling writes, Hiyori transfer or automatic art quality acceptance"
+  ],
+  "modelVisionAcceptanceScope": "Read-only synthetic colour fixture on exact 5.3.03; independent PNG/answer review after observer report",
+  "originalFixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+  "privateArtifactHashes": {
+    "mcp-native-observe-private.json": "80b92032e0842fa62eb86ea5a3f7f00acf6a8dc28a19f631d8b05bb2e1907237",
+    "mcp-native-observe-proxy.json": "9ef05083cfb2c020af5e6e75c106e1ecbaea8c612fd7dc0c06544407abe7cc28",
+    "mcp-native-observe-1.png": "74409151fb74ff7c91157570ec78f8e181e60536dd02674c1fa3ab2c603aed71",
+    "mcp-native-vision-canary.png": "a6dfdf5dd1b1058124e9a2ccd2218713982dbf4076a3a879aa668817727416f9",
+    "mcp-native-canary-expected.json": "6fd5681a11fa75229d9e2639d71d83e31742d9d8fd7b4b515408804ed9be58b4",
+    "mcp-native-canary-answer.txt": "6dbbfa9d4278b2dac5495da9a11fa6e13b53d7f41e62642886118d5f2eb1bd24",
+    "native-observe-vision-ready.json": "ef96981792099e4d669b77e3e0a252a4979a3bd6fa3f95732093c005eca0b5c4"
+  }
+}

@@ -389,6 +389,135 @@ class RuntimeUserFileAccessServiceTest {
     }
 
     @Test
+    void boundedAtomicExportWritesAboveLegacyLimitAndPreservesSnapshotAndBudget() throws Exception {
+        var selected = temporary.resolve("export.csv");
+        Files.writeString(selected, "original");
+        var service = service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected));
+        var handle = service.request(request(UserFileMode.WRITE, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+        byte[] content = new byte[9 * 1024 * 1024];
+        content[0] = 42;
+        content[content.length - 1] = 99;
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                service.writeBytesAtomic(handle, content)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code());
+        assertEquals("original", Files.readString(selected));
+        var stage = service.writeBytesAtomicBounded(handle, content, content.length);
+        content[0] = 1;
+        assertTrue(stage.toCompletableFuture().get(5, TimeUnit.SECONDS).written());
+        var actual = Files.readAllBytes(selected);
+        assertEquals(42, actual[0]);
+        assertEquals(99, actual[actual.length - 1]);
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                service.writeBytesAtomicBounded(handle, new byte[2], 1)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                service.writeBytesAtomicBounded(handle, new byte[0], 128 * 1024 * 1024 + 1)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
+        assertArrayEquals(actual, Files.readAllBytes(selected));
+        assertThrows(IllegalArgumentException.class, () -> service.writeBytesAtomicBounded(handle, new byte[0], 0));
+        handle.revoke();
+        assertEquals(
+                UserFileErrorCode.GRANT_REVOKED,
+                service.writeBytesAtomicBounded(handle, new byte[] {0}, 1)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
+        assertArrayEquals(actual, Files.readAllBytes(selected));
+    }
+
+    @Test
+    void boundedAtomicExportMaximumBudgetAndFailureAuditStayPathFree() throws Exception {
+        var selected = temporary.resolve("private-export.csv");
+        Files.writeString(selected, "old");
+        var failures = new RuntimeFailureCollector();
+        var service = service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected), failures);
+        var handle = service.request(request(UserFileMode.WRITE, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get()
+                .handle()
+                .orElseThrow();
+        assertTrue(service.writeBytesAtomicBounded(handle, new byte[] {7}, 128 * 1024 * 1024)
+                .toCompletableFuture()
+                .get()
+                .written());
+        var rejected = service.writeBytesAtomicBounded(handle, new byte[] {8, 9}, 1)
+                .toCompletableFuture()
+                .get();
+        assertFalse(rejected.written());
+        assertArrayEquals(new byte[] {7}, Files.readAllBytes(selected));
+        var records = failures.snapshot().storageFailures();
+        assertEquals(1, records.size());
+        assertEquals("user-file.writeBytesAtomicBounded", records.get(0).operationId());
+        assertEquals("SIZE_LIMIT_EXCEEDED", records.get(0).code());
+        assertEquals(null, records.get(0).relativePath());
+        assertFalse(records.get(0).message().contains("private-export"));
+    }
+
+    @Test
+    void boundedAtomicExportRejectsForeignReadOnlyAndSpentHandles() throws Exception {
+        var selected = temporary.resolve("bounded.csv");
+        Files.writeString(selected, "unchanged");
+        var service = service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected));
+        var read = service.request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get()
+                .handle()
+                .orElseThrow();
+        assertEquals(
+                UserFileErrorCode.MODE_MISMATCH,
+                service.writeBytesAtomicBounded(read, new byte[] {1}, 10)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
+        var foreign = service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected));
+        var write = service.request(request(UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get()
+                .handle()
+                .orElseThrow();
+        assertEquals(
+                UserFileErrorCode.FOREIGN_GRANT,
+                foreign.writeBytesAtomicBounded(write, new byte[] {1}, 10)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
+        assertTrue(service.writeBytesAtomicBounded(write, new byte[] {2}, 10)
+                .toCompletableFuture()
+                .get()
+                .written());
+        assertFalse(service.writeBytesAtomicBounded(write, new byte[] {3}, 10)
+                .toCompletableFuture()
+                .get()
+                .written());
+        assertArrayEquals(new byte[] {2}, Files.readAllBytes(selected));
+    }
+
+    @Test
     void boundedBinaryImportSupportsUpTo128MibAndPreservesOld16MibLimit() throws Exception {
         final int size18Mib = 18 * 1024 * 1024;
         final byte[] largeContent = new byte[size18Mib];

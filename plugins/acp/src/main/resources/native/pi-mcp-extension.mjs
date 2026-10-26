@@ -2,41 +2,58 @@
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 
+const preferredProtocol = '2025-11-25';
+const supportedProtocols = new Set([preferredProtocol, '2025-06-18', '2025-03-26', '2024-11-05']);
+
 export default async function (pi) {
   const clients = [];
+  const names = new Set();
+  const register = tool => {
+    if (names.has(tool.name)) throw new Error('MCP bridge tool name collision');
+    names.add(tool.name);
+    markSchema(tool.parameters);
+    pi.registerTool(tool);
+  };
   try {
     const config = JSON.parse(readFileSync(process.env.TURBOISM_PI_MCP_CONFIG, 'utf8'));
     for (const [name, server] of Object.entries(config.mcpServers ?? {})) {
       const client = createClient(server);
       clients.push(client);
-      await client.call('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'turboism-pi', version: '1' } });
+      const initialized = await client.call('initialize', { protocolVersion: preferredProtocol, capabilities: {}, clientInfo: { name: 'turboism-pi', version: '1' } });
       await client.notify('notifications/initialized', {});
-      let cursor;
-      let count = 0;
-      do {
-        const result = await client.call('tools/list', cursor ? { cursor } : {});
-        for (const tool of result.tools ?? []) {
-          if (++count > 512) throw new Error('MCP tool catalog exceeds limit');
-          const schema = tool.inputSchema ?? { type: 'object', properties: {} };
-          // Older Pi releases validate schemas with TypeBox; newer ones accept plain JSON Schema.
-          markSchema(schema);
-          pi.registerTool({
-            name: `mcp_${name}_${tool.name}`.replace(/[^a-zA-Z0-9_-]/g, '_'),
-            label: `${name}: ${tool.name}`,
-            description: tool.description || tool.name,
-            parameters: schema,
-            async execute(_id, args, signal, _update, ctx) {
-              if (signal?.aborted) throw new Error('Tool cancelled');
-              if (tool.annotations?.readOnlyHint !== true && !await ctx.ui.confirm(`${name}: ${tool.name}`, JSON.stringify(args))) {
-                return { content: [{ type: 'text', text: 'Rejected by user' }], isError: true, details: {} };
-              }
-              const result = await client.call('tools/call', { name: tool.name, arguments: args }, signal);
-              return { content: result.content ?? [], isError: !!result.isError, details: result.structuredContent ?? {} };
-            },
-          });
-        }
-        cursor = result.nextCursor;
-      } while (cursor);
+      if (initialized.capabilities?.tools) {
+        let cursor;
+        let count = 0;
+        let pages = 0;
+        const cursors = new Set();
+        do {
+          if (++pages > 512) throw new Error('MCP tool catalog page limit exceeded');
+          const result = await client.call('tools/list', cursor ? { cursor } : {});
+          for (const tool of result.tools ?? []) {
+            if (++count > 512) throw new Error('MCP tool catalog exceeds limit');
+            const schema = tool.inputSchema ?? { type: 'object', properties: {} };
+            // Older Pi releases validate schemas with TypeBox; newer ones accept plain JSON Schema.
+            register({
+              name: `mcp_${name}_${tool.name}`.replace(/[^a-zA-Z0-9_-]/g, '_'),
+              label: `${name}: ${tool.name}`,
+              description: tool.description || tool.name,
+              parameters: schema,
+              async execute(_id, args, signal, _update, ctx) {
+                if (signal?.aborted) throw new Error('Tool cancelled');
+                if (tool.annotations?.readOnlyHint !== true && !await ctx.ui.confirm(`${name}: ${tool.name}`, JSON.stringify(args))) {
+                  return { content: [{ type: 'text', text: 'Rejected by user' }], isError: true, details: {} };
+                }
+                const result = await client.call('tools/call', { name: tool.name, arguments: args }, signal);
+                return withImageCapabilityNotice({ content: result.content ?? [], isError: !!result.isError, details: result.structuredContent ?? {} }, ctx);
+              },
+            });
+          }
+          cursor = result.nextCursor;
+          if (cursor && cursors.has(cursor)) throw new Error('MCP tool catalog repeated cursor');
+          if (cursor) cursors.add(cursor);
+        } while (cursor);
+      }
+      if (initialized.capabilities?.resources) registerResources(register, name, client);
     }
     pi.on('session_shutdown', () => { for (const client of clients) client.close(); });
     pi.registerCommand('turboism-mcp-ready', { description: 'Turboism MCP bridge is ready', handler: async () => {} });
@@ -45,6 +62,64 @@ export default async function (pi) {
 
     throw error;
   }
+}
+
+// Pi has no MCP resource API. Expose a closed, read-only bridge as model tools;
+// query the live server on every call instead of retaining a stale catalog.
+function registerResources(register, name, client) {
+  const textResult = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }], details: value });
+  for (const [suffix, method, description] of [
+    ['resources_list', 'resources/list', 'List the current MCP resources. Follow nextCursor to read more pages.'],
+    ['resource_templates_list', 'resources/templates/list', 'List current MCP resource URI templates. Follow nextCursor to read more pages.'],
+  ]) register({
+    name: `mcp_${name}_${suffix}`.replace(/[^a-zA-Z0-9_-]/g, '_'),
+    label: `${name}: ${method}`,
+    description,
+    parameters: { type: 'object', properties: { cursor: { type: 'string', minLength: 1, maxLength: 4096 } }, additionalProperties: false },
+    async execute(_id, args, signal) {
+      checkReadArgs(args, 'cursor', false);
+      return textResult(await client.call(method, args.cursor ? { cursor: args.cursor } : {}, signal));
+    },
+  });
+  register({
+    name: `mcp_${name}_resource_read`.replace(/[^a-zA-Z0-9_-]/g, '_'),
+    label: `${name}: resources/read`,
+    description: 'Read an MCP resource by its discovered URI. Does not execute a tool or grant file access. Image resources are returned as images.',
+    parameters: { type: 'object', properties: { uri: { type: 'string', minLength: 1, maxLength: 4096 } }, required: ['uri'], additionalProperties: false },
+    async execute(_id, args, signal, _update, ctx) {
+      checkReadArgs(args, 'uri', true);
+      const result = await client.call('resources/read', { uri: args.uri }, signal);
+      const content = [], resources = [];
+      for (const resource of result.contents ?? []) {
+        const metadata = { uri: resource.uri, mimeType: resource.mimeType };
+        resources.push(metadata);
+        content.push({ type: 'text', text: JSON.stringify(metadata) });
+        if (typeof resource.text === 'string') content.push({ type: 'text', text: resource.text });
+        else if (resource.mimeType?.startsWith('image/') && typeof resource.blob === 'string')
+          content.push({ type: 'image', mimeType: resource.mimeType, data: resource.blob });
+        else content.push({ type: 'text', text: '[Binary resource; no text or supported image representation]' });
+      }
+      return withImageCapabilityNotice({ content, details: { resources } }, ctx);
+    },
+  });
+}
+
+function withImageCapabilityNotice(result, ctx) {
+  if (!result.content.some(block => block.type === 'image')) return result;
+  const known = Array.isArray(ctx?.model?.input);
+  if (known && ctx.model.input.includes('image')) return result;
+  const text = known
+    ? '[The selected Pi model does not support image input. ACP may display this image, but model visual inspection is unavailable. Choose a vision model before evaluating visual quality.]'
+    : '[The selected Pi model has no verified image input capability. ACP image display does not prove model visual inspection; verify or select a vision model before evaluating visual quality.]';
+  // Keep image blocks for ACP display and preserve the original host outcome/receipt.
+  // A successful write followed by an unreadable image must not become a retryable tool error.
+  return { ...result, content: [...result.content, { type: 'text', text }] };
+}
+
+function checkReadArgs(args, key, required) {
+  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(field => field !== key)
+      || (required || args[key] !== undefined) && (typeof args[key] !== 'string' || !args[key].length || args[key].length > 4096))
+    throw new Error('Invalid MCP resource arguments');
 }
 
 function markSchema(schema) {
@@ -67,6 +142,7 @@ function markSchema(schema) {
 function createClient(config) {
   let nextId = 0;
   let session;
+  let protocolVersion = preferredProtocol;
   let child;
   let buffer = '';
   let closed = false;
@@ -101,6 +177,7 @@ function createClient(config) {
   }
   async function send(message, signal) {
     if (closed) throw new Error('MCP connection closed');
+    if (signal?.aborted) throw new Error('MCP request cancelled before dispatch');
     if (child) {
       if (message.id === undefined) { child.stdin.write(JSON.stringify(message) + '\n'); return; }
       if (pending.size >= 64) throw new Error('Too many MCP requests');
@@ -118,8 +195,12 @@ function createClient(config) {
     const timer = setTimeout(abort, 15000);
     signal?.addEventListener('abort', abort, { once: true });
     try {
-      const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2024-11-05', ...config.headers };
-      if (session) headers['Mcp-Session-Id'] = session;
+      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...config.headers });
+      // Initialization negotiates the version; every later request uses that result,
+      // even when the local configuration contains a stale differently-cased header.
+      headers.delete('MCP-Protocol-Version');
+      if (message.method !== 'initialize') headers.set('MCP-Protocol-Version', protocolVersion);
+      if (session) headers.set('Mcp-Session-Id', session);
       const response = await fetch(config.url, { method: 'POST', headers, body: JSON.stringify(message), signal: controller.signal });
       if (!response.ok) throw new Error(`MCP HTTP ${response.status}`);
       session = response.headers.get('Mcp-Session-Id') ?? session;
@@ -151,7 +232,14 @@ function createClient(config) {
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   }
   return {
-    call(method, params, signal) { return send({ jsonrpc: '2.0', id: ++nextId, method, params }, signal); },
+    async call(method, params, signal) {
+      const result = await send({ jsonrpc: '2.0', id: ++nextId, method, params }, signal);
+      if (method === 'initialize') {
+        if (!supportedProtocols.has(result?.protocolVersion)) throw new Error('Unsupported MCP protocol version');
+        protocolVersion = result.protocolVersion;
+      }
+      return result;
+    },
     notify(method, params) { return send({ jsonrpc: '2.0', method, params }); },
     close() { closed = true; rejectAll(new Error('MCP connection closed')); child?.stdin.end(); child?.kill(); },
   };

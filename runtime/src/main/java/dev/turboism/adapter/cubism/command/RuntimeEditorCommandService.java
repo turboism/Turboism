@@ -83,6 +83,8 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
         Objects.requireNonNull(request, "request");
         if (!active.getAsBoolean()) return result(request.commandId(), EditorCommandResult.Status.UNAVAILABLE);
         try {
+            if (request.command() == dev.turboism.sdk.cubism.command.EditorFileCommand.OPEN)
+                permissions.require(WRITE_PERMISSION, "cubism.editor-command.open");
             permissions.require(
                     request.command().mode() == UserFileMode.READ ? READ_PERMISSION : WRITE_PERMISSION,
                     "cubism.editor-command." + request.commandId());

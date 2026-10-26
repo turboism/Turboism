@@ -209,8 +209,32 @@ final class McpHttpServerIntegrationTest {
                     sessionId,
                     Map.of("jsonrpc", "2.0", "id", 2, "method", "tools/list", "params", Map.of()));
             assertEquals(200, tools.statusCode());
-            final List<Object> toolDefinitions = array(result(tools).get("tools"));
-            assertEquals(13, toolDefinitions.size());
+            final List<Object> toolDefinitions =
+                    new ArrayList<>(array(result(tools).get("tools")));
+            assertEquals(50, toolDefinitions.size());
+            Object toolCursor = result(tools).get("nextCursor");
+            assertInstanceOf(String.class, toolCursor);
+            while (toolCursor != null) {
+                var page = request(
+                        server.endpoint(),
+                        bearer(),
+                        null,
+                        true,
+                        sessionId,
+                        Map.of(
+                                "jsonrpc",
+                                "2.0",
+                                "id",
+                                202,
+                                "method",
+                                "tools/list",
+                                "params",
+                                Map.of("cursor", toolCursor)));
+                assertEquals(200, page.statusCode());
+                toolDefinitions.addAll(array(result(page).get("tools")));
+                toolCursor = result(page).get("nextCursor");
+            }
+            assertEquals(80, toolDefinitions.size());
             assertEquals(
                     McpProductionDomainCatalog.APPLY,
                     object(toolDefinitions.get(0)).get("name"));
@@ -219,6 +243,42 @@ final class McpHttpServerIntegrationTest {
                     .map(definition -> definition.get("name"))
                     .collect(java.util.stream.Collectors.toSet());
             assertTrue(toolNames.containsAll(Set.of(
+                    McpAssetSourceDomain.SOURCES,
+                    McpAssetSourceDomain.RELATIONS,
+                    McpContinuityDomain.VALIDATE,
+                    McpRigTransferDomain.PLAN,
+                    McpBindingInitializationDomain.PLAN,
+                    McpBindingInitializationDomain.APPLY,
+                    McpBindingInitializationDomain.RESULT,
+                    McpDocumentLifecycleDomain.READ,
+                    McpDocumentLifecycleDomain.CREATE,
+                    McpDocumentLifecycleDomain.RESULT,
+                    McpMeshCreationDomain.TRIANGULATE,
+                    McpMeshCreationDomain.PLAN,
+                    McpMeshCreationDomain.CREATE,
+                    McpMeshCreationDomain.RESULT,
+                    McpParameterStructureDomain.READ,
+                    McpParameterStructureDomain.PLAN,
+                    McpParameterStructureDomain.APPLY,
+                    McpParameterStructureDomain.RESULT,
+                    McpFileInspectDomain.INSPECT,
+                    McpFileInspectDomain.RESULT,
+                    McpDocumentFileDomain.SAVE_AS,
+                    McpDocumentFileDomain.RESULT,
+                    McpFileGrantDomain.REQUEST,
+                    McpFileGrantDomain.STATUS,
+                    McpFileGrantDomain.REVOKE,
+                    McpSourcePropertiesDomain.READ,
+                    McpSourcePropertiesDomain.WRITE,
+                    McpSourcePropertiesDomain.RESULT,
+                    McpEvaluatedMeshDomain.READ,
+                    McpGeometryValidationDomain.VALIDATE,
+                    McpRasterValidationSchemas.TOOL,
+                    McpWarpValidationDomain.VALIDATE,
+                    McpMeshRigDomain.PLAN,
+                    McpMaskDomain.READ,
+                    McpMaskDomain.WRITE,
+                    McpMaskDomain.RESULT,
                     McpGlueDomain.GLUES_READ,
                     McpGlueDomain.GLUES_WRITE,
                     McpHistoryCommandDomain.HISTORY_READ,
@@ -227,8 +287,67 @@ final class McpHttpServerIntegrationTest {
                     McpTransactionDomain.TRANSACTION_EXECUTE,
                     McpCapabilitiesDomain.CAPABILITIES_READ,
                     "turboism.textures.read",
-                    "turboism.textures.write")));
+                    "turboism.textures.write",
+                    McpRenderDomain.STATE,
+                    McpRenderDomain.CAPTURE,
+                    McpStoredAuthoringDomain.MESHES_READ,
+                    McpStoredAuthoringDomain.WARPS_READ,
+                    McpStoredAuthoringDomain.ROTATIONS_READ,
+                    McpKeyformWriteDomain.WRITE,
+                    McpKeyformWriteDomain.PREVIEW,
+                    McpImageBindingDomain.READ,
+                    McpImageRegistrationDomain.START,
+                    McpAtlasDomain.READ,
+                    McpAtlasDomain.PLAN,
+                    McpMocExportDomain.PLAN,
+                    McpMocExportDomain.RESULT,
+                    McpAtlasDomain.RESULT,
+                    McpImageRegistrationDomain.RESULT,
+                    McpImageRegistrationDomain.CANCEL,
+                    McpAtlasDomain.APPLY,
+                    McpAtlasDomain.CANCEL,
+                    McpMocExportDomain.EXECUTE,
+                    McpMocExportDomain.CANCEL,
+                    McpImageBindingDomain.BIND,
+                    McpImageBindingDomain.RESULT,
+                    McpKeyformWriteDomain.RESULT,
+                    McpPoseGridDomain.SCAN,
+                    McpPoseGridDomain.STATUS,
+                    McpPoseGridDomain.CANCEL,
+                    McpPoseGridDomain.RESULT,
+                    McpPoseGridDomain.RELEASE)));
             assertFalse(toolNames.contains("turboism.history.move"));
+            final var missingStructureEnvelope = result(toolCall(
+                    server.endpoint(),
+                    9001,
+                    McpParameterStructureDomain.RESULT,
+                    Map.of("operationId", "missing-structure-operation")));
+            assertEquals(Boolean.TRUE, missingStructureEnvelope.get("isError"));
+            final var missingStructure = object(missingStructureEnvelope.get("structuredContent"));
+            assertEquals("OUTCOME_UNKNOWN", missingStructure.get("outcome"));
+            assertEquals("NOT_FOUND", missingStructure.get("code"));
+            assertEquals(List.of(), missingStructure.get("createdGroups"));
+            final var missingMeshEnvelope = result(toolCall(
+                    server.endpoint(),
+                    9002,
+                    McpMeshCreationDomain.RESULT,
+                    Map.of("operationId", "missing-mesh-operation")));
+            assertEquals(Boolean.TRUE, missingMeshEnvelope.get("isError"));
+            final var missingMesh = object(missingMeshEnvelope.get("structuredContent"));
+            assertEquals("OUTCOME_UNKNOWN", missingMesh.get("outcome"));
+            assertEquals("NOT_FOUND", missingMesh.get("code"));
+            assertEquals(List.of(), missingMesh.get("createdMeshes"));
+            assertEquals(Boolean.FALSE, missingMesh.get("renderVerified"));
+            final var missingDocumentEnvelope = result(toolCall(
+                    server.endpoint(),
+                    9003,
+                    McpDocumentLifecycleDomain.RESULT,
+                    Map.of("operationId", "missing-document-operation")));
+            assertEquals(Boolean.TRUE, missingDocumentEnvelope.get("isError"));
+            final var missingDocument = object(missingDocumentEnvelope.get("structuredContent"));
+            assertEquals("OUTCOME_UNKNOWN", missingDocument.get("outcome"));
+            assertEquals("NOT_FOUND", missingDocument.get("code"));
+            assertEquals(Boolean.FALSE, missingDocument.get("authoringReady"));
 
             final Map<String, Object> applied = structuredResult(toolCall(
                     server.endpoint(),
@@ -889,6 +1008,264 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void rigTransferPlanRemainsReadOnlyWithoutBearer() throws Exception {
+        final McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
+        try {
+            ensureSession(server.endpoint());
+            var args = new LinkedHashMap<String, Object>(Map.of(
+                    "documentId",
+                    "unbound-document",
+                    "modelId",
+                    "unbound-model",
+                    "operationId",
+                    "transfer",
+                    "kind",
+                    "warp_deformer",
+                    "policy",
+                    "REPLACE_FROM_SOURCE_DEFAULT_DELTAS",
+                    "source",
+                    Map.of("objectId", "source", "snapshotId", "missing-source"),
+                    "target",
+                    Map.of("objectId", "target", "snapshotId", "missing-target"),
+                    "axes",
+                    List.of(Map.of(
+                            "sourceParameterGuid",
+                            "source-axis",
+                            "targetParameterGuid",
+                            "target-axis",
+                            "keys",
+                            List.of(
+                                    Map.of("sourceValue", 0, "targetValue", 0),
+                                    Map.of("sourceValue", 1, "targetValue", 1)))),
+                    "deltaTransform",
+                    Map.of("xx", 1, "xy", 0, "yx", 0, "yy", 1)));
+            args.put("sourcePointIndices", List.of(0, 1, 2, 3));
+            var response = request(
+                    server.endpoint(),
+                    null,
+                    null,
+                    true,
+                    SESSIONS.get(server.endpoint()),
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            101,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of("name", McpRigTransferDomain.PLAN, "arguments", args)));
+            assertEquals(200, response.statusCode());
+            var output = object(result(response).get("structuredContent"));
+            assertEquals(false, output.get("ok"));
+            assertTrue(
+                    Set.of("STALE_STATE", "NO_ACTIVE_MODEL", "UNAVAILABLE")
+                            .contains(object(output.get("error")).get("code")),
+                    output.toString());
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void continuityDiagnosticsRemainReadOnlyWithoutBearer() throws Exception {
+        final McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
+        try {
+            ensureSession(server.endpoint());
+            var args = Map.of(
+                    "documentId",
+                    "unbound-document",
+                    "modelId",
+                    "unbound-model",
+                    "kind",
+                    "art_mesh",
+                    "objectId",
+                    "mesh",
+                    "snapshotId",
+                    "missing",
+                    "maxFindings",
+                    10,
+                    "thresholds",
+                    Map.of(
+                            "maximumPositionSlopeChange",
+                            1,
+                            "maximumAngleSlopeChange",
+                            1,
+                            "maximumScaleSlopeChange",
+                            1));
+            var response = request(
+                    server.endpoint(),
+                    null,
+                    null,
+                    true,
+                    SESSIONS.get(server.endpoint()),
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            100,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of("name", McpContinuityDomain.VALIDATE, "arguments", args)));
+            assertEquals(200, response.statusCode());
+            var output = object(result(response).get("structuredContent"));
+            assertEquals(false, output.get("ok"));
+            assertTrue(
+                    Set.of("STALE_STATE", "NO_ACTIVE_MODEL", "UNAVAILABLE")
+                            .contains(object(output.get("error")).get("code")),
+                    output.toString());
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void assetMetadataReadToolsRemainReadOnlyWithoutBearer() throws Exception {
+        final McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
+        try {
+            ensureSession(server.endpoint());
+            for (String name : List.of(McpAssetSourceDomain.SOURCES, McpAssetSourceDomain.RELATIONS)) {
+                var args = new LinkedHashMap<String, Object>(
+                        Map.of("documentId", "unbound-document", "modelId", "unbound-model"));
+                if (name.equals(McpAssetSourceDomain.SOURCES))
+                    args.put("query", Map.of("artMeshIds", List.of(), "modelImageIds", List.of()));
+                var response = request(
+                        server.endpoint(),
+                        null,
+                        null,
+                        true,
+                        SESSIONS.get(server.endpoint()),
+                        Map.of(
+                                "jsonrpc",
+                                "2.0",
+                                "id",
+                                99,
+                                "method",
+                                "tools/call",
+                                "params",
+                                Map.of("name", name, "arguments", args)));
+                assertEquals(200, response.statusCode());
+                var output = object(result(response).get("structuredContent"));
+                assertEquals(false, output.get("ok"));
+                assertTrue(
+                        Set.of("STALE_STATE", "NO_ACTIVE_MODEL", "UNAVAILABLE").contains(output.get("error")),
+                        output.toString());
+            }
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void keyformWriteRequiresBearerWhileResultQueryRemainsARead() throws Exception {
+        final McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
+        try {
+            ensureSession(server.endpoint());
+            final String session = SESSIONS.get(server.endpoint());
+            final var write = Map.of(
+                    "jsonrpc",
+                    "2.0",
+                    "id",
+                    71,
+                    "method",
+                    "tools/call",
+                    "params",
+                    Map.of("name", McpKeyformWriteDomain.WRITE, "arguments", Map.of()));
+            assertEquals(
+                    401,
+                    request(server.endpoint(), null, null, true, session, write).statusCode());
+            for (String name : List.of(
+                    McpPoseGridDomain.SCAN,
+                    McpPoseGridDomain.CANCEL,
+                    McpPoseGridDomain.RELEASE,
+                    McpMaskDomain.WRITE,
+                    McpSourcePropertiesDomain.WRITE,
+                    McpImageBindingDomain.BIND,
+                    McpBindingInitializationDomain.APPLY,
+                    McpImageRegistrationDomain.START,
+                    McpImageRegistrationDomain.CANCEL,
+                    McpAtlasDomain.APPLY,
+                    McpAtlasDomain.CANCEL,
+                    McpMocExportDomain.EXECUTE,
+                    McpMocExportDomain.CANCEL,
+                    McpFileGrantDomain.REQUEST,
+                    McpFileGrantDomain.REVOKE,
+                    McpDocumentFileDomain.SAVE_AS,
+                    McpFileInspectDomain.INSPECT)) {
+                var mutating = Map.of(
+                        "jsonrpc",
+                        "2.0",
+                        "id",
+                        73,
+                        "method",
+                        "tools/call",
+                        "params",
+                        Map.of("name", name, "arguments", Map.of("operationId", "not-retained")));
+                assertEquals(
+                        401,
+                        request(server.endpoint(), null, null, true, session, mutating)
+                                .statusCode());
+            }
+            for (String name : List.of(
+                    McpPoseGridDomain.STATUS,
+                    McpPoseGridDomain.RESULT,
+                    McpMaskDomain.RESULT,
+                    McpSourcePropertiesDomain.RESULT,
+                    McpImageBindingDomain.RESULT,
+                    McpBindingInitializationDomain.RESULT,
+                    McpImageRegistrationDomain.RESULT,
+                    McpAtlasDomain.RESULT,
+                    McpMocExportDomain.RESULT,
+                    McpFileGrantDomain.STATUS,
+                    McpDocumentFileDomain.RESULT,
+                    McpFileInspectDomain.RESULT)) {
+                var queryPose = Map.of(
+                        "jsonrpc",
+                        "2.0",
+                        "id",
+                        74,
+                        "method",
+                        "tools/call",
+                        "params",
+                        Map.of("name", name, "arguments", Map.of("operationId", "not-retained")));
+                var resultPose = request(server.endpoint(), null, null, true, session, queryPose);
+                assertEquals(200, resultPose.statusCode());
+                var structured = object(result(resultPose).get("structuredContent"));
+                if (name.equals(McpFileGrantDomain.STATUS)
+                        || name.equals(McpFileInspectDomain.RESULT)
+                        || name.equals(McpImageRegistrationDomain.RESULT)
+                        || name.equals(McpAtlasDomain.RESULT)
+                        || name.equals(McpMocExportDomain.RESULT)) assertEquals("NOT_FOUND", structured.get("error"));
+                else if (name.equals(McpDocumentFileDomain.RESULT))
+                    assertEquals("OUTCOME_UNKNOWN", structured.get("error"));
+                else assertEquals("OUTCOME_UNKNOWN", structured.get("outcome"));
+            }
+            final var query = Map.of(
+                    "jsonrpc",
+                    "2.0",
+                    "id",
+                    72,
+                    "method",
+                    "tools/call",
+                    "params",
+                    Map.of("name", McpKeyformWriteDomain.RESULT, "arguments", Map.of("operationId", "not-retained")));
+            final var read = request(server.endpoint(), null, null, true, session, query);
+            assertEquals(200, read.statusCode());
+            assertEquals(true, result(read).get("isError"));
+            final var output = object(result(read).get("structuredContent"));
+            assertEquals("OUTCOME_UNKNOWN", output.get("outcome"));
+            assertEquals("NOT_FOUND", output.get("code"));
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
     void committedCreateReturnsStableIdAndReadbackWarningWithoutInvitingRetry() throws Exception {
         final ModelObjectReference committed = new ModelObjectReference(ModelObjectKind.PART, "PartCommitted");
         final ModelObjectService objects = new MutableObjects() {
@@ -1233,6 +1610,217 @@ final class McpHttpServerIntegrationTest {
                             .statusCode());
         } finally {
             server.close();
+        }
+    }
+
+    @Test
+    void sessionDeletionAndServerCloseDisposeNativeFileGrants() throws Exception {
+        final var fixture = new McpFileGrantDomainTest.Fixture();
+        final var base = dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices());
+        final var dependencies = new McpHttpServer.Dependencies(
+                base.logger(),
+                base.modelObjects(),
+                base.hierarchyQuery(),
+                base.selectionQuery(),
+                base.read(),
+                base.clipMasks(),
+                base.cubism(),
+                base.history(),
+                base.workspace(),
+                base.workspaceLayout(),
+                base.diagnostics(),
+                base.editorCommands(),
+                base.uiScheduler(),
+                base.stateDir(),
+                base.port(),
+                base.requestsPerMinute(),
+                base.requireAuthForRead(),
+                fixture.service);
+        final var server = McpHttpServer.start(dependencies);
+        try {
+            ensureSession(server.endpoint());
+            String session = SESSIONS.get(server.endpoint());
+            var response = request(
+                    server.endpoint(),
+                    bearer(),
+                    null,
+                    true,
+                    session,
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            501,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of("name", McpFileGrantDomain.REQUEST, "arguments", fixture.args("late"))));
+            assertEquals("PENDING", structuredResult(response).get("state"));
+            var deleted = HttpClient.newHttpClient()
+                    .send(
+                            HttpRequest.newBuilder(server.endpoint())
+                                    .header("MCP-Session-Id", session)
+                                    .header("Authorization", "Bearer " + bearer())
+                                    .DELETE()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofByteArray());
+            assertEquals(200, deleted.statusCode());
+            var late = new McpFileGrantDomainTest.Handle();
+            fixture.grant(late);
+            assertEquals(1, late.closes);
+            SESSIONS.remove(server.endpoint());
+            ensureSession(server.endpoint());
+            session = SESSIONS.get(server.endpoint());
+            var missing = request(
+                    server.endpoint(),
+                    null,
+                    null,
+                    true,
+                    session,
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            502,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of("name", McpFileGrantDomain.STATUS, "arguments", Map.of("operationId", "late"))));
+            assertEquals(
+                    "NOT_FOUND",
+                    object(result(missing).get("structuredContent")).get("error"));
+            request(
+                    server.endpoint(),
+                    bearer(),
+                    null,
+                    true,
+                    session,
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            503,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of("name", McpFileGrantDomain.REQUEST, "arguments", fixture.args("active"))));
+            var active = new McpFileGrantDomainTest.Handle();
+            fixture.grant(active);
+            server.close();
+            assertEquals(1, active.closes);
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void fileInspectionSessionDeletionDisposesLateNativeReadWithoutCancellation() throws Exception {
+        var fixture = new McpFileGrantDomainTest.Fixture();
+        var read = new java.util.concurrent.CompletableFuture<dev.turboism.sdk.ui.UserFileReadResult<byte[]>>();
+        var service = (dev.turboism.sdk.ui.UserFileAccessService) java.lang.reflect.Proxy.newProxyInstance(
+                dev.turboism.sdk.ui.UserFileAccessService.class.getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.ui.UserFileAccessService.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("isAvailable")) return true;
+                    if (method.getName().equals("request"))
+                        return fixture.service.request((dev.turboism.sdk.ui.UserFileRequest) args[0]);
+                    if (method.getName().equals("readBytesBounded")) return read;
+                    throw new AssertionError(method.getName());
+                });
+        var base = dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices());
+        var deps = new McpHttpServer.Dependencies(
+                base.logger(),
+                base.modelObjects(),
+                base.hierarchyQuery(),
+                base.selectionQuery(),
+                base.read(),
+                base.clipMasks(),
+                base.cubism(),
+                base.history(),
+                base.workspace(),
+                base.workspaceLayout(),
+                base.diagnostics(),
+                base.editorCommands(),
+                base.uiScheduler(),
+                base.stateDir(),
+                base.port(),
+                base.requestsPerMinute(),
+                base.requireAuthForRead(),
+                service);
+        try (var server = McpHttpServer.start(deps)) {
+            ensureSession(server.endpoint());
+            String session = SESSIONS.get(server.endpoint());
+            request(
+                    server.endpoint(),
+                    bearer(),
+                    null,
+                    true,
+                    session,
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            601,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of("name", McpFileGrantDomain.REQUEST, "arguments", fixture.args("read-grant"))));
+            var handle = new McpFileGrantDomainTest.Handle();
+            fixture.grant(handle);
+            var grant = request(
+                    server.endpoint(),
+                    null,
+                    null,
+                    true,
+                    session,
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            602,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of(
+                                    "name",
+                                    McpFileGrantDomain.STATUS,
+                                    "arguments",
+                                    Map.of("operationId", "read-grant"))));
+            String grantId = (String) structuredResult(grant).get("grantId");
+            var observed = request(
+                    server.endpoint(),
+                    bearer(),
+                    null,
+                    true,
+                    session,
+                    Map.of(
+                            "jsonrpc",
+                            "2.0",
+                            "id",
+                            603,
+                            "method",
+                            "tools/call",
+                            "params",
+                            Map.of(
+                                    "name",
+                                    McpFileInspectDomain.INSPECT,
+                                    "arguments",
+                                    Map.of("operationId", "read", "grantId", grantId, "maxBytes", 16))));
+            assertEquals("RUNNING", structuredResult(observed).get("outcome"));
+            var deleted = HttpClient.newHttpClient()
+                    .send(
+                            HttpRequest.newBuilder(server.endpoint())
+                                    .header("MCP-Session-Id", session)
+                                    .header("Authorization", "Bearer " + bearer())
+                                    .DELETE()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofByteArray());
+            assertEquals(200, deleted.statusCode());
+            assertFalse(read.isCancelled());
+            assertEquals(0, handle.closes);
+            read.complete(new dev.turboism.sdk.ui.UserFileReadResult<>(
+                    java.util.Optional.of(new byte[] {1}), java.util.Optional.empty(), false));
+            assertEquals(1, handle.closes);
         }
     }
 
@@ -1847,6 +2435,7 @@ final class McpHttpServerIntegrationTest {
                                 .build();
                     case "cubism" -> McpHttpServer.Dependencies.unavailableCubism();
                     case "diagnostics" -> McpHttpServer.Dependencies.emptyDiagnostics();
+                    case "userFiles" -> dev.turboism.sdk.ui.UserFileAccessService.unavailable();
                     case "uiScheduler" -> immediateUi();
                     case "actions" -> ui;
                     case "menus" -> ui;
