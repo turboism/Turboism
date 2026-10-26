@@ -605,8 +605,8 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         if (lookAndFeel == null) {
             return false;
         }
-        final String signature = (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName())
-                .toLowerCase(java.util.Locale.ROOT);
+        final String signature =
+                (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName()).toLowerCase(java.util.Locale.ROOT);
         return signature.contains("dark");
     }
 
