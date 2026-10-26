@@ -30,6 +30,8 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
+import javax.swing.Popup;
+import javax.swing.PopupFactory;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -327,6 +329,77 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     }
 
     @Test
+    void captureSuppressionPreservesTheHoverTargetUntilTheLastRestore() throws Exception {
+        try (final SuppressionFixture fixture = new SuppressionFixture()) {
+            fixture.hover();
+            assertNotNull(fixture.popup.activePopupForTest());
+            SwingUtilities.invokeAndWait(() -> {
+                fixture.popup.hide();
+                fixture.popup.hide();
+                fixture.popup.refresh();
+            });
+            assertNull(fixture.popup.activePopupForTest());
+            SwingUtilities.invokeAndWait(fixture.popup::restore);
+            assertNull(fixture.popup.activePopupForTest());
+            SwingUtilities.invokeAndWait(fixture.popup::restore);
+            assertNotNull(fixture.popup.activePopupForTest());
+            fixture.ready.set(true);
+            SwingUtilities.invokeAndWait(fixture.popup::refresh);
+            assertTrue(((JLabel) fixture.contents.getComponent(0)).getText().contains("ready"));
+        }
+    }
+
+    @Test
+    void leavingTheItemDuringCapturePreventsPopupResurrection() throws Exception {
+        try (final SuppressionFixture fixture = new SuppressionFixture()) {
+            fixture.hover();
+            SwingUtilities.invokeAndWait(() -> {
+                fixture.popup.hide();
+                fixture.item.setArmed(false);
+                fixture.popup.restore();
+                fixture.popup.refresh();
+            });
+            assertNull(fixture.popup.activePopupForTest());
+            assertNull(fixture.popup.activePopupMenuForTest());
+        }
+    }
+
+    @Test
+    void changingTheHoveredItemDuringCaptureRestoresOnlyTheNewTarget() throws Exception {
+        try (final SuppressionFixture fixture = new SuppressionFixture()) {
+            final JMenuItem next = new JMenuItem();
+            next.setActionCommand(fixture.recent.toString());
+            SwingUtilities.invokeAndWait(() -> fixture.menu.add(next));
+            SwingUtilities.invokeAndWait(() -> {});
+            fixture.hover();
+            SwingUtilities.invokeAndWait(() -> {
+                fixture.popup.hide();
+                fixture.item.setArmed(false);
+                next.setArmed(true);
+                fixture.popup.restore();
+            });
+            assertNotNull(fixture.popup.activePopupForTest());
+            assertEquals(
+                    next,
+                    fixture.popup.activePopupMenuForTest().getClientProperty("turboism.recentPreviewActiveItem"));
+        }
+    }
+
+    @Test
+    void disablingDuringCapturePreventsPopupResurrection() throws Exception {
+        try (final SuppressionFixture fixture = new SuppressionFixture()) {
+            fixture.hover();
+            SwingUtilities.invokeAndWait(() -> {
+                fixture.popup.hide();
+                fixture.registration.close();
+                fixture.popup.restore();
+            });
+            assertNull(fixture.popup.activePopupForTest());
+            assertEquals(0, fixture.popup.rendererCountForTest());
+        }
+    }
+
+    @Test
     void closingTheRegistrationRemovesTheRendererAndHidesThePopup() throws Exception {
         final Path recent = Files.createTempFile("recent-preview-popup", ".cmo3");
         final JMenu menu = recentMenu(recent);
@@ -341,6 +414,54 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         registration.close();
         SwingUtilities.invokeAndWait(() -> {});
         assertEquals(0, popup.rendererCountForTest());
+    }
+
+    private static final class SuppressionFixture implements AutoCloseable {
+        private final PopupFactory originalFactory = PopupFactory.getSharedInstance();
+        private final Path recent = Files.createTempFile("recent-preview-suppression", ".cmo3");
+        private final JMenu menu = recentMenu(recent);
+        private final JMenuItem item = (JMenuItem) menu.getMenuComponent(0);
+        private final AtomicBoolean ready = new AtomicBoolean();
+        private final VerifiedRecentPreviewPopupHostOperations popup = new VerifiedRecentPreviewPopupHostOperations(
+                panelResolver("5.3.02", getClass().getClassLoader()));
+        private final Registration registration;
+        private Container contents;
+
+        private SuppressionFixture() throws Exception {
+            PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
+            PopupFactory.setSharedInstance(new PopupFactory() {
+                @Override
+                public Popup getPopup(final Component owner, final Component content, final int left, final int top) {
+                    contents = (Container) content;
+                    return new Popup() {
+                        @Override
+                        public void show() {}
+
+                        @Override
+                        public void hide() {}
+                    };
+                }
+            });
+            registration = popup.contribute(summary -> Optional.of(new RecentPreviewContent(
+                    summary.id(), PanelView.text(ready.get() ? "ready" : "loading"))));
+            SwingUtilities.invokeAndWait(() -> {});
+        }
+
+        private void hover() throws Exception {
+            SwingUtilities.invokeAndWait(() -> item.setArmed(true));
+            assertNotNull(popup.activePopupForTest());
+        }
+
+        @Override
+        public void close() throws Exception {
+            try {
+                registration.close();
+                SwingUtilities.invokeAndWait(() -> {});
+            } finally {
+                PopupFactory.setSharedInstance(originalFactory);
+                Files.deleteIfExists(recent);
+            }
+        }
     }
 
     private static RecentPreviewRenderer renderer(final String text, final byte[] png) {

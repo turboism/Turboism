@@ -139,14 +139,27 @@ final class RecentMenuChain {
 
     /** Legacy-compatible, fail-closed extraction from action command, tooltip, or label text. */
     static Path firstExistingPath(final String... candidates) {
+        Path relativeFallback = null;
+        boolean hasAbsoluteCandidate = false;
         for (String candidate : candidates) {
             if (candidate == null || candidate.isBlank()) continue;
             for (String value : pathCandidates(candidate)) {
+                final boolean absolute;
+                try {
+                    absolute = Path.of(sanitizeCandidate(value)).isAbsolute();
+                } catch (RuntimeException invalid) {
+                    continue;
+                }
                 final Path path = existingProjectPath(value);
-                if (path != null) return path;
+                if (absolute) {
+                    hasAbsoluteCandidate = true;
+                    if (path != null) return path;
+                } else if (relativeFallback == null) {
+                    relativeFallback = path;
+                }
             }
         }
-        return null;
+        return hasAbsoluteCandidate ? null : relativeFallback;
     }
 
     private static List<String> pathCandidates(final String value) {
