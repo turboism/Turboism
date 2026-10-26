@@ -54,6 +54,7 @@ public final class ProgrammaticSuppressionGuard {
         return true;
     }
 
+    /** Clears all pending programmatic-write suppression entries. */
     public void clear() {
         suppressed.clear();
     }

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "harness": "Claude native",
+  "version": "2.1.284",
+  "scope": "Test-only observer and standard validation flow; no production Java changes in this increment",
+  "preparedId": "7b0078d379306ce54d97b2c4624c92517660d5de4ed815e227fcc95de9fe7484",
+  "requestId": "acp-claude-observe-20261026-02",
+  "submit": {
+    "state": "REJECTED_BEFORE_EXECUTION",
+    "jobCreated": false,
+    "modelPromptSent": false,
+    "reason": "Automatic approval requires explicit authorization to send private fixture renders and document/tool metadata to the external service configured by Claude CLI",
+    "retriedOrBypassed": false
+  },
+  "restrictedCliStartup": {
+    "initialized": true,
+    "sessionCreated": true,
+    "modelPromptSent": false,
+    "cubismConnected": false
+  },
+  "offlineTests": {
+    "command": "python -m unittest scripts.test.test_mcp_host_validation_client scripts.test.test_host_validation_queue",
+    "tests": 180,
+    "failures": 0,
+    "errors": 0,
+    "result": "OK",
+    "sandboxAttempt": {
+      "tests": 180,
+      "failures": 11,
+      "errors": 8,
+      "cause": "Local test socket bind denied by sandbox; repeated isolated tests with approved local socket access passed"
+    }
+  },
+  "build": {
+    "standardPackage": "PASS",
+    "nativeObserverSelfTest": "PASS"
+  },
+  "limits": {
+    "realVisionCanaryVerified": false,
+    "modelVisionAccepted": false,
+    "nativeSwingVerified": false,
+    "acpModelingVerified": false
+  },
+  "sourceSha256": {
+    "validation/acp-native-host-probe/NativeObserve.java": "cccc7b9bb59c9f1782849e29a26a3fc1557892b675ab426cf7c8e37934da01db",
+    "validation/acp-native-host-probe/NativeObserveSelfTest.java": "c40b4cc58f13ace228db186bcfd7d1e1d6d561c870a372f7980b841ef3dfd1eb",
+    "validation/acp-native-host-probe/build.sh": "353ac72bdff980a0fff728b5c237f15db4d449bcb0ffd760c637730e5fd8ea41",
+    "scripts/preview/package-mcp-native-observe-validation.sh": "dd1d8acf597db47022a7b5befbe9d9bada3ec0a09e8e15715d41373a6347c5d3",
+    "scripts/preview/hvq/snapshot.py": "8149834e35a9c64b046fcf423d0a2743f2be414e51260c42b775f022f5c0fd2c",
+    "scripts/preview/mcp-host-validation-client.py": "0e47dce2a7bde1118ac97e0f125dbee16159e6b01431d14cc6c84264087355d8",
+    "scripts/test/test_mcp_host_validation_client.py": "a06260756475a611e228ad2beabc32978ed730a07f7f74ee3d24a13a5d2e24f0",
+    "scripts/test/test_host_validation_queue.py": "9a1030ba8e8fcb08a3384fc40f200903b800eb25a0117097b535b4e134ff25c0"
+  }
+}

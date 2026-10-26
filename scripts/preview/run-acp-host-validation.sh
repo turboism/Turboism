@@ -25,6 +25,9 @@ runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 seed="$repo_root/testing/host-validation/acp/settings-$version.properties"
 [ -f "$seed" ] || { echo "error: ACP settings seed not found: $seed" >&2; exit 1; }
 
+native_render=0
+if [ "$version" = "5303" ]; then native_render=1; fi
+
 exec bash "$runner" \
   --name acp \
   --version "$version" \
@@ -38,6 +41,7 @@ exec bash "$runner" \
   --home-file "$bundle_root/acp-validation/acp-fake-agent.jar:acp-validation/acp-fake-agent.jar" \
   --home-file "$bundle_root/acp-validation/agent.properties:acp-validation/agent.properties" \
   --windows-env "TURBOISM_ACP_FAKE_RUN_ID={TASK_ID}" \
+  --windows-env "TURBOISM_ACP_FAKE_NATIVE_RENDER=$native_render" \
   --fixture-host "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \

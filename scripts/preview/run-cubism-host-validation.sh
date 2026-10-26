@@ -2565,7 +2565,48 @@ if [ -n "$client_script" ]; then
   if [ -n "$client_python" ]; then
     client_command=("$client_python" -I "$task_dir/$client_script_remote_name")
   fi
-  if ! "${client_command[@]}" "$home_dir" "$task_id" \
+  # This closed test flag must reach both host probe and pinned MCP client.
+  # Do not infer read-only intent from a missing file or a run-label substring.
+  client_mode_arguments=()
+  native_observation=0
+  native_editing=0
+  for option in "${jvm_options[@]}"; do
+    if [ "$option" = '-Dturboism.validation.nativeObservation=true' ]; then native_observation=1; fi
+    if [ "$option" = '-Dturboism.validation.nativeEditing=true' ]; then native_editing=1; fi
+  done
+  if [ "$native_editing" = 1 ]; then
+    [ "$version" = 5303 ] && [ "$client_script_remote_name" = mcp-host-validation-client.py ] || fail "native editing requires exact reviewed MCP client"
+    [ "$native_observation" = 0 ] || fail "native editing cannot combine observation mode"
+    client_mode_arguments+=(--native-edit)
+  fi
+  if [ "$native_observation" = 1 ]; then
+    [ "$version" = 5303 ] && [ "$client_script_remote_name" = mcp-host-validation-client.py ] \
+      || fail 'native observation requires the exact reviewed 5303 MCP client'
+    client_mode_arguments+=(--native-observe)
+  fi
+  for option in "${jvm_options[@]}"; do
+    if [ "$option" = "-Dturboism.validation.readOnlyInspection=true" ]; then
+      [ "$client_script_remote_name" = "mcp-host-validation-client.py" ] \
+        || fail "read-only inspection requires the pinned MCP validation client"
+      if [ "$native_observation" = 0 ] && [ "$native_editing" = 0 ]; then client_mode_arguments+=(--read-only-inspection); fi
+    fi
+    if [ "$option" = "-Dturboism.validation.headEditing=true" ]; then
+      [ "$client_script_remote_name" = "mcp-host-validation-client.py" ] \
+        || fail "head editing requires the pinned MCP validation client"
+      client_mode_arguments+=(--head-edit)
+    fi
+    if [ "$option" = "-Dturboism.validation.headPersistence=true" ]; then
+      [ "$client_script_remote_name" = "mcp-host-validation-client.py" ] \
+        || fail "head persistence requires the pinned MCP validation client"
+      client_mode_arguments+=(--head-save)
+    fi
+    if [ "$option" = "-Dturboism.validation.headPoseQA=true" ]; then
+      [ "$client_script_remote_name" = "mcp-host-validation-client.py" ] \
+        || fail "head pose QA requires the pinned MCP validation client"
+      client_mode_arguments+=(--head-qa)
+    fi
+  done
+  if ! "${client_command[@]}" "$home_dir" "$task_id" "${client_mode_arguments[@]}" \
     > "$evidence_dir/client.out" 2> "$evidence_dir/client.err"; then
     fail "task-local validation client failed"
   fi

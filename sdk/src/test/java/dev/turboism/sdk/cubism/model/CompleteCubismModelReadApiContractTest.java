@@ -119,6 +119,7 @@ class CompleteCubismModelReadApiContractTest {
                 "multiplyColor",
                 "name",
                 "ordinaryKeyform",
+                "ordinaryKeyformWriteSupport",
                 "parameterIds",
                 "parameters",
                 "parentDeformerId",
@@ -153,9 +154,11 @@ class CompleteCubismModelReadApiContractTest {
                 "visibleInHierarchy",
                 "setOrdinaryKeyformPositions",
                 "setOrdinaryKeyformDrawOrders",
-                "setOrdinaryKeyforms");
+                "setOrdinaryKeyforms",
+                "setOrdinaryKeyformValues");
         assertMethods(
                 Deformer.class,
+                "ordinaryKeyformWriteSupport",
                 "getCombinedParameterBindings",
                 "getMorphParameterBindings",
                 "getNormalParameterBindings",
@@ -188,6 +191,7 @@ class CompleteCubismModelReadApiContractTest {
                 "visibleInHierarchy");
         assertMethods(
                 Parameter.class,
+                "guid",
                 "combined",
                 "combinedWith",
                 "combineWith",
@@ -208,7 +212,16 @@ class CompleteCubismModelReadApiContractTest {
                 "ui",
                 "uncombine",
                 "updateDefinition");
-        assertMethods(ParameterGroup.class, "childGroupIds", "id", "name", "parameterIds", "parentId", "rename", "ui");
+        assertMethods(
+                ParameterGroup.class,
+                "childGroupIds",
+                "id",
+                "name",
+                "orderedChildren",
+                "parameterIds",
+                "parentId",
+                "rename",
+                "ui");
         assertDeclaredMethods(
                 WarpDeformer.class,
                 "grid",
@@ -307,6 +320,8 @@ class CompleteCubismModelReadApiContractTest {
         assertEquals(java.util.Optional.class, returnType(ArtMeshTextureInput.class, "modelImageId"));
         assertEquals(java.util.Optional.class, returnType(ArtMeshTextureInput.class, "textureAtlasId"));
 
+        assertEquals(OrdinaryKeyformWriteSupport.class, returnType(Drawable.class, "ordinaryKeyformWriteSupport"));
+        assertEquals(OrdinaryKeyformWriteSupport.class, returnType(Deformer.class, "ordinaryKeyformWriteSupport"));
         assertEquals(ArtMeshId.class, returnType(Drawable.class, "id"));
         assertEquals(ArtMeshAuthoringSnapshot.class, returnType(Drawable.class, "authoringSnapshot"));
         assertEquals(ArtMeshEvaluationSnapshot.class, returnType(Drawable.class, "evaluationSnapshot"));

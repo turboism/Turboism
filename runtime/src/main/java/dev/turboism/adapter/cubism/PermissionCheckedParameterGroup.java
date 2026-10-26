@@ -51,6 +51,12 @@ final class PermissionCheckedParameterGroup implements ParameterGroup {
     }
 
     @Override
+    public List<dev.turboism.sdk.cubism.model.ParameterGroupChild> orderedChildren() {
+        facade.requireModelRead("parameterGroup.orderedChildren");
+        return delegate.orderedChildren();
+    }
+
+    @Override
     public void rename(final String name) {
         facade.requireModelWrite("parameterGroup.rename");
         delegate.rename(name);

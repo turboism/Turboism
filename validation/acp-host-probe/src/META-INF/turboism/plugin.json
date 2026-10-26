@@ -22,13 +22,13 @@
   "dependencies": [
     {
       "id": "dev.turboism.plugin.mcp",
-      "version": "[0.1.0,0.2.0)",
+      "version": "[0.1.0,0.68.0)",
       "type": "required",
       "ordering": "after"
     },
     {
       "id": "dev.turboism.plugin.acp",
-      "version": "[0.1.0,0.2.0)",
+      "version": "[0.1.0,0.68.0)",
       "type": "required",
       "ordering": "after"
     }

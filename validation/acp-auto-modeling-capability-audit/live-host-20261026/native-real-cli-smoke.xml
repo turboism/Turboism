@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.turboism.plugin.acp.NativeRealCliSmokeTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-25T18:03:32" hostname="archlinux" time="2.314">
+  <properties/>
+  <testcase name="[1] CODEX" classname="dev.turboism.plugin.acp.NativeRealCliSmokeTest" time="0.743"/>
+  <testcase name="[2] CLAUDE" classname="dev.turboism.plugin.acp.NativeRealCliSmokeTest" time="0.923"/>
+  <testcase name="[3] PI" classname="dev.turboism.plugin.acp.NativeRealCliSmokeTest" time="0.644"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

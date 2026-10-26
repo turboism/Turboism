@@ -66,6 +66,37 @@
           "-Dturboism.optimization.mesaGlThread=false",
           "--linux-env",
           "mesa_glthread=false"
+        ],
+        "inspect": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.readOnlyInspection=true"
+        ],
+        "head-edit": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.headEditing=true"
+        ],
+        "head-save": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.headPersistence=true"
+        ],
+        "head-qa": [
+          "{version}", "{runLabel}", "--jvm-option", "-Dturboism.validation.headPoseQA=true"
+        ],
+        "native-edit": [
+          "{version}", "{runLabel}",
+          "--jvm-option", "-Dturboism.validation.readOnlyInspection=true",
+          "--jvm-option", "-Dturboism.validation.nativeEditing=true"
+        ],
+        "native-observe": [
+          "{version}", "{runLabel}",
+          "--jvm-option", "-Dturboism.validation.readOnlyInspection=true",
+          "--jvm-option", "-Dturboism.validation.nativeObservation=true"
         ]
       }
     },

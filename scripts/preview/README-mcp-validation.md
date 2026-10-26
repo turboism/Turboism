@@ -29,8 +29,9 @@ Arbitrary custom client scripts and extra hooks remain rejected. Preparation and
 
 ## Public protocol assertions
 
-The raw stdlib HTTP client requires the exact public catalog introduced by the MCP read/write and
-authoring-transaction cutover:
+The raw stdlib HTTP client requires the exact current public catalog (80 tools,
+15 resources, 2 templates and 8 prompts), including the MCP read/write and
+authoring-transaction surfaces:
 
 - `turboism.glues.read` and `turboism.glues.write`
 - `turboism.textures.read` and `turboism.textures.write`
@@ -42,6 +43,41 @@ authoring-transaction cutover:
 It also verifies that every tool declares an output schema, that the capability ledger exposes
 exact per-operation versions and Undo/transaction metadata, and that the bundled SDK coverage
 ledger and temporary-exception set are available through `turboism.capabilities.read`.
+
+## Native authoring and rendering checks
+
+The client requires a readable ArtMesh, Warp and Rotation stored snapshot. It discovers
+objects from the real hierarchy and checks at most 32 candidates per kind; rejected
+candidates remain in the successful evidence, and no readable candidate is a failure.
+Every page must retain one snapshot ID, source GUID, document/model/history binding,
+contiguous offsets and total row count. Rereading the first page must return identical
+content. Reads must preserve history and parameter pose. This does not establish
+stored-form write admission, Undo/Redo or persistence of geometry edits.
+
+The renderer check rejects a stale pose hash, requires JSON plus a typed PNG from
+`cubism.native.renderPixels`, verifies actual PNG dimensions, byte length and SHA-256,
+and rechecks document/history/pose without moving parameters. The task home receives
+`state/mcp-native-render.{png,json}` only after those checks. This verifies the MCP
+image result; it does not prove ACP window display, vision-model consumption or art quality.
+Workspace model IDs are opaque session IDs; typed Editor model IDs are native source
+GUIDs. Their strings need not match. Document/model snapshot identities must still
+agree, and typed handles must validate their current native binding. Version/lifecycle
+proxies preserve the closed Deformer→Warp/Rotation subtype union so `all`/`find`
+results retain their typed stored-authoring interfaces and guards.
+
+## Three-kind ordinary stored-write matrix
+
+After the original-tip Glue matrix, the client re-discovers existing independent
+non-default Mesh/Warp/Rotation forms. An unbound Rotation fixture is prepared using
+the production typed binding initializer and a real discovered parameter GUID and
+range; that preparation has its own guarded Undo and is fully removed at the end.
+The client sends one ordinary keyform batch with one small exact-float delta for
+each kind, checks one native Undo position and every stored row on all three targets,
+then performs guarded Undo/Redo/final Undo and restores the fixture preparation.
+Float fields compare native float32 bits; IDs and integer topology fields stay exact.
+No receipt means no blind Undo or write replay. Failures and cleanup errors remain
+separate in `state/mcp-ordinary-geometry.json`. This is a primitive fixture check,
+not posed image quality, geometry save/reopen or head-rig acceptance.
 
 ## Reversible Glue authoring matrix
 
@@ -192,3 +228,54 @@ The runner must use an exact reviewed Cubism installation launched through the o
 Evidence archives explicitly exclude MCP connection files. A passing synthetic JVM test is not
 exact-host readiness; readiness is recorded only after this transport
 matrix passes on the named reviewed Editor artifact and the copied fixture is proven restored.
+
+## Authorized CMO3 OPEN lane
+
+Only exact 5.3.03 runs the production files.request_grant → documents.open → file_result chain on the already-open task fixture. The validation-only responder approves one exact READ purpose and cmo3-only chooser after canonical task-path ownership checks. It neither injects grants nor gives MCP a raw path. The client checks one-use consumption, retained result, replay, and unchanged full document inventory/authoring state. Other exact versions record NOT_ADMITTED_EXACT_VERSION.
+
+Evidence `state/mcp-authorized-open.json` explicitly records testChooserApproval=true, ALREADY_OPEN_TASK_COPY, firstOpenVerified=false and persistence/reopenVerified=false. Success can mean focus of an existing tab; it is not first-load, file-identity or production SAVE_AS persistence acceptance.
+
+## Production SAVE_AS persistence lane
+
+On reviewed exact 5.3.03, the client records the original full three-kind geometry and SDK-visible bindings, initializes the previously unbound fixture Rotation through production MCP, writes an actual ordinary form for each of Mesh/Warp/Rotation, and compares before/modified native pose pixels. A task-only chooser responder grants one WRITE to a new CMO3 under the owned state/authorized-save directory; existing files and symlinked targets/parents fail closed.
+
+The save itself uses production documents.save_as and a fresh six-field expectedState. The test probe then only reads/owns/closes the task document; production READ grant/documents.open loads the saved output. Full stored rows, native SDK records, all SDK-visible bindings, saved bytes hash and modified-versus-reloaded pose PNG hashes must match. The probe closes that exact saved document, production OPEN restores the original fixture, and original geometry/bindings/file hashes must match the baseline. No old Undo receipt is valid across reopening. Uncertain responses query file_result without redispatch; unknown outcomes stop further file/cleanup writes.
+
+Evidence is state/mcp-production-save-open.json plus mcp-production-save-{baseline-result,closed,result,restore-closed,restore-result}.json and the three sets of pose PNGs. This tests three actual primitives and a binding change on the fixed fixture; it is not Hiyori art acceptance or proof of all-host persistence.
+
+## Read-only authoring inspection
+
+`mcp:5303@inspect` reuses the standard managed queue and fixed stdlib client, with
+`-Dturboism.validation.readOnlyInspection=true`. The runner forwards the closed
+`--read-only-inspection` flag directly to that pinned client. Missing profile files
+and run-label names cannot switch the mode. The client rejects all tool calls except
+capabilities/history/state/capture and three authoring readers before transport;
+file grants, editor commands, parameter/geometry/history writes are not allowed.
+The probe disables its file chooser responder and all optional texture/geometry/
+file persistence write hooks in this lane. Standard preparation still opens only
+the task's copied fixture, and terminal handling uses the normal task-bound close.
+
+Inspection discovers the catalog, actual document, bounded readable Mesh/Warp/
+Rotation candidates and their complete immutable snapshot pages, and native PNG.
+History and render pose/state must remain unchanged. Full snapshots and images stay
+in private task evidence; `mcp-read-only-inspection.json` contains IDs, counts and
+hashes, with no geometry or credentials. This is not an editing, head-semantic or
+art-quality verdict. Supply the exact fixture and hash through the standard local
+configuration overrides; do not use the Glue mutation lane on a new official model.
+
+
+## Head-edit response loss reconciliation
+
+The exact 5.3.03 `mcp:5303@head-edit` lane now discards the first keyform-write HTTP
+response after the complete body is read but before JSON-RPC decoding. The workflow
+receives no write status/body. It queries `authoring.keyforms.result` twice with the
+same operation ID and requires a stable APPLIED receipt before continuing with full
+three-kind stored-form readback, a single Undo/Redo, native renders and final restore.
+It never resends the write. Missing/unknown results, a different operation identity,
+readback warnings or unstable receipts stop this case without guessing an Undo handle.
+
+`state/mcp-ordinary-geometry.json` records the injection boundary and result-query
+counts. This is a client receive-boundary fault with the same live MCP session;
+it does not test a server crash, connection loss before the server commits, fresh-session
+recovery or host cancellation. The head-save/head-qa and standard fixture lanes retain
+their previous transport behavior. No external agent/model service is involved.

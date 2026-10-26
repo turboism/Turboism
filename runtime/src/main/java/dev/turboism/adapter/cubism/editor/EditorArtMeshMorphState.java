@@ -294,7 +294,8 @@ final class EditorArtMeshMorphState {
     boolean onlyPositionsChanged(final EditorArtMeshMorphState other, final String guid, final List<Point2> input) {
         if (!sameLayout(other) || !attributes.equals(other.attributes) || !values.equals(other.values)) return false;
         return snapshot.forms().stream().allMatch(form -> {
-            final Form expected = form.formGuid().equals(guid) ? new Form(guid, input, form.drawOrder()) : form;
+            final Form expected =
+                    form.formGuid().equals(guid) ? new Form(guid, input, form.drawOrder(), form.opacity()) : form;
             return expected.equals(other.form(form.formGuid()));
         });
     }
@@ -303,7 +304,8 @@ final class EditorArtMeshMorphState {
     boolean onlyDrawOrderChanged(final EditorArtMeshMorphState other, final String guid, final int order) {
         if (!sameLayout(other) || !attributes.equals(other.attributes) || !values.equals(other.values)) return false;
         return snapshot.forms().stream().allMatch(form -> {
-            final Form expected = form.formGuid().equals(guid) ? new Form(guid, form.positions(), order) : form;
+            final Form expected =
+                    form.formGuid().equals(guid) ? new Form(guid, form.positions(), order, form.opacity()) : form;
             return expected.equals(other.form(form.formGuid()));
         });
     }

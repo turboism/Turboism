@@ -140,6 +140,36 @@
       ],
       "reason": "The contract names one exact record version constant.",
       "evidence": "CUBISM_5_3_03_VERSION is a dispatch constant referencing the 5.3.03 record whose onion-skin shape the contract special-cases; version admission flows through the record itself, not this constant."
+    },
+    {
+      "kind": "verification-record",
+      "path": "compatibility/cubism/verification",
+      "site": "ui-top-menu 5.3.03>5.3.04 aliases",
+      "missing": [
+        "cubism.editor-command.file.open-model"
+      ],
+      "reason": "Authorized CMO3 OPEN is deliberately admitted only on exact 5.3.03; later versions and PSD need independent verification.",
+      "evidence": "validation/acp-auto-modeling-capability-audit/verification.md section 48: exact 5.3.03 native open selector exercised during task-copy geometry persistence; dispatch is distinct from first-open readiness. No unverified version widening."
+    },
+    {
+      "kind": "java-file",
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/VerifiedTypedEditorCommandOperations.java",
+      "site": "5.3.03",
+      "missing": [
+        "5.3.04"
+      ],
+      "reason": "Authorized CMO3 OPEN is deliberately admitted only on exact 5.3.03; later versions and PSD need independent verification.",
+      "evidence": "validation/acp-auto-modeling-capability-audit/verification.md section 48: exact 5.3.03 native open selector exercised during task-copy geometry persistence; dispatch is distinct from first-open readiness. No unverified version widening."
+    },
+    {
+      "kind": "java-set",
+      "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpDocumentFileDomain.java",
+      "site": "5.3.03",
+      "missing": [
+        "5.3.04"
+      ],
+      "reason": "Authorized CMO3 OPEN is deliberately admitted only on exact 5.3.03; later versions and PSD need independent verification.",
+      "evidence": "validation/acp-auto-modeling-capability-audit/verification.md section 48: exact 5.3.03 native open selector exercised during task-copy geometry persistence; dispatch is distinct from first-open readiness. No unverified version widening."
     }
   ]
 }

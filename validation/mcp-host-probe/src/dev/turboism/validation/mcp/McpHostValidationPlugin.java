@@ -8,6 +8,8 @@ import dev.turboism.validation.NativeFreeStartup;
 import javax.swing.SwingUtilities;
 import dev.turboism.tests.plugin.McpValidationHostClose;
 import dev.turboism.tests.plugin.McpTexturePersistenceProbe;
+import dev.turboism.tests.plugin.McpGeometryRollbackProbe;
+import dev.turboism.tests.plugin.McpAuthorizedOpenProbe;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -23,6 +25,7 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     private Thread watcher;
     private Thread startupHelper;
     private String lastDialogObservation = "";
+    private final java.util.Set<String> approvedOpenPurposes = new java.util.HashSet<>();
 
     @Override
     public void init(final PluginContext context) {
@@ -81,6 +84,8 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
                         lastDialogObservation = observation;
                         logger.info("MCP_VALIDATION_DIALOG_OBSERVATION " + observation);
                     }
+                    if (!Boolean.getBoolean("turboism.validation.readOnlyInspection")
+                            && !headEditWorkload()) approveTaskOpenChooser();
                     final String action = NativeFreeStartup.select();
                     if (action != null) logger.info("MCP_VALIDATION_" + action);
                 });
@@ -93,6 +98,66 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
                 return;
             }
         }
+    }
+
+    private static boolean headEditWorkload() {
+        return Boolean.getBoolean("turboism.validation.headEditing") || Boolean.getBoolean("turboism.validation.headPoseQA");
+    }
+
+    /** Test-only UI approval: each exact READ purpose once, only the owned task fixture. */
+    private void approveTaskOpenChooser() {
+        final String runId = System.getProperty("turboism.validation.runId", "");
+        if (!runId.matches("[a-zA-Z0-9-]{8,96}")) return;
+        final String writeTitle = "MCP file access (WRITE): Turboism validation SAVE AS " + runId;
+        final String savedTitle = "MCP file access (READ): Turboism validation SAVED CMO3 OPEN " + runId;
+        final var titles = java.util.Set.of("MCP file access (READ): Turboism validation CMO3 OPEN " + runId,
+                "MCP file access (READ): Turboism validation CMO3 FRESH OPEN " + runId, writeTitle, savedTitle,
+                "MCP file access (READ): Turboism validation ORIGINAL CMO3 RESTORE " + runId);
+        final Path fixture = Path.of(System.getProperty("turboism.validation.fixture", "")).toAbsolutePath();
+        try {
+            if (!fixture.getFileName().toString().equals(runId + ".cmo3")
+                    || !fixture.getParent().getFileName().toString().equals(runId)
+                    || !Files.isRegularFile(fixture, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    || !fixture.equals(fixture.toRealPath())
+                    || !validationStateRoot().getParent().toRealPath().getParent().equals(fixture.getParent())) return;
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                if (!window.isShowing() || !(window instanceof java.awt.Dialog dialog)
+                        || !titles.contains(dialog.getTitle()) || approvedOpenPurposes.contains(dialog.getTitle())) continue;
+                final String title = dialog.getTitle();
+                boolean write = title.equals(writeTitle);
+                final javax.swing.JFileChooser chooser = findChooser(dialog);
+                if (chooser == null || !title.equals(chooser.getDialogTitle())
+                        || chooser.getDialogType() != (write ? javax.swing.JFileChooser.SAVE_DIALOG : javax.swing.JFileChooser.OPEN_DIALOG)
+                        || chooser.isMultiSelectionEnabled() || chooser.isAcceptAllFileFilterUsed()
+                        || !(chooser.getFileFilter() instanceof javax.swing.filechooser.FileNameExtensionFilter filter)
+                        || !java.util.Arrays.equals(filter.getExtensions(), new String[] {"cmo3"})) return;
+                Path target = (write || title.equals(savedTitle))
+                        ? McpAuthorizedOpenProbe.authorizedOutput(validationStateRoot().getParent(), fixture, runId) : fixture;
+                if (write) {
+                    target = McpAuthorizedOpenProbe.authorizedNewOutput(validationStateRoot().getParent(), fixture, runId);
+                    Files.createDirectories(target.getParent());
+                } else if (!Files.isRegularFile(target, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                        || !target.equals(target.toRealPath())) return;
+                approvedOpenPurposes.add(title);
+                chooser.setSelectedFile(target.toFile());
+                chooser.approveSelection();
+                logger.info("MCP_VALIDATION_TASK_OPEN_CHOOSER_APPROVED");
+                return;
+            }
+        } catch (Exception failure) {
+            logger.info("MCP_VALIDATION_TASK_OPEN_CHOOSER_REJECTED");
+        }
+    }
+
+    private static javax.swing.JFileChooser findChooser(java.awt.Container parent) {
+        for (java.awt.Component child : parent.getComponents()) {
+            if (child instanceof javax.swing.JFileChooser chooser) return chooser;
+            if (child instanceof java.awt.Container nested) {
+                var chooser = findChooser(nested);
+                if (chooser != null) return chooser;
+            }
+        }
+        return null;
     }
 
     private void awaitResult() {
@@ -127,10 +192,31 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
         }
         final Path result = validationStateRoot().resolve(RESULT_FILE);
         final long deadline = System.currentTimeMillis() + RESULT_TIMEOUT_MILLIS;
+        final var freshOpen = new McpAuthorizedOpenProbe(context, validationStateRoot());
+        final var productionPersistence = new McpAuthorizedOpenProbe(context, validationStateRoot(), true);
         boolean textureRoundTripHandled = false;
+        boolean geometryRollbackHandled = false;
+        boolean geometryPersistenceHandled = false;
+        boolean authoringDiagnosticHandled = false;
         while (enabled && System.currentTimeMillis() < deadline) {
-            if (!textureRoundTripHandled) {
+            if (!authoringDiagnosticHandled
+                    && Files.isRegularFile(validationStateRoot().resolve("mcp-authoring-diagnostic-request"))) {
+                authoringDiagnosticHandled = true;
+                inspectStoredAuthoring();
+            }
+            if (!Boolean.getBoolean("turboism.validation.readOnlyInspection") && !headEditWorkload() && !Boolean.getBoolean("turboism.validation.headPersistence") && !textureRoundTripHandled) {
                 textureRoundTripHandled = McpTexturePersistenceProbe.runIfRequested(context, validationStateRoot());
+            }
+            if (!Boolean.getBoolean("turboism.validation.readOnlyInspection") && !geometryRollbackHandled) {
+                geometryRollbackHandled = McpGeometryRollbackProbe.runIfRequested(context, validationStateRoot());
+            }
+            if (!Boolean.getBoolean("turboism.validation.readOnlyInspection") && !headEditWorkload() && !Boolean.getBoolean("turboism.validation.headPersistence") && !geometryPersistenceHandled) {
+                geometryPersistenceHandled = McpTexturePersistenceProbe.runGeometryIfRequested(context, validationStateRoot());
+            }
+            if (!Boolean.getBoolean("turboism.validation.readOnlyInspection")
+                    && !headEditWorkload()) {
+                freshOpen.poll();
+                productionPersistence.poll();
             }
             if (terminalResult(result)) {
                 logger.info("MCP_HOST_VALIDATION_RESULT observed=" + result.getFileName());
@@ -145,6 +231,49 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
             }
         }
         if (enabled) logger.warn("MCP host validation probe timed out waiting for terminal result");
+    }
+
+    /** Test-only typed SDK read diagnostics; no raw host access, setters or exception messages. */
+    private void inspectStoredAuthoring() {
+        final var rows = new java.util.ArrayList<java.util.Map<String, Object>>();
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                final var model = context.cubism().model().active();
+                for (final var deformer : model.deformers().all().stream().limit(32).toList()) {
+                    final var row = new java.util.LinkedHashMap<String, Object>();
+                    row.put("objectId", deformer.id().value());
+                    row.put("warp", deformer instanceof dev.turboism.sdk.cubism.model.WarpDeformer);
+                    row.put("rotation", deformer instanceof dev.turboism.sdk.cubism.model.RotationDeformer);
+                    try {
+                        if (deformer instanceof dev.turboism.sdk.cubism.model.WarpDeformer warp) {
+                            final var snapshot = warp.authoringSnapshot();
+                            row.put("rows", snapshot.rows());
+                            row.put("columns", snapshot.columns());
+                            row.put("formCount", snapshot.forms().size());
+                        } else if (deformer instanceof dev.turboism.sdk.cubism.model.RotationDeformer rotation) {
+                            row.put("formCount", rotation.authoringSnapshot().forms().size());
+                        }
+                        row.put("status", deformer instanceof dev.turboism.sdk.cubism.model.WarpDeformer
+                                || deformer instanceof dev.turboism.sdk.cubism.model.RotationDeformer
+                                ? "SNAPSHOT_READ" : "BASE_INTERFACE_ONLY");
+                    } catch (RuntimeException failure) {
+                        Throwable cause = failure;
+                        for (int depth = 0; depth < 8 && cause.getCause() != null; depth++) cause = cause.getCause();
+                        row.put("status", "FAILED");
+                        row.put("exceptionClass", cause.getClass().getName());
+                        row.put("stack", java.util.Arrays.stream(cause.getStackTrace()).limit(8)
+                                .map(frame -> frame.getClassName() + "." + frame.getMethodName() + ":" + frame.getLineNumber())
+                                .toList());
+                    }
+                    rows.add(row);
+                }
+            });
+            Files.writeString(validationStateRoot().resolve("mcp-authoring-diagnostic.json"),
+                    dev.turboism.sdk.json.Json.stringify(java.util.Map.of(
+                            "runId", System.getProperty("turboism.validation.runId"), "objects", rows)));
+        } catch (Exception failure) {
+            logger.warn("Typed stored authoring diagnostic failed: " + failure.getClass().getSimpleName());
+        }
     }
 
     private static boolean terminalResult(final Path result) {
