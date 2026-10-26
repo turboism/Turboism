@@ -16,6 +16,10 @@ final class McpSdkCoverageLedger {
     static final String RESOURCE = "META-INF/turboism/mcp-sdk-coverage.json";
     private static final Set<String> CLASSIFICATIONS = Set.of(
             "MCP_READ",
+            "MCP_AUTHORIZED_JOB",
+            "MCP_AUTHORIZED_EXPORT_JOB",
+            "MCP_NATIVE_UNDO_JOB",
+            "MCP_TRANSACTION_CONTROL",
             "MCP_WRITE_UNDOABLE",
             "MCP_WRITE_STANDALONE_UNDO",
             "MCP_COMMAND_NON_UNDOABLE",

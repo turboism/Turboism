@@ -59,6 +59,9 @@ final class AcpClient implements AutoCloseable {
     private final BufferedWriter writer;
     private final Object writeLock = new Object();
     private final ConcurrentHashMap<Long, CompletableFuture<Object>> pending = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AcpPermissionCancellation> permissionScopes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Object, PendingPermission> permissionRequests = new ConcurrentHashMap<>();
+
     private final AtomicLong requestIds = new AtomicLong();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean terminationReported = new AtomicBoolean();
@@ -183,6 +186,7 @@ final class AcpClient implements AutoCloseable {
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("cwd", absolute(cwd));
         params.put("mcpServers", mcpServers(connection));
+        cancelAllPermissions();
         return newSessionResponse(await(request("session/new", params), timeout), capabilities);
     }
 
@@ -194,6 +198,7 @@ final class AcpClient implements AutoCloseable {
         params.put("sessionId", requireText(sessionId, "sessionId", 512));
         params.put("cwd", absolute(cwd));
         params.put("mcpServers", mcpServers(connection));
+        cancelAllPermissions();
         return loadSessionResponse(
                 requireText(sessionId, "sessionId", 512),
                 await(request("session/load", params), timeout),
@@ -208,6 +213,7 @@ final class AcpClient implements AutoCloseable {
         params.put("sessionId", requireText(sessionId, "sessionId", 512));
         params.put("cwd", absolute(cwd));
         params.put("mcpServers", mcpServers(connection));
+        cancelAllPermissions();
         return loadSessionResponse(
                 requireText(sessionId, "sessionId", 512),
                 await(request("session/resume", params), timeout),
@@ -247,10 +253,15 @@ final class AcpClient implements AutoCloseable {
             throw new IllegalArgumentException("Attachments exceed 4 MiB total or 8 files");
         for (AcpAttachment attachment : attachments) blocks.add(attachment.promptBlock(promptImages, promptEmbedded));
         params.put("prompt", blocks);
-        return request("session/prompt", params).thenApply(result -> {
-            final String stopReason = string(object(result).get("stopReason"));
-            return stopReason == null ? "unknown" : redactedUi(stopReason, MAX_UI_METADATA_CHARS);
-        });
+        final var scope = permissionScope(sessionId, true);
+        if (scope == null)
+            return CompletableFuture.failedFuture(new AcpException("permission session unavailable; reconnect"));
+        return request("session/prompt", params)
+                .thenApply(result -> {
+                    final String stopReason = string(object(result).get("stopReason"));
+                    return stopReason == null ? "unknown" : redactedUi(stopReason, MAX_UI_METADATA_CHARS);
+                })
+                .whenComplete((result, failure) -> scope.cancel());
     }
 
     /** Applies an agent-owned configuration option and returns the refreshed catalog. */
@@ -324,12 +335,16 @@ final class AcpClient implements AutoCloseable {
 
     /** Best-effort notification that interrupts the active agent prompt. */
     void cancel(final String sessionId) {
-        sendNotification("session/cancel", Map.of("sessionId", requireText(sessionId, "sessionId", 512)));
+        final String target = requireText(sessionId, "sessionId", 512);
+        cancelPermissions(target);
+        sendNotification("session/cancel", Map.of("sessionId", target));
     }
 
     /** Flushes and closes the active durable session before process teardown. */
     void closeSession(final String sessionId, final Duration timeout) throws AcpException {
-        await(request("session/close", Map.of("sessionId", requireText(sessionId, "sessionId", 512))), timeout);
+        final String target = requireText(sessionId, "sessionId", 512);
+        cancelPermissions(target);
+        await(request("session/close", Map.of("sessionId", target)), timeout);
     }
 
     private CompletableFuture<Object> request(final String method, final Object params) {
@@ -494,8 +509,9 @@ final class AcpClient implements AutoCloseable {
                     redactedUi(display(update.get("kind")), MAX_UI_METADATA_CHARS),
                     redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS));
             dispatchToolInput(sessionId, update);
-            dispatchToolImages(sessionId, update.get("content"));
-            final String content = contentText(update.get("content"));
+            final List<?> contents = toolContents(update);
+            dispatchToolImages(sessionId, toolCallKey(update.get("toolCallId")), contents);
+            final String content = contentText(contents);
             if (!content.isEmpty()) {
                 listener.toolCallUpdate(
                         this,
@@ -505,14 +521,15 @@ final class AcpClient implements AutoCloseable {
                         redactedUi(content, MAX_UI_CONTENT_CHARS));
             }
         } else if ("tool_call_update".equals(kind)) {
+            final List<?> contents = toolContents(update);
             listener.toolCallUpdate(
                     this,
                     sessionId,
                     toolCallKey(update.get("toolCallId")),
                     redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS),
-                    redactedUi(contentText(update.get("content")), MAX_UI_CONTENT_CHARS));
+                    redactedUi(contentText(contents), MAX_UI_CONTENT_CHARS));
             dispatchToolInput(sessionId, update);
-            dispatchToolImages(sessionId, update.get("content"));
+            dispatchToolImages(sessionId, toolCallKey(update.get("toolCallId")), contents);
         } else if ("config_option_update".equals(kind)) {
             listener.configOptions(this, sessionId, configOptions(update.get("configOptions")));
         } else if ("available_commands_update".equals(kind)) {
@@ -520,19 +537,44 @@ final class AcpClient implements AutoCloseable {
         }
     }
 
-    private void dispatchToolImages(final String sessionId, final Object contents) {
-        for (Object wrapper : list(contents))
-            dispatchImage(sessionId, objectOrEmpty(objectOrEmpty(wrapper).get("content")));
+    private static List<?> toolContents(final Map<String, Object> update) {
+        final List<?> contents = list(update.get("content"));
+        // ACP content is the adapter's canonical projection. Never merge raw images into it:
+        // rawOutput can describe the same image or an older/unrelated representation.
+        if (!contents.isEmpty() || update.get("rawOutput") == null) return contents;
+        // Some ACP adapters emit only the original result. Reuse the native typed conversion
+        // so MCP images/resources stay binary and unsupported audio is not dumped as text.
+        return NativeToolContent.from(update.get("rawOutput"));
+    }
+
+    private void dispatchToolImages(final String sessionId, final String toolId, final Object contents) {
+        var blocks = list(contents);
+        for (int index = 0; index < blocks.size(); index++) {
+            var content = objectOrEmpty(objectOrEmpty(blocks.get(index)).get("content"));
+            if (!"image".equals(content.get("type")) && !"resource".equals(content.get("type"))) continue;
+            dispatchImage(
+                    sessionId,
+                    content,
+                    redactedUi(AcpToolImageLabel.label(toolId, blocks, index, AcpClient::redact), 1024));
+        }
     }
 
     private void dispatchImage(final String sessionId, final Map<String, Object> content) {
+        dispatchImage(sessionId, content, null);
+    }
+
+    private void dispatchImage(final String sessionId, final Map<String, Object> content, final String label) {
         final Map<String, Object> image =
                 "resource".equals(content.get("type")) ? objectOrEmpty(content.get("resource")) : content;
         final String mime = string(image.get("mimeType"));
         final String data = string(image.get(image == content ? "data" : "blob"));
         if (mime == null || !mime.startsWith("image/") || data == null) return;
         try {
-            listener.agentImage(this, sessionId, AcpAttachment.receivedImage(mime, data));
+            var attachment = AcpAttachment.receivedImage(mime, data);
+            if (label != null)
+                attachment = new AcpAttachment(
+                        label, attachment.mimeType(), attachment.uri(), attachment.data(), attachment.byteSize());
+            listener.agentImage(this, sessionId, attachment);
         } catch (IllegalArgumentException failure) {
             listener.agentText(this, sessionId, "[Image unavailable: " + failure.getMessage() + "]");
         }
@@ -581,35 +623,112 @@ final class AcpClient implements AutoCloseable {
                 redactedUi(display(toolCall.get("toolCallId")), MAX_UI_METADATA_CHARS),
                 permissionDetails(toolCall.get("rawInput")),
                 optionSet);
-        try {
-            permissionExecutor.execute(() -> answerPermission(id, sessionId, request));
-        } catch (java.util.concurrent.RejectedExecutionException failure) {
-            if (!closed.get()) sendCancelledPermission(id);
-        }
-    }
-
-    private void answerPermission(
-            final Object id, final String sessionId, final AcpListener.PermissionRequest request) {
-        final AcpListener.PermissionDecision decision;
-        try {
-            decision = Objects.requireNonNullElse(
-                    listener.permission(this, sessionId, request), AcpListener.PermissionDecision.CANCELLED);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable failure) {
+        if (permissionRequests.size() >= 9) {
             sendCancelledPermission(id);
             return;
         }
-        final String optionId =
-                switch (decision) {
-                    case ALLOW_ONCE -> request.options().allowOnce();
-                    case ALLOW_ALWAYS -> request.options().allowAlways();
-                    case REJECT_ONCE -> request.options().rejectOnce();
-                    case CANCELLED -> null;
-                };
-        final Map<String, Object> outcome =
-                optionId == null ? Map.of("outcome", "cancelled") : Map.of("outcome", "selected", "optionId", optionId);
-        sendResult(id, Map.of("outcome", outcome));
+        final var scope = permissionScope(sessionId, false);
+        if (scope == null) {
+            sendCancelledPermission(id);
+            return;
+        }
+        final var pendingPermission = new PendingPermission(id, sessionId, request, scope);
+        if (permissionRequests.putIfAbsent(id, pendingPermission) != null) {
+            fail(new AcpException("duplicate permission request id"));
+            return;
+        }
+        pendingPermission.register();
+        if (pendingPermission.answered.get()) return;
+        try {
+            permissionExecutor.execute(pendingPermission.work);
+            if (pendingPermission.answered.get()) permissionExecutor.remove(pendingPermission.work);
+        } catch (java.util.concurrent.RejectedExecutionException failure) {
+            pendingPermission.answer(AcpListener.PermissionDecision.CANCELLED);
+        }
+    }
+
+    private final class PendingPermission {
+        final Object id;
+        final String sessionId;
+        final AcpListener.PermissionRequest request;
+        final AcpPermissionCancellation scope;
+        final AtomicBoolean answered = new AtomicBoolean();
+        final Runnable work;
+        volatile AcpPermissionCancellation.Registration scopeRegistration;
+
+        PendingPermission(
+                Object id, String sessionId, AcpListener.PermissionRequest request, AcpPermissionCancellation scope) {
+            this.id = id;
+            this.sessionId = sessionId;
+            this.request = request;
+            this.scope = scope;
+            work = () -> answerPermission(this);
+        }
+
+        void register() {
+            request.cancellation().onCancel(() -> answer(AcpListener.PermissionDecision.CANCELLED));
+            scopeRegistration = scope.onCancel(request.cancellation()::cancel);
+            if (answered.get()) scopeRegistration.close();
+        }
+
+        void answer(AcpListener.PermissionDecision decision) {
+            if (!answered.compareAndSet(false, true)) return;
+            permissionRequests.remove(id, this);
+            permissionExecutor.remove(work);
+            if (scopeRegistration != null) scopeRegistration.close();
+            if (scope.isCancelled() || request.cancellation().isCancelled())
+                decision = AcpListener.PermissionDecision.CANCELLED;
+            request.cancellation().cancel();
+            if (closed.get()) return;
+            final String optionId =
+                    switch (decision) {
+                        case ALLOW_ONCE -> request.options().allowOnce();
+                        case ALLOW_ALWAYS -> request.options().allowAlways();
+                        case REJECT_ONCE -> request.options().rejectOnce();
+                        case CANCELLED -> null;
+                    };
+            final Map<String, Object> outcome = optionId == null
+                    ? Map.of("outcome", "cancelled")
+                    : Map.of("outcome", "selected", "optionId", optionId);
+            sendResult(id, Map.of("outcome", outcome));
+        }
+    }
+
+    private void answerPermission(final PendingPermission pendingPermission) {
+        if (pendingPermission.answered.get()) return;
+        try {
+            pendingPermission.answer(Objects.requireNonNullElse(
+                    listener.permission(this, pendingPermission.sessionId, pendingPermission.request),
+                    AcpListener.PermissionDecision.CANCELLED));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable failure) {
+            pendingPermission.answer(AcpListener.PermissionDecision.CANCELLED);
+        }
+    }
+
+    private AcpPermissionCancellation permissionScope(final String sessionId, final boolean replace) {
+        final AcpPermissionCancellation previous;
+        final AcpPermissionCancellation scope;
+        synchronized (permissionScopes) {
+            if (closed.get()) return null;
+            previous = permissionScopes.get(sessionId);
+            if (!replace && previous != null) return previous;
+            if (previous == null && permissionScopes.size() >= MAX_PENDING_REQUESTS) return null;
+            scope = new AcpPermissionCancellation();
+            permissionScopes.put(sessionId, scope);
+        }
+        if (previous != null) previous.cancel();
+        return scope;
+    }
+
+    private void cancelPermissions(final String sessionId) {
+        final var scope = permissionScopes.get(sessionId);
+        if (scope != null) scope.cancel();
+    }
+
+    private void cancelAllPermissions() {
+        permissionScopes.values().forEach(AcpPermissionCancellation::cancel);
     }
 
     private void sendCancelledPermission(final Object id) {
@@ -846,7 +965,12 @@ final class AcpClient implements AutoCloseable {
     private String permissionDetails(final Object rawInput) {
         final String json;
         try {
-            json = redact(Json.stringify(objectOrEmpty(rawInput)));
+            json = redact(
+                    rawInput instanceof String text
+                            ? text
+                            : rawInput instanceof List<?> items
+                                    ? Json.stringify(items)
+                                    : Json.stringify(objectOrEmpty(rawInput)));
         } catch (RuntimeException failure) {
             return "<unavailable>";
         }
@@ -892,6 +1016,7 @@ final class AcpClient implements AutoCloseable {
 
     private void fail(final AcpException failure) {
         if (!closed.compareAndSet(false, true)) return;
+        cancelAllPermissions();
         permissionExecutor.shutdownNow();
         completePendingExceptionally(failure);
         closeWriter();
@@ -907,6 +1032,7 @@ final class AcpClient implements AutoCloseable {
             transport.close();
             return;
         }
+        cancelAllPermissions();
         permissionExecutor.shutdownNow();
         completePendingExceptionally(new AcpException("ACP client closed"));
         closeWriter();

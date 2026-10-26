@@ -26,6 +26,53 @@ import org.junit.jupiter.api.Test;
 class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
+    void baseDeformerCollectionsPreserveClosedSubtypesAndKeepTheirGuards() {
+        var version = new AtomicReference<>(Optional.of("5.3.03"));
+        var guard = new CubismEditorApiAvailabilityInterceptor(version::get);
+        var warp = (dev.turboism.sdk.cubism.model.WarpDeformer) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.model.WarpDeformer.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "id" -> new dev.turboism.sdk.cubism.id.DeformerId("warp");
+                    case "grid" ->
+                        new dev.turboism.sdk.cubism.model.WarpGrid(
+                                1,
+                                1,
+                                false,
+                                java.util.List.of(
+                                        new dev.turboism.sdk.cubism.model.Point2(0, 0),
+                                                new dev.turboism.sdk.cubism.model.Point2(1, 0),
+                                        new dev.turboism.sdk.cubism.model.Point2(0, 1),
+                                                new dev.turboism.sdk.cubism.model.Point2(1, 1)));
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+        var rotation = (dev.turboism.sdk.cubism.model.RotationDeformer) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.model.RotationDeformer.class},
+                (proxy, method, arguments) -> new dev.turboism.sdk.cubism.id.DeformerId("rotation"));
+        var source = (dev.turboism.sdk.cubism.model.Deformers) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.model.Deformers.class},
+                (proxy, method, arguments) ->
+                        method.getName().equals("all") ? java.util.List.of(warp, rotation) : warp);
+        var wrapped = guard.wrapForTesting(source, dev.turboism.sdk.cubism.model.Deformers.class);
+        var values = wrapped.all();
+        assertTrue(values.get(0) instanceof dev.turboism.sdk.cubism.model.WarpDeformer);
+        assertTrue(values.get(1) instanceof dev.turboism.sdk.cubism.model.RotationDeformer);
+        assertSame(values.get(0), wrapped.find(new dev.turboism.sdk.cubism.id.DeformerId("warp")));
+        assertEquals(
+                1,
+                ((dev.turboism.sdk.cubism.model.WarpDeformer) values.get(0))
+                        .grid()
+                        .rows());
+        assertEquals("rotation", values.get(1).id().value());
+        version.set(Optional.empty());
+        assertThrows(
+                CubismEditorApiUnavailableException.class,
+                () -> ((dev.turboism.sdk.cubism.model.WarpDeformer) values.get(0)).authoringSnapshot());
+    }
+
+    @Test
     void compatibleEditSessionsRequireLiveNativeIngressAndRespectThe54Boundary() throws Exception {
         final var version = new java.util.concurrent.atomic.AtomicReference<>(Optional.of("5.3.99"));
         final var capabilities = new java.util.concurrent.atomic.AtomicReference<>(

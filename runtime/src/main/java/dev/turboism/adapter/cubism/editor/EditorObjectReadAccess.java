@@ -610,6 +610,14 @@ final class EditorObjectReadAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+            return EditorHostThread.dispatch("Ordinary keyform write prerequisite observation", () -> {
+                current();
+                return EditorOrdinaryKeyformWriteSupport.read(resolver, Kind.ART_MESH, authoringCoordinator != null);
+            });
+        }
+
+        @Override
         public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
             return EditorHostThread.dispatch("ArtMesh stored authoring snapshot", () -> {
                 final ObjectRef value = current();
@@ -675,6 +683,29 @@ final class EditorObjectReadAccess {
                 final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
                 final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits) {
             EditorArtMeshKeyformAccess.writeOrders(
+                    resolver,
+                    new ArtMeshId(ref.id()),
+                    () -> current().source(),
+                    expected,
+                    edits,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored keyform batches require the authoring transaction coordinator.");
+                        }
+                    },
+                    keyformWriter());
+        }
+
+        @Override
+        public void setOrdinaryKeyformValues(
+                final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformValues> edits) {
+            EditorArtMeshKeyformAccess.writeValues(
                     resolver,
                     new ArtMeshId(ref.id()),
                     () -> current().source(),
@@ -1068,6 +1099,14 @@ final class EditorObjectReadAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+            return EditorHostThread.dispatch("Ordinary keyform write prerequisite observation", () -> {
+                current();
+                return EditorOrdinaryKeyformWriteSupport.read(resolver, Kind.WARP, authoringCoordinator != null);
+            });
+        }
+
+        @Override
         public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
             return EditorHostThread.dispatch(
                     "Warp stored authoring snapshot",
@@ -1204,6 +1243,14 @@ final class EditorObjectReadAccess {
         public void replaceForm(final RotationDeformerForm form) {
             final DeformerRef value = current();
             writes.replaceRotationForm(modelSource, value, form);
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+            return EditorHostThread.dispatch("Ordinary keyform write prerequisite observation", () -> {
+                current();
+                return EditorOrdinaryKeyformWriteSupport.read(resolver, Kind.ROTATION, authoringCoordinator != null);
+            });
         }
 
         @Override

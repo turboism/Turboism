@@ -469,8 +469,11 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     private static void triggerClose(final Window target, final HostCloseRoute route) throws Exception {
+        // Native save dialogs may use the active frame as owner even for an explicit
+        // WINDOW_CLOSING event. Prove the exact task host has focus on every route;
+        // an unrelated plugin window must never acquire that confirmation.
+        focusHostWindow(target);
         if (route == HostCloseRoute.ROBOT_ALT_F4) {
-            focusHostWindow(target);
             pressAltF4(new Robot());
             return;
         }

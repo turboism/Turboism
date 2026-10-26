@@ -250,6 +250,28 @@ public final class RuntimeUserFileAccessService
     }
 
     @Override
+    public CompletionStage<UserFileWriteResult> writeBytesAtomicBounded(
+            final UserFileHandle handle, final byte[] content, final int maxBytes) {
+        Objects.requireNonNull(content, "content");
+        if (maxBytes < 1) throw new IllegalArgumentException("maxBytes must be positive");
+        final String operation = "user-file.writeBytesAtomicBounded";
+        final Authorization authorization = authorize(handle, UserFileMode.WRITE, PermissionIds.TURBOISM_FILE_WRITE);
+        if (authorization.error != null)
+            return immediate(observe(
+                    writeFailure(authorization.error),
+                    operation,
+                    permissionFor(authorization.error, PermissionIds.TURBOISM_FILE_WRITE)));
+        if (maxBytes > 128 * 1024 * 1024 || content.length > maxBytes)
+            return immediate(observe(writeFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED), operation, null));
+        final byte[] snapshot = content.clone();
+        return io.submit(
+                () -> observe(writeBytesNow(authorization.target, snapshot), operation, null),
+                () -> observe(writeFailure(UserFileErrorCode.CANCELED), operation, null),
+                () -> observe(writeFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE), operation, null),
+                () -> observe(writeFailure(UserFileErrorCode.IO_FAILURE), operation, null));
+    }
+
+    @Override
     public ResolvedEditorFileCommand resolve(final EditorFileCommandRequest request) {
         final EditorFileCommandRequest validated = Objects.requireNonNull(request, "request");
         final Authorization authorization = authorize(

@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class McpRequestRegistry {
 
     private static final ThreadLocal<Token> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<String> FORWARDED_SESSION = new ThreadLocal<>();
 
     private final Map<Key, Token> active = new LinkedHashMap<>();
 
@@ -20,7 +21,7 @@ final class McpRequestRegistry {
         if (active.containsKey(key)) {
             throw new IllegalArgumentException("MCP request is already active: " + requestId);
         }
-        final Token token = new Token();
+        final Token token = new Token(sessionId);
         active.put(key, token);
         CURRENT.set(token);
         return () -> {
@@ -39,6 +40,23 @@ final class McpRequestRegistry {
     static Cancellation currentCancellation() {
         final Token token = CURRENT.get();
         return token == null ? () -> false : token::cancelled;
+    }
+
+    /** Preserve session ownership across the UI queue without forwarding mid-write cancellation. */
+    static String currentSessionId() {
+        final Token token = CURRENT.get();
+        return token != null ? token.sessionId : Objects.requireNonNullElse(FORWARDED_SESSION.get(), "");
+    }
+
+    static <T> T inSession(final String sessionId, final java.util.function.Supplier<T> work) {
+        final String previous = FORWARDED_SESSION.get();
+        FORWARDED_SESSION.set(Objects.requireNonNull(sessionId, "sessionId"));
+        try {
+            return work.get();
+        } finally {
+            if (previous == null) FORWARDED_SESSION.remove();
+            else FORWARDED_SESSION.set(previous);
+        }
     }
 
     static boolean cancelled() {
@@ -74,8 +92,13 @@ final class McpRequestRegistry {
     }
 
     private static final class Token {
+        private final String sessionId;
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final CopyOnWriteArrayList<Runnable> listeners = new CopyOnWriteArrayList<>();
+
+        private Token(final String sessionId) {
+            this.sessionId = sessionId;
+        }
 
         private boolean cancel() {
             if (!cancelled.compareAndSet(false, true)) return false;

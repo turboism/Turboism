@@ -16,6 +16,7 @@ final class Scenario {
     final String newNamePrefix;
     final long stepTimeoutSeconds;
     final String runId;
+    final boolean nativeRender;
 
     private Scenario(
             final Path resultFile,
@@ -30,6 +31,7 @@ final class Scenario {
         this.newNamePrefix = newNamePrefix;
         this.stepTimeoutSeconds = stepTimeoutSeconds;
         this.runId = runId;
+        this.nativeRender = "1".equals(System.getenv("TURBOISM_ACP_FAKE_NATIVE_RENDER"));
     }
 
     /**

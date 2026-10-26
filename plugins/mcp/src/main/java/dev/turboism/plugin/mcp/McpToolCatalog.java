@@ -132,9 +132,9 @@ final class McpToolCatalog {
         }
         final Object contentValue = envelope.get("content");
         if (!(contentValue instanceof List<?> content)
-                || content.size() != 1
+                || content.isEmpty()
                 || !(content.get(0) instanceof Map<?, ?> rawBlock)) {
-            return "content must contain one JSON text block";
+            return "content must start with one JSON text block";
         }
         final Map<String, Object> block;
         try {
@@ -152,6 +152,27 @@ final class McpToolCatalog {
             }
         } catch (IllegalArgumentException failure) {
             return "content text must contain valid JSON";
+        }
+        if (content.size() > 10) return "content exceeds the attachment limit";
+        int imageBytes = 0;
+        for (int index = 1; index < content.size(); index++) {
+            if (!(content.get(index) instanceof Map<?, ?> image)
+                    || !image.keySet().equals(java.util.Set.of("type", "mimeType", "data"))
+                    || !"image".equals(image.get("type"))
+                    || !"image/png".equals(image.get("mimeType"))
+                    || !(image.get("data") instanceof String data)
+                    || data.length() > 4 * 1024 * 1024) return "additional content must be bounded PNG image blocks";
+            try {
+                byte[] png = java.util.Base64.getDecoder().decode(data);
+                imageBytes += png.length;
+                if (imageBytes > 3 * 1024 * 1024) return "image content exceeds the total byte budget";
+                byte[] signature = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+                if (png.length < signature.length
+                        || !java.util.Arrays.equals(signature, java.util.Arrays.copyOf(png, signature.length)))
+                    return "image content must contain PNG data";
+            } catch (IllegalArgumentException failure) {
+                return "image content must contain valid base64";
+            }
         }
         return JsonSchemaValidator.validate(outputSchema, output);
     }
@@ -234,7 +255,8 @@ final class McpToolCatalog {
                 return path + " must equal its declared constant";
             }
             final Object enumValue = schema.get("enum");
-            if (enumValue instanceof List<?> values && !values.contains(value)) {
+            if (enumValue instanceof List<?> values
+                    && values.stream().noneMatch(candidate -> Objects.equals(candidate, value))) {
                 return path + " is outside its declared enum";
             }
             final Object typeValue = schema.get("type");

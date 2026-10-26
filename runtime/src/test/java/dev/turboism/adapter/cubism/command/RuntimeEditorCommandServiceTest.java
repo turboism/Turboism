@@ -238,6 +238,28 @@ class RuntimeEditorCommandServiceTest {
     }
 
     @Test
+    void openingRequiresModelWriteBeforeResolvingTheHandle() {
+        AtomicInteger calls = new AtomicInteger();
+        AtomicInteger resolutions = new AtomicInteger();
+        var service = new RuntimeEditorCommandService(
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
+                request -> {
+                    resolutions.incrementAndGet();
+                    throw new AssertionError("must not consume handle");
+                });
+        var request = new EditorFileCommandRequest(
+                EditorFileCommand.OPEN, handle(UserFileMode.READ), EditorOverwritePolicy.REJECT_EXISTING);
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                service.execute(request).status());
+        assertEquals(0, resolutions.get());
+        assertEquals(0, calls.get());
+    }
+
+    @Test
     void fileRequestsRequireModelAndMatchingFilePermission() {
         AtomicInteger calls = new AtomicInteger();
         EditorFileCommandRequest open = new EditorFileCommandRequest(
@@ -254,6 +276,7 @@ class RuntimeEditorCommandServiceTest {
                 adapter(calls),
                 gate(List.of(
                         permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
                         permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
                 request -> new ResolvedEditorFileCommand(
                         request.command(), java.nio.file.Path.of("fixture.cmo3"), request.overwritePolicy()));
@@ -264,6 +287,7 @@ class RuntimeEditorCommandServiceTest {
                 adapter(calls),
                 gate(List.of(
                         permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
                         permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
                 request -> {
                     throw new IllegalStateException("private path detail");
@@ -280,6 +304,7 @@ class RuntimeEditorCommandServiceTest {
                 adapter(calls),
                 gate(List.of(
                         permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
                         permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
                 request -> {
                     resolverCalls.incrementAndGet();
@@ -355,6 +380,7 @@ class RuntimeEditorCommandServiceTest {
                 adapter(new AtomicInteger()),
                 gate(List.of(
                         permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
                         permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
                 request -> null);
         assertEquals(

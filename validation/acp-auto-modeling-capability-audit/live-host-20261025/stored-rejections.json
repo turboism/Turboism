@@ -1,0 +1,37 @@
+{
+  "kind": "warp_deformer",
+  "rejectedCandidates": [
+    {
+      "objectId": "Warp3",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp7",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp2",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp9",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp8",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp10",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp4",
+      "code": "INVALID_ARGUMENT"
+    },
+    {
+      "objectId": "Warp",
+      "code": "INVALID_ARGUMENT"
+    }
+  ]
+}

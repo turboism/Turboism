@@ -34,7 +34,7 @@ class UserFileAccessContractTest {
                 names(UserFileErrorCode.values()));
 
         assertEquals(
-                8,
+                9,
                 Arrays.stream(UserFileAccessService.class.getDeclaredMethods())
                         .filter(method -> !method.isSynthetic())
                         .count());
@@ -174,6 +174,55 @@ class UserFileAccessContractTest {
         assertEquals(
                 "user file access service is not available",
                 result.error().orElseThrow().message());
+    }
+
+    @Test
+    void boundedWriteDefaultFailsClosedAndSmallBudgetsDelegate() throws Exception {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var service = (UserFileAccessService) java.lang.reflect.Proxy.newProxyInstance(
+                UserFileAccessService.class.getClassLoader(),
+                new Class<?>[] {UserFileAccessService.class},
+                (proxy, method, args) -> {
+                    if (method.isDefault())
+                        return java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, args);
+                    assertEquals("writeBytesAtomic", method.getName());
+                    calls.incrementAndGet();
+                    return CompletableFuture.completedFuture(new UserFileWriteResult(true, Optional.empty()));
+                });
+        var handle = new StubHandle();
+        assertTrue(service.writeBytesAtomicBounded(handle, new byte[] {1}, 8 * 1024 * 1024)
+                .toCompletableFuture()
+                .get()
+                .written());
+        assertEquals(1, calls.get());
+        assertEquals(
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                service.writeBytesAtomicBounded(handle, new byte[] {1}, 8 * 1024 * 1024 + 1)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
+        for (int budget : new int[] {1, 128 * 1024 * 1024 + 1})
+            assertEquals(
+                    UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                    service.writeBytesAtomicBounded(handle, new byte[2], budget)
+                            .toCompletableFuture()
+                            .get()
+                            .error()
+                            .orElseThrow()
+                            .code());
+        assertThrows(IllegalArgumentException.class, () -> service.writeBytesAtomicBounded(handle, new byte[0], 0));
+        assertEquals(1, calls.get());
+        assertEquals(
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                UserFileAccessService.unavailable()
+                        .writeBytesAtomicBounded(handle, new byte[0], 1)
+                        .toCompletableFuture()
+                        .get()
+                        .error()
+                        .orElseThrow()
+                        .code());
     }
 
     @Test

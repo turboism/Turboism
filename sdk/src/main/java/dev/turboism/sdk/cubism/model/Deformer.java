@@ -10,6 +10,10 @@ import java.util.Optional;
 /** One Cubism deformer. */
 @CubismEditor
 public interface Deformer {
+    /** Read-only ordinary stored writer prerequisites; success does not promise a write will apply. */
+    default OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        return OrdinaryKeyformWriteSupport.unknown();
+    }
 
     /** Returns this Deformer's stable identity within the model. */
     DeformerId id();

@@ -258,8 +258,12 @@ public final class TopMenuVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
-        return ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "top-menu")
-            .toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
+        final ReviewedSliceRecord record = ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "top-menu");
+        final java.util.HashSet<String> aliases = new java.util.HashSet<>(REQUIRED_ALIASES);
+        if (record.cubismVersion().equals(CUBISM_VERSION_5_3_03)) {
+            aliases.add("cubism.editor-command.file.open-model");
+        }
+        return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, Set.copyOf(aliases));
     }
 
     /**

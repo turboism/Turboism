@@ -40,16 +40,20 @@ final class SessionDeformers implements Deformers {
     @Override
     public List<Deformer> all() {
         return host.guarded(
-                generation,
-                () -> delegate.all().stream()
-                        .map(value -> (Deformer) new SessionDeformer(host, generation, modelGeneration, modelId, value))
-                        .toList());
+                generation, () -> delegate.all().stream().map(this::wrap).toList());
     }
 
     @Override
     public Deformer find(final DeformerId id) {
-        return host.guarded(
-                generation, () -> new SessionDeformer(host, generation, modelGeneration, modelId, delegate.find(id)));
+        return host.guarded(generation, () -> wrap(delegate.find(id)));
+    }
+
+    private Deformer wrap(final Deformer value) {
+        if (value instanceof WarpDeformer warp)
+            return new SessionWarpDeformer(host, generation, modelGeneration, modelId, warp);
+        if (value instanceof RotationDeformer rotation)
+            return new SessionRotationDeformer(host, generation, modelGeneration, modelId, rotation);
+        return new SessionDeformer(host, generation, modelGeneration, modelId, value);
     }
 
     @Override
@@ -115,6 +119,11 @@ final class SessionDeformer implements Deformer {
         this.modelGeneration = modelGeneration;
         this.modelId = Objects.requireNonNull(modelId, "modelId");
         this.delegate = Objects.requireNonNull(delegate, "delegate");
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        return host.guarded(generation, delegate::ordinaryKeyformWriteSupport);
     }
 
     @Override
@@ -299,11 +308,35 @@ final class SessionWarpDeformer implements WarpDeformer {
     final DynamicCubismModelAccess host;
     final long generation;
     final WarpDeformer delegate;
+    private final long modelGeneration;
+    private final ModelId modelId;
 
     SessionWarpDeformer(final DynamicCubismModelAccess host, final long generation, final WarpDeformer delegate) {
+        this(host, generation, 0, null, delegate);
+    }
+
+    SessionWarpDeformer(
+            final DynamicCubismModelAccess host,
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final WarpDeformer delegate) {
         this.host = Objects.requireNonNull(host, "host");
         this.generation = generation;
         this.delegate = Objects.requireNonNull(delegate, "delegate");
+        this.modelGeneration = modelGeneration;
+        this.modelId = modelId;
+    }
+
+    @Override
+    public DeformerAppearance ui() {
+        if (modelId == null) return DeformerAppearance.unavailable();
+        return host.appearanceDeformer(modelId, id(), modelGeneration);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        return host.guarded(generation, delegate::ordinaryKeyformWriteSupport);
     }
 
     @Override
@@ -524,12 +557,36 @@ final class SessionRotationDeformer implements RotationDeformer {
     final DynamicCubismModelAccess host;
     final long generation;
     final RotationDeformer delegate;
+    private final long modelGeneration;
+    private final ModelId modelId;
 
     SessionRotationDeformer(
             final DynamicCubismModelAccess host, final long generation, final RotationDeformer delegate) {
+        this(host, generation, 0, null, delegate);
+    }
+
+    SessionRotationDeformer(
+            final DynamicCubismModelAccess host,
+            final long generation,
+            final long modelGeneration,
+            final ModelId modelId,
+            final RotationDeformer delegate) {
         this.host = Objects.requireNonNull(host, "host");
         this.generation = generation;
         this.delegate = Objects.requireNonNull(delegate, "delegate");
+        this.modelGeneration = modelGeneration;
+        this.modelId = modelId;
+    }
+
+    @Override
+    public DeformerAppearance ui() {
+        if (modelId == null) return DeformerAppearance.unavailable();
+        return host.appearanceDeformer(modelId, id(), modelGeneration);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport ordinaryKeyformWriteSupport() {
+        return host.guarded(generation, delegate::ordinaryKeyformWriteSupport);
     }
 
     @Override

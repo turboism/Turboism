@@ -1,0 +1,1220 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "scope": "Offline Codex native protocol identity isolation; no model prompt or Cubism connection",
+  "codexVersion": "0.159.2",
+  "status": "OFFLINE_PASSED_LIVE_NOT_VERIFIED",
+  "red": {
+    "name": "dev.turboism.plugin.acp.NativeAgentTransportTest",
+    "tests": 3,
+    "failures": 3,
+    "errors": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "codexRejectsForeignThreadApprovalWithoutDisplayingIt()",
+        "status": "failed"
+      },
+      {
+        "name": "codexLateCompletionAndOutputCannotEndOrPolluteNextTurn()",
+        "status": "failed"
+      },
+      {
+        "name": "codexCancellationBeforeStartAckWaitsForItsAuthoritativeTurnId()",
+        "status": "failed"
+      }
+    ]
+  },
+  "green": {
+    "totals": {
+      "tests": 226,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    "suiteCount": 19,
+    "suites": [
+      {
+        "name": "dev.turboism.plugin.acp.AcpAgentDetectionRegressionTest",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "probeReturnsFalseWhenProcessTimesOutAndCleansUpProcess()",
+            "status": "passed"
+          },
+          {
+            "name": "firstConnectRunsDetectionAndInfersAgentBeforeConnecting()",
+            "status": "passed"
+          },
+          {
+            "name": "probeReturnsFalseForNonexistentOrUnusableFiles()",
+            "status": "passed"
+          },
+          {
+            "name": "probeRejectsCrashingOrNonZeroExitPrograms()",
+            "status": "passed"
+          },
+          {
+            "name": "probeSucceedsForCleanExitZeroVersion()",
+            "status": "passed"
+          },
+          {
+            "name": "windowsCommandShimRejectsDangerousCharacters()",
+            "status": "passed"
+          },
+          {
+            "name": "dirtyUiViewPreventsControllerFromOverwritingInferredSelection()",
+            "status": "passed"
+          },
+          {
+            "name": "persistedCustomSettingsArePreservedAndNotOverwrittenByAutoDetection()",
+            "status": "passed"
+          },
+          {
+            "name": "originalClisPreferNativeProtocolsAndKeepAcpFallbacks()",
+            "status": "passed"
+          },
+          {
+            "name": "unpersistedUserSelectionInUiIsNotOverwrittenByLateDetection()",
+            "status": "passed"
+          },
+          {
+            "name": "missingExecutableInConnectLogsClearWarningAndFailsWithKey()",
+            "status": "passed"
+          },
+          {
+            "name": "settingsAgentIdGetterIsPureInMemoryAndDoesNotBlockOrProbe()",
+            "status": "passed"
+          },
+          {
+            "name": "windowsCommandShimWrapsBatchFilesOnlyOnWindows()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpAgentIconsTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "bundledAgentMarksAreDistinctAndFollowTheComponentThemeColor()",
+            "status": "passed"
+          },
+          {
+            "name": "allFunctionalIconsLoadTheirBundledMasksAtTheIntendedSize()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpAttachmentCardTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "fileNamesPreserveBothEndsAndDisplayTheFileType()",
+            "status": "passed"
+          },
+          {
+            "name": "imageCardsCropToFillWithoutDistortingTheImage()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpAttachmentTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "snapshotsFilesAndUsesCapabilityAppropriateContentBlocks()",
+            "status": "passed"
+          },
+          {
+            "name": "clipboardImagesRoundTripAndUnsupportedClipboardContentIsNotSilentlyDropped()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpChatControllerTest",
+        "tests": 62,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "fullNonDroppableUiQueueRejectsLoadCommitWithoutActivationOrPersistence()",
+            "status": "passed"
+          },
+          {
+            "name": "staleSessionEventsAndPermissionsAreRejected()",
+            "status": "passed"
+          },
+          {
+            "name": "pendingLoadReplaysTypedEventsAfterSelectionResetInOriginalOrder()",
+            "status": "passed"
+          },
+          {
+            "name": "closeReturnsPromptlyOnTheSwingEventThread()",
+            "status": "passed"
+          },
+          {
+            "name": "excessStreamUpdatesCannotDropPromptStateTransitions()",
+            "status": "passed"
+          },
+          {
+            "name": "oversizedPromptIsRejectedBeforeAcpDispatch()",
+            "status": "passed"
+          },
+          {
+            "name": "changingCustomHarnessClearsPreviousSessionBinding()",
+            "status": "passed"
+          },
+          {
+            "name": "exactlyFullPrefixStillAllowsPostCommitEventBehindReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "failedSettingsPersistencePreventsConnectAndReportsFailure()",
+            "status": "passed"
+          },
+          {
+            "name": "thinkingAndToolIdentityAreForwardedToTheView()",
+            "status": "passed"
+          },
+          {
+            "name": "pendingLoadRejectsWrongSessionAndSourceAndSupersedesOlderLoad()",
+            "status": "passed"
+          },
+          {
+            "name": "selectedSessionLoadBuffersReplayAndResetsFirst()",
+            "status": "passed"
+          },
+          {
+            "name": "customCommandPersistsBeforeLaunchFails()",
+            "status": "passed"
+          },
+          {
+            "name": "replayUiFailureCannotLeaveTransactionStuck()",
+            "status": "passed"
+          },
+          {
+            "name": "activatingAnEphemeralSessionDoesNotPersistItsOpaqueId()",
+            "status": "passed"
+          },
+          {
+            "name": "savedSessionConnectBuffersReplayAndShowsConnectedFirst()",
+            "status": "passed"
+          },
+          {
+            "name": "closeFlushesTheLatestSettings()",
+            "status": "passed"
+          },
+          {
+            "name": "submissionsAfterCloseAreIgnoredWithoutExecutorRejection()",
+            "status": "passed"
+          },
+          {
+            "name": "configDispatchFailureRestoresTheLastConfirmedOptions()",
+            "status": "passed"
+          },
+          {
+            "name": "staleTerminationCannotDetachTheCurrentClient()",
+            "status": "passed"
+          },
+          {
+            "name": "slowPermissionIsCancelledIfClientTerminatesBeforeDecisionReturns()",
+            "status": "passed"
+          },
+          {
+            "name": "uiUpdatesDoNotDependOnTheRuntimeUiBudgetLane()",
+            "status": "passed"
+          },
+          {
+            "name": "pending load handles 64 events (overflow: false)",
+            "status": "passed"
+          },
+          {
+            "name": "pending load handles 70 events (overflow: true)",
+            "status": "passed"
+          },
+          {
+            "name": "closeDuringBlockedSelectionDoesNotActivateOrPersistReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "userInitialPromptIsPersistedAndAppendedAfterTheFixedBoundary()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] none",
+            "status": "passed"
+          },
+          {
+            "name": "[2] blank",
+            "status": "passed"
+          },
+          {
+            "name": "[3] stale",
+            "status": "passed"
+          },
+          {
+            "name": "[4] previous",
+            "status": "passed"
+          },
+          {
+            "name": "excessUiUpdatesAreBoundedAndReportedOncePerDrain()",
+            "status": "passed"
+          },
+          {
+            "name": "invalidInitialPromptDoesNotPartiallyPersistOtherSettings()",
+            "status": "passed"
+          },
+          {
+            "name": "postResponseEventAppendsAfterResetAndCapturedReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "selectedSessionPersistsBeforeBlockedEdtReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] text, end_turn",
+            "status": "passed"
+          },
+          {
+            "name": "[2] thought, end_turn",
+            "status": "passed"
+          },
+          {
+            "name": "[3] tool, end_turn",
+            "status": "passed"
+          },
+          {
+            "name": "[4] none, cancelled",
+            "status": "passed"
+          },
+          {
+            "name": "[5] none, max_tokens",
+            "status": "passed"
+          },
+          {
+            "name": "[6] none, refusal",
+            "status": "passed"
+          },
+          {
+            "name": "endpoint drift with stdioAttached=true",
+            "status": "passed"
+          },
+          {
+            "name": "endpoint drift with stdioAttached=false",
+            "status": "passed"
+          },
+          {
+            "name": "changingAgentClearsThePreviousDurableSession()",
+            "status": "passed"
+          },
+          {
+            "name": "permissionDuringPendingLoadIsCancelledWithoutCallingTheView()",
+            "status": "passed"
+          },
+          {
+            "name": "closeAndMatchingTerminationDiscardPendingReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "replacingSessionObjectWithinGenerationDoesNotDropDelayedReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "stalledClientStartupFailsWithinConfiguredDeadline()",
+            "status": "passed"
+          },
+          {
+            "name": "pending load text boundary (exceedsLimit: false)",
+            "status": "passed"
+          },
+          {
+            "name": "pending load text boundary (exceedsLimit: true)",
+            "status": "passed"
+          },
+          {
+            "name": "mcpEndpointRevocationReconnectsAndNotificationsStopAfterClose()",
+            "status": "passed"
+          },
+          {
+            "name": "sidebarFiltersForeignSessionsUsingHarnessScopedOwnership()",
+            "status": "passed"
+          },
+          {
+            "name": "failedAndRuntimeFailedLoadsDiscardReplayWithoutChangingSelection()",
+            "status": "passed"
+          },
+          {
+            "name": "exactBoundaryPromptIsAcceptedAndCarriesTheSystemBoundary()",
+            "status": "passed"
+          },
+          {
+            "name": "settings write failure on initialPrompt (fail_only) restores previous values",
+            "status": "passed"
+          },
+          {
+            "name": "settings write failure on agentId (mutate_then_fail) restores previous values",
+            "status": "passed"
+          },
+          {
+            "name": "settings write failure on customCommand (mutate_then_fail) restores previous values",
+            "status": "passed"
+          },
+          {
+            "name": "settings write failure on initialPrompt (mutate_then_fail) restores previous values",
+            "status": "passed"
+          },
+          {
+            "name": "settings write failure on acpSessionId (mutate_then_fail) restores previous values",
+            "status": "passed"
+          },
+          {
+            "name": "closeDuringBlockedInitialRestoreDoesNotFallbackOrPersist()",
+            "status": "passed"
+          },
+          {
+            "name": "permissionCancellationDuringSelectionLoadFailureLeavesPriorSelectionClean()",
+            "status": "passed"
+          },
+          {
+            "name": "initialRestoreReplayRunsAfterShowConnected()",
+            "status": "passed"
+          },
+          {
+            "name": "mcpEndpointDriftReconnectsToBindTheLatestEndpoint()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpChatWindowRenderingTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "thinkingSectionsExpandIndependentlyAndKeepTheirOrderAroundToolGroups()",
+            "status": "passed"
+          },
+          {
+            "name": "taskStatusBlinksCountsFreezesResetsAndKeepsFailureAcrossThemeChanges()",
+            "status": "passed"
+          },
+          {
+            "name": "composerAgentSelectionConnectsTheChosenAgentAndCannotSwitchDuringAReply()",
+            "status": "passed"
+          },
+          {
+            "name": "sendAndStopShareOnePositionAndDispatchTheActionForTheCurrentState()",
+            "status": "passed"
+          },
+          {
+            "name": "settingsOnlyEditsInstructionsAndAgentSetupLivesInItsOwnMenu()",
+            "status": "passed"
+          },
+          {
+            "name": "streamingMarkdownAndEarlierToolUpdatesPreserveMessageBoundaries()",
+            "status": "passed"
+          },
+          {
+            "name": "userPanelsDifferFromResponsesWithoutSpeakerTitles()",
+            "status": "passed"
+          },
+          {
+            "name": "attachmentsEnableAttachmentOnlySendingAndImagesSurviveStreamingAndThemeRefresh()",
+            "status": "passed"
+          },
+          {
+            "name": "liveThemeRefreshUsesSemanticColorsAndPreservesDraftAndThinkingExpansion()",
+            "status": "passed"
+          },
+          {
+            "name": "composerSelectsAdvertisedOptionsAndRestoresConfirmedValuesAfterFailure()",
+            "status": "passed"
+          },
+          {
+            "name": "groupsCommandsAndToolsAndKeepsExpandedInputsAcrossPartialUpdates()",
+            "status": "passed"
+          },
+          {
+            "name": "managerShowsInstalledVersionAndDistinguishesFailedProbeFromMissingInstall()",
+            "status": "passed"
+          },
+          {
+            "name": "rendersStreamedLocalMarkdownScreenshotReferences(Path)",
+            "status": "passed"
+          },
+          {
+            "name": "pastesClipboardImagesAndFilesAndSubmitsThemWithoutText(Path)",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpChatWindowTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "sessionRendererKeepsTitleAndDateOnSeparateLinesAndDoesNotInterpretHtml()",
+            "status": "passed"
+          },
+          {
+            "name": "enterSendsWhileShiftAndControlEnterInsertNewlines()",
+            "status": "passed"
+          },
+          {
+            "name": "editableModelValuesAndCatalogChoicesRemainOpaque()",
+            "status": "passed"
+          },
+          {
+            "name": "sessionDatesUseLocalDateAndTimeAndHandleMissingMetadata()",
+            "status": "passed"
+          },
+          {
+            "name": "inputMethodCompositionDistinguishesCommittedAndUncommittedText()",
+            "status": "passed"
+          },
+          {
+            "name": "permissionDialogHasAConcreteMinimumSize()",
+            "status": "passed"
+          },
+          {
+            "name": "lifecycleMessagesRecordTransitionsWithoutRepeatingTheSameState()",
+            "status": "passed"
+          },
+          {
+            "name": "unavailableAndBlankSelectionsDoNotEmitConfigValues()",
+            "status": "passed"
+          },
+          {
+            "name": "settingsRegistersFallbackUisBeforeComponentConstruction()",
+            "status": "passed"
+          },
+          {
+            "name": "toolMetadataIsBoundedWithoutSplittingSurrogatePairs()",
+            "status": "passed"
+          },
+          {
+            "name": "transcriptPrefixPruningDoesNotSplitGraphemeClusters()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpClientTest",
+        "tests": 32,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "preservesOpaqueConfigValuesWhileRedactingDisplayLabels()",
+            "status": "passed"
+          },
+          {
+            "name": "sendsImageAndFileContentAndReceivesAgentAndToolImages()",
+            "status": "passed"
+          },
+          {
+            "name": "loadSessionAcceptsNullResultAfterReplayingSessionUpdates()",
+            "status": "passed"
+          },
+          {
+            "name": "initializesCreatesSessionAndUsesConfigOptions()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsSecretShapedInvalidAcpStdoutPreview()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsSecretShapedStderrFromEarlyProcessExitDiagnostic()",
+            "status": "passed"
+          },
+          {
+            "name": "attachesTheStdioBridgeServerRegardlessOfHttpCapability()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsAndBoundsAllListenerVisibleSessionMetadata()",
+            "status": "passed"
+          },
+          {
+            "name": "acpPoseImagesCarryExactToolFrameLabelsIntoDecodedSwingPreviews()",
+            "status": "passed"
+          },
+          {
+            "name": "reportsRedactedStderrWhenAcpProcessExitsBeforeInitialization()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsCredentialMaterialFromForwardedStderr()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsTruncatedStderrWhenItMayEndInsideTheBearer()",
+            "status": "passed"
+          },
+          {
+            "name": "listsFxOwnedSessionsWithoutInventingLocalMetadata()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsBearerFromInvalidAcpStdoutPreview()",
+            "status": "passed"
+          },
+          {
+            "name": "permissionDetailsAreBoundedAndBearerRedacted()",
+            "status": "passed"
+          },
+          {
+            "name": "retainsNonSecretCredentialSafetyDiagnostics()",
+            "status": "passed"
+          },
+          {
+            "name": "permissionDialogDoesNotBlockStdoutResponseProcessing()",
+            "status": "passed"
+          },
+          {
+            "name": "reportsBoundedPrintablePreviewForInvalidAcpStdout()",
+            "status": "passed"
+          },
+          {
+            "name": "streamsUpdatesAndAnswersPermissionRequests()",
+            "status": "passed"
+          },
+          {
+            "name": "stdioServerPayloadCarriesNoTokenMaterial()",
+            "status": "passed"
+          },
+          {
+            "name": "timedOutRequestsReleaseTheirPendingSlots()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsMultipleBearerValuesWithoutConnectionCredentials()",
+            "status": "passed"
+          },
+          {
+            "name": "rejectsCredentialMaterialReturnedAsSessionId()",
+            "status": "passed"
+          },
+          {
+            "name": "acceptsAnyAcpV1AgentIdentity()",
+            "status": "passed"
+          },
+          {
+            "name": "permissionUiFailureCancelsWithoutTerminatingAcp()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsBearerMaterialFromRpcErrors()",
+            "status": "passed"
+          },
+          {
+            "name": "omitsMcpServersWhenNeitherStdioNorHttpIsUsable()",
+            "status": "passed"
+          },
+          {
+            "name": "abandoningDerivedConfigUpdateReleasesItsPendingSlot()",
+            "status": "passed"
+          },
+          {
+            "name": "forwardsOpaqueSessionIdsForUpdatesAndPermissions()",
+            "status": "passed"
+          },
+          {
+            "name": "failureDetailsAreBoundedAndRedactCredentials()",
+            "status": "passed"
+          },
+          {
+            "name": "redactsBearerFromSessionListMetadata()",
+            "status": "passed"
+          },
+          {
+            "name": "parsesTheExactAdvertisedSessionLifecycleSurface()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpMessageRendererTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "blankLinesInsideFencedCodeArePreserved()",
+            "status": "passed"
+          },
+          {
+            "name": "markdownParagraphsUseSpacingWithoutRenderingEmptyRows()",
+            "status": "passed"
+          },
+          {
+            "name": "rendersHeadingsEmphasisListsAndCodeWithoutMarkdownMarkers()",
+            "status": "passed"
+          },
+          {
+            "name": "plainUserMessagesAndUnmatchedDelimitersStayLiteral()",
+            "status": "passed"
+          },
+          {
+            "name": "unfinishedAndTildeFencesRemainCodeUntilMatchingClosingFence()",
+            "status": "passed"
+          },
+          {
+            "name": "fencedCodePreservesWhitespaceHtmlAndMarkdownLiterally()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpPluginSettingsTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "splitCommandHonorsQuotesAndRejectsBadInput()",
+            "status": "passed"
+          },
+          {
+            "name": "changingAgentsDropsTheDurableSession()",
+            "status": "passed"
+          },
+          {
+            "name": "storedUnknownAgentAndOversizedValuesAreDropped()",
+            "status": "passed"
+          },
+          {
+            "name": "midWriteFailureRollsBackEveryKey()",
+            "status": "passed"
+          },
+          {
+            "name": "defaultsComeFromTheCatalog()",
+            "status": "passed"
+          },
+          {
+            "name": "userSettingsPersistAcrossReopen()",
+            "status": "passed"
+          },
+          {
+            "name": "unknownAgentAndMalformedCommandAreRejected()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpProcessTransportTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "commandIsAnOpaqueArgvList()",
+            "status": "passed"
+          },
+          {
+            "name": "validationBridgeFailsClosedWhenPropertiesAreMissing()",
+            "status": "passed"
+          },
+          {
+            "name": "teardownForceKillsAChildThatIgnoresGracefulTermination()",
+            "status": "passed"
+          },
+          {
+            "name": "bestEffortCleanupUsesRetainedChildHandleAfterParentExit()",
+            "status": "passed"
+          },
+          {
+            "name": "validationBridgeRequiresTheSystemPropertyAndAJavaExecutable()",
+            "status": "passed"
+          },
+          {
+            "name": "validationBridgeStripsInheritedJavaOptionVariables()",
+            "status": "passed"
+          },
+          {
+            "name": "validationBridgeRewritesCommandToTheBridgeLaunch()",
+            "status": "passed"
+          },
+          {
+            "name": "windowsTeardownSkipsProcessHandleDescendantEnumeration()",
+            "status": "passed"
+          },
+          {
+            "name": "specValidationRejectsEmptyAndOversizedArgv()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpRealAgentSmokeTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 2,
+        "cases": [
+          {
+            "name": "opencodeCompletesTheAcpHandshake()",
+            "status": "skipped"
+          },
+          {
+            "name": "devinCliCompletesTheAcpHandshake()",
+            "status": "skipped"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.AcpToolImageLabelTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "framesUseExactContentIndexEvenWhenFrameOrderDiffers()",
+            "status": "passed"
+          },
+          {
+            "name": "invalidFrameIndexStateAndCropDoNotReceiveFabricatedCoordinates()",
+            "status": "passed"
+          },
+          {
+            "name": "ambiguousMissingMalformedAndOversizedMetadataNeverInferPose()",
+            "status": "passed"
+          },
+          {
+            "name": "singleCaptureIncludesReportedStateAndCropWithoutBinaryText()",
+            "status": "passed"
+          },
+          {
+            "name": "labelsAreBoundedControlFreeAndRedactedBeforeTruncation()",
+            "status": "passed"
+          },
+          {
+            "name": "noPoseGuessAcrossSeparateUpdatesAndEmbeddedImagesRetainMapping()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.LocalSessionIndexTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "corruptIndexIsNotSilentlyOverwritten()",
+            "status": "passed"
+          },
+          {
+            "name": "remembersOnlyOwnedSessionsAcrossReopen()",
+            "status": "passed"
+          },
+          {
+            "name": "isolatesHarnessesAndCustomConnectionConfigurations()",
+            "status": "passed"
+          },
+          {
+            "name": "rememberingAgainUpdatesWithoutDuplicateOrErasingTitle()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.NativeAgentTransportTest",
+        "tests": 34,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          },
+          {
+            "name": "protocolSelectionSupportsWindowsShimsAndAcpFallback()",
+            "status": "passed"
+          },
+          {
+            "name": "codexUnknownTerminalStatusDoesNotClaimSuccess()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          },
+          {
+            "name": "codexRejectsForeignThreadApprovalWithoutDisplayingIt()",
+            "status": "passed"
+          },
+          {
+            "name": "codexLateCompletionAndOutputCannotEndOrPolluteNextTurn()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          },
+          {
+            "name": "codexUnownedErrorsAndItemsCannotPolluteActiveTurn()",
+            "status": "passed"
+          },
+          {
+            "name": "codexLateInterruptFailureCannotFailNextTurnAndCancelIsSentOnce()",
+            "status": "passed"
+          },
+          {
+            "name": "piRequiresSettledBoundaryAndRejectsImagesForUnverifiedModel()",
+            "status": "passed"
+          },
+          {
+            "name": "codexReplaysEventsBeforeStartAckInOrderWithoutDuplicateText()",
+            "status": "passed"
+          },
+          {
+            "name": "codexLateAllowAfterTurnCompletionOrCancellationIsDenied()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          },
+          {
+            "name": "codexMissingStartIdentityRequiresReconnect()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          },
+          {
+            "name": "codexCancellationBeforeStartAckWaitsForItsAuthoritativeTurnId()",
+            "status": "passed"
+          },
+          {
+            "name": "codexFailedStartOrInterruptRequiresReconciliationWithoutReplay()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          },
+          {
+            "name": "codexPendingIdentityBudgetsFailClosed()",
+            "status": "passed"
+          },
+          {
+            "name": "[1] CODEX",
+            "status": "passed"
+          },
+          {
+            "name": "[2] CLAUDE",
+            "status": "passed"
+          },
+          {
+            "name": "[3] PI",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.NativeRealCliSmokeTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "cases": [
+          {
+            "name": "createsNativeSessionWithoutExternalAdapter(AgentProtocol)",
+            "status": "skipped"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.NativeToolContentTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "unsupportedBinaryAndMalformedImageAreSummarizedWithoutDumpingData()",
+            "status": "passed"
+          },
+          {
+            "name": "embeddedImageAndResourceLinkRetainTypesAndIdentity()",
+            "status": "passed"
+          },
+          {
+            "name": "ordinaryStructuredResultsAndStringsRemainReadable()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.TurboismAcpPluginLifecycleTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "toolbarFailureDuringEnableRollsBackActionsAndMenusAndSettings()",
+            "status": "passed"
+          },
+          {
+            "name": "shutdownKeepsFatalFailurePrimaryWhenSettingsCleanupAlsoFails()",
+            "status": "passed"
+          },
+          {
+            "name": "recreatesConfigScopesAfterDisableAndRuntimeScopeClosure()",
+            "status": "passed"
+          },
+          {
+            "name": "firstOpenStartsAutoConnectBeforeClaimingWindowFocus()",
+            "status": "passed"
+          },
+          {
+            "name": "agentWindowAutoConnectsOnlyForTheAgentTarget()",
+            "status": "passed"
+          },
+          {
+            "name": "reopeningWithoutAutoConnectStillClaimsWindowFocus()",
+            "status": "passed"
+          },
+          {
+            "name": "queuedWindowOpenReturnsSafelyAfterDisableClosesSettings()",
+            "status": "passed"
+          },
+          {
+            "name": "disableClosesRegistrationsInReverseOrder()",
+            "status": "passed"
+          },
+          {
+            "name": "settingsOpenClaimsFocusWithoutStartingConnectionWork()",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "name": "dev.turboism.plugin.acp.WindowsHarnessDiscoveryTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "discoversReportedWingetAndNpmLayoutsWithoutInheritedPath()",
+            "status": "passed"
+          },
+          {
+            "name": "readsNonSeekablePipeWithoutReadNBytesAndDrainsPastOutputLimit()",
+            "status": "passed"
+          },
+          {
+            "name": "discoversNativeLaunchersAndConfiguredPrefixes()",
+            "status": "passed"
+          },
+          {
+            "name": "augmentsOnlyChildPathAndPreservesExistingEntriesAndKeyCase()",
+            "status": "passed"
+          },
+          {
+            "name": "checksStderrAndVersionAndTriesNextInstalledCandidate()",
+            "status": "passed"
+          },
+          {
+            "name": "doesNotAcceptErrorOutputAsSupportedProtocol()",
+            "status": "passed"
+          },
+          {
+            "name": "explicitRefreshRechecksPreviouslyUnsupportedCandidate()",
+            "status": "passed"
+          }
+        ]
+      }
+    ]
+  },
+  "checks": {
+    "spotlessJavaApply": true,
+    "spotlessJavaCheck": true,
+    "acpJarBuilt": true,
+    "gitDiffCheck": true,
+    "standardNativeObservePackage": true,
+    "nativeObserveSelfTest": true,
+    "reviewedReleaseGateTestsPassed": 66,
+    "localMarkdownLinksChecked": 260
+  },
+  "sourceSha256": {
+    "plugins/acp/src/main/java/dev/turboism/plugin/acp/NativeCodexProvider.java": "02b6fc3711c17a41872bf4a96424c18749dc8fbce26c85de3496f7088090fdcd",
+    "plugins/acp/src/test/java/dev/turboism/plugin/acp/NativeAgentTransportTest.java": "738be3ba8857f965dff08e52e83c60cbacc81350eeee2de894ea027d8c44177d"
+  },
+  "generatedSchemaSha256AndRequired": {
+    "v2/AgentMessageDeltaNotification.json": {
+      "sha256": "996e6c0ea65e57bed5a00f410b94381fe5ebf804333e5d00c2b6e6d47e5c55f6",
+      "required": [
+        "delta",
+        "itemId",
+        "threadId",
+        "turnId"
+      ]
+    },
+    "v2/TurnStartedNotification.json": {
+      "sha256": "2e9a109ee549c1e266223304c9e0580075cda03feb65473363b124f18e9a3769",
+      "required": [
+        "threadId",
+        "turn"
+      ]
+    },
+    "v2/TurnCompletedNotification.json": {
+      "sha256": "016870158603b0f84bd9f8f65f927161c9fd5128e5ec632087616462dc44e085",
+      "required": [
+        "threadId",
+        "turn"
+      ]
+    },
+    "v2/ErrorNotification.json": {
+      "sha256": "ae1f4d6e0bb794211f28dc67b11885a1a0e0f8a198c6114b2ed27372f60a227c",
+      "required": [
+        "error",
+        "threadId",
+        "turnId",
+        "willRetry"
+      ]
+    },
+    "CommandExecutionRequestApprovalParams.json": {
+      "sha256": "16a71816c2d66e319c2c4aa83dd636dfdc43c61e72b6d5475e421ce08d8e6558",
+      "required": [
+        "itemId",
+        "startedAtMs",
+        "threadId",
+        "turnId"
+      ]
+    },
+    "FileChangeRequestApprovalParams.json": {
+      "sha256": "13848b26814c286ad6425a20d01c1691c86790e1f9e2529399677a8a22fe0d18",
+      "required": [
+        "itemId",
+        "startedAtMs",
+        "threadId",
+        "turnId"
+      ]
+    },
+    "PermissionsRequestApprovalParams.json": {
+      "sha256": "c11fbe632472ab0923aba5c0a53da3d6d86929bcd5c78e7c13c51c6b2db508ff",
+      "required": [
+        "cwd",
+        "itemId",
+        "permissions",
+        "startedAtMs",
+        "threadId",
+        "turnId"
+      ]
+    },
+    "v2/TurnStartResponse.json": {
+      "sha256": "12c5151421bb061297c9790ff795a44aa4b9bdb91fbb68012dcf0a08cf4198b1",
+      "required": [
+        "turn"
+      ],
+      "turnRequired": [
+        "id",
+        "items",
+        "status"
+      ]
+    }
+  },
+  "paseoReferenceSha256": "44947b2052a84092cd5627f9ed3ebdcc3253d5cf5ab1d5e9736dbc4f5576bc7b",
+  "limits": {
+    "pendingEventCount": 64,
+    "pendingUtf8Bytes": 1048576,
+    "nativeIdentityLength": 512
+  },
+  "liveModelVerified": false,
+  "hostCancellationOrRollbackVerified": false,
+  "sessionResumeVerified": false,
+  "notes": [
+    "Only turn/start ACK with native turn.id supported; no legacy ID-less ACK compatibility",
+    "Late approvals are denied; existing Swing dialogs are not actively closed",
+    "Turn cancellation and host operation outcomes remain separate",
+    "No automatic replay after uncertain native request failures"
+  ],
+  "buildArtifactSha256": {
+    "build/worktree/mighty-seal/acp/libs/acp-0.67.2-SNAPSHOT-mighty-seal.jar": "dbc98c0f3916cf2d395354f3a3d861ba48d533200c073bcd82fc07a6b723c93e"
+  }
+}

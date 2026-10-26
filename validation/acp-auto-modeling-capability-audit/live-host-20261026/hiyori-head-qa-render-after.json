@@ -1,0 +1,1586 @@
+{
+  "operationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after",
+  "scope": "MULTIPLE_INDEPENDENT_SCANS",
+  "status": "PASS",
+  "artQuality": "NOT_AUTOMATICALLY_ACCEPTED",
+  "renderWidth": 1024,
+  "renderHeight": 1024,
+  "crop": {
+    "x": 256,
+    "y": 0,
+    "width": 512,
+    "height": 384
+  },
+  "frames": [
+    {
+      "index": 0,
+      "label": "xy--30--30",
+      "imageContentIndex": 1,
+      "captureId": "3fe146ae-dd62-4178-85b7-217e13db335c",
+      "capturedAt": "2026-10-25T19:59:48.026148700Z",
+      "state": {
+        "historyRevision": 56,
+        "poseHash": "e66e08f0f8cb76a205430b5f720f80ea9ac2bd6b86209667a97030010c8d85bd",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "34f01299541fbff532a9dbc26f69e36ff855942dcad47f7a7bff0b054f03478c",
+      "byteLength": 114228,
+      "suiteIndex": 0,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q00"
+    },
+    {
+      "index": 0,
+      "label": "xy-0--30",
+      "imageContentIndex": 1,
+      "captureId": "9babed76-961d-4a13-a14f-7409277ee4f9",
+      "capturedAt": "2026-10-25T19:59:49.908078700Z",
+      "state": {
+        "historyRevision": 58,
+        "poseHash": "d6a7691c2f071a196de645fee3f6428f44cc848d866e4a56a74afb4a310c0320",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "39808c565257975130c17ba070a539d22e693edebad22fb89f509d86325c28de",
+      "byteLength": 115635,
+      "suiteIndex": 1,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q01"
+    },
+    {
+      "index": 0,
+      "label": "xy-30--30",
+      "imageContentIndex": 1,
+      "captureId": "9617f750-56c2-4eb9-8cab-c99501fa7fb4",
+      "capturedAt": "2026-10-25T19:59:51.719357400Z",
+      "state": {
+        "historyRevision": 60,
+        "poseHash": "c638a0446a79dbfe33da60e53f645b2940d878ee540d2fb6676fb2548e51cbf6",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "22c8a0979ab90e276eaf01c5ab8aa886fa2d0205c0a35e7f42a07b7d27f5290a",
+      "byteLength": 114817,
+      "suiteIndex": 2,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q02"
+    },
+    {
+      "index": 0,
+      "label": "xy--30-0",
+      "imageContentIndex": 1,
+      "captureId": "793b6f4c-147a-4990-b017-16186f23d869",
+      "capturedAt": "2026-10-25T19:59:53.531787Z",
+      "state": {
+        "historyRevision": 62,
+        "poseHash": "a133f22cf1e6084029553c39dc47bfa1c586b6d8f83cc24acb1efcceb41a0ab6",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "dc70c3abd79ce1355734d50d67ca927aaeb9a70882bfe2166914743c25d3eb43",
+      "byteLength": 114817,
+      "suiteIndex": 3,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q03"
+    },
+    {
+      "index": 0,
+      "label": "xy-0-0",
+      "imageContentIndex": 1,
+      "captureId": "370d955c-4379-4fc7-a25d-039a07aa05f7",
+      "capturedAt": "2026-10-25T19:59:55.347105400Z",
+      "state": {
+        "historyRevision": 64,
+        "poseHash": "894c017ee2ca3b9b17e815d1662d070e5fb87f8a99e7e6883ff46d22004c1db7",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "6ca937d2e698ee9559b955acc52d2663188ef8dbddced3594b9179810f98826e",
+      "byteLength": 116243,
+      "suiteIndex": 4,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q04"
+    },
+    {
+      "index": 0,
+      "label": "xy-30-0",
+      "imageContentIndex": 1,
+      "captureId": "c4cf88bb-49b4-4841-ae85-94dfad4f06ed",
+      "capturedAt": "2026-10-25T19:59:56.974991800Z",
+      "state": {
+        "historyRevision": 64,
+        "poseHash": "355b3d17ab3f3a2f316c815de5683ca00fd08a2a8af38a2db7a2859fb1ad03a7",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "19339d4420909de82b6887c9e1529009e2837fc9bb2fef519c587a3857ca441b",
+      "byteLength": 114944,
+      "suiteIndex": 5,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q05"
+    },
+    {
+      "index": 0,
+      "label": "xy--30-30",
+      "imageContentIndex": 1,
+      "captureId": "c94c6d7d-6037-470b-a3f9-943e7666e0b3",
+      "capturedAt": "2026-10-25T19:59:58.783576200Z",
+      "state": {
+        "historyRevision": 66,
+        "poseHash": "0c6db30aa235509303b422a266dddf2ff81de94eb94bc9ed0fd36409b35acfc1",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "53c167bc7788d192dad067c2bc9055f42d7ed9ce1613e0ec2af0aa448f16ff3e",
+      "byteLength": 115070,
+      "suiteIndex": 6,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q06"
+    },
+    {
+      "index": 0,
+      "label": "xy-0-30",
+      "imageContentIndex": 1,
+      "captureId": "0fb59d46-35f3-4f88-85a9-7fffe4573e2c",
+      "capturedAt": "2026-10-25T20:00:00.586868100Z",
+      "state": {
+        "historyRevision": 68,
+        "poseHash": "fb4f8ff4ab464d0fcdffb64e5a06c8c85e19b542ee0a90549309645a80e18155",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "a2f2fb7adf2a6c94073ec5873f79715914f880db0a218f43a4bd148ff533efcd",
+      "byteLength": 115441,
+      "suiteIndex": 7,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q07"
+    },
+    {
+      "index": 0,
+      "label": "xy-30-30",
+      "imageContentIndex": 1,
+      "captureId": "c5fa7fd3-2904-4b47-9d8f-934b4888289a",
+      "capturedAt": "2026-10-25T20:00:02.401446900Z",
+      "state": {
+        "historyRevision": 70,
+        "poseHash": "9be68c481b81d01468c31a69ecccac0c616747561f0cf195f3546273dd8070e6",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "f919b24839179fd538a7a09d11b208c9851a132b24cf4b99b15895b77aa89a1d",
+      "byteLength": 114611,
+      "suiteIndex": 8,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q08"
+    },
+    {
+      "index": 0,
+      "label": "xyz--30--30--30",
+      "imageContentIndex": 1,
+      "captureId": "647a9a77-dc55-48d0-b06d-6672b3cc7ba3",
+      "capturedAt": "2026-10-25T20:00:04.248426700Z",
+      "state": {
+        "historyRevision": 72,
+        "poseHash": "6466843a880e6503748e75ac761cba93f12f034e15e4f218a67b4c473ccaa929",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "f882db15b032c72f804726d9b08cf5a543221f4a6ca048e065340eaf09551e6d",
+      "byteLength": 114737,
+      "suiteIndex": 9,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q09"
+    },
+    {
+      "index": 0,
+      "label": "xyz-30--30--30",
+      "imageContentIndex": 1,
+      "captureId": "3df43ab1-ed38-4c0a-8fe6-8b376538e6d6",
+      "capturedAt": "2026-10-25T20:00:06.082819100Z",
+      "state": {
+        "historyRevision": 74,
+        "poseHash": "6654ed9ac5e2ee25f4493cd6f1852520bafa9845a8d66e19b869ddcb8d9b6b36",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "844bf6c59f08aa39848d90fdda73987d46651dc827bc4cf983420e6c6298da13",
+      "byteLength": 115312,
+      "suiteIndex": 10,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q10"
+    },
+    {
+      "index": 0,
+      "label": "xyz--30-30--30",
+      "imageContentIndex": 1,
+      "captureId": "f475d8ef-521d-40f2-b541-27a98e5e22b1",
+      "capturedAt": "2026-10-25T20:00:07.886194600Z",
+      "state": {
+        "historyRevision": 76,
+        "poseHash": "2163a082ffa6654e75649d50f5ec7453e691990e657df7ffa1975ee95297d09c",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "f88c5125645e1bc0150a4af959054dc8aec543f5a8aede4205ff820a8f9231d4",
+      "byteLength": 116003,
+      "suiteIndex": 11,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q11"
+    },
+    {
+      "index": 0,
+      "label": "xyz-30-30--30",
+      "imageContentIndex": 1,
+      "captureId": "21ba5ba2-1579-43d4-b853-67bfc7079146",
+      "capturedAt": "2026-10-25T20:00:09.700734800Z",
+      "state": {
+        "historyRevision": 78,
+        "poseHash": "8d91ad2933056c410a4d65c9b49527ae132ea1204f7dd459c9565d28d8825816",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "1065ea0c874923f8083361e8f6ba552517741cf67dd06b6b4bb7d24050496de8",
+      "byteLength": 115402,
+      "suiteIndex": 12,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q12"
+    },
+    {
+      "index": 0,
+      "label": "xyz--30--30-30",
+      "imageContentIndex": 1,
+      "captureId": "7790a1dc-7ef8-4f34-a523-5fe3bd61d276",
+      "capturedAt": "2026-10-25T20:00:11.492290400Z",
+      "state": {
+        "historyRevision": 80,
+        "poseHash": "82e33eb8f210eb2ba2dffbb846eb0f2a62076f0f7eda8e41bbd60c0390819ed8",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "26c82f68882a14c0c37a22c8c48ff5fe216369f1366d671135b396506ba60289",
+      "byteLength": 114876,
+      "suiteIndex": 13,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q13"
+    },
+    {
+      "index": 0,
+      "label": "xyz-30--30-30",
+      "imageContentIndex": 1,
+      "captureId": "6977b117-2f3f-469b-9402-f51077cceaf8",
+      "capturedAt": "2026-10-25T20:00:13.286813800Z",
+      "state": {
+        "historyRevision": 82,
+        "poseHash": "85092805e90427f0db43793fe3b419af64bd96e1a4b8c5933dc559c6101b5f6e",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "456c1a4f936fbb971f22551f0c5fa7318e31b7b3bc3b04c9785659569bed36a0",
+      "byteLength": 116293,
+      "suiteIndex": 14,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q14"
+    },
+    {
+      "index": 0,
+      "label": "xyz--30-30-30",
+      "imageContentIndex": 1,
+      "captureId": "de517f0a-7fc6-4963-a277-b9642efce629",
+      "capturedAt": "2026-10-25T20:00:15.124323500Z",
+      "state": {
+        "historyRevision": 84,
+        "poseHash": "b41f2cb2edd243214747cd392ce9ea612c84e9e257b4aec8bb6a2be09d064beb",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "ea6776f6bde8e0a46edf1c163de7fabc9bf847712b0b9907bc89ed69cf6902e6",
+      "byteLength": 114848,
+      "suiteIndex": 15,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q15"
+    },
+    {
+      "index": 0,
+      "label": "xyz-30-30-30",
+      "imageContentIndex": 1,
+      "captureId": "d0c853e6-6959-467d-8421-a7dcbeb1abaf",
+      "capturedAt": "2026-10-25T20:00:16.983664900Z",
+      "state": {
+        "historyRevision": 86,
+        "poseHash": "8867283a384e4a98a3eba7d559af888b36dd94b906a7af3e3b95ab4fad813c1d",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "5c40d830686b0b12a8a66f9ef26bcde24beebca205e5431165408e6abcf8a2ac",
+      "byteLength": 115733,
+      "suiteIndex": 16,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q16"
+    },
+    {
+      "index": 0,
+      "label": "expression-0-0-0-eye0-mouth0",
+      "imageContentIndex": 1,
+      "captureId": "4b1f6da2-295c-4f07-b0b7-9ae9b49184d1",
+      "capturedAt": "2026-10-25T20:00:18.790214300Z",
+      "state": {
+        "historyRevision": 88,
+        "poseHash": "e40d2c62fd7320d382ee5f5eb81ca2e14aea53a131294c9b555437a30a5dd664",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "8a5f6726091c315c6cffac5b39f5e8f1d4044005427aeaf07d888f26dd0de171",
+      "byteLength": 113259,
+      "suiteIndex": 17,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q17"
+    },
+    {
+      "index": 0,
+      "label": "expression-0-0-0-eye0-mouth1",
+      "imageContentIndex": 1,
+      "captureId": "c9d350d3-09f8-4c2f-9305-96a28ff450b3",
+      "capturedAt": "2026-10-25T20:00:20.622519300Z",
+      "state": {
+        "historyRevision": 90,
+        "poseHash": "b43092b0e7daab410f8eb11fa88ce884cc475a5d04a481bf214ce1467fea87eb",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "947bb342714c3110fb4a657a5fc9b1575b6f158052cbf8486d323678bd9b1b0f",
+      "byteLength": 113685,
+      "suiteIndex": 18,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q18"
+    },
+    {
+      "index": 0,
+      "label": "expression-0-0-0-eye1-mouth1",
+      "imageContentIndex": 1,
+      "captureId": "72203fcb-4a1b-486a-8521-6a5c9a01ecb6",
+      "capturedAt": "2026-10-25T20:00:22.493363700Z",
+      "state": {
+        "historyRevision": 92,
+        "poseHash": "11b5e42051929cf1199b456f3fbf472be2bdff0843d49caf3f1dd39bd02ee3ff",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "c6816d4e4bcf539dcd31906f433ae9430c5b5b83e7f2439be551bc6b9fead65b",
+      "byteLength": 116658,
+      "suiteIndex": 19,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q19"
+    },
+    {
+      "index": 0,
+      "label": "expression--30--30--30-eye0-mouth0",
+      "imageContentIndex": 1,
+      "captureId": "bcc37c54-ec27-45a3-9a63-e53574080665",
+      "capturedAt": "2026-10-25T20:00:24.290695800Z",
+      "state": {
+        "historyRevision": 94,
+        "poseHash": "9ba46a4b3313ddc0cdaaeef4c319c11dc865250bd60ab450c7708d5a2142075b",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "959a101525e35c7333954c7884748e55d08032ff3aa3e9f206d5a62aaa7a0924",
+      "byteLength": 111800,
+      "suiteIndex": 20,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q20"
+    },
+    {
+      "index": 0,
+      "label": "expression--30--30--30-eye0-mouth1",
+      "imageContentIndex": 1,
+      "captureId": "bc14528c-488b-443c-a597-629b680daf4e",
+      "capturedAt": "2026-10-25T20:00:26.125181700Z",
+      "state": {
+        "historyRevision": 96,
+        "poseHash": "0d63d9299c14b7e9be784a92685e8ef7bf467c334e7923949904f06c779ed33b",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "92fe40e3915a1ed259f9b183e7fb8decdea059ae256a3b2b3f2f1d711b05a722",
+      "byteLength": 112193,
+      "suiteIndex": 21,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q21"
+    },
+    {
+      "index": 0,
+      "label": "expression--30--30--30-eye1-mouth1",
+      "imageContentIndex": 1,
+      "captureId": "70d335b4-1597-431e-9611-e04233d27174",
+      "capturedAt": "2026-10-25T20:00:27.982203100Z",
+      "state": {
+        "historyRevision": 98,
+        "poseHash": "b0f539fb66a82e75f31385767a65dca3a543439ffe87314567a4f07ea669d6a9",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": -30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": -30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "47a55fddeef39502bea8695d0f9b32fb35ca7f66afef13b4b8e36dce74b1909a",
+      "byteLength": 115129,
+      "suiteIndex": 22,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q22"
+    },
+    {
+      "index": 0,
+      "label": "expression-30-30-30-eye0-mouth0",
+      "imageContentIndex": 1,
+      "captureId": "081e9023-6d89-441a-b737-3b1017f51f7d",
+      "capturedAt": "2026-10-25T20:00:29.840408200Z",
+      "state": {
+        "historyRevision": 100,
+        "poseHash": "e9154bb27ecfe2fd6aef9dcbc1315c13022d380e456f8da2d2e90b8ee3a72c9c",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "9fe1301e12c272b299413ea976d10bd4a7d79a50f4912225e70c9ae74356b154",
+      "byteLength": 112807,
+      "suiteIndex": 23,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q23"
+    },
+    {
+      "index": 0,
+      "label": "expression-30-30-30-eye0-mouth1",
+      "imageContentIndex": 1,
+      "captureId": "bd28d8e4-8ac9-40cc-a407-ab69c5baadb6",
+      "capturedAt": "2026-10-25T20:00:31.686282800Z",
+      "state": {
+        "historyRevision": 102,
+        "poseHash": "9215acb42f6faa7ca442dd7b1947031848491ee478197d3886de0512e703229e",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "c91680c35f1b759a03a7746ed0cb2cbabaaa6130b910cd7baff1ff3a2e9255f6",
+      "byteLength": 113275,
+      "suiteIndex": 24,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q24"
+    },
+    {
+      "index": 0,
+      "label": "expression-30-30-30-eye1-mouth1",
+      "imageContentIndex": 1,
+      "captureId": "61cba0e1-fffd-4568-ba32-ec99bc83ad39",
+      "capturedAt": "2026-10-25T20:00:33.528553700Z",
+      "state": {
+        "historyRevision": 104,
+        "poseHash": "b6b5ec2c3690e319618a081f405bf3504f977ff2b8cdac6142a3f0d9f0244018",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 30.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 30.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "13e7dc1b278c21c2f1facca9d258084e9a3d5e6de6dc5676f5fc4545ac1dc84f",
+      "byteLength": 116172,
+      "suiteIndex": 25,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q25"
+    },
+    {
+      "index": 0,
+      "label": "wink-left",
+      "imageContentIndex": 1,
+      "captureId": "678b2d95-cb6a-453f-b03c-552ab9044a9c",
+      "capturedAt": "2026-10-25T20:00:35.381411Z",
+      "state": {
+        "historyRevision": 106,
+        "poseHash": "611b66d3aa3aab03fbb68cba70683fef4054834bc4464243d03c1a126f8e6b68",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "184cdb2449fe5369741c7a6e3f6b9cca168cc530d8c8e3d342cb77c13bb433b2",
+      "byteLength": 115083,
+      "suiteIndex": 26,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q26"
+    },
+    {
+      "index": 0,
+      "label": "wink-right",
+      "imageContentIndex": 1,
+      "captureId": "d0f033c9-5e97-4c52-9e1d-3fd31be11fe6",
+      "capturedAt": "2026-10-25T20:00:37.225857300Z",
+      "state": {
+        "historyRevision": 108,
+        "poseHash": "eae11511fce361f10e3e516a595eb986c6f76bc5f270303062a3436d0c2d44de",
+        "documentId": "document-session-2",
+        "modelId": "model-session-3",
+        "historyGeneration": 1
+      },
+      "parameters": [
+        {
+          "value": 0.0,
+          "id": "ParamAngleX"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleY"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamAngleZ"
+        },
+        {
+          "value": 1.0,
+          "id": "ParamEyeLOpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamEyeROpen"
+        },
+        {
+          "value": 0.0,
+          "id": "ParamMouthOpenY"
+        }
+      ],
+      "width": 512,
+      "height": 384,
+      "renderWidth": 1024,
+      "renderHeight": 1024,
+      "crop": {
+        "y": 0,
+        "width": 512,
+        "height": 384,
+        "x": 256
+      },
+      "pixelCoordinates": "origin-top-left,x-right,y-down",
+      "modelToPixelTransform": null,
+      "sha256": "cc460e7cfa32faf1479a57dd5fc3436da24f4f5608af71bc5108350e20bc9484",
+      "byteLength": 114610,
+      "suiteIndex": 27,
+      "scanOperationId": "queue-34929a1946d4482fad94b66f253b830a-poses-after-q27"
+    }
+  ],
+  "parametersRestored": true,
+  "historyPositionRestored": true
+}
