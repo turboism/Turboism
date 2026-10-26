@@ -1847,6 +1847,10 @@ function Invoke-CubismBatIntegration {
             $bat = [System.IO.Path]::GetFullPath($path); $key = $bat.ToUpperInvariant(); $backup = $bat + ".turboism-original.bak"
             if (-not (Test-CubismNormalFile $bat)) { throw "Cubism BAT is not a normal file: $bat" }
             $currentHash = Get-CubismSha256 $bat; $record = if ($existing.ContainsKey($key)) { $existing[$key] } else { $null }
+            # A record whose backup vanished while the BAT is byte-identical to the
+            # recorded original is stale (for example Cubism restored its own BAT).
+            # Nothing of ours remains to protect, so integrate again from scratch.
+            if ($null -ne $record -and -not (Test-Path -LiteralPath $backup) -and $currentHash -ieq $record.OriginalSha256) { $record = $null }
             if ($null -ne $record) {
                 if (-not (Test-CubismNormalFile $backup) -or (Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "Cubism BAT backup conflict: $backup" }
                 if ($currentHash -ine $record.ManagedSha256) { throw "Cubism BAT was edited after Turboism integration: $bat" }
@@ -1922,6 +1926,11 @@ function Invoke-CubismBatIntegration {
 
 function Restore-CubismBatIntegrations {
     param([object[]]$Records = @())
+    # Stale records (BAT already back to the recorded original, backup gone) have
+    # nothing left to restore; dropping them lets cleanup and disable proceed.
+    $Records = @($Records | Where-Object {
+        -not ((Test-CubismNormalFile $_.Path) -and -not (Test-Path -LiteralPath $_.BackupPath) -and (Get-CubismSha256 $_.Path) -ieq $_.OriginalSha256)
+    })
     foreach ($record in @($Records)) {
         if (-not (Test-CubismNormalFile $record.Path) -or (Get-CubismSha256 $record.Path) -ine $record.ManagedSha256) { throw "Cubism BAT integration conflict: $($record.Path)" }
         if (-not (Test-CubismNormalFile $record.BackupPath) -or (Get-CubismSha256 $record.BackupPath) -ine $record.OriginalSha256) { throw "Cubism BAT backup conflict: $($record.BackupPath)" }
