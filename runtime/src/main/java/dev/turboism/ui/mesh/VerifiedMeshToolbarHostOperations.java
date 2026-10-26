@@ -10,6 +10,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
@@ -581,10 +582,32 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     }
 
     private Icon icon(final String pluginId, final long pluginGeneration, final String path) {
-        final URL resource = resources
-                .resource(pluginId, pluginGeneration, path)
+        final URL resource = darkVariant(pluginId, pluginGeneration, path)
+                .or(() -> resources.resource(pluginId, pluginGeneration, path))
                 .orElseThrow(() -> new IllegalStateException("mesh-toolbar icon resource is unavailable"));
         return new ImageIcon(resource);
+    }
+
+    /**
+     * Resolves the optional {@code <name>-dark.<ext>} sibling of a plugin icon when the active
+     * look-and-feel is dark; plugins that ship no dark sibling keep their single artwork.
+     */
+    private Optional<URL> darkVariant(final String pluginId, final long pluginGeneration, final String path) {
+        final int dot = path.lastIndexOf('.');
+        if (dot <= 0 || !isDarkLookAndFeel()) {
+            return Optional.empty();
+        }
+        return resources.resource(pluginId, pluginGeneration, path.substring(0, dot) + "-dark" + path.substring(dot));
+    }
+
+    private static boolean isDarkLookAndFeel() {
+        final javax.swing.LookAndFeel lookAndFeel = javax.swing.UIManager.getLookAndFeel();
+        if (lookAndFeel == null) {
+            return false;
+        }
+        final String signature = (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName())
+                .toLowerCase(java.util.Locale.ROOT);
+        return signature.contains("dark");
     }
 
     /**
