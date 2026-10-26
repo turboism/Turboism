@@ -97,14 +97,14 @@ class PreviewFramebufferReadbackTest {
             final GL gl = (GL) Proxy.newProxyInstance(
                     getClass().getClassLoader(), new Class<?>[] {GL2ES3.class}, (proxy, method, arguments) -> {
                         switch (method.getName()) {
-                            case "glGetIntegerv" -> ((int[]) arguments[1])[(Integer) arguments[2]] =
-                                    switch ((Integer) arguments[0]) {
-                                        case 0x8CA6 -> drawFramebuffer;
-                                        case 0x8CAA -> readFramebuffer;
-                                        case 0x8069 -> texture;
-                                        case 0x0C02 -> readBuffer;
-                                        default -> 0;
-                                    };
+                            case "glGetIntegerv" ->
+                                ((int[]) arguments[1])[(Integer) arguments[2]] = switch ((Integer) arguments[0]) {
+                                    case 0x8CA6 -> drawFramebuffer;
+                                    case 0x8CAA -> readFramebuffer;
+                                    case 0x8069 -> texture;
+                                    case 0x0C02 -> readBuffer;
+                                    default -> 0;
+                                };
                             case "glBindFramebuffer" -> {
                                 final int target = (Integer) arguments[0];
                                 if (target == 0x8D40 || target == 0x8CA9) drawFramebuffer = (Integer) arguments[1];
@@ -119,10 +119,10 @@ class PreviewFramebufferReadbackTest {
                                 operations.add("read:" + readFramebuffer);
                                 if (failRead) throw new IllegalStateException("read failed");
                                 final ByteBuffer pixels = (ByteBuffer) arguments[6];
-                                final int color = (readFramebuffer == 11 && resolved) || readFramebuffer == 0
-                                        ? 0xFF204080
-                                        : 0;
-                                for (int offset = 0; offset < pixels.capacity(); offset += 4) pixels.putInt(offset, color);
+                                final int color =
+                                        (readFramebuffer == 11 && resolved) || readFramebuffer == 0 ? 0xFF204080 : 0;
+                                for (int offset = 0; offset < pixels.capacity(); offset += 4)
+                                    pixels.putInt(offset, color);
                             }
                             case "glDeleteFramebuffers" -> operations.add("delete:" + ((int[]) arguments[1])[0]);
                             case "glCheckFramebufferStatus" -> {

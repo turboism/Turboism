@@ -374,7 +374,8 @@ final class RecentPreviewControllerTest {
         final RecentFileSummary file = new RecentFileSummary(
                 new RecentFileId("recent-1"), "model.cmo3", Optional.of(Instant.EPOCH), Optional.empty());
         final RecordingCapture captures = new RecordingCapture();
-        final java.util.concurrent.atomic.AtomicBoolean unavailable = new java.util.concurrent.atomic.AtomicBoolean(true);
+        final java.util.concurrent.atomic.AtomicBoolean unavailable =
+                new java.util.concurrent.atomic.AtomicBoolean(true);
         final ScreenshotCaptureService screenshots = request -> {
             if (unavailable.get()) throw new IllegalStateException("capture unavailable");
             return captures.capture(request);
@@ -384,7 +385,9 @@ final class RecentPreviewControllerTest {
         controller.enable();
         controller.refresh().toCompletableFuture().join();
 
-        assertThrows(RuntimeException.class, () -> controller.capture(file.id()).toCompletableFuture().join());
+        assertThrows(
+                RuntimeException.class,
+                () -> controller.capture(file.id()).toCompletableFuture().join());
         unavailable.set(false);
         assertEquals(
                 PreviewCacheWriteResult.STORED,
