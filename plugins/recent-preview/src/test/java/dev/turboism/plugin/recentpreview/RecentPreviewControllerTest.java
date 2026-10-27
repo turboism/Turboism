@@ -327,6 +327,75 @@ final class RecentPreviewControllerTest {
     }
 
     @Test
+    void retriesAnUnavailableCaptureWithoutAFileChange() {
+        final RecentFileSummary file = new RecentFileSummary(
+                new RecentFileId("recent-1"), "model.cmo3", Optional.of(Instant.EPOCH), Optional.empty());
+        final RecordingCapture captures = new RecordingCapture();
+        captures.failure = new ScreenshotCaptureTargetUnavailableException();
+        final RecentPreviewController controller =
+                new RecentPreviewController(() -> List.of(file), captures, new RecordingCache());
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+
+        assertEquals(
+                PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE,
+                controller.capture(file.id()).toCompletableFuture().join());
+        captures.failure = null;
+        assertEquals(
+                PreviewCacheWriteResult.STORED,
+                controller.pollCapture(file.id()).toCompletableFuture().join());
+        assertEquals(2, captures.calls);
+        assertTrue(controller.image(file.id()).isPresent());
+    }
+
+    @Test
+    void retriesAfterACacheWriteFailureWithoutAFileChange() {
+        final RecentFileSummary file = new RecentFileSummary(
+                new RecentFileId("recent-1"), "model.cmo3", Optional.of(Instant.EPOCH), Optional.empty());
+        final RecordingCapture captures = new RecordingCapture();
+        final RecordingCache cache = new RecordingCache();
+        cache.result = PreviewCacheWriteResult.IMAGE_WRITE_FAILED;
+        final RecentPreviewController controller = new RecentPreviewController(() -> List.of(file), captures, cache);
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+
+        assertEquals(
+                PreviewCacheWriteResult.IMAGE_WRITE_FAILED,
+                controller.capture(file.id()).toCompletableFuture().join());
+        cache.result = PreviewCacheWriteResult.STORED;
+        assertEquals(
+                PreviewCacheWriteResult.STORED,
+                controller.pollCapture(file.id()).toCompletableFuture().join());
+        assertEquals(2, captures.calls);
+    }
+
+    @Test
+    void retriesAfterASynchronousCaptureFailure() {
+        final RecentFileSummary file = new RecentFileSummary(
+                new RecentFileId("recent-1"), "model.cmo3", Optional.of(Instant.EPOCH), Optional.empty());
+        final RecordingCapture captures = new RecordingCapture();
+        final java.util.concurrent.atomic.AtomicBoolean unavailable =
+                new java.util.concurrent.atomic.AtomicBoolean(true);
+        final ScreenshotCaptureService screenshots = request -> {
+            if (unavailable.get()) throw new IllegalStateException("capture unavailable");
+            return captures.capture(request);
+        };
+        final RecentPreviewController controller =
+                new RecentPreviewController(() -> List.of(file), screenshots, new RecordingCache());
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+
+        assertThrows(
+                RuntimeException.class,
+                () -> controller.capture(file.id()).toCompletableFuture().join());
+        unavailable.set(false);
+        assertEquals(
+                PreviewCacheWriteResult.STORED,
+                controller.pollCapture(file.id()).toCompletableFuture().join());
+        assertEquals(1, captures.calls);
+    }
+
+    @Test
     void refreshPrunesImagesAndDedupeMarksForIdsThatLeftTheRecentList() {
         final RecentFileSummary first = new RecentFileSummary(new RecentFileId("recent-1"), "a.cmo3");
         final RecentFileSummary second = new RecentFileSummary(new RecentFileId("recent-2"), "b.cmo3");
@@ -387,6 +456,7 @@ final class RecentPreviewControllerTest {
     }
 
     private static final class RecordingCache implements PreviewCache {
+        private PreviewCacheWriteResult result = PreviewCacheWriteResult.STORED;
         private RecentFileSummary file;
         private byte[] png;
         private CompletableFuture<java.util.Map<RecentFileId, byte[]>> pendingLoad;
@@ -395,7 +465,7 @@ final class RecentPreviewControllerTest {
         public CompletionStage<PreviewCacheWriteResult> store(
                 final RecentFileSummary value, final ScreenshotImage image) {
             file = value;
-            return CompletableFuture.completedStage(PreviewCacheWriteResult.STORED);
+            return CompletableFuture.completedStage(result);
         }
 
         @Override
