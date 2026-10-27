@@ -2,6 +2,7 @@ package dev.turboism.adapter;
 
 import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
+import dev.turboism.mapping.verification.SliceContract;
 import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.SliceResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -148,39 +149,33 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         final HostVerificationEvidence.Slice project = evidence.projectWorkspace();
         final RuntimeHostAdapters base;
         if (evidence.clipMask().isEmpty()) {
-            base = projectWorkspace(project.reviewedRecord(), project.verifiedArtifact(), project.hostClassLoader());
+            base = RuntimeHostAdapters.withVerifiedProjectWorkspace(createResolver(projectResolverFactory, project));
         } else {
             final HostVerificationEvidence.Slice clipMask = evidence.clipMask().orElseThrow();
-            final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
-                    project.reviewedRecord(), project.verifiedArtifact(), project.hostClassLoader());
-            final VerifiedMemberResolver clipMaskResolver = clipMaskResolverFactory.create(
-                    clipMask.reviewedRecord(), clipMask.verifiedArtifact(), clipMask.hostClassLoader());
+            final VerifiedMemberResolver projectResolver = createResolver(projectResolverFactory, project);
+            final VerifiedMemberResolver clipMaskResolver = createResolver(clipMaskResolverFactory, clipMask);
             base = RuntimeHostAdapters.withVerifiedProjectWorkspaceAndClipMask(projectResolver, clipMaskResolver);
         }
         RuntimeHostAdapters composed = base;
         if (evidence.autoBackup().isPresent()) {
             final HostVerificationEvidence.Slice autoBackup =
                     evidence.autoBackup().orElseThrow();
-            final VerifiedMemberResolver autoBackupResolver = SliceRegistry.AUTO_BACKUP
-                    .resolverFactory()
-                    .create(autoBackup.reviewedRecord(), autoBackup.verifiedArtifact(), autoBackup.hostClassLoader());
+            final VerifiedMemberResolver autoBackupResolver =
+                    createResolver(SliceRegistry.AUTO_BACKUP.resolverFactory(), autoBackup);
             composed = RuntimeHostAdapters.withVerifiedAutoBackup(composed, autoBackupResolver);
         }
         if (evidence.statusBar().isPresent()) {
             final HostVerificationEvidence.Slice statusBar =
                     evidence.statusBar().orElseThrow();
-            final VerifiedMemberResolver statusBarResolver = statusBarResolverFactory.create(
-                    statusBar.reviewedRecord(), statusBar.verifiedArtifact(), statusBar.hostClassLoader());
+            final VerifiedMemberResolver statusBarResolver = createResolver(statusBarResolverFactory, statusBar);
             composed = RuntimeHostAdapters.withVerifiedStatusBar(composed, statusBarResolver);
         }
         if (evidence.embeddedPanel().isPresent()) {
             final HostVerificationEvidence.Slice panel =
                     evidence.embeddedPanel().orElseThrow();
-            final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
-                    project.reviewedRecord(), project.verifiedArtifact(), project.hostClassLoader());
-            final VerifiedMemberResolver panelResolver = SliceRegistry.EMBEDDED_PANEL
-                    .resolverFactory()
-                    .create(panel.reviewedRecord(), panel.verifiedArtifact(), panel.hostClassLoader());
+            final VerifiedMemberResolver projectResolver = createResolver(projectResolverFactory, project);
+            final VerifiedMemberResolver panelResolver =
+                    createResolver(SliceRegistry.EMBEDDED_PANEL.resolverFactory(), panel);
             if (RecentPreviewVerificationManifest.authorizes(projectResolver, panelResolver)) {
                 composed = RuntimeHostAdapters.withVerifiedRecentPreview(
                         composed, projectResolver, panelResolver, locale, diagnostics);
@@ -192,6 +187,16 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             diagnose("adapter-diag:embedded-panel-evidence-missing");
         }
         return composed;
+    }
+
+    private static VerifiedMemberResolver createResolver(
+            final SliceResolverFactory factory, final HostVerificationEvidence.Slice slice) throws IOException {
+        final SliceContract contract =
+                slice.contract().filter(SliceContract::compatible).orElse(null);
+        return contract == null
+                ? factory.create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader())
+                : factory.createCompatible(
+                        slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader(), contract);
     }
 
     private void diagnose(final String message) {
