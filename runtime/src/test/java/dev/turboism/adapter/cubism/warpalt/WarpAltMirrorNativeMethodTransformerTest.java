@@ -83,7 +83,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
         assertNotNull(transformed);
         assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.TARGET_TRANSFORMED, transformer.outcome());
         assertTrue(transformer.targetTransformed());
-        assertTrue(containsBridgeCall(transformed, "mirrorPointMove", "(Ljava/lang/Object;Ljava/lang/Object;F)V"));
+        assertTrue(containsBridgeCall(transformed, "handlePointMove", "(Ljava/lang/Object;Ljava/lang/Object;F)Z"));
 
         // The drag-tick owner is instrumented with the event-carrying bridge call.
         final WarpAltMirrorNativeMethodTransformer tickTransformer =
@@ -131,7 +131,7 @@ final class WarpAltMirrorNativeMethodTransformerTest {
         final byte[] replayed =
                 transformer.transform(null, null, profile.pointMoveOwner(), Object.class, null, original);
         assertNotNull(replayed, "An unrelated optimization must not erase an installed mirror hook");
-        assertTrue(containsBridgeCall(replayed, "mirrorPointMove", "(Ljava/lang/Object;Ljava/lang/Object;F)V"));
+        assertTrue(containsBridgeCall(replayed, "handlePointMove", "(Ljava/lang/Object;Ljava/lang/Object;F)Z"));
     }
 
     @Test

@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     private final Instrumentation instrumentation;
     private final WarpAltMirrorNativeMethodTransformer transformer;
+    private final WarpAltMirrorHostProfile profile;
     private final String pointMoveClassName;
     private final String dragTickClassName;
     private final String weightWriteClassName;
@@ -60,6 +61,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             final Map<String, String> pinnedClassSha256,
             final Consumer<String> diagnostic) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
+        this.profile = Objects.requireNonNull(profile, "profile");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
         this.transformer = new WarpAltMirrorNativeMethodTransformer(
                 profile,
@@ -168,7 +170,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             if (!installed) throw new IllegalStateException("warp alt mirror transformer is not installed");
             if (bound) return;
             NativeWarpAltMirrorBridge.diagnostics(this::report);
-            NativeWarpAltMirrorBridge.install();
+            NativeWarpAltMirrorBridge.install(true, profile);
             bound = true;
             report("WARP_ALT_MIRROR_DIAG stage=BRIDGE_BOUND");
         }

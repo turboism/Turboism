@@ -92,8 +92,16 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         return () -> {
             synchronized (lock) {
+                pendingBuilds.remove(build);
                 final Entry entry = entries.remove(contribution.contributionId());
                 if (entry != null) {
+                    if (strip != null) {
+                        try {
+                            removeFromGroup(strip, entry.currentButton());
+                        } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                        }
+                    }
                     removeButton(entry.currentButton());
                 }
             }
@@ -105,6 +113,11 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             if (strip == null) {
                 diagnostic("BUILD_SKIPPED reason=NO_STRIP");
                 return;
+            }
+            final Entry existing = entries.remove(contribution.contributionId());
+            if (existing != null) {
+                removeFromGroup(strip, existing.currentButton());
+                removeButton(existing.currentButton());
             }
             final UiRasterImage initialImage = contribution
                     .stateIcons()
@@ -127,6 +140,27 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             diagnostic("BUTTON_MOUNT_FAILED phase=" + phase + " reason="
                     + failure.getClass().getName() + ": " + failure.getMessage());
         }
+    }
+
+    static String entityNameFor(final String contributionId, final int state) {
+        if ("warp-deformer-alt-symmetry.axis".equals(contributionId)) {
+            return "warpAltMirrorAxis" + state;
+        }
+        if ("artmesh-mirror.toggle".equals(contributionId)) {
+            return "artMeshMirrorToggle" + state;
+        }
+        final StringBuilder sb = new StringBuilder();
+        boolean cap = false;
+        for (int i = 0; i < contributionId.length(); i++) {
+            final char ch = contributionId.charAt(i);
+            if (!Character.isLetterOrDigit(ch)) {
+                cap = true;
+            } else {
+                sb.append(cap ? Character.toUpperCase(ch) : ch);
+                cap = false;
+            }
+        }
+        return sb.append(state).toString();
     }
 
     /** Replicates the host's own lock-button construction with a plugin-provided icon. */
@@ -167,7 +201,16 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final Object iconSet =
                 iconSetFor(rasterImage(contribution.stateIcons().getOrDefault(state, iconImage)), hostLoader);
         final Object button = factory.invoke(
-                null, stripInstance, "warpAltMirrorAxis" + state, null, null, false, false, iconSet, 30, null);
+                null,
+                stripInstance,
+                entityNameFor(contribution.contributionId(), state),
+                null,
+                null,
+                false,
+                false,
+                iconSet,
+                30,
+                null);
 
         setOnAction(button, contribution, state);
         return new BuiltButton(button, Map.of());
@@ -291,16 +334,36 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
     }
 
+    static int indexOfInGroup(final Object stripInstance, final Object button) {
+        if (stripInstance == null || button == null) return -1;
+        try {
+            final Field groupField = stripInstance.getClass().getDeclaredField("H");
+            ReflectAccess.open(groupField);
+            final Object group = groupField.get(stripInstance);
+            if (group instanceof List<?> list) {
+                return list.indexOf(button);
+            }
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+        return -1;
+    }
+
     /**
      * Appends the contributed button at the END of the strip's left tool
      * cluster (group H), after the last native button F — the position the
      * operator picked among strip-first/cluster-end options. Disassembly-
      * verified order on the reviewed artifacts: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
      * laid out left-flow, followed by I, a divider, J and the right-aligned
-     * K view cluster (▾). Appending to H seats the button between F and the
+     * K view cluster (▼). Appending to H seats the button between F and the
      * o/I segment, before the divider.
      */
     private static void insertIntoGroup(final Object stripInstance, final Object button)
+            throws ReflectiveOperationException {
+        insertIntoGroup(stripInstance, button, -1);
+    }
+
+    static void insertIntoGroup(final Object stripInstance, final Object button, final int preferIndex)
             throws ReflectiveOperationException {
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
         ReflectAccess.open(groupField);
@@ -311,15 +374,20 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         if (list.contains(button)) return;
         @SuppressWarnings("unchecked")
         final List<Object> target = (List<Object>) group;
-        target.add(target.size(), button);
-        diagnostic("BUTTON_INSERTED group=H index=" + target.size() + " after=leftClusterEnd(F)");
+        if (preferIndex >= 0 && preferIndex <= target.size()) {
+            target.add(preferIndex, button);
+            diagnostic("BUTTON_INSERTED group=H index=" + preferIndex + " preferIndex=" + preferIndex);
+        } else {
+            target.add(target.size(), button);
+            diagnostic("BUTTON_INSERTED group=H index=" + target.size() + " after=leftClusterEnd(F)");
+        }
         reparentToStrip(stripInstance, button);
         ensureRect(button);
     }
 
     /** Removes the button from the strip's left-cluster group list (H). */
-    private static void removeFromGroup(final Object stripInstance, final Object button)
-            throws ReflectiveOperationException {
+    static void removeFromGroup(final Object stripInstance, final Object button) throws ReflectiveOperationException {
+        if (stripInstance == null || button == null) return;
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
         ReflectAccess.open(groupField);
         final Object group = groupField.get(stripInstance);
@@ -425,19 +493,72 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return (Float) rect.getClass().getMethod("getHeight").invoke(rect);
     }
 
-    private static void removeButton(final Object button) {
+    static void removeButton(final Object stripInstance, final Object button) {
+        if (button == null) return;
         try {
-            // Remove from H
-            final Object parent = button.getClass().getMethod("getParentEntity").invoke(button);
-            if (parent == null) return;
-            // Remove from scene graph
-            final Object children = parent.getClass().getMethod("getChildren").invoke(parent);
-            children.getClass().getMethod("remove", Object.class).invoke(children, button);
+            try {
+                button.getClass().getMethod("setButtonEnabled", boolean.class).invoke(button, false);
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+            }
+            try {
+                button.getClass().getMethod("setEnabled", boolean.class).invoke(button, false);
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+            }
+
+            Object children = null;
+            try {
+                final Object parent =
+                        button.getClass().getMethod("getParentEntity").invoke(button);
+                if (parent != null) {
+                    children = parent.getClass().getMethod("getChildren").invoke(parent);
+                }
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+            }
+            if (children == null && stripInstance != null) {
+                try {
+                    final Object sceneGraph = sceneGraphOf(stripInstance);
+                    final Object objects = sceneGraph
+                            .getClass()
+                            .getMethod("getObjectsOnComponent")
+                            .invoke(sceneGraph);
+                    children = objects.getClass().getMethod("getChildren").invoke(objects);
+                } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
+                }
+            }
+            if (children != null) {
+                Method removeMethod = null;
+                for (final Method method : children.getClass().getMethods()) {
+                    if (method.getName().equals("remove")
+                            && method.getParameterCount() == 1
+                            && method.getParameterTypes()[0].isAssignableFrom(button.getClass())) {
+                        removeMethod = method;
+                        break;
+                    }
+                }
+                if (removeMethod != null) {
+                    removeMethod.invoke(children, button);
+                }
+            }
+
+            try {
+                button.getClass().getMethod("dispose").invoke(button);
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+            }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             // best-effort removal
         }
     }
+
+    private void removeButton(final Object button) {
+        removeButton(strip, button);
+    }
+
     /**
      * Updates the button's visual state by REBUILDING it: the icon set's state
      * images carry the glyph baked at construction (native {@code GImageEntity}
@@ -452,6 +573,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final Entry entry = entries.get(contributionId);
             if (entry == null || strip == null) return;
             try {
+                final int preferIndex = indexOfInGroup(strip, entry.currentButton());
                 removeFromGroup(strip, entry.currentButton());
                 removeButton(entry.currentButton());
                 final Map<Integer, UiRasterImage> icons = entry.contribution().stateIcons();
@@ -459,7 +581,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                         entry.contribution(),
                         icons.getOrDefault(axis, icons.values().iterator().next()),
                         axis);
-                insertIntoGroup(strip, built.button());
+                insertIntoGroup(strip, built.button(), preferIndex);
                 entries.put(contributionId, new Entry(entry.contribution(), built.button(), built.stateEntities()));
                 applyInitialState(built.button(), built.stateEntities(), axis);
                 diagnostic("BUTTON_STATE_REBUILT axis=" + axis);

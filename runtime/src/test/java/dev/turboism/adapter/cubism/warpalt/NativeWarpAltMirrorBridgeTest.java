@@ -188,12 +188,23 @@ final class NativeWarpAltMirrorBridgeTest {
         }
     }
 
-    /** Minimal actionManager.aG shape: aA() = Alt, aB() = Shift. */
+    /** Stores the native AWT event; no obfuscated modifier method is invoked. */
     static final class StubEvent {
+        private final java.awt.event.InputEvent input;
         private final boolean alt;
         private final boolean shift;
 
         StubEvent(final boolean alt, final boolean shift) {
+            this.input = new java.awt.event.MouseEvent(
+                    new java.awt.Canvas(),
+                    java.awt.event.MouseEvent.MOUSE_DRAGGED,
+                    0,
+                    (alt ? java.awt.event.InputEvent.ALT_DOWN_MASK : 0)
+                            | (shift ? java.awt.event.InputEvent.SHIFT_DOWN_MASK : 0),
+                    0,
+                    0,
+                    0,
+                    false);
             this.alt = alt;
             this.shift = shift;
         }
