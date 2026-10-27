@@ -60,6 +60,7 @@ public final class NativeArtMeshSymmetryBridge {
         String angleLabel;
         int drag;
         boolean vertexGesture;
+        NativeWarpPointGesture.Gesture movement;
         ArtMeshMirrorAxis.Point last;
         final Map<float[], Pairing> pairs = new IdentityHashMap<>();
         final Map<float[], Set<Integer>> written = new IdentityHashMap<>();
@@ -125,6 +126,7 @@ public final class NativeArtMeshSymmetryBridge {
             if (!(awt instanceof MouseEvent mouse)) return false;
             int id = mouse.getID();
             if (id == MouseEvent.MOUSE_PRESSED) {
+                state.movement = null;
                 state.vertexGesture = mouse.getButton() == MouseEvent.BUTTON1;
                 state.drag = 0;
                 state.pairs.clear();
@@ -135,6 +137,8 @@ public final class NativeArtMeshSymmetryBridge {
             Object camera = call(view, "getCameraManager");
             if (!Boolean.TRUE.equals(call(camera, "isSafeEditOnPlaneXY"))) return false;
             ArtMeshMirrorAxis.Point point = read(call(camera, "componentToDocument", call(event, "K")));
+            if (id == MouseEvent.MOUSE_PRESSED && mouse.getButton() == MouseEvent.BUTTON1)
+                state.movement = new NativeWarpPointGesture.Gesture(view, point.x(), point.y());
             if (id == MouseEvent.MOUSE_PRESSED
                     && mouse.getButton() == MouseEvent.BUTTON1
                     && !mouse.isAltDown()
@@ -169,6 +173,7 @@ public final class NativeArtMeshSymmetryBridge {
                 state.last = point;
                 state.pairs.clear();
             } else if (id == MouseEvent.MOUSE_RELEASED) {
+                state.movement = null;
                 state.vertexGesture = false;
                 boolean captured = state.drag != 0;
                 state.drag = 0;
@@ -192,10 +197,11 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     /** The native action dispatcher starts a new tick; pair identities survive until release. */
-    static void beginTick(Object pack) {
+    static void beginTick(Object manager) {
+        CURRENT.remove();
+        if (!enabled()) return;
         try {
-            State state = state(call(pack, "ab"));
-            CURRENT.remove();
+            State state = state(NativeWarpAltMirrorBridge.actionView(manager));
             if (state != null) {
                 state.written.clear();
                 CURRENT.set(state);
@@ -329,7 +335,8 @@ public final class NativeArtMeshSymmetryBridge {
     public static boolean move(Object ref, Object target, float weight) {
         if (!enabled() || APPLYING.get() || !Float.isFinite(weight) || weight <= 0) return false;
         State state = CURRENT.get();
-        if (state == null || !state.vertexGesture || state.axis == null || !dragCaller()) return false;
+        if (state == null || !state.vertexGesture || state.axis == null || state.movement == null || !dragCaller())
+            return false;
         try {
             float[] positions = (float[]) call(ref, "h");
             int index = ((Number) call(ref, "a")).intValue();
@@ -340,6 +347,10 @@ public final class NativeArtMeshSymmetryBridge {
             if (counterpart < 0) return false;
             Object other = counterpart(ref, counterpart);
             ArtMeshMirrorAxis.Point current = read(call(ref, "e"));
+            ArtMeshMirrorAxis.Point otherCurrent = read(call(other, "e"));
+            if (state.movement.driver(
+                            positions, index, counterpart, current.x(), current.y(), otherCurrent.x(), otherCurrent.y())
+                    != index) return true;
             // Mirror the actual weighted displacement in canvas coordinates. Parent transforms
             // can be nonlinear and index-dependent, so blending in canvas space is not equivalent.
             Field transformField = MethodHandleCache.declaredFieldUp(ref.getClass(), "transformBetweenLocalAndCanvas");

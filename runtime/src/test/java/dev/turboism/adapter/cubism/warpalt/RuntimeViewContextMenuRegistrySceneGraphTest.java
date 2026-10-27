@@ -2,12 +2,16 @@ package dev.turboism.adapter.cubism.warpalt;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.live2d.graphics3d.sceneGraph.GSceneGraph;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class RuntimeViewContextMenuRegistrySceneGraphTest {
@@ -68,6 +72,53 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
         }
     }
 
+    public static final class MockStripH {
+        public final List<Object> H = new ArrayList<>();
+    }
+
+    public static final class MockChildren {
+        final List<Object> list = new ArrayList<>();
+
+        public void remove(final MockEntity entity) {
+            list.remove(entity);
+        }
+
+        public List<Object> getList() {
+            return list;
+        }
+    }
+
+    public static final class MockParent {
+        final MockChildren children = new MockChildren();
+
+        public MockChildren getChildren() {
+            return children;
+        }
+    }
+
+    public static final class MockEntity {
+        boolean buttonEnabled = true;
+        boolean enabled = true;
+        boolean disposed = false;
+        MockParent parent;
+
+        public void setButtonEnabled(final boolean v) {
+            this.buttonEnabled = v;
+        }
+
+        public void setEnabled(final boolean v) {
+            this.enabled = v;
+        }
+
+        public void dispose() {
+            this.disposed = true;
+        }
+
+        public MockParent getParentEntity() {
+            return parent;
+        }
+    }
+
     @Test
     void resolvesThe5203AccessorByReturnType() throws Exception {
         final Strip5203 strip = new Strip5203();
@@ -92,5 +143,48 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
         final IllegalStateException failure = assertThrows(
                 IllegalStateException.class, () -> RuntimeViewContextMenuRegistry.sceneGraphOf(new StripAmbiguous()));
         assertTrue(failure.getMessage().contains("ambiguous"));
+    }
+
+    @Test
+    void generatesUniqueEntityNamesForDistinctContributions() {
+        final String warp0 = RuntimeViewContextMenuRegistry.entityNameFor("warp-deformer-alt-symmetry.axis", 0);
+        final String warp1 = RuntimeViewContextMenuRegistry.entityNameFor("warp-deformer-alt-symmetry.axis", 1);
+        final String artMesh0 = RuntimeViewContextMenuRegistry.entityNameFor("artmesh-mirror.toggle", 0);
+        final String artMesh1 = RuntimeViewContextMenuRegistry.entityNameFor("artmesh-mirror.toggle", 1);
+
+        assertEquals("warpAltMirrorAxis0", warp0);
+        assertEquals("warpAltMirrorAxis1", warp1);
+        assertEquals("artMeshMirrorToggle0", artMesh0);
+        assertEquals("artMeshMirrorToggle1", artMesh1);
+        assertNotEquals(warp0, artMesh0);
+        assertNotEquals(warp1, artMesh1);
+    }
+
+    @Test
+    void removeButtonDisablesDetachesAndDisposes() {
+        final MockEntity entity = new MockEntity();
+        final MockParent parent = new MockParent();
+        entity.parent = parent;
+        parent.children.list.add(entity);
+
+        RuntimeViewContextMenuRegistry.removeButton(null, entity);
+
+        assertFalse(entity.buttonEnabled);
+        assertFalse(entity.enabled);
+        assertTrue(entity.disposed);
+        assertFalse(parent.children.list.contains(entity));
+    }
+
+    @Test
+    void indexOfInGroupFindsCorrectSeat() {
+        final MockStripH strip = new MockStripH();
+        final Object b1 = new Object();
+        final Object b2 = new Object();
+        strip.H.add(b1);
+        strip.H.add(b2);
+
+        assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
+        assertEquals(1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
+        assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, new Object()));
     }
 }
