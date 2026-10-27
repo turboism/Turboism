@@ -832,5 +832,49 @@
       "normalExit": true,
       "validationStatus": "PASS"
     }
+  },
+  "mergeVerification": {
+    "featureCommit": "7370133c2",
+    "mainIntegrationCommit": "7693e560c",
+    "mainBase": "f6c310bd14598b422bf122b958330b161fdbc098",
+    "bundleSha256": "52dc5a6d0d5430cbfbe49e5d6c3db10133329a4d443d16fa96fbe3a2db1aa51b",
+    "tests": {
+      "runtime": {
+        "tests": 116,
+        "skipped": 0,
+        "failures": 0,
+        "errors": 0
+      },
+      "bootstrap": {
+        "tests": 241,
+        "skipped": 27,
+        "failures": 0,
+        "errors": 0
+      },
+      "recent-preview": {
+        "tests": 49,
+        "skipped": 0,
+        "failures": 0,
+        "errors": 0
+      },
+      "integration-tests": {
+        "tests": 1,
+        "skipped": 0,
+        "failures": 0,
+        "errors": 0
+      }
+    },
+    "host": {
+      "jobId": "b4188e89-4d94-414d-b27c-0d41ef04934e",
+      "terminalState": "succeeded",
+      "cleanup": "safe",
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "normalExit": true,
+      "validationStatus": "PASS"
+    },
+    "localRefreshHits": 7348,
+    "curveCacheHits": 5302,
+    "sourceHashesStillMatchAllMatrices": true
   }
 }
