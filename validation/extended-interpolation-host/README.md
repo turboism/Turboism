@@ -99,3 +99,7 @@ wrapper 的 JVM mesh 开关用于内核宿主测试；持久设置的真实点�
 首次文档就绪超时 job `71aab21d-1e28-4dff-94a7-618232e8d48b` 不计通过。新增验证专用后备：模型文档列表为空持续 45 秒时，经官方 command_open 打开任务副本一次；不修改用户原始模型或生产包。
 
 同一最终包独立 JVM 重开 job `65079e23-4ef0-48af-9e59-3d15dac32eb2` succeeded：三类对象全部 bank raw bits/属性/层级匹配，JVM 身份不同，fixture 不变、官方身份/正常退出/清理通过。证据 [p3-local-cold-pass](evidence/p3-local-cold-pass/outcome.json)。保留载体部分验收命名，不外推到参数滑块鼠标、专门 Morph 编辑或所有版本 UI。
+
+## 合并主分支后的复验
+
+agent SHA `52dc5a6d0d5430cbfbe49e5d6c3db10133329a4d443d16fa96fbe3a2db1aa51b`，job `b4188e89-4d94-414d-b27c-0d41ef04934e` succeeded。六组合、真实拖动、全 bank 官方历史、级联、GL 像素及保存/同 JVM 重开通过；局部命中 7,348，曲线命中 5,302。fixture 不变、官方身份/正常退出/清理通过。生产插值源指纹与 20 版矩阵仍匹配。远端提交仅包含 [脱敏验收摘要](../extended-interpolation-performance/p3-local-refresh/production-acceptance.json)，原始日志留本地。

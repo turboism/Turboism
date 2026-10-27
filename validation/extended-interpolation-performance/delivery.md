@@ -2,6 +2,10 @@
 
 日期：2026-10-27。目标先验证 5.3.04，再覆盖仓库收录的 20 个稳定版。当前可交付的是默认关闭、用户重启后可选择启用的安全优化；没有部署到官方安装，也没有改变原始模型。
 
+## 提交与主分支整合
+
+功能提交 `7370133c2`，主分支整合提交 `7693e560c`。合并后 agent SHA `52dc5a6d0d5430cbfbe49e5d6c3db10133329a4d443d16fa96fbe3a2db1aa51b`；runtime 116、bootstrap 241（27 skipped）、recent-preview 49、配置往返 1 通过，真实六语言标签和安装器语言一致性通过。合并包宿主 job `b4188e89-4d94-414d-b27c-0d41ef04934e` succeeded，局部命中 7,348，原始 fixture 不变、身份/正常退出/清理通过。完整版本矩阵源指纹仍匹配。原始本机证据不提交，仓库保留 [脱敏验收摘要](p3-local-refresh/production-acceptance.json)。下方保留功能合并前各阶段包的身份。
+
 ## P3 局部刷新生产候选
 
 [Normal 切片固定点跳过已接入生产](p3-local-refresh/production.md)，保留实际 `setUpdated()` 轨迹、force、Part 广播及完整网格。最终生产包 SHA `52e0df22a51115c809caace6e72f5fe5d9043a5cf3aa422a716e8c8930499fc8`；20 版 × 360 个生产局部刷新快照及常规/旧曲线缓存矩阵通过，runtime 111、bootstrap 236（27 skipped）、安装器配置往返 1 无失败。性能与退化见链接报告；本包 5.3.04 真宿主 job `2c582221-78c0-470b-9e7f-dd172e79f444` 和独立重开 job `65079e23-4ef0-48af-9e59-3d15dac32eb2` 均成功，局部跳过命中 7,348 次，fixture 不变、官方身份/正常退出/清理通过。以下旧包记录保留历史身份。

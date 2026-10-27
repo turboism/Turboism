@@ -87,7 +87,7 @@ JDK 17、实际 installer；3 源锚点、每区间 64 插入点、256 几何点
 
 ## 交付状态
 
-生产源码、默认关闭的可配置构建包、20 稳定版安装矩阵、单 common 净收益/退化记录和 5.3.04 受控真实宿主及独立 JVM 重开均已完成。构建包位于 `build/preview/perf-cubism-extended-interpolation/turboism-agent.jar`，未部署到用户官方安装，未提交 Git。现有性能面板总开关启用并重启后生效；Morph 局部跳过、原生网格裁剪、force/广播拦截与默认开启不在本次放行范围。
+生产源码、默认关闭的可配置构建包、20 稳定版安装矩阵、单 common 净收益/退化记录和 5.3.04 受控真实宿主及独立 JVM 重开均已完成。构建包位于 `build/preview/perf-cubism-extended-interpolation/turboism-agent.jar`，未部署到用户官方安装。功能已提交并完成主分支整合；合并复验见下文。现有性能面板总开关启用并重启后生效；Morph 局部跳过、原生网格裁剪、force/广播拦截与默认开启不在本次放行范围。
 
 ## 提交前 i18n 与兼容复核
 
@@ -96,3 +96,9 @@ JDK 17、实际 installer；3 源锚点、每区间 64 插入点、256 几何点
 安装器真实 `ConfigMergeRegression` 执行通过（使用实际生产 listener 类、规范模板与 retired-plugin 清单）。Windows 静态脚本有已存在失败：CF2b 仍要求字符串 `-Wait`，但基线和当前完全相同的提权 helper 已使用有界 `WaitForExit`。未修改该无关断言，也未把整套静态脚本记为通过。记录与日志见 [提交前兼容检查](evidence/production/premerge-compatibility.json)。清理探针注释尾空格后重跑 20 版局部刷新矩阵，当前源指纹匹配。
 
 原始日志、outcome 与本机路径按仓库远端卫生规则仅保留本地忽略的 evidence 目录。提交内容包含 [脱离本机路径的验收摘要](production-acceptance.json)：逐版工件/源指纹、运行退出码、两次重复基准与连续/混合基准、必要检查和两次宿主队列裁决。上述 evidence 链接供本地复核，不是远端仓库附件。
+
+## 主分支整合复验
+
+功能提交 `7370133c2`，整合主分支提交 `7693e560c`，主分支基线 `f6c310bd1`。启动流程的冲突保留两侧行为：加载窗口阶段通知与固定的 launchOptimizationConfig 均保留。合并后原插值矩阵及基准的所有源指纹仍匹配。
+
+合并后的 agent SHA `52dc5a6d0d5430cbfbe49e5d6c3db10133329a4d443d16fa96fbe3a2db1aa51b`。必要回归通过：runtime 116、bootstrap 241（27 skipped）、recent-preview 49、配置往返 1；六语言真实标签和安装器语言一致性通过。真实宿主 job `b4188e89-4d94-414d-b27c-0d41ef04934e` succeeded，六组合差分、真实拖动、全 bank 官方历史、级联、像素、保存/同 JVM 重开通过；局部命中 7,348、曲线命中 5,302。fixture 不变、官方身份、正常退出和清理通过。合并摘要记录在 [production-acceptance.json](production-acceptance.json) 的 mergeVerification 中。此前独立重开证据保持其原构建包身份。
