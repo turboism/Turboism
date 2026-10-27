@@ -125,6 +125,10 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         final boolean[] transformed = {false};
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
+            if (isActionDispatch && !WarpAltMirrorActionContext.hasReadOnlyGetter(reader, profile)) {
+                reject(Outcome.VIEW_ACCESS_REJECTED, "WARP_ALT_MIRROR_VIEW_ACCESS_REJECTED owner=" + className);
+                return null;
+            }
             final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES) {
                 @Override
                 protected String getCommonSuperClass(final String left, final String right) {
@@ -253,9 +257,13 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                         visitMethodInsn(
                                                 Opcodes.INVOKESTATIC,
                                                 BRIDGE,
-                                                "mirrorPointMove",
-                                                "(Ljava/lang/Object;Ljava/lang/Object;F)V",
+                                                "handlePointMove",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;F)Z",
                                                 false);
+                                        final org.objectweb.asm.Label proceed = new org.objectweb.asm.Label();
+                                        visitJumpInsn(Opcodes.IFEQ, proceed);
+                                        visitInsn(Opcodes.RETURN);
+                                        visitLabel(proceed);
                                     } else if (dragTickHere) {
                                         visitVarInsn(Opcodes.ALOAD, 1);
                                         visitVarInsn(Opcodes.ALOAD, 2);
@@ -305,8 +313,8 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
                                         visitVarInsn(Opcodes.ALOAD, 1);
                                         visitMethodInsn(
                                                 Opcodes.INVOKESTATIC,
-                                                "dev/turboism/adapter/cubism/warpalt/NativeArtMeshSymmetryBridge",
-                                                "input",
+                                                BRIDGE,
+                                                "filterInput",
                                                 "(Ljava/lang/Object;Ljava/lang/Object;)Z",
                                                 false);
                                         final org.objectweb.asm.Label proceed = new org.objectweb.asm.Label();
@@ -470,6 +478,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
         LOADER_MISMATCH,
         ARTIFACT_MISMATCH,
         CLASS_BYTES_MISMATCH,
+        VIEW_ACCESS_REJECTED,
         SECOND_LOADER_REJECTED,
         TRANSFORMATION_FAILED
     }

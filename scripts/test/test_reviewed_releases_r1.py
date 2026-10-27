@@ -46,7 +46,7 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
     def put(relative: str, text: str) -> None:
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        path.write_text(text, encoding="utf-8", newline="\n")
 
     put(gate.r1_RELEASES.as_posix(), table(versions))
     put(gate.generated.TEMPLATE.as_posix(), (ROOT / gate.generated.TEMPLATE).read_text())
