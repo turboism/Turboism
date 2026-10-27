@@ -209,13 +209,16 @@ public final class TurboismAgent {
         final VerifiedMeshMirrorHookInstaller meshMirrorHook = MeshMirrorHookContributor.CURRENT.get();
         final VerifiedWarpAltMirrorHookInstaller warpAltMirrorHook = WarpAltMirrorHookContributor.CURRENT.get();
         boolean published = false;
+        final StartupLoadingWindow loading = StartupLoadingWindow.open();
         try {
             RuntimeDiagnostics.debug("bootstrap", "Agent active; waiting for the Cubism host");
             final Optional<ResolvedHost> located = PreviewRuntimeLauncher.resolveHost(instrumentation, options);
             if (located.isEmpty()) {
+                loading.phase(StartupLoadingWindow.Phase.TIMED_OUT);
                 System.out.println("Turboism agent stopped: Cubism host class was not observed");
                 return;
             }
+            loading.phase(StartupLoadingWindow.Phase.INITIALIZING);
             final ResolvedHost resolved = located.orElseThrow();
             bound.addAll(installPhase(
                     contributors,
@@ -246,8 +249,10 @@ public final class TurboismAgent {
                                         },
                                         contributor -> bindRuntimeHook(contributor, runtimeEnvironment));
                                 installPhase(contributors, HookContributor.Phase.RUNTIME_STARTED, runtimeEnvironment);
+                                loading.phase(StartupLoadingWindow.Phase.PLUGINS);
                             },
                             prepared -> {
+                                loading.phase(StartupLoadingWindow.Phase.INTERFACE);
                                 final HookEnvironment runtimeEnvironment = environment(
                                         instrumentation,
                                         attachmentMode,
@@ -262,6 +267,7 @@ public final class TurboismAgent {
                                 }
                             }));
             if (!RUNTIME.compareAndSet(null, runtime)) {
+                loading.close();
                 PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(runtime::close, meshMirrorHook, warpAltMirrorHook);
                 return;
             }
@@ -270,9 +276,11 @@ public final class TurboismAgent {
                     + ", plugins=" + runtime.loadReport().loaded().size()
                     + ", failures=" + runtime.loadReport().failures().size());
         } catch (InterruptedException exception) {
+            loading.phase(StartupLoadingWindow.Phase.FAILED);
             Thread.currentThread().interrupt();
             runtimeWarn("Turboism bootstrap interrupted");
         } catch (Throwable failure) {
+            loading.phase(StartupLoadingWindow.Phase.FAILED);
             FatalErrors.rethrowIfFatal(failure);
             final PreviewRuntime runtime = RUNTIME.get();
             if (runtime == null) {
@@ -282,6 +290,7 @@ public final class TurboismAgent {
                 runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
             }
         } finally {
+            if (published) loading.close();
             if (!published) {
                 // Also covers host lookup timeout, identity/base-capability rejection,
                 // and interruption before startPreviewRuntime owns the later cleanup.

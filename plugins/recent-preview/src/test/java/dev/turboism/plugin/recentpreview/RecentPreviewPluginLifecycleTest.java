@@ -160,6 +160,39 @@ final class RecentPreviewPluginLifecycleTest {
     }
 
     @Test
+    void pollRetriesAFailedCaptureWithoutAnotherOpenOrSave() throws Exception {
+        final RecentFileSummary file = new RecentFileSummary(
+                new RecentFileId("one"), "One.cmo3", Optional.of(Instant.EPOCH), Optional.empty());
+        final RecordingTaskScheduler tasks = new RecordingTaskScheduler();
+        final AtomicLong now = new AtomicLong(1_000_000L);
+        final AtomicInteger captures = new AtomicInteger();
+        final List<RecentPreviewRenderer> renderers = new ArrayList<>();
+        final ScreenshotCaptureService screenshots = request -> captures.incrementAndGet() == 1
+                ? CompletableFuture.failedStage(
+                        new dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException())
+                : CompletableFuture.completedStage(
+                        new ScreenshotCaptureResult(request.id(), new ScreenshotImage(1, 1, png())));
+        final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
+        plugin.pollClock = now::get;
+        plugin.init(context(List.of(file), renderers, screenshots, new AtomicInteger(), new ArrayList<>(), tasks));
+        plugin.enable();
+        try {
+            final PluginTaskAction action = tasks.fixedDelay.get(0).action();
+            action.run(noopToken());
+            assertEquals(1, captures.get());
+            now.addAndGet(RecentPreviewPoller.MIN_CAPTURE_INTERVAL.toMillis());
+            action.run(noopToken());
+            assertEquals(2, captures.get());
+            assertTrue(renderers.get(0).render(file).isPresent());
+            now.addAndGet(RecentPreviewPoller.MIN_CAPTURE_INTERVAL.toMillis());
+            action.run(noopToken());
+            assertEquals(2, captures.get());
+        } finally {
+            plugin.disable();
+        }
+    }
+
+    @Test
     void failedPollCaptureClearsHoverLoadingStateAndAllowsRetry() throws Exception {
         final RecentFileSummary file = new RecentFileSummary(
                 new RecentFileId("one"),
