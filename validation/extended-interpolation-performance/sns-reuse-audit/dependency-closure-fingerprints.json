@@ -1,0 +1,402 @@
+{
+  "5.0.00": {
+    "jar_sha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "bf210f3fee8577f54471fb8517ff1c33f29ebd57973cef3f5d9b6bcd064905a8",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.0.01": {
+    "jar_sha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "bf210f3fee8577f54471fb8517ff1c33f29ebd57973cef3f5d9b6bcd064905a8",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.0.02": {
+    "jar_sha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "bf210f3fee8577f54471fb8517ff1c33f29ebd57973cef3f5d9b6bcd064905a8",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.0.03": {
+    "jar_sha256": "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.0.04": {
+    "jar_sha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.0.05": {
+    "jar_sha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.0.06": {
+    "jar_sha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.1.00": {
+    "jar_sha256": "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.1.01": {
+    "jar_sha256": "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.1.02": {
+    "jar_sha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.1.03": {
+    "jar_sha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "eebdc5c6bceca7b82a7d2e22632ef36dfa02ca26e2c411057cce9dd689ea0d84",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe"
+    }
+  },
+  "5.2.00": {
+    "jar_sha256": "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.2.01": {
+    "jar_sha256": "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.2.02": {
+    "jar_sha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.2.03": {
+    "jar_sha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.3.00": {
+    "jar_sha256": "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.3.01": {
+    "jar_sha256": "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.3.02": {
+    "jar_sha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.3.03": {
+    "jar_sha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  },
+  "5.3.04": {
+    "jar_sha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+    "classes": {
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType.class": "63da6a244788d6f89e0123fdc98fcefb28c46c2e85680fb9c3dc729785e3cb62",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType$a.class": "96dff1ec5cc108131598bd1ba90ca731f5e5195fb0345d1a43197650e2efca0e",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/a.class": "f0f4b3df244d55a55f19c5d2ab996fded4067cb4d807d7a24b0ea1cdabda8bbe",
+      "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/h.class": "573886ce1d8c581b4eb814ab9745671704319b466691b8d98a562dca237cd1c0",
+      "com/live2d/graphics/curve/CPointCurve.class": "4d26b313febc3c7cb8c89e96432540d844ec4a4283eebc09cbb8ee495f225433",
+      "com/live2d/graphics/curve/CPointCurve$CCurvePt.class": "2dcdd8472f27a29a05cc0ce1244fc4c3e23486293baba8f699e49618fa0dccd2",
+      "com/live2d/graphics/curve/CPointCurve$a.class": "398067478fc2e4a97f34549b21f3a9b1773b7a5bb4cee3c255f90d61f804f5f9",
+      "com/live2d/graphics/curve/c.class": "df8c5afcae8492d11b113527b49dc1741a1e30fc98cdf233629f9b3f51f3e46e",
+      "com/live2d/graphics/curve/g.class": "d381dcbed97f2075cdffecd472948c51facb3718e8dfd8c204d0858c1b2a5786",
+      "com/live2d/graphics/curve/f.class": "44c84d1cd9200a43be1e8156d1356b5abf9a9e7548f3c5a5d994bdfb9006e675",
+      "com/live2d/graphics/curve/f$a.class": "52dee5181e988496dc45bf19be0f2b6a6b6ac8eaeab0c296264b6bd4ad993381",
+      "com/live2d/graphics/curve/f$b.class": "8d127f355041f79eb23d8cc6b92ba982f06c025a941685e331bcf9b7134e786d",
+      "com/live2d/graphics/curve/e.class": "2662cde89a706c3b1e3fcd264b295c9913b0a94712ea5c42e3c3273d8a38b3b2",
+      "com/live2d/graphics/curve/b.class": "fcea4bb0567ca2d34dc44a9fb9858d4fef0d100d608b0423c9ac65c731432a35",
+      "com/live2d/graphics3d/type/GVector2.class": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    }
+  }
+}

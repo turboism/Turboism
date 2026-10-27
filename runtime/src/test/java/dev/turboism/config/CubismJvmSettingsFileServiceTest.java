@@ -347,4 +347,23 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(restored.contains("\"incrementalUpdate\" : false"));
         }
     }
+
+    @Test
+    void meshInterpolationPreferenceDefaultsOffAndRoundTrips() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            assertFalse(service.meshInterpolation(), "defaults to false");
+            assertTrue(service.saveMeshInterpolation(true));
+            assertTrue(service.meshInterpolation());
+            final String saved = Files.readString(home.resolve("config.json"));
+            assertTrue(saved.contains("\"meshInterpolation\" : true"));
+        }
+        try (CubismJvmSettingsFileService reopened =
+                new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, Map.of())) {
+            assertTrue(reopened.meshInterpolation(), "persisted preference survives restart");
+            assertFalse(reopened.saveMeshInterpolation(false));
+            assertFalse(reopened.meshInterpolation());
+            final String updated = Files.readString(home.resolve("config.json"));
+            assertTrue(updated.contains("\"meshInterpolation\" : false"));
+        }
+    }
 }

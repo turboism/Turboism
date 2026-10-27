@@ -14,6 +14,7 @@ public final class NativeOptimizationConfig {
         UPLOAD_ELISION("uploadElision"),
         INPUT_PATH_ELISION("inputPathElision"),
         MESA_GL_THREAD("mesaGlThread"),
+        MESH_INTERPOLATION("meshInterpolation"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex"),
         ATLAS_TILE_BBOX("atlasTileBbox"),

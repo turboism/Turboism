@@ -57,7 +57,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(15, Field.values().length);
+        assertEquals(16, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(
@@ -90,7 +90,7 @@ class PerformanceSettingsConfigTest {
                     service.startupReduceAutoBackup(), "editing preferences must not mutate this session's request");
             var statuses = service.performanceStatuses().stream()
                     .collect(Collectors.toMap(CubismJvmSettingsService.PerformanceStatus::key, s -> s));
-            assertEquals(15, statuses.size());
+            assertEquals(16, statuses.size());
             var atlas = statuses.get("atlasCacheReuse");
             assertEquals("true", atlas.saved());
             assertEquals("false", atlas.requested());
@@ -115,5 +115,51 @@ class PerformanceSettingsConfigTest {
         assertFalse(TriangulationEdgeIndexPreference.read(
                 Path.of("").toAbsolutePath().relativize(home)));
         assertFalse(new TriangulationEdgeIndexSettingsFileService(repository).read());
+    }
+
+    @Test
+    void meshInterpolationJvmOverridePrecedenceAndFallback() {
+        var repository = new RuntimeConfigRepository(home, ignored -> {});
+        PerformanceSettingsConfig.save(repository, Field.MESH_INTERPOLATION, "false");
+
+        // 1. Without overrides, reads global config false
+        var initial = PerformanceSettingsConfig.load(home, ignored -> {});
+        assertEquals("false", initial.value(Field.MESH_INTERPOLATION).value());
+        assertEquals("global-config", initial.value(Field.MESH_INTERPOLATION).source());
+
+        // 2. Legacy override turboism.meshInterpolation.enabled=true wins over config
+        System.setProperty("turboism.meshInterpolation.enabled", "true");
+        try {
+            var legacy = PerformanceSettingsConfig.load(home, ignored -> {});
+            assertEquals("true", legacy.value(Field.MESH_INTERPOLATION).value());
+            assertEquals("jvm-override", legacy.value(Field.MESH_INTERPOLATION).source());
+
+            // 3. Modern override turboism.optimization.meshInterpolation=false wins over legacy
+            System.setProperty("turboism.optimization.meshInterpolation", "false");
+            try {
+                var modern = PerformanceSettingsConfig.load(home, ignored -> {});
+                assertEquals("false", modern.value(Field.MESH_INTERPOLATION).value());
+                assertEquals(
+                        "jvm-override", modern.value(Field.MESH_INTERPOLATION).source());
+            } finally {
+                System.clearProperty("turboism.optimization.meshInterpolation");
+            }
+        } finally {
+            System.clearProperty("turboism.meshInterpolation.enabled");
+        }
+
+        // 4. Invalid config forces false and source=invalid-config even with override
+        try {
+            java.nio.file.Files.writeString(home.resolve("config.json"), "{broken");
+            System.setProperty("turboism.meshInterpolation.enabled", "true");
+            var invalid = PerformanceSettingsConfig.load(home, ignored -> {});
+            assertEquals("false", invalid.value(Field.MESH_INTERPOLATION).value());
+            assertEquals(
+                    "invalid-config", invalid.value(Field.MESH_INTERPOLATION).source());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            System.clearProperty("turboism.meshInterpolation.enabled");
+        }
     }
 }

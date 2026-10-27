@@ -1,0 +1,836 @@
+{
+  "local-refresh": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/p3-local-refresh/LocalRefreshProof.java": "1dd2483e4166b481cc898582582516725b36016616c2b06aba698ca1fcd04d3d",
+      "validation/extended-interpolation-performance/p3-local-refresh/LocalRefreshAgent.java": "e0d175478a1efd08d5326a939807f5f7bb6765e1757dee20c14c6de7f7164a1c",
+      "validation/extended-interpolation-performance/p3-local-refresh/LocalRuntimeProof.java": "a58895767580335fc6f0629d20fe6d4e2fe5f2b7bf4df605b734fcb1cdd77a93",
+      "validation/extended-interpolation-performance/p3-dependencies/src/dev/turboism/validation/p3/P3DependencyProbe.java": "99ff146b7e8d86258547fa27c80fc75b244e2d32d0fba6f21f0a3642e18e4732",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      },
+      {
+        "version": "5.0.00",
+        "exitCode": 0,
+        "jarSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd"
+      },
+      {
+        "version": "5.0.01",
+        "exitCode": 0,
+        "jarSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b"
+      },
+      {
+        "version": "5.0.02",
+        "exitCode": 0,
+        "jarSha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072"
+      },
+      {
+        "version": "5.0.03",
+        "exitCode": 0,
+        "jarSha256": "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66"
+      },
+      {
+        "version": "5.0.04",
+        "exitCode": 0,
+        "jarSha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758"
+      },
+      {
+        "version": "5.0.05",
+        "exitCode": 0,
+        "jarSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4"
+      },
+      {
+        "version": "5.0.06",
+        "exitCode": 0,
+        "jarSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2"
+      },
+      {
+        "version": "5.1.00",
+        "exitCode": 0,
+        "jarSha256": "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05"
+      },
+      {
+        "version": "5.1.01",
+        "exitCode": 0,
+        "jarSha256": "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02"
+      },
+      {
+        "version": "5.1.02",
+        "exitCode": 0,
+        "jarSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca"
+      },
+      {
+        "version": "5.1.03",
+        "exitCode": 0,
+        "jarSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b"
+      },
+      {
+        "version": "5.2.00",
+        "exitCode": 0,
+        "jarSha256": "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1"
+      },
+      {
+        "version": "5.2.01",
+        "exitCode": 0,
+        "jarSha256": "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac"
+      },
+      {
+        "version": "5.2.02",
+        "exitCode": 0,
+        "jarSha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff"
+      },
+      {
+        "version": "5.2.03",
+        "exitCode": 0,
+        "jarSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+      },
+      {
+        "version": "5.3.00",
+        "exitCode": 0,
+        "jarSha256": "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767"
+      },
+      {
+        "version": "5.3.01",
+        "exitCode": 0,
+        "jarSha256": "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4"
+      },
+      {
+        "version": "5.3.02",
+        "exitCode": 0,
+        "jarSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+      },
+      {
+        "version": "5.3.03",
+        "exitCode": 0,
+        "jarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166"
+      }
+    ]
+  },
+  "regular": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      },
+      {
+        "version": "5.0.00",
+        "exitCode": 0,
+        "jarSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd"
+      },
+      {
+        "version": "5.0.01",
+        "exitCode": 0,
+        "jarSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b"
+      },
+      {
+        "version": "5.0.02",
+        "exitCode": 0,
+        "jarSha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072"
+      },
+      {
+        "version": "5.0.03",
+        "exitCode": 0,
+        "jarSha256": "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66"
+      },
+      {
+        "version": "5.0.04",
+        "exitCode": 0,
+        "jarSha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758"
+      },
+      {
+        "version": "5.0.05",
+        "exitCode": 0,
+        "jarSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4"
+      },
+      {
+        "version": "5.0.06",
+        "exitCode": 0,
+        "jarSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2"
+      },
+      {
+        "version": "5.1.00",
+        "exitCode": 0,
+        "jarSha256": "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05"
+      },
+      {
+        "version": "5.1.01",
+        "exitCode": 0,
+        "jarSha256": "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02"
+      },
+      {
+        "version": "5.1.02",
+        "exitCode": 0,
+        "jarSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca"
+      },
+      {
+        "version": "5.1.03",
+        "exitCode": 0,
+        "jarSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b"
+      },
+      {
+        "version": "5.2.00",
+        "exitCode": 0,
+        "jarSha256": "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1"
+      },
+      {
+        "version": "5.2.01",
+        "exitCode": 0,
+        "jarSha256": "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac"
+      },
+      {
+        "version": "5.2.02",
+        "exitCode": 0,
+        "jarSha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff"
+      },
+      {
+        "version": "5.2.03",
+        "exitCode": 0,
+        "jarSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+      },
+      {
+        "version": "5.3.00",
+        "exitCode": 0,
+        "jarSha256": "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767"
+      },
+      {
+        "version": "5.3.01",
+        "exitCode": 0,
+        "jarSha256": "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4"
+      },
+      {
+        "version": "5.3.02",
+        "exitCode": 0,
+        "jarSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+      },
+      {
+        "version": "5.3.03",
+        "exitCode": 0,
+        "jarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166"
+      }
+    ]
+  },
+  "curve-cache": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/CurveCacheRuntimeProof.java": "664d29212292f7160d4f767e9a6e970de52c450f128e2a6520af0b19577787e9",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      },
+      {
+        "version": "5.0.00",
+        "exitCode": 0,
+        "jarSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd"
+      },
+      {
+        "version": "5.0.01",
+        "exitCode": 0,
+        "jarSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b"
+      },
+      {
+        "version": "5.0.02",
+        "exitCode": 0,
+        "jarSha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072"
+      },
+      {
+        "version": "5.0.03",
+        "exitCode": 0,
+        "jarSha256": "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66"
+      },
+      {
+        "version": "5.0.04",
+        "exitCode": 0,
+        "jarSha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758"
+      },
+      {
+        "version": "5.0.05",
+        "exitCode": 0,
+        "jarSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4"
+      },
+      {
+        "version": "5.0.06",
+        "exitCode": 0,
+        "jarSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2"
+      },
+      {
+        "version": "5.1.00",
+        "exitCode": 0,
+        "jarSha256": "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05"
+      },
+      {
+        "version": "5.1.01",
+        "exitCode": 0,
+        "jarSha256": "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02"
+      },
+      {
+        "version": "5.1.02",
+        "exitCode": 0,
+        "jarSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca"
+      },
+      {
+        "version": "5.1.03",
+        "exitCode": 0,
+        "jarSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b"
+      },
+      {
+        "version": "5.2.00",
+        "exitCode": 0,
+        "jarSha256": "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1"
+      },
+      {
+        "version": "5.2.01",
+        "exitCode": 0,
+        "jarSha256": "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac"
+      },
+      {
+        "version": "5.2.02",
+        "exitCode": 0,
+        "jarSha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff"
+      },
+      {
+        "version": "5.2.03",
+        "exitCode": 0,
+        "jarSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+      },
+      {
+        "version": "5.3.00",
+        "exitCode": 0,
+        "jarSha256": "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767"
+      },
+      {
+        "version": "5.3.01",
+        "exitCode": 0,
+        "jarSha256": "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4"
+      },
+      {
+        "version": "5.3.02",
+        "exitCode": 0,
+        "jarSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+      },
+      {
+        "version": "5.3.03",
+        "exitCode": 0,
+        "jarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166"
+      }
+    ]
+  },
+  "benchmark-repeat": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      }
+    ]
+  },
+  "benchmark-repeat-confirm": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      }
+    ]
+  },
+  "benchmark-dirty": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      }
+    ]
+  },
+  "benchmark-mixed": {
+    "sources": {
+      "validation/extended-interpolation-performance/RuntimeInterpolationProof.java": "2d19ea8646ca6f34ace6557a8f571aac3ff00b422788b0755ab760efaffa2afe",
+      "validation/extended-interpolation-performance/StructureRuntimeProof.java": "40267cdc0ccdd225aa37888605a6763c592c577c1e24f912f656b40506aee8f8",
+      "validation/extended-interpolation-performance/InterpolationProofAgent.java": "89463725a9c984d5fa5bfc3c647ef617e25aa00ac27176d7f8f7fcf2a04c94b9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ClassPinTable.java": "714d10322ce439dd35ca66524b3c10010d83457e3f3f2299ff329da12c6d2517",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge.java": "ac80299a06111782ebeafc15b1bb14cd3f01a7aa75bf4645d8abbc53de05ac5e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationPatch.java": "014553b2cb2f8762237c1d3d1236e8ef4c986c2e9c3f43de38396e9932d1bb44",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/EllipseWeights.java": "760ffff2821e68a60dac3eea2560c606cbd93676d08bc64b1624fe4e36956306",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/HostArtifactDigestCache.java": "0480bfb2749ccaef8c50f490ac723f8be115f07888dd830279b7cd9cf5e949ff",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/InterpolationCurveCache.java": "80bebbdfc5ef91eb0c8e0e82d5fa333aff8964adb887308da9529b15be28095d",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalFormState.java": "81965e093da1f684a6e339535375e7ceb849c2fe31a034b7a326dff36d598c42",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationCache.java": "b8c1afe5e8d3d1abacf727afc9fb6f56a4ed3611a417f4d6000f5912cda048b3",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/LocalInterpolationState.java": "5200d5f132819c6339664ccc728c40c10feac70246cd55121f8a1b78533a4f4e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java": "7962221fcd33979ab84a91378a519029a27ecd96a84d426a094fbbc049d11c56",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeFormLookupBridge.java": "a51104a774eed5ec9aed5950b8456c4b2f48e49cabc678eb8596630ac3b85b8e",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java": "2651edda673325f137862d299686703418db8819016f2fd8f43e64a04f0168d9",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeXmlStreamingBridge.java": "7c55d524ad14961a3a32ad4b8243a866b3f457777452b2a1049fffebc2172ccc",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/StructureLookupPatch.java": "775de34684cb24e2b316c2c1954023b112471ff3ae873359b3fe34ce7019349b",
+      "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/VerifiedMeshInterpolationInstaller.java": "26126ee6127a79f241d27973cddecfbcf27c703b7e4774ea238238aff9499e23",
+      "runtime/src/main/java/dev/turboism/mapping/verification/HostArtifactDigest.java": "3a3bfb0723357ccabdbf2e586cd2084e2eb1dffc1dbfd187fb0f66544d92e7d7",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "1fff76f0bd016dcc08a278901f7293c12c09ee55e78fb700d27d265f5403a52f",
+      "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java": "2c2d0ba9373a5942a6b3fbcab91376f40ec96824b3a99ff0e5fa4add6b33bb57",
+      "runtime/src/main/java/dev/turboism/core/runtime/work/FatalErrors.java": "bdbc100a459b13f894bce429b97174c98fc1bea77d1fcd66709cae731db333b4",
+      "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-interpolation.json": "4e540b2a0d81c3dfef43adee35af99ab97c630fff87e45a4887aca85c3f1cda3"
+    },
+    "runs": [
+      {
+        "version": "5.3.04",
+        "exitCode": 0,
+        "jarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d"
+      }
+    ]
+  },
+  "tests": {
+    "runtime": {
+      "tests": 111,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "files": 13
+    },
+    "bootstrap": {
+      "tests": 236,
+      "skipped": 27,
+      "failures": 0,
+      "errors": 0,
+      "files": 62
+    },
+    "bundleSha256": "52e0df22a51115c809caace6e72f5fe5d9043a5cf3aa422a716e8c8930499fc8",
+    "integration-tests": {
+      "tests": 1,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "premerge": {
+    "locales": [
+      "base/en",
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ],
+    "realResourceToggleTest": "PASS",
+    "installerLocalizationParity": "PASS",
+    "runtimeConfigAndInstallerRoundTrip": "PASS",
+    "actualJavaInstallerConfigMergeRegression": "PASS",
+    "windowsStaticScript": {
+      "result": "pre-existing failure",
+      "assertion": "CF2b BAT integration elevates only the selected helper operation",
+      "reason": "assertion requires -Wait; unchanged baseline helper explicitly polls WaitForExit",
+      "helperIdenticalToBaseline": true
+    },
+    "matrixVersions": 20
+  },
+  "benchmarks": [
+    {
+      "workload": "repeat",
+      "kind": "ArtMesh",
+      "curve": "ELLIPSE",
+      "priorMs": 1.0120331,
+      "localMs": 1.0617273,
+      "priorBytes": 22016.0,
+      "localBytes": 30144.0,
+      "ratio": 1.049103334663659
+    },
+    {
+      "workload": "repeat",
+      "kind": "ArtMesh",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.9413598000000001,
+      "localMs": 0.6128084,
+      "priorBytes": 22016.0,
+      "localBytes": 30144.0,
+      "ratio": 0.650982121819946
+    },
+    {
+      "workload": "repeat",
+      "kind": "Warp",
+      "curve": "ELLIPSE",
+      "priorMs": 0.9608266,
+      "localMs": 0.6189688000000001,
+      "priorBytes": 22016.0,
+      "localBytes": 30144.0,
+      "ratio": 0.6442044797677334
+    },
+    {
+      "workload": "repeat",
+      "kind": "Warp",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.982389,
+      "localMs": 0.5881947,
+      "priorBytes": 22016.0,
+      "localBytes": 30144.0,
+      "ratio": 0.5987390941877403
+    },
+    {
+      "workload": "repeat",
+      "kind": "Rotation",
+      "curve": "ELLIPSE",
+      "priorMs": 0.19010970000000002,
+      "localMs": 0.186472,
+      "priorBytes": 20592.0,
+      "localBytes": 19496.0,
+      "ratio": 0.9808652583219056
+    },
+    {
+      "workload": "repeat",
+      "kind": "Rotation",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.1590453,
+      "localMs": 0.1616922,
+      "priorBytes": 18848.0,
+      "localBytes": 20504.0,
+      "ratio": 1.016642428289299
+    },
+    {
+      "workload": "repeat-confirm",
+      "kind": "ArtMesh",
+      "curve": "ELLIPSE",
+      "priorMs": 1.0134536,
+      "localMs": 0.6244510999999999,
+      "priorBytes": 22016.0,
+      "localBytes": 30136.0,
+      "ratio": 0.6161615095155811
+    },
+    {
+      "workload": "repeat-confirm",
+      "kind": "ArtMesh",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.9961015,
+      "localMs": 0.5959066,
+      "priorBytes": 22016.0,
+      "localBytes": 30176.0,
+      "ratio": 0.5982388340947182
+    },
+    {
+      "workload": "repeat-confirm",
+      "kind": "Warp",
+      "curve": "ELLIPSE",
+      "priorMs": 1.0292855,
+      "localMs": 0.5875509,
+      "priorBytes": 22016.0,
+      "localBytes": 30176.0,
+      "ratio": 0.5708337482651801
+    },
+    {
+      "workload": "repeat-confirm",
+      "kind": "Warp",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.9236401,
+      "localMs": 0.6136799000000001,
+      "priorBytes": 22016.0,
+      "localBytes": 30176.0,
+      "ratio": 0.6644145268270618
+    },
+    {
+      "workload": "repeat-confirm",
+      "kind": "Rotation",
+      "curve": "ELLIPSE",
+      "priorMs": 0.31031770000000003,
+      "localMs": 0.1485698,
+      "priorBytes": 20592.0,
+      "localBytes": 19496.0,
+      "ratio": 0.4787667606456222
+    },
+    {
+      "workload": "repeat-confirm",
+      "kind": "Rotation",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.2118155,
+      "localMs": 0.1555097,
+      "priorBytes": 18848.0,
+      "localBytes": 20504.0,
+      "ratio": 0.7341752610172533
+    },
+    {
+      "workload": "dirty",
+      "kind": "ArtMesh",
+      "curve": "ELLIPSE",
+      "priorMs": 1.251672,
+      "localMs": 1.4277069,
+      "priorBytes": 33064.0,
+      "localBytes": 40912.0,
+      "ratio": 1.140639800203248
+    },
+    {
+      "workload": "dirty",
+      "kind": "ArtMesh",
+      "curve": "SNS_CURVE",
+      "priorMs": 2.32486,
+      "localMs": 2.2720189,
+      "priorBytes": 2273248.0,
+      "localBytes": 2281128.0,
+      "ratio": 0.9772712765499858
+    },
+    {
+      "workload": "dirty",
+      "kind": "Warp",
+      "curve": "ELLIPSE",
+      "priorMs": 1.2484523,
+      "localMs": 1.2592276,
+      "priorBytes": 32992.0,
+      "localBytes": 40872.0,
+      "ratio": 1.0086309264679156
+    },
+    {
+      "workload": "dirty",
+      "kind": "Warp",
+      "curve": "SNS_CURVE",
+      "priorMs": 2.5422613,
+      "localMs": 2.3307628,
+      "priorBytes": 2273208.0,
+      "localBytes": 2281056.0,
+      "ratio": 0.9168069387674666
+    },
+    {
+      "workload": "dirty",
+      "kind": "Rotation",
+      "curve": "ELLIPSE",
+      "priorMs": 0.2566219,
+      "localMs": 0.32636370000000003,
+      "priorBytes": 20616.0,
+      "localBytes": 24064.0,
+      "ratio": 1.27176869939783
+    },
+    {
+      "workload": "dirty",
+      "kind": "Rotation",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.0785656,
+      "localMs": 0.0776375,
+      "priorBytes": 18872.0,
+      "localBytes": 20528.0,
+      "ratio": 0.9881869418676875
+    },
+    {
+      "workload": "mixed",
+      "kind": "ArtMesh",
+      "curve": "ELLIPSE",
+      "priorMs": 1.8309258,
+      "localMs": 1.2486048,
+      "priorBytes": 102986.0,
+      "localBytes": 104956.0,
+      "ratio": 0.6819527039271608
+    },
+    {
+      "workload": "mixed",
+      "kind": "ArtMesh",
+      "curve": "SNS_CURVE",
+      "priorMs": 1.7199376000000002,
+      "localMs": 1.6697436,
+      "priorBytes": 1223094.0,
+      "localBytes": 1225063.0,
+      "ratio": 0.9708163831059917
+    },
+    {
+      "workload": "mixed",
+      "kind": "Warp",
+      "curve": "ELLIPSE",
+      "priorMs": 1.1821676,
+      "localMs": 1.1642123999999998,
+      "priorBytes": 102946.0,
+      "localBytes": 104915.0,
+      "ratio": 0.9848116290786516
+    },
+    {
+      "workload": "mixed",
+      "kind": "Warp",
+      "curve": "SNS_CURVE",
+      "priorMs": 1.7204148000000001,
+      "localMs": 1.6896818,
+      "priorBytes": 1223054.0,
+      "localBytes": 1225023.0,
+      "ratio": 0.9821362848075941
+    },
+    {
+      "workload": "mixed",
+      "kind": "Rotation",
+      "curve": "ELLIPSE",
+      "priorMs": 0.09905689999999999,
+      "localMs": 0.0980091,
+      "priorBytes": 20598.0,
+      "localBytes": 22757.0,
+      "ratio": 0.9894222411563456
+    },
+    {
+      "workload": "mixed",
+      "kind": "Rotation",
+      "curve": "SNS_CURVE",
+      "priorMs": 0.0798645,
+      "localMs": 0.0802248,
+      "priorBytes": 18854.0,
+      "localBytes": 20510.0,
+      "ratio": 1.0045113911687922
+    }
+  ],
+  "host": {
+    "p3-local-pass": {
+      "jobId": "2c582221-78c0-470b-9e7f-dd172e79f444",
+      "terminalState": "succeeded",
+      "cleanup": "safe",
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "normalExit": true,
+      "validationStatus": "PASS"
+    },
+    "p3-local-cold-pass": {
+      "jobId": "65079e23-4ef0-48af-9e59-3d15dac32eb2",
+      "terminalState": "succeeded",
+      "cleanup": "safe",
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "normalExit": true,
+      "validationStatus": "PASS"
+    }
+  }
+}
