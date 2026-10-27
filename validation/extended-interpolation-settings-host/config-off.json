@@ -1,0 +1,7 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "perf-cubism-extended-interpolation",
+  "locale": "en",
+  "launcher": {"meshInterpolation": false}
+}

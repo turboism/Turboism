@@ -2232,6 +2232,9 @@ if [ -n "$home_config" ]; then
   staged_config_sha="$(sha256_file "$home_dir/config.json")"
   [ -s "$home_dir/config.json" ] || fail "staged home config is empty"
   [ "$staged_config_sha" = "$(sha256_file "$home_config")" ] || fail "staged home config hash mismatch"
+  # Prepared inputs are immutable (0400); this isolated runtime copy is editable.
+  # Preserve the input snapshot while allowing Windows atomic config replacement.
+  chmod u+w -- "$home_dir/config.json"
 fi
 for spec in "${resolved_plugins[@]}"; do
   local_path="${spec%%:*}"

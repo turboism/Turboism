@@ -225,6 +225,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean meshInterpolation() {
+        return optimization("meshInterpolation");
+    }
+
+    @Override
+    public boolean saveMeshInterpolation(final boolean value) {
+        return saveOptimization("meshInterpolation", value);
+    }
+
+    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }

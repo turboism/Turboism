@@ -1,0 +1,202 @@
+Official JAR SHA256: c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d
+Command: javap -c -p -classpath /opt/dev/projects/turboism/cubism-ref/5.3.04/Live2D_Cubism.jar com.live2d.cubism.doc.model.ACForm
+  public final void setUpdated();
+    Code:
+       0: aload_0
+       1: getfield      #95                 // Field editVersion:I
+       4: istore_1
+       5: aload_0
+       6: iload_1
+       7: iconst_1
+       8: iadd
+       9: putfield      #95                 // Field editVersion:I
+      12: return
+
+Command: javap -c -p -classpath /opt/dev/projects/turboism/cubism-ref/5.3.04/Live2D_Cubism.jar com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef
+  public void moveToOnLocal(com.live2d.graphics3d.type.GVector2, float);
+    Code:
+       0: aload_1
+       1: ldc           #15                 // String
+       3: invokestatic  #93                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+       6: aload_0
+       7: getfield      #55                 // Field positions:[F
+      10: dup
+      11: invokestatic  #91                 // Method kotlin/jvm/internal/Intrinsics.checkNotNull:(Ljava/lang/Object;)V
+      14: astore_3
+      15: aload_3
+      16: aload_0
+      17: invokevirtual #67                 // Method a:()I
+      20: iconst_2
+      21: imul
+      22: aload_3
+      23: aload_0
+      24: invokevirtual #67                 // Method a:()I
+      27: iconst_2
+      28: imul
+      29: faload
+      30: fconst_1
+      31: fload_2
+      32: fsub
+      33: fmul
+      34: aload_1
+      35: invokevirtual #79                 // Method com/live2d/graphics3d/type/GVector2.getX:()F
+      38: fload_2
+      39: fmul
+      40: fadd
+      41: fastore
+      42: aload_3
+      43: aload_0
+      44: invokevirtual #67                 // Method a:()I
+      47: iconst_2
+      48: imul
+      49: iconst_1
+      50: iadd
+      51: aload_3
+      52: aload_0
+      53: invokevirtual #67                 // Method a:()I
+      56: iconst_2
+      57: imul
+      58: iconst_1
+      59: iadd
+      60: faload
+      61: fconst_1
+      62: fload_2
+      63: fsub
+      64: fmul
+      65: aload_1
+      66: invokevirtual #80                 // Method com/live2d/graphics3d/type/GVector2.getY:()F
+      69: fload_2
+      70: fmul
+      71: fadd
+      72: fastore
+      73: aload_0
+      74: invokevirtual #71                 // Method g:()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;
+      77: dup
+      78: ifnull        87
+      81: invokevirtual #63                 // Method com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm.setUpdated:()V
+      84: goto          88
+      87: pop
+      88: return
+
+Command: javap -c -p -classpath /opt/dev/projects/turboism/cubism-ref/5.3.04/Live2D_Cubism.jar com.live2d.cubism.doc.model.deformer.warp.WarpPointRef
+  public void moveToOnLocal(com.live2d.graphics3d.type.GVector2, float);
+    Code:
+       0: aload_1
+       1: ldc           #6                  // String
+       3: invokestatic  #71                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+       6: aload_0
+       7: getfield      #39                 // Field positions:[F
+      10: dup
+      11: invokestatic  #69                 // Method kotlin/jvm/internal/Intrinsics.checkNotNull:(Ljava/lang/Object;)V
+      14: astore_3
+      15: aload_3
+      16: aload_0
+      17: invokevirtual #47                 // Method a:()I
+      20: iconst_2
+      21: imul
+      22: aload_3
+      23: aload_0
+      24: invokevirtual #47                 // Method a:()I
+      27: iconst_2
+      28: imul
+      29: faload
+      30: fconst_1
+      31: fload_2
+      32: fsub
+      33: fmul
+      34: aload_1
+      35: invokevirtual #58                 // Method com/live2d/graphics3d/type/GVector2.getX:()F
+      38: fload_2
+      39: fmul
+      40: fadd
+      41: fastore
+      42: aload_3
+      43: aload_0
+      44: invokevirtual #47                 // Method a:()I
+      47: iconst_2
+      48: imul
+      49: iconst_1
+      50: iadd
+      51: aload_3
+      52: aload_0
+      53: invokevirtual #47                 // Method a:()I
+      56: iconst_2
+      57: imul
+      58: iconst_1
+      59: iadd
+      60: faload
+      61: fconst_1
+      62: fload_2
+      63: fsub
+      64: fmul
+      65: aload_1
+      66: invokevirtual #59                 // Method com/live2d/graphics3d/type/GVector2.getY:()F
+      69: fload_2
+      70: fmul
+      71: fadd
+      72: fastore
+      73: aload_0
+      74: invokevirtual #51                 // Method f:()Lcom/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm;
+      77: dup
+      78: ifnull        87
+      81: invokevirtual #45                 // Method com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm.setUpdated:()V
+      84: goto          88
+      87: pop
+      88: return
+
+Command: javap -c -p -classpath /opt/dev/projects/turboism/cubism-ref/5.3.04/Live2D_Cubism.jar com.live2d.cubism.doc.model.deformer.rotation.RotationDeformerPointRef
+  public void moveToOnLocal(com.live2d.graphics3d.type.GVector2, float);
+    Code:
+       0: aload_1
+       1: ldc           #4                  // String
+       3: invokestatic  #73                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+       6: aload_0
+       7: invokevirtual #55                 // Method d:()Lcom/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm;
+      10: dup
+      11: ifnonnull     44
+      14: pop
+      15: aload_0
+      16: checkcast     #17                 // class com/live2d/cubism/doc/model/deformer/rotation/RotationDeformerPointRef
+      19: astore        4
+      21: iconst_0
+      22: istore        5
+      24: getstatic     #41                 // Field com/live2d/util/log/a.a:Lcom/live2d/util/log/a;
+      27: getstatic     #33                 // Field b/c.a:Lb/c;
+      30: ldc           #5                  // String Key Formではない回転デフォーマは編集出来ません
+      32: invokevirtual #42                 // Method b/c.a:(Ljava/lang/String;)Ljava/lang/String;
+      35: iconst_0
+      36: aconst_null
+      37: bipush        6
+      39: aconst_null
+      40: invokestatic  #63                 // Method com/live2d/util/log/a.b:(Lcom/live2d/util/log/a;Ljava/lang/Object;ZLjava/lang/String;ILjava/lang/Object;)V
+      43: return
+      44: astore_3
+      45: aload_3
+      46: aload_3
+      47: invokevirtual #46                 // Method com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm.getOriginX:()F
+      50: fconst_1
+      51: fload_2
+      52: fsub
+      53: fmul
+      54: aload_1
+      55: invokevirtual #61                 // Method com/live2d/graphics3d/type/GVector2.getX:()F
+      58: fload_2
+      59: fmul
+      60: fadd
+      61: invokevirtual #48                 // Method com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm.setOriginX:(F)V
+      64: aload_3
+      65: aload_3
+      66: invokevirtual #47                 // Method com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm.getOriginY:()F
+      69: fconst_1
+      70: fload_2
+      71: fsub
+      72: fmul
+      73: aload_1
+      74: invokevirtual #62                 // Method com/live2d/graphics3d/type/GVector2.getY:()F
+      77: fload_2
+      78: fmul
+      79: fadd
+      80: invokevirtual #49                 // Method com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm.setOriginY:(F)V
+      83: aload_3
+      84: invokevirtual #50                 // Method com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm.setUpdated:()V
+      87: return
