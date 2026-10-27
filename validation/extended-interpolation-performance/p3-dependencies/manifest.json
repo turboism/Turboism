@@ -1,0 +1,13 @@
+{
+  "target": "5.3.04",
+  "scope": "3 synthetic Normal ELLIPSE cases; partial attributes; NOT notification equivalent; NOT Editor UI",
+  "exitCode": 0,
+  "officialJarSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+  "sha256": {
+    "src/dev/turboism/validation/p3/P3DependencyProbe.java": "37faac1306dc624429555b4fe9ccee9bdb5d64f904d4e419f6ce788af5144df1",
+    "run-p3-probe.py": "ca0a01d36c0595638fce97b9f8239c5f68faa7e8dd8aac28c6e913f74c2ba813",
+    "P3DependencyProbe.log": "d0c815232891ab6f64dcf8f51e2b00021a037053d82fa70edbdb09ab661de2d8",
+    "runner.log": "bddaaeaf0aa3148e468a8347b1dea99e8074632b13a7d8e3682d4e42ee25018a",
+    "bytecode-evidence.txt": "b2ae0307ffb703876985a2413e4b99ac4403f50d0b6711f5f0c0a3d6fb7767da"
+  }
+}

@@ -25,6 +25,12 @@ public final class NativeOptimizationDiagnostics {
             requested(option, new Choice(Boolean.parseBoolean(value.value()), value.source()));
         }
     }
+    /** Clears the launch snapshot and observed statuses for isolated test suites. */
+    public static synchronized void resetForTesting() {
+        startup = null;
+        STATUSES.clear();
+        OBSERVED.clear();
+    }
     /** Current launch snapshot; absent when bootstrap was not observed. */
     public static synchronized PerformanceSettingsConfig startup() {
         return startup;
@@ -51,7 +57,7 @@ public final class NativeOptimizationDiagnostics {
                         : new Status(choice, previous.state(), previous.reason()));
     }
 
-    /** Records an actual contributor result for the ten configurable native optimizations. */
+    /** Records an actual contributor result for the configurable native optimizations. */
     public static synchronized void installed(String protocol, String state, String reason) {
         final Option option =
                 switch (protocol) {
@@ -65,10 +71,14 @@ public final class NativeOptimizationDiagnostics {
                     case "TURBOISM_UPLOAD_ELISION" -> Option.UPLOAD_ELISION;
                     case "TURBOISM_INPUT_PATH" -> Option.INPUT_PATH_ELISION;
                     case "TURBOISM_DEFERRED_GL_ERROR_CHECK" -> Option.MESA_GL_THREAD;
+                    case "TURBOISM_MESH_INTERPOLATION" -> Option.MESH_INTERPOLATION;
                     default -> null;
                 };
         if (option == null) return;
         final Status previous = STATUSES.get(option);
+        if ("pending".equals(state) && previous != null && "installed".equals(previous.state())) {
+            return;
+        }
         STATUSES.put(
                 option,
                 new Status(

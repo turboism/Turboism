@@ -52,7 +52,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "uniformLocationCache",
             "uploadElision",
             "inputPathElision",
-            "mesaGlThread");
+            "mesaGlThread",
+            "meshInterpolation");
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Set<String> ALLOWED_MEMORY_PROFILES = Set.of("system", "balanced4g", "balanced4gFastSoft");
 
@@ -68,7 +69,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "uniformLocationCache",
             "uploadElision",
             "inputPathElision",
-            "mesaGlThread");
+            "mesaGlThread",
+            "meshInterpolation");
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);

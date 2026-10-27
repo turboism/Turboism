@@ -124,16 +124,54 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
     }
 
     static byte[] patch(byte[] bytes) {
-        ClassReader reader = new ClassReader(bytes);
+        ClassReader reader = new ClassReader(StructureLookupPatch.patch(bytes));
         if (!reader.getClassName().equals(OWNER)) throw new IllegalArgumentException("owner");
         ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
-        int[] matches = {0};
+        int[] matches = {0}, inspections = {0};
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
                     public MethodVisitor visitMethod(
                             int access, String name, String descriptor, String signature, String[] exceptions) {
                         MethodVisitor delegate = super.visitMethod(access, name, descriptor, signature, exceptions);
+                        if (name.equals("updateInterpolatedForms_exe") && descriptor.equals("(Z)Z")) {
+                            return new MethodVisitor(Opcodes.ASM9, delegate) {
+                                @Override
+                                public void visitMethodInsn(
+                                        int op, String owner, String method, String desc, boolean itf) {
+                                    if (op == Opcodes.INVOKEVIRTUAL
+                                            && owner.equals(OWNER)
+                                            && method.equals("getAllExtendedKeyforms")
+                                            && desc.equals("()Ljava/util/List;")) {
+                                        inspections[0]++;
+                                        // [extension] -> [normal, morph] -> [first nonempty bank].
+                                        // The next native firstOrNull sees exactly the same form.
+                                        visitInsn(Opcodes.DUP);
+                                        super.visitMethodInsn(
+                                                op,
+                                                owner,
+                                                "getNormalExtendedKeyforms",
+                                                "()Lcom/live2d/type/CArrayList;",
+                                                false);
+                                        visitInsn(Opcodes.SWAP);
+                                        super.visitMethodInsn(
+                                                op,
+                                                owner,
+                                                "getMorphTargetExtendedKeyforms",
+                                                "()Lcom/live2d/type/CArrayList;",
+                                                false);
+                                        super.visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                "dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge",
+                                                "firstInspectionBank",
+                                                "(Ljava/util/List;Ljava/util/List;)Ljava/util/List;",
+                                                false);
+                                        return;
+                                    }
+                                    super.visitMethodInsn(op, owner, method, desc, itf);
+                                }
+                            };
+                        }
                         if (!name.equals(METHOD) || !descriptor.equals(DESC)) return delegate;
                         if ((access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0)
                             throw new IllegalArgumentException("method access");
@@ -161,6 +199,7 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
                 },
                 0);
         if (matches[0] != 1) throw new IllegalArgumentException("method cardinality " + matches[0]);
+        if (inspections[0] != 1) throw new IllegalArgumentException("first inspection cardinality " + inspections[0]);
         return writer.toByteArray();
     }
 
