@@ -181,30 +181,25 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
                         Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
                         dev.turboism.preview.RecentPreviewDiagnostics::emit)::create,
-                slice -> dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL
-                        .resolverFactory()
-                        .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL.resolverFactory()),
                 VerifiedHostAdapterConnector::productionEditorAccess,
-                slice -> dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR
-                        .resolverFactory()
-                        .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
-                slice -> dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL
-                        .resolverFactory()
-                        .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
-                slice -> dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
-                        .resolverFactory()
-                        .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice,
+                        dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON.resolverFactory()),
                 editorUiPluginResources,
                 editorUiActionRouter,
                 embeddedPanelActivation,
-                slice -> dev.turboism.mapping.verification.SliceRegistry.TOP_MENU
-                        .resolverFactory()
-                        .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.TOP_MENU.resolverFactory()),
                 dockMaintenance,
                 VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
-                slice -> dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL
-                        .resolverFactory()
-                        .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector.productionCoreBackendFactory(),
                 Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
                 meshToolCoordinator,
@@ -1300,19 +1295,25 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
-    private record SliceKey(String reviewedRecord, String verifiedArtifact, ClassLoader hostClassLoader) {
+    private record SliceKey(
+            String reviewedRecord,
+            String verifiedArtifact,
+            ClassLoader hostClassLoader,
+            Optional<dev.turboism.mapping.verification.SliceContract> contract) {
         private static SliceKey from(final HostVerificationEvidence.Slice slice) {
             return new SliceKey(
                     ConnectionKey.normalizePath(slice.reviewedRecord()),
                     ConnectionKey.normalizePath(slice.verifiedArtifact()),
-                    slice.hostClassLoader());
+                    slice.hostClassLoader(),
+                    slice.contract());
         }
 
         private boolean matches(final SliceKey other) {
             return other != null
                     && reviewedRecord.equals(other.reviewedRecord)
                     && verifiedArtifact.equals(other.verifiedArtifact)
-                    && hostClassLoader == other.hostClassLoader;
+                    && hostClassLoader == other.hostClassLoader
+                    && contract.equals(other.contract);
         }
     }
 
