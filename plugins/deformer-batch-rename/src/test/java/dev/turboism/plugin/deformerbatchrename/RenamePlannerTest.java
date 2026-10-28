@@ -47,6 +47,15 @@ class RenamePlannerTest {
     }
 
     @Test
+    void fallsBackToParameterIdWhenBoundParameterIsMissingFromCatalog() {
+        var deformer = deformer(WarpDeformer.class, "d1", "旧变形", null, List.of("ParamAngleX", "ParamAngleY"));
+        var model = model(List.of(deformer), List.of(mesh("头发", "d1")), Map.of());
+        var rows = RenamePlanner.preview(model);
+        assertEquals(1, rows.size());
+        assertEquals("头发 ParamAngleXY", rows.get(0).target());
+    }
+
+    @Test
     void detectsHierarchyCycles() {
         var a = deformer(WarpDeformer.class, "a", "a", "b", List.of());
         var b = deformer(WarpDeformer.class, "b", "b", "a", List.of());
@@ -132,7 +141,12 @@ class RenamePlannerTest {
                                 .map(RotationDeformer.class::cast)
                                 .toList());
             case "drawables" -> stub(Drawables.class, (m, a) -> meshes);
-            case "parameters" -> stub(Parameters.class, (m, a) -> parameters.get(((ParameterId) a[0]).value()));
+            case "parameters" ->
+                stub(Parameters.class, (m, a) -> {
+                    Parameter p = parameters.get(((ParameterId) a[0]).value());
+                    if (p == null) throw new NoSuchElementException(((ParameterId) a[0]).value());
+                    return p;
+                });
             default -> throw new AssertionError(method);
         });
     }

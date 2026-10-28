@@ -310,10 +310,10 @@ if ($ProbeAgent) {
 }
 
 function Read-PreviewZgcPreference {
-    param([string]$Home)
+    param([string]$TurboismHome)
     # Matches the managed launcher's default-on semantics: absent
     # config/field means enabled; only an explicit false opts out.
-    $config = Join-Path $Home "config.json"
+    $config = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
         return $true
     }
@@ -341,12 +341,12 @@ function Read-PreviewZgcPreference {
 }
 
 function Read-PreviewMemoryProfile {
-    param([string]$Home)
+    param([string]$TurboismHome)
     # Matches the managed launcher's fail-closed semantics: absent
     # config/field means "system" (this launcher's own -XX:MaxRAMPercentage=100
     # stays the only heap sizing, same as the official BAT). A malformed value
     # warns and falls back to system instead of aborting the launch.
-    $config = Join-Path $Home "config.json"
+    $config = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
         return "system"
     }
@@ -403,7 +403,7 @@ foreach ($name in @("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")) {
         $externalHeapLimit = $true
     }
 }
-switch (Read-PreviewMemoryProfile -Home $previewRoot) {
+switch (Read-PreviewMemoryProfile -TurboismHome $previewRoot) {
     "balanced4g" {
         if ($externalHeapLimit) { $javaArgs += "-XX:MaxRAMPercentage=100" }
         else { $javaArgs += "-Xmx4g" }
@@ -415,7 +415,7 @@ switch (Read-PreviewMemoryProfile -Home $previewRoot) {
     }
     default { $javaArgs += "-XX:MaxRAMPercentage=100" }
 }
-if (Read-PreviewZgcPreference -Home $previewRoot) {
+if (Read-PreviewZgcPreference -TurboismHome $previewRoot) {
     $javaArgs += "-XX:+UseZGC"
 }
 if (-not [string]::IsNullOrWhiteSpace($graalHostJava)) {
