@@ -342,6 +342,17 @@ final class WarpAltMirrorReviewedArtifactsTest {
             var gesture = stateType.getDeclaredField("vertexGesture");
             gesture.setAccessible(true);
             gesture.setBoolean(state, true);
+            var movement = stateType.getDeclaredField("movement");
+            movement.setAccessible(true);
+            movement.set(state, new NativeWarpPointGesture.Gesture(new Object(), -1, 0));
+            Class<?> pairingType = Class.forName(NativeArtMeshSymmetryBridge.class.getName() + "$Pairing");
+            var pairingCtor = pairingType.getDeclaredConstructor(int[].class);
+            pairingCtor.setAccessible(true);
+            var pairs = stateType.getDeclaredField("pairs");
+            pairs.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            var pairMap = (Map<float[], Object>) pairs.get(state);
+            pairMap.put(positions, pairingCtor.newInstance((Object) new int[] {1, 0, -1}));
             var current = NativeArtMeshSymmetryBridge.class.getDeclaredField("CURRENT");
             current.setAccessible(true);
             @SuppressWarnings("unchecked")
