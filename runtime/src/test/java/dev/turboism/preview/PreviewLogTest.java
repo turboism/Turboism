@@ -137,11 +137,17 @@ class PreviewLogTest {
                 (level, component, message, failure) -> {})) {
             for (int index = 0; index <= 5_000; index++) {
                 log.info("probe", Integer.toString(index));
+                // Exercise ring eviction without queue-overflow summaries adding extra lines.
+                if (index % 128 == 127) {
+                    log.drain();
+                }
             }
+            log.drain();
 
-            assertEquals(5_000, log.snapshot().lines().size());
-            assertTrue(log.snapshot().lines().get(0).endsWith(" 1"));
-            assertTrue(log.snapshot().lines().get(4_999).endsWith(" 5000"));
+            final List<String> lines = log.snapshot().lines();
+            assertEquals(5_000, lines.size());
+            assertTrue(lines.get(0).endsWith(" 1"));
+            assertTrue(lines.get(4_999).endsWith(" 5000"));
         }
     }
 
