@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
@@ -302,12 +303,19 @@ final class PluginGenerationGuard {
             return Collections.unmodifiableMap(unwrapped);
         }
         if (value.getClass().isArray()) {
+            final Class<?> componentClass = value.getClass().getComponentType();
             final int length = Array.getLength(value);
-            final Object copy = Array.newInstance(value.getClass().getComponentType(), length);
-            for (int index = 0; index < length; index++) {
-                Array.set(copy, index, unwrapValue(Array.get(value, index)));
+            final Object copy = Array.newInstance(componentClass, length);
+            if (componentClass.isPrimitive()) {
+                System.arraycopy(value, 0, copy, 0, length);
+                return copy;
             }
-            return copy;
+            final Object[] source = (Object[]) value;
+            final Object[] target = (Object[]) copy;
+            for (int index = 0; index < length; index++) {
+                target[index] = unwrapValue(source[index]);
+            }
+            return target;
         }
         return value;
     }
@@ -315,10 +323,16 @@ final class PluginGenerationGuard {
     private Object mapArray(final Object value, final Class<?> componentClass, final Type componentType) {
         final int length = Array.getLength(value);
         final Object mapped = Array.newInstance(componentClass, length);
-        for (int index = 0; index < length; index++) {
-            Array.set(mapped, index, wrapValue(Array.get(value, index), componentType));
+        if (componentClass.isPrimitive()) {
+            System.arraycopy(value, 0, mapped, 0, length);
+            return mapped;
         }
-        return mapped;
+        final Object[] source = (Object[]) value;
+        final Object[] target = (Object[]) mapped;
+        for (int index = 0; index < length; index++) {
+            target[index] = wrapValue(source[index], componentType);
+        }
+        return target;
     }
 
     private static boolean isGatableSdkInterface(final Class<?> type) {
@@ -381,12 +395,28 @@ final class PluginGenerationGuard {
             }
             try {
                 final Object result = method.invoke(delegate, unwrapArguments(arguments));
-                return wrapValue(result, method.getGenericReturnType());
+                return wrapInvocationResult(method, arguments, result);
             } catch (InvocationTargetException failure) {
                 throw failure.getCause();
             } finally {
                 exit();
             }
+        }
+
+        private Object wrapInvocationResult(final Method method, final Object[] arguments, final Object result) {
+            if ((PluginServiceDirectory.class.isAssignableFrom(sdkInterface)
+                            || PluginServiceDirectory.class.isAssignableFrom(method.getDeclaringClass()))
+                    && arguments != null
+                    && arguments.length == 1
+                    && arguments[0] instanceof Class<?> serviceType) {
+                if ("find".equals(method.getName()) && result instanceof Optional<?> optional) {
+                    return optional.map(service -> wrapInterface(service, serviceType));
+                }
+                if ("require".equals(method.getName())) {
+                    return wrapInterface(result, serviceType);
+                }
+            }
+            return wrapValue(result, method.getGenericReturnType());
         }
     }
 }

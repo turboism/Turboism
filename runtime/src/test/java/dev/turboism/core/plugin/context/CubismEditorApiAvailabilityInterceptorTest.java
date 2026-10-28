@@ -1,14 +1,17 @@
 package dev.turboism.core.plugin.context;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.test.concurrent.Await;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
@@ -883,6 +886,143 @@ class CubismEditorApiAvailabilityInterceptorTest {
         version.set(Optional.of("5.3.02"));
         proxy.shared();
         proxy.narrow();
+    }
+
+    @Test
+    void serviceDirectoryRequireAndFindWrapServicesForAvailabilityEnforcement() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.01"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final ExactOnlyService service = new ExactOnlyServiceImpl();
+        final PluginServiceDirectory directory = new PluginServiceDirectory() {
+            @Override
+            public java.util.Set<dev.turboism.sdk.plugin.PluginService> installed() {
+                return java.util.Set.of();
+            }
+
+            @Override
+            public <T> Optional<T> find(final Class<T> serviceType) {
+                if (serviceType == ExactOnlyService.class) {
+                    return Optional.of(serviceType.cast(service));
+                }
+                return Optional.empty();
+            }
+        };
+        final PluginServiceDirectory guardedDirectory =
+                interceptor.wrapForTesting(directory, PluginServiceDirectory.class);
+
+        final ExactOnlyService viaRequire = guardedDirectory.require(ExactOnlyService.class);
+        final ExactOnlyService viaFind =
+                guardedDirectory.find(ExactOnlyService.class).orElseThrow();
+
+        assertNotSame(service, viaRequire);
+        assertNotSame(service, viaFind);
+        assertSame(viaRequire, viaFind);
+
+        // On 5.3.01, ExactOnlyService requires 5.3.02 so it throws
+        assertThrows(CubismEditorApiUnavailableException.class, viaRequire::exact);
+        assertThrows(CubismEditorApiUnavailableException.class, viaFind::exact);
+
+        // On 5.3.02, it succeeds
+        version.set(Optional.of("5.3.02"));
+        assertDoesNotThrow(viaRequire::exact);
+        assertDoesNotThrow(viaFind::exact);
+    }
+
+    @Test
+    void primitiveArrayInputAndOutputPreserveDefensiveCopyAndHandleMultiDimensional() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final ArrayService service = new ArrayServiceImpl();
+        final ArrayService proxy = interceptor.wrapForTesting(service, ArrayService.class);
+
+        // 1D primitive array
+        final byte[] inputBytes = new byte[] {1, 2, 3};
+        final byte[] outputBytes = proxy.transferBytes(inputBytes);
+        assertNotSame(inputBytes, outputBytes);
+        assertNotSame(inputBytes, ((ArrayServiceImpl) service).receivedBytes);
+        assertArrayEquals(new byte[] {1, 2, 3}, outputBytes);
+
+        inputBytes[0] = 99;
+        assertEquals(1, outputBytes[0]);
+        assertEquals(1, ((ArrayServiceImpl) service).receivedBytes[0]);
+
+        // 2D primitive array with null
+        final byte[][] inputMatrix = new byte[][] {{1, 2}, null, {3, 4}};
+        final byte[][] outputMatrix = proxy.transferMatrix(inputMatrix);
+        assertNotSame(inputMatrix, outputMatrix);
+        assertNotSame(inputMatrix, ((ArrayServiceImpl) service).receivedMatrix);
+        assertNotSame(inputMatrix[0], outputMatrix[0]);
+        assertNull(outputMatrix[1]);
+        assertNotSame(inputMatrix[2], outputMatrix[2]);
+        assertArrayEquals(new byte[] {1, 2}, outputMatrix[0]);
+        assertArrayEquals(new byte[] {3, 4}, outputMatrix[2]);
+
+        inputMatrix[0][0] = 88;
+        assertEquals(1, outputMatrix[0][0]);
+        assertEquals(1, ((ArrayServiceImpl) service).receivedMatrix[0][0]);
+    }
+
+    @Test
+    void objectArrayInputUnwrapsAndOutputProxiesElements() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.01"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final ArrayService service = new ArrayServiceImpl();
+        final ArrayService proxy = interceptor.wrapForTesting(service, ArrayService.class);
+
+        final ExactOnlyService child1 = new ExactOnlyServiceImpl();
+        final ExactOnlyService guardedChild1 = interceptor.wrapForTesting(child1, ExactOnlyService.class);
+        final ExactOnlyService[] input = new ExactOnlyService[] {guardedChild1, null};
+
+        final ExactOnlyService[] output = proxy.transferServices(input);
+        assertNotSame(input, output);
+        assertSame(child1, ((ArrayServiceImpl) service).receivedServices[0], "proxy should be unwrapped for delegate");
+        assertNull(((ArrayServiceImpl) service).receivedServices[1]);
+
+        assertTrue(Proxy.isProxyClass(output[0].getClass()));
+        assertNull(output[1]);
+
+        // On 5.3.01, ExactOnlyService is unavailable
+        assertThrows(CubismEditorApiUnavailableException.class, output[0]::exact);
+
+        // On 5.3.02, ExactOnlyService is permitted
+        version.set(Optional.of("5.3.02"));
+        assertDoesNotThrow(output[0]::exact);
+    }
+
+    @CubismEditor
+    interface ArrayService {
+        byte[] transferBytes(byte[] input);
+
+        byte[][] transferMatrix(byte[][] input);
+
+        ExactOnlyService[] transferServices(ExactOnlyService[] input);
+    }
+
+    static final class ArrayServiceImpl implements ArrayService {
+        byte[] receivedBytes;
+        byte[][] receivedMatrix;
+        ExactOnlyService[] receivedServices;
+
+        @Override
+        public byte[] transferBytes(final byte[] input) {
+            this.receivedBytes = input;
+            return input;
+        }
+
+        @Override
+        public byte[][] transferMatrix(final byte[][] input) {
+            this.receivedMatrix = input;
+            return input;
+        }
+
+        @Override
+        public ExactOnlyService[] transferServices(final ExactOnlyService[] input) {
+            this.receivedServices = input;
+            return input;
+        }
     }
 
     @CubismEditor("5.3.02")
