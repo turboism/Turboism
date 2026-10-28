@@ -68,13 +68,13 @@ final class LocalPluginRuntimeLoadScenario {
         final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
         try {
             assertLoadReport(runtime);
-            assertRuntimeLog(home);
         } finally {
             runtime.close();
             hostIngress.close();
             scheduler.shutdown();
             log.close();
         }
+        assertRuntimeLog(home);
     }
 
     private static void assertLoadReport(final LocalPluginRuntime runtime) {

@@ -1,14 +1,16 @@
 package dev.turboism.preview;
 
-import dev.turboism.mapping.verification.VerifiedAccessException;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.time.Clock;
@@ -21,23 +23,38 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-/** Small preview-owned logger that writes to a framework sink and relocatable session files. */
+/**
+ * Small preview-owned logger that writes to a framework sink and relocatable session files.
+ *
+ * <p>The constructor synchronously ensures directory existence and opens the active session file.
+ * Subsequent file writes, log rotation, secondary sink dispatch, and directory maintenance are
+ * performed asynchronously on a single background worker thread, while the in-memory recent lines
+ * ring buffer remains immediately visible and bounded on calling threads.</p>
+ */
 public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     private static final int RECENT_LINE_LIMIT = 5_000;
+    private static final long RECENT_BYTES_LIMIT = 2 * 1024 * 1024L;
     private static final int PRUNE_INTERVAL_WRITES = 256;
 
-    /** Stack frames written per throwable in a cause chain, bounded so a log cannot run away. */
-    private static final int MAX_LOGGED_FRAMES = 24;
+    private static final int MAX_QUEUE_ENTRIES = 2_048;
+    private static final long MAX_QUEUE_BYTES = 2 * 1024 * 1024L;
+    private static final long CLOSE_DRAIN_TIMEOUT_MS = 2_000L;
+
+    private static final long DEFAULT_MAX_SEGMENT_BYTES = 10 * 1024 * 1024L;
+    private static final long MIN_SEGMENT_BYTES = 128 * 1024L;
 
     private static final DateTimeFormatter SESSION_DATE =
             DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC);
     private static final DateTimeFormatter SESSION_TIME =
             DateTimeFormatter.ofPattern("HH-mm-ss.SSS").withZone(ZoneOffset.UTC);
 
-    enum Level {
+    /** Severity levels supported by the preview logging subsystem. */
+    public enum Level {
         TRACE,
         DEBUG,
         INFO,
@@ -46,8 +63,9 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         FATAL
     }
 
+    /** Destination sink for structured log records dispatched by the preview logger. */
     @FunctionalInterface
-    interface Sink {
+    public interface Sink {
         Sink NONE = (level, component, message, failure) -> {};
         Sink STDERR = (level, component, message, failure) ->
                 System.err.println("[" + level + "][" + component + "] " + message);
@@ -55,18 +73,56 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         /** Writes one structured record to an optional secondary sink. */
         void write(Level level, String component, String message, Throwable failure);
 
+        /** Closes this sink and releases any underlying resources. */
         default void close() {}
     }
 
+    @FunctionalInterface
+    interface FileMover {
+        void move(Path source, Path target, CopyOption... options) throws IOException;
+    }
+
     private final Clock clock;
-    private final BufferedWriter writer;
-    private final Sink sink;
     private final Path logDirectory;
-    private final Path logFile;
+    private final Path baseLogFile;
+    private final Sink sink;
+
+    // Snapshot state: immediately visible on calling threads
+    private final Object snapshotLock = new Object();
     private final ArrayDeque<String> recentLines = new ArrayDeque<>(RECENT_LINE_LIMIT);
+    private long recentLinesBytes = 0L;
+    private volatile Path currentActiveFile;
+
     private volatile Level minimumLevel = Level.INFO;
-    private long maxStorageBytes = RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB * 1024L * 1024L;
+
+    // Admission lock guarding queue state, sequence numbers, and storage budget settings
+    private final Object admissionLock = new Object();
+    private final ArrayDeque<QueueEntry> recordQueue = new ArrayDeque<>();
+    private long queueBytes = 0L;
+    private long lastEnqueuedEntrySeq = 0L;
+    private long flushedSeq = 0L;
+    private long pendingPruneSeq = 0L;
+    private long completedPruneSeq = 0L;
+    private boolean closed = false;
+    private int droppedCount = 0;
+
+    private volatile long maxStorageBytes = RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB * 1024L * 1024L;
+    private volatile long maxSegmentBytes = Math.min(
+            DEFAULT_MAX_SEGMENT_BYTES,
+            Math.max(MIN_SEGMENT_BYTES, RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB * 1024L * 1024L / 4));
+
+    // Sink loopback prevention
+    private final ThreadLocal<Boolean> inSink = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    private final CountDownLatch workerTerminated = new CountDownLatch(1);
+    private final Thread workerThread;
+
+    // Resources owned exclusively by the background worker thread:
+    private BufferedWriter writer;
+    private long currentSegmentBytes = 0L;
     private int writesUntilPrune = PRUNE_INTERVAL_WRITES;
+    private int segmentSequence = 1;
+    private FileMover fileMover = Files::move;
 
     public PreviewLog(final Path logFile) throws IOException {
         this(logFile, Clock.systemUTC(), Sink.STDERR);
@@ -85,20 +141,27 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         this.logDirectory = Objects.requireNonNull(logDirectory, "logDirectory")
                 .toAbsolutePath()
                 .normalize();
-        this.logFile =
+        this.baseLogFile =
                 Objects.requireNonNull(logFile, "logFile").toAbsolutePath().normalize();
-        if (!this.logFile.startsWith(this.logDirectory)) {
+        if (!this.baseLogFile.startsWith(this.logDirectory)) {
             throw new IllegalArgumentException("log file escapes log directory");
         }
         this.clock = Objects.requireNonNull(clock, "clock");
         this.sink = Objects.requireNonNull(sink, "sink");
-        Files.createDirectories(this.logFile.getParent());
-        writer = Files.newBufferedWriter(
-                this.logFile,
+
+        Files.createDirectories(this.baseLogFile.getParent());
+        this.currentActiveFile = this.baseLogFile;
+        this.currentSegmentBytes = Files.exists(this.baseLogFile) ? Files.size(this.baseLogFile) : 0L;
+        this.writer = Files.newBufferedWriter(
+                this.baseLogFile,
                 StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND,
                 StandardOpenOption.WRITE);
+
+        this.workerThread = new Thread(this::runWorkerLoop, "Turboism-PreviewLog-Writer");
+        this.workerThread.setDaemon(true);
+        this.workerThread.start();
     }
 
     static PreviewLog openSession(
@@ -116,6 +179,10 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         return new PreviewLog(directory, file, clock, sink);
     }
 
+    void setFileMoverForTesting(final FileMover fileMover) {
+        this.fileMover = Objects.requireNonNull(fileMover, "fileMover");
+    }
+
     /**
      * Raises or lowers the threshold below which messages are dropped. Takes effect immediately
      * for all threads; the field is volatile and this call needs no lock.
@@ -129,25 +196,33 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
     }
 
     /**
-     * Sets the total budget for retained session log files and immediately prunes older sessions
-     * down to it. The current session's file is never what the budget forces away first — pruning
-     * works from the oldest sessions.
+     * Sets the total budget for retained session log files and schedules an asynchronous prune.
+     * The current session's file is never what the budget forces away first — pruning works
+     * from the oldest sessions and completed segments.
      *
      * @param value budget in MiB, within {@code RuntimeSettings}' supported min/max
      * @throws IllegalArgumentException if {@code value} is outside the supported range; the budget
      *     is left unchanged and nothing is pruned
      */
-    public synchronized void setMaxStorageMiB(final int value) {
+    public void setMaxStorageMiB(final int value) {
         if (value < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB || value > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
             throw new IllegalArgumentException("unsupported maxLogStorageMiB: " + value);
         }
-        maxStorageBytes = value * 1024L * 1024L;
-        pruneOldSessions();
+        synchronized (admissionLock) {
+            this.maxStorageBytes = value * 1024L * 1024L;
+            this.maxSegmentBytes =
+                    Math.min(DEFAULT_MAX_SEGMENT_BYTES, Math.max(MIN_SEGMENT_BYTES, this.maxStorageBytes / 4));
+            this.pendingPruneSeq++;
+            admissionLock.notifyAll();
+        }
     }
 
     @Override
-    public synchronized RuntimeLogReader.Snapshot snapshot() {
-        return new RuntimeLogReader.Snapshot(Optional.of(logDirectory), Optional.of(logFile), List.copyOf(recentLines));
+    public RuntimeLogReader.Snapshot snapshot() {
+        synchronized (snapshotLock) {
+            return new RuntimeLogReader.Snapshot(
+                    Optional.of(logDirectory), Optional.of(currentActiveFile), List.copyOf(recentLines));
+        }
     }
 
     /**
@@ -219,111 +294,385 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     /** Publishes one intentional multiline startup record without console duplication. */
     synchronized void banner(final String message) {
-        final String safeMessage = safeMultiline(message);
-        try {
-            sink.write(Level.INFO, "startup", safeMessage, null);
-        } catch (RuntimeException exception) {
-            System.err.println("Turboism host log write failed safely");
+        final String safeMessage =
+                PreviewLogFormatter.safeMultiline(message, PreviewLogFormatter.MAX_MESSAGE_CHARS * 4);
+        final String[] lines = safeMessage.split("\\n", -1);
+        final List<String> lineList = List.of(lines);
+        long linesBytes = 0L;
+        for (String line : lineList) {
+            remember(line);
+            linesBytes += line.length() * 2L + 32L;
         }
-        try {
-            for (String line : safeMessage.split("\\n", -1)) {
-                remember(line);
-                writer.write(line);
-                writer.newLine();
+        final long entryBytes = safeMessage.length() * 2L + linesBytes + 128L;
+        enqueue(new QueueEntry(0L, Level.INFO, "startup", safeMessage, null, null, lineList, true, false, entryBytes));
+    }
+
+    private void write(final Level level, final String component, final String message, final Throwable failure) {
+        if (level.ordinal() < minimumLevel.ordinal()) return;
+        final String safeComponent = PreviewLogFormatter.safe(component, PreviewLogFormatter.MAX_COMPONENT_CHARS);
+        final String safeMessage = PreviewLogFormatter.safe(message, PreviewLogFormatter.MAX_MESSAGE_CHARS);
+        final String line = Instant.now(clock) + " [" + level + "] [" + safeComponent + "] " + safeMessage;
+
+        final PreviewLogFormatter.FailureSnapshot snapshot = PreviewLogFormatter.capture(failure);
+
+        remember(line);
+        for (String fLine : snapshot.formattedLines()) {
+            remember(fLine);
+        }
+
+        final boolean skipSink = inSink.get();
+        final long entryBytes = line.length() * 2L
+                + safeComponent.length() * 2L
+                + safeMessage.length() * 2L
+                + snapshot.estimatedMemoryBytes()
+                + 128L;
+
+        enqueue(new QueueEntry(
+                0L,
+                level,
+                safeComponent,
+                safeMessage,
+                snapshot.cleanThrowable(),
+                line,
+                snapshot.formattedLines(),
+                false,
+                skipSink,
+                entryBytes));
+    }
+
+    private void enqueue(final QueueEntry entry) {
+        synchronized (admissionLock) {
+            if (closed) {
+                return;
             }
-            writer.flush();
-        } catch (IOException exception) {
-            System.err.println("Turboism runtime log write failed safely");
+            final long entryBytes = entry.estimatedBytes();
+            final Level level = entry.level();
+
+            if (recordQueue.size() >= MAX_QUEUE_ENTRIES || queueBytes + entryBytes > MAX_QUEUE_BYTES) {
+                if (level.ordinal() <= Level.WARN.ordinal()) {
+                    droppedCount++;
+                    return;
+                }
+                while (!recordQueue.isEmpty()
+                        && (recordQueue.size() >= MAX_QUEUE_ENTRIES || queueBytes + entryBytes > MAX_QUEUE_BYTES)) {
+                    final QueueEntry head = recordQueue.peekFirst();
+                    if (head != null && head.level().ordinal() <= Level.WARN.ordinal()) {
+                        recordQueue.removeFirst();
+                        queueBytes -= head.estimatedBytes();
+                        droppedCount++;
+                    } else {
+                        break;
+                    }
+                }
+                if (recordQueue.size() >= MAX_QUEUE_ENTRIES || queueBytes + entryBytes > MAX_QUEUE_BYTES) {
+                    droppedCount++;
+                    return;
+                }
+            }
+
+            final long seq = ++lastEnqueuedEntrySeq;
+            recordQueue.addLast(entry.withSequence(seq));
+            queueBytes += entryBytes;
+            admissionLock.notifyAll();
         }
     }
 
-    private synchronized void write(
-            final Level level, final String component, final String message, final Throwable failure) {
-        if (level.ordinal() < minimumLevel.ordinal()) return;
-        final String safeComponent = safe(component);
-        final String safeMessage = safe(message);
-        final String line = Instant.now(clock) + " [" + level + "] [" + safeComponent + "] " + safeMessage;
-        remember(line);
+    private void remember(final String line) {
+        final long lineBytes = line == null ? 0L : (line.length() * 2L + 40L);
+        synchronized (snapshotLock) {
+            while (!recentLines.isEmpty()
+                    && (recentLines.size() >= RECENT_LINE_LIMIT || recentLinesBytes + lineBytes > RECENT_BYTES_LIMIT)) {
+                final String removed = recentLines.removeFirst();
+                recentLinesBytes -= (removed.length() * 2L + 40L);
+            }
+            recentLines.addLast(line);
+            recentLinesBytes += lineBytes;
+        }
+    }
+
+    private void runWorkerLoop() {
         try {
-            sink.write(level, safeComponent, safeMessage, failure);
-        } catch (RuntimeException exception) {
+            if (currentSegmentBytes >= maxSegmentBytes) {
+                rotateSegment();
+            }
+
+            while (true) {
+                final List<QueueEntry> batch = new ArrayList<>(128);
+                boolean shouldPrune = false;
+                long targetPruneSeq = 0L;
+                int droppedToReport = 0;
+
+                synchronized (admissionLock) {
+                    while (recordQueue.isEmpty() && pendingPruneSeq <= completedPruneSeq && !closed) {
+                        admissionLock.wait(100);
+                    }
+
+                    while (!recordQueue.isEmpty() && batch.size() < 128) {
+                        final QueueEntry entry = recordQueue.removeFirst();
+                        queueBytes -= entry.estimatedBytes();
+                        batch.add(entry);
+                    }
+
+                    if (pendingPruneSeq > completedPruneSeq) {
+                        shouldPrune = true;
+                        targetPruneSeq = pendingPruneSeq;
+                    }
+
+                    if (droppedCount > 0) {
+                        droppedToReport = droppedCount;
+                        droppedCount = 0;
+                    }
+
+                    if (batch.isEmpty() && !shouldPrune && droppedToReport == 0 && closed) {
+                        break;
+                    }
+                }
+
+                if (droppedToReport > 0) {
+                    emitDroppedSummary(droppedToReport);
+                }
+
+                boolean wroteLines = false;
+                if (!batch.isEmpty()) {
+                    wroteLines = processBatch(batch);
+                }
+
+                if (shouldPrune && currentSegmentBytes >= maxSegmentBytes) {
+                    rotateSegment();
+                }
+
+                flushWriter();
+
+                if (shouldPrune || (wroteLines && --writesUntilPrune <= 0)) {
+                    writesUntilPrune = PRUNE_INTERVAL_WRITES;
+                    pruneOldSessions();
+                }
+
+                final long batchMaxSeq = batch.isEmpty()
+                        ? flushedSeq
+                        : batch.get(batch.size() - 1).sequence();
+
+                synchronized (admissionLock) {
+                    if (batchMaxSeq > flushedSeq) {
+                        flushedSeq = batchMaxSeq;
+                    }
+                    if (shouldPrune && targetPruneSeq > completedPruneSeq) {
+                        completedPruneSeq = targetPruneSeq;
+                    }
+                    admissionLock.notifyAll();
+                }
+            }
+
+            drainRemainingOnShutdown();
+        } catch (Throwable t) {
+            FatalErrors.rethrowIfFatal(t);
+            System.err.println("Turboism preview log worker terminated unexpectedly: " + t.getMessage());
+        } finally {
+            try {
+                closeResources();
+            } finally {
+                workerTerminated.countDown();
+            }
+        }
+    }
+
+    private void drainRemainingOnShutdown() {
+        final List<QueueEntry> remaining = new ArrayList<>();
+        int droppedToReport = 0;
+        long remainingMaxSeq = 0L;
+        long targetPruneSeq = 0L;
+
+        synchronized (admissionLock) {
+            while (!recordQueue.isEmpty()) {
+                final QueueEntry entry = recordQueue.removeFirst();
+                queueBytes -= entry.estimatedBytes();
+                remaining.add(entry);
+                remainingMaxSeq = entry.sequence();
+            }
+            droppedToReport = droppedCount;
+            droppedCount = 0;
+            targetPruneSeq = pendingPruneSeq;
+        }
+
+        if (droppedToReport > 0) {
+            emitDroppedSummary(droppedToReport);
+        }
+        if (!remaining.isEmpty()) {
+            processBatch(remaining);
+        }
+
+        if (currentSegmentBytes >= maxSegmentBytes) {
+            rotateSegment();
+        }
+        flushWriter();
+        pruneOldSessions();
+
+        synchronized (admissionLock) {
+            if (remainingMaxSeq > flushedSeq) {
+                flushedSeq = remainingMaxSeq;
+            }
+            if (targetPruneSeq > completedPruneSeq) {
+                completedPruneSeq = targetPruneSeq;
+            }
+            admissionLock.notifyAll();
+        }
+    }
+
+    private boolean processBatch(final List<QueueEntry> batch) {
+        boolean wroteLines = false;
+        for (QueueEntry entry : batch) {
+            if (entry.isBanner()) {
+                deliverToSink(Level.INFO, "startup", entry.message(), null);
+                for (String line : entry.failureLines()) {
+                    writeRawLineToFile(line);
+                }
+                wroteLines = true;
+            } else {
+                if (!entry.skipSink()) {
+                    deliverToSink(entry.level(), entry.component(), entry.message(), entry.failure());
+                }
+                writeRawLineToFile(entry.line());
+                for (String fLine : entry.failureLines()) {
+                    writeRawLineToFile(fLine);
+                }
+                wroteLines = true;
+            }
+        }
+        return wroteLines;
+    }
+
+    private void deliverToSink(
+            final Level level, final String component, final String message, final Throwable failure) {
+        if (inSink.get()) return;
+        inSink.set(Boolean.TRUE);
+        try {
+            sink.write(level, component, message, failure);
+        } catch (Throwable failureException) {
+            FatalErrors.rethrowIfFatal(failureException);
             System.err.println("Turboism host log write failed safely");
+        } finally {
+            inSink.set(Boolean.FALSE);
+        }
+    }
+
+    private void writeRawLineToFile(final String line) {
+        if (writer == null) return;
+        final int utf8Bytes = line.getBytes(StandardCharsets.UTF_8).length + 1;
+        if (currentSegmentBytes + utf8Bytes >= maxSegmentBytes) {
+            rotateSegment();
         }
         try {
             writer.write(line);
-            writer.newLine();
-            if (failure != null) {
-                writeFailure(failure);
-            }
-            writer.flush();
-            if (--writesUntilPrune == 0) {
-                writesUntilPrune = PRUNE_INTERVAL_WRITES;
-                pruneOldSessions();
-            }
-        } catch (IOException exception) {
+            writer.write('\n');
+            currentSegmentBytes += utf8Bytes;
+        } catch (IOException e) {
             System.err.println("Turboism runtime log write failed safely");
         }
     }
 
-    private void writeFailure(final Throwable failure) throws IOException {
-        Throwable current = failure;
-        int depth = 0;
-        while (current != null && depth < 8) {
-            final StringBuilder line = new StringBuilder(depth > 0 ? "caused by " : "")
-                    .append(current.getClass().getName())
-                    .append(": ")
-                    .append(safe(current.getMessage()));
-            if (current instanceof VerifiedAccessException verified) {
-                line.append(" [alias=")
-                        .append(safe(verified.alias()))
-                        .append(", failureKind=")
-                        .append(verified.failureKind())
-                        .append(']');
+    private void flushWriter() {
+        if (writer != null) {
+            try {
+                writer.flush();
+            } catch (IOException e) {
+                System.err.println("Turboism runtime log write failed safely");
             }
-            remember(line.toString());
-            writer.write(line.toString());
-            writer.newLine();
-            // Frames, bounded. Without them a failure that carries no message -- a
-            // NoSuchElementException out of a static initializer, say -- reduces to two lines
-            // that name the exception type and nothing about where it came from, which is not
-            // enough to diagnose an exact-host run.
-            final StackTraceElement[] frames = current.getStackTrace();
-            for (int index = 0; index < Math.min(frames.length, MAX_LOGGED_FRAMES); index++) {
-                final String frame = "\tat " + safe(frames[index].toString());
-                remember(frame);
-                writer.write(frame);
-                writer.newLine();
-            }
-            if (frames.length > MAX_LOGGED_FRAMES) {
-                final String elided = "\t... " + (frames.length - MAX_LOGGED_FRAMES) + " more";
-                remember(elided);
-                writer.write(elided);
-                writer.newLine();
-            }
-            current = current.getCause();
-            depth++;
         }
+    }
+
+    private void emitDroppedSummary(final int dropped) {
+        final String warning = Instant.now(clock) + " [WARN] [PreviewLog] Dropped " + dropped
+                + " log entries due to queue capacity overflow";
+        remember(warning);
+        writeRawLineToFile(warning);
+        if (!inSink.get()) {
+            inSink.set(Boolean.TRUE);
+            try {
+                sink.write(
+                        Level.WARN,
+                        "PreviewLog",
+                        "Dropped " + dropped + " log entries due to queue capacity overflow",
+                        null);
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                System.err.println("Turboism host log write failed safely");
+            } finally {
+                inSink.set(Boolean.FALSE);
+            }
+        }
+    }
+
+    private void rotateSegment() {
+        if (writer != null) {
+            try {
+                writer.flush();
+                writer.close();
+            } catch (IOException e) {
+                System.err.println("Turboism runtime log write failed safely");
+            }
+        }
+
+        final Path archive = resolveArchiveSegmentPath();
+        boolean moved = false;
+        try {
+            fileMover.move(baseLogFile, archive, StandardCopyOption.REPLACE_EXISTING);
+            moved = true;
+        } catch (IOException e) {
+            System.err.println("Turboism preview log rotation move failed safely: " + e.getMessage());
+        }
+
+        try {
+            writer = Files.newBufferedWriter(
+                    baseLogFile,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND,
+                    StandardOpenOption.WRITE);
+            currentSegmentBytes = moved ? 0L : (Files.exists(baseLogFile) ? Files.size(baseLogFile) : 0L);
+        } catch (IOException e) {
+            System.err.println("Turboism runtime log write failed safely");
+        }
+
+        if (moved) {
+            pruneOldSessions();
+        }
+    }
+
+    private Path resolveArchiveSegmentPath() {
+        final String fileName = baseLogFile.getFileName().toString();
+        final String baseName = fileName.endsWith(".log") ? fileName.substring(0, fileName.length() - 4) : fileName;
+        final Path parent = baseLogFile.getParent();
+        Path candidate;
+        do {
+            candidate = parent.resolve(baseName + "." + segmentSequence + ".log");
+            segmentSequence++;
+        } while (Files.exists(candidate));
+        return candidate;
     }
 
     private void pruneOldSessions() {
         try {
             final List<StoredLog> files = new ArrayList<>();
+            long activeFileSize = 0L;
             try (Stream<Path> paths = Files.walk(logDirectory)) {
                 for (Path path : paths.filter(PreviewLog::isStoredLog).toList()) {
+                    final Path normalized = path.toAbsolutePath().normalize();
+                    final long size = Files.size(normalized);
+                    if (normalized.equals(baseLogFile)) {
+                        activeFileSize = size;
+                    }
                     files.add(new StoredLog(
-                            path.toAbsolutePath().normalize(),
-                            Files.size(path),
-                            Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS)));
+                            normalized, size, Files.getLastModifiedTime(normalized, LinkOption.NOFOLLOW_LINKS)));
                 }
             }
             files.sort(Comparator.comparing(StoredLog::modified)
                     .thenComparing(value -> value.path().toString()));
-            long total = files.stream().mapToLong(StoredLog::size).sum();
+            final long reservedForActive = Math.max(0L, maxSegmentBytes - activeFileSize);
+            long total = files.stream().mapToLong(StoredLog::size).sum() + reservedForActive;
             int remaining = files.size();
             for (StoredLog file : files) {
                 if (total <= maxStorageBytes || remaining <= 1) break;
-                // ponytail: keep the active session intact; add size segments only if one real session exceeds the cap.
-                if (file.path().equals(logFile)) continue;
+                if (file.path().equals(baseLogFile)) continue;
                 if (Files.deleteIfExists(file.path())) {
                     total -= file.size();
                     remaining--;
@@ -346,27 +695,109 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         return file.getParent();
     }
 
-    private void remember(final String line) {
-        if (recentLines.size() == RECENT_LINE_LIMIT) recentLines.removeFirst();
-        recentLines.addLast(line);
+    /** Package-private seam for deterministic testing without Thread.sleep. */
+    boolean drain(final long timeout, final TimeUnit unit) throws InterruptedException {
+        final long deadline = System.nanoTime() + unit.toNanos(timeout);
+        final long targetSeq;
+        final long targetPrune;
+        synchronized (admissionLock) {
+            if (workerTerminated.getCount() == 0) {
+                return true;
+            }
+            this.pendingPruneSeq++;
+            targetPrune = pendingPruneSeq;
+            targetSeq = lastEnqueuedEntrySeq;
+            admissionLock.notifyAll();
+        }
+
+        synchronized (admissionLock) {
+            while (flushedSeq < targetSeq || completedPruneSeq < targetPrune) {
+                if (workerTerminated.getCount() == 0) {
+                    return true;
+                }
+                final long remainingNanos = deadline - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    return false;
+                }
+                final long waitMillis = TimeUnit.NANOSECONDS.toMillis(remainingNanos);
+                admissionLock.wait(Math.max(1, waitMillis));
+            }
+            return true;
+        }
     }
 
-    private static String safe(final String value) {
-        return value == null ? "" : value.replace('\r', ' ').replace('\n', ' ');
-    }
-
-    private static String safeMultiline(final String value) {
-        return value == null ? "" : value.replace("\r\n", "\n").replace('\r', '\n');
+    /** Package-private convenience drain seam with default timeout; throws if timed out. */
+    void drain() {
+        try {
+            if (!drain(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting for PreviewLog drain");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted waiting for PreviewLog drain", e);
+        }
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public void close() throws IOException {
+        synchronized (admissionLock) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            admissionLock.notifyAll();
+        }
+
         try {
-            writer.close();
+            final boolean finished = workerTerminated.await(CLOSE_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            if (!finished) {
+                workerThread.interrupt();
+                workerTerminated.await(500, TimeUnit.MILLISECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            workerThread.interrupt();
+        }
+    }
+
+    private void closeResources() {
+        try {
+            if (writer != null) {
+                try {
+                    writer.flush();
+                } finally {
+                    writer.close();
+                }
+            }
+        } catch (Throwable e) {
+            FatalErrors.rethrowIfFatal(e);
+            System.err.println("Turboism runtime log close failed safely");
         } finally {
-            sink.close();
+            try {
+                sink.close();
+            } catch (Throwable e) {
+                FatalErrors.rethrowIfFatal(e);
+                System.err.println("Turboism host log close failed safely");
+            }
         }
     }
 
     private record StoredLog(Path path, long size, FileTime modified) {}
+
+    private record QueueEntry(
+            long sequence,
+            Level level,
+            String component,
+            String message,
+            Throwable failure,
+            String line,
+            List<String> failureLines,
+            boolean isBanner,
+            boolean skipSink,
+            long estimatedBytes) {
+        QueueEntry withSequence(final long seq) {
+            return new QueueEntry(
+                    seq, level, component, message, failure, line, failureLines, isBanner, skipSink, estimatedBytes);
+        }
+    }
 }
