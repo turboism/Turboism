@@ -70,6 +70,21 @@ public record WarpAltMirrorHostProfile(
         return "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx";
     }
 
+    /** Stable manager accessor; its read-only bytecode is checked before dispatch is patched. */
+    public String actionViewMethod() {
+        return "getViewContext";
+    }
+
+    /** Exact return descriptor of the admitted action-manager view getter. */
+    public String actionViewDescriptor() {
+        return "()Lcom/live2d/cubism/view/context/CEViewContext;";
+    }
+
+    /** Native Bezier drag delta; 5.3.04 moved this vector accessor from aH to aK. */
+    public String greenDeltaMethod() {
+        return stripOwner.equals("com/live2d/cubism/view/context/b/b") ? "aK" : "aH";
+    }
+
     /**
      * Reviewed 5.0.x/5.1.x generations sharing the 5.2.03 obfuscation generation: every
      * profile selector resolves to the same member names, including the

@@ -43,6 +43,32 @@ final class NativeWarpAltMirrorBridgeGreenTest {
     }
 
     @Test
+    void reviewed5304UsesVectorDeltaWithoutCallingTheOldScalarAccessor() {
+        registration.close();
+        NativeWarpAltMirrorBridge.uninstall();
+        NativeWarpAltMirrorBridge.install(
+                true, WarpAltMirrorHostProfile.forReviewedVersion("5.3.04").orElseThrow());
+        registration = NativeWarpAltMirrorBridge.moveParticipation().participate();
+        NativeWarpAltMirrorBridge.setArmedAxis(1);
+        NativeWarpAltMirrorBridge.mirrorGreenTick(drag(2, 1, StubKind.CONTROL_N, 4f, 6f), new Event5304());
+        assertEquals(1, StubRef.moves.size());
+        assertEquals(3, StubRef.moves.get(0).row);
+    }
+
+    static final class Event5304 {
+        private final java.awt.event.InputEvent input = new java.awt.event.MouseEvent(
+                new java.awt.Canvas(), java.awt.event.MouseEvent.MOUSE_DRAGGED, 0, 0, 0, 0, 0, false);
+
+        public float aH() {
+            throw new AssertionError("Scalar accessor must not be invoked");
+        }
+
+        public StubVec aK() {
+            return new StubVec(4f, 6f);
+        }
+    }
+
+    @Test
     void verticalAxisMirrorsHandleToRowCounterpartWithKindSwap() {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
 
@@ -366,6 +392,8 @@ final class NativeWarpAltMirrorBridgeGreenTest {
     }
 
     static final class StubEvent {
+        private final java.awt.event.InputEvent input = new java.awt.event.MouseEvent(
+                new java.awt.Canvas(), java.awt.event.MouseEvent.MOUSE_DRAGGED, 0, 0, 0, 0, 0, false);
         private final StubVec delta;
 
         StubEvent(final StubVec delta) {

@@ -33,6 +33,31 @@ final class NativeWarpAltMirrorPointMoveTest {
     }
 
     @Test
+    void pointMovePermits5304DragActionCaller() {
+        final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
+        final StubPointRef counterpart = moved.sibling(5, 0);
+        NativeWarpAltMirrorBridge.setArmedAxis(1);
+        final var registration = participate();
+
+        com.live2d.cubism.view.context.action.af$b.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
+
+        assertEquals(0.9f, counterpart.positions[60], 1.0e-4f);
+        assertEquals(4.7f, counterpart.positions[61], 1.0e-4f);
+        registration.close();
+    }
+
+    @Test
+    void canvasWrapperAloneDoesNotAuthorizeNonDragWrites() {
+        final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
+        NativeWarpAltMirrorBridge.setArmedAxis(1);
+        final var registration = participate();
+        com.live2d.cubism.doc.model.deformer.warp.r.a(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        assertEquals(0.0f, moved.positions[60], 1.0e-6f);
+        assertEquals(5.0f, moved.positions[61], 1.0e-6f);
+        registration.close();
+    }
+
+    @Test
     void verticalArmedMirrorMovesCounterpartVertically() {
         final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
         final StubPointRef counterpart = moved.sibling(5, 0);
