@@ -75,7 +75,7 @@ final class WarpAltMirrorReviewedArtifactsTest {
                         profile.pointMoveOwner(),
                         profile.pointMoveMethod(),
                         profile.pointMoveDescriptor(),
-                        "mirrorPointMove"
+                        "handlePointMove"
                     },
                     new String[] {
                         profile.dragTickOwner(),
@@ -178,6 +178,19 @@ final class WarpAltMirrorReviewedArtifactsTest {
                 assertTrue(calls.contains(target[3]), label + " missing bridge call " + target[3]);
             }
             final byte[] strip = bytes(jar, profile.stripOwner());
+            assertTrue(
+                    methods(bytes(jar, "com/live2d/cubism/view/context/actionManager/N"))
+                            .contains(profile.greenDeltaMethod() + "()Lcom/live2d/graphics3d/type/GVector2;"),
+                    version.getKey() + " Bezier delta must be a vector");
+            assertTrue(
+                    methods(bytes(jar, "com/live2d/graphics3d/sceneGraph/GCameraManager"))
+                            .contains(
+                                    "componentToDocument(Lcom/live2d/type/CPoint;)Lcom/live2d/graphics3d/type/GVector2;"),
+                    version.getKey() + " native component point conversion");
+            assertTrue(
+                    WarpAltMirrorActionContext.hasReadOnlyGetter(
+                            new ClassReader(bytes(jar, profile.actionDispatchOwner())), profile),
+                    version.getKey() + " read-only action view accessor");
             final Set<String> fields = new HashSet<>();
             new ClassReader(strip)
                     .accept(

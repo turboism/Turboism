@@ -59,7 +59,7 @@ class ReviewedReleasesTest(unittest.TestCase):
             self.assertIn('FIXTURE_5305=', outputs[ENV])
             for relative, text in outputs.items():
                 (root / relative).parent.mkdir(parents=True, exist_ok=True)
-                (root / relative).write_text(text)
+                (root / relative).write_text(text, encoding="utf-8", newline="\n")
             self.assertEqual([], check(root))
             (root / HOST).write_text(outputs[HOST].replace('5.3.05', '5.3.99'))
             self.assertTrue(any('ReviewedHostArtifacts' in problem for problem in check(root)))
