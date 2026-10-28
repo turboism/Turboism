@@ -449,6 +449,27 @@ public class IncrementalUpdateTransformerTest {
         }
     }
 
+    /** Exercises installed callbacks through each version's actual replacement sites. */
+    static void assertInstalledCallbacksReplayNative(final IncrementalUpdateTarget target) throws Exception {
+        Host host = transform(target, true, true);
+        Object instance = host.updater.getDeclaredConstructor().newInstance();
+        Class<?>[] dirtyArgs = java.lang.invoke.MethodType.fromMethodDescriptorString(
+                        target.deformerUpdateDescriptor(), host.loader)
+                .parameterArray();
+        Class<?>[] meshArgs = java.lang.invoke.MethodType.fromMethodDescriptorString(
+                        target.artMeshUpdateDescriptor(), host.loader)
+                .parameterArray();
+        host.updater.getMethod("a", dirtyArgs).invoke(instance, new Object[dirtyArgs.length]);
+        host.updater.getMethod("a", meshArgs).invoke(instance, new Object[meshArgs.length]);
+        assertAll(
+                target.version(),
+                () -> assertEquals(
+                        1, host.loader.of(ACD).getField("setDirtyCalls").getInt(null)),
+                () -> assertEquals(1, host.loader.of(ACD).getField("ltctCalls").getInt(null)),
+                () -> assertEquals(
+                        1, host.loader.of(MFORM).getField("transformCalls").getInt(null)));
+    }
+
     @Test
     void missingSlotsReplayNativeSequences() throws Exception {
         Host host = transform(T5303, true, true);
