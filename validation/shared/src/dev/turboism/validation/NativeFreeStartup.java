@@ -231,6 +231,11 @@ public final class NativeFreeStartup {
      * entry exists; purchase, activation-key and cancel entries never match.
      */
     public static String preferredStartButton(final String title, final List<String> texts) {
+        return preferredStartButton(title, texts, true);
+    }
+
+    /** Allows FREE-only validation tasks to decline initiating a trial. */
+    static String preferredStartButton(final String title, final List<String> texts, final boolean allowTrial) {
         if (texts == null) return null;
         boolean trial = false;
         boolean free = false;
@@ -238,7 +243,7 @@ public final class NativeFreeStartup {
             if (isTrialStartButton(title, text)) trial = true;
             else if (isStartButton(title, text)) free = true;
         }
-        if (trial) return "Start PRO Version Free Trial";
+        if (trial && allowTrial) return "Start PRO Version Free Trial";
         return free ? "Start as FREE version" : null;
     }
 
@@ -549,6 +554,15 @@ public final class NativeFreeStartup {
 
     /** Performs at most one exact UI action on the EDT and returns its evidence label, or null. */
     public static String select() {
+        return select(true);
+    }
+
+    /** Performs startup assistance without initiating or confirming a new trial. */
+    public static String selectFreeOnly() {
+        return select(false);
+    }
+
+    private static String select(final boolean allowTrial) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("Native startup UI must run on the EDT");
         }
@@ -589,7 +603,7 @@ public final class NativeFreeStartup {
                 if (ACTIONED_DIALOGS.contains(dialog)) continue;
                 // Evidence for a matched prompt whose only viable control is
                 // disabled; the helper must not pretend it can click it.
-                final String startChoice = preferredStartButton(dialog.getTitle(), buttonTexts);
+                final String startChoice = preferredStartButton(dialog.getTitle(), buttonTexts, allowTrial);
                 if (startChoice != null) {
                     for (AbstractButton button : buttons) {
                         if (startChoice.equals(button.getText()) && button.isEnabled()) {
@@ -602,7 +616,7 @@ public final class NativeFreeStartup {
                         }
                     }
                 }
-                if (isProTrialConfirm(dialog.getTitle(), labels.toString())) {
+                if (allowTrial && isProTrialConfirm(dialog.getTitle(), labels.toString())) {
                     final AbstractButton confirm = proTrialConfirmButton(buttons, buttonTexts);
                     if (confirm != null && confirm.isEnabled()) {
                         ACTIONED_DIALOGS.add(dialog);
@@ -627,7 +641,7 @@ public final class NativeFreeStartup {
                     System.out.println("NATIVE_VALIDATION_PROMPT_DISABLED title="
                             + dialog.getTitle() + " button=OK action=FREE_WELCOME_CONFIRMED");
                 }
-                if (ok != null && isProTrialActivation(dialog.getTitle(), labels.toString(), buttonTexts)) {
+                if (allowTrial && ok != null && isProTrialActivation(dialog.getTitle(), labels.toString(), buttonTexts)) {
                     if (ok.isEnabled()) {
                         ACTIONED_DIALOGS.add(dialog);
                         System.setProperty("turboism.validation.observedLicenseMode", "PRO_TRIAL_STARTED");
