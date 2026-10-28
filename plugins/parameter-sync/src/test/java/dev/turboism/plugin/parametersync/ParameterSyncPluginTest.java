@@ -133,6 +133,52 @@ class ParameterSyncPluginTest {
     }
 
     @Test
+    void syncWorksWhenPartnerDraggedAndSourceReturnsToPreviousValue() {
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setSynchronized("ParamB", true);
+
+        // 1. User drags ParamA to 0.5 -> ParamB becomes 0.5
+        paramA.setValue(0.5f);
+        plugin.onParameterValueChanged(paramA, 0.0f, 0.5f);
+        assertEquals(0.5f, paramB.getValue(), 1e-4f);
+        // Consume secondary callback from ParamB
+        plugin.onParameterValueChanged(paramB, 0.0f, 0.5f);
+
+        // 2. User manually drags ParamB to 0.8 -> ParamA becomes 0.8
+        paramB.setValue(0.8f);
+        plugin.onParameterValueChanged(paramB, 0.5f, 0.8f);
+        assertEquals(0.8f, paramA.getValue(), 1e-4f);
+        // Consume secondary callback from ParamA
+        plugin.onParameterValueChanged(paramA, 0.5f, 0.8f);
+
+        // 3. User drags ParamA back to 0.5 -> ParamB must sync back to 0.5
+        paramA.setValue(0.5f);
+        plugin.onParameterValueChanged(paramA, 0.8f, 0.5f);
+        assertEquals(0.5f, paramB.getValue(), 1e-4f);
+    }
+
+    @Test
+    void switchingActiveModelUpdatesCacheAndSyncsNewModelParameters() {
+        final TestModel model2 = new TestModel("model-guid-2");
+        final TestParameter m2ParamA = new TestParameter("ParamA", 0.0f, 1.0f, 0.0f);
+        final TestParameter m2ParamB = new TestParameter("ParamB", 0.0f, 100.0f, 0.0f);
+        model2.addParameter(m2ParamA);
+        model2.addParameter(m2ParamB);
+
+        final SyncRuleSet ruleSet2 = plugin.getRuleSet("model-guid-2");
+        ruleSet2.setSynchronized("ParamA", true);
+        ruleSet2.setSynchronized("ParamB", true);
+
+        context.setActiveModel(model2);
+        m2ParamA.setValue(0.4f);
+        plugin.onParameterValueChanged(m2ParamA, 0.0f, 0.4f);
+
+        assertEquals(40.0f, m2ParamB.getValue(), 1e-4f);
+        assertEquals(0.0f, paramB.getValue(), 1e-4f);
+    }
+
+    @Test
     void toggleGlobalActionChangesGlobalState() {
         final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
         assertTrue(ruleSet.isGlobalEnabled());

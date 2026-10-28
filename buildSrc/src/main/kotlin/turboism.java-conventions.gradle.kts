@@ -39,6 +39,7 @@ dependencies {
 }
 
 tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
     options.release.set(17)
     if (name == "compileJava") {
         options.isFork = true
