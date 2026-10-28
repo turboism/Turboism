@@ -8,30 +8,15 @@ import java.util.Optional;
 /** Exact Q-menu owners and context classes for reviewed Cubism artifacts. */
 record ParameterPointContextMenuHostProfile(String owner, String contextDescriptor) {
 
-    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
-    private static final HostArtifactDigest CUBISM_5304 = ReviewedHostArtifacts.CUBISM_5_3_04;
-
     ParameterPointContextMenuHostProfile {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(contextDescriptor, "contextDescriptor");
     }
 
     static Optional<ParameterPointContextMenuHostProfile> forArtifact(final HostArtifactDigest artifact) {
-        if (CUBISM_52.equals(artifact)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
-        }
-        if (CUBISM_53.equals(artifact)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION);
-        }
-        if (CUBISM_5303.equals(artifact)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_03_VERSION);
-        }
-        if (CUBISM_5304.equals(artifact)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
-        }
-        return Optional.empty();
+        Objects.requireNonNull(artifact, "artifact");
+        return ReviewedHostArtifacts.cubismVersionOf(artifact)
+                .flatMap(ParameterPointContextMenuHostProfile::forReviewedVersion);
     }
 
     /**
@@ -40,20 +25,17 @@ record ParameterPointContextMenuHostProfile(String owner, String contextDescript
      */
     static Optional<ParameterPointContextMenuHostProfile> forReviewedVersion(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
-        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
+        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
+            return Optional.empty();
+        }
+        if (cubismVersion.startsWith("5.0.") || cubismVersion.startsWith("5.1.") || cubismVersion.startsWith("5.2.")) {
             return Optional.of(profile("Q"));
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("ab"));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("ac"));
-        }
-        // The Q-menu owner binds identically on 5.3.04 (ac$b.a per the record).
-        if (ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("ac"));
-        }
-        return Optional.empty();
+        return switch (cubismVersion) {
+            case "5.3.00", "5.3.01", "5.3.02" -> Optional.of(profile("ab"));
+            case "5.3.03", "5.3.04" -> Optional.of(profile("ac"));
+            default -> Optional.empty();
+        };
     }
 
     private static ParameterPointContextMenuHostProfile profile(final String name) {
