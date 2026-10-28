@@ -9,6 +9,9 @@ import dev.turboism.internal.core.CorePluginManagement.PluginInfo;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPlugin;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
 import dev.turboism.pluginmanagement.PluginCatalogClient.CatalogFetchResult;
+import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadControl;
+import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadFailure;
+import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadProgress;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
 import dev.turboism.preview.PluginHotReloadCoordinator;
 import dev.turboism.update.UpdateFileSupport;
@@ -19,6 +22,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -59,6 +63,16 @@ public final class PluginMarketService implements AutoCloseable {
             Optional<String> installedVersion,
             Optional<CatalogRelease> targetRelease,
             Optional<String> incompatibleReason) {}
+
+    /** A single local installation read shared by all rows of a market refresh. */
+    public record MarketSnapshot(
+            PluginCatalog catalog, List<PluginInfo> installed, Map<String, PluginMarketStatus> statuses) {
+        public MarketSnapshot {
+            Objects.requireNonNull(catalog, "catalog");
+            installed = List.copyOf(installed);
+            statuses = Map.copyOf(statuses);
+        }
+    }
 
     private final Path home;
     private final Path pluginsDirectory;
@@ -117,6 +131,48 @@ public final class PluginMarketService implements AutoCloseable {
      */
     public PluginCatalog currentCatalog() {
         return currentCatalog;
+    }
+
+    /** Loads the catalog and resolves local state without doing filesystem work on the caller thread. */
+    public CompletionStage<MarketSnapshot> loadSnapshot(final boolean forceRefresh) {
+        return loadCatalog(forceRefresh).thenCompose(this::snapshot);
+    }
+
+    /** Refreshes local installation state once, then resolves every row from that immutable snapshot. */
+    public CompletionStage<MarketSnapshot> snapshot(final PluginCatalog catalog) {
+        Objects.requireNonNull(catalog, "catalog");
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    final List<PluginInfo> installed = List.copyOf(managementService.plugins());
+                    final Map<String, PluginInfo> byId = new LinkedHashMap<>();
+                    installed.forEach(plugin -> byId.put(plugin.id(), plugin));
+                    final Optional<String> activeCubism = cubismVersionSupplier.get();
+                    final Map<String, PluginMarketStatus> statuses = new LinkedHashMap<>();
+                    for (CatalogPlugin plugin : catalog.plugins()) {
+                        statuses.put(plugin.id(), resolveStatus(plugin, byId.get(plugin.id()), activeCubism));
+                    }
+                    return new MarketSnapshot(catalog, installed, statuses);
+                },
+                marketExecutor);
+    }
+
+    /** Reads bundled documentation off the UI thread, only when a plugin is selected. */
+    public CompletionStage<Optional<String>> loadReadme(final String pluginId) {
+        return CompletableFuture.supplyAsync(
+                () -> managementService
+                        .details(pluginId)
+                        .flatMap(dev.turboism.internal.core.CorePluginManagement.PluginDetails::readme),
+                marketExecutor);
+    }
+
+    /** Persists the desired enabled state off the UI thread. */
+    public CompletionStage<OperationResult> setEnabled(final String pluginId, final boolean enabled) {
+        return CompletableFuture.supplyAsync(() -> managementService.setEnabled(pluginId, enabled), marketExecutor);
+    }
+
+    /** Stages removal off the UI thread. */
+    public CompletionStage<OperationResult> uninstall(final String pluginId) {
+        return CompletableFuture.supplyAsync(() -> managementService.uninstall(pluginId), marketExecutor);
     }
 
     /**
@@ -197,7 +253,11 @@ public final class PluginMarketService implements AutoCloseable {
                 .findFirst()
                 .orElse(null);
 
-        final Optional<String> activeCubism = cubismVersionSupplier.get();
+        return resolveStatus(plugin, installed, cubismVersionSupplier.get());
+    }
+
+    private PluginMarketStatus resolveStatus(
+            final CatalogPlugin plugin, final PluginInfo installed, final Optional<String> activeCubism) {
         final List<CatalogRelease> compatibleReleases = plugin.releases().stream()
                 .filter(CatalogRelease::isActive)
                 .filter(r -> isCompatible(r, activeCubism))
@@ -274,8 +334,20 @@ public final class PluginMarketService implements AutoCloseable {
      * Uses hot-load/hot-reload where safe, and falls back to staging otherwise.
      */
     public CompletionStage<OperationResult> installOrUpdate(final CatalogPlugin plugin, final CatalogRelease release) {
+        return installOrUpdate(plugin, release, new DownloadControl(), ignored -> {});
+    }
+
+    /** Installs with download progress and cancellation admitted until the file/journal commit begins. */
+    public CompletionStage<OperationResult> installOrUpdate(
+            final CatalogPlugin plugin,
+            final CatalogRelease release,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress) {
+        Objects.requireNonNull(control, "control");
+        Objects.requireNonNull(progress, "progress");
         return CompletableFuture.supplyAsync(
                 () -> {
+                    if (control.isCancelled()) return cancelledInstall();
                     final Optional<String> activeCubism = cubismVersionSupplier.get();
                     if (!isCompatible(release, activeCubism)) {
                         return OperationResult.rejected(
@@ -287,8 +359,9 @@ public final class PluginMarketService implements AutoCloseable {
                         Files.createDirectories(stagingPackages);
                         tempDownload = Files.createTempFile(stagingPackages, "market-download-", ".jar");
                     } catch (IOException e) {
+                        logSink.accept("PLUGIN_DOWNLOAD_IO_FAILED: " + e.getMessage());
                         return OperationResult.rejected(
-                                "PLUGIN_DOWNLOAD_IO_FAILED", "Failed to create staging download file");
+                                "PLUGIN_DOWNLOAD_IO_FAILED", "Cannot create plugin download file: " + e.getMessage());
                     }
 
                     try {
@@ -296,15 +369,20 @@ public final class PluginMarketService implements AutoCloseable {
                                 URI.create(release.artifact().url()),
                                 release.artifact().size(),
                                 release.artifact().sha256(),
-                                tempDownload);
+                                tempDownload,
+                                control,
+                                progress);
                     } catch (IOException downloadError) {
                         try {
                             Files.deleteIfExists(tempDownload);
                         } catch (IOException ignored) {
                         }
+                        final String code = downloadError instanceof DownloadFailure failure
+                                ? failure.code()
+                                : "PLUGIN_DOWNLOAD_FAILED";
+                        logSink.accept(code + ": " + downloadError.getMessage());
                         return OperationResult.rejected(
-                                "PLUGIN_DOWNLOAD_FAILED",
-                                "Failed to download plugin package: " + downloadError.getMessage());
+                                code, "Failed to download plugin package: " + downloadError.getMessage());
                     }
 
                     // Inspect and prepare staged JAR
@@ -321,12 +399,13 @@ public final class PluginMarketService implements AutoCloseable {
                     }
 
                     final PreparedPluginJar prepared = ((LocalPluginJarPreparer.Prepared) prep).value();
+                    if (control.isCancelled()) {
+                        pending.discardIfUnreferenced(prepared.stagedJar());
+                        return cancelledInstall();
+                    }
                     if (!prepared.descriptorSha256()
                             .equalsIgnoreCase(release.artifact().descriptorSha256())) {
-                        try {
-                            Files.deleteIfExists(prepared.stagedJar());
-                        } catch (IOException ignored) {
-                        }
+                        pending.discardIfUnreferenced(prepared.stagedJar());
                         return OperationResult.rejected(
                                 "DESCRIPTOR_SHA256_MISMATCH", "Embedded descriptor SHA-256 does not match catalog pin");
                     }
@@ -335,6 +414,11 @@ public final class PluginMarketService implements AutoCloseable {
                             && hotReloadCoordinator != null
                             && pending.canHotApply(plugin.id())
                             && hotReloadCoordinator.isHotReloadSafe(prepared.stagedJar());
+
+                    if (Thread.currentThread().isInterrupted() || !control.beginCommit()) {
+                        pending.discardIfUnreferenced(prepared.stagedJar());
+                        return cancelledInstall();
+                    }
 
                     if (hotSafe) {
                         final Path targetJar = pluginsDirectory.resolve(plugin.id() + ".jar");
@@ -367,7 +451,7 @@ public final class PluginMarketService implements AutoCloseable {
                                         hotReloadCoordinator.hotReload(plugin.id(), targetJar, backupJar);
                                 if (reloadResult.succeeded()) {
                                     if (backupJar != null) Files.deleteIfExists(backupJar);
-                                    Files.deleteIfExists(prepared.stagedJar());
+                                    pending.discardIfUnreferenced(prepared.stagedJar());
                                     return OperationResult.accepted(
                                             "PLUGIN_HOT_APPLIED", "Plugin updated and applied immediately.");
                                 } else if (reloadResult.rolledBack()) {
@@ -384,7 +468,7 @@ public final class PluginMarketService implements AutoCloseable {
                             } else {
                                 final var loadResult = hotReloadCoordinator.hotLoad(targetJar);
                                 if (loadResult.succeeded()) {
-                                    Files.deleteIfExists(prepared.stagedJar());
+                                    pending.discardIfUnreferenced(prepared.stagedJar());
                                     return OperationResult.accepted(
                                             "PLUGIN_HOT_APPLIED", "Plugin installed and applied immediately.");
                                 } else {
@@ -410,8 +494,12 @@ public final class PluginMarketService implements AutoCloseable {
                 marketExecutor);
     }
 
+    private static OperationResult cancelledInstall() {
+        return OperationResult.rejected("PLUGIN_DOWNLOAD_CANCELLED", "Plugin installation cancelled before commit.");
+    }
+
     private OperationResult stageForRestart(final PreparedPluginJar prepared) {
-        final var staged = pending.stage(prepared.stagedJar());
+        final var staged = pending.stage(prepared);
         if (staged.accepted()) {
             return OperationResult.accepted(
                     staged.code(), "Plugin installation is pending; restart Cubism to apply it.");
