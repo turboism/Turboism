@@ -198,8 +198,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
         ReflectAccess.open(factory);
 
-        final Object iconSet =
-                iconSetFor(rasterImage(contribution.stateIcons().getOrDefault(state, iconImage)), hostLoader);
+        final Class<?> iconSetClass = factory.getParameterTypes()[6];
+        final Object iconSet = iconSetFor(
+                rasterImage(contribution.stateIcons().getOrDefault(state, iconImage)), hostLoader, iconSetClass);
         final Object button = factory.invoke(
                 null,
                 stripInstance,
@@ -237,8 +238,13 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      */
     private static Object iconSetFor(final BufferedImage glyph, final ClassLoader hostLoader)
             throws ReflectiveOperationException {
+        return iconSetFor(glyph, hostLoader, Class.forName(ICON_SET_CLASS, false, hostLoader));
+    }
+
+    private static Object iconSetFor(
+            final BufferedImage glyph, final ClassLoader hostLoader, final Class<?> iconSetClass)
+            throws ReflectiveOperationException {
         final Class<?> resourceClass = Class.forName(RESOURCE_CLASS, false, hostLoader);
-        final Class<?> setClass = Class.forName(ICON_SET_CLASS, false, hostLoader);
         final var resourceCtor = resourceClass.getConstructor(BufferedImage.class, boolean.class);
         final Color hover = new Color(128, 128, 128, 32);
         final Color pressedPlate = new Color(128, 128, 128, 64);
@@ -249,7 +255,8 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         final Object disabled = resourceCtor.newInstance(glyph, true);
         final Object selRollover = resourceCtor.newInstance(plateImage(glyph, hover), true);
         final Object selPressed = resourceCtor.newInstance(plateImage(glyph, pressedPlate), true);
-        return setClass.getConstructor(
+        return iconSetClass
+                .getConstructor(
                         resourceClass,
                         resourceClass,
                         resourceClass,
@@ -334,11 +341,25 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         }
     }
 
+    static Field groupField(final Class<?> stripClass) throws NoSuchFieldException {
+        try {
+            final Field fieldE = stripClass.getDeclaredField("E");
+            if (List.class.isAssignableFrom(fieldE.getType())) {
+                ReflectAccess.open(fieldE);
+                return fieldE;
+            }
+        } catch (NoSuchFieldException ignored) {
+            // fall through to H
+        }
+        final Field fieldH = stripClass.getDeclaredField("H");
+        ReflectAccess.open(fieldH);
+        return fieldH;
+    }
+
     static int indexOfInGroup(final Object stripInstance, final Object button) {
         if (stripInstance == null || button == null) return -1;
         try {
-            final Field groupField = stripInstance.getClass().getDeclaredField("H");
-            ReflectAccess.open(groupField);
+            final Field groupField = groupField(stripInstance.getClass());
             final Object group = groupField.get(stripInstance);
             if (group instanceof List<?> list) {
                 return list.indexOf(button);
@@ -351,7 +372,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /**
      * Appends the contributed button at the END of the strip's left tool
-     * cluster (group H), after the last native button F — the position the
+     * cluster (group E on 5.0–5.2, group H on 5.3+), after the last native button F — the position the
      * operator picked among strip-first/cluster-end options. Disassembly-
      * verified order on the reviewed artifacts: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
      * laid out left-flow, followed by I, a divider, J and the right-aligned
@@ -365,31 +386,31 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     static void insertIntoGroup(final Object stripInstance, final Object button, final int preferIndex)
             throws ReflectiveOperationException {
-        final Field groupField = stripInstance.getClass().getDeclaredField("H");
-        ReflectAccess.open(groupField);
+        final Field groupField = groupField(stripInstance.getClass());
         final Object group = groupField.get(stripInstance);
         if (!(group instanceof List<?> list)) {
-            throw new IllegalStateException("strip group H is not a list");
+            throw new IllegalStateException("strip group " + groupField.getName() + " is not a list");
         }
         if (list.contains(button)) return;
         @SuppressWarnings("unchecked")
         final List<Object> target = (List<Object>) group;
         if (preferIndex >= 0 && preferIndex <= target.size()) {
             target.add(preferIndex, button);
-            diagnostic("BUTTON_INSERTED group=H index=" + preferIndex + " preferIndex=" + preferIndex);
+            diagnostic("BUTTON_INSERTED group=" + groupField.getName() + " index=" + preferIndex + " preferIndex="
+                    + preferIndex);
         } else {
             target.add(target.size(), button);
-            diagnostic("BUTTON_INSERTED group=H index=" + target.size() + " after=leftClusterEnd(F)");
+            diagnostic("BUTTON_INSERTED group=" + groupField.getName() + " index=" + target.size()
+                    + " after=leftClusterEnd(F)");
         }
         reparentToStrip(stripInstance, button);
         ensureRect(button);
     }
 
-    /** Removes the button from the strip's left-cluster group list (H). */
+    /** Removes the button from the strip's left-cluster group list. */
     static void removeFromGroup(final Object stripInstance, final Object button) throws ReflectiveOperationException {
         if (stripInstance == null || button == null) return;
-        final Field groupField = stripInstance.getClass().getDeclaredField("H");
-        ReflectAccess.open(groupField);
+        final Field groupField = groupField(stripInstance.getClass());
         final Object group = groupField.get(stripInstance);
         if (group instanceof List<?> list) {
             list.remove(button);

@@ -15,18 +15,24 @@ public final class WarpAltMirrorHookAdmission {
      * Decides whether the warp Alt-mirror host hook may be bound for this session.
      *
      * <p>Either dedicated mirror plugin may request the shared hooks while enabled,
-     * holding model-write permission and declaring its own mirror capability.</p>
+     * holding model-write permission and declaring its own mirror capability.
+     * Alternatively, an enabled plugin declaring the view-context-menu capability
+     * with toolbar-contribute permission may bind the hooks to mount top-strip buttons.</p>
      *
      * @param plugins the currently loaded plugin summaries to search
      * @return {@code true} only when a summary satisfies every one of those conditions
      */
     public static boolean admitted(final List<? extends PluginAdmissionView> plugins) {
         return plugins.stream()
-                .anyMatch(plugin -> ((plugin.id().equals(PLUGIN_ID)
-                                        && plugin.capabilities().contains("cubism.deformer.alt-axis-mirror"))
-                                || (plugin.id().equals("dev.turboism.plugin.artmesh-mirror")
-                                        && plugin.capabilities().contains("cubism.artmesh.mirror")))
-                        && plugin.state() == PluginLifecycleState.ENABLED
-                        && plugin.permissionIds().contains(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE));
+                .anyMatch(plugin -> plugin.state() == PluginLifecycleState.ENABLED
+                        && (((plugin.id().equals(PLUGIN_ID)
+                                                        && plugin.capabilities()
+                                                                .contains("cubism.deformer.alt-axis-mirror"))
+                                                || (plugin.id().equals("dev.turboism.plugin.artmesh-mirror")
+                                                        && plugin.capabilities().contains("cubism.artmesh.mirror")))
+                                        && plugin.permissionIds().contains(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE)
+                                || (plugin.capabilities().contains("ui.view-context-menu.contribute")
+                                        && plugin.permissionIds()
+                                                .contains(PermissionIds.TURBOISM_UI_TOOLBAR_CONTRIBUTE))));
     }
 }
