@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget.Dep;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -16,7 +15,9 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.jar.JarFile;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.TestFactory;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -24,74 +25,21 @@ import org.objectweb.asm.Opcodes;
 
 /**
  * Exact-artifact admission for the incremental update: for each configured official jar,
- * all six reviewed method shapes must read non-null, every bridge dependency must be
+ * all seven reviewed method shapes must read non-null, every bridge dependency must be
  * present with the reviewed body (or the reviewed abstract declaration), and the
- * transformer must admit the real bytes of all four touched classes while leaving every
+ * transformer must admit the real bytes of all five touched classes while leaving every
  * other method untouched. Versions without a configured artifact are skipped, not failed.
  */
 class IncrementalUpdateArtifactTest {
 
-    @Test
-    void cubism5200EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_00).orElseThrow(),
-                "turboism.test.cubism5200Jar");
-    }
-
-    @Test
-    void cubism5201EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_01).orElseThrow(),
-                "turboism.test.cubism5201Jar");
-    }
-
-    @Test
-    void cubism5202EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_02).orElseThrow(),
-                "turboism.test.cubism5202Jar");
-    }
-
-    @Test
-    void cubism5203EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).orElseThrow(),
-                "turboism.test.cubism5203Jar");
-    }
-
-    @Test
-    void cubism5300EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_00).orElseThrow(),
-                "turboism.test.cubism5300Jar");
-    }
-
-    @Test
-    void cubism5301EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_01).orElseThrow(),
-                "turboism.test.cubism5301Jar");
-    }
-
-    @Test
-    void cubism5302EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_02).orElseThrow(),
-                "turboism.test.cubism5302Jar");
-    }
-
-    @Test
-    void cubism5303EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow(),
-                "turboism.test.cubism5303Jar");
-    }
-
-    @Test
-    void cubism5304EntryAndDependenciesAreAdmitted() throws Exception {
-        exercise(
-                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_04).orElseThrow(),
-                "turboism.test.cubism5304Jar");
+    @TestFactory
+    Stream<DynamicTest> everyReviewedArtifactAdmitsUpdateAndRebuildSites() {
+        return IncrementalUpdateTarget.all().stream()
+                .map(target -> DynamicTest.dynamicTest(
+                        target.version(),
+                        () -> exercise(
+                                target,
+                                "turboism.test.cubism" + target.version().replace(".", "") + "Jar")));
     }
 
     private static void exercise(final IncrementalUpdateTarget target, final String property) throws Exception {
@@ -105,7 +53,7 @@ class IncrementalUpdateArtifactTest {
                     .resolve("Live2D_Cubism.jar")
                     .toString();
         }
-        final Path artifact = Path.of(configured);
+        final Path artifact = Path.of(configured).toRealPath();
         assertEquals(target.digest(), HostArtifactDigest.from(artifact), "artifact identity");
         final URL[] urls;
         try (var files = Files.walk(artifact.getParent())) {
@@ -121,12 +69,29 @@ class IncrementalUpdateArtifactTest {
         }
         try (var loader = new URLClassLoader(urls, IncrementalUpdateArtifactTest.class.getClassLoader());
                 var jar = new JarFile(artifact.toFile())) {
-            final List<byte[]> references = new ArrayList<>(4);
+            for (var pin : IncrementalUpdateTarget.reviewedClassSha256()
+                    .get(target.version())
+                    .entrySet()) {
+                assertEquals(
+                        pin.getValue(),
+                        java.util.HexFormat.of()
+                                .formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(bytes(jar, pin.getKey()))),
+                        "class pin: " + target.version() + " " + pin.getKey());
+            }
+            for (String source : List.of(
+                    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+                    "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerSource",
+                    "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource")) {
+                assertRebuildReachesCommonSource(jar, source);
+            }
+            final List<byte[]> references = new ArrayList<>(5);
             final List<String> siteOwners = List.of(
                     target.updater(),
                     IncrementalUpdateTarget.ROTATION_FORM.replace('.', '/'),
                     IncrementalUpdateTarget.WARP_FORM.replace('.', '/'),
-                    IncrementalUpdateTarget.MESH_FORM.replace('.', '/'));
+                    IncrementalUpdateTarget.MESH_FORM.replace('.', '/'),
+                    IncrementalUpdateTarget.REINIT_SOURCE.replace('.', '/'));
             for (final String owner : siteOwners) {
                 references.add(bytes(jar, owner));
             }
@@ -148,6 +113,11 @@ class IncrementalUpdateArtifactTest {
                         IncrementalUpdateTarget.MESH_FORM.replace('.', '/'),
                         "interpolate__testImpl",
                         target.meshInterpolateDescriptor()
+                    },
+                    new String[] {
+                        IncrementalUpdateTarget.REINIT_SOURCE.replace('.', '/'),
+                        "reinitInstance",
+                        IncrementalUpdateTarget.REINIT_DESCRIPTOR
                     });
             for (final String[] site : sites) {
                 final byte[] owner = references.get(siteOwners.indexOf(site[0]));
@@ -181,10 +151,43 @@ class IncrementalUpdateArtifactTest {
                         transformer.transform(null, loader, siteOwners.get(i), null, domain, references.get(i));
                 assertNotNull(output, siteOwners.get(i) + " rejected: " + transformer.failure());
             }
-            assertEquals(6, transformer.matches());
-            assertEquals(4, transformer.touchedClasses().size());
+            assertEquals(7, transformer.matches());
+            assertEquals(5, transformer.touchedClasses().size());
         }
         assertEquals(target.digest(), HostArtifactDigest.from(artifact), "artifact unchanged");
+    }
+
+    private static void assertRebuildReachesCommonSource(JarFile jar, String source) throws Exception {
+        if (source.equals(IncrementalUpdateTarget.REINIT_SOURCE.replace('.', '/'))) return;
+        ClassReader reader = new ClassReader(bytes(jar, source));
+        boolean[] declared = {false}, delegates = {false};
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            int access, String name, String descriptor, String signature, String[] exceptions) {
+                        if (!name.equals("reinitInstance")
+                                || !descriptor.equals(IncrementalUpdateTarget.REINIT_DESCRIPTOR)) {
+                            return null;
+                        }
+                        declared[0] = true;
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitMethodInsn(
+                                    int opcode, String owner, String name, String descriptor, boolean itf) {
+                                if (opcode == Opcodes.INVOKESPECIAL
+                                        && owner.equals(reader.getSuperName())
+                                        && name.equals("reinitInstance")
+                                        && descriptor.equals(IncrementalUpdateTarget.REINIT_DESCRIPTOR)) {
+                                    delegates[0] = true;
+                                }
+                            }
+                        };
+                    }
+                },
+                ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        assertTrue(!declared[0] || delegates[0], source + " must reach the common source rebuild hook");
+        assertRebuildReachesCommonSource(jar, reader.getSuperName());
     }
 
     private static byte[] bytes(final JarFile jar, final String owner) throws Exception {

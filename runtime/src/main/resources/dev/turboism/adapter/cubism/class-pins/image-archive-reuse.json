@@ -1,4 +1,48 @@
 {
+  "5.0.00": {
+    "com/live2d/graphics/CImageResource": "3da54a7574ce11cb907b2c3b675d786e8edb4e9810e09cdf8f1e39bd43aca678",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.0.01": {
+    "com/live2d/graphics/CImageResource": "3da54a7574ce11cb907b2c3b675d786e8edb4e9810e09cdf8f1e39bd43aca678",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.0.02": {
+    "com/live2d/graphics/CImageResource": "3da54a7574ce11cb907b2c3b675d786e8edb4e9810e09cdf8f1e39bd43aca678",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.0.03": {
+    "com/live2d/graphics/CImageResource": "cfc9b7855cd302f8a93311963f7ce000a26d9a641b2faf7ee94c62d3583f0b68",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.0.04": {
+    "com/live2d/graphics/CImageResource": "cfc9b7855cd302f8a93311963f7ce000a26d9a641b2faf7ee94c62d3583f0b68",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.0.05": {
+    "com/live2d/graphics/CImageResource": "cfc9b7855cd302f8a93311963f7ce000a26d9a641b2faf7ee94c62d3583f0b68",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.0.06": {
+    "com/live2d/graphics/CImageResource": "cfc9b7855cd302f8a93311963f7ce000a26d9a641b2faf7ee94c62d3583f0b68",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.1.00": {
+    "com/live2d/graphics/CImageResource": "cfc9b7855cd302f8a93311963f7ce000a26d9a641b2faf7ee94c62d3583f0b68",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.1.01": {
+    "com/live2d/graphics/CImageResource": "efe8bee685ceaebfadb3d24f0c409a10d836b53146f16a7d3a4de4137716a49a",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.1.02": {
+    "com/live2d/graphics/CImageResource": "17172780c9f2e312749a244984c39b6deb3dd8189b5ce3b1e560c49d0a799e52",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
+  "5.1.03": {
+    "com/live2d/graphics/CImageResource": "17172780c9f2e312749a244984c39b6deb3dd8189b5ce3b1e560c49d0a799e52",
+    "com/live2d/graphics/CWritableImage": "c477f6823d6f48b9aaf87c428490365ef62a27d203d57df12232e0b57b0bb810"
+  },
   "5.2.00": {
     "com/live2d/graphics/CImageResource": "ac4ac3cf58a16a7b5a30ab35fb2826ce490cd84da7112e82964e282ee5ed136e",
     "com/live2d/graphics/CWritableImage": "1ab08de5a3746e3f1fe2885ad9202c15fcc4144345cf1d5f1910f12179ce8f09"

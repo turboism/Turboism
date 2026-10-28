@@ -89,6 +89,20 @@ final class NativeShaderUniformBridgeTest {
     }
 
     @Test
+    void invalidateAllDropsRecordedLocations() {
+        Gl gl = new Gl();
+        Shader shader1 = new Shader();
+        Shader shader2 = new Shader();
+        Context.current = gl.context;
+        assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader1));
+        assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader2));
+        gl.epoch = 1000;
+        NativeShaderUniformBridge.invalidateAll();
+        assertEquals(1306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader1));
+        assertEquals(1306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader2));
+    }
+
+    @Test
     void contextIdentityOrHandleChangeForcesFreshQuery() {
         Gl gl = new Gl();
         Shader shader = new Shader();

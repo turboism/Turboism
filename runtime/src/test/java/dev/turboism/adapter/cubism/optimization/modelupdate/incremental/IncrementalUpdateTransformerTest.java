@@ -271,13 +271,41 @@ public class IncrementalUpdateTransformerTest {
         return w.toByteArray();
     }
 
+    private static byte[] reinitSource() {
+        String owner = IncrementalUpdateTarget.REINIT_SOURCE.replace('.', '/');
+        ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        w.visit(V17, ACC_PUBLIC, owner, null, "java/lang/Object", null);
+        w.visitField(ACC_PUBLIC, "rebuilds", "I", null, null).visitEnd();
+        MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+        m.visitCode();
+        m.visitVarInsn(ALOAD, 0);
+        m.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        m.visitInsn(RETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+        m = w.visitMethod(ACC_PUBLIC, "reinitInstance", IncrementalUpdateTarget.REINIT_DESCRIPTOR, null, null);
+        m.visitCode();
+        m.visitVarInsn(ALOAD, 0);
+        m.visitInsn(DUP);
+        m.visitFieldInsn(GETFIELD, owner, "rebuilds", "I");
+        m.visitInsn(ICONST_1);
+        m.visitInsn(IADD);
+        m.visitFieldInsn(PUTFIELD, owner, "rebuilds", "I");
+        m.visitInsn(RETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+        w.visitEnd();
+        return w.toByteArray();
+    }
+
     private static List<byte[]> references(
             final IncrementalUpdateTarget t, final boolean markSite, final boolean deformSite) {
         return List.of(
                 updater(t, markSite, deformSite),
                 deformerForm(RFORM, t.deformerInterpolateDescriptor()),
                 deformerForm(WFORM, t.deformerInterpolateDescriptor()),
-                meshForm(t.meshInterpolateDescriptor()));
+                meshForm(t.meshInterpolateDescriptor()),
+                reinitSource());
     }
 
     private static void put(final String key, final Object value) {
@@ -288,7 +316,7 @@ public class IncrementalUpdateTransformerTest {
     private static final String[] SLOTS = {
         IncrementalUpdateBridge.BEGIN_PROPERTY, IncrementalUpdateBridge.END_PROPERTY,
         IncrementalUpdateBridge.MARK_PROPERTY, IncrementalUpdateBridge.DEFORM_PROPERTY,
-        IncrementalUpdateBridge.FORM_PROPERTY
+        IncrementalUpdateBridge.FORM_PROPERTY, IncrementalUpdateBridge.REINIT_PROPERTY
     };
 
     /**
@@ -297,7 +325,9 @@ public class IncrementalUpdateTransformerTest {
      * native result, so the mesh form resolves to its reference stub during transform.
      */
     private static void registerStubs(final Loader loader, final IncrementalUpdateTarget t) {
-        for (String dep : new String[] {CTX, MODEL, PSET, SELD, KGS, CAM, DFORM, ACFORM}) {
+        for (String dep :
+                new String[] {CTX, MODEL, PSET, SELD, KGS, CAM, DFORM, ACFORM, N + "doc/model/ACParameterControllable"
+                }) {
             loader.add(dep, empty(dep, null));
         }
         loader.add(t.updateContext(), empty(t.updateContext(), null));
@@ -320,11 +350,12 @@ public class IncrementalUpdateTransformerTest {
             assertNotNull(out, names.get(i) + " rejected: " + transformer.failure());
             output.add(out);
         }
-        assertEquals(6, transformer.matches());
+        assertEquals(7, transformer.matches());
         loader.add(names.get(0), output.get(0));
         loader.add(names.get(1), output.get(1));
         loader.add(names.get(2), output.get(2));
         loader.add(names.get(3), output.get(3));
+        loader.add(names.get(4), output.get(4));
         return new Host(loader, names);
     }
 
@@ -520,9 +551,48 @@ public class IncrementalUpdateTransformerTest {
                         null, loader, transformer.classNames().get(i), null, loader.domain, refs.get(i));
                 assertNotNull(out, t.version() + " rejected: " + transformer.failure());
             }
-            assertEquals(6, transformer.matches());
-            assertEquals(4, transformer.touchedClasses().size());
+            assertEquals(7, transformer.matches());
+            assertEquals(5, transformer.touchedClasses().size());
             assertNotNull(transformer.beforeSha256(t.updater()));
+        }
+    }
+
+    @Test
+    void sourceReinitInvalidatesBeforeNativeRebuildAndAlwaysPreservesNativeBody() throws Exception {
+        Host host = transform(T5303, true, true);
+        Class<?> sourceType = host.loader.of(IncrementalUpdateTarget.REINIT_SOURCE);
+        Class<?> instanceType = host.loader.of(N + "doc/model/ACParameterControllable");
+        Object source = sourceType.getConstructor().newInstance();
+        Object instance = instanceType.getConstructor().newInstance();
+        var reinit = sourceType.getMethod("reinitInstance", instanceType);
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        Object saved = System.getProperties().get(IncrementalUpdateBridge.REINIT_PROPERTY);
+        try {
+            put(IncrementalUpdateBridge.REINIT_PROPERTY, (Consumer<Object>) value -> {
+                assertSame(instance, value);
+                try {
+                    assertEquals(0, sourceType.getField("rebuilds").getInt(source));
+                } catch (ReflectiveOperationException failure) {
+                    throw new AssertionError(failure);
+                }
+                calls.incrementAndGet();
+            });
+            reinit.invoke(source, instance);
+            assertEquals(1, calls.get());
+            assertEquals(1, sourceType.getField("rebuilds").getInt(source));
+            for (Object callback : new Object[] {
+                null,
+                "wrong type",
+                (Consumer<Object>) value -> {
+                    throw new IllegalStateException("callback failure");
+                }
+            }) {
+                put(IncrementalUpdateBridge.REINIT_PROPERTY, callback);
+                reinit.invoke(source, instance);
+            }
+            assertEquals(4, sourceType.getField("rebuilds").getInt(source));
+        } finally {
+            put(IncrementalUpdateBridge.REINIT_PROPERTY, saved);
         }
     }
 }

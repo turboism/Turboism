@@ -45,24 +45,28 @@ public record SkippedFrameUploadElisionTarget(HostArtifactDigest digest, String 
         Objects.requireNonNull(version, "version");
     }
 
-    private static final SkippedFrameUploadElisionTarget CUBISM_5302 =
-            new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
-    private static final SkippedFrameUploadElisionTarget CUBISM_5303 =
-            new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
-    private static final SkippedFrameUploadElisionTarget CUBISM_5304 =
-            new SkippedFrameUploadElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_04, "5.3.04");
+    /** Returns the version-specific shader helper class owning {@code a(Buffer)J}. */
+    public String sizeOwner() {
+        if (version.startsWith("5.0.") || version.startsWith("5.1.")) {
+            return "com/live2d/graphics3d/shader/w";
+        }
+        if (version.startsWith("5.2.")) {
+            return "com/live2d/graphics3d/shader/y";
+        }
+        return SIZE_OWNER;
+    }
 
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<SkippedFrameUploadElisionTarget> of(final HostArtifactDigest digest) {
         Objects.requireNonNull(digest, "digest");
-        if (CUBISM_5302.digest().equals(digest)) return Optional.of(CUBISM_5302);
-        if (CUBISM_5303.digest().equals(digest)) return Optional.of(CUBISM_5303);
-        if (CUBISM_5304.digest().equals(digest)) return Optional.of(CUBISM_5304);
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(digest)
+                .map(version -> new SkippedFrameUploadElisionTarget(digest, version));
     }
 
     /** Every reviewed target, oldest supported version first. */
     public static List<SkippedFrameUploadElisionTarget> all() {
-        return List.of(CUBISM_5302, CUBISM_5303, CUBISM_5304);
+        return ReviewedHostArtifacts.all().stream()
+                .flatMap(artifact -> of(artifact).stream())
+                .toList();
     }
 }

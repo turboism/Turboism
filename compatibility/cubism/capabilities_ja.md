@@ -306,19 +306,19 @@ Cubism Editor 自体に機能が存在しない確認済みホスト境界。公
 | ソース | シンボル | バージョン |
 |---|---|---|
 | class-pins/`float-array-parse.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`incremental-update.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-interpolation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`shader-uniform.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`model-update-skip.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`shader-uniform.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
 
 ## バージョン単調性の原則

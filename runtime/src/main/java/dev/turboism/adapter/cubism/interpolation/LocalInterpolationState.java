@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.interpolation;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.List;
 
 /** Invocation-owned fixed-point candidate. Published cache entries contain only its detached key/mask. */
@@ -52,6 +53,7 @@ final class LocalInterpolationState {
             return new LocalInterpolationState(domain, input, targetStart, state, (int) writes);
         } catch (Throwable failure) {
             cache.release(input);
+            FatalErrors.rethrowIfFatal(failure);
             if (LocalFormState.nonFinite(failure)) return null;
             throw failure;
         }
@@ -75,6 +77,7 @@ final class LocalInterpolationState {
                 at += state.width;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (LocalFormState.nonFinite(failure)) return;
             throw failure;
         }
