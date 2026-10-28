@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
-import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Optional;
@@ -65,8 +64,6 @@ public record CanvasCompositeElisionTarget(String version, HostArtifactDigest di
             return Optional.empty();
         }
         return ReviewedHostArtifacts.cubismVersionOf(digest)
-                .filter(version -> ReviewedVersions.between("5.2.03", "5.2.03").contains(version)
-                        || ReviewedVersions.since("5.3.02").contains(version))
                 .map(version -> new CanvasCompositeElisionTarget(version, digest));
     }
 }

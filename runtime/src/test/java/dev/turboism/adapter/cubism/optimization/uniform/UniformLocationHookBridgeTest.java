@@ -806,4 +806,60 @@ class UniformLocationHookBridgeTest {
             bridge.end(next);
         }
     }
+
+    @Test
+    void uploadConfirmationWorksWhenUniformLocationCacheDisabled() throws Exception {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "false");
+        String errorSlot =
+                dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge.ERROR_PROPERTY;
+        var checks = new java.util.ArrayList<Integer>();
+        System.getProperties()
+                .put(errorSlot, (java.util.function.BiConsumer<Object, Integer>) (gl, error) -> checks.add(error));
+        try (var bridge = bridge()) {
+            Context context = new Context();
+            GL gl = new GL(context);
+            current = context;
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertTrue(scope != 0L, "frame opens even when uniform location caching is disabled");
+            bridge.error(gl, 0);
+            assertEquals(
+                    java.util.List.of(0),
+                    checks,
+                    "valid context error(gl, 0) observes upload elision even if uniform cache disabled");
+            bridge.end(scope);
+        } finally {
+            System.getProperties().remove(errorSlot);
+        }
+    }
+
+    @Test
+    void deferQueryFallsBackAfterInvalidateOrErrorInSameFrame() throws Exception {
+        System.setProperty(UniformLocationHookBridge.ENABLE_PROPERTY, "true");
+        Context context = new Context();
+        GL gl = new GL(context);
+        current = context;
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "before-invalidate", false));
+            bridge.invalidate();
+            assertEquals(
+                    UniformLocationHookBridge.DEFERRED_FALLBACK,
+                    bridge.deferQuery(gl, "draw", true),
+                    "deferQuery falls back to DEFERRED_FALLBACK after invalidate() in the same frame");
+            bridge.end(scope);
+        }
+        try (UniformLocationHookBridge bridge = deferredBridge()) {
+            bridge.install();
+            long scope = bridge.begin(new Frame(gl));
+            assertEquals(0, bridge.deferQuery(gl, "before-error", false));
+            bridge.error(gl, 1282);
+            assertEquals(
+                    UniformLocationHookBridge.DEFERRED_FALLBACK,
+                    bridge.deferQuery(gl, "draw", true),
+                    "deferQuery falls back to DEFERRED_FALLBACK after error(gl, 1282) in the same frame");
+            bridge.end(scope);
+        }
+    }
 }

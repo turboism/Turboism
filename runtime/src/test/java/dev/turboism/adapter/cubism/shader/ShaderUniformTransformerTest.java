@@ -132,7 +132,9 @@ final class ShaderUniformTransformerTest {
     void everyAdmittedVersionIsPinnedAndCrossVersionDigestsAreRefused() {
         var pins = ShaderUniformTransformer.reviewedClassSha256();
         assertEquals(
-                List.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions().stream()
+                        .sorted()
+                        .toList(),
                 pins.keySet().stream().sorted().toList(),
                 "the hook must pin every adapted host version");
         for (var entry : pins.entrySet()) {

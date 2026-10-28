@@ -34,26 +34,28 @@ public record GlGetErrorElisionTarget(
         Objects.requireNonNull(descriptor, "descriptor");
     }
 
-    private static final GlGetErrorElisionTarget CUBISM_5302 =
-            new GlGetErrorElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", OWNER, METHOD, DESCRIPTOR);
-
-    private static final GlGetErrorElisionTarget CUBISM_5303 =
-            new GlGetErrorElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", OWNER, METHOD, DESCRIPTOR);
-
-    private static final GlGetErrorElisionTarget CUBISM_5304 =
-            new GlGetErrorElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_04, "5.3.04", OWNER, METHOD, DESCRIPTOR);
+    private static String ownerForVersion(final String version) {
+        if (version.startsWith("5.0.") || version.startsWith("5.1.")) {
+            return "com/live2d/graphics3d/shader/w";
+        }
+        if (version.startsWith("5.2.")) {
+            return "com/live2d/graphics3d/shader/y";
+        }
+        return OWNER;
+    }
 
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<GlGetErrorElisionTarget> of(final HostArtifactDigest digest) {
         Objects.requireNonNull(digest, "digest");
-        if (CUBISM_5302.digest().equals(digest)) return Optional.of(CUBISM_5302);
-        if (CUBISM_5303.digest().equals(digest)) return Optional.of(CUBISM_5303);
-        if (CUBISM_5304.digest().equals(digest)) return Optional.of(CUBISM_5304);
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(digest)
+                .map(version ->
+                        new GlGetErrorElisionTarget(digest, version, ownerForVersion(version), METHOD, DESCRIPTOR));
     }
 
     /** Every reviewed target, oldest supported version first. */
     public static List<GlGetErrorElisionTarget> all() {
-        return List.of(CUBISM_5302, CUBISM_5303, CUBISM_5304);
+        return ReviewedHostArtifacts.all().stream()
+                .flatMap(artifact -> of(artifact).stream())
+                .toList();
     }
 }

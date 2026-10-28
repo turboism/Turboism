@@ -37,6 +37,7 @@ public final class IncrementalUpdateHostProbePlugin implements TurboismPlugin {
         "turboism.incremental-update.mark",
         "turboism.incremental-update.deform",
         "turboism.incremental-update.form",
+        "turboism.incremental-update.reinit",
         "turboism.incremental-update.stats"};
     private static final String ENABLE_PROPERTY = "turboism.optimization.incrementalUpdate";
     private static final String PROBE_PROPERTY = "turboism.incremental-update.probe";

@@ -97,6 +97,7 @@ public final class NativeMeshInterpolationBridge {
     public record CurveCacheStatistics(
             long hits, long misses, long evictions, int entries, long bytes, long byteBudget) {}
 
+    /** Returns detached observations of the bounded numerical interpolation cache. */
     public static CurveCacheStatistics curveCacheStatistics() {
         var stats = CURVES.statistics();
         return new CurveCacheStatistics(

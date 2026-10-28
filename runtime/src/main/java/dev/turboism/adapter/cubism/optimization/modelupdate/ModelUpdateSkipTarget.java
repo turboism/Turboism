@@ -65,9 +65,153 @@ public record ModelUpdateSkipTarget(
     private static final String PP = "com.live2d.cubism.doc.model.drawable.artPath.CArtPathPoint";
     private static final String SP = "com.live2d.graphics.splineCurve.CSplineCurvePoint";
     private static final String GV = "com.live2d.graphics3d.type.GVector2";
+    private static final String UC_50X = "com.live2d.cubism.doc.model.au";
     private static final String UC_53X = "com.live2d.cubism.doc.model.ax";
     private static final String UC_5203 = "com.live2d.cubism.doc.model.ay";
     private static final String UC_5304 = "com.live2d.cubism.doc.model.az";
+
+    private static final ModelUpdateSkipTarget CUBISM_5000 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_00,
+            "5.0.00",
+            "com/live2d/cubism/view/aj",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5001 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_01,
+            "5.0.01",
+            "com/live2d/cubism/view/aj",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5002 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_02,
+            "5.0.02",
+            "com/live2d/cubism/view/aj",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5003 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_03,
+            "5.0.03",
+            "com/live2d/cubism/view/ak",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5004 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_04,
+            "5.0.04",
+            "com/live2d/cubism/view/ak",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5005 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_05,
+            "5.0.05",
+            "com/live2d/cubism/view/ak",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5006 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_06,
+            "5.0.06",
+            "com/live2d/cubism/view/al",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/au;ZLcom/live2d/cubism/view/context/bA;)V",
+            UC_50X,
+            "com.live2d.cubism.view.context.bG$b",
+            "com.live2d.cubism.view.context.bG$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5100 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_00,
+            "5.1.00",
+            "com/live2d/cubism/view/ao",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/ay;ZLcom/live2d/cubism/view/context/bD;)V",
+            UC_5203,
+            "com.live2d.cubism.view.context.bJ$b",
+            "com.live2d.cubism.view.context.bJ$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5101 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_01,
+            "5.1.01",
+            "com/live2d/cubism/view/ao",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/ay;ZLcom/live2d/cubism/view/context/bD;)V",
+            UC_5203,
+            "com.live2d.cubism.view.context.bJ$b",
+            "com.live2d.cubism.view.context.bJ$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5102 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_02,
+            "5.1.02",
+            "com/live2d/cubism/view/ao",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/ay;ZLcom/live2d/cubism/view/context/bD;)V",
+            UC_5203,
+            "com.live2d.cubism.view.context.bJ$b",
+            "com.live2d.cubism.view.context.bJ$a",
+            false,
+            false,
+            false);
+
+    private static final ModelUpdateSkipTarget CUBISM_5103 = new ModelUpdateSkipTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_03,
+            "5.1.03",
+            "com/live2d/cubism/view/ao",
+            "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;Z"
+                    + "Lcom/live2d/cubism/doc/model/ay;ZLcom/live2d/cubism/view/context/bD;)V",
+            UC_5203,
+            "com.live2d.cubism.view.context.bJ$b",
+            "com.live2d.cubism.view.context.bJ$a",
+            false,
+            false,
+            false);
 
     private static final ModelUpdateSkipTarget CUBISM_5200 = new ModelUpdateSkipTarget(
             ReviewedHostArtifacts.CUBISM_5_2_00,
@@ -198,6 +342,17 @@ public record ModelUpdateSkipTarget(
     /** Every reviewed target, oldest supported version first. */
     public static List<ModelUpdateSkipTarget> all() {
         return List.of(
+                CUBISM_5000,
+                CUBISM_5001,
+                CUBISM_5002,
+                CUBISM_5003,
+                CUBISM_5004,
+                CUBISM_5005,
+                CUBISM_5006,
+                CUBISM_5100,
+                CUBISM_5101,
+                CUBISM_5102,
+                CUBISM_5103,
                 CUBISM_5200,
                 CUBISM_5201,
                 CUBISM_5202,
@@ -257,7 +412,9 @@ public record ModelUpdateSkipTarget(
         deps.add(new Dep(CX, "getCurrentEditMode", "()Lcom/live2d/doc/IEditMode;"));
         deps.add(new Dep(EM, "isEditing", "()Z"));
         deps.add(new Dep(MV, "isRandomPoseAnimation", "()Z"));
-        deps.add(new Dep(MV, "isExternalAppAnimation", "()Z"));
+        if (!version.startsWith("5.0.")) {
+            deps.add(new Dep(MV, "isExternalAppAnimation", "()Z"));
+        }
         deps.add(new Dep(MV, "isRecording", "()Z"));
         deps.add(new Dep(MV, "getCurrentViewMode", "()Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c;"));
         deps.add(new Dep(developSetting(), "h", "()Z"));
