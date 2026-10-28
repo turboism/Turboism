@@ -220,6 +220,11 @@ if ($PlanOnly) {
 
     for ($index = 0; $index -lt $entries.Count; $index++) {
         $entry = $entries[$index]
+        $skipMarker = Join-Path $plan (("{0:D4}.skip" -f $index))
+        if ([System.IO.File]::Exists($skipMarker)) {
+            Write-Output "SKIP_UNSELECTED|$($entry.Relative)"
+            continue
+        }
         $destinationFile = Resolve-PayloadPath $destination $entry.Relative
         if (Test-PayloadFileUnchanged $destinationFile $entry.Hash) {
             Write-Output "SKIP|$($entry.Relative)"
@@ -238,8 +243,16 @@ if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
 }
 $source = [System.IO.Path]::GetFullPath($SourceRoot)
 Assert-PayloadDirectory $source
+$plan = if ([string]::IsNullOrWhiteSpace($PlanRoot)) { $null } else { [System.IO.Path]::GetFullPath($PlanRoot) }
+$activeEntries = @()
 
-foreach ($entry in $entries) {
+for ($index = 0; $index -lt $entries.Count; $index++) {
+    $entry = $entries[$index]
+    if ($null -ne $plan -and [System.IO.File]::Exists((Join-Path $plan (("{0:D4}.skip" -f $index))))) {
+        Write-Output "SKIP_UNSELECTED|$($entry.Relative)"
+        continue
+    }
+    $activeEntries += $entry
     $destinationFile = Resolve-PayloadPath $destination $entry.Relative
     if (Test-PayloadFileUnchanged $destinationFile $entry.Hash) {
         Write-Output "SKIP|$($entry.Relative)"
@@ -273,4 +286,4 @@ foreach ($entry in $entries) {
     Write-Output "WRITE|$($entry.Relative)"
 }
 
-Backup-PayloadPluginDuplicates $destination $entries
+Backup-PayloadPluginDuplicates $destination $activeEntries

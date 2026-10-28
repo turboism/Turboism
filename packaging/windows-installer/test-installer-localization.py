@@ -16,6 +16,14 @@ expected_languages = {"ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"}
 if len(import_keys) != 5 or any(languages != expected_languages for languages in import_keys.values()):
     raise SystemExit("native Cubism import localization keys are not in parity")
 
+plugin_page_keys = {}
+for key, language in re.findall(r'^LangString (Plugin(?:Selection|SelectAll)\w+) \$\{LANG_(\w+)\}', nsis, re.M):
+    if language in plugin_page_keys.setdefault(key, set()):
+        raise SystemExit(f"duplicate plugin selection page localization: {key} {language}")
+    plugin_page_keys[key].add(language)
+if len(plugin_page_keys) != 4 or any(languages != expected_languages for languages in plugin_page_keys.values()):
+    raise SystemExit("plugin selection page localization keys are not in parity")
+
 LANGPACK = ROOT / "packaging/java-installer/CustomLangPack.xml"
 variants = [LANGPACK, Path(str(LANGPACK) + "_eng"), Path(str(LANGPACK) + "_chn"),
             Path(str(LANGPACK) + "_jpn"), Path(str(LANGPACK) + "_kor")]

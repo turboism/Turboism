@@ -18,6 +18,8 @@ Unicode true
 
 ; LangString expansion requires custom variables to be declared before use.
 Var InstallerConfigurationOperation
+Var PluginSelectedCount
+Var PluginTotalCount
 
 !include "MUI2.nsh"
 !include "nsDialogs.nsh"
@@ -104,7 +106,7 @@ SetFont "MS Shell Dlg" 12
 ; 安装前哈希计划对应的条件解压函数（由 assemble-release.sh 生成）。
 !include "${GENERATED_DIR}/payload-extract.nsh"
 
-; ---------- 页面流程：Welcome → AGPL-3.0-only → EULA 正文 → 四项确认 → 模式 → Components → Directory → Graal 策略 → Graal 安装 → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
+; ---------- 页面流程：Welcome → AGPL-3.0-only → EULA 正文 → 四项确认 → Directory → 第一方插件选择 → Graal 策略 → Graal 安装 → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
 ; Graal 安装页执行真实下载，必须排在 Directory 之后（$INSTDIR 已定稿）；
 ; 它又必须紧跟 Graal 策略页，因此 Directory 整体上移到策略页之前。
 !insertmacro MUI_PAGE_WELCOME
@@ -119,6 +121,7 @@ SetFont "MS Shell Dlg" 12
 !insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
 Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave
 !insertmacro MUI_PAGE_DIRECTORY
+Page custom PluginSelectionCreate PluginSelectionLeave
 Page custom GraalCreate GraalLeave
 Page custom GraalInstallCreate GraalInstallLeave
 Page custom CubismDiscoveryCreate CubismDiscoveryLeave
@@ -233,6 +236,23 @@ LangString DirectoryTopText ${LANG_ENGLISH} "Turboism will be installed to the f
 LangString DirectoryTopText ${LANG_SIMPCHINESE} "Turboism 将安装到以下目录（Turboism home）："
 LangString DirectoryTopText ${LANG_JAPANESE} "Turboism は次のディレクトリ（Turboism home）にインストールされます："
 LangString DirectoryTopText ${LANG_KOREAN} "Turboism은 다음 디렉터리(Turboism home)에 설치됩니다:"
+
+LangString PluginSelectionTitle ${LANG_ENGLISH} "Select First-Party Plugins"
+LangString PluginSelectionTitle ${LANG_SIMPCHINESE} "选择第一方插件"
+LangString PluginSelectionTitle ${LANG_JAPANESE} "公式プラグインの選択"
+LangString PluginSelectionTitle ${LANG_KOREAN} "공식 플러그인 선택"
+LangString PluginSelectionSubtitle ${LANG_ENGLISH} "Choose the first-party plugins to install. Select a plugin in the list to view its metadata and README."
+LangString PluginSelectionSubtitle ${LANG_SIMPCHINESE} "选择要安装的第一方插件，点击左侧列表项可查看插件信息与完整 README 文档。"
+LangString PluginSelectionSubtitle ${LANG_JAPANESE} "インストールする公式プラグインを選択します。一覧の項目をクリックすると詳細情報と README を表示します。"
+LangString PluginSelectionSubtitle ${LANG_KOREAN} "설치할 공식 플러그인을 선택하세요. 왼쪽 목록에서 항목을 클릭하면 메타데이터와 전체 README를 확인할 수 있습니다."
+LangString PluginSelectionCountText ${LANG_ENGLISH} "Selected: $PluginSelectedCount / $PluginTotalCount"
+LangString PluginSelectionCountText ${LANG_SIMPCHINESE} "已选：$PluginSelectedCount / $PluginTotalCount"
+LangString PluginSelectionCountText ${LANG_JAPANESE} "選択中：$PluginSelectedCount / $PluginTotalCount"
+LangString PluginSelectionCountText ${LANG_KOREAN} "선택됨: $PluginSelectedCount / $PluginTotalCount"
+LangString PluginSelectAllText ${LANG_ENGLISH} "Select all"
+LangString PluginSelectAllText ${LANG_SIMPCHINESE} "全选"
+LangString PluginSelectAllText ${LANG_JAPANESE} "すべて選択"
+LangString PluginSelectAllText ${LANG_KOREAN} "모두 선택"
 
 LangString FinishTitleText ${LANG_ENGLISH} "Installation Complete"
 LangString FinishTitleText ${LANG_SIMPCHINESE} "安装完成"
@@ -500,6 +520,13 @@ Var EulaAck1State
 Var EulaAck2State
 Var EulaAck3State
 Var EulaAck4State
+Var PluginSelectionDialog
+Var PluginSelectionCountLabel
+Var PluginSelectionList
+Var PluginSelectAllCheckbox
+Var PluginReadmeRichEdit
+Var PluginReadmeDir
+Var PluginCurrentIndex
 Var installManagedGraal  ; 1 = 用户选择下载并安装托管 GraalVM（默认 0）
 Var GraalDialog
 Var GraalNowRadio
@@ -572,6 +599,21 @@ Var unCfgStyle          ; 复选框控件样式
 !ifndef WS_TABSTOP
   !define WS_TABSTOP 0x00010000
 !endif
+!ifndef WS_EX_CLIENTEDGE
+  !define WS_EX_CLIENTEDGE 0x00000200
+!endif
+!ifndef PLUGIN_README_STYLE
+  !define PLUGIN_README_STYLE 0x50210844
+!endif
+!ifndef PLUGIN_LISTVIEW_STYLE
+  !define PLUGIN_LISTVIEW_STYLE 0x5021400D
+!endif
+!ifndef PLUGIN_SELECTALL_STYLE
+  !define PLUGIN_SELECTALL_STYLE 0x50010C03
+!endif
+!ifndef PLUGIN_COUNT_STYLE
+  !define PLUGIN_COUNT_STYLE 0x50000302
+!endif
 
 ; ---------- 初始化 ----------
 
@@ -587,6 +629,7 @@ Function .onInit
   StrCpy $EulaAck2State 0
   StrCpy $EulaAck3State 0
   StrCpy $EulaAck4State 0
+  Call InitPluginSelectionDefaults
   StrCpy $installManagedGraal 0
   StrCpy $GraalInstallGeneration 0
   StrCpy $GraalInstallState 0
@@ -659,6 +702,165 @@ Function EulaAcknowledgementsLeave
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(EulaRequired)"
     Abort
   ${EndIf}
+FunctionEnd
+
+; ---------- 第一方插件选择页（nsDialogs + SysListView32 原生复选框 + RichEdit20W 渲染 README） ----------
+Function InsertPluginListViewItem
+  System::Call '*(i 1, i r0, i 0, i 0, i 0, t r2, i 0, i 0, p 0) p .r3'
+  ${If} $3 != 0
+    SendMessage $PluginSelectionList 0x104D 0 $3
+    System::Free $3
+  ${EndIf}
+  ${If} $1 == 1
+    StrCpy $4 0x2000
+  ${Else}
+    StrCpy $4 0x1000
+  ${EndIf}
+  System::Call '*(i 8, i r0, i 0, i r4, i 0xF000, p 0, i 0, i 0, p 0) p .r3'
+  ${If} $3 != 0
+    SendMessage $PluginSelectionList 0x102B $0 $3
+    System::Free $3
+  ${EndIf}
+FunctionEnd
+
+Function LoadPluginReadme
+  StrCpy $0 "$PluginReadmeDir\plugin-$PluginCurrentIndex.rtf"
+  ${IfNot} ${FileExists} "$0"
+    Return
+  ${EndIf}
+  System::Call 'kernel32::CreateFileW(t r0, i 0x80000000, i 1, p 0, i 3, i 0x80, p 0) p .r1'
+  ${If} $1 == -1
+  ${OrIf} $1 == 0
+    Return
+  ${EndIf}
+  System::Call 'kernel32::GetFileSize(p r1, p 0) i .r2'
+  ${If} $2 <= 0
+    System::Call 'kernel32::CloseHandle(p r1)'
+    Return
+  ${EndIf}
+  IntOp $3 $2 + 4
+  System::Call 'kernel32::GlobalAlloc(i 0x0040, i r3) p .r4'
+  ${If} $4 == 0
+    System::Call 'kernel32::CloseHandle(p r1)'
+    Return
+  ${EndIf}
+  System::Call 'kernel32::ReadFile(p r1, p r4, i r2, *i .r3, p 0) i .r5'
+  System::Call 'kernel32::CloseHandle(p r1)'
+  ${If} $5 != 0
+    System::Call '*(i 0, i 0) p .r5'
+    ${If} $5 != 0
+      System::Call 'user32::SendMessageW(p $PluginReadmeRichEdit, i 0x0461, p r5, p r4)'
+      System::Free $5
+      SendMessage $PluginReadmeRichEdit 0x00B1 0 0
+      SendMessage $PluginReadmeRichEdit 0x00B7 0 0
+    ${EndIf}
+  ${EndIf}
+  System::Call 'kernel32::GlobalFree(p r4)'
+FunctionEnd
+
+Function UpdatePluginSelectionMeta
+  ${NSD_SetText} $PluginSelectionCountLabel "$(PluginSelectionCountText)"
+  ${If} $PluginSelectedCount == $PluginTotalCount
+    ${NSD_SetState} $PluginSelectAllCheckbox ${BST_CHECKED}
+  ${Else}
+    ${NSD_SetState} $PluginSelectAllCheckbox ${BST_UNCHECKED}
+  ${EndIf}
+FunctionEnd
+
+Function UpdatePluginSelectionDetails
+  Call UpdatePluginSelectionMeta
+  Call LoadPluginReadme
+FunctionEnd
+
+Function PluginSelectionPoll
+  Call SyncPluginSelectionFromListView
+  ${If} $4 != $PluginSelectedCount
+    StrCpy $PluginSelectedCount $4
+    Call UpdatePluginSelectionMeta
+  ${EndIf}
+  ${If} $5 >= 0
+    ${If} $5 != $PluginCurrentIndex
+      StrCpy $PluginCurrentIndex $5
+      System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, i 3, p 0, i 0, i 0, p 0) p .r3'
+      ${If} $3 != 0
+        SendMessage $PluginSelectionList 0x102B $PluginCurrentIndex $3
+        System::Free $3
+      ${EndIf}
+      Call UpdatePluginSelectionDetails
+    ${Else}
+      Call UpdatePluginSelectionMeta
+    ${EndIf}
+    Return
+  ${EndIf}
+  SendMessage $PluginSelectionList 0x100C -1 2 $0
+  ${If} $0 >= 0
+  ${AndIf} $0 != $PluginCurrentIndex
+    StrCpy $PluginCurrentIndex $0
+    Call UpdatePluginSelectionDetails
+  ${EndIf}
+FunctionEnd
+
+Function PluginSelectAllClick
+  Pop $0
+  ${NSD_GetState} $PluginSelectAllCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $0 1
+  ${Else}
+    StrCpy $0 0
+  ${EndIf}
+  Call SetAllPluginsSelected
+  Call UpdatePluginSelectionMeta
+FunctionEnd
+
+Function PluginSelectionBack
+  Pop $0
+  ${NSD_KillTimer} PluginSelectionPoll
+  Call SyncPluginSelectionFromListView
+  StrCpy $PluginSelectedCount $4
+FunctionEnd
+
+Function PluginSelectionCreate
+  nsDialogs::Create 1018
+  Pop $PluginSelectionDialog
+  ${If} $PluginSelectionDialog == error
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(PluginSelectionTitle)" "$(PluginSelectionSubtitle)"
+  Call StagePluginReadmeFiles
+
+  nsDialogs::CreateControl "BUTTON" ${PLUGIN_SELECTALL_STYLE} 0 0 0 18% 12u "$(PluginSelectAllText)"
+  Pop $PluginSelectAllCheckbox
+  ${NSD_OnClick} $PluginSelectAllCheckbox PluginSelectAllClick
+
+  nsDialogs::CreateControl "STATIC" ${PLUGIN_COUNT_STYLE} ${WS_EX_TRANSPARENT} 18% 0 24% 12u "$(PluginSelectionCountText)"
+  Pop $PluginSelectionCountLabel
+
+  nsDialogs::CreateControl "SysListView32" ${PLUGIN_LISTVIEW_STYLE} ${WS_EX_CLIENTEDGE} 0 14u 42% 124u ""
+  Pop $PluginSelectionList
+  SendMessage $PluginSelectionList 0x1036 0 0x00010024
+  System::Call '*(i 2, i 0, i 420, p 0, i 0, i 0) p .r0'
+  ${If} $0 != 0
+    SendMessage $PluginSelectionList 0x1061 0 $0
+    System::Free $0
+  ${EndIf}
+
+  System::Call 'kernel32::LoadLibraryW(t "riched20.dll") p .r0'
+  nsDialogs::CreateControl "RichEdit20W" ${PLUGIN_README_STYLE} ${WS_EX_CLIENTEDGE} 44% 0 56% 138u ""
+  Pop $PluginReadmeRichEdit
+  SendMessage $PluginReadmeRichEdit 0x0435 0 1048576
+  SendMessage $PluginReadmeRichEdit 0x0443 1 0
+
+  ${NSD_OnBack} PluginSelectionBack
+  Call PopulatePluginSelectionList
+  Call UpdatePluginSelectionDetails
+  ${NSD_CreateTimer} PluginSelectionPoll 50
+  nsDialogs::Show
+FunctionEnd
+
+Function PluginSelectionLeave
+  ${NSD_KillTimer} PluginSelectionPoll
+  Call SyncPluginSelectionFromListView
+  StrCpy $PluginSelectedCount $4
 FunctionEnd
 
 Function GraalCreate
@@ -1420,6 +1622,10 @@ InstallerConfigurationDone:
     StrCpy $GraalInstallWorkDir ""
     StrCpy $GraalInstallStatusFile ""
     StrCpy $GraalInstallCancelFile ""
+  ${EndIf}
+  ${If} $PluginReadmeDir != ""
+    RMDir /r "$PluginReadmeDir"
+    StrCpy $PluginReadmeDir ""
   ${EndIf}
 FunctionEnd
 
