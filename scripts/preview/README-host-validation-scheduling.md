@@ -5,6 +5,42 @@ feature catalogue and generic `run-cubism-host-validation.sh` lifecycle, but run
 on the development host itself. **No SSH server, key, SSH/SCP invocation, or
 localhost-SSH fallback is required.**
 
+## Acceptance sequence
+
+1. **Choose the assertions and exact versions.** Use `list` and `plan` to select
+   tasks that exercise the changed API. A task's name alone does not establish
+   coverage: a model scope-close assertion does not prove that a service-directory
+   handle is fenced. Follow the version policy in
+   [CONTRIBUTING](../../CONTRIBUTING.md#cubism-version-adaptation); record any
+   narrower smoke matrix as limited coverage.
+2. **Verify local inputs.** Check installed official JAR/BAT identities and fixture
+   hashes. An existing `.env` may describe only a subset of installed versions.
+   Select a fixture with the required topology (for example, actual clip-mask
+   relationships), and record host/fixture format compatibility. Point
+   `TURBOISM_ENV_FILE` at an existing private configuration when this worktree has
+   no `.env`; quote paths containing spaces.
+3. **Finish offline verification and packaging.** Run affected tests and
+   `:runtime:admissionPreflightTest`; run `checkCompletedCommit` at final acceptance
+   as described in CONTRIBUTING. Build the selected feature bundle and any
+   auxiliary startup agent before preparation. Coordinate one build owner per
+   worktree. Record the source revision and product/probe/helper hashes; changes
+   to an auxiliary agent may also require rebuilding a probe that embeds it.
+4. **Prepare, submit and observe.** Check `status --json` and use the independent
+   worker below. Save the returned prepared digest and job ID; do not infer them
+   from a build directory. Finish builds before an exclusive performance run.
+5. **Review the evidence.** Match the job's structured assertions, host identity,
+   captured artifact and fixture hashes, normal exit and supervisor cleanup.
+   Distinguish functional PASS, insufficient workload, and measured performance;
+   see the [selection-lag evidence limits](../../validation/selection-lag-probe/README.md#interpreting-a-run).
+   A single changed-build sample cannot establish an improvement over a baseline.
+6. **Retain failures and finish cleanly.** Preserve the first failed attempt and
+   its reason. After a concrete input/helper correction, prepare a new snapshot
+   and retry with a new request key/run label. When all jobs are terminal, drain
+   a worker started for this session using SIGTERM after verifying its process
+   identity, then confirm no active slots remain. Leave an independently managed
+   shared worker under its owner's lifecycle policy. Keep raw reports and local
+   paths outside the repository.
+
 ## Safety and ownership
 
 - One managed Cubism session per exact version, across all worktrees; different
@@ -43,8 +79,10 @@ python3 scripts/preview/host_validation.py plan status-bar:5302 workspace:5302
 python3 scripts/preview/host_validation.py prepare status-bar:5302 --run-label check-a
 ```
 
-`prepare` returns a prepared ID. It fixes the actual Agent, plugins, configuration,
-fixture, helpers and normalized Runner arguments into a private input snapshot.
+`prepare` returns a `preparedId` digest. `submit --prepared` takes that digest,
+not a `runner-request.json` path or a staging directory. Preparation fixes the
+actual Agent, plugins, configuration, fixture, helpers and normalized Runner
+arguments into a private input snapshot.
 Changing/removing the original worktree does not substitute another build.
 The source revision/dirty fingerprint and every captured file digest remain
 associated with the job. Golden/official installation and Proton are separately
@@ -143,6 +181,12 @@ use the same queue, not another lock. The worker consumes the prepared Runner
 without recursively resubmitting it. A claimed attempt and inherited admission
 FD must match a live recorded supervisor before the Runner may touch the host;
 an environment variable alone cannot bypass admission.
+
+For Runner options not exposed by a catalogue task, invoke its updated feature
+wrapper with the options documented by `--help`; the common Runner captures and
+enqueues them through the same admission path. Do not edit a prepared snapshot or
+set unrecorded JVM options after preparation. For offline native FREE startup,
+see the [parameter wrapper option](README-parameter-validation.md#offline--isolated-startup).
 
 ## Run the independent worker
 
