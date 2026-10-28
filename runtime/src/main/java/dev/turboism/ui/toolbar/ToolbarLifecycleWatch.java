@@ -19,6 +19,7 @@ final class ToolbarLifecycleWatch implements Registration {
     private final Timer timer;
     private final PropertyChangeListener appearance;
     private Object previous;
+    private boolean previousDark;
     private boolean closed;
     private boolean appearanceQueued;
 
@@ -27,6 +28,7 @@ final class ToolbarLifecycleWatch implements Registration {
         this.detached = detached;
         this.reconcile = reconcile;
         previous = identity.get();
+        previousDark = ToolbarIconLoader.isDarkTheme();
         timer = new Timer(250, ignored -> poll());
         appearance = event -> {
             if ("lookAndFeel".equals(event.getPropertyName())) {
@@ -44,7 +46,9 @@ final class ToolbarLifecycleWatch implements Registration {
         if (closed) return;
         try {
             final Object next = identity.get();
-            if (!Objects.equals(previous, next) || detached.getAsBoolean()) {
+            final boolean currentDark = ToolbarIconLoader.isDarkTheme();
+            if (!Objects.equals(previous, next) || detached.getAsBoolean() || currentDark != previousDark) {
+                previousDark = currentDark;
                 reconcile.run();
                 previous = identity.get();
             }
@@ -62,6 +66,7 @@ final class ToolbarLifecycleWatch implements Registration {
             appearanceQueued = false;
             if (closed) return;
             try {
+                previousDark = ToolbarIconLoader.isDarkTheme();
                 reconcile.run();
                 previous = identity.get();
             } catch (Throwable failure) {

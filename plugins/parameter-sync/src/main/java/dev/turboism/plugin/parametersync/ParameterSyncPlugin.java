@@ -78,6 +78,8 @@ public final class ParameterSyncPlugin implements CubismPlugin {
     private final AtomicBoolean syncScheduled = new AtomicBoolean(false);
     private final Map<String, Parameter> parameterCache = new ConcurrentHashMap<>();
     private volatile CubismModel cachedActiveModel;
+    private volatile String cachedActiveModelGuid;
+    private volatile ParameterSyncDialog activeDialog;
 
     @Override
     public void init(final PluginContext context) {
@@ -108,6 +110,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         registerContextMenu(CONTEXT_MENU_SYNC_ID, ACTION_OPEN_SYNC, i18n.text("menu.parameter.sync"), MENU_PRIORITY);
 
         cachedActiveModel = null;
+        cachedActiveModelGuid = null;
         parameterCache.clear();
         pendingTargetValues.clear();
         lastAppliedValues.clear();
@@ -122,7 +125,9 @@ public final class ParameterSyncPlugin implements CubismPlugin {
             return;
         }
 
+        closeActiveDialog();
         cachedActiveModel = null;
+        cachedActiveModelGuid = null;
         parameterCache.clear();
         pendingTargetValues.clear();
         lastAppliedValues.clear();
@@ -184,15 +189,28 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         if (engine.suppressionGuard().shouldSuppress(paramId, newValue)) {
             return;
         }
+        lastAppliedValues.put(paramId, newValue);
 
         // 2. Fast active model and rule check (cached, zero full-runtime snapshotting)
         final CubismModel model = getOrResolveActiveModel();
         if (model == null) {
             return;
         }
-        final String modelGuid = model.id().value();
+        final String modelGuid;
+        try {
+            modelGuid = model.id().value();
+        } catch (RuntimeException stale) {
+            invalidateModelCache();
+            return;
+        }
         final SyncRuleSet ruleSet = modelRuleSets.get(modelGuid);
-        if (ruleSet == null || !ruleSet.isGlobalEnabled()) {
+        if (ruleSet == null) {
+            if (!loadedGuids.contains(modelGuid)) {
+                ensureLoaded(modelGuid);
+            }
+            return;
+        }
+        if (!ruleSet.isGlobalEnabled()) {
             return;
         }
         if (ruleSet.findActiveRulesForParameter(paramId).isEmpty()) {
@@ -233,8 +251,14 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                     final Optional<Parameter> targetOpt = lookupCachedParameter(model, targetId);
                     if (targetOpt.isPresent()) {
                         final Parameter targetParam = targetOpt.get();
-                        final Float lastVal = lastAppliedValues.get(targetId);
-                        if (lastVal != null && Math.abs(lastVal - targetVal) < 1e-4f) {
+                        try {
+                            final float currentVal = targetParam.getValue();
+                            if (Math.abs(currentVal - targetVal) < 1e-4f) {
+                                lastAppliedValues.put(targetId, targetVal);
+                                continue;
+                            }
+                        } catch (RuntimeException stale) {
+                            parameterCache.remove(targetId);
                             continue;
                         }
                         lastAppliedValues.put(targetId, targetVal);
@@ -242,6 +266,7 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                         try {
                             targetParam.setValue(targetVal);
                         } catch (RuntimeException ignored) {
+                            lastAppliedValues.remove(targetId, targetVal);
                         }
                     }
                 }
@@ -258,50 +283,88 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         if (paramId == null || model == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(parameterCache.computeIfAbsent(paramId, id -> {
+        final Parameter cached = parameterCache.get(paramId);
+        if (cached != null) {
             try {
-                return model.parameters().find(new ParameterId(id));
-            } catch (RuntimeException e) {
-                return null;
+                cached.id();
+                return Optional.of(cached);
+            } catch (RuntimeException stale) {
+                parameterCache.remove(paramId, cached);
             }
-        }));
+        }
+        try {
+            final Parameter resolved = model.parameters().find(new ParameterId(paramId));
+            if (resolved != null) {
+                parameterCache.put(paramId, resolved);
+            }
+            return Optional.ofNullable(resolved);
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
     }
 
     private CubismModel getOrResolveActiveModel() {
-        CubismModel model = cachedActiveModel;
-        if (model != null) {
-            return model;
-        }
         final Optional<CubismModel> active = activeModel();
-        if (active.isPresent()) {
-            model = active.get();
-            cachedActiveModel = model;
-            parameterCache.clear();
-            return model;
+        if (active.isEmpty()) {
+            invalidateModelCache();
+            return null;
         }
-        return null;
+        final CubismModel model = active.get();
+        final String guid;
+        try {
+            guid = model.id().value();
+        } catch (RuntimeException failure) {
+            invalidateModelCache();
+            return null;
+        }
+        final String previousGuid = cachedActiveModelGuid;
+        if (cachedActiveModel == null || !guid.equals(previousGuid)) {
+            parameterCache.clear();
+            pendingTargetValues.clear();
+            lastAppliedValues.clear();
+            cachedActiveModelGuid = guid;
+            if (!loadedGuids.contains(guid)) {
+                ensureLoaded(guid);
+            }
+        }
+        cachedActiveModel = model;
+        return model;
+    }
+
+    private void invalidateModelCache() {
+        cachedActiveModel = null;
+        cachedActiveModelGuid = null;
+        parameterCache.clear();
+    }
+
+    private void closeActiveDialog() {
+        final ParameterSyncDialog dialog = activeDialog;
+        activeDialog = null;
+        if (dialog != null) {
+            try {
+                dialog.dispose();
+            } catch (RuntimeException ignored) {
+            }
+        }
     }
 
     // ── Model Lifecycle Hooks ──
 
     @Override
     public void onModelOpened(final ProjectContentSnapshot model) {
-        cachedActiveModel = null;
-        parameterCache.clear();
+        invalidateModelCache();
         preloadActiveModel();
     }
 
     @Override
     public void onModelCreated(final ProjectContentSnapshot model) {
-        cachedActiveModel = null;
-        parameterCache.clear();
+        invalidateModelCache();
         preloadActiveModel();
     }
 
     @Override
     public void onModelClosed(final ProjectContentSnapshot model) {
-        cachedActiveModel = null;
-        parameterCache.clear();
+        invalidateModelCache();
     }
 
     // ── Action Handlers ──
@@ -319,7 +382,12 @@ public final class ParameterSyncPlugin implements CubismPlugin {
 
         ensureLoaded(modelGuid)
                 .thenAccept(ruleSet -> dispatchToUi(() -> {
+                    if (!enabled.get()) {
+                        return;
+                    }
+                    closeActiveDialog();
                     final ParameterSyncDialog dialog = new ParameterSyncDialog(model, focusedId, ruleSet, this, i18n);
+                    activeDialog = dialog;
                     dialog.setVisible(true);
                 }));
     }
