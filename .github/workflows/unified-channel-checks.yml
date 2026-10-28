@@ -70,10 +70,10 @@ jobs:
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
-      - name: Install Windows installer compiler
+      - name: Install Windows installer compiler and isolated display
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nsis
+          sudo apt-get install --yes --no-install-recommends nsis xvfb
       - name: Resolve explicit QA-only identity, without allocating or publishing a product build
         env:
           CHANNEL: ${{ matrix.channel }}
@@ -86,7 +86,7 @@ jobs:
           echo "TURBOISM_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "ORG_GRADLE_PROJECT_turboismRelease=true" >> "$GITHUB_ENV"
       - name: Run the full release gate with the selected channel
-        run: ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
       - name: Verify all four real packages and their embedded identity
         run: |
           bash packaging/windows-installer/assemble-release.sh "$TURBOISM_BUILD_VERSION"
