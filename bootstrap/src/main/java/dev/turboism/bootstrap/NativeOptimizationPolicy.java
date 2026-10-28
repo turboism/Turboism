@@ -71,4 +71,8 @@ final class NativeOptimizationPolicy {
     static boolean mesaGlThreadEnabled(final HookEnvironment environment) {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MESA_GL_THREAD);
     }
+
+    static boolean meshInterpolationEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MESH_INTERPOLATION);
+    }
 }

@@ -17,6 +17,36 @@ final class MeshInterpolationTransformerTest {
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(1, 6);
         mv.visitEnd();
+        mv = writer.visitMethod(Opcodes.ACC_PRIVATE, "updateInterpolatedForms_exe", "(Z)Z", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, "getAllExtendedKeyforms", "()Ljava/util/List;", false);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(1, 2);
+        mv.visitEnd();
+        mv = writer.visitMethod(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL,
+                StructureLookupPatch.SETUP,
+                StructureLookupPatch.SETUP_DESC,
+                null,
+                null);
+        mv.visitCode();
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 3);
+        mv.visitEnd();
+        mv = writer.visitMethod(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
+                StructureLookupPatch.FIND,
+                StructureLookupPatch.FIND_DESC,
+                null,
+                null);
+        mv.visitCode();
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(1, 3);
+        mv.visitEnd();
         writer.visitEnd();
         return writer.toByteArray();
     }
@@ -37,6 +67,7 @@ final class MeshInterpolationTransformerTest {
                             @Override
                             public MethodVisitor visitMethod(
                                     int access, String name, String desc, String signature, String[] exceptions) {
+                                if (!name.equals(MeshInterpolationTransformer.METHOD)) return null;
                                 return new MethodVisitor(Opcodes.ASM9) {
                                     @Override
                                     public void visitMethodInsn(
@@ -63,6 +94,35 @@ final class MeshInterpolationTransformerTest {
                 calls.get(0));
         assertEquals(java.util.List.of(Opcodes.IFEQ), jumps);
         assertEquals(java.util.List.of("official-body"), literals);
+    }
+
+    @Test
+    void onlyFirstInspectionAvoidsFullConcatenation() {
+        byte[] patched = MeshInterpolationTransformer.patch(fixture(
+                MeshInterpolationTransformer.OWNER,
+                MeshInterpolationTransformer.METHOD,
+                MeshInterpolationTransformer.DESC));
+        var calls = new ArrayList<String>();
+        new ClassReader(patched)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String desc, String signature, String[] exceptions) {
+                                if (!name.equals("updateInterpolatedForms_exe")) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int opcode, String owner, String method, String desc, boolean itf) {
+                                        calls.add(method);
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        assertEquals(
+                java.util.List.of("getNormalExtendedKeyforms", "getMorphTargetExtendedKeyforms", "firstInspectionBank"),
+                calls);
     }
 
     @Test

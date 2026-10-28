@@ -207,6 +207,21 @@ public interface CubismJvmSettingsService {
     }
 
     /**
+     * Launcher preference: when true the next managed Cubism launch enables
+     * the verified extended interpolation optimization (ArtMesh, Warp deformer,
+     * and Rotation deformer forms under Ellipse and SNS curves). Off by default;
+     * takes effect on the next launch.
+     */
+    default boolean meshInterpolation() {
+        return false;
+    }
+
+    /** Persists the extended interpolation preference; installation changes require restart. */
+    default boolean saveMeshInterpolation(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
      * Experimental launcher preference: explicit true adds
      * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed
      * launch. Off by default because complete authoring-write coverage has not

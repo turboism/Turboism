@@ -850,14 +850,14 @@ final class ConfigMerge {
     private static final Set<String> LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
             "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
-            "inputPathElision", "mesaGlThread");
+            "inputPathElision", "mesaGlThread", "meshInterpolation");
     private static final Set<String> TEXTURE_ATLAS_FIELDS = Set.of(
             "algorithmId", "parallel");
     private static final Set<String> LEGACY_ROOT_LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
             "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
-            "inputPathElision", "mesaGlThread");
+            "inputPathElision", "mesaGlThread", "meshInterpolation");
     private static final Set<String> MEMORY_PROFILES =
             Set.of("system", "balanced4g", "balanced4gFastSoft");
     private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");

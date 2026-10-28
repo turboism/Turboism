@@ -2,6 +2,7 @@ package dev.turboism.tests.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -73,6 +74,7 @@ class RuntimeInstallerConfigRoundTripTest {
                 try (var runtime = new CubismJvmSettingsFileService(home)) {
                     runtime.saveMemoryProfile(profile);
                     runtime.saveZgc(false);
+                    runtime.saveMeshInterpolation(true);
                 }
                 try (var edgeIndex = new TriangulationEdgeIndexSettingsFileService(home)) {
                     edgeIndex.save(false);
@@ -87,6 +89,8 @@ class RuntimeInstallerConfigRoundTripTest {
                 try (var reopened = new CubismJvmSettingsFileService(home)) {
                     assertEquals(profile, reopened.memoryProfile());
                     assertFalse(reopened.zgc(), "unrelated persisted preference survives");
+                    assertTrue(
+                            reopened.meshInterpolation(), "mesh interpolation preference survives installer upgrade");
                 }
                 try (var edgeIndex = new TriangulationEdgeIndexSettingsFileService(home)) {
                     assertFalse(edgeIndex.read(), "explicit edge-index opt-out survives installer upgrade");

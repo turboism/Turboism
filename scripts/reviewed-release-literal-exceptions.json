@@ -7,20 +7,12 @@
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java: Literal version table derived from verification records; the set names the reviewed versions this surface admits."
     },
     {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
-    },
-    {
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java",
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
     },
     {
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java",
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
-    },
-    {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uploadelision/SkippedFrameUploadElisionTarget.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uploadelision/SkippedFrameUploadElisionTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
     },
     {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",

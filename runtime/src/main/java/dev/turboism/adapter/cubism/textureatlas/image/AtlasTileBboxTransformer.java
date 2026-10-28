@@ -46,7 +46,7 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
         HELPERS_UNAVAILABLE
     }
 
-    private final java.util.Map<String, AtlasTileBboxTarget> targets;
+    private final java.util.Map<String, java.util.List<AtlasTileBboxTarget>> targets;
     private final java.util.Set<String> admittedSha256;
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
@@ -61,11 +61,15 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
 
     AtlasTileBboxTransformer(
             final java.util.Collection<AtlasTileBboxTarget> targets, final java.util.Set<String> admittedSha256) {
-        final java.util.Map<String, AtlasTileBboxTarget> byName = new java.util.HashMap<>();
+        final java.util.Map<String, java.util.List<AtlasTileBboxTarget>> byName = new java.util.HashMap<>();
         for (final AtlasTileBboxTarget target : targets) {
-            byName.put(Objects.requireNonNull(target, "target").internalName(), target);
+            Objects.requireNonNull(target, "target");
+            byName.computeIfAbsent(target.internalName(), ignored -> new java.util.ArrayList<>())
+                    .add(target);
         }
-        this.targets = java.util.Map.copyOf(byName);
+        final java.util.Map<String, java.util.List<AtlasTileBboxTarget>> copy = new java.util.HashMap<>();
+        byName.forEach((k, v) -> copy.put(k, java.util.List.copyOf(v)));
+        this.targets = java.util.Map.copyOf(copy);
         this.admittedSha256 = java.util.Set.copyOf(Objects.requireNonNull(admittedSha256, "admittedSha256"));
     }
 
@@ -113,16 +117,28 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
             final Class<?> classBeingRedefined,
             final ProtectionDomain domain,
             final byte[] classfileBuffer) {
-        final AtlasTileBboxTarget target = targets.get(className);
-        if (classfileBuffer == null || target == null) return null;
+        final java.util.List<AtlasTileBboxTarget> candidates = targets.get(className);
+        if (classfileBuffer == null || candidates == null || candidates.isEmpty()) return null;
         final String observed = sha256(classfileBuffer);
-        if (!observed.equals(target.reviewedSha256()) && !admittedSha256.contains(observed)) {
+        AtlasTileBboxTarget matched = null;
+        for (final AtlasTileBboxTarget candidate : candidates) {
+            if (observed.equals(candidate.reviewedSha256())) {
+                matched = candidate;
+                break;
+            }
+        }
+        if (matched == null && admittedSha256.contains(observed)) {
+            matched = candidates.get(0);
+        }
+        if (matched == null) {
+            final AtlasTileBboxTarget first = candidates.get(0);
             if (outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH)) {
-                diagnostic.compareAndSet("", target.internalName() + " observed=" + observed);
-                report(Outcome.HASH_MISMATCH, target, "observed=" + observed);
+                diagnostic.compareAndSet("", first.internalName() + " observed=" + observed);
+                report(Outcome.HASH_MISMATCH, first, "observed=" + observed);
             }
             return null;
         }
+        final AtlasTileBboxTarget target = matched;
         try {
             final byte[] patched = AtlasTileBboxPatcher.patch(classfileBuffer, target.internalName());
             // The delegate is bootstrap-loaded and reaches the jp.noids.* helpers

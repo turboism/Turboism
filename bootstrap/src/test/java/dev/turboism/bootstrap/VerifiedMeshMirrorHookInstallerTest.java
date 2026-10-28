@@ -367,7 +367,8 @@ final class VerifiedMeshMirrorHookInstallerTest {
                     Instrumentation.class,
                     dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.class,
                     List.class,
-                    List.class);
+                    List.class,
+                    dev.turboism.config.NativeOptimizationConfig.class);
             start.setAccessible(true);
             start.invoke(
                     null,
@@ -375,7 +376,8 @@ final class VerifiedMeshMirrorHookInstallerTest {
                     instrumentation(new ArrayList<>(), getClass()),
                     dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.PREMAIN,
                     List.of(),
-                    List.of());
+                    List.of(),
+                    null);
 
             assertNull(MeshMirrorHookContributor.CURRENT.get());
             assertNull(WarpAltMirrorHookContributor.CURRENT.get());

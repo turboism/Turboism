@@ -50,7 +50,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
         SHAPE_REJECTED
     }
 
-    private final java.util.Map<String, AtlasCacheReuseTarget> targets;
+    private final java.util.Map<String, java.util.List<AtlasCacheReuseTarget>> targets;
     private final java.util.Set<String> admittedSha256;
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
@@ -65,11 +65,15 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
 
     AtlasCacheReuseTransformer(
             final java.util.Collection<AtlasCacheReuseTarget> targets, final java.util.Set<String> admittedSha256) {
-        final java.util.Map<String, AtlasCacheReuseTarget> byName = new java.util.HashMap<>();
+        final java.util.Map<String, java.util.List<AtlasCacheReuseTarget>> byName = new java.util.HashMap<>();
         for (final AtlasCacheReuseTarget target : targets) {
-            byName.put(Objects.requireNonNull(target, "target").internalName(), target);
+            Objects.requireNonNull(target, "target");
+            byName.computeIfAbsent(target.internalName(), ignored -> new java.util.ArrayList<>())
+                    .add(target);
         }
-        this.targets = java.util.Map.copyOf(byName);
+        final java.util.Map<String, java.util.List<AtlasCacheReuseTarget>> copy = new java.util.HashMap<>();
+        byName.forEach((k, v) -> copy.put(k, java.util.List.copyOf(v)));
+        this.targets = java.util.Map.copyOf(copy);
         this.admittedSha256 = java.util.Set.copyOf(Objects.requireNonNull(admittedSha256, "admittedSha256"));
     }
 
@@ -112,13 +116,14 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             final Class<?> classBeingRedefined,
             final ProtectionDomain domain,
             final byte[] classfileBuffer) {
-        final AtlasCacheReuseTarget target = targets.get(className);
-        if (target == null) return null;
+        final java.util.List<AtlasCacheReuseTarget> candidates = targets.get(className);
+        if (candidates == null || candidates.isEmpty()) return null;
+        final AtlasCacheReuseTarget first = candidates.get(0);
         // Validation-only sighting: production stays silent. The host can define this
         // class under several loaders, so opted-in evidence records every sighting.
         report(
                 "SEEN",
-                target,
+                first,
                 "loader=" + String.valueOf(loader)
                         + " retransform=" + (classBeingRedefined != null)
                         + " bytes=" + (classfileBuffer == null ? -1 : classfileBuffer.length)
@@ -144,20 +149,31 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
         }
         if (classfileBuffer == null) return null;
         final String observed = sha256(classfileBuffer);
-        if (!observed.equals(target.reviewedSha256()) && !admittedSha256.contains(observed)) {
+        AtlasCacheReuseTarget matched = null;
+        for (final AtlasCacheReuseTarget candidate : candidates) {
+            if (observed.equals(candidate.reviewedSha256())) {
+                matched = candidate;
+                break;
+            }
+        }
+        if (matched == null && admittedSha256.contains(observed)) {
+            matched = first;
+        }
+        if (matched == null) {
             // Every sighting of a reviewed-name class is reported — the host can define
             // the same name under more than one loader, and a silently-skipped definition
             // is indistinguishable from "the patch never ran" in captured evidence.
             report(
                     "HASH_MISMATCH",
-                    target,
+                    first,
                     "observed=" + observed + " loader=" + String.valueOf(loader) + " retransform="
                             + (classBeingRedefined != null));
             if (outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH)) {
-                diagnostic.compareAndSet("", target.internalName() + " observed=" + observed);
+                diagnostic.compareAndSet("", first.internalName() + " observed=" + observed);
             }
             return null;
         }
+        final AtlasCacheReuseTarget target = matched;
         try {
             final byte[] patched = AtlasCacheReusePatcher.patch(classfileBuffer);
             // No host-member verification here — it would load classes mid-transform.

@@ -2093,7 +2093,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread|meshInterpolation)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }

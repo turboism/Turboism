@@ -309,6 +309,29 @@ final class CubismJvmSettingsContribution {
                 85);
     }
 
+    /**
+     * Launch-time preference for verified extended interpolation: when enabled,
+     * accelerates ArtMesh, Warp deformer, and Rotation deformer keyform
+     * interpolation under Ellipse and SNS curves. Persists for the next launch;
+     * saving failure propagates rather than reporting silent success.
+     */
+    static SettingsContribution createMeshInterpolationToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "mesh-interpolation",
+                "settings.optimization.mesh-interpolation",
+                settings::meshInterpolation,
+                value -> {
+                    if (settings.saveMeshInterpolation(value) != value) {
+                        throw new IllegalStateException("Mesh-interpolation preference was not saved");
+                    }
+                    return value;
+                },
+                86);
+    }
+
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         final StringBuilder message =
                 new StringBuilder(i18n.format("settings.performance.status-file", settings.globalConfigPath()));

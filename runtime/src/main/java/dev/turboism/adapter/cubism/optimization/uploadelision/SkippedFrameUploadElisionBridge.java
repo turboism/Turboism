@@ -101,12 +101,16 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
      */
     public SkippedFrameUploadElisionBridge(final ClassLoader loader, final boolean production)
             throws ReflectiveOperationException {
+        this(loader, production, SkippedFrameUploadElisionTarget.SIZE_OWNER);
+    }
+
+    public SkippedFrameUploadElisionBridge(final ClassLoader loader, final boolean production, final String sizeOwner)
+            throws ReflectiveOperationException {
         final Class<?> base =
                 Class.forName(SkippedFrameUploadElisionTarget.BASE_OWNER.replace('/', '.'), false, loader);
         nameHandle = MethodHandles.privateLookupIn(base, MethodHandles.lookup())
                 .findVirtual(base, "i", MethodType.methodType(IntBuffer.class));
-        final Class<?> helper =
-                Class.forName(SkippedFrameUploadElisionTarget.SIZE_OWNER.replace('/', '.'), false, loader);
+        final Class<?> helper = Class.forName(sizeOwner.replace('/', '.'), false, loader);
         final Object singleton = helper.getField("a").get(null);
         sizeHandle = MethodHandles.publicLookup()
                 .unreflect(helper.getMethod("a", Buffer.class))
