@@ -22,8 +22,32 @@ briefly stalls" regression on the exact Cubism host.
 - `state/selection-lag-result.properties` — terminal status (`status=PASS` when
   interaction mouse events reached the EDT).
 - `state/dev.turboism.validation.selection-lag/` — structured JSON evidence:
-  heartbeat latency histogram per phase, event-gap stats, interaction attempts
-  (coordinates, duration, selection state), threshold-exceeding stacks.
+  `phases` contains `heartbeatLatencyMillis` and `eventGapMillis`, each with
+  `p50`, `p95` and `max`, plus heartbeat/event counts. No p99 is calculated.
+  `interactionAttempts` records coordinates, `robotMillis` and cumulative
+  `mouseEventsTotal`; `stackCaptures` holds threshold-exceeding stacks and
+  `overThresholdEvents` counts them. Selection observations are in the
+  `SELECTION_LAG_ATTEMPT` runtime log records.
+
+### Interpreting a run
+
+The current PASS condition is only `interactionMouseEvents > 0`. Activation
+clicks occur in the INTERACTION phase and can satisfy it even when subsequent
+drags deliver no events. Before interpreting latency as a select-and-drag
+measurement, inspect increments between successive
+`interactionAttempts[].mouseEventsTotal` values and the logged selection
+observations. An unchanged cumulative count across attempts means the intended
+workload was not demonstrated. Increasing counts alone also do not distinguish
+activation clicks from successful drags; retain that limitation when reporting
+results. A missing selection read is not proof of a selection change.
+
+Report heartbeat samples with their counts, duration and workload limitation.
+Empty `stackCaptures` means no threshold-exceeding stack was captured in that
+run; it does not establish the absence of EDT contention. `-1` event-gap values
+mean no samples, not negative latency. A performance comparison requires valid
+workloads on both baseline and changed builds, the same fixture and host settings,
+recorded actual GPU/renderer, and an exclusive quiet host without concurrent
+builds. A terminal PASS or one build's sample is not evidence of improvement.
 
 ## Safety
 

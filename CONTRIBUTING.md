@@ -120,6 +120,25 @@ explicitly requested. It is not a per-commit step:
 ./gradlew checkCompletedCommit
 ```
 
+For local final acceptance, first integrate the intended remote base and finish
+source changes, then run this gate on that tree. On Linux, visible-AWT tests need
+a display; the same isolated command used by CI is:
+
+```sh
+xvfb-run -a -s '-screen 0 1920x1080x24' \
+  ./gradlew --no-daemon checkCompletedCommit --console=plain
+```
+
+Keep the command, revision (and dirty-file fingerprints if applicable), result,
+and skipped-test reasons with the local evidence. Distinguish executed tests from
+cached or up-to-date results. Later source changes need verification of the
+affected surface; an earlier gate must not be reported as covering them.
+Coordinate builds and formatting in a shared worktree so they do not race other
+writers. For selected real-host checks, follow the
+[local acceptance sequence](scripts/preview/README-host-validation-scheduling.md#acceptance-sequence)
+after offline verification, and keep machine-specific configuration and raw
+evidence outside Git. Finish with the staged and outgoing hygiene checks above.
+
 `checkRelease -PinstallerVersion=<release-version> -PturboismRelease=true` adds supply-chain, historical, Java-installer, and other release-artifact checks and is reserved for release-oriented work. The installer version must exactly match the framework version. Exact-host validation runs only when real-host evidence must be collected or at final feature acceptance; it requires a separately installed, licensed Live2D Cubism Editor and is never part of a default aggregate.
 
 `:plugins:model-import-3d:test` includes contract tests that depend on gitignored local 3D model fixtures (`artifacts/cat-textured/`, `artifacts/apple-textured/`, `artifacts/cube-textured/`, `artifacts/plane-textured/`) and hash-pinned inputs (`build/model-import-3d-inputs/cube-985496727e50/cube.glb`). When these assets are absent (e.g. on CI or fresh checkouts), the affected tests skip via JUnit `Assumptions`. To stage assets locally, symlink `artifacts/` and `build/model-import-3d-inputs/` from a provisioned workspace or set `TURBOISM_IMPORT_3D_ARTIFACTS` / `TURBOISM_IMPORT_3D_INPUTS` (or `TURBOISM_IMPORT_3D_FIXTURES`). Pass `-Pturboism.requireImport3dFixtures=true` (or set `TURBOISM_REQUIRE_IMPORT_3D_FIXTURES=true`) to require fixtures and fail if any are missing.
