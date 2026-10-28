@@ -447,7 +447,18 @@ val checkReviewedReleasesSelfTest by tasks.registering(Exec::class) {
     })
     inputs.files(".env.example", "compatibility/cubism/reviewed-releases.json")
     VerificationStamps.apply(this)
-    commandLine("python3", "-m", "unittest", "scripts.test.test_check_reviewed_releases", "-v")
+    // Keep the executed modules explicit so the CI source-coverage guard can trace them.
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_reviewed_releases",
+        "scripts.test.test_reviewed_releases_r1",
+        "scripts.test.test_reviewed_releases_r2",
+        "scripts.test.test_reviewed_releases_r3",
+        "scripts.test.test_reviewed_releases_r4",
+        "scripts.test.test_reviewed_releases_index",
+        "scripts.test.test_reviewed_releases_ranges",
+        "-v"
+    )
 }
 
 val checkReviewedReleases by tasks.registering(Exec::class) {

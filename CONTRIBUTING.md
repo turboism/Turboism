@@ -121,10 +121,12 @@ explicitly requested. It is not a per-commit step:
 ```
 
 For local final acceptance, first integrate the intended remote base and finish
-source changes, then run this gate on that tree. On Linux, visible-AWT tests need
-a display; the same isolated command used by CI is:
+source changes, then run this gate on that tree. Run CI's workflow/source-coverage
+guard as well; it checks that tests are reachable from the declared commands.
+On Linux, visible-AWT tests need a display:
 
 ```sh
+python3 scripts/test/test_ci_coverage.py
 xvfb-run -a -s '-screen 0 1920x1080x24' \
   ./gradlew --no-daemon checkCompletedCommit --console=plain
 ```
@@ -219,6 +221,8 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
 ## Build requirements
 
 - **Java**: a JDK 17 toolchain is required (`java` and `javac` on `PATH`).
+- **CI workflow guard**: `test_ci_coverage.py` needs PyYAML; CI pins
+  `python3 -m pip install 'PyYAML==6.0.3'`.
 - **Python lint**: `devCheck` runs `checkPythonLint`, which needs the pinned
   ruff release (`python3 -m pip install "ruff==0.16.9"` or an equivalent
   `ruff` binary on `PATH`). The rule set lives in `ruff.toml`.
