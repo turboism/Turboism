@@ -156,12 +156,14 @@ class RuntimeConfigValidatorTest {
         final ObjectNode root = base();
         root.withObject("launcher").put("modelUpdateSkip", "no");
         root.withObject("launcher").put("incrementalUpdate", 1);
+        root.withObject("launcher").put("meshInterpolation", "invalid");
 
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN"));
 
         final ObjectNode valid = base();
         valid.withObject("launcher").put("modelUpdateSkip", false);
         valid.withObject("launcher").put("incrementalUpdate", true);
+        valid.withObject("launcher").put("meshInterpolation", false);
         assertTrue(codes(valid).isEmpty());
     }
 

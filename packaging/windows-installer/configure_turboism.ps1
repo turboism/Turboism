@@ -346,7 +346,7 @@ function Assert-RuntimeConfigV1 {
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
         Assert-RuntimeAllowedProperties $launcher @(
-            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread"
+            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation"
         ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
@@ -358,7 +358,7 @@ function Assert-RuntimeConfigV1 {
             -or @("system", "balanced4g", "balanced4gFastSoft") -cnotcontains $memoryProfile.Value)) {
             throw "launcher.memoryProfile is invalid"
         }
-        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread")) {
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation")) {
             $property = $launcher.PSObject.Properties[$name]
             if ($null -ne $property -and $property.Value -isnot [bool]) {
                 throw "launcher.$name must be a boolean"
@@ -601,7 +601,7 @@ function Convert-RuntimeConfigToV1 {
             else { [void]$dropped.Add("launcher.memoryProfile") }
         }
         foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate",
-            "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread")) {
+            "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation")) {
             $property = $source.PSObject.Properties[$name]
             if ($null -ne $property) {
                 if ($property.Value -is [bool]) { $launcher[$name] = $property.Value }
@@ -611,7 +611,7 @@ function Convert-RuntimeConfigToV1 {
         foreach ($property in $source.PSObject.Properties) {
             if (@("cubismJvm", "graalVmPath", "zgc", "memoryProfile",
                 "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache",
-                "uploadElision", "inputPathElision", "mesaGlThread") -cnotcontains $property.Name) {
+                "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation") -cnotcontains $property.Name) {
                 [void]$dropped.Add("launcher." + $property.Name)
             }
         }

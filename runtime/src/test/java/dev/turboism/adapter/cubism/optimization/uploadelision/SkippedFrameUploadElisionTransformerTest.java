@@ -477,11 +477,22 @@ public class SkippedFrameUploadElisionTransformerTest {
             assertEquals(1, t.matches());
             assertEquals(2, t.guarded());
         }
-        assertEquals(3, SkippedFrameUploadElisionTarget.all().size());
-        assertTrue(
+        assertEquals(20, SkippedFrameUploadElisionTarget.all().size());
+        assertEquals(
+                "com/live2d/graphics3d/shader/w",
+                SkippedFrameUploadElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_0_00)
+                        .orElseThrow()
+                        .sizeOwner());
+        assertEquals(
+                "com/live2d/graphics3d/shader/y",
                 SkippedFrameUploadElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03)
-                        .isEmpty(),
-                "5.2.03 lacks the reviewed shader/A.a(Buffer)J size helper");
+                        .orElseThrow()
+                        .sizeOwner());
+        assertEquals(
+                "com/live2d/graphics3d/shader/A",
+                SkippedFrameUploadElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03)
+                        .orElseThrow()
+                        .sizeOwner());
     }
 
     @Test

@@ -24,7 +24,7 @@ import org.objectweb.asm.Type;
 /**
  * Rewrites the reviewed updater and form methods so unchanged objects keep prior output.
  *
- * <p>Five guarded injection sites, all delegated through JDK functional interfaces stored
+ * <p>Guarded injection sites, all delegated through JDK functional interfaces stored
  * in {@link System#getProperties()}:</p>
  * <ul>
  *   <li>update-core entry and every {@code RETURN} — {@code Consumer<Object>} receiving
@@ -34,8 +34,9 @@ import org.objectweb.asm.Type;
  *   <li>the {@code CArtMeshForm.transform} deform call site —
  *   {@code Function<Object[],Object>} receiving
  *   {@code [preDeformForm, targetDeformer, deformedFormOut, artMesh]};</li>
- *   <li>{@code interpolate__testImpl} entry on both form classes —
- *   {@code Consumer<Object>} receiving the form instance.</li>
+ *   <li>{@code interpolate__testImpl} entry on all three form classes —
+ *   {@code Consumer<Object>} receiving the form instance;</li>
+ *   <li>the common source {@code reinitInstance} entry invalidates cached geometry before Undo/Redo rebuilds it.</li>
  * </ul>
  *
  * <p>Missing or wrongly-typed slots and any callback failure fall through to the
@@ -62,7 +63,8 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
                 target.updater(),
                 IncrementalUpdateTarget.ROTATION_FORM.replace('.', '/'),
                 IncrementalUpdateTarget.WARP_FORM.replace('.', '/'),
-                IncrementalUpdateTarget.MESH_FORM.replace('.', '/'));
+                IncrementalUpdateTarget.MESH_FORM.replace('.', '/'),
+                IncrementalUpdateTarget.REINIT_SOURCE.replace('.', '/'));
     }
 
     private List<Site> sites() {
@@ -82,7 +84,11 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
                 new Site(
                         IncrementalUpdateTarget.MESH_FORM.replace('.', '/'),
                         "interpolate__testImpl",
-                        target.meshInterpolateDescriptor()));
+                        target.meshInterpolateDescriptor()),
+                new Site(
+                        IncrementalUpdateTarget.REINIT_SOURCE.replace('.', '/'),
+                        "reinitInstance",
+                        IncrementalUpdateTarget.REINIT_DESCRIPTOR));
     }
 
     /**
@@ -149,8 +155,7 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             final byte[] bytes) {
         if (actualLoader != loader || name == null || bytes == null) return null;
         final boolean isUpdater = target.updater().equals(name);
-        final boolean isForm = !isUpdater && classNames().contains(name);
-        if (!isUpdater && !isForm) return null;
+        if (!classNames().contains(name)) return null;
         try {
             if (artifact == null
                     || domain == null
@@ -226,7 +231,8 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             case 0 -> new CoreVisitor(visitor, descriptor);
             case 1 -> new MarkDirtyVisitor(visitor, descriptor);
             case 2 -> new DeformVisitor(visitor, descriptor);
-            default -> new FormVisitor(visitor);
+            case 6 -> new EntryVisitor(visitor, IncrementalUpdateBridge.REINIT_PROPERTY, 1);
+            default -> new EntryVisitor(visitor, IncrementalUpdateBridge.FORM_PROPERTY, 0);
         };
     }
 
@@ -813,10 +819,15 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
 
     /* ------------------------------------------------------ interpolate record */
 
-    /** Injects a guarded {@code consumer.accept(this)} at interpolate__testImpl entry. */
-    private final class FormVisitor extends MethodVisitor {
-        FormVisitor(final MethodVisitor visitor) {
+    /** Injects a guarded consumer at interpolation or source rebuild entry. */
+    private final class EntryVisitor extends MethodVisitor {
+        private final String property;
+        private final int slot;
+
+        EntryVisitor(final MethodVisitor visitor, final String property, final int slot) {
             super(Opcodes.ASM9, visitor);
+            this.property = property;
+            this.slot = slot;
         }
 
         @Override
@@ -826,8 +837,8 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             final Label miss = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitGuardHead(mv, IncrementalUpdateBridge.FORM_PROPERTY, "java/util/function/Consumer", miss);
-            super.visitVarInsn(Opcodes.ALOAD, 0);
+            emitGuardHead(mv, property, "java/util/function/Consumer", miss);
+            super.visitVarInsn(Opcodes.ALOAD, slot);
             super.visitMethodInsn(
                     Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept", "(Ljava/lang/Object;)V", true);
             super.visitLabel(end);

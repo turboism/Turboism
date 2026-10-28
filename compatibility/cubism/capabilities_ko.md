@@ -306,19 +306,19 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 | 소스 | 심볼 | 버전 |
 |---|---|---|
 | class-pins/`float-array-parse.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`incremental-update.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-interpolation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`shader-uniform.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`model-update-skip.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`shader-uniform.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
 
 ## 버전 단조성 원칙

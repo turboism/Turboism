@@ -966,4 +966,42 @@ public class ModelUpdateSkipBridgeTest {
             }
         }
     }
+
+    @Test
+    void crossThreadInvocationForcesFullUpdateAndInvalidatesBaseline() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        try (ModelUpdateSkipBridge bridge = new ModelUpdateSkipBridge(T5303, loader)) {
+            bridge.install();
+            withProperties(ModelUpdateSkipBridge.ENABLE_PROPERTY, "true");
+            try {
+                // Main thread establishes baseline and confirms skip
+                assertFalse(predicate().test(world.args()), "first frame needs baseline");
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()), "same thread unchanged frame skips");
+
+                // Background thread invokes shouldSkip: must return false (force native full update)
+                java.util.concurrent.atomic.AtomicBoolean backgroundResult =
+                        new java.util.concurrent.atomic.AtomicBoolean(true);
+                Thread background = new Thread(() -> {
+                    backgroundResult.set(predicate().test(world.args()));
+                });
+                background.start();
+                background.join();
+
+                assertFalse(backgroundResult.get(), "cross-thread invocation must force full update (return false)");
+
+                // Main thread calls again: baseline was invalidated by the thread switch, so it cannot skip
+                assertFalse(predicate().test(world.args()), "thread switch must invalidate old thread baseline");
+                after().accept(world.model);
+
+                // Subsequent cycle on main thread establishes fresh baseline and resumes skip
+                assertFalse(predicate().test(world.args()), "evaluating with fresh baseline setup");
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()), "new baseline established on main thread allows skip");
+            } finally {
+                PropertiesBackup.revert();
+            }
+        }
+    }
 }

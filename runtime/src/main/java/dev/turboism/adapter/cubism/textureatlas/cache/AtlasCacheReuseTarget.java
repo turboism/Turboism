@@ -19,8 +19,20 @@ public record AtlasCacheReuseTarget(String internalName, String className, Strin
             "cec7892e7581fc88f5a76a8fe89fce53fcfb6c2f66717ba9fc202fc6ceaf3ef3",
             "5.2.00-5.3.04");
 
+    /** Reviewed target: byte-identical on every 5.1.x build (5.1.00–5.1.03). */
+    static final AtlasCacheReuseTarget CUBISM_51 = new AtlasCacheReuseTarget(
+            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas",
+            "2a2989618eb4b2c3fcfb2dae3639416d20dfcc6ed62922a15f45d4c165096933",
+            "5.1.00-5.1.03");
+
+    /** Reviewed target: byte-identical on every 5.0.x build (5.0.00–5.0.06). */
+    static final AtlasCacheReuseTarget CUBISM_50 = new AtlasCacheReuseTarget(
+            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas",
+            "d1d1e86eced7228573111477ca123876725ea5c8b9bb2c3eec81e663a7e6b88e",
+            "5.0.00-5.0.06");
+
     /** Every reviewed target, in table order. */
-    static final AtlasCacheReuseTarget[] REVIEWED = {CUBISM_52_53};
+    static final AtlasCacheReuseTarget[] REVIEWED = {CUBISM_52_53, CUBISM_51, CUBISM_50};
 
     AtlasCacheReuseTarget(final String internalName, final String reviewedSha256, final String hostLabel) {
         this(internalName, internalName.replace('/', '.'), reviewedSha256, hostLabel);

@@ -64,6 +64,8 @@ public final class InputPathElisionBridge implements AutoCloseable {
     private final BiPredicate<Object, Object> cursor = this::testCursor;
     private final Consumer<Boolean> gate = this::setArmed;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
+    private java.lang.ref.WeakReference<Component> lastCursorComponent = new java.lang.ref.WeakReference<>(null);
+    private java.lang.ref.WeakReference<Window> lastCursorWindow = new java.lang.ref.WeakReference<>(null);
     private volatile boolean armed;
     private Properties installedProperties;
     private long focusCalls, focusElided, focusPassed;
@@ -184,6 +186,11 @@ public final class InputPathElisionBridge implements AutoCloseable {
         }
     }
 
+    static Window windowOf(final Component component) {
+        if (component == null) return null;
+        return component instanceof Window owned ? owned : SwingUtilities.getWindowAncestor(component);
+    }
+
     /**
      * Retain requests during activation/focus transitions. These are Java AWT
      * state checks, not a native focus probe; every condition must hold before
@@ -192,7 +199,7 @@ public final class InputPathElisionBridge implements AutoCloseable {
     static boolean focusAlreadyHeld(final Component component) {
         if (component == null) return false;
         final KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-        final Window window = component instanceof Window owned ? owned : SwingUtilities.getWindowAncestor(component);
+        final Window window = windowOf(component);
         return window != null
                 && manager.getFocusOwner() == component
                 && manager.getFocusedWindow() == window
@@ -200,8 +207,30 @@ public final class InputPathElisionBridge implements AutoCloseable {
     }
 
     /** Pure Java redundancy rule for the cursor forwarder; never touches native state. */
-    static boolean cursorUnchanged(final Component component, final Cursor target) {
-        return component != null && component.isShowing() && component.isCursorSet() && component.getCursor() == target;
+    boolean cursorUnchanged(final Component component, final Cursor target) {
+        if (component == null) {
+            return false;
+        }
+        if (target == null || !component.isShowing() || !component.isCursorSet() || component.getCursor() != target) {
+            lastCursorComponent = new java.lang.ref.WeakReference<>(null);
+            return false;
+        }
+        final Window window = windowOf(component);
+        if (window != null) {
+            final KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+            if (manager.getActiveWindow() != window) {
+                lastCursorWindow = new java.lang.ref.WeakReference<>(null);
+                lastCursorComponent = new java.lang.ref.WeakReference<>(null);
+                return false;
+            }
+            if (lastCursorWindow.get() != window || lastCursorComponent.get() != component) {
+                lastCursorWindow = new java.lang.ref.WeakReference<>(window);
+                lastCursorComponent = new java.lang.ref.WeakReference<>(component);
+                return false;
+            }
+            return true;
+        }
+        return true;
     }
 
     /** Clears owned slots; outstanding consults fall back to the native path. */
@@ -209,6 +238,8 @@ public final class InputPathElisionBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         armed = false;
+        lastCursorComponent = new java.lang.ref.WeakReference<>(null);
+        lastCursorWindow = new java.lang.ref.WeakReference<>(null);
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null)

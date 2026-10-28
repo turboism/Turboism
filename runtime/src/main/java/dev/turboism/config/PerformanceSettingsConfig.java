@@ -20,6 +20,7 @@ public final class PerformanceSettingsConfig {
         UPLOAD_ELISION("uploadElision", true, "false"),
         INPUT_PATH_ELISION("inputPathElision", true, "false"),
         MESA_GL_THREAD("mesaGlThread", true, "false"),
+        MESH_INTERPOLATION("meshInterpolation", true, "false"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "false"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "false"),
         ATLAS_TILE_BBOX("atlasTileBbox", false, "false"),
@@ -48,7 +49,7 @@ public final class PerformanceSettingsConfig {
         public boolean launcher() {
             return launcher;
         }
-        /** Whether this is one of the ten native optimization switches. */
+        /** Whether this is one of the native optimization switches. */
         public boolean nativeOptimization() {
             return switch (this) {
                 case CUBISM_JVM, GRAAL_VM_PATH, REDUCE_AUTO_BACKUP, ZGC, MEMORY_PROFILE -> false;
@@ -103,6 +104,11 @@ public final class PerformanceSettingsConfig {
             } else if (field.nativeOptimization() && System.getProperty("turboism.optimization." + field.key) != null) {
                 value = Boolean.toString(
                         Boolean.parseBoolean(System.getProperty("turboism.optimization." + field.key)));
+                source = "jvm-override";
+            } else if (field == Field.MESH_INTERPOLATION
+                    && System.getProperty("turboism.meshInterpolation.enabled") != null) {
+                value = Boolean.toString(
+                        Boolean.parseBoolean(System.getProperty("turboism.meshInterpolation.enabled")));
                 source = "jvm-override";
             } else if (field == Field.REDUCE_AUTO_BACKUP && System.getenv("TURBOISM_REDUCE_AUTO_BACKUP") != null) {
                 String override = System.getenv("TURBOISM_REDUCE_AUTO_BACKUP").trim();

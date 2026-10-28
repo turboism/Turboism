@@ -465,6 +465,15 @@ public final class ConfigMergeRegression {
         ConfigMerge.validateCurrent(withZgc);
         check("launcher.zgc boolean passes installer validation", true);
 
+        Map<String, Object> withMeshInterpolation = validRuntimeConfig();
+        withMeshInterpolation.put("launcher", Map.of("cubismJvm", "bundled", "meshInterpolation", Boolean.TRUE));
+        ConfigMerge.validateCurrent(withMeshInterpolation);
+        check("launcher.meshInterpolation boolean passes installer validation", true);
+
+        Map<String, Object> badLauncherMeshInterpolation = validRuntimeConfig();
+        badLauncherMeshInterpolation.put("launcher", Map.of("cubismJvm", "bundled", "meshInterpolation", "yes"));
+        invalid.add(badLauncherMeshInterpolation);
+
         Map<String, Object> badLauncherProfile = validRuntimeConfig();
         badLauncherProfile.put("launcher",
                 Map.of("cubismJvm", "bundled", "memoryProfile", "extreme16g"));
@@ -491,6 +500,17 @@ public final class ConfigMergeRegression {
                             + " survives installer upgrade",
                     tier.equals(preserved));
         }
+
+        Map<String, Object> persistedOpt = validRuntimeConfig();
+        persistedOpt.put("launcher", Map.of("cubismJvm", "bundled", "meshInterpolation", Boolean.TRUE));
+        Path optHome = Files.createTempDirectory("cfg-opt-");
+        ConfigMerge.write(optHome, persistedOpt);
+        Map<String, Object> loadedOpt = ConfigMerge.loadExisting(optHome);
+        ConfigMerge.validateCurrent(loadedOpt);
+        Map<String, Object> relaunchedOpt = ConfigMerge.applyPolicy(
+                loadedOpt, ConfigMerge.mergeDisabled(loadedOpt, Set.of(), Set.of(), false));
+        Object preservedOpt = ((Map<?, ?>) relaunchedOpt.get("launcher")).get("meshInterpolation");
+        check("launcher.meshInterpolation survives installer upgrade", Boolean.TRUE.equals(preservedOpt));
 
         for (int index = 0; index < invalid.size(); index++) {
             try {
