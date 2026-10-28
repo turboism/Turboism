@@ -135,8 +135,8 @@ final class NativeMeshMirrorAxisDrawingTest {
         final List<String> args = new ArrayList<>(List.of("-d", classes.toString()));
         args.addAll(files);
         assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
-        return new URLClassLoader(
-                new URL[] {classes.toUri().toURL()}, getClass().getClassLoader());
+        // Keep the synthetic host independent of other tests' native class stubs.
+        return new URLClassLoader(new URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
     }
 
     private void source(final List<String> files, final String name, final String content) throws Exception {

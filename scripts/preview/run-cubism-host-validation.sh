@@ -500,8 +500,9 @@ case "$version" in
     cubism_win="C:\\Program Files\\Live2D Cubism $semver"
     cubism_rel="pfx/drive_c/Program Files/Live2D Cubism $semver"
     # The deferred GL error-check seam requires the uniform-location lifecycle
-    # bytecode profile; reviewed for the full 5.2 and 5.3 lines (5.2.00 and later).
-    if (( 10#$version >= 5200 )); then uniform_seam_reviewed=1; else uniform_seam_reviewed=0; fi
+    # bytecode profile, now pinned for every admitted reviewed release.
+    # The reviewed-artifact check above rejects all other versions.
+    uniform_seam_reviewed=1
     ;;
 esac
 
