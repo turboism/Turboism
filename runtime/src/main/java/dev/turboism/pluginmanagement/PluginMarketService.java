@@ -1,10 +1,12 @@
 package dev.turboism.pluginmanagement;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PreparedPluginJar;
 import dev.turboism.internal.core.CorePluginManagement.OperationResult;
+import dev.turboism.internal.core.CorePluginManagement.PluginDetails;
 import dev.turboism.internal.core.CorePluginManagement.PluginInfo;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPlugin;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
@@ -21,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,10 +32,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -41,6 +51,9 @@ import java.util.function.Supplier;
  * and performing verified installs and updates.
  */
 public final class PluginMarketService implements AutoCloseable {
+
+    /** Default bounded queue capacity for market executor submissions. */
+    private static final int DEFAULT_QUEUE_CAPACITY = 64;
 
     /** Installation and compatibility status category of a catalog plugin. */
     public enum StatusType {
@@ -74,6 +87,35 @@ public final class PluginMarketService implements AutoCloseable {
         }
     }
 
+    private static final class MarketFuture<T> extends CompletableFuture<T> {
+        private volatile MarketTask<T> task;
+
+        void setTask(final MarketTask<T> task) {
+            this.task = task;
+            whenComplete((ignoredResult, ignoredError) -> {
+                this.task = null;
+            });
+        }
+
+        @Override
+        public boolean cancel(final boolean mayInterruptIfRunning) {
+            if (isCancelled()) {
+                return true;
+            }
+            final MarketTask<T> t = this.task;
+            if (t != null) {
+                if (!t.cancelQueued()) {
+                    return false;
+                }
+            }
+            final boolean c = super.cancel(mayInterruptIfRunning);
+            if (c) {
+                this.task = null;
+            }
+            return c;
+        }
+    }
+
     private final Path home;
     private final Path pluginsDirectory;
     private final Path stagingPackages;
@@ -86,6 +128,12 @@ public final class PluginMarketService implements AutoCloseable {
     private final PluginVersion turboismApiVersion;
     private final Consumer<String> logSink;
     private final ExecutorService marketExecutor;
+    private final BlockingQueue<Runnable> taskQueue;
+
+    private final Object lifecycleLock = new Object();
+    private boolean closed = false;
+    private MarketTask<?> runningTask = null;
+
     private volatile PluginHotReloadCoordinator hotReloadCoordinator;
     private volatile PluginCatalog currentCatalog;
 
@@ -99,6 +147,30 @@ public final class PluginMarketService implements AutoCloseable {
             final Supplier<Optional<String>> cubismVersionSupplier,
             final PluginVersion turboismApiVersion,
             final Consumer<String> logSink) {
+        this(
+                home,
+                client,
+                verifier,
+                stateStore,
+                pending,
+                managementService,
+                cubismVersionSupplier,
+                turboismApiVersion,
+                logSink,
+                DEFAULT_QUEUE_CAPACITY);
+    }
+
+    PluginMarketService(
+            final Path home,
+            final PluginCatalogClient client,
+            final PluginCatalogVerifier verifier,
+            final PluginCatalogStateStore stateStore,
+            final PendingPluginOperations pending,
+            final RuntimePluginManagementService managementService,
+            final Supplier<Optional<String>> cubismVersionSupplier,
+            final PluginVersion turboismApiVersion,
+            final Consumer<String> logSink,
+            final int queueCapacity) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.pluginsDirectory = this.home.resolve("plugins");
         this.stagingPackages = this.home.resolve("state/runtime/plugin-management/packages");
@@ -110,11 +182,27 @@ public final class PluginMarketService implements AutoCloseable {
         this.cubismVersionSupplier = Objects.requireNonNull(cubismVersionSupplier, "cubismVersionSupplier");
         this.turboismApiVersion = Objects.requireNonNull(turboismApiVersion, "turboismApiVersion");
         this.logSink = Objects.requireNonNull(logSink, "logSink");
-        this.marketExecutor = Executors.newSingleThreadExecutor(r -> {
-            final Thread t = new Thread(r, "Turboism-PluginMarket");
-            t.setDaemon(true);
-            return t;
-        });
+        if (queueCapacity <= 0) {
+            throw new IllegalArgumentException("queueCapacity must be positive: " + queueCapacity);
+        }
+        this.taskQueue = new ArrayBlockingQueue<>(queueCapacity);
+        this.marketExecutor = new ThreadPoolExecutor(
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                this.taskQueue,
+                r -> {
+                    final Thread t = new Thread(r, "Turboism-PluginMarket");
+                    t.setDaemon(true);
+                    return t;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    /** Returns the number of tasks currently waiting in the executor queue. */
+    int queueSize() {
+        return taskQueue.size();
     }
 
     /**
@@ -141,38 +229,37 @@ public final class PluginMarketService implements AutoCloseable {
     /** Refreshes local installation state once, then resolves every row from that immutable snapshot. */
     public CompletionStage<MarketSnapshot> snapshot(final PluginCatalog catalog) {
         Objects.requireNonNull(catalog, "catalog");
-        return CompletableFuture.supplyAsync(
-                () -> {
-                    final List<PluginInfo> installed = List.copyOf(managementService.plugins());
-                    final Map<String, PluginInfo> byId = new LinkedHashMap<>();
-                    installed.forEach(plugin -> byId.put(plugin.id(), plugin));
-                    final Optional<String> activeCubism = cubismVersionSupplier.get();
-                    final Map<String, PluginMarketStatus> statuses = new LinkedHashMap<>();
-                    for (CatalogPlugin plugin : catalog.plugins()) {
-                        statuses.put(plugin.id(), resolveStatus(plugin, byId.get(plugin.id()), activeCubism));
-                    }
-                    return new MarketSnapshot(catalog, installed, statuses);
-                },
-                marketExecutor);
+        return submitTask(() -> executeSnapshot(catalog), null);
+    }
+
+    private MarketSnapshot executeSnapshot(final PluginCatalog catalog) {
+        final List<PluginInfo> installed = List.copyOf(managementService.plugins());
+        final Map<String, PluginInfo> byId = new LinkedHashMap<>();
+        installed.forEach(plugin -> byId.put(plugin.id(), plugin));
+        final Optional<String> activeCubism = cubismVersionSupplier.get();
+        final Map<String, PluginMarketStatus> statuses = new LinkedHashMap<>();
+        for (CatalogPlugin plugin : catalog.plugins()) {
+            statuses.put(plugin.id(), resolveStatus(plugin, byId.get(plugin.id()), activeCubism));
+        }
+        return new MarketSnapshot(catalog, installed, statuses);
     }
 
     /** Reads bundled documentation off the UI thread, only when a plugin is selected. */
     public CompletionStage<Optional<String>> loadReadme(final String pluginId) {
-        return CompletableFuture.supplyAsync(
-                () -> managementService
-                        .details(pluginId)
-                        .flatMap(dev.turboism.internal.core.CorePluginManagement.PluginDetails::readme),
-                marketExecutor);
+        Objects.requireNonNull(pluginId, "pluginId");
+        return submitTask(() -> managementService.details(pluginId).flatMap(PluginDetails::readme), null);
     }
 
     /** Persists the desired enabled state off the UI thread. */
     public CompletionStage<OperationResult> setEnabled(final String pluginId, final boolean enabled) {
-        return CompletableFuture.supplyAsync(() -> managementService.setEnabled(pluginId, enabled), marketExecutor);
+        Objects.requireNonNull(pluginId, "pluginId");
+        return submitTask(() -> managementService.setEnabled(pluginId, enabled), null);
     }
 
     /** Stages removal off the UI thread. */
     public CompletionStage<OperationResult> uninstall(final String pluginId) {
-        return CompletableFuture.supplyAsync(() -> managementService.uninstall(pluginId), marketExecutor);
+        Objects.requireNonNull(pluginId, "pluginId");
+        return submitTask(() -> managementService.uninstall(pluginId), null);
     }
 
     /**
@@ -180,67 +267,65 @@ public final class PluginMarketService implements AutoCloseable {
      * then attempts ETag revalidation over HTTPS. Never yields unverified data.
      */
     public CompletionStage<PluginCatalog> loadCatalog(final boolean forceRefresh) {
-        return CompletableFuture.supplyAsync(
-                () -> {
-                    final PluginCatalogStateStore.State persisted = stateStore.read();
-                    if (!forceRefresh
-                            && persisted.cachedCatalogBytes().isPresent()
-                            && persisted.cachedSignatureBytes().isPresent()) {
-                        try {
-                            final PluginCatalog cached = verifier.verify(
-                                    persisted.cachedCatalogBytes().get(),
-                                    persisted.cachedSignatureBytes().get());
-                            currentCatalog = cached;
-                        } catch (PluginCatalogVerificationException e) {
-                            logSink.accept("Cached catalog verification failed: " + e.getMessage());
-                        }
-                    }
+        return submitTask(() -> executeLoadCatalog(forceRefresh), null);
+    }
 
-                    final Optional<String> etag = forceRefresh ? Optional.empty() : persisted.etag();
-                    final CatalogFetchResult fetch;
-                    try {
-                        fetch = client.fetchCatalog(etag);
-                    } catch (IOException netError) {
-                        if (currentCatalog != null) {
-                            return currentCatalog;
-                        }
-                        throw new IllegalStateException(
-                                "Failed to fetch plugin catalog: " + netError.getMessage(), netError);
-                    }
+    private PluginCatalog executeLoadCatalog(final boolean forceRefresh) {
+        final PluginCatalogStateStore.State persisted = stateStore.read();
+        if (!forceRefresh
+                && persisted.cachedCatalogBytes().isPresent()
+                && persisted.cachedSignatureBytes().isPresent()) {
+            try {
+                final PluginCatalog cached = verifier.verify(
+                        persisted.cachedCatalogBytes().get(),
+                        persisted.cachedSignatureBytes().get());
+                currentCatalog = cached;
+            } catch (PluginCatalogVerificationException e) {
+                logSink.accept("Cached catalog verification failed: " + e.getMessage());
+            }
+        }
 
-                    final byte[] catalogBytes;
-                    final byte[] signatureBytes;
-                    final String newEtag;
-                    if (fetch instanceof CatalogFetchResult.NotModified notModified) {
-                        if (persisted.cachedCatalogBytes().isEmpty()
-                                || persisted.cachedSignatureBytes().isEmpty()) {
-                            throw new IllegalStateException("Catalog 304 response with empty local cache");
-                        }
-                        catalogBytes = persisted.cachedCatalogBytes().get();
-                        signatureBytes = persisted.cachedSignatureBytes().get();
-                        newEtag = notModified.etag().orElse(persisted.etag().orElse(""));
-                    } else if (fetch instanceof CatalogFetchResult.Fetched fetched) {
-                        catalogBytes = fetched.catalogBytes();
-                        signatureBytes = fetched.signatureBytes();
-                        newEtag = fetched.etag().orElse("");
-                    } else {
-                        throw new IllegalStateException("Unexpected fetch result type");
-                    }
+        final Optional<String> etag = forceRefresh ? Optional.empty() : persisted.etag();
+        final CatalogFetchResult fetch;
+        try {
+            fetch = client.fetchCatalog(etag);
+        } catch (IOException netError) {
+            if (currentCatalog != null) {
+                return currentCatalog;
+            }
+            throw new IllegalStateException("Failed to fetch plugin catalog: " + netError.getMessage(), netError);
+        }
 
-                    try {
-                        final PluginCatalog verified = verifier.verifyAndAdvance(
-                                catalogBytes, signatureBytes, stateStore, Optional.of(newEtag));
-                        currentCatalog = verified;
-                        return verified;
-                    } catch (PluginCatalogVerificationException verifyError) {
-                        if (currentCatalog != null) {
-                            return currentCatalog;
-                        }
-                        throw new IllegalStateException(
-                                "Catalog verification failed: " + verifyError.getMessage(), verifyError);
-                    }
-                },
-                marketExecutor);
+        final byte[] catalogBytes;
+        final byte[] signatureBytes;
+        final String newEtag;
+        if (fetch instanceof CatalogFetchResult.NotModified notModified) {
+            if (persisted.cachedCatalogBytes().isEmpty()
+                    || persisted.cachedSignatureBytes().isEmpty()) {
+                throw new IllegalStateException("Catalog 304 response with empty local cache");
+            }
+            catalogBytes = persisted.cachedCatalogBytes().get();
+            signatureBytes = persisted.cachedSignatureBytes().get();
+            newEtag = notModified.etag().orElse(persisted.etag().orElse(""));
+        } else if (fetch instanceof CatalogFetchResult.Fetched fetched) {
+            catalogBytes = fetched.catalogBytes();
+            signatureBytes = fetched.signatureBytes();
+            newEtag = fetched.etag().orElse("");
+        } else {
+            throw new IllegalStateException("Unexpected fetch result type");
+        }
+
+        try {
+            final PluginCatalog verified =
+                    verifier.verifyAndAdvance(catalogBytes, signatureBytes, stateStore, Optional.of(newEtag));
+            currentCatalog = verified;
+            return verified;
+        } catch (PluginCatalogVerificationException verifyError) {
+            if (currentCatalog != null) {
+                return currentCatalog;
+            }
+            throw new IllegalStateException("Catalog verification failed: " + verifyError.getMessage(), verifyError);
+        }
     }
 
     /**
@@ -343,155 +428,158 @@ public final class PluginMarketService implements AutoCloseable {
             final CatalogRelease release,
             final DownloadControl control,
             final Consumer<DownloadProgress> progress) {
+        Objects.requireNonNull(plugin, "plugin");
+        Objects.requireNonNull(release, "release");
         Objects.requireNonNull(control, "control");
         Objects.requireNonNull(progress, "progress");
-        return CompletableFuture.supplyAsync(
-                () -> {
-                    if (control.isCancelled()) return cancelledInstall();
-                    final Optional<String> activeCubism = cubismVersionSupplier.get();
-                    if (!isCompatible(release, activeCubism)) {
-                        return OperationResult.rejected(
-                                "PLUGIN_INCOMPATIBLE", incompatibilityReason(release, activeCubism));
-                    }
 
-                    final Path tempDownload;
-                    try {
-                        Files.createDirectories(stagingPackages);
-                        tempDownload = Files.createTempFile(stagingPackages, "market-download-", ".jar");
-                    } catch (IOException e) {
-                        logSink.accept("PLUGIN_DOWNLOAD_IO_FAILED: " + e.getMessage());
-                        return OperationResult.rejected(
-                                "PLUGIN_DOWNLOAD_IO_FAILED", "Cannot create plugin download file: " + e.getMessage());
-                    }
+        return submitTask(() -> executeInstallOrUpdate(plugin, release, control, progress), control);
+    }
 
-                    try {
-                        client.downloadArtifact(
-                                URI.create(release.artifact().url()),
-                                release.artifact().size(),
-                                release.artifact().sha256(),
-                                tempDownload,
-                                control,
-                                progress);
-                    } catch (IOException downloadError) {
-                        try {
-                            Files.deleteIfExists(tempDownload);
-                        } catch (IOException ignored) {
+    private OperationResult executeInstallOrUpdate(
+            final CatalogPlugin plugin,
+            final CatalogRelease release,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress) {
+        if (control.isCancelled()) {
+            return cancelledInstall();
+        }
+        final Optional<String> activeCubism = cubismVersionSupplier.get();
+        if (!isCompatible(release, activeCubism)) {
+            return OperationResult.rejected("PLUGIN_INCOMPATIBLE", incompatibilityReason(release, activeCubism));
+        }
+
+        final Path tempDownload;
+        try {
+            Files.createDirectories(stagingPackages);
+            tempDownload = Files.createTempFile(stagingPackages, "market-download-", ".jar");
+        } catch (IOException e) {
+            logSink.accept("PLUGIN_DOWNLOAD_IO_FAILED: " + e.getMessage());
+            return OperationResult.rejected(
+                    "PLUGIN_DOWNLOAD_IO_FAILED", "Cannot create plugin download file: " + e.getMessage());
+        }
+
+        try {
+            client.downloadArtifact(
+                    URI.create(release.artifact().url()),
+                    release.artifact().size(),
+                    release.artifact().sha256(),
+                    tempDownload,
+                    control,
+                    progress);
+        } catch (IOException downloadError) {
+            try {
+                Files.deleteIfExists(tempDownload);
+            } catch (IOException ignored) {
+            }
+            final String code =
+                    downloadError instanceof DownloadFailure failure ? failure.code() : "PLUGIN_DOWNLOAD_FAILED";
+            logSink.accept(code + ": " + downloadError.getMessage());
+            return OperationResult.rejected(code, "Failed to download plugin package: " + downloadError.getMessage());
+        }
+
+        // Inspect and prepare staged JAR
+        final LocalPluginJarPreparer preparer = new LocalPluginJarPreparer();
+        final LocalPluginJarPreparer.Preparation prep = preparer.prepare(tempDownload, stagingPackages);
+        try {
+            Files.deleteIfExists(tempDownload);
+        } catch (IOException ignored) {
+        }
+
+        if (prep instanceof LocalPluginJarPreparer.PreparationRejected rejected) {
+            return OperationResult.rejected(rejected.code(), "Staged package rejected by security preflight");
+        }
+
+        final PreparedPluginJar prepared = ((LocalPluginJarPreparer.Prepared) prep).value();
+        if (control.isCancelled()) {
+            pending.discardIfUnreferenced(prepared.stagedJar());
+            return cancelledInstall();
+        }
+        if (!prepared.descriptorSha256().equalsIgnoreCase(release.artifact().descriptorSha256())) {
+            pending.discardIfUnreferenced(prepared.stagedJar());
+            return OperationResult.rejected(
+                    "DESCRIPTOR_SHA256_MISMATCH", "Embedded descriptor SHA-256 does not match catalog pin");
+        }
+
+        final boolean hotSafe = release.hotReload()
+                && hotReloadCoordinator != null
+                && pending.canHotApply(plugin.id())
+                && hotReloadCoordinator.isHotReloadSafe(prepared.stagedJar());
+
+        // Commit gate: begins commit on DownloadControl
+        if (Thread.currentThread().isInterrupted() || !control.beginCommit()) {
+            pending.discardIfUnreferenced(prepared.stagedJar());
+            return cancelledInstall();
+        }
+
+        if (hotSafe) {
+            final Path targetJar = pluginsDirectory.resolve(plugin.id() + ".jar");
+            final boolean wasInstalled = Files.isRegularFile(targetJar, LinkOption.NOFOLLOW_LINKS);
+            final Path backupJar = wasInstalled
+                    ? stagingPackages.resolve(".backup-" + plugin.id() + "-" + UUID.randomUUID() + ".jar")
+                    : null;
+
+            try {
+                Files.createDirectories(pluginsDirectory);
+                if (wasInstalled && backupJar != null) {
+                    Files.copy(targetJar, backupJar, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                // Attempt file replacement
+                try {
+                    UpdateFileSupport.copyAtomic(prepared.stagedJar(), targetJar);
+                } catch (IOException lockException) {
+                    // Windows file lock or permission error: fall back to staging!
+                    logSink.accept("File replacement failed (likely locked); falling back to staging: "
+                            + lockException.getMessage());
+                    if (backupJar != null) {
+                        Files.deleteIfExists(backupJar);
+                    }
+                    return stageForRestart(prepared);
+                }
+
+                if (wasInstalled) {
+                    final var reloadResult = hotReloadCoordinator.hotReload(plugin.id(), targetJar, backupJar);
+                    if (reloadResult.succeeded()) {
+                        if (backupJar != null) Files.deleteIfExists(backupJar);
+                        pending.discardIfUnreferenced(prepared.stagedJar());
+                        return OperationResult.accepted(
+                                "PLUGIN_HOT_APPLIED", "Plugin updated and applied immediately.");
+                    } else if (reloadResult.rolledBack()) {
+                        // Rollback restored previous generation
+                        if (backupJar != null) {
+                            UpdateFileSupport.copyAtomic(backupJar, targetJar);
+                            Files.deleteIfExists(backupJar);
                         }
-                        final String code = downloadError instanceof DownloadFailure failure
-                                ? failure.code()
-                                : "PLUGIN_DOWNLOAD_FAILED";
-                        logSink.accept(code + ": " + downloadError.getMessage());
-                        return OperationResult.rejected(
-                                code, "Failed to download plugin package: " + downloadError.getMessage());
-                    }
-
-                    // Inspect and prepare staged JAR
-                    final LocalPluginJarPreparer preparer = new LocalPluginJarPreparer();
-                    final LocalPluginJarPreparer.Preparation prep = preparer.prepare(tempDownload, stagingPackages);
-                    try {
-                        Files.deleteIfExists(tempDownload);
-                    } catch (IOException ignored) {
-                    }
-
-                    if (prep instanceof LocalPluginJarPreparer.PreparationRejected rejected) {
-                        return OperationResult.rejected(
-                                rejected.code(), "Staged package rejected by security preflight");
-                    }
-
-                    final PreparedPluginJar prepared = ((LocalPluginJarPreparer.Prepared) prep).value();
-                    if (control.isCancelled()) {
-                        pending.discardIfUnreferenced(prepared.stagedJar());
-                        return cancelledInstall();
-                    }
-                    if (!prepared.descriptorSha256()
-                            .equalsIgnoreCase(release.artifact().descriptorSha256())) {
-                        pending.discardIfUnreferenced(prepared.stagedJar());
-                        return OperationResult.rejected(
-                                "DESCRIPTOR_SHA256_MISMATCH", "Embedded descriptor SHA-256 does not match catalog pin");
-                    }
-
-                    final boolean hotSafe = release.hotReload()
-                            && hotReloadCoordinator != null
-                            && pending.canHotApply(plugin.id())
-                            && hotReloadCoordinator.isHotReloadSafe(prepared.stagedJar());
-
-                    if (Thread.currentThread().isInterrupted() || !control.beginCommit()) {
-                        pending.discardIfUnreferenced(prepared.stagedJar());
-                        return cancelledInstall();
-                    }
-
-                    if (hotSafe) {
-                        final Path targetJar = pluginsDirectory.resolve(plugin.id() + ".jar");
-                        final boolean wasInstalled = Files.isRegularFile(targetJar, LinkOption.NOFOLLOW_LINKS);
-                        final Path backupJar = wasInstalled
-                                ? stagingPackages.resolve(".backup-" + plugin.id() + "-" + UUID.randomUUID() + ".jar")
-                                : null;
-
-                        try {
-                            Files.createDirectories(pluginsDirectory);
-                            if (wasInstalled && backupJar != null) {
-                                Files.copy(targetJar, backupJar, StandardCopyOption.REPLACE_EXISTING);
-                            }
-
-                            // Attempt file replacement
-                            try {
-                                UpdateFileSupport.copyAtomic(prepared.stagedJar(), targetJar);
-                            } catch (IOException lockException) {
-                                // Windows file lock or permission error: fall back to staging!
-                                logSink.accept("File replacement failed (likely locked); falling back to staging: "
-                                        + lockException.getMessage());
-                                if (backupJar != null) {
-                                    Files.deleteIfExists(backupJar);
-                                }
-                                return stageForRestart(prepared);
-                            }
-
-                            if (wasInstalled) {
-                                final var reloadResult =
-                                        hotReloadCoordinator.hotReload(plugin.id(), targetJar, backupJar);
-                                if (reloadResult.succeeded()) {
-                                    if (backupJar != null) Files.deleteIfExists(backupJar);
-                                    pending.discardIfUnreferenced(prepared.stagedJar());
-                                    return OperationResult.accepted(
-                                            "PLUGIN_HOT_APPLIED", "Plugin updated and applied immediately.");
-                                } else if (reloadResult.rolledBack()) {
-                                    // Rollback restored previous generation
-                                    if (backupJar != null) {
-                                        UpdateFileSupport.copyAtomic(backupJar, targetJar);
-                                        Files.deleteIfExists(backupJar);
-                                    }
-                                    return stageForRestart(prepared);
-                                } else {
-                                    if (backupJar != null) Files.deleteIfExists(backupJar);
-                                    return stageForRestart(prepared);
-                                }
-                            } else {
-                                final var loadResult = hotReloadCoordinator.hotLoad(targetJar);
-                                if (loadResult.succeeded()) {
-                                    pending.discardIfUnreferenced(prepared.stagedJar());
-                                    return OperationResult.accepted(
-                                            "PLUGIN_HOT_APPLIED", "Plugin installed and applied immediately.");
-                                } else {
-                                    Files.deleteIfExists(targetJar);
-                                    return stageForRestart(prepared);
-                                }
-                            }
-                        } catch (Exception e) {
-                            logSink.accept(
-                                    "Hot lifecycle operation failed; falling back to staging: " + e.getMessage());
-                            if (backupJar != null) {
-                                try {
-                                    Files.deleteIfExists(backupJar);
-                                } catch (IOException ignored) {
-                                }
-                            }
-                            return stageForRestart(prepared);
-                        }
+                        return stageForRestart(prepared);
                     } else {
+                        if (backupJar != null) Files.deleteIfExists(backupJar);
                         return stageForRestart(prepared);
                     }
-                },
-                marketExecutor);
+                } else {
+                    final var loadResult = hotReloadCoordinator.hotLoad(targetJar);
+                    if (loadResult.succeeded()) {
+                        pending.discardIfUnreferenced(prepared.stagedJar());
+                        return OperationResult.accepted(
+                                "PLUGIN_HOT_APPLIED", "Plugin installed and applied immediately.");
+                    } else {
+                        Files.deleteIfExists(targetJar);
+                        return stageForRestart(prepared);
+                    }
+                }
+            } catch (Exception e) {
+                logSink.accept("Hot lifecycle operation failed; falling back to staging: " + e.getMessage());
+                if (backupJar != null) {
+                    try {
+                        Files.deleteIfExists(backupJar);
+                    } catch (IOException ignored) {
+                    }
+                }
+                return stageForRestart(prepared);
+            }
+        } else {
+            return stageForRestart(prepared);
+        }
     }
 
     private static OperationResult cancelledInstall() {
@@ -543,8 +631,131 @@ public final class PluginMarketService implements AutoCloseable {
      */
     public record CatalogPluginLocalized(String name, String summary) {}
 
+    private <T> MarketFuture<T> submitTask(final Callable<T> callable, final DownloadControl downloadControl) {
+        synchronized (lifecycleLock) {
+            if (closed) {
+                final MarketFuture<T> failed = new MarketFuture<>();
+                failed.completeExceptionally(new RejectedExecutionException("PluginMarketService is closed"));
+                return failed;
+            }
+            final MarketFuture<T> future = new MarketFuture<>();
+            final MarketTask<T> task = new MarketTask<>(callable, future, downloadControl);
+            try {
+                marketExecutor.execute(task);
+                return future;
+            } catch (RejectedExecutionException ex) {
+                task.cancelled.set(true);
+                future.completeExceptionally(new RejectedExecutionException("Market service queue is full", ex));
+                return future;
+            }
+        }
+    }
+
     @Override
     public void close() {
-        marketExecutor.shutdownNow();
+        final List<MarketTask<?>> tasksToCancel = new ArrayList<>();
+        final DownloadControl activeDownload;
+
+        synchronized (lifecycleLock) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            if (runningTask != null) {
+                activeDownload = runningTask.downloadControl;
+            } else {
+                activeDownload = null;
+            }
+
+            final List<Runnable> queued = new ArrayList<>();
+            taskQueue.drainTo(queued);
+            for (Runnable r : queued) {
+                if (r instanceof MarketTask<?> task) {
+                    task.cancelled.set(true);
+                    tasksToCancel.add(task);
+                }
+            }
+        }
+
+        if (activeDownload != null && activeDownload.canCancel()) {
+            activeDownload.cancel();
+        }
+
+        for (MarketTask<?> task : tasksToCancel) {
+            task.future.completeExceptionally(
+                    new CancellationException("PluginMarketService closed before task could execute"));
+        }
+
+        marketExecutor.shutdown();
+    }
+
+    private final class MarketTask<T> implements Runnable {
+        private final Callable<T> callable;
+        private final MarketFuture<T> future;
+        private final DownloadControl downloadControl;
+        private final AtomicBoolean started = new AtomicBoolean(false);
+        private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+        MarketTask(final Callable<T> callable, final MarketFuture<T> future, final DownloadControl downloadControl) {
+            this.callable = Objects.requireNonNull(callable, "callable");
+            this.future = Objects.requireNonNull(future, "future");
+            this.downloadControl = downloadControl;
+            this.future.setTask(this);
+        }
+
+        boolean cancelQueued() {
+            synchronized (lifecycleLock) {
+                if (cancelled.get()) {
+                    return true;
+                }
+                if (started.get()) {
+                    return false;
+                }
+                cancelled.set(true);
+                taskQueue.remove(this);
+                if (downloadControl != null) {
+                    downloadControl.cancel();
+                }
+                return true;
+            }
+        }
+
+        @Override
+        public void run() {
+            if (cancelled.get()) {
+                return;
+            }
+
+            synchronized (lifecycleLock) {
+                if (closed || cancelled.get()) {
+                    cancelled.set(true);
+                    future.completeExceptionally(
+                            new CancellationException("PluginMarketService closed before task could execute"));
+                    return;
+                }
+                started.set(true);
+                runningTask = this;
+            }
+
+            try {
+                final T result = callable.call();
+                future.complete(result);
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                future.completeExceptionally(failure);
+            } finally {
+                if (!future.isDone()) {
+                    close();
+                    future.completeExceptionally(
+                            new IllegalStateException("Market task terminated abruptly due to fatal error"));
+                }
+                synchronized (lifecycleLock) {
+                    if (runningTask == this) {
+                        runningTask = null;
+                    }
+                }
+            }
+        }
     }
 }
