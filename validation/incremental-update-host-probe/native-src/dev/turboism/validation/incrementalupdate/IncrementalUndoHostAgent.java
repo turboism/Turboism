@@ -141,31 +141,8 @@ public final class IncrementalUndoHostAgent {
     }
 
     private static void serviceStartup() {
-        for (Window window : Window.getWindows()) {
-            if (!(window instanceof Dialog dialog) || !dialog.isShowing()) continue;
-            List<javax.swing.AbstractButton> buttons = new ArrayList<>();
-            StringBuilder labels = new StringBuilder();
-            inspectDialog(dialog, buttons, labels);
-            if ("License Activation".equals(dialog.getTitle()) && labels.toString().contains("Unable to connect to the Internet")) {
-                for (var button : buttons) if ("OK".equals(button.getText())) { button.doClick(0); return; }
-            }
-            if ("Start".equals(dialog.getTitle())) {
-                for (var button : buttons) if ("Start as FREE version".equals(button.getText())) {
-                    RESULT.setProperty("startup.licenseChoice", "native Start as FREE version");
-                    button.doClick(0);
-                    return;
-                }
-                return; // No automatic trial/activation choice when FREE is unavailable.
-            }
-        }
-        // Reuse audited welcome/newer-project actions after choosing the native FREE entry.
-        dev.turboism.validation.NativeFreeStartup.select();
-    }
-
-    private static void inspectDialog(Component component, List<javax.swing.AbstractButton> buttons, StringBuilder labels) {
-        if (component instanceof javax.swing.JLabel label) labels.append(label.getText()).append('\n');
-        if (component instanceof javax.swing.AbstractButton button && button.isShowing()) buttons.add(button);
-        if (component instanceof Container container) for (Component child : container.getComponents()) inspectDialog(child, buttons, labels);
+        String action = dev.turboism.validation.NativeFreeStartup.selectFreeOnly();
+        if (action != null) RESULT.setProperty("startup.lastAction", action);
     }
 
     private static void walk(Component c, List<Component> out) {

@@ -38,6 +38,12 @@ public final class NativeStartupAssistanceAgentTest {
         if (!"Start PRO Version Free Trial".equals(
                 NativeFreeStartup.preferredStartButton("Start", licenseButtons)))
             throw new AssertionError("PRO trial entry not preferred");
+        if (!"Start as FREE version".equals(
+                NativeFreeStartup.preferredStartButton("Start", licenseButtons, false)))
+            throw new AssertionError("FREE-only task selected a trial");
+        if (NativeFreeStartup.preferredStartButton("Start",
+                java.util.List.of("Start PRO Version Free Trial", "Purchase PRO license"), false) != null)
+            throw new AssertionError("FREE-only task accepted a trial-only dialog");
         final java.util.List<String> alternateLicenseButtons = java.util.List.of("Cancel",
                 "PRO and Trial license activation", "Purchase PRO license",
                 "Start PRO Version Free Trial", "Start as FREE version");
