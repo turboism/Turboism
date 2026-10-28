@@ -117,6 +117,33 @@ class ParameterSyncDialogTest {
         dialog.dispose();
     }
 
+    @Test
+    void reopeningDialogWhileGloballyDisabledPreservesCheckedParameters() {
+        final DummyModel model = new DummyModel("m1");
+        model.addParam("ParamA", 0.0f, 1.0f);
+        model.addParam("ParamB", 0.0f, 1.0f);
+
+        final SyncRuleSet ruleSet = new SyncRuleSet();
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setSynchronized("ParamB", true);
+        ruleSet.setGlobalEnabled(false);
+
+        final ParameterSyncDialog dialog = new ParameterSyncDialog(model, null, ruleSet, null, localization);
+
+        assertFalse(dialog.globalEnabledCheck().isSelected());
+        assertTrue((Boolean) dialog.table().getValueAt(0, 0));
+        assertTrue((Boolean) dialog.table().getValueAt(1, 0));
+        assertTrue(dialog.countLabel().getText().contains("2"));
+
+        // Re-enable global sync via the top checkbox
+        dialog.globalEnabledCheck().doClick();
+        assertTrue(ruleSet.isGlobalEnabled());
+        assertTrue(ruleSet.isSynchronized("ParamA"));
+        assertTrue(ruleSet.isSynchronized("ParamB"));
+
+        dialog.dispose();
+    }
+
     private static final class DummyModel implements CubismModel {
         private final String guid;
         private final Map<String, DummyParameter> params = new LinkedHashMap<>();

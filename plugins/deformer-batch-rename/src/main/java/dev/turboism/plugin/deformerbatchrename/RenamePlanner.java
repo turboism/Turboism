@@ -1,6 +1,7 @@
 package dev.turboism.plugin.deformerbatchrename;
 
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.*;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -43,16 +44,23 @@ final class RenamePlanner {
             String suffix = parameterSuffix(d.getParameterBindings().stream()
                     .map(ParameterBinding::parameterId)
                     .distinct()
-                    .map(id -> model.parameters()
-                            .find(id)
-                            .name()
-                            .filter(n -> !n.isBlank())
-                            .orElse(id.value()))
+                    .map(id -> parameterName(model, id))
                     .toList());
             String target = base.isEmpty() ? d.name() : base + (suffix.isEmpty() ? "" : " " + suffix);
             rows.add(new Row(d.id(), rotationIds.contains(d.id()), d.name(), target));
         }
         return List.copyOf(rows);
+    }
+
+    private static String parameterName(CubismModel model, ParameterId id) {
+        try {
+            Parameter parameter = model.parameters().find(id);
+            if (parameter != null) {
+                return parameter.name().filter(n -> !n.isBlank()).orElse(id.value());
+            }
+        } catch (NoSuchElementException ignored) {
+        }
+        return id.value();
     }
 
     private static List<String> leaves(

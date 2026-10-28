@@ -2,6 +2,7 @@ package dev.turboism.plugin.deformerbatchrename;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
@@ -87,6 +88,7 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
                 notifyStatus("status.noModel", "INFO");
                 return;
             }
+            var modelId = model.id();
             var rows = RenamePlanner.preview(model);
             if (rows.isEmpty()) {
                 notifyStatus("status.empty", "INFO");
@@ -100,7 +102,7 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
                         var handle = dialog;
                         dialog = null;
                         if (handle != null) handle.close();
-                        if (accepted && !ids.isEmpty()) apply(model, rows, ids);
+                        if (accepted && !ids.isEmpty()) apply(modelId, rows, ids);
                     });
         } catch (RuntimeException failure) {
             context.logger().warn("Deformer rename failed: " + failure);
@@ -108,14 +110,14 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
         }
     }
 
-    private void apply(CubismModel model, List<RenamePlanner.Row> rows, List<String> ids) {
+    private void apply(ModelId modelId, List<RenamePlanner.Row> rows, List<String> ids) {
         try {
             var selected = new HashSet<>(ids);
             var result = context.cubism()
                     .authoringTransactions()
                     .execute(AuthoringTransactionOptions.of(text("action.rename")), () -> {
                         CubismModel active = context.cubism().model().active();
-                        if (!active.id().equals(model.id()) || !rows.equals(RenamePlanner.preview(active)))
+                        if (!active.id().equals(modelId) || !rows.equals(RenamePlanner.preview(active)))
                             throw new IllegalStateException("Rename preview is stale");
                         for (var row : rows)
                             if (row.changed() && selected.contains(row.id().value()))
