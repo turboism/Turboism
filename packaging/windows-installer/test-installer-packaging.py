@@ -88,6 +88,21 @@ def payload_upgrade_test() -> None:
         assert not renamed.exists(), "duplicate detection must use embedded ID, including on checksum skip"
         invoke()  # Repeated installs are harmless.
 
+        # Unselected plugins marked with .skip in PlanRoot must not be planned or installed.
+        plan_dir = work / "plan"
+        plan_dir.mkdir(exist_ok=True)
+        (plan_dir / "0000.skip").write_text("", encoding="utf-8")
+        (destination / "plugins/model-import-3d.jar").unlink()
+        invoke("-PlanOnly", "-PlanRoot", str(plan_dir))
+        assert not (plan_dir / "0000.need").exists(), "skipped plugin must not emit a .need marker"
+        invoke("-PlanRoot", str(plan_dir))
+        assert not (destination / "plugins/model-import-3d.jar").exists(), "skipped plugin must not be copied"
+        (plan_dir / "0000.skip").unlink()
+        invoke("-PlanOnly", "-PlanRoot", str(plan_dir))
+        assert (plan_dir / "0000.need").exists(), "selected plugin must emit a .need marker"
+        invoke("-PlanRoot", str(plan_dir))
+        assert (destination / "plugins/model-import-3d.jar").read_bytes() == current.read_bytes()
+
         # A damaged new payload must not retire the working old package.
         stale.write_bytes(stale_bytes)
         current.write_bytes(b"damaged download")
@@ -110,7 +125,7 @@ def generate(stage: Path, work: Path, verification: Path | None = None) -> tuple
     sections = work / "plugin-sections.nsh"
     subprocess.run(
         [sys.executable, "-", str(stage), str(sections), str(ROOT / "packaging/release-plugins.txt"), str(generated)],
-        input=production_blocks()[0], text=True, check=True, capture_output=True,
+        input=production_blocks()[0], text=True, encoding="utf-8", check=True, capture_output=True,
         env={**os.environ, "TURBOISM_VERIFICATION_METADATA": str(verification)} if verification else None,
     )
     return sections, generated
@@ -166,8 +181,15 @@ def synthetic_test() -> None:
             assert entry["name"] in core and entry["name"] in extractor, "standard EXE must embed the verified offline engine"
         assert "graal/lib/sdk-0.67.0.jar" in core and "graal/lib/graal-host-0.67.0.jar" in core
         assert "install-script-engine.ps1" in core and "script-engine.json" in core
+        readme_dir = generated / "plugin-readmes"
+        for index in range(len(modules)):
+            for locale in ("eng", "chn", "jpn", "kor"):
+                rtf_file = readme_dir / f"plugin-{index:04d}-{locale}.rtf"
+                assert rtf_file.is_file(), f"missing generated plugin README RTF: {rtf_file}"
+                rtf_text = rtf_file.read_text(encoding="ascii")
+                assert rtf_text.startswith("{\\rtf1") and "dev.turboism.plugin." in rtf_text
         standard = work / "standard.zip"
-        subprocess.run([sys.executable, "-", str(stage), str(standard), "0.67.0"], input=production_blocks()[1], text=True, check=True)
+        subprocess.run([sys.executable, "-", str(stage), str(standard), "0.67.0"], input=production_blocks()[1], text=True, encoding="utf-8", check=True)
         with zipfile.ZipFile(standard) as archive:
             for entry in manifest["artifacts"]:
                 assert archive.read("graal/lib/" + entry["name"]) == (stage / "graal/lib" / entry["name"]).read_bytes()
