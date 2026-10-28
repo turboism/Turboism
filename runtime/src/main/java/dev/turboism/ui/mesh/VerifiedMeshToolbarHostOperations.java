@@ -5,16 +5,18 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.toolbar.ToolbarIconLoader;
 import java.awt.event.ActionListener;
-import java.net.URL;
+import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import javax.swing.UIManager;
 
 /** Exact-version mesh-toolbar operations restricted to verified aliases. */
 public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostOperations {
@@ -110,7 +112,35 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
 
     @Override
     public Registration onRebuild(final Runnable reconcile) {
-        return coordinator.onStateChanged(Objects.requireNonNull(reconcile, "reconcile"));
+        Objects.requireNonNull(reconcile, "reconcile");
+        final Registration state = coordinator.onStateChanged(reconcile);
+        final AtomicBoolean closed = new AtomicBoolean();
+        final boolean[] previousDark = {ToolbarIconLoader.isDarkTheme()};
+        final PropertyChangeListener lafListener = event -> {
+            if ("lookAndFeel".equals(event.getPropertyName())) {
+                SwingUtilities.invokeLater(() -> {
+                    if (closed.get()) return;
+                    previousDark[0] = ToolbarIconLoader.isDarkTheme();
+                    reconcile.run();
+                });
+            }
+        };
+        final Timer timer = new Timer(250, ignored -> {
+            if (closed.get()) return;
+            final boolean currentDark = ToolbarIconLoader.isDarkTheme();
+            if (currentDark != previousDark[0]) {
+                previousDark[0] = currentDark;
+                reconcile.run();
+            }
+        });
+        UIManager.addPropertyChangeListener(lafListener);
+        timer.start();
+        return () -> {
+            if (!closed.compareAndSet(false, true)) return;
+            timer.stop();
+            UIManager.removePropertyChangeListener(lafListener);
+            state.close();
+        };
     }
 
     @Override
@@ -582,32 +612,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     }
 
     private Icon icon(final String pluginId, final long pluginGeneration, final String path) {
-        final URL resource = darkVariant(pluginId, pluginGeneration, path)
-                .or(() -> resources.resource(pluginId, pluginGeneration, path))
-                .orElseThrow(() -> new IllegalStateException("mesh-toolbar icon resource is unavailable"));
-        return new ImageIcon(resource);
-    }
-
-    /**
-     * Resolves the optional {@code <name>-dark.<ext>} sibling of a plugin icon when the active
-     * look-and-feel is dark; plugins that ship no dark sibling keep their single artwork.
-     */
-    private Optional<URL> darkVariant(final String pluginId, final long pluginGeneration, final String path) {
-        final int dot = path.lastIndexOf('.');
-        if (dot <= 0 || !isDarkLookAndFeel()) {
-            return Optional.empty();
-        }
-        return resources.resource(pluginId, pluginGeneration, path.substring(0, dot) + "-dark" + path.substring(dot));
-    }
-
-    private static boolean isDarkLookAndFeel() {
-        final javax.swing.LookAndFeel lookAndFeel = javax.swing.UIManager.getLookAndFeel();
-        if (lookAndFeel == null) {
-            return false;
-        }
-        final String signature =
-                (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName()).toLowerCase(java.util.Locale.ROOT);
-        return signature.contains("dark");
+        return ToolbarIconLoader.load(resources, pluginId, pluginGeneration, path);
     }
 
     /**

@@ -329,7 +329,11 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
             throw new IllegalStateException("main-toolbar contribution is already materialized");
         }
 
-        final Icon normal = icon(contribution.pluginId(), contribution.icons().normal());
+        final boolean dark = ToolbarIconLoader.isDarkTheme();
+        final String normalPath = dark && contribution.icons().dark().isPresent()
+                ? contribution.icons().dark().get()
+                : contribution.icons().normal();
+        final Icon normal = icon(contribution.pluginId(), normalPath);
         final Object callback = resolver.createFunctionalConstructorArgumentProxy(ICON_BUTTON_CREATE, 1, ignored -> {
             action.run();
             return kotlinUnit();

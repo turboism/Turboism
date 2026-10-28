@@ -25,25 +25,24 @@ OUTPUT = Path(__file__).resolve().parents[1] / "src/main/resources/icons"
 # suffix, background, frame, foreground
 STATES = (
     ("", None, None, "#656767"),
-    ("-active", "#727272", "#cbcbca", "#f0efef"),
-    ("-rollover", "#dbdada", "#cbcbca", "#656767"),
-    ("-selected", "#b3b2b3", "#cbcbca", "#656767"),
-    ("-disabled", "#f2f2f2", "#e8e8e8", "#c6c6c6"),
-    ("-disabled-selected", "#e2e2e2", "#e8e8e8", "#c6c6c6"),
+    ("-active", None, None, "#f0efef"),
+    ("-rollover", None, None, "#656767"),
+    ("-selected", None, None, "#656767"),
+    ("-disabled", None, None, "#c6c6c6"),
+    ("-disabled-selected", None, None, "#c6c6c6"),
 )
 
 
 # Dark-theme counterparts. Glyph #a8a8a8 and the 30% disabled alpha are sampled from the
-# native BrushSelection_32x32 dark icon; #e0e0e0 is CubismDarkTheme's foreground; frames follow
-# CubismDarkTheme's border (#323232 lightened 11%). State fills mirror the light ladder
-# (rollover < selected < active) as lightness steps up from the #323232 dark background.
+# native BrushSelection_32x32 dark icon; #e0e0e0 is CubismDarkTheme's foreground.
+# Background and frame are None to keep the icon transparent and avoid hardcoded border rings.
 DARK_STATES = (
     ("", None, None, "#a8a8a8"),
-    ("-active", "#8c8c8c", "#4e4e4e", "#f0efef"),
-    ("-rollover", "#484848", "#4e4e4e", "#e0e0e0"),
-    ("-selected", "#5e5e5e", "#4e4e4e", "#e0e0e0"),
-    ("-disabled", "#323232", "#393939", "#555555"),
-    ("-disabled-selected", "#3d3d3d", "#393939", "#555555"),
+    ("-active", None, None, "#f0efef"),
+    ("-rollover", None, None, "#e0e0e0"),
+    ("-selected", None, None, "#e0e0e0"),
+    ("-disabled", None, None, "#555555"),
+    ("-disabled-selected", None, None, "#555555"),
 )
 
 
