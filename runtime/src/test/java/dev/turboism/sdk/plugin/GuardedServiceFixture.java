@@ -13,4 +13,16 @@ public interface GuardedServiceFixture extends Registration {
 
     /** Same-named verb with an argument: never a terminal operation, stays fenced. */
     default void close(final String reason) {}
+
+    default byte[] transferBytes(final byte[] input) {
+        return input;
+    }
+
+    default byte[][] transferMatrix(final byte[][] input) {
+        return input;
+    }
+
+    default GuardedServiceFixture[] transferArray(final GuardedServiceFixture[] input) {
+        return input;
+    }
 }
