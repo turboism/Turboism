@@ -95,9 +95,9 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
                 verify(jar, loader, artifact, owner, "b", "()Ljava/nio/Buffer;");
             }
-            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.SIZE_OWNER, "a", "(Ljava/nio/Buffer;)J");
+            verify(jar, loader, artifact, target.sizeOwner(), "a", "(Ljava/nio/Buffer;)J");
         }
-        bridge = new SkippedFrameUploadElisionBridge(loader, production);
+        bridge = new SkippedFrameUploadElisionBridge(loader, production, target.sizeOwner());
     }
 
     private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {

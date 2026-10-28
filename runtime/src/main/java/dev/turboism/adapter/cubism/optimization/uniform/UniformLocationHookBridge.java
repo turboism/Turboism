@@ -131,7 +131,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     private long nextMutation;
     private boolean mutationCoverage;
     private Class<?> supportedGlType;
-    private boolean installed, closed, retired, frameSupported, shadow;
+    private boolean installed, closed, retired, frameSupported, frameContextValid, shadow;
     private Thread frameOwner;
     private Object frameGl;
     private long token;
@@ -375,16 +375,17 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             Object gl = (Object) frameToGl.invokeExact(frame);
             Object context = (Object) glToContext.invokeExact(gl);
             boolean shared = context != null && (boolean) contextShared.invokeExact(context);
-            boolean supported = enabledByPreference()
-                    && context != null
+            boolean contextValid = context != null
                     && (!shared || mutationCoverage)
                     && mutations.isEmpty()
                     && (supportedGlType == null || gl.getClass() == supportedGlType)
                     && (boolean) contextCreated.invokeExact(context)
                     && context == (Object) currentContext.invokeExact();
+            boolean supported = enabledByPreference() && contextValid;
             long opened = cache.begin(context, supported, deferredMode && mutationCoverage);
             frames++;
             if (opened == 0L) {
+                frameContextValid = false;
                 frameSupported = false;
                 return 0L;
             }
@@ -393,6 +394,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             token = opened;
             frameOwner = Thread.currentThread();
             frameGl = gl;
+            frameContextValid = contextValid;
             frameSupported = supported;
             shadow = Boolean.getBoolean(SHADOW_PROPERTY);
             expected = false;
@@ -450,6 +452,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         frameOwner = null;
         frameGl = null;
         frameSupported = false;
+        frameContextValid = false;
         token = 0L;
         expected = false;
         expectedName = null;
@@ -530,12 +533,15 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Observes an existing error result from the current frame's exact GL context. */
     public synchronized void error(Object gl, int error) {
+        if (error != 0) {
+            frameContextValid = false;
+        }
         if (error != 0
                 || (!deferredMode
                         && installed
                         && !closed
                         && !retired
-                        && frameSupported
+                        && frameContextValid
                         && frameOwner == Thread.currentThread()
                         && frameGl == gl)) {
             SkippedFrameUploadElisionBridge.observeError(gl, error);
@@ -558,6 +564,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             if (error != 0) {
                 glErrors++;
                 frameSupported = false;
+                frameContextValid = false;
             }
             cache.checkedError(context, error);
         } catch (Throwable problem) {
@@ -591,6 +598,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         if (!installed
                 || closed
                 || retired
+                || !frameContextValid
                 || deferredAccessors == null
                 || frameOwner != Thread.currentThread()
                 || gl != frameGl
@@ -673,8 +681,10 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Conservatively retires the current frame on any covered program mutation. */
     public synchronized void invalidate() {
         SkippedFrameUploadElisionBridge.invalidateUploads();
+        dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
         cache.invalidate();
         frameSupported = false;
+        frameContextValid = false;
         expected = false;
         expectedName = null;
         invalidations++;
@@ -682,8 +692,10 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Permanently disables reuse after a failed lifecycle transform or callback. */
     public synchronized void retire() {
         SkippedFrameUploadElisionBridge.invalidateUploads();
+        dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
         cache.invalidate();
         frameSupported = false;
+        frameContextValid = false;
         retired = true;
         expected = false;
         expectedName = null;
@@ -724,6 +736,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         installed = false;
         configuredDefault = false;
         frameSupported = false;
+        frameContextValid = false;
         cache.close();
         mutations.clear();
         frameOwner = null;

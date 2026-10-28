@@ -82,6 +82,7 @@ class NativeOptimizationPolicyTest {
         assertTrue(NativeOptimizationPolicy.uploadElisionEnabled(next));
         assertTrue(NativeOptimizationPolicy.inputPathElisionEnabled(next));
         assertTrue(NativeOptimizationPolicy.mesaGlThreadEnabled(next));
+        assertTrue(NativeOptimizationPolicy.meshInterpolationEnabled(next));
     }
 
     @Test

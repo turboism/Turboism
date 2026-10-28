@@ -142,6 +142,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private final AtomicBoolean active = new AtomicBoolean();
     private final LongAdder calls = new LongAdder(),
             skipped = new LongAdder(),
+            passed = new LongAdder(),
             full = new LongAdder(),
             probeMismatch = new LongAdder(),
             failures = new LongAdder(),
@@ -171,6 +172,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
     private final HostParamSet currentParams = new HostParamSet();
     private final HostParamSet lastUpdatedParams = new HostParamSet();
+    private Thread observedThread;
     private volatile Frame lastFrame;
     private volatile Frame pendingFrame;
     private Object lastSource, pendingSource, lastParameters, pendingParameters;
@@ -208,7 +210,9 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         getCurrentEditMode = handles.get(dep(CX, "getCurrentEditMode"));
         isEditModeEditing = handles.get(dep(EM, "isEditing"));
         isRandomPose = handles.get(dep(MV, "isRandomPoseAnimation"));
-        isExternalApp = handles.get(dep(MV, "isExternalAppAnimation"));
+        isExternalApp = target.version().startsWith("5.0.")
+                ? MethodHandles.dropArguments(MethodHandles.constant(boolean.class, false), 0, Object.class)
+                : handles.get(dep(MV, "isExternalAppAnimation"));
         isRecording = handles.get(dep(MV, "isRecording"));
         getCurrentViewMode = handles.get(dep(MV, "getCurrentViewMode"));
         developH = handles.get(dep(target.developSetting(), "h"));
@@ -358,7 +362,19 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
     }
 
-    private boolean shouldSkip(final Object[] args) {
+    /** Invalidates all baseline and pending frame state so subsequent frames re-evaluate natively. */
+    public synchronized void invalidate() {
+        lastFrame = null;
+        pendingFrame = null;
+        lastSource = null;
+        pendingSource = null;
+        lastParameters = null;
+        pendingParameters = null;
+        pendingDigest = null;
+        pendingProbe = false;
+    }
+
+    private synchronized boolean shouldSkip(final Object[] args) {
         skippedFrame.set(false);
         // A missing successful-return callback means native evaluation did not establish a baseline.
         if (pendingFrame != null) lastFrame = null;
@@ -367,6 +383,16 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         pendingProbe = false;
         if (!active.get() || !flagEnabled()) {
             lastFrame = null;
+            return false;
+        }
+        final Thread currentThread = Thread.currentThread();
+        if (observedThread == null) {
+            observedThread = currentThread;
+        } else if (observedThread != currentThread) {
+            invalidate();
+            observedThread = currentThread;
+            passed.increment();
+            skippedFrame.set(false);
             return false;
         }
         calls.increment();
@@ -433,7 +459,10 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
     }
 
-    private void updateCompleted(final Object model) {
+    private synchronized void updateCompleted(final Object model) {
+        if (observedThread != null && Thread.currentThread() != observedThread) {
+            return;
+        }
         try {
             full.increment();
             final Frame completed = pendingFrame;
@@ -770,6 +799,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         final Map<String, Long> result = new java.util.LinkedHashMap<>();
         result.put("active", active.get() ? 1L : 0L);
         result.put("calls", calls.sum());
+        result.put("passed", passed.sum());
         result.put("skipped", skipped.sum());
         result.put("full", full.sum());
         result.put("probeMismatch", probeMismatch.sum());
@@ -797,16 +827,10 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     @Override
     public synchronized void close() {
         active.set(false);
+        observedThread = null;
         skippedFrame.set(false);
         configuredDefault = false;
-        lastFrame = null;
-        pendingFrame = null;
-        lastSource = null;
-        pendingSource = null;
-        lastParameters = null;
-        pendingParameters = null;
-        pendingDigest = null;
-        pendingProbe = false;
+        invalidate();
         currentParams.list = null;
         lastUpdatedParams.list = null;
         final Properties properties = installedProperties;

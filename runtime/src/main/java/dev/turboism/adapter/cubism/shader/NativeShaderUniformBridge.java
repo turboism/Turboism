@@ -141,6 +141,16 @@ public final class NativeShaderUniformBridge {
         INVALIDATIONS.incrementAndGet();
     }
 
+    /**
+     * Drops every recorded uniform location across all shaders when GL programs mutate.
+     */
+    public static void invalidateAll() {
+        synchronized (CACHE) {
+            CACHE.clear();
+        }
+        INVALIDATIONS.incrementAndGet();
+    }
+
     private static final class State {
         final WeakReference<Object> context;
         final long handle;

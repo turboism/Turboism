@@ -22,9 +22,9 @@ import java.util.jar.JarFile;
 /**
  * Exact incremental-update admission, dependency-body verification and restoration.
  *
- * <p>Four host classes are rewritten: the updater singleton (three methods) and the three
- * interpolated-form classes (one method each). Every dependency the bridge resolves is
- * verified against the official artifact bytecode via {@link ReviewedMethodShape} before
+ * <p>Five host classes are rewritten: the updater singleton (three methods) and the three
+ * interpolated-form classes and the common source rebuild entry (one method each).
+ * Every dependency the bridge resolves is verified against the official artifact bytecode via {@link ReviewedMethodShape} before
  * installation; any absent, renamed or changed member fails closed. On close every touched
  * class is re-captured and must hash back to its pre-rewrite SHA-256.</p>
  */
@@ -70,10 +70,11 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             Class.forName(IncrementalUpdateTarget.ROTATION_FORM, false, loader),
             Class.forName(IncrementalUpdateTarget.WARP_FORM, false, loader),
             Class.forName(IncrementalUpdateTarget.MESH_FORM, false, loader),
+            Class.forName(IncrementalUpdateTarget.REINIT_SOURCE, false, loader),
         };
         final Map<Class<?>, byte[]> observed = new HashMap<>();
         try (JarFile jar = new JarFile(artifact.toFile())) {
-            final List<byte[]> references = new ArrayList<>(3);
+            final List<byte[]> references = new ArrayList<>(5);
             for (final Class<?> entry : entries) {
                 attest(entry, loader, artifact);
                 references.add(reference(jar, entry));
@@ -188,9 +189,9 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             instrumentation.addTransformer(transformer, true);
             installed = true;
             instrumentation.retransformClasses(entries);
-            if (transformer.matches() != 6
+            if (transformer.matches() != 7
                     || transformer.failure() != null
-                    || transformer.touchedClasses().size() != 4) {
+                    || transformer.touchedClasses().size() != 5) {
                 throw new IllegalStateException("incremental-update entry not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {

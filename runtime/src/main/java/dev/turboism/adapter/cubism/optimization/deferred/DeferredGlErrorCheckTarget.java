@@ -27,8 +27,10 @@ public record DeferredGlErrorCheckTarget(
 
     /** Obfuscated shader helper owning the per-draw error-check site (5.3.x). */
     public static final String ERROR_OWNER = "com/live2d/graphics3d/shader/A";
-    /** Same helper on Cubism 5.2.03, where the class kept its earlier name. */
+    /** Same helper on Cubism 5.2.x, where the class kept its earlier name. */
     public static final String ERROR_OWNER_5203 = "com/live2d/graphics3d/shader/y";
+    /** Same helper on Cubism 5.0.x and 5.1.x. */
+    public static final String ERROR_OWNER_5051 = "com/live2d/graphics3d/shader/w";
     /** Render-scope owner whose {@code render3d} exit is the frame boundary. */
     public static final String FRAME_OWNER = "com/live2d/cubism/view/gl/SGFramework/g";
     /** Obfuscated error-check method name, identical on all supported artifacts. */

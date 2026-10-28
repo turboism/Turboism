@@ -26,8 +26,16 @@ public record AtlasTileBboxTarget(String internalName, String className, String 
     static final AtlasTileBboxTarget CUBISM_5203 = new AtlasTileBboxTarget(
             "com/live2d/util/e/g", "9df616c60ade56657214465b2b18f18df0605faeeac28d99663ce959af11615b", "5.2.00-5.2.03");
 
+    /** Cubism 5.0.03–5.1.03 target: {@code com/live2d/util/e/g}, byte-identical across 5.0.03–5.1.03. */
+    static final AtlasTileBboxTarget CUBISM_5003_5103 = new AtlasTileBboxTarget(
+            "com/live2d/util/e/g", "c58146065a659f83e9f4e1a550cb061bc2ac1162939f86879eb1162613a1f062", "5.0.03-5.1.03");
+
+    /** Cubism 5.0.00–5.0.02 target: {@code com/live2d/util/d/g}, byte-identical across 5.0.00–5.0.02. */
+    static final AtlasTileBboxTarget CUBISM_5000_5002 = new AtlasTileBboxTarget(
+            "com/live2d/util/d/g", "452802efce429cf36fa48c96b729500f884be275e1ee67628898fe6770f84187", "5.0.00-5.0.02");
+
     /** Every reviewed target, in table order. */
-    static final AtlasTileBboxTarget[] REVIEWED = {CUBISM_53X, CUBISM_5203};
+    static final AtlasTileBboxTarget[] REVIEWED = {CUBISM_53X, CUBISM_5203, CUBISM_5003_5103, CUBISM_5000_5002};
 
     AtlasTileBboxTarget(final String internalName, final String reviewedSha256, final String hostLabel) {
         this(internalName, internalName.replace('/', '.'), reviewedSha256, hostLabel);

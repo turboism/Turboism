@@ -91,8 +91,12 @@ public class GlGetErrorElisionTransformerTest {
      * {@code nonInterface} calls the method with {@code invokevirtual} instead.
      */
     private static byte[] marker(boolean drift, boolean noSite, boolean nonInterface) {
+        return marker(OWNER, drift, noSite, nonInterface);
+    }
+
+    private static byte[] marker(String owner, boolean drift, boolean noSite, boolean nonInterface) {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        w.visit(V17, ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
+        w.visit(V17, ACC_PUBLIC, owner, null, "java/lang/Object", null);
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
@@ -188,17 +192,14 @@ public class GlGetErrorElisionTransformerTest {
         for (GlGetErrorElisionTarget target : GlGetErrorElisionTarget.all()) {
             Path artifact = Files.createTempFile("host", ".jar");
             Loader loader = new Loader(artifact);
-            byte[] reference = marker(false, false, false);
+            byte[] reference = marker(target.owner(), false, false, false);
             var transformer = new GlGetErrorElisionTransformer(loader, artifact, reference, target);
             byte[] output = transformer.transform(null, loader, target.owner(), null, loader.domain, reference);
             assertNotNull(output, target.version() + " rejected: " + transformer.failure());
             assertEquals(1, transformer.matches());
             assertEquals(1, transformer.elided());
         }
-        assertEquals(3, GlGetErrorElisionTarget.all().size());
-        assertTrue(
-                GlGetErrorElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).isEmpty(),
-                "5.2.03 has no such marker method and stays unsupported");
+        assertEquals(20, GlGetErrorElisionTarget.all().size());
     }
 
     @Test

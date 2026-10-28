@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.optimization.composite;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.objectweb.asm.Opcodes.*;
 
+import java.awt.Color;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.BiPredicate;
@@ -203,6 +204,31 @@ public class CanvasCompositeElisionBridgeTest {
         outer.add(inner);
         assertTrue(fillSlot().test(null, outer), "outer fill is invisible when an intermediate panel is GL-covered");
         assertEquals(1L, stats().get("fillElided"));
+    }
+
+    @Test
+    void translucentBackgroundColorPreventsFillElision() throws Exception {
+        setUp();
+        arm(true);
+        JPanel covered = coveredPanel(100, 100, 100, 100);
+        covered.setOpaque(true);
+
+        // A translucent background on the covered panel prevents elision even when opaque.
+        covered.setBackground(new Color(30, 30, 30, 128));
+        assertFalse(
+                fillSlot().test(null, covered), "translucent background color on covered panel prevents fill elision");
+
+        // Restoring opaque background allows elision.
+        covered.setBackground(new Color(30, 30, 30, 255));
+        assertTrue(fillSlot().test(null, covered), "opaque background color on covered panel allows fill elision");
+
+        // A translucent background on glPanel prevents elision even when glPanel is opaque.
+        glPanel.setBackground(new Color(30, 30, 30, 128));
+        assertFalse(fillSlot().test(null, covered), "translucent background color on glPanel prevents fill elision");
+
+        // Restoring opaque background on glPanel allows elision.
+        glPanel.setBackground(new Color(30, 30, 30, 255));
+        assertTrue(fillSlot().test(null, covered), "opaque background color on glPanel allows fill elision");
     }
 
     @Test
