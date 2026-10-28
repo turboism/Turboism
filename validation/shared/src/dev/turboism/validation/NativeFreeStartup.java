@@ -83,6 +83,17 @@ public final class NativeFreeStartup {
     private static final java.util.regex.Pattern TRIAL_EXPIRY_DAYS =
             java.util.regex.Pattern.compile("Trial (license|period) will expire in [1-9]\\d* day\\(s\\)");
 
+    /**
+     * Opt-in Boolean JVM property to force FREE-only startup assistance.
+     * When set to {@code "true"}, trial initiation and confirmation are declined,
+     * using only the native official FREE version button.
+     */
+    private static final String FREE_ONLY_PROPERTY = "turboism.validation.nativeStartupFreeOnly";
+
+    private static boolean isFreeOnly() {
+        return Boolean.getBoolean(FREE_ONLY_PROPERTY);
+    }
+
     private NativeFreeStartup() {}
 
     /**
@@ -226,12 +237,14 @@ public final class NativeFreeStartup {
 
     /**
      * User-authorized selection order on the native license dialog: the PRO
-     * trial start wins whenever offered, the FREE start is only the fallback.
+     * trial start wins whenever offered unless FREE-only mode is configured via
+     * {@code turboism.validation.nativeStartupFreeOnly}, in which case the FREE start is selected and
+     * trials are declined.
      * Returns the exact button text to click, or null when neither audited
      * entry exists; purchase, activation-key and cancel entries never match.
      */
     public static String preferredStartButton(final String title, final List<String> texts) {
-        return preferredStartButton(title, texts, true);
+        return preferredStartButton(title, texts, !isFreeOnly());
     }
 
     /** Allows FREE-only validation tasks to decline initiating a trial. */
@@ -554,7 +567,7 @@ public final class NativeFreeStartup {
 
     /** Performs at most one exact UI action on the EDT and returns its evidence label, or null. */
     public static String select() {
-        return select(true);
+        return select(!isFreeOnly());
     }
 
     /** Performs startup assistance without initiating or confirming a new trial. */
