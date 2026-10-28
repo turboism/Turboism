@@ -138,7 +138,7 @@ class VersionSetCompletenessTest(unittest.TestCase):
             root = Path(directory)
             write_tree(root)
             path = root / gate.r1_INDEX_MD
-            path.write_text(path.read_text().replace(", and 5.3.03", ""))
+            path.write_text(path.read_text(encoding="utf-8").replace(", and 5.3.03", ""), encoding="utf-8")
             self.assertTrue(any("index.md" in v for v in violations(root)))
 
     def test_scheduler_whitelist_drift_fails(self):
@@ -146,7 +146,7 @@ class VersionSetCompletenessTest(unittest.TestCase):
             root = Path(directory)
             write_tree(root)
             path = root / gate.r1_HOST_VALIDATION_PY
-            path.write_text(path.read_text().replace('reviewed_host_artifacts.load()', '{}'))
+            path.write_text(path.read_text(encoding="utf-8").replace('reviewed_host_artifacts.load()', '{}'), encoding="utf-8")
             self.assertTrue(any("host_validation.py" in v for v in violations(root)))
 
     def test_version_constant_mismatched_literal_fails(self):
