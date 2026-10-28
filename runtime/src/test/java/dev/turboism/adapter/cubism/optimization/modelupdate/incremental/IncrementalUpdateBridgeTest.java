@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
@@ -1103,6 +1104,58 @@ class IncrementalUpdateBridgeTest {
     }
 
     @Test
+    void foreignThreadCallbacksReplayNativeAcrossReviewedVersionsAndInvalidateBaseline() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertSame(
+                    world.deformedOut,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+
+            java.util.concurrent.atomic.AtomicReference<Throwable> foreignFailure =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            Thread foreign = new Thread(() -> {
+                try {
+                    // Real Bridge callbacks plus transformed call sites, including legacy descriptors.
+                    for (IncrementalUpdateTarget target : IncrementalUpdateTarget.all()) {
+                        IncrementalUpdateTransformerTest.assertInstalledCallbacksReplayNative(target);
+                    }
+                    assertThrows(IllegalStateException.class, () -> mark().accept(world.parent, world.model));
+                    assertThrows(
+                            IllegalStateException.class,
+                            () -> deform().apply(
+                                            new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+                } catch (Throwable failure) {
+                    foreignFailure.set(failure);
+                }
+            });
+            foreign.start();
+            foreign.join();
+            assertNull(foreignFailure.get(), () -> "foreign callback fallback failed: " + foreignFailure.get());
+
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            // Completing the interrupted epoch must not publish its invalidated baseline.
+            end().accept(world.epoch());
+            // Rejected callbacks invalidate the baseline even without a beginUpdate thread switch.
+            begin().accept(world.epoch());
+            assertSame(
+                    world.meshForm,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertSame(
+                    world.deformedOut,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            end().accept(world.epoch());
+        }
+    }
+
+    @Test
     void crossThreadBeginUpdateForcesFullUpdateAndResetsBaseline() throws Exception {
         Loader loader = host();
         World world = new World(loader);
@@ -1117,19 +1170,6 @@ class IncrementalUpdateBridgeTest {
             Object outMain = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
             assertSame(world.deformedOut, outMain, "main thread reuses deformedOut on unchanged frame");
             end().accept(world.epoch());
-
-            // Non-observed thread calling deformArtMesh directly safely bypasses and returns null
-            java.util.concurrent.atomic.AtomicReference<Object> foreignDeformOut =
-                    new java.util.concurrent.atomic.AtomicReference<>();
-            Thread foreign = new Thread(() -> {
-                foreignDeformOut.set(
-                        deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
-            });
-            foreign.start();
-            foreign.join();
-            assertNull(
-                    foreignDeformOut.get(),
-                    "calling deformArtMesh from non-observed thread safely bypasses and returns null");
 
             // Background thread calls beginUpdate: switches observed thread, forces full update
             java.util.concurrent.atomic.AtomicReference<Object> bgDeformOut =

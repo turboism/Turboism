@@ -367,6 +367,11 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     /** Undo/Redo may rebuild forms in place without a timestamp or interpolation callback. */
     private synchronized void sourceReinitialized(final Object instance) {
         if (!active.get()) return;
+        invalidateGeometryState();
+    }
+
+    /** Called under the bridge monitor when native geometry can no longer be reused. */
+    private void invalidateGeometryState() {
         invalidate();
         previousDigest = null;
         previousInputs = null;
@@ -378,6 +383,14 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failures.increment();
+        }
+    }
+
+    /** Replacement callbacks must throw to replay the injected native sequence. */
+    private void requireUpdateThread() {
+        if (observedThread != null && Thread.currentThread() != observedThread) {
+            invalidateGeometryState();
+            throw new IllegalStateException("incremental callback outside the observed update thread");
         }
     }
 
@@ -490,9 +503,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
      * changed, propagated-dirty or animated; anything unknown marks dirty (full fallback).
      */
     private synchronized void markDirty(final Object deformer, final Object model) {
-        if (observedThread != null && Thread.currentThread() != observedThread) {
-            return;
-        }
+        requireUpdateThread();
         markCalls.increment();
         try {
             if (deformer == null || model == null) {
@@ -595,9 +606,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
      * @param args {@code [preDeformForm, targetDeformer, deformedFormOut, artMesh]}
      */
     private synchronized Object deformArtMesh(final Object[] args) {
-        if (observedThread != null && Thread.currentThread() != observedThread) {
-            return null;
-        }
+        requireUpdateThread();
         try {
             if (args == null || args.length < 4) {
                 throw new IllegalStateException("deform args absent");
