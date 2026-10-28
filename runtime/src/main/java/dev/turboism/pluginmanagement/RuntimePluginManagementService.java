@@ -554,7 +554,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                     .sorted()
                     .toList()) {
                 final Optional<PluginArchiveMetadata> metadata =
-                        PluginArchiveMetadata.read(path, metadataLocale.get(), metadataDiagnostics);
+                        PluginArchiveMetadata.readSummary(path, metadataLocale.get(), metadataDiagnostics);
                 if (metadata.isPresent()) {
                     final var value = metadata.orElseThrow();
                     if (CORE_PLUGIN_ID.equals(value.id())) continue;
