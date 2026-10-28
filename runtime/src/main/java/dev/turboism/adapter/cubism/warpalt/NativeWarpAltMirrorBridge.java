@@ -45,8 +45,10 @@ public final class NativeWarpAltMirrorBridge {
      * transform {@code h$a}, deform brush {@code J$b} — iterate
      * {@code moveToOnLocal} over many refs per tick and must not mirror.
      */
-    private static final java.util.Set<String> POINT_MOVE_DRAG_CALLERS =
-            java.util.Set.of("com.live2d.cubism.view.context.action.U$b", "com.live2d.cubism.view.context.action.O$b");
+    private static final java.util.Set<String> POINT_MOVE_DRAG_CALLERS = java.util.Set.of(
+            "com.live2d.cubism.view.context.action.af$b",
+            "com.live2d.cubism.view.context.action.U$b",
+            "com.live2d.cubism.view.context.action.O$b");
 
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
@@ -85,7 +87,7 @@ public final class NativeWarpAltMirrorBridge {
     private static final AtomicReference<Consumer<String>> DIAGNOSTIC = new AtomicReference<>(DEFAULT_DIAGNOSTIC);
     private static final RuntimeWarpAltMirrorParticipation PARTICIPATION = new RuntimeWarpAltMirrorParticipation();
 
-    private record Binding(boolean enabled) {}
+    private record Binding(boolean enabled, WarpAltMirrorActionContext actionContext, String greenDeltaMethod) {}
 
     private NativeWarpAltMirrorBridge() {}
 
@@ -101,13 +103,27 @@ public final class NativeWarpAltMirrorBridge {
 
     /** Installs a bridge with an explicit enabled-state policy. */
     public static void install(final boolean enabled) {
-        if (!INSTALLED.compareAndSet(null, new Binding(enabled))) {
+        install(enabled, WarpAltMirrorHostProfile.reviewed5302And5303());
+    }
+
+    /** Binds view access to the same contract admitted by the host transformer. */
+    public static void install(final boolean enabled, final WarpAltMirrorHostProfile profile) {
+        if (!INSTALLED.compareAndSet(
+                null, new Binding(enabled, new WarpAltMirrorActionContext(profile), profile.greenDeltaMethod()))) {
             throw new IllegalStateException("warp alt mirror bridge is already installed");
         }
     }
 
+    static Object actionView(final Object manager) throws ReflectiveOperationException {
+        final Binding binding = INSTALLED.get();
+        return binding == null || !binding.enabled()
+                ? null
+                : binding.actionContext().view(manager);
+    }
+
     /** Revokes the bridge and resets session-scoped state. */
     public static void uninstall() {
+        NativeWarpPointGesture.clear();
         INSTALLED.set(null);
         MOVE_APPLIED_REPORTED.set(false);
         PARTICIPATION.resetSession();
@@ -170,6 +186,7 @@ public final class NativeWarpAltMirrorBridge {
         if (axis < 0 || axis > 2) {
             throw new IllegalArgumentException("axis must be 0 (off), 1 (vertical) or 2 (horizontal)");
         }
+        NativeWarpPointGesture.clear();
         ARMED_AXIS.set(axis);
     }
 
@@ -428,6 +445,12 @@ public final class NativeWarpAltMirrorBridge {
      * constructor so the stored ref keeps its canvas transform. Any deviation
      * from the reviewed shapes fails closed by returning null.
      */
+    static Object counterpartForGesture(Object ref, int index) throws ReflectiveOperationException {
+        Class<?> type =
+                Class.forName(WARP_REF_CLASS_NAME.get(), false, ref.getClass().getClassLoader());
+        return counterpartRef(ref, type, invoke(ref, "d", new Class<?>[0]), index, invoke(ref, "f", new Class<?>[0]));
+    }
+
     private static Object counterpartRef(
             final Object ref,
             final Class<?> warpRefType,
@@ -527,12 +550,12 @@ public final class NativeWarpAltMirrorBridge {
                 skipOnce("NOT_WARP_HANDLER actual=" + handler.getClass().getName());
                 return;
             }
-            final boolean alt = invokeBoolean(event, "aA");
+            final boolean alt = modifier(event, java.awt.event.InputEvent.ALT_DOWN_MASK);
             if (!alt) {
                 skipOnce("NO_ALT");
                 return;
             }
-            final boolean shift = invokeBoolean(event, "aB");
+            final boolean shift = modifier(event, java.awt.event.InputEvent.SHIFT_DOWN_MASK);
             final Integer selected = invokeInteger(binder, "getSelectedPointIndex");
             if (selected == null) {
                 skipOnce("NO_SELECTED_POINT");
@@ -615,7 +638,9 @@ public final class NativeWarpAltMirrorBridge {
             final String className = frame.getClassName();
             if (className.startsWith("dev.turboism.")
                     || className.startsWith("java.lang.Thread")
-                    || "moveToOnLocal".equals(frame.getMethodName())) {
+                    || "moveToOnLocal".equals(frame.getMethodName())
+                    || (className.equals("com.live2d.cubism.doc.model.deformer.warp.r")
+                            && "a".equals(frame.getMethodName()))) {
                 continue;
             }
             return POINT_MOVE_DRAG_CALLERS.contains(className);
@@ -732,21 +757,20 @@ public final class NativeWarpAltMirrorBridge {
 
     /**
      * Diagnostic entry injected at the head of {@code CEActionManager.mouseAction(N)}:
-     * reports whether gesture events reach the action pipeline at all, and which
-     * action object owns them — used to trace where bezier-handle drags die.
+     * refreshes ArtMesh tick state and identifies events without invoking event
+     * pack methods. Action ownership is reported separately by {@link #diagSetAction}.
      */
     public static void diagMouseAction(final Object manager, final Object event) {
-        NativeArtMeshSymmetryBridge.beginTick(event);
+        NativeArtMeshSymmetryBridge.beginTick(manager);
         try {
             if (!REPORTED_SKIPS.add(
                     "mouse:" + (event == null ? "null" : event.getClass().getSimpleName()))) {
                 return;
             }
-            final Object current = invoke(manager, "getCurAction", new Class<?>[0]);
             diagnostic("MOUSE_ACTION event="
                     + (event == null ? "null" : event.getClass().getName())
-                    + " av=" + safeBool(event, "av") + " aw=" + safeBool(event, "aw")
-                    + " cur=" + (current == null ? "null" : current.getClass().getName()));
+                    + " manager="
+                    + (manager == null ? "null" : manager.getClass().getName()));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
         }
@@ -799,19 +823,9 @@ public final class NativeWarpAltMirrorBridge {
         try {
             diagnostic("SET_ACTION action="
                     + (action == null ? "null" : action.getClass().getName())
-                    + " event=" + (event == null ? "null" : event.getClass().getName())
-                    + " av=" + safeBool(event, "av") + " aw=" + safeBool(event, "aw")
-                    + " ax=" + safeBool(event, "ax"));
+                    + " event=" + (event == null ? "null" : event.getClass().getName()));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-        }
-    }
-
-    private static boolean safeBool(final Object target, final String name) {
-        try {
-            return invokeBoolean(target, name);
-        } catch (ReflectiveOperationException | RuntimeException failure) {
-            return false;
         }
     }
 
@@ -861,7 +875,8 @@ public final class NativeWarpAltMirrorBridge {
             }
             // b(N) also dispatches gesture-end (av) events; only live drag
             // ticks (aw) drive the native write we mirror.
-            if (!invokeBoolean(event, "aw")) {
+            if (!(NativeMirrorInput.awt(event) instanceof java.awt.event.MouseEvent mouse)
+                    || mouse.getID() != java.awt.event.MouseEvent.MOUSE_DRAGGED) {
                 greenSkip("NOT_TICK");
                 return;
             }
@@ -924,7 +939,15 @@ public final class NativeWarpAltMirrorBridge {
                     return;
                 }
             }
-            final Object delta = invoke(event, "aH", new Class<?>[0]);
+            final Method deltaGetter = event.getClass().getMethod(binding.greenDeltaMethod());
+            final Class<?> deltaType = deltaGetter.getReturnType();
+            if (deltaType.isPrimitive()
+                    || deltaType.getMethod("getX").getReturnType() != float.class
+                    || deltaType.getMethod("getY").getReturnType() != float.class) {
+                greenSkip("BAD_DELTA_TYPE");
+                return;
+            }
+            final Object delta = invoke(event, binding.greenDeltaMethod(), new Class<?>[0]);
             if (delta == null) {
                 greenSkip("NO_DELTA");
                 return;
@@ -1273,15 +1296,39 @@ public final class NativeWarpAltMirrorBridge {
         }
     }
 
+    /** Records the native press without consuming normal selection input. */
+    public static boolean filterInput(final Object view, final Object event) {
+        NativeWarpPointGesture.input(view, event, active() && PARTICIPATION.hasParticipants() && ARMED_AXIS.get() != 0);
+        return NativeArtMeshSymmetryBridge.input(view, event);
+    }
+
+    /** The native writer skips only synthetic counterpart writes from this gesture. */
+    public static boolean handlePointMove(final Object ref, final Object target, final float weight) {
+        if (!active() || !PARTICIPATION.hasParticipants() || ARMED_AXIS.get() == 0 || !pointMoveCallerIsDragAction())
+            return false;
+        try {
+            return NativeWarpPointGesture.move(ref, target, weight, ARMED_AXIS.get());
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            skipOnce("POINT_GESTURE_FAILED " + failure.getClass().getName());
+            return false;
+        }
+    }
+
+    private static boolean modifier(final Object event, final int mask) throws IllegalAccessException {
+        var input = NativeMirrorInput.awt(event);
+        return input != null && (input.getModifiersEx() & mask) != 0;
+    }
+
     private static void diagEventModifiers(final Object event, final String stage) {
         try {
             if (event == null) {
                 diagnostic(stage + " event=null");
                 return;
             }
-            final boolean alt = invokeBoolean(event, "aA");
-            final boolean shift = invokeBoolean(event, "aB");
-            final boolean ctrl = invokeBoolean(event, "az");
+            final boolean alt = modifier(event, java.awt.event.InputEvent.ALT_DOWN_MASK);
+            final boolean shift = modifier(event, java.awt.event.InputEvent.SHIFT_DOWN_MASK);
+            final boolean ctrl = modifier(event, java.awt.event.InputEvent.CTRL_DOWN_MASK);
             diagnostic(stage + " alt=" + alt + " shift=" + shift + " ctrl=" + ctrl);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
