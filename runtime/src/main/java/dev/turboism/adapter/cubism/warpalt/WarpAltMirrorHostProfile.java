@@ -86,6 +86,20 @@ public record WarpAltMirrorHostProfile(
     }
 
     /**
+     * Field name of the strip's left tool button group list.
+     * In 5.0.00–5.2.03 (stripMountMethod="L"), this field is "E".
+     * In 5.3.00–5.3.04 (stripMountMethod="R"), this field is "H".
+     */
+    public String stripGroupField() {
+        return "L".equals(stripMountMethod) ? "E" : "H";
+    }
+
+    /** Returns the internal owner name of the 7-slot icon set class. */
+    public String stripIconSetOwner() {
+        return "com/live2d/cubism/view/context/guiEntity/q";
+    }
+
+    /**
      * Reviewed 5.0.x/5.1.x generations sharing the 5.2.03 obfuscation generation: every
      * profile selector resolves to the same member names, including the
      * {@code L()V} strip mount pass — bytecode-identical to the 5.2.x mount on

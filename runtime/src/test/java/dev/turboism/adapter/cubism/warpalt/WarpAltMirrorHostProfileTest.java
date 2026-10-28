@@ -23,6 +23,22 @@ final class WarpAltMirrorHostProfileTest {
             assertTrue(
                     WarpAltMirrorHostProfile.reviewedClassSha256().get(version).containsKey(expected), version);
             assertEquals(version.startsWith("5.3.") ? "R" : "L", profile.stripMountMethod(), version);
+            assertEquals(version.startsWith("5.3.") ? "H" : "E", profile.stripGroupField(), version);
+            assertEquals("com/live2d/cubism/view/context/guiEntity/q", profile.stripIconSetOwner(), version);
+        }
+    }
+
+    @Test
+    void stripGroupFieldFollowsObfuscationGeneration() {
+        for (final String version : List.of("5.0.00", "5.0.06", "5.1.00", "5.1.03", "5.2.03")) {
+            final var profile =
+                    WarpAltMirrorHostProfile.forReviewedVersion(version).orElseThrow();
+            assertEquals("E", profile.stripGroupField(), version);
+        }
+        for (final String version : List.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04")) {
+            final var profile =
+                    WarpAltMirrorHostProfile.forReviewedVersion(version).orElseThrow();
+            assertEquals("H", profile.stripGroupField(), version);
         }
     }
 

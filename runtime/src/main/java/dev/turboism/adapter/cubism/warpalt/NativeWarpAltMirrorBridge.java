@@ -40,15 +40,17 @@ public final class NativeWarpAltMirrorBridge {
      * Reviewed single-point drag actions allowed to trigger
      * {@link #mirrorPointMove}. Each holds a single {@code m<IPointRef>}
      * selection and invokes {@code moveToOnLocal} directly from its drag tick.
-     * Obfuscated names differ per host: 5.3.02/5.3.03 use {@code U$b}, 5.2.03
-     * uses the structurally identical {@code O$b}. Bulk writers — bounding-box
+     * Obfuscated names differ per host: 5.0.00–5.1.03 use {@code L$b}, 5.2.x uses
+     * the structurally identical {@code O$b}, 5.3.00–5.3.03 use {@code U$b},
+     * and 5.3.04 uses {@code af$b}. Bulk writers — bounding-box
      * transform {@code h$a}, deform brush {@code J$b} — iterate
      * {@code moveToOnLocal} over many refs per tick and must not mirror.
      */
     private static final java.util.Set<String> POINT_MOVE_DRAG_CALLERS = java.util.Set.of(
             "com.live2d.cubism.view.context.action.af$b",
             "com.live2d.cubism.view.context.action.U$b",
-            "com.live2d.cubism.view.context.action.O$b");
+            "com.live2d.cubism.view.context.action.O$b",
+            "com.live2d.cubism.view.context.action.L$b");
 
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
