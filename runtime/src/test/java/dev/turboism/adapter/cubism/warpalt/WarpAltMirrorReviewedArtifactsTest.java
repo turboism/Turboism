@@ -203,7 +203,43 @@ final class WarpAltMirrorReviewedArtifactsTest {
                                 }
                             },
                             ClassReader.SKIP_CODE);
-            assertTrue(fields.contains("HLjava/util/ArrayList;"), version.getKey() + " left toolbar group");
+            assertTrue(
+                    fields.contains(profile.stripGroupField() + "Ljava/util/ArrayList;"),
+                    version.getKey() + " left toolbar group " + profile.stripGroupField());
+            final boolean[] mountAccessesGroup = {false};
+            new ClassReader(strip)
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        int access,
+                                        String name,
+                                        String descriptor,
+                                        String signature,
+                                        String[] exceptions) {
+                                    if (!name.equals(profile.stripMountMethod())
+                                            || !descriptor.equals(profile.stripMountDescriptor())) {
+                                        return null;
+                                    }
+                                    return new MethodVisitor(Opcodes.ASM9) {
+                                        @Override
+                                        public void visitFieldInsn(
+                                                int opcode, String owner, String fieldName, String fieldDescriptor) {
+                                            if (opcode == Opcodes.GETFIELD
+                                                    && owner.equals(profile.stripOwner())
+                                                    && fieldName.equals(profile.stripGroupField())
+                                                    && fieldDescriptor.equals("Ljava/util/ArrayList;")) {
+                                                mountAccessesGroup[0] = true;
+                                            }
+                                        }
+                                    };
+                                }
+                            },
+                            0);
+            assertTrue(
+                    mountAccessesGroup[0],
+                    version.getKey() + " strip mount " + profile.stripMountMethod() + " must GETFIELD "
+                            + profile.stripOwner() + "." + profile.stripGroupField() + ":Ljava/util/ArrayList;");
             assertTrue(
                     methods(strip)
                             .contains("a(L" + profile.stripOwner()

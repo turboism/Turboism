@@ -22,6 +22,41 @@ final class WarpAltMirrorHookAdmissionTest {
         assertTrue(WarpAltMirrorHookAdmission.admitted(List.of(plugin(PluginLifecycleState.ENABLED, permissions))));
     }
 
+    @Test
+    void admitsPluginWithViewContextMenuCapabilityAndToolbarPermission() {
+        final List<String> permissions = List.of(PermissionIds.TURBOISM_UI_TOOLBAR_CONTRIBUTE);
+        final List<String> capabilities = List.of("ui.view-context-menu.contribute");
+
+        assertTrue(WarpAltMirrorHookAdmission.admitted(
+                List.of(customPlugin(PluginLifecycleState.ENABLED, capabilities, permissions))));
+        assertFalse(WarpAltMirrorHookAdmission.admitted(
+                List.of(customPlugin(PluginLifecycleState.DISABLED, capabilities, permissions))));
+        assertFalse(WarpAltMirrorHookAdmission.admitted(List.of(customPlugin(
+                PluginLifecycleState.ENABLED, capabilities, List.of(PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE)))));
+        assertFalse(WarpAltMirrorHookAdmission.admitted(
+                List.of(customPlugin(PluginLifecycleState.ENABLED, List.of("ui.panel.contribute"), permissions))));
+    }
+
+    private static LocalPluginRuntime.LoadedPluginSummary customPlugin(
+            final PluginLifecycleState state, final List<String> capabilities, final List<String> permissions) {
+        return new LocalPluginRuntime.LoadedPluginSummary(
+                "dev.turboism.plugin.custom-menu",
+                "CustomMenu",
+                "0.1.0",
+                state,
+                Path.of("custom-menu.jar"),
+                capabilities,
+                permissions,
+                null,
+                "NOT_ATTEMPTED",
+                "NOT_ATTEMPTED",
+                "NOT_ATTEMPTED",
+                "NOT_ATTEMPTED",
+                "NOT_ATTEMPTED",
+                List.of(),
+                CleanupEvidenceCollector.Snapshot.empty());
+    }
+
     private static LocalPluginRuntime.LoadedPluginSummary plugin(
             final PluginLifecycleState state, final List<String> permissions) {
         return new LocalPluginRuntime.LoadedPluginSummary(

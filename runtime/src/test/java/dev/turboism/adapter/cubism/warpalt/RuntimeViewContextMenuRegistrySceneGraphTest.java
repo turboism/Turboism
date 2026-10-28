@@ -76,6 +76,18 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
         public final List<Object> H = new ArrayList<>();
     }
 
+    /** 5.0–5.2 shape: E is left toolbar list, H is right view cluster list. */
+    public static final class MockStrip50To52 {
+        public final List<Object> E = new ArrayList<>();
+        public final List<Object> H = new ArrayList<>();
+    }
+
+    /** 5.3.x shape: E is GSimpleLinesEntity (non-List), H is left toolbar list. */
+    public static final class MockStrip53 {
+        public final Object E = new Object();
+        public final List<Object> H = new ArrayList<>();
+    }
+
     public static final class MockChildren {
         final List<Object> list = new ArrayList<>();
 
@@ -186,5 +198,52 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
         assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
         assertEquals(1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
         assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, new Object()));
+    }
+
+    @Test
+    void groupFieldResolvesEOn50To52AndHOn53() throws Exception {
+        assertEquals(
+                "E",
+                RuntimeViewContextMenuRegistry.groupField(MockStrip50To52.class).getName());
+        assertEquals(
+                "H",
+                RuntimeViewContextMenuRegistry.groupField(MockStrip53.class).getName());
+    }
+
+    @Test
+    void leftToolbarOperationsOn50To52OperateOnEWithoutPollutingH() throws Exception {
+        final MockStrip50To52 strip = new MockStrip50To52();
+        final Object b1 = new Object();
+        final Object b2 = new Object();
+        final Object unrelated = new Object();
+        strip.E.add(b1);
+        strip.E.add(b2);
+        strip.H.add(unrelated);
+
+        assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
+        assertEquals(1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
+        assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, unrelated));
+
+        RuntimeViewContextMenuRegistry.removeFromGroup(strip, b1);
+        assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
+        assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
+        assertEquals(1, strip.H.size());
+        assertSame(unrelated, strip.H.get(0));
+    }
+
+    @Test
+    void leftToolbarOperationsOn53OperateOnH() throws Exception {
+        final MockStrip53 strip = new MockStrip53();
+        final Object b1 = new Object();
+        final Object b2 = new Object();
+        strip.H.add(b1);
+        strip.H.add(b2);
+
+        assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
+        assertEquals(1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
+
+        RuntimeViewContextMenuRegistry.removeFromGroup(strip, b1);
+        assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
+        assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
     }
 }
