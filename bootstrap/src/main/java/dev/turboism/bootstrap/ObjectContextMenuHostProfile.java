@@ -11,10 +11,6 @@ import java.util.Optional;
 /** Exact reviewed context-menu hook bindings for one supported Cubism artifact. */
 record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.Binding> bindings) {
 
-    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
-    private static final HostArtifactDigest CUBISM_5304 = ReviewedHostArtifacts.CUBISM_5_3_04;
     private static final String MENU = "com/live2d/ui/menu/k";
     private static final String ITEM = "Lcom/live2d/ui/menu/CMenuItem;";
 
@@ -25,21 +21,48 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
         }
     }
 
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof ObjectContextMenuHostProfile other)) return false;
+        if (bindings.size() != other.bindings.size()) return false;
+        for (int i = 0; i < bindings.size(); i++) {
+            final VerifiedObjectContextMenuHookInstaller.Binding a = bindings.get(i);
+            final VerifiedObjectContextMenuHookInstaller.Binding b = other.bindings.get(i);
+            if (!Objects.equals(a.operation(), b.operation())
+                    || !Objects.equals(a.append(), b.append())
+                    || a.location() != b.location()
+                    || a.shape() != b.shape()
+                    || a.expectedAppendPoints() != b.expectedAppendPoints()
+                    || a.injectionPoint() != b.injectionPoint()
+                    || !java.util.Arrays.equals(a.sourceLocals(), b.sourceLocals())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = 1;
+        for (final VerifiedObjectContextMenuHookInstaller.Binding b : bindings) {
+            result = 31 * result
+                    + Objects.hash(
+                            b.operation(),
+                            b.append(),
+                            b.location(),
+                            b.shape(),
+                            b.expectedAppendPoints(),
+                            b.injectionPoint(),
+                            java.util.Arrays.hashCode(b.sourceLocals()));
+        }
+        return result;
+    }
+
     static Optional<ObjectContextMenuHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (artifact.equals(CUBISM_52)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
-        }
-        if (artifact.equals(CUBISM_53)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION);
-        }
-        if (artifact.equals(CUBISM_5303)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_03_VERSION);
-        }
-        if (artifact.equals(CUBISM_5304)) {
-            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
-        }
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(artifact)
+                .flatMap(ObjectContextMenuHostProfile::forReviewedVersion);
     }
 
     /**
@@ -48,28 +71,38 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
      */
     static Optional<ObjectContextMenuHostProfile> forReviewedVersion(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
-        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("R", "aL", "a", 7, 21, 23, 3, 2));
+        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
+            return Optional.empty();
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("T", "aL", "a", 7, 22, 22, 1, 1));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("T", "aM", "a", 10, 22, 22, 3, 1));
-        }
-        // Same tuple as 5.3.03 except the menu-building mouse handler moved from
-        // aM.a(MouseEvent) to aM.b(MouseEvent); aM.a is a public delegate on 5.3.04.
-        if (ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("T", "aM", "b", 10, 22, 22, 3, 1));
-        }
-        return Optional.empty();
+        return switch (cubismVersion) {
+            case "5.0.00", "5.0.01", "5.0.02" ->
+                Optional.of(profile("S", "a", "b", 6, "am", "a", 7, "O", 15, 22, 3, 2));
+            case "5.0.03", "5.0.04" -> Optional.of(profile("S", "a", "b", 6, "ap", "a", 7, "O", 15, 22, 3, 2));
+            case "5.0.05", "5.0.06" -> Optional.of(profile("S", "a", "b", 9, "ap", "a", 7, "O", 18, 22, 3, 2));
+            case "5.1.00", "5.1.01" -> Optional.of(profile("U", "b", "c", 11, "av", "a", 7, "Q", 19, 22, 3, 2));
+            case "5.1.02", "5.1.03" -> Optional.of(profile("U", "b", "c", 11, "az", "a", 7, "Q", 19, 22, 3, 2));
+            case "5.2.00", "5.2.01", "5.2.02" ->
+                Optional.of(profile("U", "b", "c", 11, "aL", "a", 7, "Q", 19, 22, 3, 2));
+            case "5.2.03" -> Optional.of(profile("U", "b", "c", 11, "aL", "a", 7, "R", 21, 23, 3, 2));
+            case "5.3.00", "5.3.01", "5.3.02" ->
+                Optional.of(profile("U", "b", "c", 11, "aL", "a", 7, "T", 22, 22, 1, 1));
+            case "5.3.03" -> Optional.of(profile("U", "b", "c", 11, "aM", "a", 10, "T", 22, 22, 3, 1));
+            // Same tuple as 5.3.03 except the menu-building mouse handler moved from
+            // aM.a(MouseEvent) to aM.b(MouseEvent); aM.a is a public delegate on 5.3.04.
+            case "5.3.04" -> Optional.of(profile("U", "b", "c", 11, "aM", "b", 10, "T", 22, 22, 3, 1));
+            default -> Optional.empty();
+        };
     }
 
     private static ObjectContextMenuHostProfile profile(
-            final String partsOwner,
+            final String workspaceOwner,
+            final String deformerAndPartsAppendMethod,
+            final String parameterAppendMethod,
+            final int deformerAppends,
             final String parameterOwner,
             final String parameterMethod,
             final int parameterAppends,
+            final String partsOwner,
             final int partsAppends,
             final int workspaceAppends,
             final int deformerInjectionPoint,
@@ -80,10 +113,10 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
                         "com/live2d/cubism/view/palette/deformer/b",
                         "a",
                         "(Ljava/awt/event/MouseEvent;)V",
-                        "b",
+                        deformerAndPartsAppendMethod,
                         "(" + ITEM + ")V",
                         Location.DEFORMER_TAB,
-                        11,
+                        deformerAppends,
                         deformerInjectionPoint,
                         2,
                         3),
@@ -92,7 +125,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
                         "com/live2d/cubism/view/palette/parameter/" + parameterOwner,
                         parameterMethod,
                         "(Ljava/awt/event/MouseEvent;)V",
-                        "c",
+                        parameterAppendMethod,
                         "(" + ITEM + ")V",
                         Location.PARAMETER_TAB,
                         parameterAppends,
@@ -103,7 +136,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
                         "com/live2d/cubism/view/palette/parts/" + partsOwner,
                         "a",
                         "(Ljava/awt/event/MouseEvent;)V",
-                        "b",
+                        deformerAndPartsAppendMethod,
                         "(" + ITEM + ")V",
                         Location.PART_TAB,
                         partsAppends,
@@ -111,7 +144,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
                         5),
                 append(
                         "workspace",
-                        "com/live2d/cubism/view/context/U",
+                        "com/live2d/cubism/view/context/" + workspaceOwner,
                         "b",
                         "(Lcom/live2d/cubism/view/context/actionManager/N;)V",
                         "a",
