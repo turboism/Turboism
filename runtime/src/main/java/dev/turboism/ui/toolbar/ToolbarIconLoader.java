@@ -23,11 +23,13 @@ public final class ToolbarIconLoader {
 
     private ToolbarIconLoader() {}
 
+    /** Loads a generation-zero plugin icon using the current Swing theme. */
     public static Icon load(
             final EditorUiPluginResourceRegistry resources, final String pluginId, final String resourcePath) {
         return load(resources, pluginId, 0L, resourcePath, isDarkTheme());
     }
 
+    /** Loads an icon owned by the exact plugin generation using the current Swing theme. */
     public static Icon load(
             final EditorUiPluginResourceRegistry resources,
             final String pluginId,
@@ -36,6 +38,13 @@ public final class ToolbarIconLoader {
         return load(resources, pluginId, pluginGeneration, resourcePath, isDarkTheme());
     }
 
+    /**
+     * Loads an icon and its available DPI variants for the exact plugin generation.
+     * When dark mode is requested, prefers the dark resource and falls back to the original path.
+     *
+     * @throws IllegalStateException if the selected base resource is unavailable
+     * @throws IllegalArgumentException if a selected resource is not a readable raster image
+     */
     public static Icon load(
             final EditorUiPluginResourceRegistry resources,
             final String pluginId,
@@ -81,6 +90,7 @@ public final class ToolbarIconLoader {
         return resourcePath;
     }
 
+    /** Detects a dark Swing theme from the look-and-feel name or panel-background luminance. */
     public static boolean isDarkTheme() {
         final LookAndFeel lookAndFeel = UIManager.getLookAndFeel();
         if (lookAndFeel != null) {
@@ -99,6 +109,11 @@ public final class ToolbarIconLoader {
         return false;
     }
 
+    /**
+     * Inserts {@code -dark} before the extension unless that suffix is already present.
+     *
+     * @throws IllegalArgumentException if the resource filename has no extension
+     */
     public static String darkVariantPath(final String resourcePath) {
         final int extension = resourcePath.lastIndexOf('.');
         if (extension <= resourcePath.lastIndexOf('/')) {
@@ -111,6 +126,11 @@ public final class ToolbarIconLoader {
         return base + "-dark" + resourcePath.substring(extension);
     }
 
+    /**
+     * Inserts {@code .scale-} and the supplied scale suffix before the extension.
+     *
+     * @throws IllegalArgumentException if the resource filename has no extension
+     */
     public static String scaleVariantPath(final String resourcePath, final String suffix) {
         final int extension = resourcePath.lastIndexOf('.');
         if (extension <= resourcePath.lastIndexOf('/')) {
