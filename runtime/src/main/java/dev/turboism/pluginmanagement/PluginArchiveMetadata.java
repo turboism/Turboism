@@ -71,6 +71,20 @@ record PluginArchiveMetadata(
 
     static Optional<PluginArchiveMetadata> read(
             final Path path, final Locale locale, final LocalizationDiagnosticSink diagnostics) {
+        return read(path, locale, diagnostics, true);
+    }
+
+    /** Reads list fields without decompressing documentation or compatibility details. */
+    static Optional<PluginArchiveMetadata> readSummary(
+            final Path path, final Locale locale, final LocalizationDiagnosticSink diagnostics) {
+        return read(path, locale, diagnostics, false);
+    }
+
+    private static Optional<PluginArchiveMetadata> read(
+            final Path path,
+            final Locale locale,
+            final LocalizationDiagnosticSink diagnostics,
+            final boolean includeDetails) {
         Objects.requireNonNull(locale, "locale");
         Objects.requireNonNull(diagnostics, "diagnostics");
         URLClassLoader loader = null;
@@ -102,7 +116,10 @@ record PluginArchiveMetadata(
                         locale,
                         diagnostics);
                 return Optional.of(metadata(
-                        descriptor, localization, readme(jar, locale), cubismCompatibility(jar, descriptor.id())));
+                        descriptor,
+                        localization,
+                        includeDetails ? readme(jar, locale) : Optional.empty(),
+                        includeDetails ? cubismCompatibility(jar, descriptor.id()) : Optional.empty()));
             }
         } catch (Exception failure) {
             return Optional.empty();
