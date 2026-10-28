@@ -141,8 +141,8 @@ class FirstPartyMetadataVerificationTest {
         try (var out = new java.util.jar.JarOutputStream(Files.newOutputStream(jarPath))) {
             try (var files = Files.walk(work)) {
                 for (Path file : files.filter(Files::isRegularFile).toList()) {
-                    out.putNextEntry(
-                            new java.util.zip.ZipEntry(work.relativize(file).toString()));
+                    out.putNextEntry(new java.util.zip.ZipEntry(
+                            work.relativize(file).toString().replace('\\', '/')));
                     out.write(Files.readAllBytes(file));
                     out.closeEntry();
                 }

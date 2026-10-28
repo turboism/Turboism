@@ -19,7 +19,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
@@ -53,28 +56,91 @@ public final class PendingPluginOperations {
             return new StagedInstall(false, rejected.code(), null);
         }
         final PreparedPluginJar prepared = ((LocalPluginJarPreparer.Prepared) result).value();
+        return stage(prepared);
+    }
+
+    synchronized StagedInstall stage(final PreparedPluginJar prepared) {
+        Objects.requireNonNull(prepared, "prepared");
+        final Path stagedJar;
+        try {
+            stagedJar = files.confined(prepared.stagedJar());
+            if (!stagedJar.startsWith(packages) || Files.isSymbolicLink(stagedJar)) {
+                return new StagedInstall(false, "PLUGIN_STAGE_REJECTED", null);
+            }
+            files.rejectLinks(stagedJar);
+        } catch (Exception failure) {
+            return new StagedInstall(false, "PLUGIN_STAGE_REJECTED", null);
+        }
         if (CORE_ID.equals(prepared.descriptor().id())) {
-            deleteQuietly(prepared.stagedJar());
+            discardIfUnreferenced(stagedJar);
             return new StagedInstall(false, "PLUGIN_RESERVED_ID", null);
         }
+        if (!PluginJarPreflight.matches(
+                stagedJar,
+                prepared.descriptor().id(),
+                prepared.descriptor().version(),
+                prepared.descriptorSha256(),
+                prepared.jarSha256(),
+                prepared.jarSize())) {
+            return new StagedInstall(false, "PLUGIN_TAMPERED", null);
+        }
+        final List<Operation> previous;
         try {
-            final List<Operation> previous = readOperations();
+            previous = readOperations();
+        } catch (PendingJournalInvalidException failure) {
+            return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
+        } catch (RuntimeException failure) {
+            return new StagedInstall(false, "PLUGIN_PENDING_WRITE_FAILED", null);
+        }
+
+        final Path normalizedStaged = stagedJar.toAbsolutePath().normalize();
+        final boolean alreadyReferenced = previous.stream()
+                .filter(op -> op.type.equals("INSTALL"))
+                .map(op -> Path.of(op.stagedJar).toAbsolutePath().normalize())
+                .anyMatch(normalizedStaged::equals);
+
+        try {
             final List<Operation> operations =
                     withoutPlugin(previous, prepared.descriptor().id());
             operations.add(Operation.install(prepared));
             writeOperations(operations);
+            final Set<Path> activeStaged = operations.stream()
+                    .filter(op -> op.type.equals("INSTALL"))
+                    .map(op -> Path.of(op.stagedJar).toAbsolutePath().normalize())
+                    .collect(Collectors.toSet());
             previous.stream()
                     .filter(operation ->
                             operation.pluginId.equals(prepared.descriptor().id()))
                     .filter(operation -> operation.type.equals("INSTALL"))
-                    .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
+                    .map(operation ->
+                            Path.of(operation.stagedJar).toAbsolutePath().normalize())
+                    .filter(path -> !activeStaged.contains(path))
+                    .forEach(PendingPluginOperations::deleteQuietly);
             return new StagedInstall(true, "PLUGIN_INSTALL_PENDING", prepared);
         } catch (PendingJournalInvalidException failure) {
-            deleteQuietly(prepared.stagedJar());
+            if (!alreadyReferenced) deleteQuietly(stagedJar);
             return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
         } catch (RuntimeException failure) {
-            deleteQuietly(prepared.stagedJar());
+            if (!alreadyReferenced) deleteQuietly(stagedJar);
             return new StagedInstall(false, "PLUGIN_PENDING_WRITE_FAILED", null);
+        }
+    }
+
+    /** Keeps packages referenced by the journal, including when the journal cannot safely be read. */
+    synchronized void discardIfUnreferenced(final Path candidate) {
+        try {
+            final Path path = files.confined(candidate);
+            if (!path.startsWith(packages)) return;
+            files.rejectLinks(path);
+            final boolean referenced = readOperations().stream()
+                    .filter(operation -> operation.type.equals("INSTALL"))
+                    .anyMatch(operation -> Path.of(operation.stagedJar)
+                            .toAbsolutePath()
+                            .normalize()
+                            .equals(path));
+            if (!referenced) deleteQuietly(path);
+        } catch (Exception ignored) {
+            // Recovery must retain potentially journalled packages; startup can collect proven orphans.
         }
     }
 
@@ -85,9 +151,16 @@ public final class PendingPluginOperations {
             final List<Operation> operations = withoutPlugin(previous, pluginId);
             operations.add(Operation.uninstall(pluginId));
             writeOperations(operations);
+            final Set<Path> activeStaged = operations.stream()
+                    .filter(op -> op.type.equals("INSTALL"))
+                    .map(op -> Path.of(op.stagedJar).toAbsolutePath().normalize())
+                    .collect(Collectors.toSet());
             previous.stream()
                     .filter(operation -> operation.pluginId.equals(pluginId) && operation.type.equals("INSTALL"))
-                    .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
+                    .map(operation ->
+                            Path.of(operation.stagedJar).toAbsolutePath().normalize())
+                    .filter(path -> !activeStaged.contains(path))
+                    .forEach(PendingPluginOperations::deleteQuietly);
             return new StagedUninstall(true, "PLUGIN_UNINSTALL_PENDING");
         } catch (PendingJournalInvalidException failure) {
             return new StagedUninstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED");

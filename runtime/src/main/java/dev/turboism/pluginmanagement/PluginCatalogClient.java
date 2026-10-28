@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -18,7 +19,10 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 /**
@@ -46,6 +50,11 @@ public final class PluginCatalogClient {
     /** Default per-request deadline. */
     public static final Duration DEFAULT_REQUEST_DEADLINE = Duration.ofSeconds(30);
 
+    /** Total artifact budget, including redirects, retry and local writes. */
+    public static final Duration DEFAULT_ARTIFACT_DEADLINE = Duration.ofMinutes(5);
+
+    private static final Duration READ_IDLE_TIMEOUT = Duration.ofSeconds(30);
+
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final int MAX_REDIRECTS = 5;
     private static final Set<Integer> REDIRECT_STATUSES = Set.of(301, 302, 303, 307, 308);
@@ -71,11 +80,19 @@ public final class PluginCatalogClient {
     private final URI catalogUri;
     private final URI signatureUri;
     private final Duration requestDeadline;
+    private final Duration artifactDeadline;
+    private final int artifactAttempts;
     private final ConnectionFactory connectionFactory;
 
     /** Creates a client targeting the canonical {@code plugin.turboism.dev} v2 endpoints. */
     public PluginCatalogClient() {
-        this(CATALOG_URI, SIGNATURE_URI, DEFAULT_REQUEST_DEADLINE, DEFAULT_CONNECTION_FACTORY);
+        this(
+                CATALOG_URI,
+                SIGNATURE_URI,
+                DEFAULT_REQUEST_DEADLINE,
+                DEFAULT_ARTIFACT_DEADLINE,
+                DEFAULT_CONNECTION_FACTORY,
+                2);
     }
 
     /** Creates a client with custom endpoints, request deadline, and connection factory. */
@@ -84,12 +101,90 @@ public final class PluginCatalogClient {
             final URI signatureUri,
             final Duration requestDeadline,
             final ConnectionFactory connectionFactory) {
+        this(catalogUri, signatureUri, requestDeadline, requestDeadline, connectionFactory, 1);
+    }
+
+    /** Creates a client with separate catalog and artifact budgets. Connections honor the supplied factory's proxy policy. */
+    public PluginCatalogClient(
+            final URI catalogUri,
+            final URI signatureUri,
+            final Duration requestDeadline,
+            final Duration artifactDeadline,
+            final ConnectionFactory connectionFactory) {
+        this(catalogUri, signatureUri, requestDeadline, artifactDeadline, connectionFactory, 2);
+    }
+
+    private PluginCatalogClient(
+            final URI catalogUri,
+            final URI signatureUri,
+            final Duration requestDeadline,
+            final Duration artifactDeadline,
+            final ConnectionFactory connectionFactory,
+            final int artifactAttempts) {
         this.catalogUri = requireStrictHttpsEndpoint(catalogUri, "catalogUri");
         this.signatureUri = requireStrictHttpsEndpoint(signatureUri, "signatureUri");
         this.requestDeadline = Objects.requireNonNull(requestDeadline, "requestDeadline");
+        this.artifactDeadline = Objects.requireNonNull(artifactDeadline, "artifactDeadline");
+        this.artifactAttempts = artifactAttempts;
         this.connectionFactory = Objects.requireNonNull(connectionFactory, "connectionFactory");
         if (requestDeadline.isZero() || requestDeadline.isNegative()) {
             throw new IllegalArgumentException("requestDeadline must be positive");
+        }
+        if (artifactDeadline.isZero() || artifactDeadline.isNegative()) {
+            throw new IllegalArgumentException("artifactDeadline must be positive");
+        }
+    }
+
+    /** Byte progress; completion still requires hash and package validation. */
+    public record DownloadProgress(long receivedBytes, long totalBytes) {}
+
+    /** Cancellation for one installation. Disconnecting never blocks the caller's UI thread. */
+    public static final class DownloadControl {
+        private enum State {
+            ACTIVE,
+            CANCELLED,
+            COMMITTED
+        }
+
+        private final AtomicReference<State> state = new AtomicReference<>(State.ACTIVE);
+        private final AtomicReference<HttpURLConnection> connection = new AtomicReference<>();
+
+        /** Requests cancellation until the installation starts committing files. */
+        public boolean cancel() {
+            if (!state.compareAndSet(State.ACTIVE, State.CANCELLED)) return false;
+            final HttpURLConnection active = connection.get();
+            if (active != null) CompletableFuture.runAsync(() -> disconnectQuietly(active));
+            return true;
+        }
+
+        /** Returns whether cancellation was accepted. */
+        public boolean isCancelled() {
+            return state.get() == State.CANCELLED;
+        }
+
+        /** Ends cancellation admission immediately before applying or journalling an installation. */
+        public boolean beginCommit() {
+            return state.compareAndSet(State.ACTIVE, State.COMMITTED);
+        }
+
+        /** Returns whether cancellation can still be requested. */
+        public boolean canCancel() {
+            return state.get() == State.ACTIVE;
+        }
+    }
+
+    /** Stable download failure code for actionable market feedback. */
+    public static final class DownloadFailure extends IOException {
+        private final String code;
+
+        private DownloadFailure(final String code, final String message, final Throwable cause) {
+            super(message, cause);
+            this.code = code;
+        }
+
+        /** Returns the failed download stage or verification code. */
+        public String code() {
+            return code;
         }
     }
 
@@ -155,9 +250,23 @@ public final class PluginCatalogClient {
     public void downloadArtifact(
             final URI artifactUrl, final long expectedSize, final String expectedSha256, final Path destination)
             throws IOException {
+        downloadArtifact(artifactUrl, expectedSize, expectedSha256, destination, new DownloadControl(), ignored -> {});
+    }
+
+    /** Downloads a verified artifact with cancellable, worker-thread progress notifications. */
+    public void downloadArtifact(
+            final URI artifactUrl,
+            final long expectedSize,
+            final String expectedSha256,
+            final Path destination,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress)
+            throws IOException {
         Objects.requireNonNull(artifactUrl, "artifactUrl");
         Objects.requireNonNull(expectedSha256, "expectedSha256");
         Objects.requireNonNull(destination, "destination");
+        Objects.requireNonNull(control, "control");
+        Objects.requireNonNull(progress, "progress");
         if (expectedSize <= 0L || expectedSize > PluginCatalogVerifier.MAX_ARTIFACT_BYTES) {
             throw new IOException("expected artifact size is outside the 1..16 MiB bound: " + expectedSize);
         }
@@ -166,23 +275,64 @@ public final class PluginCatalogClient {
         }
         validateInitialArtifactUri(artifactUrl);
 
-        final long deadlineNanos = deadlineNanos(requestDeadline);
+        final long deadlineNanos = deadlineNanos(artifactDeadline);
+        for (int attempt = 1; ; attempt++) {
+            try {
+                downloadAttempt(
+                        artifactUrl, expectedSize, expectedSha256, destination, control, progress, deadlineNanos);
+                return;
+            } catch (DownloadFailure failure) {
+                if (attempt >= artifactAttempts
+                        || control.isCancelled()
+                        || !(failure.code().equals("PLUGIN_DOWNLOAD_RESPONSE_TIMEOUT")
+                                || failure.code().equals("PLUGIN_DOWNLOAD_READ_TIMEOUT"))) throw failure;
+                checkDownload(deadlineNanos, control);
+            }
+        }
+    }
+
+    private void downloadAttempt(
+            final URI artifactUrl,
+            final long expectedSize,
+            final String expectedSha256,
+            final Path destination,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress,
+            final long deadlineNanos)
+            throws IOException {
         URI currentUri = artifactUrl;
         for (int redirects = 0; ; redirects++) {
-            checkDeadline(deadlineNanos);
+            checkDownload(deadlineNanos, control);
             final HttpURLConnection connection = connectionFactory.open(currentUri);
+            control.connection.set(connection);
             try {
+                checkDownload(deadlineNanos, control);
                 connection.setInstanceFollowRedirects(false);
                 connection.setUseCaches(false);
                 final long remaining = remainingNanos(deadlineNanos);
                 connection.setConnectTimeout(timeoutMillis(Math.min(CONNECT_TIMEOUT.toNanos(), remaining)));
-                connection.setReadTimeout(timeoutMillis(remaining));
+                setDownloadReadTimeout(connection, deadlineNanos);
                 connection.setRequestMethod("GET");
                 connection.setRequestProperty("Accept", PluginCatalog.CatalogArtifact.MEDIA_TYPE);
                 connection.setRequestProperty("Accept-Encoding", "identity");
 
-                final int status = connection.getResponseCode();
-                checkDeadline(deadlineNanos);
+                final int status;
+                try {
+                    status = connection.getResponseCode();
+                } catch (SocketTimeoutException failure) {
+                    checkDownload(deadlineNanos, control);
+                    throw new DownloadFailure(
+                            "PLUGIN_DOWNLOAD_RESPONSE_TIMEOUT",
+                            "Timed out connecting or waiting for HTTPS response from " + currentUri.getHost(),
+                            failure);
+                } catch (IOException failure) {
+                    checkDownload(deadlineNanos, control);
+                    throw new DownloadFailure(
+                            "PLUGIN_DOWNLOAD_CONNECTION_FAILED",
+                            "Cannot connect to " + currentUri.getHost() + ": " + failure.getMessage(),
+                            failure);
+                }
+                checkDownload(deadlineNanos, control);
                 if (REDIRECT_STATUSES.contains(status)) {
                     if (redirects >= MAX_REDIRECTS) {
                         throw new IOException("artifact download exceeded max redirects (" + MAX_REDIRECTS + ")");
@@ -202,7 +352,8 @@ public final class PluginCatalogClient {
                     continue;
                 }
                 if (status != HttpURLConnection.HTTP_OK) {
-                    throw new IOException("artifact download failed with HTTP " + status);
+                    throw new DownloadFailure(
+                            "PLUGIN_DOWNLOAD_HTTP_FAILED", "Artifact download failed with HTTP " + status, null);
                 }
                 rejectCompressedContentEncoding(connection);
                 final long contentLength = connection.getContentLengthLong();
@@ -211,12 +362,35 @@ public final class PluginCatalogClient {
                             "PLUGIN_ARTIFACT_SIZE_MISMATCH: Content-Length " + contentLength + " != " + expectedSize);
                 }
                 try (InputStream input = connection.getInputStream()) {
-                    streamAndVerifyArtifact(input, expectedSize, expectedSha256, destination, deadlineNanos);
+                    streamAndVerifyArtifact(
+                            input,
+                            expectedSize,
+                            expectedSha256,
+                            destination,
+                            deadlineNanos,
+                            connection,
+                            control,
+                            progress);
                 }
                 return;
             } finally {
+                control.connection.compareAndSet(connection, null);
                 disconnectQuietly(connection);
             }
+        }
+    }
+
+    private static void setDownloadReadTimeout(final HttpURLConnection connection, final long deadlineNanos) {
+        connection.setReadTimeout(timeoutMillis(Math.min(READ_IDLE_TIMEOUT.toNanos(), remainingNanos(deadlineNanos))));
+    }
+
+    private static void checkDownload(final long deadlineNanos, final DownloadControl control) throws DownloadFailure {
+        if (control.isCancelled() || Thread.currentThread().isInterrupted()) {
+            throw new DownloadFailure("PLUGIN_DOWNLOAD_CANCELLED", "Plugin download cancelled", null);
+        }
+        if (remainingNanos(deadlineNanos) <= 0L) {
+            throw new DownloadFailure(
+                    "PLUGIN_DOWNLOAD_DEADLINE_EXCEEDED", "Plugin download exceeded its total time budget", null);
         }
     }
 
@@ -293,7 +467,10 @@ public final class PluginCatalogClient {
             final long expectedSize,
             final String expectedSha256,
             final Path destination,
-            final long deadlineNanos)
+            final long deadlineNanos,
+            final HttpURLConnection connection,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress)
             throws IOException {
         if (input == null) {
             throw new IOException("PLUGIN_ARTIFACT_SIZE_MISMATCH: empty artifact response stream");
@@ -307,42 +484,88 @@ public final class PluginCatalogClient {
         long total = 0L;
         final byte[] buffer = new byte[16 * 1024];
         boolean completed = false;
-        try (OutputStream output = Files.newOutputStream(
-                destination,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE)) {
-            for (int read; ; ) {
-                checkDeadline(deadlineNanos);
-                read = input.read(buffer);
-                if (read < 0) break;
-                if (read == 0) continue;
-                if (read > expectedSize - total) {
-                    throw new IOException(
-                            "PLUGIN_ARTIFACT_SIZE_MISMATCH: stream exceeded expected size " + expectedSize);
+        boolean opened = false;
+        try {
+            try (OutputStream output = new java.io.BufferedOutputStream(
+                    Files.newOutputStream(
+                            destination,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.TRUNCATE_EXISTING,
+                            StandardOpenOption.WRITE),
+                    64 * 1024)) {
+                opened = true;
+                notifyProgress(progress, 0, expectedSize);
+                for (int read; ; ) {
+                    checkDownload(deadlineNanos, control);
+                    setDownloadReadTimeout(connection, deadlineNanos);
+                    try {
+                        read = input.read(buffer);
+                    } catch (SocketTimeoutException failure) {
+                        checkDownload(deadlineNanos, control);
+                        throw new DownloadFailure(
+                                "PLUGIN_DOWNLOAD_READ_TIMEOUT", "Plugin download stopped receiving data", failure);
+                    } catch (IOException failure) {
+                        checkDownload(deadlineNanos, control);
+                        throw new DownloadFailure(
+                                "PLUGIN_DOWNLOAD_READ_FAILED",
+                                "Plugin download interrupted: " + failure.getMessage(),
+                                failure);
+                    }
+                    checkDownload(deadlineNanos, control);
+                    if (read < 0) break;
+                    if (read == 0) continue;
+                    if (read > expectedSize - total) {
+                        throw new DownloadFailure(
+                                "PLUGIN_ARTIFACT_SIZE_MISMATCH",
+                                "PLUGIN_ARTIFACT_SIZE_MISMATCH: stream exceeded expected size " + expectedSize,
+                                null);
+                    }
+                    digest.update(buffer, 0, read);
+                    output.write(buffer, 0, read);
+                    total += read;
+                    notifyProgress(progress, total, expectedSize);
                 }
-                digest.update(buffer, 0, read);
-                output.write(buffer, 0, read);
-                total += read;
+                if (total != expectedSize) {
+                    throw new DownloadFailure(
+                            "PLUGIN_ARTIFACT_SIZE_MISMATCH",
+                            "PLUGIN_ARTIFACT_SIZE_MISMATCH: read " + total + " bytes, expected " + expectedSize,
+                            null);
+                }
+                final byte[] actualHash = digest.digest();
+                final byte[] expectedHash = HexFormat.of().parseHex(expectedSha256);
+                if (!MessageDigest.isEqual(expectedHash, actualHash)) {
+                    throw new DownloadFailure(
+                            "PLUGIN_ARTIFACT_HASH_MISMATCH",
+                            "PLUGIN_ARTIFACT_HASH_MISMATCH: downloaded JAR SHA-256 mismatch",
+                            null);
+                }
+            } catch (DownloadFailure failure) {
+                throw failure;
+            } catch (IOException failure) {
+                throw new DownloadFailure(
+                        "PLUGIN_DOWNLOAD_WRITE_FAILED",
+                        "Cannot write plugin download: " + failure.getMessage(),
+                        failure);
             }
-            if (total != expectedSize) {
-                throw new IOException(
-                        "PLUGIN_ARTIFACT_SIZE_MISMATCH: read " + total + " bytes, expected " + expectedSize);
-            }
-            final byte[] actualHash = digest.digest();
-            final byte[] expectedHash = HexFormat.of().parseHex(expectedSha256);
-            if (!MessageDigest.isEqual(expectedHash, actualHash)) {
-                throw new IOException("PLUGIN_ARTIFACT_HASH_MISMATCH: downloaded JAR SHA-256 mismatch");
-            }
+            checkDownload(deadlineNanos, control);
             completed = true;
         } finally {
-            if (!completed) {
+            if (!completed && opened) {
                 try {
                     Files.deleteIfExists(destination);
                 } catch (IOException ignored) {
                     // Best-effort cleanup of rejected artifact file.
                 }
             }
+        }
+    }
+
+    private static void notifyProgress(
+            final Consumer<DownloadProgress> progress, final long received, final long total) {
+        try {
+            progress.accept(new DownloadProgress(received, total));
+        } catch (RuntimeException ignored) {
+            // A UI observer must not alter artifact verification or installation.
         }
     }
 
