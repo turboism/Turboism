@@ -195,7 +195,7 @@ public class ParameterSyncDialog extends JDialog {
                 for (final Parameter p : model.parameters().all()) {
                     final String id = p.id().value();
                     final String name = p.name().filter(s -> !s.isBlank()).orElse(null);
-                    boolean sync = ruleSet != null && ruleSet.isSynchronized(id);
+                    boolean sync = ruleSet != null && ruleSet.synchronizedIds().contains(id.strip());
                     if (focusedId != null && focusedId.equals(id) && ruleSet != null && ruleSet.isEmpty()) {
                         sync = true;
                         ruleSet.setSynchronized(id, true);
