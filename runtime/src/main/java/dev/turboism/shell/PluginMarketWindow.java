@@ -6,8 +6,10 @@ import dev.turboism.pluginmanagement.PluginCatalog;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPermission;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPlugin;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
+import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadControl;
 import dev.turboism.pluginmanagement.PluginMarketService;
 import dev.turboism.pluginmanagement.PluginMarketService.CatalogPluginLocalized;
+import dev.turboism.pluginmanagement.PluginMarketService.MarketSnapshot;
 import dev.turboism.pluginmanagement.PluginMarketService.PluginMarketStatus;
 import dev.turboism.pluginmanagement.PluginMarketService.StatusType;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -27,8 +29,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -69,7 +74,6 @@ final class PluginMarketWindow {
 
     private final PluginLocalization i18n;
     private final PluginMarketService marketService;
-    private final CorePluginManagement plugins;
     private final Locale currentLocale;
     private JDialog dialog;
     private MarketTableModel tableModel;
@@ -89,6 +93,14 @@ final class PluginMarketWindow {
     private JPanel detailContainer;
     private JEditorPane readmePane;
     private CatalogPlugin selectedPlugin;
+    private MarketSnapshot snapshot;
+    private long refreshGeneration;
+    private long detailGeneration;
+    private long windowGeneration;
+    private CompletableFuture<?> pendingReadme;
+    private DownloadControl currentDownload;
+    private JButton cancelDownload;
+    private final Set<String> activeOperations = new HashSet<>();
 
     PluginMarketWindow(
             final PluginLocalization i18n,
@@ -97,14 +109,16 @@ final class PluginMarketWindow {
             final Locale currentLocale) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.marketService = Objects.requireNonNull(marketService, "marketService");
-        this.plugins = Objects.requireNonNull(plugins, "plugins");
+        Objects.requireNonNull(plugins, "plugins");
         this.currentLocale = currentLocale != null ? currentLocale : Locale.getDefault();
     }
 
     void show() {
         CoreDialogs.onEdt(() -> {
             if (dialog != null) {
+                dialog.setVisible(true);
                 dialog.toFront();
+                refreshCatalog(false);
                 return;
             }
             dialog = createDialog();
@@ -115,6 +129,11 @@ final class PluginMarketWindow {
 
     void close() {
         CoreDialogs.onEdt(() -> {
+            refreshGeneration++;
+            detailGeneration++;
+            windowGeneration++;
+            if (pendingReadme != null) pendingReadme.cancel(false);
+            if (currentDownload != null) currentDownload.cancel();
             if (dialog != null) {
                 dialog.dispose();
                 dialog = null;
@@ -182,6 +201,9 @@ final class PluginMarketWindow {
                     final int modelRow = table.convertRowIndexToModel(viewRow);
                     selectedPlugin = tableModel.getPlugin(modelRow);
                     updateDetailPane(selectedPlugin);
+                } else {
+                    selectedPlugin = null;
+                    updateDetailPane(null);
                 }
             }
         });
@@ -270,8 +292,19 @@ final class PluginMarketWindow {
         statusLabel = new JLabel(" ");
         final JButton closeBtn = new JButton(i18n.text("common.close"));
         closeBtn.addActionListener(e -> win.setVisible(false));
+        cancelDownload = new JButton(i18n.text("common.cancel"));
+        cancelDownload.setEnabled(false);
+        cancelDownload.addActionListener(e -> {
+            if (currentDownload == null) return;
+            final boolean cancelled = currentDownload.cancel();
+            cancelDownload.setEnabled(false);
+            statusLabel.setText(i18n.text(cancelled ? "market.status.cancelling" : "market.status.applying"));
+        });
+        final JPanel bottomActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        bottomActions.add(cancelDownload);
+        bottomActions.add(closeBtn);
         bottomBar.add(statusLabel, BorderLayout.WEST);
-        bottomBar.add(closeBtn, BorderLayout.EAST);
+        bottomBar.add(bottomActions, BorderLayout.EAST);
 
         win.add(topFilter, BorderLayout.NORTH);
         win.add(splitPane, BorderLayout.CENTER);
@@ -280,24 +313,87 @@ final class PluginMarketWindow {
     }
 
     private void refreshCatalog(final boolean forceNetwork) {
+        final long generation = ++refreshGeneration;
         statusLabel.setText(i18n.text("market.status.loading"));
         marketService
-                .loadCatalog(forceNetwork)
-                .thenAccept(catalog -> CoreDialogs.onEdt(() -> {
-                    tableModel.setCatalog(catalog);
-                    populateFilterDropdowns(catalog);
-                    applyFilters();
-                    statusLabel.setText(" ");
-                    if (table.getRowCount() > 0 && table.getSelectedRow() < 0) {
-                        table.setRowSelectionInterval(0, 0);
-                    }
+                .loadSnapshot(forceNetwork)
+                .thenAccept(value -> CoreDialogs.onEdt(() -> {
+                    if (generation == refreshGeneration) applySnapshot(value, " ");
                 }))
                 .exceptionally(err -> {
                     CoreDialogs.onEdt(() -> {
+                        if (generation != refreshGeneration) return;
                         statusLabel.setText(i18n.text("market.status.error") + ": " + err.getMessage());
                     });
                     return null;
                 });
+    }
+
+    private void applySnapshot(final MarketSnapshot value, final String feedback) {
+        final String selection = selectedPlugin == null ? null : selectedPlugin.id();
+        snapshot = value;
+        tableModel.setSnapshot(value);
+        populateFilterDropdowns(value.catalog());
+        applyFilters();
+        statusLabel.setText(feedback);
+        for (int row = 0; row < table.getRowCount(); row++) {
+            if (Objects.equals(
+                    selection,
+                    tableModel.getPlugin(table.convertRowIndexToModel(row)).id())) {
+                table.setRowSelectionInterval(row, row);
+                return;
+            }
+        }
+        if (table.getRowCount() > 0) table.setRowSelectionInterval(0, 0);
+        else {
+            selectedPlugin = null;
+            updateDetailPane(null);
+        }
+    }
+
+    private void runOperation(final CatalogPlugin plugin, final Supplier<CompletionStage<OperationResult>> action) {
+        if (!activeOperations.isEmpty()) return;
+        activeOperations.add(plugin.id());
+        final long generation = ++refreshGeneration;
+        final long window = windowGeneration;
+        updateDetailPane(selectedPlugin);
+        try {
+            action.get()
+                    .whenComplete((result, failure) -> CoreDialogs.onEdt(() -> {
+                        activeOperations.remove(plugin.id());
+                        currentDownload = null;
+                        if (cancelDownload != null) cancelDownload.setEnabled(false);
+                        if (window != windowGeneration) return;
+                        if (generation != refreshGeneration) {
+                            if (selectedPlugin != null && selectedPlugin.id().equals(plugin.id()))
+                                updateDetailPane(selectedPlugin);
+                            return;
+                        }
+                        if (failure != null) {
+                            statusLabel.setText(i18n.format("market.status.install-failed", failure.getMessage()));
+                            updateDetailPane(selectedPlugin);
+                            return;
+                        }
+                        handleOperationResult(result);
+                        updateDetailPane(selectedPlugin);
+                        if (result.accepted() && snapshot != null) {
+                            final String feedback = statusLabel.getText();
+                            marketService
+                                    .snapshot(snapshot.catalog())
+                                    .whenComplete((value, refreshFailure) -> CoreDialogs.onEdt(() -> {
+                                        if (generation != refreshGeneration) return;
+                                        if (refreshFailure == null) applySnapshot(value, feedback);
+                                        else statusLabel.setText(feedback + " — " + refreshFailure.getMessage());
+                                    }));
+                        }
+                    }));
+        } catch (RuntimeException failure) {
+            activeOperations.remove(plugin.id());
+            currentDownload = null;
+            if (cancelDownload != null) cancelDownload.setEnabled(false);
+            statusLabel.setText(i18n.format("market.status.install-failed", failure.getMessage()));
+            updateDetailPane(selectedPlugin);
+        }
     }
 
     private void populateFilterDropdowns(final PluginCatalog catalog) {
@@ -399,13 +495,11 @@ final class PluginMarketWindow {
         if (pluginStatsLabel == null || tableModel == null) return;
         final int marketTotal = tableModel.getRowCount();
         final int visibleCount = table != null ? table.getRowCount() : marketTotal;
-        int localInstalled = 0;
-        try {
-            localInstalled = (int) plugins.plugins().stream()
-                    .filter(p -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(p.id()))
-                    .count();
-        } catch (RuntimeException ignored) {
-        }
+        final int localInstalled = snapshot == null
+                ? 0
+                : (int) snapshot.installed().stream()
+                        .filter(p -> !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(p.id()))
+                        .count();
         if (marketTotal == 0) {
             pluginStatsLabel.setText(" ");
         } else if (visibleCount == marketTotal) {
@@ -416,6 +510,8 @@ final class PluginMarketWindow {
     }
 
     private void updateDetailPane(final CatalogPlugin plugin) {
+        final long generation = ++detailGeneration;
+        if (pendingReadme != null) pendingReadme.cancel(false);
         detailContainer.removeAll();
         if (plugin == null) {
             detailContainer.revalidate();
@@ -424,7 +520,7 @@ final class PluginMarketWindow {
         }
 
         final CatalogPluginLocalized loc = PluginMarketService.localizePlugin(plugin, currentLocale);
-        final PluginMarketStatus status = marketService.resolveStatus(plugin);
+        final PluginMarketStatus status = snapshot.statuses().get(plugin.id());
 
         final JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
@@ -476,44 +572,40 @@ final class PluginMarketWindow {
 
         browserBtn.addActionListener(e -> openUrl(MARKET_BASE_URL + plugin.slug()));
 
-        boolean canInstall = false;
-        boolean canUninstall = false;
         boolean isInstalled = status.type() == StatusType.INSTALLED || status.type() == StatusType.UPDATE_AVAILABLE;
 
         if (status.type() == StatusType.NOT_INSTALLED) {
             installOrUpdateBtn.setText(i18n.text("market.action.install"));
             installOrUpdateBtn.setEnabled(true);
-            canInstall = true;
         } else if (status.type() == StatusType.UPDATE_AVAILABLE) {
             installOrUpdateBtn.setText(i18n.text("market.action.update"));
             installOrUpdateBtn.setEnabled(true);
-            canInstall = true;
         } else {
             installOrUpdateBtn.setText(i18n.text("market.action.install"));
             installOrUpdateBtn.setEnabled(false);
         }
 
         if (isInstalled) {
-            canUninstall = !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(plugin.id());
+            final boolean canUninstall =
+                    !dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(plugin.id());
             uninstallBtn.setEnabled(canUninstall);
 
-            final CorePluginManagement.PluginInfo info = plugins.plugins().stream()
+            final CorePluginManagement.PluginInfo info = snapshot.installed().stream()
                     .filter(p -> p.id().equals(plugin.id()))
                     .findFirst()
                     .orElse(null);
             final boolean enabled = info == null || "ENABLED".equals(info.desiredState());
             toggleBtn.setText(enabled ? i18n.text("market.action.disable") : i18n.text("market.action.enable"));
             toggleBtn.setEnabled(true);
-            toggleBtn.addActionListener(e -> {
-                final OperationResult res = plugins.setEnabled(plugin.id(), !enabled);
-                handleOperationResult(res);
-            });
+            toggleBtn.addActionListener(
+                    e -> runOperation(plugin, () -> marketService.setEnabled(plugin.id(), !enabled)));
             actions.add(toggleBtn);
         } else {
             uninstallBtn.setEnabled(false);
         }
 
         installOrUpdateBtn.addActionListener(e -> {
+            if (!activeOperations.isEmpty()) return;
             if (!plugin.isOfficial()) {
                 // Confirm requested permissions
                 if (!confirmPermissions(plugin, targetRel)) {
@@ -521,25 +613,33 @@ final class PluginMarketWindow {
                 }
             }
             statusLabel.setText(i18n.format("market.status.installing", loc.name()));
-            installOrUpdateBtn.setEnabled(false);
-            marketService
-                    .installOrUpdate(plugin, targetRel)
-                    .thenAccept(res -> CoreDialogs.onEdt(() -> {
-                        handleOperationResult(res);
-                        refreshCatalog(false);
-                    }))
-                    .exceptionally(err -> {
-                        CoreDialogs.onEdt(() ->
-                                statusLabel.setText(i18n.format("market.status.install-failed", err.getMessage())));
-                        return null;
-                    });
+            final DownloadControl control = new DownloadControl();
+            currentDownload = control;
+            cancelDownload.setEnabled(true);
+            final long window = windowGeneration;
+            final AtomicInteger lastPercent = new AtomicInteger(-1);
+            runOperation(
+                    plugin,
+                    () -> marketService.installOrUpdate(plugin, targetRel, control, progress -> {
+                        final int percent = (int) (100 * progress.receivedBytes() / progress.totalBytes());
+                        if (lastPercent.getAndSet(percent) == percent) return;
+                        CoreDialogs.onEdt(() -> {
+                            if (window != windowGeneration || currentDownload != control || control.isCancelled())
+                                return;
+                            statusLabel.setText(
+                                    percent == 100
+                                            ? i18n.text("market.status.verifying")
+                                            : i18n.format("market.status.downloading", loc.name(), percent));
+                        });
+                    }));
         });
 
-        uninstallBtn.addActionListener(e -> {
-            final OperationResult res = plugins.uninstall(plugin.id());
-            handleOperationResult(res);
-            refreshCatalog(false);
-        });
+        uninstallBtn.addActionListener(e -> runOperation(plugin, () -> marketService.uninstall(plugin.id())));
+        if (!activeOperations.isEmpty()) {
+            installOrUpdateBtn.setEnabled(false);
+            uninstallBtn.setEnabled(false);
+            toggleBtn.setEnabled(false);
+        }
 
         actions.add(installOrUpdateBtn);
         if (isInstalled) {
@@ -562,14 +662,22 @@ final class PluginMarketWindow {
         header.add(actions);
 
         // README / Details
-        final Optional<String> bundledReadme =
-                plugins.details(plugin.id()).flatMap(CorePluginManagement.PluginDetails::readme);
-        final String readmeHtml = bundledReadme
-                .map(PluginReadmeRenderer::render)
-                .orElseGet(() -> PluginReadmeRenderer.render("# " + loc.name() + "\n\n" + loc.summary() + "\n\n" + "["
-                        + i18n.text("market.action.open-browser") + "](" + MARKET_BASE_URL + plugin.slug() + ")"));
+        final String readmeHtml = PluginReadmeRenderer.render("# " + loc.name() + "\n\n" + loc.summary() + "\n\n" + "["
+                + i18n.text("market.action.open-browser") + "](" + MARKET_BASE_URL + plugin.slug() + ")");
         readmePane.setText(readmeHtml);
         readmePane.setCaretPosition(0);
+        if (!activeOperations.contains(plugin.id()) && status.installedVersion().isPresent()) {
+            final var readmeRequest = marketService.loadReadme(plugin.id()).toCompletableFuture();
+            pendingReadme = readmeRequest;
+            readmeRequest
+                    .thenApply(readme -> readme.map(PluginReadmeRenderer::render))
+                    .thenAccept(html -> CoreDialogs.onEdt(() -> {
+                        if (generation != detailGeneration || html.isEmpty()) return;
+                        readmePane.setText(html.orElseThrow());
+                        readmePane.setCaretPosition(0);
+                    }))
+                    .exceptionally(ignored -> null);
+        }
 
         final JScrollPane readmeScroll = new JScrollPane(readmePane);
         readmeScroll.setBorder(BorderFactory.createTitledBorder(i18n.text("plugins.details.readme")));
@@ -605,6 +713,14 @@ final class PluginMarketWindow {
     }
 
     private void handleOperationResult(final OperationResult result) {
+        if ("PLUGIN_DOWNLOAD_CANCELLED".equals(result.code())) {
+            statusLabel.setText(i18n.text("market.status.cancelled"));
+            return;
+        }
+        if (!result.accepted()) {
+            statusLabel.setText(i18n.format("market.status.install-failed", result.code() + ": " + result.message()));
+            return;
+        }
         final String feedback = "PLUGIN_HOT_APPLIED".equals(result.code())
                 ? i18n.text("market.applied")
                 : i18n.text("market.restart-required");
@@ -679,17 +795,16 @@ final class PluginMarketWindow {
         private List<CatalogPlugin> pluginRows = List.of();
         private List<PluginMarketStatus> statusRows = List.of();
 
-        void setCatalog(final PluginCatalog catalog) {
-            if (catalog == null) {
+        void setSnapshot(final MarketSnapshot value) {
+            snapshot = value;
+            if (value == null) {
                 pluginRows = List.of();
                 statusRows = List.of();
             } else {
-                pluginRows = List.copyOf(catalog.plugins());
-                final List<PluginMarketStatus> statuses = new ArrayList<>();
-                for (CatalogPlugin p : pluginRows) {
-                    statuses.add(marketService.resolveStatus(p));
-                }
-                statusRows = List.copyOf(statuses);
+                pluginRows = value.catalog().plugins();
+                statusRows = pluginRows.stream()
+                        .map(p -> value.statuses().get(p.id()))
+                        .toList();
             }
             fireTableDataChanged();
         }

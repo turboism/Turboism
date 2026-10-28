@@ -1,6 +1,7 @@
 package dev.turboism.pluginmanagement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.internal.core.CorePluginManagement.PluginInfo;
@@ -17,6 +18,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -24,6 +30,183 @@ class PluginMarketServiceTest {
 
     @TempDir
     Path home;
+
+    @Test
+    void repeatedMarketDownloadStagesOneValidPackageThatAppliesAfterRestart() throws Exception {
+        final byte[] jar = PluginManagementPackageFixture.pluginJarBytes("dev.market", "1.0.0");
+        final Path source = java.nio.file.Files.write(home.resolve("source.jar"), jar);
+        final var prepared = (dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
+                new dev.turboism.distribution.LocalPluginJarPreparer().prepare(source, home.resolve("fixture"));
+        final var artifact = new CatalogArtifact(
+                "application/java-archive",
+                "test.jar",
+                "https://github.com/turboism/test/releases/download/v1/test.jar",
+                prepared.value().jarSha256(),
+                prepared.value().descriptorSha256(),
+                jar.length);
+        final var release = new CatalogRelease(
+                "1.0.0",
+                "stable",
+                "active",
+                Instant.now(),
+                "workflow",
+                List.of(),
+                "[0.67.0,1.0.0)",
+                false,
+                List.of(),
+                List.of("windows-x64"),
+                List.of(),
+                List.of(),
+                "https://github.com/turboism/test/releases/tag/v1",
+                Optional.empty(),
+                artifact,
+                false);
+        final var plugin = new CatalogPlugin(
+                "dev.market",
+                "market",
+                "Market",
+                "",
+                "official",
+                "Test",
+                "MIT",
+                "https://github.com/turboism/test",
+                "https://github.com/turboism/test/issues",
+                Map.of(),
+                List.of(release));
+        final PluginCatalogClient client = new PluginCatalogClient(
+                PluginCatalogClient.CATALOG_URI,
+                PluginCatalogClient.SIGNATURE_URI,
+                java.time.Duration.ofSeconds(5),
+                uri -> new java.net.HttpURLConnection(uri.toURL()) {
+                    public void connect() {}
+
+                    public void disconnect() {}
+
+                    public boolean usingProxy() {
+                        return false;
+                    }
+
+                    public int getResponseCode() {
+                        return 200;
+                    }
+
+                    public long getContentLengthLong() {
+                        return jar.length;
+                    }
+
+                    public java.io.InputStream getInputStream() {
+                        return new java.io.ByteArrayInputStream(jar);
+                    }
+                });
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        try (var mgmt = new RuntimePluginManagementService(home, Optional::empty, List::of);
+                var market = new PluginMarketService(
+                        home,
+                        client,
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        pending,
+                        mgmt,
+                        Optional::empty,
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        ignored -> {})) {
+            for (int i = 0; i < 2; i++) {
+                final var result = market.installOrUpdate(plugin, release)
+                        .toCompletableFuture()
+                        .get(5, TimeUnit.SECONDS);
+                assertTrue(result.accepted(), result.toString());
+            }
+            assertEquals(1, pending.operations().size());
+            final var cancelled = new PluginCatalogClient.DownloadControl();
+            final var cancelledResult = market.installOrUpdate(plugin, release, cancelled, progress -> {
+                        if (progress.receivedBytes() > 0) cancelled.cancel();
+                    })
+                    .toCompletableFuture()
+                    .get(5, TimeUnit.SECONDS);
+            assertEquals("PLUGIN_DOWNLOAD_CANCELLED", cancelledResult.code());
+            assertFalse(cancelledResult.accepted());
+            assertEquals(1, pending.operations().size());
+            assertTrue(java.nio.file.Files.exists(
+                    Path.of(pending.operations().get(0).stagedJar())));
+            assertTrue(pending.apply().applied());
+            org.junit.jupiter.api.Assertions.assertArrayEquals(
+                    jar, java.nio.file.Files.readAllBytes(home.resolve("plugins/dev.market.jar")));
+        }
+    }
+
+    @Test
+    void resolvesAllRowsFromOneBackgroundReadAndRefreshesChangedLocalState() throws Exception {
+        final AtomicInteger reads = new AtomicInteger();
+        final AtomicReference<List<PluginInfo>> installed = new AtomicReference<>(List.of());
+        final CountDownLatch entered = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final AtomicReference<Boolean> readOnEdt = new AtomicReference<>();
+        try (var mgmt = new RuntimePluginManagementService(home, Optional::empty, () -> {
+                    reads.incrementAndGet();
+                    readOnEdt.set(SwingUtilities.isEventDispatchThread());
+                    entered.countDown();
+                    try {
+                        if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test read timed out");
+                    } catch (InterruptedException failure) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(failure);
+                    }
+                    return installed.get();
+                });
+                var market = new PluginMarketService(
+                        home,
+                        new PluginCatalogClient(),
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        new PendingPluginOperations(home),
+                        mgmt,
+                        () -> Optional.of("5.3.04"),
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        ignored -> {})) {
+            final var rows = java.util.stream.IntStream.range(0, 29)
+                    .mapToObj(i -> createPlugin("dev.plugin" + i, "1.0.0", "5.3.04", "[0.67.0,1.0.0)"))
+                    .toList();
+            final var catalog =
+                    new PluginCatalog(PluginCatalog.FORMAT, 2, 1, Instant.now(), "0".repeat(64), "test-key", rows);
+            final AtomicReference<java.util.concurrent.CompletableFuture<PluginMarketService.MarketSnapshot>> request =
+                    new AtomicReference<>();
+            try {
+                SwingUtilities.invokeAndWait(
+                        () -> request.set(market.snapshot(catalog).toCompletableFuture()));
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                final CountDownLatch heartbeat = new CountDownLatch(1);
+                SwingUtilities.invokeLater(heartbeat::countDown);
+                assertTrue(heartbeat.await(2, TimeUnit.SECONDS), "slow disk must not block EDT");
+                assertFalse(readOnEdt.get());
+            } finally {
+                release.countDown();
+            }
+            final var first = request.get().get(5, TimeUnit.SECONDS);
+            assertEquals(1, reads.get());
+            assertEquals(29, first.statuses().size());
+            assertEquals(
+                    StatusType.NOT_INSTALLED,
+                    first.statuses().get("dev.plugin0").type());
+            installed.set(List.of(new PluginInfo(
+                    "dev.plugin0",
+                    "Plugin",
+                    "1.0.0",
+                    "",
+                    "ENABLED",
+                    "ENABLED",
+                    false,
+                    Optional.empty(),
+                    "workflow",
+                    List.of())));
+            final var second = market.snapshot(catalog).toCompletableFuture().get(5, TimeUnit.SECONDS);
+            assertEquals(2, reads.get());
+            assertEquals(
+                    StatusType.INSTALLED, second.statuses().get("dev.plugin0").type());
+            assertEquals(
+                    StatusType.NOT_INSTALLED,
+                    first.statuses().get("dev.plugin0").type());
+        }
+    }
 
     @Test
     void resolvesStatusCorrectlyAcrossAllStates() {

@@ -1,6 +1,5 @@
 package dev.turboism.shell;
 
-import dev.turboism.core.version.PluginVersion;
 import dev.turboism.internal.core.CorePluginManagement.PluginInfo;
 import dev.turboism.pluginmanagement.PendingPluginOperations;
 import dev.turboism.pluginmanagement.PluginCatalog;
@@ -78,7 +77,7 @@ class PluginMarketScreenshotTest {
                     new PendingPluginOperations(home),
                     mgmt,
                     () -> Optional.of("5.3.04"),
-                    PluginVersion.parse("0.1.0"),
+                    dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                     ignored -> {});
 
             final CatalogPlugin mcpPlugin =
@@ -116,8 +115,13 @@ class PluginMarketScreenshotTest {
             final Object tableModel = getField(marketWindow, "tableModel");
             tableModel
                     .getClass()
-                    .getDeclaredMethod("setCatalog", PluginCatalog.class)
-                    .invoke(tableModel, catalog);
+                    .getDeclaredMethod("setSnapshot", PluginMarketService.MarketSnapshot.class)
+                    .invoke(
+                            tableModel,
+                            marketService
+                                    .snapshot(catalog)
+                                    .toCompletableFuture()
+                                    .get(5, java.util.concurrent.TimeUnit.SECONDS));
             invokeMethod(marketWindow, "applyFilters");
             invokeMethod(marketWindow, "updateDetailPane", mcpPlugin);
 
@@ -157,8 +161,11 @@ class PluginMarketScreenshotTest {
 
             final BufferedImage marketImage = new BufferedImage(1050, 680, BufferedImage.TYPE_INT_ARGB);
             final Graphics2D g2m = marketImage.createGraphics();
-            marketDialog.paint(g2m);
+            javax.swing.SwingUtilities.invokeAndWait(
+                    () -> marketDialog.getRootPane().printAll(g2m));
             g2m.dispose();
+            org.junit.jupiter.api.Assertions.assertNotEquals(
+                    0, marketImage.getRGB(30, 30) >>> 24, "The hidden dialog capture must contain rendered pixels");
             ImageIO.write(marketImage, "PNG", new File(buildDir, "plugin-market.png"));
             final File rootBuildDir = new File("../build");
             if (rootBuildDir.exists()) {
@@ -200,12 +207,19 @@ class PluginMarketScreenshotTest {
 
             final BufferedImage settingsImage = new BufferedImage(840, 560, BufferedImage.TYPE_INT_ARGB);
             final Graphics2D g2s = settingsImage.createGraphics();
-            settingsDialog.paint(g2s);
+            javax.swing.SwingUtilities.invokeAndWait(
+                    () -> settingsDialog.getRootPane().printAll(g2s));
             g2s.dispose();
             ImageIO.write(settingsImage, "PNG", new File(buildDir, "plugin-settings.png"));
             if (rootBuildDir.exists()) {
                 ImageIO.write(settingsImage, "PNG", new File(rootBuildDir, "plugin-settings.png"));
             }
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                marketDialog.dispose();
+                settingsDialog.dispose();
+            });
+            marketService.close();
+            mgmt.close();
 
         } catch (HeadlessException e) {
             // In pure headless environments without display, screenshot capture is safely skipped.

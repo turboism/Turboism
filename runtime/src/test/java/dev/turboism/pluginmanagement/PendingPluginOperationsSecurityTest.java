@@ -136,7 +136,11 @@ final class PendingPluginOperationsSecurityTest {
     void stagingSymlinkFailsClosedWithoutWritingOutsideHome() throws Exception {
         final Path outside = Files.createTempDirectory("plugin-outside-");
         Files.createDirectories(home.resolve("state/runtime"));
-        Files.createSymbolicLink(home.resolve("state/runtime/plugin-management"), outside);
+        try {
+            Files.createSymbolicLink(home.resolve("state/runtime/plugin-management"), outside);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException e) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links are not creatable on this platform");
+        }
         final Path packageFile = home.resolve("sample.jar");
         Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
 
@@ -208,7 +212,97 @@ final class PendingPluginOperationsSecurityTest {
         assertEquals("2.0.0", pending.operations().get(0).version());
     }
 
+    @Test
+    void repeatedStagingOfSamePackagePreservesArtifactAndAppliesSuccessfully() throws Exception {
+        final Path packageFile = home.resolve("repeat.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+
+        final var firstStage = pending.stage(packageFile);
+        assertTrue(firstStage.accepted());
+        final Path stagedJar = firstStage.prepared().stagedJar();
+        assertTrue(Files.exists(stagedJar));
+
+        final var secondStage = pending.stage(packageFile);
+        assertTrue(secondStage.accepted());
+        assertTrue(Files.exists(stagedJar), "Staged jar must not be deleted on re-staging the same package");
+        assertEquals(1, pending.operations().size());
+
+        final var applyResult = pending.apply();
+        assertTrue(applyResult.applied(), applyResult.code());
+        assertTrue(Files.exists(home.resolve("plugins/example.plugin.jar")));
+        assertTrue(pending.operations().isEmpty());
+    }
+
+    @Test
+    void directPreparedJarStagingRevalidatesAndIsIdempotent() throws Exception {
+        final Path packageFile = home.resolve("direct.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        final Path packagesDir = home.resolve("state/runtime/plugin-management/packages");
+        final var prepResult = new dev.turboism.distribution.LocalPluginJarPreparer().prepare(packageFile, packagesDir);
+        assertTrue(prepResult instanceof dev.turboism.distribution.LocalPluginJarPreparer.Prepared);
+        final var prepared = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) prepResult).value();
+
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        final var first = pending.stage(prepared);
+        assertTrue(first.accepted());
+        assertEquals("PLUGIN_INSTALL_PENDING", first.code());
+
+        // Repeated stage with same prepared instance
+        final var second = pending.stage(prepared);
+        assertTrue(second.accepted());
+        assertTrue(Files.exists(prepared.stagedJar()));
+
+        final var applyResult = pending.apply();
+        assertTrue(applyResult.applied());
+        assertTrue(Files.exists(home.resolve("plugins/example.plugin.jar")));
+    }
+
+    @Test
+    void directPreparedJarStagingRejectsTamperedArtifact() throws Exception {
+        final Path packageFile = home.resolve("tampered.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        final Path packagesDir = home.resolve("state/runtime/plugin-management/packages");
+        final var prepResult = new dev.turboism.distribution.LocalPluginJarPreparer().prepare(packageFile, packagesDir);
+        final var prepared = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) prepResult).value();
+
+        // Tamper with the staged file on disk
+        Files.writeString(prepared.stagedJar(), "corrupted-content");
+
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        final var stageResult = pending.stage(prepared);
+        assertFalse(stageResult.accepted());
+        assertEquals("PLUGIN_TAMPERED", stageResult.code());
+    }
+
     private static String hash(final Path path) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
+    }
+
+    @Test
+    void unreadableJournalRetainsPackageForRecovery() throws Exception {
+        final Path source = Files.write(
+                home.resolve("recover.jar"), PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        final var pending = new PendingPluginOperations(home);
+        final var staged = pending.stage(source);
+        assertTrue(staged.accepted());
+        Files.writeString(home.resolve("state/runtime/plugin-management/pending.json"), "corrupt");
+        assertFalse(pending.stage(staged.prepared()).accepted());
+        pending.discardIfUnreferenced(staged.prepared().stagedJar());
+        assertTrue(Files.exists(staged.prepared().stagedJar()));
+    }
+
+    @Test
+    void failedAttemptCleanupKeepsExistingJournalReferenceAndNeverDeletesOutsidePackages() throws Exception {
+        final Path source = Files.write(
+                home.resolve("keep.jar"), PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        final var pending = new PendingPluginOperations(home);
+        final var staged = pending.stage(source);
+        assertTrue(staged.accepted());
+        pending.discardIfUnreferenced(staged.prepared().stagedJar());
+        pending.discardIfUnreferenced(source);
+        assertTrue(Files.exists(source));
+        assertTrue(Files.exists(staged.prepared().stagedJar()));
+        assertTrue(pending.apply().applied());
     }
 }
