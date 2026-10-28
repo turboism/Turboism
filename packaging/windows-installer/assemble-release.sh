@@ -111,6 +111,9 @@ for module in modules:
         except KeyError:
             sys.exit(f"error: {jar}: missing META-INF/turboism/plugin.json")
         localized = {}
+        readmes = {}
+        readme_names = (("eng", "README.md"), ("chn", "README_zh.md"), ("jpn", "README_ja.md"), ("kor", "README_ko.md"))
+        readme_map = dict(readme_names)
         for locale, suffix in (("eng", "en"), ("chn", "zh_Hans"), ("jpn", "ja"), ("kor", "ko")):
             resource = f"META-INF/turboism/i18n/messages_{suffix}.properties"
             try:
@@ -128,18 +131,226 @@ for module in modules:
             if not name or not description:
                 sys.exit(f"error: {jar}: {resource} must define plugin.name and plugin.description")
             localized[locale] = {"name": name, "description": description}
+            readme_file = readme_map[locale]
+            readme_resource = f"META-INF/turboism/readme/{readme_file}"
+            readme_text = None
+            try:
+                readme_text = z.read(readme_resource).decode("utf-8")
+            except KeyError:
+                repo_readme = manifest.parent.parent / "plugins" / module / readme_file
+                if repo_readme.is_file():
+                    readme_text = repo_readme.read_text(encoding="utf-8")
+            if not readme_text:
+                readme_text = f"# {name}\n\n{description}\n"
+            readmes[locale] = readme_text
     pid = meta["id"]
     if pid == "turboism.core":
         sys.exit(f"error: {jar}: runtime-owned core ID must not be packaged")
+    raw_tags = meta.get("tags", [])
+    tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else []
     plugins.append({
         "module": module,
         "id": pid,
         "name": meta.get("name", pid),
         "version": meta.get("version", ""),
         "description": meta.get("description", ""),
+        "category": str(meta.get("category", "") or ""),
+        "tags": tags,
         "localized": localized,
+        "readmes": readmes,
     })
 plugins.sort(key=lambda p: p["id"])
+
+def rtf_escape(text: str) -> str:
+    out_chars = []
+    for ch in text:
+        code = ord(ch)
+        if ch in ("\\", "{", "}"):
+            out_chars.append("\\" + ch)
+        elif ch == "\t":
+            out_chars.append("\\tab ")
+        elif 32 <= code <= 126:
+            out_chars.append(ch)
+        elif code <= 0xFFFF:
+            signed = code if code < 32768 else code - 65536
+            out_chars.append(f"\\u{signed}?")
+        else:
+            code -= 0x10000
+            high = 0xD800 + (code >> 10)
+            low = 0xDC00 + (code & 0x3FF)
+            for unit in (high, low):
+                signed = unit if unit < 32768 else unit - 65536
+                out_chars.append(f"\\u{signed}?")
+    return "".join(out_chars)
+
+_LINK_RE = re.compile(r"\[([^\]\r\n]+)\]\(([^)\r\n]+)\)")
+_INLINE_RE = re.compile(r"(`[^`\r\n]+`|\*\*[^*\r\n]+\*\*|(?<!\*)\*[^*\r\n]+\*(?!\*))")
+
+def render_rtf_inline(text: str) -> str:
+    text = _LINK_RE.sub(lambda m: m.group(1), text)
+    parts = []
+    last = 0
+    for match in _INLINE_RE.finditer(text):
+        if match.start() > last:
+            parts.append(rtf_escape(text[last:match.start()]))
+        token = match.group(0)
+        if token.startswith("`"):
+            parts.append("{\\f1\\cf3 " + rtf_escape(token[1:-1]) + "}")
+        elif token.startswith("**"):
+            parts.append("{\\b " + rtf_escape(token[2:-2]) + "}")
+        else:
+            parts.append("{\\i " + rtf_escape(token[1:-1]) + "}")
+        last = match.end()
+    if last < len(text):
+        parts.append(rtf_escape(text[last:]))
+    return "".join(parts)
+
+def strip_readme_front_matter(markdown: str) -> str:
+    normalized = markdown.replace("\r\n", "\n").replace("\r", "\n")
+    if normalized.startswith("---\n"):
+        end = normalized.find("\n---\n", 4)
+        if end >= 0:
+            normalized = normalized[end + 5:]
+    normalized = re.sub(r"<!--[\s\S]*?-->", "", normalized)
+    return normalized.strip()
+
+_META_LABELS = {
+    "eng": ("Plugin ID", "Version", "Category", "Tags", "Summary"),
+    "chn": ("插件 ID", "版本", "分类", "标签", "简介"),
+    "jpn": ("プラグイン ID", "バージョン", "カテゴリ", "タグ", "概要"),
+    "kor": ("플러그인 ID", "버전", "카테고리", "태그", "요약"),
+}
+_LOCALE_FONTS = {
+    "eng": "Segoe UI",
+    "chn": "Microsoft YaHei UI",
+    "jpn": "Yu Gothic UI",
+    "kor": "Malgun Gothic",
+}
+
+def render_plugin_readme_rtf(plugin: dict, locale: str) -> bytes:
+    loc = plugin["localized"][locale]
+    title = loc["name"]
+    version = plugin["version"]
+    pid = plugin["id"]
+    category = plugin["category"]
+    tags = plugin["tags"]
+    description = loc["description"] or plugin["description"]
+    body = strip_readme_front_matter(plugin["readmes"][locale])
+    font = _LOCALE_FONTS.get(locale, "Segoe UI")
+    lbl_id, lbl_ver, lbl_cat, lbl_tags, lbl_sum = _META_LABELS[locale]
+    rtf = [
+        "{\\rtf1\\ansi\\deff0\\uc1"
+        "{\\fonttbl{\\f0\\fnil\\fcharset0 " + font + ";}{\\f1\\fmodern\\fcharset0 Consolas;}}"
+        "{\\colortbl;\\red32\\green33\\blue36;\\red95\\green99\\blue104;\\red175\\green35\\blue35;\\red21\\green93\\blue252;}"
+        "\\viewkind4\\pard\\cf1\\f0\\fs20 "
+    ]
+    header_title = f"{title}  v{version}" if version else title
+    rtf.append("\\pard\\sa60\\fs26\\b " + rtf_escape(header_title) + "\\b0\\fs20\\par ")
+    meta_parts = [rtf_escape(lbl_id) + ": {\\f1 " + rtf_escape(pid) + "}"]
+    if version:
+        meta_parts.append(rtf_escape(lbl_ver) + ": " + rtf_escape(version))
+    if category:
+        meta_parts.append(rtf_escape(lbl_cat) + ": " + rtf_escape(category))
+    rtf.append("\\pard\\sa40\\cf2\\fs18 " + "   |   ".join(meta_parts) + "\\cf1\\fs20\\par ")
+    if tags:
+        rtf.append("\\pard\\sa60\\cf2\\fs18 " + rtf_escape(f"{lbl_tags}: " + ", ".join(tags)) + "\\cf1\\fs20\\par ")
+    if description:
+        rtf.append("\\pard\\sa100\\fs20{\\b " + rtf_escape(lbl_sum + ": ") + "}" + rtf_escape(description) + "\\par ")
+
+    in_code = False
+    code_lines = []
+    para_lines = []
+    table_lines = []
+
+    def flush_para():
+        if para_lines:
+            rtf.append("\\pard\\sa80\\fs20 " + render_rtf_inline(" ".join(para_lines)) + "\\par ")
+            para_lines.clear()
+
+    def flush_table():
+        if not table_lines:
+            return
+        rows = []
+        for tl in table_lines:
+            cells = [c.strip() for c in tl.strip()[1:-1].split("|")]
+            if cells and all(re.fullmatch(r":?-{3,}:?", c) for c in cells):
+                continue
+            rows.append(cells)
+        for idx, cells in enumerate(rows):
+            joined = "  |  ".join(render_rtf_inline(c) for c in cells)
+            if idx == 0:
+                rtf.append("\\pard\\li120\\sa40\\fs19\\b " + joined + "\\b0\\fs20\\par ")
+            else:
+                rtf.append("\\pard\\li120\\sa40\\fs19 " + joined + "\\fs20\\par ")
+        table_lines.clear()
+
+    first_h1_skipped = False
+    for raw in body.split("\n"):
+        if raw.strip().startswith("```"):
+            flush_para()
+            flush_table()
+            if in_code:
+                for cl in code_lines:
+                    rtf.append("\\pard\\li180\\sa20\\f1\\fs18\\cf3 " + rtf_escape(cl) + "\\cf1\\f0\\fs20\\par ")
+                code_lines.clear()
+                in_code = False
+            else:
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(raw)
+            continue
+        stripped = raw.strip()
+        if not stripped:
+            flush_para()
+            flush_table()
+            continue
+        if stripped.startswith("|") and stripped.endswith("|"):
+            flush_para()
+            table_lines.append(stripped)
+            continue
+        flush_table()
+        if stripped.startswith("# ") and not first_h1_skipped:
+            first_h1_skipped = True
+            continue
+        if stripped.startswith("### "):
+            flush_para()
+            rtf.append("\\pard\\sb100\\sa40\\fs21\\b " + render_rtf_inline(stripped[4:]) + "\\b0\\fs20\\par ")
+            continue
+        if stripped.startswith("## "):
+            flush_para()
+            rtf.append("\\pard\\sb140\\sa50\\fs23\\b " + render_rtf_inline(stripped[3:]) + "\\b0\\fs20\\par ")
+            continue
+        if stripped.startswith("# "):
+            flush_para()
+            rtf.append("\\pard\\sb160\\sa60\\fs25\\b " + render_rtf_inline(stripped[2:]) + "\\b0\\fs20\\par ")
+            continue
+        if stripped.startswith(("- ", "* ", "+ ")):
+            flush_para()
+            rtf.append("\\pard\\li200\\sa40\\fs20 \\u8226? " + render_rtf_inline(stripped[2:]) + "\\par ")
+            continue
+        m_num = re.match(r"^(\d+[.)])\s+(.+)$", stripped)
+        if m_num:
+            flush_para()
+            rtf.append("\\pard\\li200\\sa40\\fs20 " + rtf_escape(m_num.group(1)) + " " + render_rtf_inline(m_num.group(2)) + "\\par ")
+            continue
+        if stripped.startswith("> "):
+            flush_para()
+            rtf.append("\\pard\\li200\\sa60\\cf2\\i " + render_rtf_inline(stripped[2:]) + "\\i0\\cf1\\par ")
+            continue
+        para_lines.append(stripped)
+    flush_para()
+    flush_table()
+    rtf.append("}")
+    return "".join(rtf).encode("ascii")
+
+readme_out_dir = generated / "plugin-readmes"
+readme_out_dir.mkdir(parents=True, exist_ok=True)
+for index, p in enumerate(plugins):
+    for locale in ("eng", "chn", "jpn", "kor"):
+        (readme_out_dir / f"plugin-{index:04d}-{locale}.rtf").write_bytes(
+            render_plugin_readme_rtf(p, locale)
+        )
 
 # Standard EXE and ZIP carry the complete, verified offline GraalJS closure.
 engine_manifest = json.loads((stage / "script-engine.json").read_text(encoding="utf-8"))
@@ -267,8 +478,10 @@ append_extractor(
 )
 
 # 隐藏载荷 Section：标准安装器携带全部插件 JAR。
-# 先用内嵌 SHA-256 清单生成计划，再只解压需要替换的条目；写入前仍校验源和目标。
+# 先按用户在插件选择页的勾选写入 .skip 标记，再用内嵌 SHA-256 清单生成计划，
+# 仅解压并安装用户勾选且需要替换的条目；写入前仍校验源和目标。
 lines.append('Section "-插件载荷" SecPluginPayload')
+lines.append("  Call WritePluginSelectionSkipMarkers")
 lines.append("  nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\" -PlanOnly'")
 lines.append("  Pop $0")
 lines.append("  ${If} $0 != 0")
@@ -281,7 +494,7 @@ for index, (relative, path) in enumerate(plugin_payload):
     lines.append(f'    SetOutPath "$PLUGINSDIR\\Turboism-plugin-payload\\{parent}"')
     lines.append(f'    File "/oname={path.name}" "${{STAGING_DIR}}/{path.relative_to(stage).as_posix()}"')
     lines.append("  ${EndIf}")
-lines.append("  nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-payload\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\"'")
+lines.append("  nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-payload\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\"'")
 lines.append("  Pop $0")
 lines.append("  ${If} $0 != 0")
 lines.append('    MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
@@ -297,6 +510,10 @@ lines.append("")
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
+for index in range(len(plugins)):
+    lines.append(f"Var PluginState_{index}")
+lines.append("")
+
 # 插件四语言显示名/描述（均来自插件自身 i18n 资源）
 for p in plugins:
     key = sanitize(p["id"])
@@ -305,6 +522,112 @@ for p in plugins:
         description = p["localized"][locale]["description"]
         lines.append(f'LangString PLUGIN_NAME_{key} ${{{nsis_lang}}} "{nsis_escape(title)}"')
         lines.append(f'LangString PLUGIN_DESC_{key} ${{{nsis_lang}}} "{nsis_escape(description)}"')
+lines.append("")
+
+lines.append("; 初始化第一方插件选择状态（默认全选）")
+lines.append("Function InitPluginSelectionDefaults")
+lines.append(f'  StrCpy $PluginTotalCount "{len(plugins)}"')
+lines.append(f'  StrCpy $PluginSelectedCount "{len(plugins)}"')
+lines.append('  StrCpy $PluginCurrentIndex "0"')
+lines.append('  StrCpy $PluginReadmeDir ""')
+for index in range(len(plugins)):
+    lines.append(f"  StrCpy $PluginState_{index} 1")
+lines.append("FunctionEnd")
+lines.append("")
+
+lines.append("; 按当前界面语言解压插件渲染后的 RTF README 到安装器私有临时目录")
+lines.append("Function StagePluginReadmeFiles")
+lines.append('  ${If} $PluginReadmeDir != ""')
+lines.append('    ${If} ${FileExists} "$PluginReadmeDir\\plugin-0.rtf"')
+lines.append("      Return")
+lines.append("    ${EndIf}")
+lines.append("  ${EndIf}")
+lines.append("  InitPluginsDir")
+lines.append('  StrCpy $PluginReadmeDir "$PLUGINSDIR\\Turboism-plugin-readmes"')
+lines.append('  SetOutPath "$PluginReadmeDir"')
+lines.append("  ${If} $LANGUAGE == ${LANG_SIMPCHINESE}")
+for index in range(len(plugins)):
+    lines.append(f'    File "/oname=plugin-{index}.rtf" "${{GENERATED_DIR}}/plugin-readmes/plugin-{index:04d}-chn.rtf"')
+lines.append("  ${ElseIf} $LANGUAGE == ${LANG_JAPANESE}")
+for index in range(len(plugins)):
+    lines.append(f'    File "/oname=plugin-{index}.rtf" "${{GENERATED_DIR}}/plugin-readmes/plugin-{index:04d}-jpn.rtf"')
+lines.append("  ${ElseIf} $LANGUAGE == ${LANG_KOREAN}")
+for index in range(len(plugins)):
+    lines.append(f'    File "/oname=plugin-{index}.rtf" "${{GENERATED_DIR}}/plugin-readmes/plugin-{index:04d}-kor.rtf"')
+lines.append("  ${Else}")
+for index in range(len(plugins)):
+    lines.append(f'    File "/oname=plugin-{index}.rtf" "${{GENERATED_DIR}}/plugin-readmes/plugin-{index:04d}-eng.rtf"')
+lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
+lines.append("")
+
+lines.append("; 填充第一方插件复选框列表（SysListView32 + LVS_EX_CHECKBOXES）")
+lines.append("Function PopulatePluginSelectionList")
+lines.append("  ; LVM_DELETEALLITEMS = 0x1009")
+lines.append("  SendMessage $PluginSelectionList 0x1009 0 0")
+for index, p in enumerate(plugins):
+    key = sanitize(p["id"])
+    lines.append(f"  StrCpy $0 {index}")
+    lines.append(f"  StrCpy $1 $PluginState_{index}")
+    lines.append(f'  StrCpy $2 "$(PLUGIN_NAME_{key})"')
+    lines.append("  Call InsertPluginListViewItem")
+lines.append("  System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, i 3, p 0, i 0, i 0, p 0) p .r3'")
+lines.append("  ${If} $3 != 0")
+lines.append("    SendMessage $PluginSelectionList 0x102B $PluginCurrentIndex $3")
+lines.append("    System::Free $3")
+lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
+lines.append("")
+
+lines.append("; 从 SysListView32 同步原生复选框勾选状态（$4=总勾选数, $5=刚被点击复选框的索引或 -1）")
+lines.append("Function SyncPluginSelectionFromListView")
+lines.append("  StrCpy $4 0")
+lines.append("  StrCpy $5 -1")
+for index in range(len(plugins)):
+    lines.append(f"  SendMessage $PluginSelectionList 0x102C {index} 0xF000 $1")
+    lines.append("  ${If} $1 == 0x2000")
+    lines.append("    StrCpy $1 1")
+    lines.append("  ${Else}")
+    lines.append("    StrCpy $1 0")
+    lines.append("  ${EndIf}")
+    lines.append(f"  ${{If}} $1 != $PluginState_{index}")
+    lines.append(f"    StrCpy $PluginState_{index} $1")
+    lines.append(f"    StrCpy $5 {index}")
+    lines.append("  ${EndIf}")
+    lines.append("  IntOp $4 $4 + $1")
+lines.append("FunctionEnd")
+lines.append("")
+
+lines.append("; 全选 ($0=1) 或全不选 ($0=0) 全部第一方插件")
+lines.append("Function SetAllPluginsSelected")
+for index in range(len(plugins)):
+    lines.append(f"  StrCpy $PluginState_{index} $0")
+lines.append("  ${If} $0 == 1")
+lines.append(f'    StrCpy $PluginSelectedCount "{len(plugins)}"')
+lines.append("    StrCpy $4 0x2000")
+lines.append("  ${Else}")
+lines.append('    StrCpy $PluginSelectedCount "0"')
+lines.append("    StrCpy $4 0x1000")
+lines.append("  ${EndIf}")
+lines.append("  System::Call '*(i 8, i 0, i 0, i r4, i 0xF000, p 0, i 0, i 0, p 0) p .r3'")
+lines.append("  ${If} $3 != 0")
+lines.append("    SendMessage $PluginSelectionList 0x102B -1 $3")
+lines.append("    System::Free $3")
+lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
+lines.append("")
+
+lines.append("; 为未勾选的第一方插件写入跳过标记，并移除此前已安装的对应捆绑 JAR")
+lines.append("Function WritePluginSelectionSkipMarkers")
+lines.append('  CreateDirectory "$PLUGINSDIR\\Turboism-plugin-plan"')
+for index, p in enumerate(plugins):
+    lines.append(f'  Delete "$PLUGINSDIR\\Turboism-plugin-plan\\{index:04d}.skip"')
+    lines.append(f"  ${{If}} $PluginState_{index} == 0")
+    lines.append(f'    FileOpen $0 "$PLUGINSDIR\\Turboism-plugin-plan\\{index:04d}.skip" w')
+    lines.append("    FileClose $0")
+    lines.append(f'    Delete "$INSTDIR\\plugins\\{p["module"]}.jar"')
+    lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
 lines.append("")
 
 lines.append("; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。")
