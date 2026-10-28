@@ -51,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -179,8 +180,8 @@ class ParameterSyncPluginTest {
     }
 
     @Test
-    void toggleGlobalActionChangesGlobalState() {
-        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+    void toggleGlobalActionChangesGlobalState() throws Exception {
+        final SyncRuleSet ruleSet = plugin.ensureLoaded("model-guid-1").get(5, TimeUnit.SECONDS);
         assertTrue(ruleSet.isGlobalEnabled());
 
         final ActionRegistry.Action toggleAction =
