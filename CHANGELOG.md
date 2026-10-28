@@ -8,6 +8,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-10-28
+
+### Added
+
+- Added a first-party plugin selection page to the Windows installer, featuring RichEdit20W-rendered localized README previews (English, Simplified Chinese, Japanese, Korean), select-all/deselect-all controls, per-plugin install skip markers, and payload filtering.
+- Enrolled `parameter-sync` (real-time normalized parameter value synchronization) and `deformer-batch-rename` (batch deformer renaming with native Cubism Warp and Rotation icon previews) into the official release manifests and bundled installer payloads.
+- Added comprehensive Korean documentation (`README_ko.md`) across all official first-party plugins with runtime metadata and packaging support.
+- Added installed and marketplace counters, left-aligned header details, and quick filter toggles (All, Installed, Not Installed) to the Plugin Market window.
+- Added a compact undecorated startup loading window during early bootstrap to provide visual feedback before the editor interface opens.
+- Parameter batch transfer supports inverting self-targeted parameter keyform bindings in place without requiring an external temporary parameter.
+- Added dark-theme variants and palette matching for the selection brush and mesh edit mirror buttons across native dark toolbars.
+
+### Changed
+
+- Decoupled Plugin Market publication (`packaging/market-plugins.txt`) from installer bundling (`packaging/release-plugins.txt`), enabling official plugins such as `parameter-lock` to publish independently through the Plugin Directory without installer bloat.
+- Moved Plugin Market catalog download, archive verification, and staging disk operations completely off the Swing Event Dispatch Thread (EDT) onto bounded background workers.
+- Bounded asynchronous file logging writes and added session log rotation to protect high-frequency logging from memory bloat.
+
+### Fixed
+
+- Fixed native incremental callbacks replaying across threads, extended optimization compatibility, and reliably invalidated rebuilt geometries and mirrored selection drag ownership in Cubism.
+- Restored canvas viewport capture and hover previews for recently opened files in the Recent Preview plugin.
+- Handled UAC cancellation cleanly, bounded elevation wait timers, self-healed stale BAT launcher records, and stripped obsolete GraalVM launcher paths during reinstallation.
+- Repaired 3D model import upgrade paths and compacted the import confirmation dialog.
+- Hardened parameter-sync cache lifecycle and write suppression, removed the test preview slider, and fixed deformer-batch-rename Korean punctuation and stale preview detection.
+
 ## [0.67.4] - 2026-10-24
 
 ### Added
