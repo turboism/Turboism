@@ -351,4 +351,67 @@ public class InputPathElisionBridgeTest {
         assertEquals(0L, snapshot.get("cursorElided"));
         assertEquals(0L, snapshot.get("observerFailures"), "a null component is a pass, not an observer failure");
     }
+
+    @Test
+    void windowReactivationForcesFirstCursorRefreshThenElidesRepeats() throws Exception {
+        setUp();
+        arm(true);
+        final FakeFocusManager manager = new FakeFocusManager();
+        priorFocusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        KeyboardFocusManager.setCurrentKeyboardFocusManager(manager);
+
+        final Window window = bareWindow();
+        final Window other = bareWindow();
+        component.parentWindow = window;
+        component.showing = true;
+        component.cursorSet = true;
+        final Cursor shared = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
+        component.cursor = shared;
+
+        final Class<?> cursorType = loader.loadClass(CCURSOR.replace('/', '.'));
+        final Object packCursor = pack(cursorType, shared);
+
+        manager.activeWindow = window;
+
+        // 1) 窗口激活后首次调用相同 Cursor 返回 false（放行刷新原生光标）
+        assertFalse(
+                cursorSlot().test(widget, packCursor),
+                "first identical cursor call after window activation must pass to refresh native cursor");
+
+        // 2) 同一激活窗口下第二次及后续调用相同 Cursor 返回 true（成功省略）
+        assertTrue(
+                cursorSlot().test(widget, packCursor),
+                "second identical cursor call under same active window must elide");
+        assertTrue(
+                cursorSlot().test(widget, packCursor),
+                "subsequent identical cursor call under same active window must elide");
+
+        // 3) 当 manager.activeWindow 切到其他窗口或 null 再切回 window 后，首次相同 Cursor 再次返回 false 放行，第二次恢复返回 true
+        manager.activeWindow = other;
+        assertFalse(cursorSlot().test(widget, packCursor), "cursor call while inactive must pass");
+
+        manager.activeWindow = window;
+        assertFalse(cursorSlot().test(widget, packCursor), "first call after reactivation must pass");
+        assertTrue(cursorSlot().test(widget, packCursor), "second call after reactivation must elide");
+
+        manager.activeWindow = null;
+        assertFalse(cursorSlot().test(widget, packCursor), "cursor call while active window is null must pass");
+
+        manager.activeWindow = window;
+        assertFalse(cursorSlot().test(widget, packCursor), "first call after reactivation from null must pass");
+        assertTrue(cursorSlot().test(widget, packCursor), "second call after reactivation from null must elide");
+
+        // 4) 跨组件切换：同一激活窗口下切换到新组件，首次放行，后续省略
+        final FakeComponent otherComponent = new FakeComponent();
+        otherComponent.parentWindow = window;
+        otherComponent.showing = true;
+        otherComponent.cursorSet = true;
+        otherComponent.cursor = shared;
+        final Class<?> widgetType = loader.loadClass(WIDGET.replace('/', '.'));
+        final Object widget2 = widgetType.getDeclaredConstructor().newInstance();
+        widgetType.getField("component").set(widget2, otherComponent);
+
+        assertFalse(cursorSlot().test(widget2, packCursor), "first cursor call on newly switched component must pass");
+        assertTrue(cursorSlot().test(widget2, packCursor), "second cursor call on newly switched component must elide");
+    }
 }

@@ -1041,4 +1041,209 @@ class IncrementalUpdateBridgeTest {
         bridge.close();
         assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
     }
+
+    @Test
+    void viewContextSwitchForcesFullUpdateOnFirstFrameThenResumesIncremental() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        Object ctx2 = make(loader, N + "view/context/CEViewContext");
+        set(ctx2, "doc", world.doc);
+        set(ctx2, "editMode", world.editMode);
+
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            // Establish baseline on ctx1
+            begin().accept(new Object[] {world.model, world.ctx});
+            end().accept(new Object[] {world.model, world.ctx});
+
+            // Frame 2 on ctx1: unchanged, ArtMesh deformation is skipped
+            begin().accept(new Object[] {world.model, world.ctx});
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object out1 = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.deformedOut, out1, "unchanged frame under ctx1 reuses deformedOut");
+            end().accept(new Object[] {world.model, world.ctx});
+
+            // Switch to ctx2 (first frame on ctx2)
+            begin().accept(new Object[] {world.model, ctx2});
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object out2 = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.meshForm, out2, "first frame after viewContext switch must not skip deformation");
+            set(world.parent, "dirty", false);
+            set(world.child, "dirty", false);
+            end().accept(new Object[] {world.model, ctx2});
+
+            // Second frame on ctx2: unchanged, deformation is skipped
+            begin().accept(new Object[] {world.model, ctx2});
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object out3 = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.deformedOut, out3, "subsequent frame under ctx2 resumes incremental reuse");
+            end().accept(new Object[] {world.model, ctx2});
+
+            // Switch back to ctx1 (first frame back on ctx1)
+            begin().accept(new Object[] {world.model, world.ctx});
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object out4 = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.meshForm, out4, "first frame switching back to ctx1 must not skip deformation");
+            set(world.parent, "dirty", false);
+            set(world.child, "dirty", false);
+            end().accept(new Object[] {world.model, world.ctx});
+
+            // Second frame back on ctx1: deformation is skipped again
+            begin().accept(new Object[] {world.model, world.ctx});
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object out5 = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.deformedOut, out5, "subsequent frame under ctx1 resumes incremental reuse");
+            end().accept(new Object[] {world.model, world.ctx});
+        }
+    }
+
+    @Test
+    void crossThreadBeginUpdateForcesFullUpdateAndResetsBaseline() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            // Main thread establishes baseline and verifies incremental skip
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object outMain = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.deformedOut, outMain, "main thread reuses deformedOut on unchanged frame");
+            end().accept(world.epoch());
+
+            // Non-observed thread calling deformArtMesh directly safely bypasses and returns null
+            java.util.concurrent.atomic.AtomicReference<Object> foreignDeformOut =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            Thread foreign = new Thread(() -> {
+                foreignDeformOut.set(
+                        deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            });
+            foreign.start();
+            foreign.join();
+            assertNull(
+                    foreignDeformOut.get(),
+                    "calling deformArtMesh from non-observed thread safely bypasses and returns null");
+
+            // Background thread calls beginUpdate: switches observed thread, forces full update
+            java.util.concurrent.atomic.AtomicReference<Object> bgDeformOut =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            Thread bg = new Thread(() -> {
+                begin().accept(world.epoch());
+                mark().accept(world.parent, world.model);
+                mark().accept(world.child, world.model);
+                bgDeformOut.set(
+                        deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+                set(world.parent, "dirty", false);
+                set(world.child, "dirty", false);
+                end().accept(world.epoch());
+            });
+            bg.start();
+            bg.join();
+
+            assertSame(world.meshForm, bgDeformOut.get(), "cross-thread beginUpdate forces full update (deforms)");
+
+            // Main thread calls again: baseline was reset by thread switch, so it must force full update
+            begin().accept(world.epoch());
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object outMainAfter =
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.meshForm, outMainAfter, "main thread first frame after thread switch forces full update");
+            set(world.parent, "dirty", false);
+            set(world.child, "dirty", false);
+            end().accept(world.epoch());
+
+            // Subsequent frame on main thread resumes incremental reuse
+            begin().accept(world.epoch());
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            Object outMainResumed =
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertSame(world.deformedOut, outMainResumed, "main thread resumes incremental reuse after fresh baseline");
+            end().accept(world.epoch());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void sourceReinitWithoutTimestampOrInterpolationRefreshesChildAndResumesReuse() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertSame(
+                    world.deformedOut,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            end().accept(world.epoch());
+
+            // Undo restores source geometry in place, without a document timestamp change
+            // or an interpolate__testImpl callback. The source rebuild must invalidate reuse.
+            Object callback = System.getProperties().get(IncrementalUpdateBridge.REINIT_PROPERTY);
+            assertTrue(callback instanceof Consumer<?>, "source rebuild callback must be installed");
+            ((Consumer<Object>) callback).accept(world.parent);
+            begin().accept(world.epoch());
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            assertSame(
+                    world.meshForm,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}),
+                    "child ArtMesh must execute its native transform after Undo");
+            set(world.parent, "dirty", false);
+            set(world.child, "dirty", false);
+            end().accept(world.epoch());
+
+            begin().accept(world.epoch());
+            assertSame(
+                    world.deformedOut,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}),
+                    "stable frame resumes reuse after rebuilt geometry was evaluated");
+            end().accept(world.epoch());
+        }
+        assertNull(System.getProperties().get(IncrementalUpdateBridge.REINIT_PROPERTY));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void sourceReinitDuringNarrowedFrameDiscardsPendingBaselineAndRestoresNativeInterpolation() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+            Consumer<Object> reinit = (Consumer<Object>) props().get(IncrementalUpdateBridge.REINIT_PROPERTY);
+            // Rebuild notifications must invalidate even when delivered off the observed update thread.
+            Thread undo = new Thread(() -> reinit.accept(world.parent));
+            undo.start();
+            undo.join();
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            assertSame(
+                    world.meshForm,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertFalse(
+                    (boolean) field(loader.of(N + "view/ay"), "e"),
+                    "the interrupted frame must not publish a reusable baseline");
+            assertSame(
+                    world.meshForm,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
+        }
+    }
 }

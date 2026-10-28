@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -28,9 +27,11 @@ final class DeferredGlErrorCheckTargetTest {
                 .map(DeferredGlErrorCheckTarget::version)
                 .collect(Collectors.toSet());
         assertEquals(
-                Set.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
+                ReviewedHostArtifacts.all().stream()
+                        .flatMap(a -> ReviewedHostArtifacts.cubismVersionOf(a).stream())
+                        .collect(Collectors.toSet()),
                 admitted,
-                "runner resolves mesaGlThread on exactly the uniform-seam-reviewed "
+                "runner resolves mesaGlThread on all uniform-seam-reviewed "
                         + "generations; an uncovered member refuses validation at ready time");
         for (HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
             String version = ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow();
@@ -57,39 +58,24 @@ final class DeferredGlErrorCheckTargetTest {
 
     @Test
     void ownersFollowTheReviewedNamingSplit() {
-        for (HostArtifactDigest artifact : List.of(
-                ReviewedHostArtifacts.CUBISM_5_2_00,
-                ReviewedHostArtifacts.CUBISM_5_2_01,
-                ReviewedHostArtifacts.CUBISM_5_2_02,
-                ReviewedHostArtifacts.CUBISM_5_2_03)) {
-            assertEquals(
-                    DeferredGlErrorCheckTarget.ERROR_OWNER_5203,
-                    DeferredGlErrorCheckTarget.of(artifact).orElseThrow().errorOwner());
-        }
         for (HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
             String version = ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow();
-            if (!version.startsWith("5.3.")) {
-                continue;
-            }
             DeferredGlErrorCheckTarget target =
                     DeferredGlErrorCheckTarget.of(artifact).orElseThrow();
-            assertEquals(DeferredGlErrorCheckTarget.ERROR_OWNER, target.errorOwner(), version);
             assertEquals(DeferredGlErrorCheckTarget.FRAME_OWNER, target.frameOwner(), version);
+            if (version.startsWith("5.0.") || version.startsWith("5.1.")) {
+                assertEquals(DeferredGlErrorCheckTarget.ERROR_OWNER_5051, target.errorOwner(), version);
+            } else if (version.startsWith("5.2.")) {
+                assertEquals(DeferredGlErrorCheckTarget.ERROR_OWNER_5203, target.errorOwner(), version);
+            } else {
+                assertEquals(DeferredGlErrorCheckTarget.ERROR_OWNER, target.errorOwner(), version);
+            }
         }
     }
 
     @Test
-    void unreviewedAndSeamlessGenerationsAreRejected() {
+    void unreviewedGenerationsAreRejected() {
         HostArtifactDigest alien = new HostArtifactDigest(1L, "9".repeat(64));
         assertTrue(DeferredGlErrorCheckTarget.of(alien).isEmpty());
-        // Reviewed artifacts without a reviewed lifecycle seam stay refused:
-        // the deferred checkpoint composes with that seam's rewrites.
-        for (HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
-            String version = ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow();
-            if (version.startsWith("5.3.") || version.startsWith("5.2.")) {
-                continue;
-            }
-            assertTrue(DeferredGlErrorCheckTarget.of(artifact).isEmpty(), version);
-        }
     }
 }

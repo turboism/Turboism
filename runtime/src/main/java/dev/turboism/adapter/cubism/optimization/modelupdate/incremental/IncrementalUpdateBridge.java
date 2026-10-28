@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -61,6 +62,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     public static final String DEFORM_PROPERTY = "turboism.incremental-update.deform";
     /** Slot for the {@code Consumer<Object>} interpolate-entry recorder (form instance). */
     public static final String FORM_PROPERTY = "turboism.incremental-update.form";
+    /** Source rebuild callback, independent of document timestamps and interpolation. */
+    public static final String REINIT_PROPERTY = "turboism.incremental-update.reinit";
     /** Payload-free statistics slot. */
     public static final String STATS_PROPERTY = "turboism.incremental-update.stats";
     /** Probe mode: alternating forced-full updates whose drawable digests must match. */
@@ -147,10 +150,14 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private final BiConsumer<Object, Object> markCallback = this::markDirty;
     private final Function<Object[], Object> deformCallback = this::deformArtMesh;
     private final Consumer<Object> formCallback = this::formInterpolated;
+    private final Consumer<Object> reinitCallback = this::sourceReinitialized;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
     private final Set<Object> changedForms = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> markedDeformers = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+    private Thread observedThread;
+    private WeakReference<Object> lastViewContext = new WeakReference<>(null);
+    private WeakReference<Object> lastModel = new WeakReference<>(null);
     private volatile boolean epochFull = true, epochUnsafe = true, priorSkipInterpolation;
     private UpdateBaseline completedUpdate, pendingUpdate;
 
@@ -288,6 +295,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                     || properties.containsKey(MARK_PROPERTY)
                     || properties.containsKey(DEFORM_PROPERTY)
                     || properties.containsKey(FORM_PROPERTY)
+                    || properties.containsKey(REINIT_PROPERTY)
                     || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException("incremental update slots occupied");
             }
@@ -297,6 +305,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 properties.put(MARK_PROPERTY, markCallback);
                 properties.put(DEFORM_PROPERTY, deformCallback);
                 properties.put(FORM_PROPERTY, formCallback);
+                properties.put(REINIT_PROPERTY, reinitCallback);
                 properties.put(STATS_PROPERTY, statistics);
                 installedProperties = properties;
                 active.set(true);
@@ -306,6 +315,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 properties.remove(MARK_PROPERTY, markCallback);
                 properties.remove(DEFORM_PROPERTY, deformCallback);
                 properties.remove(FORM_PROPERTY, formCallback);
+                properties.remove(REINIT_PROPERTY, reinitCallback);
                 properties.remove(STATS_PROPERTY, statistics);
                 throw failure;
             }
@@ -339,21 +349,75 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         return active.get() && flagEnabled();
     }
 
+    /** Invalidates all baseline and pending epoch state so subsequent epochs re-evaluate natively. */
+    public synchronized void invalidate() {
+        completedUpdate = null;
+        pendingUpdate = null;
+        lastModel = new WeakReference<>(null);
+        lastViewContext = new WeakReference<>(null);
+        epochFull = true;
+        epochUnsafe = true;
+        changedForms.clear();
+        markedDeformers.clear();
+        visited.clear();
+        childMap = null;
+        childMapModel = null;
+    }
+
+    /** Undo/Redo may rebuild forms in place without a timestamp or interpolation callback. */
+    private synchronized void sourceReinitialized(final Object instance) {
+        if (!active.get()) return;
+        invalidate();
+        previousDigest = null;
+        previousInputs = null;
+        currentInputs = null;
+        previousNarrowed = false;
+        try {
+            // Also protect a rebuild inside an update already in progress.
+            setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.FALSE);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            failures.increment();
+        }
+    }
+
     /**
      * Update-core entry: starts a fresh epoch, decides whether probe or active interactive
      * authoring forces a full update, applies the host skip flag and recomputes the per-model
      * unsafe-input check.
      */
-    private void beginUpdate(final Object args) {
+    private synchronized void beginUpdate(final Object args) {
         try {
             epochFull = true;
             epochUnsafe = true;
-            final UpdateBaseline previous = completedUpdate;
+            UpdateBaseline previous = completedUpdate;
             completedUpdate = null;
             pendingUpdate = null;
             setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.FALSE);
             if (!(args instanceof Object[] pair) || pair.length < 2 || pair[0] == null) return;
             final Object model = pair[0], ctx = pair[1];
+
+            final Thread current = Thread.currentThread();
+            boolean threadSwitched = false;
+            if (observedThread == null) {
+                observedThread = current;
+            } else if (observedThread != current) {
+                observedThread = current;
+                threadSwitched = true;
+            }
+
+            final Object previousModel = lastModel.get();
+            final Object previousViewContext = lastViewContext.get();
+            final boolean viewContextChanged = ctx != previousViewContext;
+            final boolean modelChanged = model != previousModel;
+
+            if (threadSwitched || modelChanged || viewContextChanged) {
+                invalidate();
+                previous = null;
+                lastModel = new WeakReference<>(model);
+                lastViewContext = new WeakReference<>(ctx);
+            }
+
             epochs.increment();
             changedForms.clear();
             markedDeformers.clear();
@@ -403,7 +467,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     }
 
     /** Records an interpolated form instance; recorded means "parameters changed". */
-    private void formInterpolated(final Object form) {
+    private synchronized void formInterpolated(final Object form) {
+        if (observedThread != null && Thread.currentThread() != observedThread) {
+            return;
+        }
         try {
             if (form != null) {
                 changedForms.add(form);
@@ -422,7 +489,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
      * The loop-1 dirty-mark call site: sets the host flag only when this deformer is proven
      * changed, propagated-dirty or animated; anything unknown marks dirty (full fallback).
      */
-    private void markDirty(final Object deformer, final Object model) {
+    private synchronized void markDirty(final Object deformer, final Object model) {
+        if (observedThread != null && Thread.currentThread() != observedThread) {
+            return;
+        }
         markCalls.increment();
         try {
             if (deformer == null || model == null) {
@@ -524,7 +594,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
      *
      * @param args {@code [preDeformForm, targetDeformer, deformedFormOut, artMesh]}
      */
-    private Object deformArtMesh(final Object[] args) {
+    private synchronized Object deformArtMesh(final Object[] args) {
+        if (observedThread != null && Thread.currentThread() != observedThread) {
+            return null;
+        }
         try {
             if (args == null || args.length < 4) {
                 throw new IllegalStateException("deform args absent");
@@ -558,7 +631,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     }
 
     /** Update-core return: probe digest comparison against the next forced-full epoch. */
-    private void afterUpdate(final Object args) {
+    private synchronized void afterUpdate(final Object args) {
+        if (observedThread != null && Thread.currentThread() != observedThread) {
+            return;
+        }
         try {
             final UpdateBaseline completed = pendingUpdate;
             pendingUpdate = null;
@@ -813,6 +889,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     @Override
     public synchronized void close() {
         active.set(false);
+        observedThread = null;
+        lastViewContext = new WeakReference<>(null);
+        lastModel = new WeakReference<>(null);
         configuredDefault = false;
         completedUpdate = null;
         pendingUpdate = null;
@@ -841,6 +920,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                 properties.remove(MARK_PROPERTY, markCallback);
                 properties.remove(DEFORM_PROPERTY, deformCallback);
                 properties.remove(FORM_PROPERTY, formCallback);
+                properties.remove(REINIT_PROPERTY, reinitCallback);
                 properties.remove(STATS_PROPERTY, statistics);
             }
     }

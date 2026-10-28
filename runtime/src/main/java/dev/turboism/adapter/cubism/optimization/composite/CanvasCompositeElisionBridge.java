@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Map;
@@ -140,8 +141,10 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
             return false;
         }
         try {
-            final boolean elide =
-                    component instanceof JComponent panel && panel.isOpaque() && coveredByOpaqueGLPanel(panel);
+            final boolean elide = component instanceof JComponent panel
+                    && panel.isOpaque()
+                    && hasOpaqueBackground(panel)
+                    && coveredByOpaqueGLPanel(panel);
             if (elide) fillElided++;
             else fillPassed++;
             return elide;
@@ -186,7 +189,10 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
                     || child.getY() + child.getHeight() < height) {
                 continue;
             }
-            if (glPanel.isInstance(child) && child instanceof JComponent jc && jc.isOpaque()) {
+            if (glPanel.isInstance(child)
+                    && child instanceof JComponent jc
+                    && jc.isOpaque()
+                    && hasOpaqueBackground(jc)) {
                 return true;
             }
             if (coveredByOpaqueGLPanel(child)) {
@@ -194,6 +200,11 @@ public final class CanvasCompositeElisionBridge implements AutoCloseable {
             }
         }
         return false;
+    }
+
+    private static boolean hasOpaqueBackground(final Component component) {
+        final Color bg = component.getBackground();
+        return bg == null || bg.getAlpha() == 255;
     }
 
     /** Clears owned slots; outstanding consults fall back to the native path. */

@@ -56,6 +56,88 @@ public record IncrementalUpdateTarget(
     /** Obfuscated {@code CArtMeshForm} owner of the mesh interpolation body. */
     public static final String MESH_FORM = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm";
 
+    /** Common source rebuild entry reached by Undo/Redo for parameter-controlled objects. */
+    public static final String REINIT_SOURCE = "com.live2d.cubism.doc.model.ACParameterControllableSource";
+    /** Stable source rebuild descriptor, verified separately for every admitted artifact. */
+    public static final String REINIT_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/ACParameterControllable;)V";
+
+    private static final IncrementalUpdateTarget CUBISM_5000 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_00,
+            "5.0.00",
+            "com/live2d/cubism/view/aj",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5001 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_01,
+            "5.0.01",
+            "com/live2d/cubism/view/aj",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5002 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_02,
+            "5.0.02",
+            "com/live2d/cubism/view/aj",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5003 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_03,
+            "5.0.03",
+            "com/live2d/cubism/view/ak",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5004 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_04,
+            "5.0.04",
+            "com/live2d/cubism/view/ak",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5005 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_05,
+            "5.0.05",
+            "com/live2d/cubism/view/ak",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5006 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_0_06,
+            "5.0.06",
+            "com/live2d/cubism/view/al",
+            "com/live2d/cubism/doc/model/au",
+            "com/live2d/cubism/view/context/bA");
+
+    private static final IncrementalUpdateTarget CUBISM_5100 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_00,
+            "5.1.00",
+            "com/live2d/cubism/view/ao",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bD");
+
+    private static final IncrementalUpdateTarget CUBISM_5101 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_01,
+            "5.1.01",
+            "com/live2d/cubism/view/ao",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bD");
+
+    private static final IncrementalUpdateTarget CUBISM_5102 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_02,
+            "5.1.02",
+            "com/live2d/cubism/view/ao",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bD");
+
+    private static final IncrementalUpdateTarget CUBISM_5103 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_1_03,
+            "5.1.03",
+            "com/live2d/cubism/view/ao",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bD");
+
     private static final IncrementalUpdateTarget CUBISM_5200 = new IncrementalUpdateTarget(
             ReviewedHostArtifacts.CUBISM_5_2_00,
             "5.2.00",
@@ -131,6 +213,17 @@ public record IncrementalUpdateTarget(
     /** Every reviewed target, oldest supported version first. */
     public static List<IncrementalUpdateTarget> all() {
         return List.of(
+                CUBISM_5000,
+                CUBISM_5001,
+                CUBISM_5002,
+                CUBISM_5003,
+                CUBISM_5004,
+                CUBISM_5005,
+                CUBISM_5006,
+                CUBISM_5100,
+                CUBISM_5101,
+                CUBISM_5102,
+                CUBISM_5103,
                 CUBISM_5200,
                 CUBISM_5201,
                 CUBISM_5202,
@@ -177,14 +270,22 @@ public record IncrementalUpdateTarget(
         return "(" + t(CM) + "Ljava/util/List;" + t(updateContext) + t(CX) + t(contextParam) + ")V";
     }
 
-    /** {@code a(CModel, CParameterSet, List<ACDeformer>, UC, CEViewContext, bL|bK)V}. */
-    public String deformerUpdateDescriptor() {
-        return "(" + t(CM) + t(PS) + "Ljava/util/List;" + t(updateContext) + t(CX) + t(contextParam) + ")V";
+    private boolean is50Or51() {
+        return version.startsWith("5.0.") || version.startsWith("5.1.");
     }
 
-    /** {@code a(CModel, CParameterSet, CArtMesh, UC, CEViewContext, bL|bK)V}. */
+    /** {@code a(CModel, CParameterSet, [List<ACDeformer>,] UC, CEViewContext, bL|bK)V}. */
+    public String deformerUpdateDescriptor() {
+        return is50Or51()
+                ? "(" + t(CM) + t(PS) + t(updateContext) + t(CX) + t(contextParam) + ")V"
+                : "(" + t(CM) + t(PS) + "Ljava/util/List;" + t(updateContext) + t(CX) + t(contextParam) + ")V";
+    }
+
+    /** {@code a(CModel, [CParameterSet,] CArtMesh, UC, CEViewContext, bL|bK)V}. */
     public String artMeshUpdateDescriptor() {
-        return "(" + t(CM) + t(PS) + t(CAM) + t(updateContext) + t(CX) + t(contextParam) + ")V";
+        return is50Or51()
+                ? "(" + t(CM) + t(CAM) + t(updateContext) + t(CX) + t(contextParam) + ")V"
+                : "(" + t(CM) + t(PS) + t(CAM) + t(updateContext) + t(CX) + t(contextParam) + ")V";
     }
 
     /** {@code ACDeformerForm.interpolate__testImpl(KeyformGridSource, CParameterSet, UC)V}. */
