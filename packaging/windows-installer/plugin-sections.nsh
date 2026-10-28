@@ -232,7 +232,7 @@ LangString PLUGIN_DESC_dev_turboism_plugin_deformer_batch_rename ${LANG_SIMPCHIN
 LangString PLUGIN_NAME_dev_turboism_plugin_deformer_batch_rename ${LANG_JAPANESE} "デフォーマを一括リネーム 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_deformer_batch_rename ${LANG_JAPANESE} "子オブジェクト名と関連パラメータからデフォーマの名前を変更します。"
 LangString PLUGIN_NAME_dev_turboism_plugin_deformer_batch_rename ${LANG_KOREAN} "디포머 이름 일괄 변경 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_deformer_batch_rename ${LANG_KOREAN} "자식 이름과 연결된 파라미터로 디포머 이름을 일괄 변경합니다。"
+LangString PLUGIN_DESC_dev_turboism_plugin_deformer_batch_rename ${LANG_KOREAN} "자식 이름과 연결된 파라미터로 디포머 이름을 일괄 변경합니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_external_psd_edit ${LANG_ENGLISH} "External PSD Edit Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_external_psd_edit ${LANG_ENGLISH} "Edit the complete raw PSD of selected ArtMeshes in the configured or system default application; saves replace the raw image through the Cubism native importer."
 LangString PLUGIN_NAME_dev_turboism_plugin_external_psd_edit ${LANG_SIMPCHINESE} "外部 PSD 编辑插件 0.1.0"
