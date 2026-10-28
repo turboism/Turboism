@@ -89,7 +89,8 @@ class RuntimeInstallerConfigRoundTripTest {
                 try (var reopened = new CubismJvmSettingsFileService(home)) {
                     assertEquals(profile, reopened.memoryProfile());
                     assertFalse(reopened.zgc(), "unrelated persisted preference survives");
-                    assertTrue(reopened.meshInterpolation(), "mesh interpolation preference survives installer upgrade");
+                    assertTrue(
+                            reopened.meshInterpolation(), "mesh interpolation preference survives installer upgrade");
                 }
                 try (var edgeIndex = new TriangulationEdgeIndexSettingsFileService(home)) {
                     assertFalse(edgeIndex.read(), "explicit edge-index opt-out survives installer upgrade");
