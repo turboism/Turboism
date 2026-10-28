@@ -869,7 +869,7 @@ def check_configurator_flow_contract():
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
           and "-Verb RunAs" in configure
-          and "-Wait" in configure
+          and "$process.WaitForExit(180000)" in configure
           and "-PassThru" in configure
           and "[switch]$Elevated" in configure)
     disable_guard_start = configure.index("if ($DisableBat -and -not $Elevated)")
@@ -995,6 +995,37 @@ def check_jar_payload_contract():
               'RMDir /r "$PLUGINSDIR\\Turboism-core-plan"'))
           and 'RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"' in generated_plugins
           and 'RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"' in generated_plugins)
+
+
+def check_plugin_selection_page_contract():
+    """First-party plugin selection page renders meta and READMEs and filters payload install."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    generated = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
+    helper = (INSTALLER_NSI.parent / "install-jar-payload.ps1").read_text(encoding="utf-8")
+    directory_page = text.index("!insertmacro MUI_PAGE_DIRECTORY")
+    plugin_page = text.index("Page custom PluginSelectionCreate PluginSelectionLeave")
+    graal_page = text.index("Page custom GraalCreate GraalLeave")
+    check("PS1 plugin selection page is placed between Directory and Graal pages",
+          directory_page < plugin_page < graal_page)
+    check("PS2 .onInit initializes default plugin selections",
+          "Call InitPluginSelectionDefaults" in text
+          and "Function InitPluginSelectionDefaults" in generated
+          and f'StrCpy $PluginTotalCount "{len(REAL_MODULES)}"' in generated)
+    check("PS3 plugin selection page creates list, select/deselect buttons, checkbox, and RichEdit20W README viewer",
+          "Function PluginSelectionCreate" in text
+          and 'nsDialogs::CreateControl "RichEdit20W"' in text
+          and "Function LoadPluginReadme" in text
+          and "0x0461" in text
+          and "0x0435" in text
+          and "Call StagePluginReadmeFiles" in text
+          and "Call PopulatePluginSelectionList" in text
+          and "Call UpdatePluginSelectionDetails" in text)
+    check("PS4 generated plugin sections stage localized RTF READMEs and write skip markers",
+          "Function StagePluginReadmeFiles" in generated
+          and "Function WritePluginSelectionSkipMarkers" in generated
+          and "Call WritePluginSelectionSkipMarkers" in generated
+          and ".skip" in generated
+          and 'Write-Output "SKIP_UNSELECTED|$($entry.Relative)"' in helper)
 
 
 def check_icon_contract():
@@ -1624,6 +1655,7 @@ def main():
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
     check_jar_payload_contract()
+    check_plugin_selection_page_contract()
     check_icon_contract()
     check_launcher_and_shortcut_contract()
     check_eula_contract()
