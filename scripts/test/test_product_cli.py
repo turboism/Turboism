@@ -1,9 +1,13 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
+RELEASE_SCRIPTS = str(ROOT / 'scripts/release')
+if RELEASE_SCRIPTS not in sys.path:
+    sys.path.insert(0, RELEASE_SCRIPTS)
 
 class ProductCliTest(unittest.TestCase):
     def setUp(self):
