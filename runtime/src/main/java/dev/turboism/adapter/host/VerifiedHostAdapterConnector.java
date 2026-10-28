@@ -618,7 +618,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
      * compatibility-bound resolver, everything else keeps the exact reviewed
      * path unchanged.
      */
-    private static VerifiedMemberResolver resolverForSlice(
+    static VerifiedMemberResolver resolverForSlice(
             final HostVerificationEvidence.Slice slice, final SliceResolverFactory factory) throws java.io.IOException {
         // Only a contract marked compatible takes the structural path; exact
         // bindings (and exact-mode contracts) keep the reviewed-artifact check.
