@@ -32,6 +32,18 @@ Use an explicit installation when needed:
   -ValidationMode binding-matrix
 ```
 
+### Offline / isolated startup
+
+In network-isolated or offline test environments (e.g. Proton/Wine without
+outbound network), Cubism PRO trial activation can fail with error -105. Pass
+`--jvm-option -Dturboism.validation.nativeStartupFreeOnly=true` through the
+controlled launcher/wrapper alongside the existing startup assistance.
+
+- Requires enabling existing startup assistance (`turboism.validation.startupAssistance=true`).
+- Default behavior remains unchanged when omitted or false (prefers PRO trial).
+- When opt-in `true`, test helper / probe startup selection chooses only the native official FREE version button and declines initiating or confirming trials.
+- This only configures test helper dialog selection; it does not alter licensing mechanisms, lift native FREE functional restrictions, or mutate golden models.
+
 ## Detailed validation coverage
 
 The automated modes below emit machine-readable evidence. The interactive window may still be used for targeted diagnosis or checks that are not yet represented by a semantic SDK assertion.

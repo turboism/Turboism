@@ -53,6 +53,49 @@ public final class NativeStartupAssistanceAgentTest {
         if (!"Start as FREE version".equals(NativeFreeStartup.preferredStartButton("Start",
                 java.util.List.of("Cancel", "Purchase PRO license", "Start as FREE version"))))
             throw new AssertionError("FREE fallback rejected");
+
+        // Verify nativeStartupFreeOnly configuration contract (default, true, false).
+        // The property opts into FREE-only behavior across button selection, declining
+        // trial initiation. System properties must be restored in finally.
+        final String freeOnlyKey = "turboism.validation.nativeStartupFreeOnly";
+        final String previousFreeOnly = System.getProperty(freeOnlyKey);
+        try {
+            // 1. Default (unset / cleared): PRO trial entry preferred
+            System.clearProperty(freeOnlyKey);
+            if (!"Start PRO Version Free Trial".equals(
+                    NativeFreeStartup.preferredStartButton("Start", licenseButtons)))
+                throw new AssertionError("default contract must prefer PRO trial entry");
+            if (!"Start PRO Version Free Trial".equals(
+                    NativeFreeStartup.preferredStartButton("Start", alternateLicenseButtons)))
+                throw new AssertionError("default contract must prefer PRO trial on alternate variant");
+
+            // 2. Opt-in FREE-only (property = "true"): official FREE button selected, trial refused
+            System.setProperty(freeOnlyKey, "true");
+            if (!"Start as FREE version".equals(
+                    NativeFreeStartup.preferredStartButton("Start", licenseButtons)))
+                throw new AssertionError("free-only mode must select official FREE version button");
+            if (!"Start as FREE version".equals(
+                    NativeFreeStartup.preferredStartButton("Start", alternateLicenseButtons)))
+                throw new AssertionError("free-only mode must select official FREE version button on alternate variant");
+            if (NativeFreeStartup.preferredStartButton("Start",
+                    java.util.List.of("Start PRO Version Free Trial", "Purchase PRO license")) != null)
+                throw new AssertionError("free-only mode must not select trial on trial-only dialog");
+
+            // 3. Explicit false: PRO trial entry preferred
+            System.setProperty(freeOnlyKey, "false");
+            if (!"Start PRO Version Free Trial".equals(
+                    NativeFreeStartup.preferredStartButton("Start", licenseButtons)))
+                throw new AssertionError("explicit false must preserve PRO trial preference");
+            if (!"Start PRO Version Free Trial".equals(
+                    NativeFreeStartup.preferredStartButton("Start", alternateLicenseButtons)))
+                throw new AssertionError("explicit false must preserve PRO trial on alternate variant");
+        } finally {
+            if (previousFreeOnly == null) {
+                System.clearProperty(freeOnlyKey);
+            } else {
+                System.setProperty(freeOnlyKey, previousFreeOnly);
+            }
+        }
         for (java.util.List<String> foreign : new java.util.List[] {
                 java.util.List.of("Cancel", "Activate PRO or Trial license", "Purchase PRO license"),
                 java.util.List.of("OK"), java.util.List.of()}) {
