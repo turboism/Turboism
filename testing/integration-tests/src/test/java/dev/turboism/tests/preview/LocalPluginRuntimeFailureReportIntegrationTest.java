@@ -44,11 +44,11 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
             assertTrue(loadReport.loaded().stream()
                     .anyMatch(plugin -> plugin.id().equals(PreviewFailurePluginJarFixture.PLUGIN_ID)));
             assertInitialReport(home);
-            assertSafeLog(home);
+            assertSafeLog(home, log);
 
             runtime.close();
             assertFinalReport(home);
-            assertSafeLog(home);
+            assertSafeLog(home, log);
         } finally {
             runtime.close();
             ingress.close();
@@ -141,8 +141,11 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         assertEquals(0, occurrences(report, "CONFIG_READ_REJECTED"));
     }
 
-    private static void assertSafeLog(final Path home) throws Exception {
-        assertSafeText(Files.readString(home.resolve("logs/turboism.log")));
+    private static void assertSafeLog(final Path home, final PreviewLog log) throws Exception {
+        log.drain();
+        final String text = Files.readString(home.resolve("logs/turboism.log"));
+        assertFalse(text.isBlank());
+        assertSafeText(text);
     }
 
     private static void assertSafeText(final String text) {
