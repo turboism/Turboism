@@ -1,8 +1,11 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,8 +14,14 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.GuardedServiceFixture;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.PluginPaths;
+import dev.turboism.sdk.plugin.PluginService;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
+import dev.turboism.sdk.plugin.PluginServiceUnavailableException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -181,6 +190,243 @@ class PluginGenerationGuardTest {
         final GuardedServiceFixture second = guard.wrapForTesting(service, GuardedServiceFixture.class);
         assertSame(first, second);
         assertTrue(Proxy.isProxyClass(first.getClass()));
+    }
+
+    @Test
+    void serviceDirectoryRequireAndFindReturnGuardedProxiesAndEnforceFence() {
+        final FixtureService service = new FixtureService();
+        final PluginServiceDirectory directory = createDirectory(service);
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final PluginServiceDirectory guardedDirectory = guard.wrapForTesting(directory, PluginServiceDirectory.class);
+
+        final GuardedServiceFixture viaRequire = guardedDirectory.require(GuardedServiceFixture.class);
+        final GuardedServiceFixture viaFind =
+                guardedDirectory.find(GuardedServiceFixture.class).orElseThrow();
+
+        assertNotSame(service, viaRequire);
+        assertNotSame(service, viaFind);
+        assertSame(viaRequire, viaFind);
+        assertTrue(Proxy.isProxyClass(viaRequire.getClass()));
+
+        assertEquals("m:req", viaRequire.mutate("req"));
+        assertEquals("m:find", viaFind.mutate("find"));
+
+        guard.fence();
+
+        assertThrows(IllegalStateException.class, () -> viaRequire.mutate("post"));
+        assertThrows(IllegalStateException.class, () -> viaFind.mutate("post"));
+    }
+
+    @Test
+    void inFlightCallsOnDirectoryServiceKeepDrainedFalse() throws Exception {
+        final CountDownLatch entered = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final FixtureService service = new FixtureService() {
+            @Override
+            public String mutate(final String value) {
+                entered.countDown();
+                try {
+                    release.await(30, TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                return "done:" + value;
+            }
+        };
+        final PluginServiceDirectory directory = createDirectory(service);
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final PluginServiceDirectory guardedDirectory = guard.wrapForTesting(directory, PluginServiceDirectory.class);
+        final GuardedServiceFixture guarded = guardedDirectory.require(GuardedServiceFixture.class);
+
+        final AtomicReference<String> outcome = new AtomicReference<>();
+        final Thread caller = new Thread(() -> outcome.set(guarded.mutate("inFlight")));
+        caller.start();
+
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            guard.fence();
+            assertFalse(guard.drained(), "running call on directory-discovered service must keep guard non-drained");
+            assertEquals(1, guard.inFlightCalls());
+        } finally {
+            release.countDown();
+            caller.join(5_000);
+        }
+        assertFalse(caller.isAlive());
+        assertTrue(guard.drained());
+        assertEquals(0, guard.inFlightCalls());
+        assertEquals("done:inFlight", outcome.get());
+    }
+
+    @Test
+    void terminalCloseOnDirectoryServiceSucceedsAfterFence() {
+        final FixtureService service = new FixtureService();
+        final PluginServiceDirectory directory = createDirectory(service);
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final PluginServiceDirectory guardedDirectory = guard.wrapForTesting(directory, PluginServiceDirectory.class);
+        final GuardedServiceFixture guarded = guardedDirectory.require(GuardedServiceFixture.class);
+
+        guard.fence();
+
+        guarded.close();
+        assertEquals(1, service.closes.get());
+        assertTrue(guard.drained());
+        assertEquals(0, guard.inFlightCalls());
+
+        assertThrows(IllegalStateException.class, () -> guarded.mutate("denied"));
+        assertThrows(IllegalStateException.class, () -> guarded.close("with-arg"));
+    }
+
+    @Test
+    void nestedSdkHandlesFromDirectoryServiceAreGuarded() {
+        final FixtureService service = new FixtureService();
+        final PluginServiceDirectory directory = createDirectory(service);
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final PluginServiceDirectory guardedDirectory = guard.wrapForTesting(directory, PluginServiceDirectory.class);
+        final GuardedServiceFixture parent = guardedDirectory.require(GuardedServiceFixture.class);
+        final GuardedServiceFixture child = parent.child();
+
+        assertEquals("m:child", child.mutate("child"));
+        guard.fence();
+
+        assertThrows(IllegalStateException.class, () -> child.mutate("denied"));
+        child.close();
+        assertEquals(1, service.closes.get());
+    }
+
+    @Test
+    void serviceDirectoryThrowsStructuredUnavailableExceptionWhenMissing() {
+        final FixtureService service = new FixtureService();
+        final PluginServiceDirectory directory = createDirectory(service);
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final PluginServiceDirectory guardedDirectory = guard.wrapForTesting(directory, PluginServiceDirectory.class);
+
+        assertTrue(guardedDirectory.find(PluginPaths.class).isEmpty());
+        assertThrows(PluginServiceUnavailableException.class, () -> guardedDirectory.require(PluginPaths.class));
+    }
+
+    @Test
+    void primitiveArrayInputAndOutputPreserveDefensiveCopy() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final ArrayFixtureService service = new ArrayFixtureService();
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        final byte[] input = new byte[] {1, 2, 3};
+        final byte[] output = guarded.transferBytes(input);
+
+        assertNotSame(input, output);
+        assertNotSame(input, service.receivedBytes);
+        assertArrayEquals(new byte[] {1, 2, 3}, output);
+
+        input[0] = 99;
+        assertEquals(1, output[0]);
+        assertEquals(1, service.receivedBytes[0]);
+
+        output[1] = 88;
+        assertEquals(2, service.receivedBytes[1]);
+    }
+
+    @Test
+    void multiDimensionalPrimitiveArrayPreservesDeepDefensiveCopyAndHandlesNulls() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final ArrayFixtureService service = new ArrayFixtureService();
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        final byte[][] matrix = new byte[][] {{1, 2}, null, {3, 4, 5}};
+        final byte[][] output = guarded.transferMatrix(matrix);
+
+        assertNotSame(matrix, output);
+        assertNotSame(matrix, service.receivedMatrix);
+        assertNotSame(matrix[0], output[0]);
+        assertNull(output[1]);
+        assertNotSame(matrix[2], output[2]);
+
+        assertArrayEquals(new byte[] {1, 2}, output[0]);
+        assertArrayEquals(new byte[] {3, 4, 5}, output[2]);
+
+        matrix[0][0] = 77;
+        assertEquals(1, output[0][0]);
+        assertEquals(1, service.receivedMatrix[0][0]);
+    }
+
+    @Test
+    void objectHandleArrayInputUnwrapsAndOutputProxiesElements() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final ArrayFixtureService service = new ArrayFixtureService();
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        final FixtureService child1 = new FixtureService();
+        final GuardedServiceFixture guardedChild1 = guard.wrapForTesting(child1, GuardedServiceFixture.class);
+        final GuardedServiceFixture[] array = new GuardedServiceFixture[] {guardedChild1, null};
+
+        final GuardedServiceFixture[] output = guarded.transferArray(array);
+
+        assertNotSame(array, output);
+        assertSame(child1, service.receivedArray[0], "proxy should be unwrapped to delegate before reaching service");
+        assertNull(service.receivedArray[1]);
+
+        assertNotNull(output[0]);
+        assertNull(output[1]);
+        assertTrue(Proxy.isProxyClass(output[0].getClass()));
+        assertEquals("m:nested", output[0].mutate("nested"));
+
+        guard.fence();
+        assertThrows(IllegalStateException.class, () -> output[0].mutate("post"));
+        output[0].close();
+        assertEquals(1, child1.closes.get());
+    }
+
+    private static PluginServiceDirectory createDirectory(final GuardedServiceFixture service) {
+        return new PluginServiceDirectory() {
+            @Override
+            public Set<PluginService> installed() {
+                return Set.of();
+            }
+
+            @Override
+            public <T> Optional<T> find(final Class<T> serviceType) {
+                if (serviceType == GuardedServiceFixture.class) {
+                    return Optional.of(serviceType.cast(service));
+                }
+                return Optional.empty();
+            }
+        };
+    }
+
+    private static class ArrayFixtureService implements GuardedServiceFixture {
+        byte[] receivedBytes;
+        byte[][] receivedMatrix;
+        GuardedServiceFixture[] receivedArray;
+
+        @Override
+        public String mutate(final String value) {
+            return value;
+        }
+
+        @Override
+        public GuardedServiceFixture child() {
+            return this;
+        }
+
+        @Override
+        public void close() {}
+
+        @Override
+        public byte[] transferBytes(final byte[] input) {
+            this.receivedBytes = input;
+            return input;
+        }
+
+        @Override
+        public byte[][] transferMatrix(final byte[][] input) {
+            this.receivedMatrix = input;
+            return input;
+        }
+
+        @Override
+        public GuardedServiceFixture[] transferArray(final GuardedServiceFixture[] input) {
+            this.receivedArray = input;
+            return input;
+        }
     }
 
     private static PluginContext stubContext(final DisposableScope scope, final PluginLogger logger) {
