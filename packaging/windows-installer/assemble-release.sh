@@ -40,10 +40,12 @@ generated="$repo_root/build/windows-installer/generated"
 
 # ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
 echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
+gradle_ver_args=(-PinstallerVersion="$VER" -PturboismRelease=true)
+if [[ -z "${TURBOISM_BUILD_VERSION:-}" ]]; then
+  gradle_ver_args+=(-PturboismVersion="$VER")
+fi
 ./gradlew stageInstallerPayload :event-processor:jar \
-  -PinstallerVersion="$VER" \
-  -PturboismVersion="$VER" \
-  -PturboismRelease=true \
+  "${gradle_ver_args[@]}" \
   --console=plain
 if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
   echo "error: staged payload incomplete at $stage" >&2

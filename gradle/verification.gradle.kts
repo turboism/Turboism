@@ -444,6 +444,7 @@ val checkReviewedReleasesSelfTest by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(fileTree("scripts") {
         include("**/*.py", "**/*.json", "**/*.template", "**/*.java", "**/*.sh")
+        exclude("**/build/**", "**/.gradle/**", "**/__pycache__/**")
     })
     inputs.files(".env.example", "compatibility/cubism/reviewed-releases.json")
     VerificationStamps.apply(this)
@@ -477,6 +478,7 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
                 "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/*.json",
                 "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/Windows*.java",
                 ".env.example")
+        exclude("**/build/**", "**/.gradle/**", "**/__pycache__/**")
     })
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_reviewed_releases.py", rootDir.absolutePath)

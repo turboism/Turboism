@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -181,46 +183,52 @@ def main() -> None:
             "Retired package dev.turboism.sdk.event.cubism must not be reintroduced",
         ),
     ]
-    for fixture in fixtures:
-        run_fixture(fixture[0], *fixture[1:])
-    run_fixture(
-        "forbidden-import-in-resources",
-        expected="Forbidden import",
-        resource_source="import com.live2d.foo.Bar;\nclass Fixture {}\n",
-    )
-    run_fixture(
-        "plugin-host-ui-traversal-whitespace",
-        source="import javax.swing.SwingUtilities;\n"
-        "class Fixture { void inspect(javax.swing.JComponent c) "
-        "{ java.awt.Window w = SwingUtilities . getWindowAncestor(c); } }\n",
-        expected="must not discover or mutate host UI trees",
-    )
-    run_clean_fixture(
-        "host-ui-traversal-comment-ok",
-        source="class Fixture { // SwingUtilities.getWindowAncestor( stays a comment\n"
-        "    String note = \"SwingUtilities.getRoot(\";\n}\n",
-    )
-    for configuration in ("implementation", "runtimeOnly"):
-        run_fixture(
-            f"runtime-plugin-{configuration}",
-            runtime_dependency=f'dependencies {{ {configuration}(project(":plugins:fixture")) }}\n',
-            expected="Runtime may not depend on plugin component :plugins:fixture",
-        )
-    run_fixture(
-        "contract-runtime-project",
-        contract_dependency='dependencies { api(project(":runtime")) }\n',
-        expected="Core-contract :core-contract may not depend on project component :runtime",
-    )
-    run_fixture(
-        "plugin-contract-project",
-        plugin_dependency='dependencies { compileOnly(project(":core-contract")) }\n',
-        expected="Plugin :plugins:fixture may not depend on project component :core-contract",
-    )
-    run_fixture(
-        "plugin-internal-contract-import",
-        source="import dev.turboism.internal.core.ShellServices;\nclass Fixture {}\n",
-        expected="Forbidden internal-contract import",
-    )
+    tasks = [
+        *(lambda f=fixture: run_fixture(f[0], *f[1:]) for fixture in fixtures),
+        lambda: run_fixture(
+            "forbidden-import-in-resources",
+            expected="Forbidden import",
+            resource_source="import com.live2d.foo.Bar;\nclass Fixture {}\n",
+        ),
+        lambda: run_fixture(
+            "plugin-host-ui-traversal-whitespace",
+            source="import javax.swing.SwingUtilities;\n"
+            "class Fixture { void inspect(javax.swing.JComponent c) "
+            "{ java.awt.Window w = SwingUtilities . getWindowAncestor(c); } }\n",
+            expected="must not discover or mutate host UI trees",
+        ),
+        lambda: run_clean_fixture(
+            "host-ui-traversal-comment-ok",
+            source="class Fixture { // SwingUtilities.getWindowAncestor( stays a comment\n"
+            "    String note = \"SwingUtilities.getRoot(\";\n}\n",
+        ),
+        *(
+            lambda cfg=configuration: run_fixture(
+                f"runtime-plugin-{cfg}",
+                runtime_dependency=f'dependencies {{ {cfg}(project(":plugins:fixture")) }}\n',
+                expected="Runtime may not depend on plugin component :plugins:fixture",
+            )
+            for configuration in ("implementation", "runtimeOnly")
+        ),
+        lambda: run_fixture(
+            "contract-runtime-project",
+            contract_dependency='dependencies { api(project(":runtime")) }\n',
+            expected="Core-contract :core-contract may not depend on project component :runtime",
+        ),
+        lambda: run_fixture(
+            "plugin-contract-project",
+            plugin_dependency='dependencies { compileOnly(project(":core-contract")) }\n',
+            expected="Plugin :plugins:fixture may not depend on project component :core-contract",
+        ),
+        lambda: run_fixture(
+            "plugin-internal-contract-import",
+            source="import dev.turboism.internal.core.ShellServices;\nclass Fixture {}\n",
+            expected="Forbidden internal-contract import",
+        ),
+    ]
+    with ThreadPoolExecutor(max_workers=min(4, os.cpu_count() or 4)) as executor:
+        for _ in executor.map(lambda fn: fn(), tasks):
+            pass
 
 
 if __name__ == "__main__":

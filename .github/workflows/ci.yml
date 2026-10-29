@@ -39,6 +39,20 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Restore Gradle build and SDK reference caches
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            ~/.gradle/caches/turboism-sdk-reference-v1
+          key: turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-
+            turboism-gradle-build-cache-v1-
+
       - name: Install the isolated display server
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb
 

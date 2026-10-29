@@ -38,6 +38,7 @@ public final class VerificationStamps {
             .file("verification-stamps/" + task.getName() + ".stamp");
         task.getOutputs().file(stamp);
         task.getOutputs().upToDateWhen(t -> writeCondition.getAsBoolean());
+        task.getOutputs().cacheIf(t -> writeCondition.getAsBoolean());
         task.doLast(ignored -> {
             File file = stamp.get().getAsFile();
             try {

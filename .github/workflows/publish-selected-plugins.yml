@@ -44,8 +44,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Restore remote-hygiene boundary cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ${{ runner.temp }}/remote-hygiene-boundary.json
+          key: remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}
+
       - name: Check complete public history hygiene
-        run: python3 scripts/check_remote_hygiene.py --all
+        run: python3 scripts/check_remote_hygiene.py --all --boundary-file "$RUNNER_TEMP/remote-hygiene-boundary.json"
 
       - name: Validate store eligibility policy
         id: policy
