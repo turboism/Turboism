@@ -24,12 +24,21 @@ def main() -> int:
         descriptor = module / "src/main/resources/META-INF/turboism/plugin.json"
         if not descriptor.is_file():
             continue
-        declared = json.loads(descriptor.read_text(encoding="utf-8"))["turboismApi"]
+        data = json.loads(descriptor.read_text(encoding="utf-8"))
+        declared = data["turboismApi"]
         if not API_RANGE.fullmatch(declared):
             raise ValueError(f"{descriptor}: expected a half-open SDK API range")
         lower, upper = [tuple(map(int, value.split("."))) for value in declared[1:-1].split(",")]
         if not lower <= current < upper:
             raise ValueError(f"{descriptor}: SDK API range {declared} does not include framework {framework_version(ROOT)}")
+        for dep in data.get("dependencies", ()):
+            dep_range = dep.get("version", "")
+            if API_RANGE.fullmatch(dep_range):
+                dep_lower, dep_upper = [tuple(map(int, value.split("."))) for value in dep_range[1:-1].split(",")]
+                if not dep_lower <= current < dep_upper:
+                    raise ValueError(
+                        f"{descriptor}: dependency {dep.get('id')} range {dep_range} does not include framework {framework_version(ROOT)}"
+                    )
         for path in sorted(module.glob("README*.md")):
             text = path.read_text(encoding="utf-8")
             # Restrict replacements to turboismApi and the displayed SDK API range.

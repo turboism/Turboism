@@ -11,12 +11,12 @@ spec.loader.exec_module(bundle)
 
 
 class BundleTest(unittest.TestCase):
-    def check(self, dependency="[0.1.0,0.68.0)", plugin_id="dev.turboism.plugin.mcp"):
+    def check(self, dependency="[0.1.0,1.0.0)", plugin_id="dev.turboism.plugin.mcp"):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, data in {
-                "mcp.jar": {"id": plugin_id, "version": "0.67.2"},
-                "acp.jar": {"id": "dev.turboism.plugin.acp", "version": "0.67.2"},
+                "mcp.jar": {"id": plugin_id, "version": "0.68.0"},
+                "acp.jar": {"id": "dev.turboism.plugin.acp", "version": "0.68.0"},
                 "acp-host-validation-probe.jar": {"id": "dev.turboism.validation.acp", "version": "0.0.0",
                     "dependencies": [{"id": "dev.turboism.plugin.mcp", "version": dependency, "type": "required"}]},
             }.items():
