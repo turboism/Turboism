@@ -53,6 +53,12 @@ class PluginApiSyncTest(unittest.TestCase):
                 self.descriptor.write_text(json.dumps({"turboismApi": value}))
                 with self.assertRaises(ValueError):
                     self.run_sync(True)
+        self.descriptor.write_text(json.dumps({
+            "turboismApi": "[0.67.0,1.0.0)",
+            "dependencies": [{"id": "dev.turboism.plugin.mcp", "version": "[0.1.0,0.67.1)"}],
+        }))
+        with self.assertRaises(ValueError):
+            self.run_sync(True)
 
 
 if __name__ == "__main__":
