@@ -1312,9 +1312,19 @@ def r4_derive_all_task_versions(
     return derived, problems
 
 
+_ORIGINAL_RENDER_RECORDS = render_records
+_R4_ROOT_DERIVED_CACHE: tuple[dict[str, list[str]], list[str]] | None = None
+
+
 def r4_derive_task_versions(task_name: str, root: Path = r4_ROOT) -> tuple[str, ...]:
     """Return the derived compact version tuple for ``task_name``."""
-    derived, problems = r4_derive_all_task_versions(root)
+    global _R4_ROOT_DERIVED_CACHE
+    if root == r4_ROOT and render_records is _ORIGINAL_RENDER_RECORDS:
+        if _R4_ROOT_DERIVED_CACHE is None:
+            _R4_ROOT_DERIVED_CACHE = r4_derive_all_task_versions(root)
+        derived, problems = _R4_ROOT_DERIVED_CACHE
+    else:
+        derived, problems = r4_derive_all_task_versions(root)
     if problems:
         raise RuntimeError("; ".join(problems))
     return tuple(derived[task_name])

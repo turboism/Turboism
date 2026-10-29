@@ -1,4 +1,5 @@
 import dev.turboism.gradle.internal.MappingReviewArgsFile
+import dev.turboism.gradle.internal.VerificationStamps
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 import com.bmuschko.gradle.izpack.CreateInstallerTask
@@ -188,6 +189,7 @@ val checkDraftContractDiagnostics by tasks.registering(Exec::class) {
         "scripts/test/test_materialize_draft_contracts.py",
         "scripts/test/reviewed_releases_fixture.py"
     )
+    VerificationStamps.apply(this)
     commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_draft_contracts", "-v")
 }
 

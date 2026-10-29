@@ -94,7 +94,7 @@ val prepareSdkHistoryGradleCache by tasks.registering(Exec::class) {
     group = "historical verification"
     description = "Resolves pinned historical SDK plugins and compiler dependencies before offline reconstruction."
     workingDir(rootDir)
-    inputs.dir("scripts/test/sdk-history-cache")
+    inputs.files(fileTree("scripts/test/sdk-history-cache") { exclude("**/build/**", "**/.gradle/**") })
     inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
     doFirst {
         commandLine(
@@ -144,7 +144,7 @@ sdkBaselineAnchors.forEach { anchor ->
         inputs.property("historicalCommit", anchor.commit)
         inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
         outputs.file(sdkExactReferenceArtifact(version))
-        outputs.upToDateWhen { false }
+        outputs.cacheIf { true }
         commandLine(
             "python3", sdkExactReferenceBuilder.asFile.absolutePath,
             "--root", rootDir.absolutePath,
@@ -182,7 +182,7 @@ val sdkExactCompatibilityCheckTasks = sdkBaselineAnchors.map { anchor ->
         inputs.files(sdkApiHelperFiles, sdkExactBaseline(version), sdkExactReferenceBuilder,
             sdkExactReferenceArtifact(version), auditedArtifact)
         inputs.property("expectedCommit", anchor.commit)
-        outputs.upToDateWhen { false }
+        VerificationStamps.apply(this)
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
             "--input", auditedArtifact.get().asFile.absolutePath,

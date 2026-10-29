@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import os
 import re
@@ -112,6 +113,17 @@ def build(
     validate_commit(root, commit)
     gradle = gradle_value.resolve()
     output = output_value.resolve()
+    cached_jar: Path | None = None
+    if reuse_gradle_user_home is not None:
+        resolved_home = reuse_gradle_user_home.resolve()
+        if not resolved_home.is_dir():
+            raise ReconstructionError(f"reused Gradle user home is not a directory: {resolved_home}")
+        builder_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+        cached_jar = resolved_home / "caches" / "turboism-sdk-reference-v1" / f"{builder_hash}-{commit}.jar"
+        if cached_jar.is_file() and cached_jar.stat().st_size > 0:
+            publish(cached_jar, output)
+            print(f"SDK Gradle historical reconstruction passed: commit={commit} output={output}")
+            return output
     with tempfile.TemporaryDirectory(prefix="turboism-sdk-v2-history-") as directory:
         isolated = Path(directory)
         source = extract_commit(root, commit, isolated)
@@ -147,7 +159,10 @@ def build(
             cwd=source,
             env=environment,
         )
-        publish(select_gradle_jar(source), output)
+        built_jar = select_gradle_jar(source)
+        if cached_jar is not None:
+            publish(built_jar, cached_jar)
+        publish(built_jar, output)
     print(f"SDK Gradle historical reconstruction passed: commit={commit} output={output}")
     return output
 
