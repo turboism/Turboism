@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turboism · Cubism 内更新原型（模拟）</title>
+<style>
+:root{font-family:"Segoe UI","Microsoft YaHei UI",sans-serif;color:#e9edf6;background:#12151d;font-synthesis:none}
+*{box-sizing:border-box}body{margin:0;min-height:100vh}button,select,input{font:inherit}
+.shell{display:grid;grid-template-columns:228px 1fr;max-width:1130px;min-height:680px;margin:3vh auto;border:1px solid #343a4c;border-radius:14px;background:#1b202b;box-shadow:0 20px 70px #0008;overflow:hidden}
+nav{padding:28px 16px;background:#161a23;border-right:1px solid #343a4c}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:17px;margin:0 10px 30px}.mark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#4164e8;color:#fff}
+.menu{padding:12px 15px;border-radius:9px;color:#939eb2;margin:6px 0}.menu.active{background:#293653;color:#c5d9ff;font-weight:650}
+main{padding:34px clamp(20px,5vw,56px)}.eyebrow{color:#93a8f4;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+h1{font-size:27px;margin:7px 0 10px}p{color:#acb5c8;line-height:1.6;margin:0 0 18px}
+.banner{background:#252f46;border:1px solid #48609b;padding:12px 15px;border-radius:10px;color:#c5d8ff;font-size:13px;margin:21px 0 23px}
+.card{background:#232a37;border:1px solid #394255;border-radius:13px;padding:23px;margin:16px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.badge{font-size:12px;color:#a6caff;background:#314f79;border:1px solid #4b6c9f;border-radius:50px;padding:5px 11px}
+h2{margin:0;font-size:19px}h3{font-size:14px;color:#e0e7f5;margin:0 0 12px}
+.muted{font-size:13px;color:#a8b1c4}.versions{display:flex;align-items:center;gap:14px;margin:21px 0}
+.version{font-weight:700;font-size:22px}.arrow{color:#6f90f5}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0}
+.stat{padding:13px;background:#1c2431;border-radius:9px}.stat strong{display:block;font-size:18px;margin-top:5px}.stat span{font-size:12px;color:#9eaac0}
+button{background:#5275eb;border:1px solid #6b8aff;border-radius:8px;padding:11px 17px;color:#fff;font-weight:650;cursor:pointer}
+button:hover:not(:disabled){filter:brightness(1.12)}button.secondary{background:#2b3444;border-color:#4f5d74;color:#d9e2f2}
+button:disabled{opacity:.44;cursor:not-allowed}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+select{padding:9px 13px;border-radius:8px;background:#182030;color:#ecf1fa;border:1px solid #47536a}
+label{font-size:13px;color:#c1cbde;display:flex;gap:10px;align-items:center;cursor:pointer}
+small{font-size:12px;color:#8994aa}.progress{height:8px;border-radius:99px;background:#111925;overflow:hidden;margin:13px 0}
+.bar{height:100%;width:0;background:linear-gradient(90deg,#4c7ef4,#78b4ff);transition:width .12s ease}
+.logs{font:12px/1.8 Consolas,monospace;white-space:pre-line;padding:12px 14px;background:#151c28;color:#a2b5cf;border:1px solid #303b50;border-radius:8px;margin-top:16px;min-height:68px}
+.notice{margin-top:18px;padding:10px 13px;background:#18382f;border:1px solid #38745f;color:#b1eed3;border-radius:8px;font-size:13px}
+.warning{background:#41301c;border-color:#8a6233;color:#ffe1b7}.footer{margin-top:25px;font-size:12px;color:#7f8da6}
+@media(max-width:780px){.shell{grid-template-columns:1fr;margin:0;border:0;border-radius:0}nav{padding:13px 18px;border-right:0;border-bottom:1px solid #343a4c;display:flex;align-items:center}.brand{margin:0 20px 0 0}.menu{display:none}main{padding:22px}.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav aria-label="模拟 Cubism 导航">
+  <div class="brand"><span class="mark">T</span>Turboism</div>
+  <div class="menu">概览</div>
+  <div class="menu">插件管理</div>
+  <div class="menu active">检查更新</div>
+  <div class="menu">设置</div>
+  <div class="menu">关于</div>
+</nav>
+<main>
+  <div class="eyebrow">LIVE2D CUBISM · TURBOISM</div>
+  <h1>更新 Turboism</h1>
+  <p>在 Cubism 中完成检测和下载。安全的插件可直接热更新；框架则在退出 Cubism 后替换，不干扰当前编辑。</p>
+  <div class="banner" role="note"><strong>交互原型 · 非真实更新器</strong>　这里的版本、下载大小、进度和操作全部为模拟；不会联网、重启 Cubism 或修改文件。</div>
+  <div class="row">
+    <label for="scenario">体验更新场景
+      <select id="scenario">
+        <option value="framework">框架更新（重启生效）</option>
+        <option value="hot">安全插件（可热更新）</option>
+        <option value="cold">插件不满足热重载条件</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="unsaved"> Cubism 有未保存的工程</label>
+  </div>
+  <section class="card" aria-labelledby="headline">
+    <div class="row"><h2 id="headline">发现框架更新</h2><span class="badge" id="status">可下载</span></div>
+    <div class="versions"><span class="version" id="old-version">v0.67.4</span><span class="arrow">→</span><span class="version" id="new-version">v0.68.0</span></div>
+    <p class="muted" id="summary">只获取与现有安装不同的 Agent 和插件文件；未变化的 GraalJS 依赖直接复用。</p>
+    <div class="stats">
+      <div class="stat"><span>需要下载</span><strong id="download-size">8.4 MB</strong></div>
+      <div class="stat"><span>复用已安装文件</span><strong id="reuse-size">72.1 MB</strong></div>
+      <div class="stat"><span>应用方式</span><strong id="apply-type">重启后</strong></div>
+    </div>
+    <div id="progress-area" hidden>
+      <div class="row"><span class="muted" id="progress-label">下载中…</span><span class="muted" id="progress-number">0%</span></div>
+      <div class="progress" role="progressbar" aria-label="模拟下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><div class="bar" id="progress-bar"></div></div>
+    </div>
+    <div class="actions">
+      <button id="download">下载更新</button>
+      <button class="secondary" id="cancel" hidden>取消下载</button>
+      <button id="apply" hidden>重启并更新（模拟）</button>
+      <button class="secondary" id="later" hidden>下次启动时更新（模拟）</button>
+      <button class="secondary" id="reset">重置演示</button>
+    </div>
+    <div class="notice" id="notice" hidden role="status"></div>
+    <div class="logs" id="logs" aria-live="polite">[ready] 本地文件比对完成；等待用户点击下载。</div>
+  </section>
+  <p class="footer">设计约束：下载在后台进行；必须验证签名与 SHA-256；框架不热替换；失败回滚；不覆盖个人配置和第三方插件。</p>
+</main>
+</div>
+<script>
+(function(){
+  "use strict";
+  var scenarios = {
+    framework: {title:"发现框架更新", old:"v0.67.4", next:"v0.68.0", download:"8.4 MB", reuse:"72.1 MB",
+      kind:"重启后", note:"只获取与现有安装不同的 Agent 和插件文件；未变化的 GraalJS 依赖直接复用.", hot:false},
+    hot: {title:"发现插件更新", old:"Turbo Mesh 0.3.1", next:"0.3.2", download:"0.9 MB", reuse:"—",
+      kind:"可热更新", note:"插件通过热重载安全检查后，可在 Cubism 内立即生效。", hot:true},
+    cold: {title:"发现插件更新", old:"插件 0.2.0", next:"0.2.1", download:"1.2 MB", reuse:"—",
+      kind:"重启后", note:"该插件在当前 Cubism 会话中持有需要重启的资源；不强制热替换。", hot:false}
+  };
+  var byId = function(id){return document.getElementById(id)};
+  var state = "ready", timer = null, percent = 0;
+  function log(message){byId("logs").textContent += "\n" + message}
+  function setStatus(value){byId("status").textContent=value}
+  function notice(message,warning){var n=byId("notice"); n.hidden=false; n.textContent=message; n.className="notice" + (warning?" warning":"")}
+  function hideNotice(){byId("notice").hidden=true}
+  function scenario(){return scenarios[byId("scenario").value]}
+  function reset(){
+    if(timer!==null){clearInterval(timer);timer=null}
+    state="ready";percent=0;var s=scenario();
+    byId("headline").textContent=s.title;byId("old-version").textContent=s.old;byId("new-version").textContent=s.next;
+    byId("download-size").textContent=s.download;byId("reuse-size").textContent=s.reuse;
+    byId("apply-type").textContent=s.kind;byId("summary").textContent=s.note;
+    byId("download").hidden=false;byId("download").disabled=false;
+    byId("cancel").hidden=true;byId("apply").hidden=true;byId("later").hidden=true;
+    byId("progress-area").hidden=true;byId("progress-number").textContent="0%";
+    byId("progress-bar").style.width="0%";byId("progress-track").setAttribute("aria-valuenow","0");
+    setStatus("可下载");hideNotice();
+    byId("logs").textContent="[ready] 本地文件比对完成；等待用户点击下载。";
+  }
+  function downloaded(){
+    state="staged";if(timer!==null){clearInterval(timer);timer=null}
+    setStatus("已验证 · 待应用");byId("cancel").hidden=true;
+    byId("progress-label").textContent="下载与校验完成（模拟）";
+    byId("apply").hidden=false;byId("later").hidden=false;
+    byId("apply").textContent=scenario().hot?"立即热更新（模拟）":"重启并更新（模拟）";
+    log("[verified] 模拟签名、版本身份和 SHA-256 校验完成");
+    log("[staged] 所需文件已暂存，当前安装没有改变");
+    notice(scenario().hot?"可安全热重载此插件。":"已下载并暂存。框架更新必须等待 Cubism 退出后应用。",false);
+  }
+  byId("download").addEventListener("click",function(){
+    if(state!=="ready")return;state="downloading";setStatus("下载中");
+    byId("download").hidden=true;byId("cancel").hidden=false;
+    byId("progress-area").hidden=false;hideNotice();byId("progress-label").textContent="后台下载更新文件（模拟）";
+    log("[downloading] 模拟从可信来源获取差异文件…");
+    timer=setInterval(function(){
+      percent=Math.min(100,percent+5);
+      byId("progress-number").textContent=percent+"%";byId("progress-bar").style.width=percent+"%";
+      byId("progress-track").setAttribute("aria-valuenow",String(percent));
+      if(percent===100)downloaded();
+    },110);
+  });
+  byId("cancel").addEventListener("click",function(){
+    if(timer!==null){clearInterval(timer);timer=null}
+    state="cancelled";setStatus("已取消");
+    byId("cancel").hidden=true;byId("download").hidden=false;byId("download").disabled=false;state="ready";
+    log("[cancelled] 模拟下载取消；当前安装保持不变");
+    notice("下载已取消，可再次点击下载。现有 Turboism 未修改。",true);
+  });
+  byId("apply").addEventListener("click",function(){
+    if(state!=="staged")return;
+    if(!scenario().hot && byId("unsaved").checked){
+      log("[blocked] 模拟检测到未保存的 Cubism 工程；未触发重启");
+      notice("存在未保存的 Cubism 工程。请先保存，再选择重启更新；或者下次启动时更新。",true);
+      return;
+    }
+    state="applied";setStatus("已应用（模拟）");byId("apply").hidden=true;byId("later").hidden=true;hideNotice();
+    log(scenario().hot?"[applied] 模拟插件通过热重载安全检查并生效":"[applied] 模拟 Cubism 退出、外部更新助手原子替换、成功重新启动");
+    notice(scenario().hot?"插件热更新流程演示完毕。":"重启后更新流程演示完毕。没有真实重启或改动任何文件。",false);
+  });
+  byId("later").addEventListener("click",function(){
+    if(state!=="staged")return;
+    state="pending";setStatus("下次启动（模拟）");byId("apply").hidden=true;byId("later").hidden=true;
+    log("[pending] 模拟记录下次启动的更新意图；当前会话不被打断");
+    notice("已模拟选择下次启动时更新。继续在 Cubism 中工作即可。",false);
+  });
+  byId("reset").addEventListener("click",reset);
+  byId("scenario").addEventListener("change",reset);
+  reset();
+})();
+</script>
+</body>
+</html>
