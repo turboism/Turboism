@@ -2,11 +2,5 @@
   "format": "turboism.sdk-cubism-annotation-baseline/v1",
   "comment": "Frozen backlog of public dev.turboism.sdk.cubism types that predate the @CubismEditor requirement. Regenerate with `python3 scripts/check_sdk_cubism_annotations.py --update` only when annotating entries or deliberately re-baselining; new unannotated public types fail checkSdkCubismEditorAnnotations until annotated.",
   "scope": "dev.turboism.sdk.cubism",
-  "unannotatedTypes": [
-    "dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService",
-    "dev.turboism.sdk.cubism.hook.AnimationFileHooks",
-    "dev.turboism.sdk.cubism.hook.EditorLifecycleHooks",
-    "dev.turboism.sdk.cubism.hook.ModelFileHooks",
-    "dev.turboism.sdk.cubism.hook.ParameterHooks"
-  ]
+  "unannotatedTypes": []
 }
