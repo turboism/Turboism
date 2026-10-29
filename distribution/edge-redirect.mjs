@@ -28,8 +28,9 @@ export async function beginEdgeDownload(request,env,snapshot,counter){
  // verification, prefetches, and starts from the same client within 30 minutes.
  try{await counter?.record(request,new Response(null,{status:200}),asset);}catch(error){console.error('Download start counter failed',error);}
  const url=`https://dl.turboism.dev/${channel}/${key}`;
- const response=Response.redirect(url,302);
- response.headers.set('Cache-Control','private, no-store');
- response.headers.set('Referrer-Policy','no-referrer');
- return response;
+ return new Response(null,{status:302,headers:{
+  Location:url,
+  'Cache-Control':'private, no-store',
+  'Referrer-Policy':'no-referrer',
+ }});
 }
