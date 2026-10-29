@@ -23,7 +23,10 @@ counter Durable Object. It never provides directory listings.
    `https://dl.turboism.dev/stable/files/<sha256>/<filename>`.
    This is served by an independently deployed Worker, with
    `Cache-Control: public, max-age=0, s-maxage=60, must-revalidate` on valid
-   bytes only. On a cache HIT Cloudflare can return bytes without executing the
+   bytes only. `wrangler.download-edge.json` also explicitly sets
+   `cache.enabled=true`; a header alone does NOT activate Workers Cache.
+   Each response carries a `Cache-Tag: turboism-<channel>-<sha>`.
+   On a cache HIT Cloudflare can return bytes without executing the
    Worker or reaching R2; on MISS the Worker uses its service binding to check
    the published release and reads from its private R2 bucket binding.
 3. An old updater or a user choosing the legacy official URL continues to use
@@ -75,7 +78,8 @@ Do not enable until all deployment gates pass.
 - Confirm exactly one official download start through the 302, with the same
   30-minute dedup rules; direct CDN GETs **do not increment** the counter.
 - Withdraw a canary release and verify **new cache MISSes deny it** immediately;
-  use **purge by URL / prefix** for cached bytes and confirm cached HITs are
+  use a **Worker-cache purge by tag** (e.g. `turboism-stable-<sha256>`)
+  or exact URL/path prefix for cached bytes and confirm cached HITs are
   inaccessible. An already-cached withdrawn URL can persist for up to **60s**
   without explicit purge; this is a behavior change and requires an agreed
   revocation runbook before enabling by default.
