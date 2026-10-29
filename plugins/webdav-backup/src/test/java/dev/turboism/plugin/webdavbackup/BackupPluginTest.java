@@ -109,6 +109,10 @@ final class BackupPluginTest {
         assertTrue(context.awaitLog("WEBDAV_TARGET_RETRY attempt=1", Duration.ofSeconds(2)));
         plugin.disable(); // clears the retry state; binding is disabled
         context.registry.completeSchema();
+        final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (System.nanoTime() < deadline && liveWorkerThreads() > 0) {
+            Thread.sleep(20L);
+        }
         assertEquals(0, liveWorkerThreads(), "disable drains all retry workers before returning");
         assertFalse(context.hasLog("WEBDAV_TARGET_READY"), "a cancelled retry must never build the target");
         assertFalse(context.hasLog("WEBDAV_TARGET_RETRY attempt=2"), "disable must stop the retry chain");
