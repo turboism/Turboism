@@ -38,6 +38,7 @@ test('edge allows ONLY latest verified release URLs from a private bucket',async
  assert.deepEqual([...new Uint8Array(await response.arrayBuffer())],[...bytes]);
  assert.equal(e.calls.filter(c=>c[0]==='get').length,1);
  assert.equal((await edge.fetch(new Request('https://dl.turboism.dev/files/'+sha+'/'+name),e)).status,404);
+ assert.equal((await edge.fetch(new Request(url+'?cacheBust=123'),e)).status,404);
  assert.equal((await edge.fetch(new Request(url,{method:'POST'}),e)).status,405);
 });
 test('Range, If-Range, 304, HEAD and 416 keep correct wire semantics',async()=>{
