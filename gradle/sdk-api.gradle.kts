@@ -57,7 +57,9 @@ private val sdkBaselineAnchors = listOf(
     SdkBaselineAnchor(22, "428f15ff8078659771ae90e84226e053105e3017",
         "Reconstructs the reviewed v22 file-path settings and texture-atlas SDK for 0.67.2 from its pinned Git commit."),
     SdkBaselineAnchor(23, "46b21e5ca6e2761aec2d168c135f919e1fca6159",
-        "Reconstructs the reviewed v23 polygon atlas and progress dialog SDK for 0.67.4 from its pinned Git commit.")
+        "Reconstructs the reviewed v23 polygon atlas and progress dialog SDK for 0.67.4 from its pinned Git commit."),
+    SdkBaselineAnchor(24, "f6da7f8a60a2e9e3b6aabcbc1f58f87ffb44264c",
+        "Reconstructs the reviewed v24 Cubism version annotations and selection-table dialog SDK for 0.68.0 from its pinned Git commit.")
 )
 
 private fun sdkExactBaseline(version: Int) =
