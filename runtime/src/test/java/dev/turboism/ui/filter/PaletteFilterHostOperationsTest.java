@@ -433,6 +433,18 @@ class PaletteFilterHostOperationsTest {
         // Exact record spelling routes to the pinned accessor; other spellings fail closed.
         assertEquals(
                 "h",
+                DeformerNodeSourceProfile.forVersion("5.0.00").orElseThrow().accessorName());
+        assertEquals(
+                "h",
+                DeformerNodeSourceProfile.forVersion("5.1.01").orElseThrow().accessorName());
+        assertEquals(
+                "j",
+                DeformerNodeSourceProfile.forVersion("5.1.02").orElseThrow().accessorName());
+        assertEquals(
+                "j",
+                DeformerNodeSourceProfile.forVersion("5.1.03").orElseThrow().accessorName());
+        assertEquals(
+                "h",
                 DeformerNodeSourceProfile.forVersion("5.2.03").orElseThrow().accessorName());
         assertTrue(DeformerNodeSourceProfile.forVersion("5.2.0").isEmpty());
         assertEquals(

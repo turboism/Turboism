@@ -1,7 +1,10 @@
 package dev.turboism.sdk.cubism.hook;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.CubismEditor;
 import java.lang.reflect.Method;
@@ -19,9 +22,9 @@ class ProjectFileHooksAvailabilityContractTest {
 
     @Test
     void declaresOnlyExactHostProvenProjectFileMethods() {
-        assertNull(ModelFileHooks.class.getAnnotation(CubismEditor.class));
-        assertNull(AnimationFileHooks.class.getAnnotation(CubismEditor.class));
-        assertNull(EditorLifecycleHooks.class.getAnnotation(CubismEditor.class));
+        assertUnrestrictive(ModelFileHooks.class);
+        assertUnrestrictive(AnimationFileHooks.class);
+        assertUnrestrictive(EditorLifecycleHooks.class);
 
         for (Method method : ModelFileHooks.class.getDeclaredMethods()) {
             if (method.isSynthetic()) {
@@ -54,5 +57,14 @@ class ProjectFileHooksAvailabilityContractTest {
     private static void assertExact53(final Method method) {
         assertArrayEquals(
                 REVIEWED_VERSIONS, method.getAnnotation(CubismEditor.class).value(), method.getName());
+    }
+
+    private static void assertUnrestrictive(final Class<?> type) {
+        final CubismEditor declaration = type.getAnnotation(CubismEditor.class);
+        assertNotNull(declaration);
+        assertEquals(0, declaration.value().length);
+        assertTrue(declaration.from().isEmpty());
+        assertTrue(declaration.to().isEmpty());
+        assertEquals(0, declaration.exclude().length);
     }
 }

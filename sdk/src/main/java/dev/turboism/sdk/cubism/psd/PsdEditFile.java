@@ -11,7 +11,7 @@ import java.util.function.Consumer;
  * <p>Every operation requires runtime registry, plugin ownership, permission and model-session
  * validation. User implementations do not acquire those rights. This API exposes no document path, URI, bytes or native host objects.</p>
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface PsdEditFile {
     /**
      * Opens this file using the system's default PSD association after runtime authorization.

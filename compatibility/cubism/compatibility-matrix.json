@@ -9417,6 +9417,9 @@
    "api": "dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -9430,6 +9433,9 @@
    "api": "dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -9443,6 +9449,9 @@
    "api": "dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -10483,22 +10492,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.model.Deformers#applyToChildren()",
-   "kind": "method",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformers.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()",
    "kind": "method",
    "versions": [
@@ -10509,54 +10502,6 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ModelInstance",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelInstance.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
-   "kind": "method",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
-   "kind": "method",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#alphaComposition()",
@@ -10685,22 +10630,6 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingToolRegistry.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.psd.PsdEditFile",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/psd/PsdEditFile.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
@@ -12384,6 +12313,17 @@
    ],
    "supportedGaps": {},
    "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -12394,143 +12334,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "partialFeatures": [
-    {
-     "key": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
-     ],
-     "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
-     ],
-     "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.psd.PsdEditFile",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/psd/PsdEditFile.java"
-     ],
-     "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
-     }
-    }
-   ],
+   "partialFeatures": [],
    "unmappedCapabilities": [],
    "hostValidation": {
     "external-psd-edit-pipeline": {
@@ -20272,57 +20076,6 @@
     "5.1.03"
    ],
    "reason": "Texture atlas polygon packing service requires layout algorithm and shape infrastructure introduced in Cubism 5.2.00."
-  },
-  {
-   "id": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
-   "absentOn": [
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03"
-   ],
-   "reason": "Native PSD export from raw image requires the export pipeline introduced in Cubism 5.2.00."
-  },
-  {
-   "id": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
-   "absentOn": [
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03"
-   ],
-   "reason": "Native PSD replacement requires explicit-target replacement selectors introduced in Cubism 5.2.00."
-  },
-  {
-   "id": "dev.turboism.sdk.cubism.psd.PsdEditFile",
-   "absentOn": [
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03"
-   ],
-   "reason": "Runtime PSD edit handle requires the 5.2+ external PSD edit integration pipeline."
   },
   {
    "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",

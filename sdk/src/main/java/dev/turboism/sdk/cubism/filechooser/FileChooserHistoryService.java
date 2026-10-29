@@ -20,6 +20,7 @@ import java.util.Optional;
  * The runtime service delegates reads/writes to the registered provider and
  * is fail-closed without one (reads empty, writes no-op).
  */
+@CubismEditor
 public interface FileChooserHistoryService {
 
     /** Returns the recent directory remembered for project saves, if any. */

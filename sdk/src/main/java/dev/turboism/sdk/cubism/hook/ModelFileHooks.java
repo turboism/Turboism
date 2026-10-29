@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationResult;
 
 /** Override-based lifecycle hooks for Cubism model file content. */
+@CubismEditor
 public interface ModelFileHooks {
 
     /** Runs before the host creates a model file; {@code operation} describes the request. */
