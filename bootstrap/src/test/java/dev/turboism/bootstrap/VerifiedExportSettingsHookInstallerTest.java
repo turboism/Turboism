@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
@@ -92,6 +93,13 @@ class VerifiedExportSettingsHookInstallerTest {
         assertEquals(false, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.0.06"));
         assertEquals(false, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.4.00"));
         assertEquals(false, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion(null));
+
+        assertEquals(ReviewedVersions.since("5.1.00"), VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS);
+        assertEquals(13, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.size());
+        assertEquals(false, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.0.06"));
+        assertEquals(true, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.1.00"));
+        assertEquals(true, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.3.04"));
+        assertEquals(false, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.4.00"));
     }
 
     @Test

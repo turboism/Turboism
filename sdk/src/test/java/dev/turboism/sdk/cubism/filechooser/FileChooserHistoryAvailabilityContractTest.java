@@ -1,7 +1,10 @@
 package dev.turboism.sdk.cubism.filechooser;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.CubismEditor;
 import java.nio.file.Path;
@@ -25,10 +28,19 @@ final class FileChooserHistoryAvailabilityContractTest {
 
     @Test
     void providerRegistrationDoesNotClaimEditorVersionAvailability() throws Exception {
-        assertNull(FileChooserHistoryService.class.getAnnotation(CubismEditor.class));
+        assertUnrestrictive(FileChooserHistoryService.class);
         assertNull(FileChooserHistoryService.class
                 .getMethod("registerProvider", FileChooserHistoryService.Provider.class)
                 .getAnnotation(CubismEditor.class));
+    }
+
+    private static void assertUnrestrictive(final Class<?> type) {
+        final CubismEditor declaration = type.getAnnotation(CubismEditor.class);
+        assertNotNull(declaration);
+        assertEquals(0, declaration.value().length);
+        assertTrue(declaration.from().isEmpty());
+        assertTrue(declaration.to().isEmpty());
+        assertEquals(0, declaration.exclude().length);
     }
 
     private static void assertExact53(final java.lang.reflect.Method method) {

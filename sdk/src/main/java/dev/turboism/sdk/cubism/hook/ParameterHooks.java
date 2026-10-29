@@ -4,6 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.Parameter;
 
 /** Override-based lifecycle hooks for Cubism parameters. */
+@CubismEditor
 public interface ParameterHooks {
 
     /**

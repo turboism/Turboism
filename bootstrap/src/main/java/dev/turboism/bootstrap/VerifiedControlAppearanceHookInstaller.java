@@ -213,7 +213,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     }
 
     static boolean supportsStaticProfile(final String cubismVersion) {
-        return ReviewedVersions.since("5.2.00").contains(cubismVersion);
+        return ReviewedVersions.since("5.0.00").contains(cubismVersion);
     }
 
     void install() throws Exception {

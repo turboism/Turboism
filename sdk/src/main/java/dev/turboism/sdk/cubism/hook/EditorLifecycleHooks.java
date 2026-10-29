@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.EditorExitResult;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
 
 /** Override-based hooks around the Turboism-visible Cubism editor lifetime. */
+@CubismEditor
 public interface EditorLifecycleHooks {
 
     /** Runs after the host exists but before Turboism publishes editor-started. */

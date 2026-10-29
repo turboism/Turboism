@@ -70,9 +70,9 @@
 | API | 种类 | 版本 |
 |---|---|---|
 | `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | method | 5.1.00–5.3.04 |
@@ -130,11 +130,7 @@
 | `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
@@ -144,7 +140,6 @@
 | `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolRegistry` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.psd.PsdEditFile` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
@@ -242,9 +237,6 @@ Cubism Editor 本身缺少相应功能的已确认宿主边界，均经官方更
 | `turboism.editor_commands.execute` | 5.0.00–5.0.06 | — | Editor command execution endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00. |
 | `turboism://host/editor-commands` | 5.0.00–5.0.06 | — | Editor commands resource endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00. |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | 5.0.00–5.1.03 | — | Texture atlas polygon packing service requires layout algorithm and shape infrastructure introduced in Cubism 5.2.00. |
-| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | 5.0.00–5.1.03 | — | Native PSD export from raw image requires the export pipeline introduced in Cubism 5.2.00. |
-| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | 5.0.00–5.1.03 | — | Native PSD replacement requires explicit-target replacement selectors introduced in Cubism 5.2.00. |
-| `dev.turboism.sdk.cubism.psd.PsdEditFile` | 5.0.00–5.1.03 | — | Runtime PSD edit handle requires the 5.2+ external PSD edit integration pipeline. |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | 5.0.00–5.1.03 | — | Texture atlas editor panel integration requires editor UI selectors introduced in Cubism 5.2.00. |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | 5.0.00–5.1.03 | — | Texture atlas editor session integration requires editor UI selectors introduced in Cubism 5.2.00. |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | 5.0.00–5.1.03 | — | Texture atlas editor UI integration requires editor UI selectors introduced in Cubism 5.2.00. |

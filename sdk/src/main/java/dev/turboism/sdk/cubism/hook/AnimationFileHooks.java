@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationResult;
 
 /** Override-based lifecycle hooks for Cubism animation file content. */
+@CubismEditor
 public interface AnimationFileHooks {
 
     /** Runs before the host creates an animation file; {@code operation} describes the request. */

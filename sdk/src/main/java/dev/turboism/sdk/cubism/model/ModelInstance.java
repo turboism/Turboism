@@ -9,7 +9,7 @@ import dev.turboism.sdk.CubismEditor;
  * <p>Instances are created by the Editor itself (modeling view, animation
  * workspace, export); this projection never mutates the host.</p>
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface ModelInstance {
 
     /** Render kind of this instance. */
