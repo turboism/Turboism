@@ -144,15 +144,18 @@ class NativeRowActionTrackerTest {
             var originalTextBounds = textBounds(label);
             label.setIcon(null);
             int originalListeners = label.getMouseListeners().length;
+            int originalMotionListeners = label.getMouseMotionListeners().length;
             for (int i = 0; i < 20; i++) tracker.apply(label, action, coordinator);
             assertEquals(0, label.getIcon().getIconWidth());
             assertEquals(originalTextBounds, textBounds(label));
             assertEquals(originalListeners + 1, label.getMouseListeners().length);
+            assertEquals(originalMotionListeners + 1, label.getMouseMotionListeners().length);
             Icon newNative = new Square(Color.BLUE, 8);
             label.setIcon(newNative);
             tracker.restoreAll();
             assertSame(newNative, label.getIcon());
             assertEquals(originalListeners, label.getMouseListeners().length);
+            assertEquals(originalMotionListeners, label.getMouseMotionListeners().length);
         });
     }
 
@@ -179,6 +182,137 @@ class NativeRowActionTrackerTest {
             }
             tracker.restoreAll();
         });
+    }
+
+    @Test
+    void clickingUnlockedParameterNameForwardsToOuterRowLayoutWhileLockClickDoesNotSelectRow() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            var tracker = new NativeRowActionTracker();
+            var coordinator = coordinator();
+            var rowLayout = new javax.swing.JPanel(null);
+            var layeredWrapper = new javax.swing.JLayeredPane();
+            var hbox = new javax.swing.JPanel(null);
+            var nameVBox = new javax.swing.JPanel(null);
+            var label = label(true);
+
+            rowLayout.setBounds(0, 0, 240, 40);
+            layeredWrapper.setBounds(0, 8, 240, 26);
+            hbox.setBounds(0, 0, 240, 26);
+            nameVBox.setBounds(20, 0, 160, 26);
+            label.setBounds(0, 3, 160, 20);
+
+            nameVBox.add(label);
+            hbox.add(nameVBox);
+            layeredWrapper.add(hbox);
+            rowLayout.add(layeredWrapper);
+
+            var lockClicks = new AtomicInteger();
+            var selectedOnRelease = new AtomicInteger();
+            var pressedOnRowLayout = new AtomicInteger();
+            var draggedOnRowLayout = new AtomicInteger();
+            var movedOnRowLayout = new AtomicInteger();
+            var lastPoint = new java.awt.Point();
+
+            var nativeRowListener = new java.awt.event.MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    pressedOnRowLayout.incrementAndGet();
+                    lastPoint.setLocation(event.getPoint());
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent event) {
+                    if (SwingUtilities.isLeftMouseButton(event)) {
+                        selectedOnRelease.incrementAndGet();
+                        lastPoint.setLocation(event.getPoint());
+                    }
+                }
+
+                @Override
+                public void mouseDragged(MouseEvent event) {
+                    draggedOnRowLayout.incrementAndGet();
+                    lastPoint.setLocation(event.getPoint());
+                }
+
+                @Override
+                public void mouseMoved(MouseEvent event) {
+                    movedOnRowLayout.incrementAndGet();
+                    lastPoint.setLocation(event.getPoint());
+                }
+            };
+            rowLayout.addMouseListener(nativeRowListener);
+            rowLayout.addMouseMotionListener(nativeRowListener);
+
+            tracker.apply(label, Optional.of(action(PaletteRowAction.State.UNLOCKED, lockClicks)), coordinator);
+
+            // 1. Clicking the parameter name (x=60, outside the 16px leading lock slot) must reach rowLayout
+            // across intermediate listener-less containers (nameVBox -> hbox -> layeredWrapper -> rowLayout)
+            // and select the parameter on mouseReleased, without toggling the lock.
+            dispatchFullClick(label, 60, 8);
+            assertEquals(0, lockClicks.get());
+            assertEquals(1, pressedOnRowLayout.get());
+            assertEquals(1, selectedOnRelease.get());
+            assertEquals(new java.awt.Point(80, 19), lastPoint);
+
+            // 2. Mouse move and drag on the parameter name must also reach rowLayout's MouseMotionListener.
+            label.dispatchEvent(new MouseEvent(label, MouseEvent.MOUSE_MOVED, 0, 0, 70, 9, 0, false));
+            label.dispatchEvent(new MouseEvent(
+                    label, MouseEvent.MOUSE_DRAGGED, 0, java.awt.event.InputEvent.BUTTON1_DOWN_MASK, 75, 10, 0, false));
+            assertEquals(1, movedOnRowLayout.get());
+            assertEquals(1, draggedOnRowLayout.get());
+            assertEquals(new java.awt.Point(95, 21), lastPoint);
+
+            // 3. Clicking the leading lock icon (x=4) must toggle the lock without forwarding press/release/drag
+            // to rowLayout, preserving existing editor parameter selection.
+            label.dispatchEvent(new MouseEvent(
+                    label,
+                    MouseEvent.MOUSE_PRESSED,
+                    0,
+                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                    4,
+                    8,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
+            label.dispatchEvent(new MouseEvent(
+                    label, MouseEvent.MOUSE_DRAGGED, 0, java.awt.event.InputEvent.BUTTON1_DOWN_MASK, 5, 8, 0, false));
+            label.dispatchEvent(new MouseEvent(
+                    label,
+                    MouseEvent.MOUSE_RELEASED,
+                    0,
+                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                    4,
+                    8,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
+            label.dispatchEvent(new MouseEvent(
+                    label,
+                    MouseEvent.MOUSE_CLICKED,
+                    0,
+                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                    4,
+                    8,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
+            assertEquals(1, lockClicks.get());
+            assertEquals(1, pressedOnRowLayout.get());
+            assertEquals(1, selectedOnRelease.get());
+            assertEquals(1, draggedOnRowLayout.get());
+
+            tracker.restoreAll();
+        });
+    }
+
+    private static void dispatchFullClick(JLabel label, int x, int y) {
+        int mask = java.awt.event.InputEvent.BUTTON1_DOWN_MASK;
+        label.dispatchEvent(
+                new MouseEvent(label, MouseEvent.MOUSE_PRESSED, 0, mask, x, y, 1, false, MouseEvent.BUTTON1));
+        label.dispatchEvent(
+                new MouseEvent(label, MouseEvent.MOUSE_RELEASED, 0, mask, x, y, 1, false, MouseEvent.BUTTON1));
+        label.dispatchEvent(
+                new MouseEvent(label, MouseEvent.MOUSE_CLICKED, 0, mask, x, y, 1, false, MouseEvent.BUTTON1));
     }
 
     private static PaletteAppearanceCoordinator coordinator() {
