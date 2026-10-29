@@ -57,6 +57,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -127,7 +128,7 @@ class LocalPluginRuntimeCloseTest {
 
     @Test
     void closeAttemptsEveryStageRetainsUnsafeLoaderAndClosesSharedLaneLast() throws Exception {
-        final List<String> order = new ArrayList<>();
+        final List<String> order = Collections.synchronizedList(new ArrayList<>());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession hostSession = new HostSession(Optional::empty);
         final Path logFile = temporary.resolve("logs/turboism.log");
@@ -374,7 +375,7 @@ class LocalPluginRuntimeCloseTest {
 
     @Test
     void escapedPluginCloseAndFailingFallbacksDoNotBlockNextPluginOrSharedLane() throws Exception {
-        final List<String> order = new ArrayList<>();
+        final List<String> order = Collections.synchronizedList(new ArrayList<>());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession hostSession = new HostSession(Optional::empty);
         final Path logFile = temporary.resolve("fallback/logs/turboism.log");
@@ -455,7 +456,7 @@ class LocalPluginRuntimeCloseTest {
 
     @Test
     void closeDefersTeardownUntilPreFenceSdkCallDrainsThenRunsExactlyOnce() throws Exception {
-        final List<String> order = new ArrayList<>();
+        final List<String> order = Collections.synchronizedList(new ArrayList<>());
         final RuntimeScheduler scheduler = scheduler();
         final HostSession hostSession = new HostSession(Optional::empty);
         final Path logFile = temporary.resolve("logs/turboism.log");
