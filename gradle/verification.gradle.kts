@@ -906,6 +906,7 @@ val checkPluginEventReference by tasks.registering {
     )
     inputs.file(pluginEventReferenceReport)
     outputs.file(verificationReport)
+    outputs.cacheIf { true }
     doLast {
         val report = verificationReport.get().asFile
         report.parentFile.mkdirs()
@@ -1523,18 +1524,21 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
     )
     inputs.file(provider {
         project(":sdk").tasks.named<Jar>("jar").get().archiveFile
-    })
+    }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     inputs.file(provider {
         project(":event-processor").tasks.named<Jar>("jar").get().archiveFile
-    })
+    }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     inputs.files(provider {
         project(":runtime").extensions.getByType<SourceSetContainer>()
-            .named("main").get().runtimeClasspath
+            .named("main").get().runtimeClasspath.filter { !it.path.endsWith("/resources/main") }
+    }).withNormalizer(org.gradle.api.tasks.ClasspathNormalizer::class)
+    inputs.property("sdkVersion", provider {
+        (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)["apiVersion"].toString()
     })
-    inputs.property("sdkVersion", provider { project(":sdk").version.toString() })
     inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
     VerificationStamps.apply(this)
     doFirst {
+        val sdkApiVersion = (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)["apiVersion"].toString()
         commandLine(
             "python3", "scripts/test/check_external_plugin_template.py", "selftest",
             "--repo-root", rootDir.absolutePath,
@@ -1542,7 +1546,7 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
             project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
             "--event-processor-jar",
             project(":event-processor").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
-            "--sdk-version", project(":sdk").version.toString(),
+            "--sdk-version", sdkApiVersion,
             "--runtime-classpath",
             project(":runtime").extensions.getByType<SourceSetContainer>()
                 .named("main").get().runtimeClasspath.asPath,
@@ -1565,18 +1569,21 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
     )
     inputs.file(provider {
         project(":sdk").tasks.named<Jar>("jar").get().archiveFile
-    })
+    }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     inputs.file(provider {
         project(":event-processor").tasks.named<Jar>("jar").get().archiveFile
-    })
+    }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     inputs.files(provider {
         project(":runtime").extensions.getByType<SourceSetContainer>()
-            .named("main").get().runtimeClasspath
+            .named("main").get().runtimeClasspath.filter { !it.path.endsWith("/resources/main") }
+    }).withNormalizer(org.gradle.api.tasks.ClasspathNormalizer::class)
+    inputs.property("sdkVersion", provider {
+        (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)["apiVersion"].toString()
     })
-    inputs.property("sdkVersion", provider { project(":sdk").version.toString() })
     inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
     VerificationStamps.apply(this)
     doFirst {
+        val sdkApiVersion = (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)["apiVersion"].toString()
         commandLine(
             "python3", "scripts/test/check_external_plugin_template.py", "check",
             "--repo-root", rootDir.absolutePath,
@@ -1584,7 +1591,7 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
             project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
             "--event-processor-jar",
             project(":event-processor").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
-            "--sdk-version", project(":sdk").version.toString(),
+            "--sdk-version", sdkApiVersion,
             "--runtime-classpath",
             project(":runtime").extensions.getByType<SourceSetContainer>()
                 .named("main").get().runtimeClasspath.asPath,

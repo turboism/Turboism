@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Run offline host tooling contracts selected by the completed-commit gate."""
+from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -22,15 +24,37 @@ SHELL_TESTS = (
 )
 
 
+def _run_pattern_file(pattern_file: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "unittest", "discover", "-s", "scripts/test", "-p", pattern_file.name],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 def main() -> int:
     status = 0
+    test_dir = ROOT / "scripts" / "test"
+    workers = min(4, os.cpu_count() or 4)
     for pattern in PATTERNS:
         started = time.monotonic()
-        result = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-s", "scripts/test", "-p", pattern],
-            cwd=ROOT, check=False,
-        )
-        status = max(status, int(result.returncode != 0))
+        matched = sorted(test_dir.glob(pattern))
+        if len(matched) > 1:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                for res in executor.map(_run_pattern_file, matched):
+                    if res.stdout:
+                        sys.stdout.write(res.stdout)
+                    if res.stderr:
+                        sys.stderr.write(res.stderr)
+                    status = max(status, int(res.returncode != 0))
+        else:
+            result = subprocess.run(
+                [sys.executable, "-m", "unittest", "discover", "-s", "scripts/test", "-p", pattern],
+                cwd=ROOT, check=False,
+            )
+            status = max(status, int(result.returncode != 0))
         print(f"TIMING {pattern}: {time.monotonic() - started:.1f}s", flush=True)
     for name in SHELL_TESTS:
         started = time.monotonic()

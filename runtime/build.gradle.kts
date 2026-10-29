@@ -32,6 +32,7 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
         ) { include("*.json") }
     )
     outputs.file(generatedCoreCatalogFile)
+    outputs.cacheIf { true }
     doFirst {
         val output = generatedCoreCatalogFile.get().asFile
         output.parentFile.mkdirs()
@@ -81,6 +82,7 @@ val generateVerificationSources by tasks.registering(Exec::class) {
         }
     )
     outputs.dir(generatedVerificationRoot)
+    outputs.cacheIf { true }
     doFirst {
         commandLine(
             "python3",
@@ -108,6 +110,7 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
         ) { include("cubism-*-core-model-read.json") }
     )
     outputs.file(generatedCoreSelectorContractFile)
+    outputs.cacheIf { true }
     doFirst {
         val output = generatedCoreSelectorContractFile.get().asFile
         output.parentFile.mkdirs()
