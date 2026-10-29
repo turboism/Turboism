@@ -67,6 +67,7 @@ export default {
    'Access-Control-Allow-Origin':'*',
    'Access-Control-Expose-Headers':'ETag, Content-Length, Content-Range, Accept-Ranges',
    'Cache-Control':cacheControl,
+   'Cache-Tag':`turboism-${channel}-${sha}`,
   });
   if((request.headers.get('if-none-match')??'').split(',').some(x=>x.trim()==='*'||x.trim().replace(/^W\//,'')===etag)){
    headers.delete('Content-Length');

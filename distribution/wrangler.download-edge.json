@@ -5,8 +5,28 @@
   "compatibility_date": "2026-09-09",
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "dl.turboism.dev", "custom_domain": true }],
-  "services": [{ "binding": "RELEASE_API", "service": "turboism-release-api" }],
-  "r2_buckets": [{ "binding": "DOWNLOADS", "bucket_name": "turboism-downloads" }],
-  "observability": { "enabled": true }
+  "routes": [
+    {
+      "pattern": "dl.turboism.dev",
+      "custom_domain": true
+    }
+  ],
+  "services": [
+    {
+      "binding": "RELEASE_API",
+      "service": "turboism-release-api"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "DOWNLOADS",
+      "bucket_name": "turboism-downloads"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "cache": {
+    "enabled": true
+  }
 }
