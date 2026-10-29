@@ -1024,6 +1024,9 @@ def check_plugin_selection_page_contract():
           "Function StagePluginReadmeFiles" in generated
           and "Function WritePluginSelectionSkipMarkers" in generated
           and "Call WritePluginSelectionSkipMarkers" in generated
+          and "IntOp $1 $1 & 0xF000" in generated
+          and "${If} $1 == 8192" in generated
+          and "== 0x2000" not in generated
           and ".skip" in generated
           and 'Write-Output "SKIP_UNSELECTED|$($entry.Relative)"' in helper)
 
