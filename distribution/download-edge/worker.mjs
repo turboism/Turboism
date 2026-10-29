@@ -40,8 +40,10 @@ async function activeAsset(env,channel,sha,name){
  */
 export default {
  async fetch(request,env){
-  const pathname=new URL(request.url).pathname;
-  const match=FILE_RE.exec(pathname);
+  const requestUrl=new URL(request.url);
+  // Avoid unbounded query-string cache keys and custom host override tricks.
+  if(requestUrl.search)return fail(404,'Not found');
+  const match=FILE_RE.exec(requestUrl.pathname);
   if(!match)return fail(404,'Not found');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'Range, If-Range, If-None-Match'}});
   if(!['GET','HEAD'].includes(request.method))return fail(405,'Method not allowed');
