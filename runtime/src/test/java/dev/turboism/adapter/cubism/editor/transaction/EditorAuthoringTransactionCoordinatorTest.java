@@ -1304,4 +1304,196 @@ final class EditorAuthoringTransactionCoordinatorTest {
             return code;
         }
     }
+
+    @Test
+    void batchStoredSourceWritesNormalPathRunsCallbackAndDeferredEvaluation() {
+        final var f = new BindingFixture();
+        final var callbackRan = new AtomicBoolean();
+        final var evaluationRan = new AtomicBoolean();
+        final var source = new Object();
+        final var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("batch normal"), () -> {
+            f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                callbackRan.set(true);
+                f.coordinator.evaluateStoredSource(f.binding, source, () -> evaluationRan.set(true));
+                assertFalse(evaluationRan.get(), "Deferred evaluation must not run before batch ends");
+            });
+            assertTrue(evaluationRan.get(), "Deferred evaluation must run when batch ends");
+            return "ok";
+        });
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+        assertTrue(callbackRan.get());
+        assertTrue(evaluationRan.get());
+        assertFalse(f.coordinator.hasActiveTransaction());
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
+
+    @Test
+    void batchStoredSourceWritesDualFailurePrioritizesEvaluationOomOverCallbackException() {
+        final var f = new BindingFixture();
+        final var callbackException = new IllegalStateException("callback failed");
+        final var evaluationError = new OutOfMemoryError("synthetic OOM during deferred evaluation");
+        final var source = new Object();
+
+        final Error thrown = assertThrows(OutOfMemoryError.class, () -> {
+            f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("batch dual failure OOM"), () -> {
+                f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                    f.coordinator.evaluateStoredSource(f.binding, source, () -> {
+                        throw evaluationError;
+                    });
+                    throw callbackException;
+                });
+                return null;
+            });
+        });
+
+        assertSame(evaluationError, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(callbackException, thrown.getSuppressed()[0]);
+        assertFalse(f.coordinator.hasActiveTransaction(), "Ambient transaction must be cleaned up");
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
+
+    @Test
+    void batchStoredSourceWritesDualFailurePrioritizesEvaluationAssertionErrorOverCallbackException() {
+        final var f = new BindingFixture();
+        final var callbackException = new IllegalStateException("callback failed");
+        final var evaluationError = new AssertionError("assertion failed during deferred evaluation");
+        final var source = new Object();
+
+        final Error thrown = assertThrows(AssertionError.class, () -> {
+            f.coordinator.execute(
+                    f.binding, AuthoringTransactionOptions.of("batch dual failure AssertionError"), () -> {
+                        f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                            f.coordinator.evaluateStoredSource(f.binding, source, () -> {
+                                throw evaluationError;
+                            });
+                            throw callbackException;
+                        });
+                        return null;
+                    });
+        });
+
+        assertSame(evaluationError, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(callbackException, thrown.getSuppressed()[0]);
+        assertFalse(f.coordinator.hasActiveTransaction(), "Ambient transaction must be cleaned up");
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
+
+    @Test
+    void batchStoredSourceWritesDualFailurePrioritizesFatalCallbackOverOrdinaryEvaluationFailure() {
+        final var f = new BindingFixture();
+        final var callbackOom = new OutOfMemoryError("callback fatal OOM");
+        final var evaluationException = new IllegalStateException("evaluation runtime failure");
+        final var source = new Object();
+
+        final Error thrown = assertThrows(OutOfMemoryError.class, () -> {
+            f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("fatal callback + ordinary eval"), () -> {
+                f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                    f.coordinator.evaluateStoredSource(f.binding, source, () -> {
+                        throw evaluationException;
+                    });
+                    throw callbackOom;
+                });
+                return null;
+            });
+        });
+
+        assertSame(callbackOom, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(evaluationException, thrown.getSuppressed()[0]);
+        assertFalse(f.coordinator.hasActiveTransaction(), "Ambient transaction must be cleaned up");
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
+
+    @Test
+    void batchStoredSourceWritesSelfSameThrowableDoesNotCauseSelfSuppression() {
+        final var f = new BindingFixture();
+        final var sharedException = new IllegalStateException("same exception instance");
+        final var source = new Object();
+
+        final var result =
+                f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("self same throwable"), () -> {
+                    f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                        f.coordinator.evaluateStoredSource(f.binding, source, () -> {
+                            throw sharedException;
+                        });
+                        throw sharedException;
+                    });
+                    return null;
+                });
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(0, sharedException.getSuppressed().length);
+        assertFalse(f.coordinator.hasActiveTransaction());
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
+
+    @Test
+    void batchStoredSourceWritesCallbackExceptionOnlyRollsBackNormally() {
+        final var f = new BindingFixture();
+        final var callbackException = new IllegalStateException("callback failure only");
+        final var source = new Object();
+        final var evaluationRan = new AtomicBoolean();
+
+        final var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("callback failure"), () -> {
+            f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                f.coordinator.evaluateStoredSource(f.binding, source, () -> evaluationRan.set(true));
+                throw callbackException;
+            });
+            return null;
+        });
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertTrue(evaluationRan.get(), "Deferred evaluation must run when batch ends even if callback fails");
+        assertFalse(f.coordinator.hasActiveTransaction());
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
+
+    @Test
+    void recoverPrioritizesFatalRecoveryErrorOverNonFatalCallbackError() {
+        final var f = new BindingFixture();
+        final var callbackAssertion = new AssertionError("callback non-fatal assertion error");
+        final var recoveryOom = new OutOfMemoryError("recovery fatal OOM");
+
+        final Error thrown = assertThrows(OutOfMemoryError.class, () -> {
+            f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("fatal recovery"), () -> {
+                f.coordinator.mutate(
+                        f.binding,
+                        new EditorUndoContribution(
+                                "failing-compensation",
+                                "target",
+                                "Label",
+                                (edit, label) -> {},
+                                () -> {},
+                                () -> true,
+                                () -> {
+                                    throw recoveryOom;
+                                },
+                                () -> false,
+                                Set.of()));
+                throw callbackAssertion;
+            });
+        });
+
+        assertSame(recoveryOom, thrown, "Fatal recovery error must take priority over non-fatal callback Error");
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(callbackAssertion, thrown.getSuppressed()[0]);
+        assertFalse(f.coordinator.hasActiveTransaction());
+
+        final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
+    }
 }

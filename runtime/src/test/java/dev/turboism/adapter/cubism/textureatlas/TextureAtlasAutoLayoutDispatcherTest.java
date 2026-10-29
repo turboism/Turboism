@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.textureatlas;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
@@ -407,6 +408,7 @@ final class TextureAtlasAutoLayoutDispatcherTest {
                 List.of(new TextureAtlasLayoutItem("native-item-0", 4, 3)),
                 snapshotPlan);
         private int applied;
+        private Error applyFailure;
 
         @Override
         public Optional<TextureAtlasLayoutSnapshot> current() {
@@ -417,6 +419,9 @@ final class TextureAtlasAutoLayoutDispatcherTest {
         public TextureAtlasLayoutApplyResult apply(
                 final TextureAtlasLayoutTarget target, final TextureAtlasLayoutPlan plan) {
             applied++;
+            if (applyFailure != null) {
+                throw applyFailure;
+            }
             return TextureAtlasLayoutApplyResult.applied();
         }
     }
@@ -725,5 +730,87 @@ final class TextureAtlasAutoLayoutDispatcherTest {
         final Data data = new Data(
                 new ArrayList<>(List.of(first, second)), new Impl(new Container(new LayerRef[] {firstRef, secondRef})));
         final Receiver receiver = new Receiver(new Settings(), data);
+    }
+
+    @Test
+    void plannerFatalErrorsPropagateAndReleaseLeaseAndRestoreTccl() {
+        final RecordingLayouts layouts = new RecordingLayouts();
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry = new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection();
+        registry.bindSelection(selection);
+        final TextureAtlasAutoLayoutDispatcher dispatcher =
+                new TextureAtlasAutoLayoutDispatcher(registry, selection, layouts);
+
+        final ClassLoader originalLoader = Thread.currentThread().getContextClassLoader();
+        final ClassLoader customLoader = new java.net.URLClassLoader(new java.net.URL[0], originalLoader);
+
+        final OutOfMemoryError oom = new OutOfMemoryError("synthetic OOM in planner");
+        final TextureAtlasLayoutPlanner customPlanner =
+                (TextureAtlasLayoutPlanner) java.lang.reflect.Proxy.newProxyInstance(
+                        customLoader, new Class<?>[] {TextureAtlasLayoutPlanner.class}, (proxy, method, arguments) -> {
+                            assertSame(customLoader, Thread.currentThread().getContextClassLoader());
+                            throw oom;
+                        });
+        final Registration oomHandle =
+                registry.register(new TextureAtlasLayoutAlgorithm("oom", "OOM", false, customPlanner));
+
+        selection.select(new TextureAtlasLayoutSelection("oom", false));
+        final OutOfMemoryError thrownOom =
+                org.junit.jupiter.api.Assertions.assertThrows(OutOfMemoryError.class, dispatcher::dispatch);
+        assertSame(oom, thrownOom);
+        assertSame(originalLoader, Thread.currentThread().getContextClassLoader(), "TCCL must be restored on fatal");
+        oomHandle.close();
+
+        final ThreadDeath death = new ThreadDeath();
+        final Registration deathHandle =
+                registry.register(new TextureAtlasLayoutAlgorithm("death", "Death", false, (items, constraints) -> {
+                    throw death;
+                }));
+        selection.select(new TextureAtlasLayoutSelection("death", false));
+        final ThreadDeath thrownDeath =
+                org.junit.jupiter.api.Assertions.assertThrows(ThreadDeath.class, dispatcher::dispatch);
+        assertSame(death, thrownDeath);
+        deathHandle.close();
+    }
+
+    @Test
+    void plannerLinkageErrorFallsBackToNativeSafely() {
+        final RecordingLayouts layouts = new RecordingLayouts();
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry = new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection();
+        registry.bindSelection(selection);
+        final TextureAtlasAutoLayoutDispatcher dispatcher =
+                new TextureAtlasAutoLayoutDispatcher(registry, selection, layouts);
+
+        registry.register(new TextureAtlasLayoutAlgorithm("linkage", "Linkage", false, (items, constraints) -> {
+            throw new NoClassDefFoundError("simulated missing optional dependency");
+        }));
+
+        selection.select(new TextureAtlasLayoutSelection("linkage", false));
+        assertFalse(dispatcher.dispatch(), "LinkageError must fall back to native packing rather than aborting");
+        assertEquals(0, layouts.applied);
+    }
+
+    @Test
+    void layoutApplyFatalErrorPropagatesAndReleasesLease() {
+        final RecordingLayouts layouts = new RecordingLayouts();
+        final OutOfMemoryError applyOom = new OutOfMemoryError("synthetic OOM in apply");
+        layouts.applyFailure = applyOom;
+
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry = new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final TextureAtlasAutoLayoutSelection selection = new TextureAtlasAutoLayoutSelection();
+        registry.bindSelection(selection);
+
+        final TextureAtlasAutoLayoutDispatcher dispatcher =
+                new TextureAtlasAutoLayoutDispatcher(registry, selection, layouts);
+        final Registration handle = registry.register(new TextureAtlasLayoutAlgorithm(
+                "apply-oom", "Apply OOM", false, (items, constraints) -> layouts.snapshotPlan));
+        selection.select(new TextureAtlasLayoutSelection("apply-oom", false));
+
+        final OutOfMemoryError thrown =
+                org.junit.jupiter.api.Assertions.assertThrows(OutOfMemoryError.class, dispatcher::dispatch);
+        assertSame(applyOom, thrown);
+        assertEquals(1, layouts.applied);
+        handle.close();
     }
 }

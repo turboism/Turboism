@@ -445,7 +445,8 @@ public final class EdtDispatch {
             try {
                 result.set(task.call());
             } catch (Throwable throwable) {
-                // Record first: a fatal Error must still reach the caller via outcome().
+                // @containment-exempt: failure recorded before rethrowIfFatal so fatal Error reaches caller via
+                // outcome()
                 failure.set(throwable);
                 FatalErrors.rethrowIfFatal(throwable);
             } finally {

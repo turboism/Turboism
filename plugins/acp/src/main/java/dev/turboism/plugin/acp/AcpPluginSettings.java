@@ -2,6 +2,7 @@ package dev.turboism.plugin.acp;
 
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.ArrayList;
@@ -64,8 +65,19 @@ final class AcpPluginSettings implements AutoCloseable {
             sessionIdSnapshot = normalizeStored(read(SESSION_ID, null));
             initialPromptSnapshot = boundedPrompt(read(INITIAL_PROMPT, ""));
         } catch (RuntimeException | Error failure) {
-            if (write != null) write.close();
-            if (read != null) read.close();
+            // @containment-exempt: DisposableScope closes write and read before rethrow with fatal prioritized
+            try (DisposableScope rollback = new DisposableScope()) {
+                if (read != null) rollback.register(read);
+                if (write != null) rollback.register(write);
+                rollback.register(() -> {
+                    throw failure;
+                });
+            } catch (RuntimeException rollbackFailure) {
+                throw rollbackFailure;
+            } catch (Exception rollbackFailure) {
+                throw new IllegalStateException(
+                        "Turboism ACP settings initialization rollback failed", rollbackFailure);
+            }
             throw failure;
         }
     }
@@ -192,10 +204,13 @@ final class AcpPluginSettings implements AutoCloseable {
 
     @Override
     public void close() {
-        try {
-            writeScope.close();
-        } finally {
-            readScope.close();
+        try (DisposableScope closeScope = new DisposableScope()) {
+            closeScope.register(readScope);
+            closeScope.register(writeScope);
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception e) {
+            throw new IllegalStateException("Turboism ACP settings close failed", e);
         }
     }
 

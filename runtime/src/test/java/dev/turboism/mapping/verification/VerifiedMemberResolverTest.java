@@ -2,6 +2,7 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -530,5 +531,93 @@ class VerifiedMemberResolverTest {
         public String fail() {
             throw new IllegalStateException("private-host-detail");
         }
+    }
+
+    public static final class ThrowingMethodHost {
+        static final OutOfMemoryError OOM = new OutOfMemoryError("synthetic OOM in method");
+        static final ThreadDeath DEATH = new ThreadDeath();
+        static final IllegalStateException ORDINARY = new IllegalStateException("ordinary method exception");
+
+        public void throwOom() {
+            throw OOM;
+        }
+
+        public void throwDeath() {
+            throw DEATH;
+        }
+
+        public void throwOrdinary() {
+            throw ORDINARY;
+        }
+    }
+
+    public static final class ThrowingConstructorHost {
+        static final OutOfMemoryError OOM = new OutOfMemoryError("synthetic OOM in constructor");
+        static final ThreadDeath DEATH = new ThreadDeath();
+        static final IllegalStateException ORDINARY = new IllegalStateException("ordinary constructor exception");
+
+        public ThrowingConstructorHost(final String kind) {
+            if ("oom".equals(kind)) throw OOM;
+            if ("death".equals(kind)) throw DEATH;
+            throw ORDINARY;
+        }
+    }
+
+    @Test
+    void methodFatalErrorPropagatesSameInstanceWhileOrdinaryExceptionSurfacesAsSafeAccessFailure() {
+        final String owner = internalName(ThrowingMethodHost.class);
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+                plan(
+                        StaticSelector.method(
+                                "fixture.method.oom", owner, "throwOom", "()V", StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.method.death", owner, "throwDeath", "()V", StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.method.ordinary",
+                                owner,
+                                "throwOrdinary",
+                                "()V",
+                                StaticSelector.ACCESS_PUBLIC)),
+                ThrowingMethodHost.class.getClassLoader());
+        final ThrowingMethodHost target = new ThrowingMethodHost();
+
+        assertSame(
+                ThrowingMethodHost.OOM,
+                assertThrows(OutOfMemoryError.class, () -> resolver.invoke("fixture.method.oom", target)));
+        assertSame(
+                ThrowingMethodHost.DEATH,
+                assertThrows(ThreadDeath.class, () -> resolver.invoke("fixture.method.death", target)));
+
+        final VerifiedAccessException safe =
+                assertThrows(VerifiedAccessException.class, () -> resolver.invoke("fixture.method.ordinary", target));
+        assertEquals("Verified host method execution failed safely.", safe.getMessage());
+        assertNull(safe.getCause(), "Sanitized exception must have null cause");
+        assertEquals(0, safe.getSuppressed().length);
+        assertFalse(safe.getMessage().contains("ordinary method exception"));
+        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE, safe.hostFailureCategory());
+    }
+
+    @Test
+    void constructorFatalErrorPropagatesSameInstanceWhileOrdinaryExceptionSurfacesAsSafeAccessFailure() {
+        final String owner = internalName(ThrowingConstructorHost.class);
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+                plan(StaticSelector.constructor(
+                        "fixture.ctor.throw", owner, "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC)),
+                ThrowingConstructorHost.class.getClassLoader());
+
+        assertSame(
+                ThrowingConstructorHost.OOM,
+                assertThrows(OutOfMemoryError.class, () -> resolver.construct("fixture.ctor.throw", "oom")));
+        assertSame(
+                ThrowingConstructorHost.DEATH,
+                assertThrows(ThreadDeath.class, () -> resolver.construct("fixture.ctor.throw", "death")));
+
+        final VerifiedAccessException safe =
+                assertThrows(VerifiedAccessException.class, () -> resolver.construct("fixture.ctor.throw", "ordinary"));
+        assertEquals("Verified host constructor execution failed safely.", safe.getMessage());
+        assertNull(safe.getCause(), "Sanitized exception must have null cause");
+        assertEquals(0, safe.getSuppressed().length);
+        assertFalse(safe.getMessage().contains("ordinary constructor exception"));
+        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE, safe.hostFailureCategory());
     }
 }

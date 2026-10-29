@@ -103,16 +103,20 @@ final class EditApiDispatchHookContributor implements HookContributor {
             final VerifiedEditApiDispatchInstaller installed = installer;
             return () -> closeResources(toggleResources, installed);
         } catch (final Throwable failure) {
+            // @containment-exempt: closeResources runs cleanup before rethrowing with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 closeResources(toggleResources, installer);
             } catch (final Throwable cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
             }
+            FatalErrors.rethrowIfFatal(toThrow);
             NativeOptimizationHookContributor.log(
                     environment,
                     "Turboism edit-protocol dispatch hook disabled safely: "
-                            + failure.getClass().getName() + ": " + failure.getMessage());
-            throw new IllegalStateException("Edit dispatch hook installation failed", failure);
+                            + toThrow.getClass().getName() + ": " + toThrow.getMessage());
+            throw new IllegalStateException("Edit dispatch hook installation failed", toThrow);
         }
     }
 
@@ -123,23 +127,19 @@ final class EditApiDispatchHookContributor implements HookContributor {
         if (installer != null) {
             resources.add(installer);
         }
-        Throwable first = null;
+        Throwable accumulated = null;
         for (int index = resources.size() - 1; index >= 0; index--) {
             try {
                 resources.get(index).close();
             } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                if (first == null) {
-                    first = failure;
-                } else if (first != failure) {
-                    first.addSuppressed(failure);
-                }
+                // @containment-exempt: all resources closed despite failures before rethrow with fatal prioritized
+                accumulated = FatalErrors.mergeForCleanup(accumulated, failure);
             }
         }
-        if (first instanceof Error error) {
+        if (accumulated instanceof Error error) {
             throw error;
         }
-        if (first instanceof Exception exception) {
+        if (accumulated instanceof Exception exception) {
             throw exception;
         }
     }
@@ -198,17 +198,21 @@ final class EditApiDispatchHookContributor implements HookContributor {
                             + String.join(",", installed.transformedClassNames()));
             return Optional.of(new EditToggleApprovalGate(state));
         } catch (final Throwable failure) {
+            // @containment-exempt: hook closed before fatal error check
+            Throwable toThrow = failure;
             if (hook != null) {
                 try {
                     hook.close();
-                } catch (final Throwable ignored) {
-                    // cleanup is best effort
+                } catch (final Throwable cleanupFailure) {
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
                 }
             }
+            FatalErrors.rethrowIfFatal(toThrow);
             NativeOptimizationHookContributor.log(
                     environment,
                     "Turboism native edit-toggle hook disabled safely: "
-                            + failure.getClass().getName());
+                            + toThrow.getClass().getName());
             return Optional.empty();
         }
     }

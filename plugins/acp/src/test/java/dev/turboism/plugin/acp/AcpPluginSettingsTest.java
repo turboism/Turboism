@@ -2,6 +2,7 @@ package dev.turboism.plugin.acp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -120,6 +121,43 @@ final class AcpPluginSettingsTest {
         assertThrows(IllegalArgumentException.class, () -> AcpPluginSettings.splitCommand("\"open"));
     }
 
+    @Test
+    void closePrioritizesFatalErrorWhenBothScopesFail() {
+        final MemoryConfig config = new MemoryConfig();
+        final OutOfMemoryError writeFatal = new OutOfMemoryError("write OOM");
+        final IllegalStateException readException = new IllegalStateException("read failed");
+        config.writeCloseFailure = writeFatal;
+        config.readCloseFailure = readException;
+
+        final AcpPluginSettings settings = new AcpPluginSettings(config, logger());
+        final OutOfMemoryError thrown = assertThrows(OutOfMemoryError.class, settings::close);
+        assertSame(writeFatal, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(readException, thrown.getSuppressed()[0]);
+        assertEquals(1, config.writeCloseCount);
+        assertEquals(1, config.readCloseCount);
+    }
+
+    @Test
+    void constructorRollbackPrioritizesFatalError() {
+        final OutOfMemoryError readFatal = new OutOfMemoryError("readString OOM");
+        final MemoryConfig config = new MemoryConfig();
+        config.readStringFailure = readFatal;
+        final IllegalStateException writeException = new IllegalStateException("write close failed");
+        final IllegalStateException readException = new IllegalStateException("read close failed");
+        config.writeCloseFailure = writeException;
+        config.readCloseFailure = readException;
+
+        final OutOfMemoryError thrown =
+                assertThrows(OutOfMemoryError.class, () -> new AcpPluginSettings(config, logger()));
+        assertSame(readFatal, thrown);
+        assertEquals(2, thrown.getSuppressed().length);
+        assertSame(writeException, thrown.getSuppressed()[0]);
+        assertSame(readException, thrown.getSuppressed()[1]);
+        assertEquals(1, config.writeCloseCount);
+        assertEquals(1, config.readCloseCount);
+    }
+
     private static PluginLogger logger() {
         return new PluginLogger() {
             @Override
@@ -143,19 +181,43 @@ final class AcpPluginSettingsTest {
         private final Map<String, String> values = new LinkedHashMap<>();
         private final List<String> written = new ArrayList<>();
         private String failKey;
+        Throwable writeCloseFailure;
+        Throwable readCloseFailure;
+        Throwable readStringFailure;
+        int writeCloseCount;
+        int readCloseCount;
 
         @Override
         public Registration readScope(final String relativePath) {
-            return () -> {};
+            return () -> {
+                readCloseCount++;
+                if (readCloseFailure != null) {
+                    if (readCloseFailure instanceof Error error) throw error;
+                    if (readCloseFailure instanceof RuntimeException runtime) throw runtime;
+                    throw new RuntimeException(readCloseFailure);
+                }
+            };
         }
 
         @Override
         public Registration writeScope(final String relativePath) {
-            return () -> {};
+            return () -> {
+                writeCloseCount++;
+                if (writeCloseFailure != null) {
+                    if (writeCloseFailure instanceof Error error) throw error;
+                    if (writeCloseFailure instanceof RuntimeException runtime) throw runtime;
+                    throw new RuntimeException(writeCloseFailure);
+                }
+            };
         }
 
         @Override
         public Optional<String> readString(final String relativePath, final String key) {
+            if (readStringFailure != null) {
+                if (readStringFailure instanceof Error error) throw error;
+                if (readStringFailure instanceof RuntimeException runtime) throw runtime;
+                throw new RuntimeException(readStringFailure);
+            }
             return Optional.ofNullable(values.get(key));
         }
 

@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
 import dev.turboism.adapter.cubism.modeling.ModelingToolHostProfile;
 import dev.turboism.adapter.cubism.modeling.NativeModelingToolBridge;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Set;
 
 /** Adds ordinary-tool switching after the existing mesh/document lifecycle hook is admitted. */
@@ -61,13 +62,16 @@ final class ModelingToolHookContributor implements HookContributor {
             installer.install();
             coordinator.lifecycleReady(generation, true);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: disconnects and closes installer before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             coordinator.disconnect();
             try {
                 installer.close();
-            } catch (RuntimeException cleanup) {
-                failure.addSuppressed(cleanup);
+            } catch (RuntimeException | Error cleanup) {
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
         return () -> {
             coordinator.lifecycleReady(generation, false);

@@ -294,6 +294,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         try {
             diagnostic.accept(message);
         } catch (RuntimeException | Error ignored) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(ignored);
             // A broken diagnostic sink must never break hook lifecycle.
         }
     }

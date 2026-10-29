@@ -278,6 +278,7 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
             try {
                 return ownerActive.getAsBoolean();
             } catch (RuntimeException | Error failure) {
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
                 return false;
             }
         }

@@ -1,5 +1,6 @@
 package dev.turboism.ui.menu;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.ui.contribution.EditorUiContribution;
@@ -134,11 +135,12 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             registrations.add(host.onRebuild(reconciler::reconcile));
             return () -> closeAll(registrations);
         } catch (RuntimeException | Error failure) {
-            closeAllSuppressing(registrations, failure);
+            // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+            Throwable toThrow = closeAllSuppressing(registrations, failure);
             if (registrations.isEmpty()) {
-                reconciler.closeSuppressing(failure);
+                toThrow = reconciler.closeSuppressing(toThrow);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 
@@ -168,8 +170,9 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
                             "host.addMenu()"));
                 }
             } catch (RuntimeException | Error failure) {
-                closeAllSuppressing(next, failure);
-                throw failure;
+                // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+                final Throwable toThrow = closeAllSuppressing(next, failure);
+                throw FatalErrors.propagate(toThrow);
             }
             installed = List.copyOf(next);
         }
@@ -185,11 +188,13 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             closeAll(current);
         }
 
-        private void closeSuppressing(final Throwable failure) {
+        private Throwable closeSuppressing(final Throwable failure) {
             try {
                 close();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+                return failure;
+            } catch (RuntimeException | Error cleanupFailure) {
+                // @containment-exempt: close failure merged with fatal prioritized
+                return FatalErrors.mergeForCleanup(failure, cleanupFailure);
             }
         }
     }
@@ -207,30 +212,23 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     private record MenuKey(String owner, String rootLabel, boolean shared) {}
 
     private static void closeAll(final List<? extends Registration> registrations) {
-        RuntimeException first = null;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException failure) {
-                if (first == null) {
-                    first = failure;
-                } else {
-                    first.addSuppressed(failure);
-                }
-            }
-        }
-        if (first != null) {
-            throw first;
+        final Throwable failure = closeAllSuppressing(registrations, null);
+        if (failure != null) {
+            throw FatalErrors.propagate(failure);
         }
     }
 
-    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
+    private static Throwable closeAllSuppressing(
+            final List<? extends Registration> registrations, final Throwable failure) {
+        Throwable accumulated = failure;
         for (int index = registrations.size() - 1; index >= 0; index--) {
             try {
                 registrations.get(index).close();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+            } catch (RuntimeException | Error cleanupFailure) {
+                // @containment-exempt: cleanup failure merged across all registrations with fatal prioritized
+                accumulated = FatalErrors.mergeForCleanup(accumulated, cleanupFailure);
             }
         }
+        return accumulated;
     }
 }

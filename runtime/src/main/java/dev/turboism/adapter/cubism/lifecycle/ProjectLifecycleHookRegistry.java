@@ -179,12 +179,24 @@ public final class ProjectLifecycleHookRegistry {
             try {
                 pluginScope.register(() -> closeEventAdapters(eventOwner));
             } catch (RuntimeException | Error failure) {
-                closeEventAdapters(eventOwner);
+                // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+                Throwable toThrow = failure;
+                try {
+                    closeEventAdapters(eventOwner);
+                } catch (RuntimeException | Error cleanupFailure) {
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
+                }
                 final Object compatibilityToken = compatibilityTokens.remove(eventOwner);
                 if (compatibilityToken != null) {
-                    editor.unregister(plugin.id(), compatibilityToken);
+                    try {
+                        editor.unregister(plugin.id(), compatibilityToken);
+                    } catch (RuntimeException | Error unregisterFailure) {
+                        // @containment-exempt: unregister failure merged, prioritizing fatal error
+                        toThrow = FatalErrors.mergeForCleanup(toThrow, unregisterFailure);
+                    }
                 }
-                throw failure;
+                throw FatalErrors.propagate(toThrow);
             }
         }
     }

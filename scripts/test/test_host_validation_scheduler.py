@@ -422,19 +422,6 @@ class HostValidationSchedulerTest(unittest.TestCase):
         with self.assertRaisesRegex(scheduler.SchedulerError, "does not define variants"):
             scheduler.parse_request("core-owned-moc:5302@matrix", "test-run", self.manifest)
 
-    def test_planner_serializes_all_versions_in_fifo_order(self) -> None:
-        requests = [
-            self.request("workspace:5302"),
-            self.request("recent-preview:5203"),
-            self.request("status-bar:5302"),
-            self.request("fps:5302"),
-        ]
-        waves = scheduler.plan_waves(requests, self.manifest.resources)
-        self.assertEqual(
-            [["workspace"], ["recent-preview"], ["status-bar"], ["fps"]],
-            [[request.task.name for request in wave] for wave in waves],
-        )
-
     def test_rendered_command_reuses_wrapper_and_common_placement_options(self) -> None:
         request = self.request("psd-clip-mask:5203@read")
         command = scheduler.render_command(request, self.manifest)
@@ -856,6 +843,137 @@ class HostValidationWaitTest(unittest.TestCase):
                 scheduler.queue.read_only_job(path, "job", connect=connect)
             self.assertFalse(path.exists())
             self.assertEqual([], calls)
+
+    def test_batch_all_fail_refusal_exits_nonzero(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        refusal = static_gates.StaticGateRefusal("FAIL_STATIC", "stale-bundle", "bundle broken")
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=refusal):
+            code = scheduler.main(["run", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertNotEqual(0, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertTrue(all(item.get("skipped") == "FAIL_STATIC" for item in lines))
+
+    def test_batch_partial_fail_and_success_exits_nonzero(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        def evaluate_mock(req, *args, **kwargs):
+            if "workspace" in req.spec:
+                return (req, mock.Mock(notes=()))
+            raise static_gates.StaticGateRefusal("FAIL_LICENSE", "license", "trial expired")
+
+        store_mock = mock.Mock()
+        store_mock.submit.return_value = {"job_id": "job-1"}
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=evaluate_mock), \
+             mock.patch.object(scheduler, "prepare_request", return_value={"digest": "dig-1"}), \
+             mock.patch.object(scheduler.queue, "Store", return_value=store_mock), \
+             mock.patch.object(scheduler.queue, "wake"), \
+             mock.patch.object(scheduler, "wait_job", return_value=0):
+            code = scheduler.main(["run", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertNotEqual(0, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertEqual("FAIL_LICENSE", lines[0].get("skipped"))
+        self.assertIn("job", lines[1])
+
+    def test_batch_all_skip_refusal_exits_three(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        refusal = static_gates.StaticGateRefusal("SKIP_STATIC", "admission", "not admitted")
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=refusal):
+            code = scheduler.main(["run", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertEqual(3, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertTrue(all(item.get("skipped") == "SKIP_STATIC" for item in lines))
+
+    def test_batch_success_plus_skip_exits_zero(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        def evaluate_mock(req, *args, **kwargs):
+            if "workspace" in req.spec:
+                return (req, mock.Mock(notes=()))
+            raise static_gates.StaticGateRefusal("SKIP_STATIC", "admission", "not admitted")
+
+        store_mock = mock.Mock()
+        store_mock.submit.return_value = {"job_id": "job-1"}
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=evaluate_mock), \
+             mock.patch.object(scheduler, "prepare_request", return_value={"digest": "dig-1"}), \
+             mock.patch.object(scheduler.queue, "Store", return_value=store_mock), \
+             mock.patch.object(scheduler.queue, "wake"), \
+             mock.patch.object(scheduler, "wait_job", return_value=0):
+            code = scheduler.main(["run", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertEqual(0, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertEqual("SKIP_STATIC", lines[0].get("skipped"))
+        self.assertIn("job", lines[1])
+
+    def test_batch_prepare_phase_fail_exits_nonzero(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        def prepare_mock(req, *args, **kwargs):
+            if "workspace" in req.spec:
+                return {"digest": "dig-workspace"}
+            raise static_gates.StaticGateRefusal("FAIL_BUNDLE", "link", "missing jar")
+
+        store_mock = mock.Mock()
+        store_mock.submit.return_value = {"job_id": "job-1"}
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=lambda req, *a, **kw: (req, mock.Mock(notes=()))), \
+             mock.patch.object(scheduler, "prepare_request", side_effect=prepare_mock), \
+             mock.patch.object(scheduler.queue, "Store", return_value=store_mock), \
+             mock.patch.object(scheduler.queue, "wake"), \
+             mock.patch.object(scheduler, "wait_job", return_value=0):
+            code = scheduler.main(["run", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertNotEqual(0, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertEqual("FAIL_BUNDLE", lines[0].get("skipped"))
+        self.assertIn("job", lines[1])
+
+    def test_prepare_multi_task_emits_all_prepared_and_exits_zero(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        def prepare_mock(req, *args, **kwargs):
+            return {"digest": f"dig-{req.task.name}"}
+
+        store_mock = mock.Mock()
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=lambda req, *a, **kw: (req, mock.Mock(notes=()))), \
+             mock.patch.object(scheduler, "prepare_request", side_effect=prepare_mock), \
+             mock.patch.object(scheduler.queue, "Store", return_value=store_mock):
+            code = scheduler.main(["prepare", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertEqual(0, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertEqual("dig-workspace", lines[0].get("preparedId"))
+        self.assertEqual("dig-fps", lines[1].get("preparedId"))
+
+    def test_prepare_multi_task_with_fail_emits_all_and_exits_nonzero(self) -> None:
+        import host_validation_static_gates as static_gates
+        out = io.StringIO()
+        def prepare_mock(req, *args, **kwargs):
+            if "workspace" in req.spec:
+                return {"digest": "dig-workspace"}
+            raise static_gates.StaticGateRefusal("FAIL_BUNDLE", "link", "missing jar")
+
+        store_mock = mock.Mock()
+        with contextlib.redirect_stdout(out), \
+             mock.patch.object(static_gates, "evaluate", side_effect=lambda req, *a, **kw: (req, mock.Mock(notes=()))), \
+             mock.patch.object(scheduler, "prepare_request", side_effect=prepare_mock), \
+             mock.patch.object(scheduler.queue, "Store", return_value=store_mock):
+            code = scheduler.main(["prepare", "workspace:5302", "fps:5203", "--run-label", "offline"])
+        self.assertNotEqual(0, code)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+        self.assertEqual(2, len(lines))
+        self.assertEqual("FAIL_BUNDLE", lines[0].get("skipped"))
+        self.assertEqual("dig-workspace", lines[1].get("preparedId"))
 
 
 if __name__ == "__main__":

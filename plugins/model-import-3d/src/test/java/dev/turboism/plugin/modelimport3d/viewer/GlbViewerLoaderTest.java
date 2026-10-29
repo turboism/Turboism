@@ -400,6 +400,184 @@ public class GlbViewerLoaderTest {
                 1e-6f);
     }
 
+    @Test
+    void rejectsNonScalarIndexAccessor() {
+        var bin = ByteBuffer.allocate(36 + 12).order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < 9; i++) bin.putFloat(0.0f);
+        for (short s : new short[] {0, 1, 2, 0, 1, 2}) bin.putShort(s);
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "nodes":[{"mesh":0}],"buffers":[{"byteLength":48}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":12}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                          {"bufferView":1,"componentType":5123,"count":3,"type":"VEC2"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}]}
+            """;
+        byte[] glb = buildGlb(json, bin.array());
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("Index accessor must be SCALAR"), ex.getMessage());
+    }
+
+    @Test
+    void rejectsSignedOrInvalidIndexComponentType() {
+        var bin = ByteBuffer.allocate(36 + 6).order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < 9; i++) bin.putFloat(0.0f);
+        for (short s : new short[] {0, 1, 2}) bin.putShort(s);
+        // componentType 5122 is signed SHORT (invalid for glTF indices, must be 5121, 5123, or 5125)
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "nodes":[{"mesh":0}],"buffers":[{"byteLength":42}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":6}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                          {"bufferView":1,"componentType":5122,"count":3,"type":"SCALAR"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}]}
+            """;
+        byte[] glb = buildGlb(json, bin.array());
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("Index accessor componentType must be unsigned integer"), ex.getMessage());
+    }
+
+    @Test
+    void rejectsIndexAccessorExceedingTriangleBudgetBeforeAllocation() {
+        int indexCount = 6_000_003; // 2_000_001 triangles > MAX_TRIANGLES (2_000_000)
+        int totalBin = 36 + indexCount;
+        byte[] binData = new byte[totalBin];
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "nodes":[{"mesh":0}],"buffers":[{"byteLength":%d}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":%d}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                          {"bufferView":1,"componentType":5121,"count":%d,"type":"SCALAR"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}]}
+            """.formatted(totalBin, indexCount, indexCount);
+        byte[] glb = buildGlb(json, binData);
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("Triangle count exceeds budget"), ex.getMessage());
+    }
+
+    @Test
+    void rejectsCumulativeTriangleBudgetExceededAcrossMultiplePrimitives() {
+        // Primitive 1: 1_500_000 triangles (4_500_000 indices)
+        // Primitive 2: 600_000 triangles (1_800_000 indices)
+        // Total: 2_100_000 > 2_000_000 (MAX_TRIANGLES)
+        int idxCount1 = 4_500_000;
+        int idxCount2 = 1_800_000;
+        int totalBin = 36 + idxCount1 + idxCount2;
+        byte[] binData = new byte[totalBin];
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "nodes":[{"mesh":0}],"buffers":[{"byteLength":%d}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},
+                            {"buffer":0,"byteOffset":36,"byteLength":%d},
+                            {"buffer":0,"byteOffset":%d,"byteLength":%d}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                          {"bufferView":1,"componentType":5121,"count":%d,"type":"SCALAR"},
+                          {"bufferView":2,"componentType":5121,"count":%d,"type":"SCALAR"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1},
+                                     {"attributes":{"POSITION":0},"indices":2}]}]}
+            """.formatted(totalBin, idxCount1, 36 + idxCount1, idxCount2, idxCount1, idxCount2);
+        byte[] glb = buildGlb(json, binData);
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("Triangle count exceeds budget"), ex.getMessage());
+    }
+
+    @Test
+    void acceptsTriangleBudgetAtExactBoundary() {
+        // Exactly 2_000_000 triangles (6_000_000 indices)
+        int indexCount = 6_000_000;
+        int totalBin = 36 + indexCount;
+        byte[] binData = new byte[totalBin]; // index 0 in bounds for vertexCount = 3
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "nodes":[{"mesh":0}],"buffers":[{"byteLength":%d}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":%d}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                          {"bufferView":1,"componentType":5121,"count":%d,"type":"SCALAR"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}]}
+            """.formatted(totalBin, indexCount, indexCount);
+        byte[] glb = buildGlb(json, binData);
+        var scene = GlbViewerLoader.load(glb, () -> false);
+        assertEquals(2_000_000, scene.stats().triangleCount());
+    }
+
+    @Test
+    void lowHeapForkRejectsOversizedIndexAccessorWithoutOom() throws Exception {
+        final String javaHome = System.getProperty("java.home");
+        final String javaBin = java.nio.file.Path.of(javaHome, "bin", "java").toString();
+        final String testCp = java.nio.file.Path.of(GlbViewerLoaderTest.class
+                        .getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI())
+                .toString();
+        final String loaderCp = java.nio.file.Path.of(GlbViewerLoader.class
+                        .getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI())
+                .toString();
+        final String classpath = testCp
+                + java.io.File.pathSeparator
+                + loaderCp
+                + java.io.File.pathSeparator
+                + System.getProperty("java.class.path");
+        final Process process = new ProcessBuilder(
+                        javaBin,
+                        "-Xmx96m",
+                        "-cp",
+                        classpath,
+                        GlbViewerLoaderTest.LowHeapIndexBudgetRunner.class.getName())
+                .redirectErrorStream(true)
+                .start();
+        final boolean finished = process.waitFor(15, java.util.concurrent.TimeUnit.SECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            fail("Forked low-heap JVM timed out after 15 seconds");
+        }
+        final String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.exitValue(), "Forked low-heap JVM failed:\n" + output);
+    }
+
+    public static final class LowHeapIndexBudgetRunner {
+        public static void main(String[] args) {
+            int indexCount = 18_000_000;
+            int totalBin = 36 + indexCount;
+            byte[] binData = new byte[totalBin];
+            // 18 million UINT8 indices with 3 vertices: in earlier code, readIntArray allocates
+            // new int[18_000_000] (72 MB), throwing OOM on -Xmx96m before triangle budget check.
+            String json = """
+                {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+                 "nodes":[{"mesh":0}],"buffers":[{"byteLength":%d}],
+                 "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":%d}],
+                 "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                              {"bufferView":1,"componentType":5121,"count":%d,"type":"SCALAR"}],
+                 "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}]}
+                """.formatted(totalBin, indexCount, indexCount);
+            byte[] glb = buildGlb(json, binData);
+            try {
+                GlbViewerLoader.load(glb, () -> false);
+                System.err.println("FAIL: Expected IllegalArgumentException");
+                System.exit(1);
+            } catch (IllegalArgumentException ex) {
+                if (ex.getMessage().contains("Triangle count exceeds budget")) {
+                    System.out.println("PASS");
+                    System.exit(0);
+                }
+                System.err.println("FAIL: Unexpected message: " + ex.getMessage());
+                System.exit(2);
+            } catch (Throwable t) {
+                System.err.println("FAIL: Unexpected throwable: " + t);
+                t.printStackTrace();
+                System.exit(3);
+            }
+        }
+    }
+
     private static byte[] buildGlb(String json, byte[] bin) {
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         int jsonPad = (4 - (jsonBytes.length % 4)) % 4;

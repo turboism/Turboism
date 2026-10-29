@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
@@ -20,11 +21,11 @@ import java.util.function.BooleanSupplier;
  * {@link TextureAtlasNativeInvocationCoordinator} invocation scope — the same thread,
  * with the native session open. It resolves the runtime-owned selection against the
  * runtime registry, runs the selected planner on the issued current-page snapshot, and
- * applies the plan through the layout service. Every unsafe outcome — no selection, an
- * unregistered or unloaded algorithm, a {@code null} planner, a planner that throws or
- * returns {@code null}, a registration revoked or replaced mid-flight, or a rejected
+ * applies the plan through the layout service. Every non-fatal unsafe outcome — no selection, an
+ * unregistered or unloaded algorithm, a {@code null} planner, a planner that throws a containable
+ * failure or returns {@code null}, a registration revoked or replaced mid-flight, or a rejected
  * apply — returns {@code false} so the coordinator restores the native session and the
- * host proceeds with its own packing. Nothing escapes into the host.</p>
+ * host proceeds with its own packing. Fatal JVM errors rethrow so the fatal condition escapes.</p>
  */
 public final class TextureAtlasAutoLayoutDispatcher {
 
@@ -67,6 +68,7 @@ public final class TextureAtlasAutoLayoutDispatcher {
         try {
             return invoke(lease, selected.parallel());
         } catch (RuntimeException | Error failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "texture-atlas", "Texture-atlas automatic-layout dispatch failed safely", failure);
             return false;
@@ -103,6 +105,7 @@ public final class TextureAtlasAutoLayoutDispatcher {
                 thread.setContextClassLoader(previousLoader);
             }
         } catch (RuntimeException | Error failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "texture-atlas", "Texture-atlas layout planner failed safely", failure);
             return false;
@@ -123,6 +126,7 @@ public final class TextureAtlasAutoLayoutDispatcher {
             try {
                 result = layouts.apply(snapshot.target(), plan);
             } catch (RuntimeException | Error failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                         "texture-atlas", "Texture-atlas layout apply failed safely", failure);
                 return false;

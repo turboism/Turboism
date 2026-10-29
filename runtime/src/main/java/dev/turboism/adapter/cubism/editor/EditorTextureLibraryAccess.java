@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.sdk.cubism.id.ModelImageId;
@@ -383,12 +384,15 @@ final class EditorTextureLibraryAccess {
                 throw new IllegalStateException("Cubism rejected the texture Undo entry.");
             }
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: nested revert runs before rethrow with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 resolver.invoke(UNDO_REVERT, undoable);
             } catch (RuntimeException | Error compensation) {
-                if (compensation != failure) failure.addSuppressed(compensation);
+                // @containment-exempt: compensation failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, compensation);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 

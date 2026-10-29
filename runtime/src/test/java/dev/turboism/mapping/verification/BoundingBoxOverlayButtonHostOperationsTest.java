@@ -455,6 +455,67 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     }
 
     @Test
+    void multiEntityCleanupPrioritizesFatalErrorAfterOrdinaryFailureAndCleansAllEntities() {
+        final BoundingBoxOverlayButton first = button("first", 10);
+        final BoundingBoxOverlayButton second = button("second", 20);
+        final BoundingBoxOverlayButton third = button("third", 30);
+        final Registration registration = install(List.of(
+                descriptor("plugin.overlay", first),
+                descriptor("plugin.overlay", second),
+                descriptor("plugin.overlay", third)));
+        final Object overlay = new OverlayHost();
+        final Object scene = new SceneGraph();
+        final Object[] initial = host.customButtonEntities(overlay, scene);
+        final Object entityA = initial[0];
+        final Object entityB = initial[1];
+        final Object entityC = initial[2];
+
+        // Entity A fails with ordinary IllegalStateException
+        // Entity B fails with fatal OutOfMemoryError
+        // Entity C succeeds
+        SceneGraph.POISONED.add(entityA);
+        final OutOfMemoryError oom = new OutOfMemoryError("synthetic OOM during entity B detach");
+        SceneGraph.FATAL_POISONED.put(entityB, oom);
+
+        try {
+            final OutOfMemoryError thrown = assertThrows(OutOfMemoryError.class, registration::close);
+            assertSame(oom, thrown);
+            assertEquals(1, thrown.getSuppressed().length, "Ordinary failure must be suppressed onto fatal");
+            assertTrue(thrown.getSuppressed()[0] instanceof IllegalStateException);
+            assertTrue(thrown.getSuppressed()[0].getMessage().contains("cleanup"));
+
+            // All entities were still attempted:
+            assertTrue(Entity.ENABLED.stream().anyMatch(call -> {
+                final Object[] entry = (Object[]) call;
+                return entry[0] == entityA && Boolean.FALSE.equals(entry[1]);
+            }));
+            assertTrue(Entity.ENABLED.stream().anyMatch(call -> {
+                final Object[] entry = (Object[]) call;
+                return entry[0] == entityB && Boolean.FALSE.equals(entry[1]);
+            }));
+            assertTrue(Entity.ENABLED.stream().anyMatch(call -> {
+                final Object[] entry = (Object[]) call;
+                return entry[0] == entityC && Boolean.FALSE.equals(entry[1]);
+            }));
+
+            // Entity C was fully removed despite preceding failures
+            assertTrue(
+                    SceneGraph.REMOVED_VOLATILE.contains(entityC), "Entity C must be removed despite earlier failures");
+            assertTrue(
+                    Entities.REMOVED.contains(entityB),
+                    "Entity B children removal must still run after volatile fatal");
+            assertTrue(Entities.REMOVED.contains(entityC));
+
+            // Side table and bridge properties are cleaned up
+            assertEquals(0, host.customButtonEntities(overlay, scene).length);
+            assertNull(System.getProperties().get("turboism.bounding-box-overlay.buttons"));
+        } finally {
+            SceneGraph.POISONED.clear();
+            SceneGraph.FATAL_POISONED.clear();
+        }
+    }
+
+    @Test
     void removedEntityDetachFailureAttemptsEveryRemovedEntityAndSurfacesTheAggregation() {
         final java.util.concurrent.atomic.AtomicInteger clicks = new java.util.concurrent.atomic.AtomicInteger();
         final BoundingBoxOverlayButton first = button("first", 10);
@@ -873,9 +934,14 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     public static final class SceneGraph {
         public static final List<Object> REMOVED_VOLATILE = new ArrayList<>();
         public static final List<Object> POISONED = new ArrayList<>();
+        public static final java.util.Map<Object, Error> FATAL_POISONED = new java.util.HashMap<>();
         private final Entity objects = new Entity();
 
         public void removeVolatileEntity(final Entity entity) {
+            final Error fatal = FATAL_POISONED.remove(entity);
+            if (fatal != null) {
+                throw fatal;
+            }
             if (POISONED.remove(entity)
                     || (OverlayHost.poisonCreatedIndex >= 0
                             && OverlayHost.CREATED.size() > OverlayHost.poisonCreatedIndex

@@ -1013,10 +1013,26 @@ tasks.register<Exec>("checkShellLint") {
     group = "verification"
     description = "Runs shellcheck -S error over every tracked shell script."
     workingDir(rootDir)
-    inputs.files("scripts/check_shell_lint.sh")
-    inputs.files(fileTree("scripts") { include("**/*.sh") })
-    inputs.files(fileTree("templates") { include("**/*.sh") })
-    VerificationStamps.apply(this)
+    inputs.file("scripts/check_shell_lint.sh")
+
+    val trackedShellScriptPaths = providers.exec {
+        workingDir(rootDir)
+        commandLine("git", "ls-files", "-z", "*.sh")
+    }.standardOutput.asBytes.map { bytes ->
+        String(bytes, java.nio.charset.StandardCharsets.UTF_8).split('\u0000').filter { it.isNotEmpty() }
+    }
+    inputs.property("trackedShellScriptPaths", trackedShellScriptPaths)
+    inputs.files(trackedShellScriptPaths.map { paths -> paths.map { file(it) } })
+
+    val shellcheckBinPath = providers.exec {
+        workingDir(rootDir)
+        commandLine("bash", "-c", "command -v -- \"\${SHELLCHECK_BIN:-shellcheck}\" || true")
+    }.standardOutput.asText.map { it.trim() }
+
+    inputs.property("shellcheckPath", shellcheckBinPath.map { it.ifEmpty { "absent" } })
+    inputs.files(shellcheckBinPath.map { path -> if (path.isNotEmpty()) listOf(file(path)) else emptyList<File>() })
+
+    VerificationStamps.apply(this) { shellcheckBinPath.get().isNotEmpty() }
     commandLine("bash", "scripts/check_shell_lint.sh")
 }
 
@@ -1768,11 +1784,34 @@ tasks.named("check") {
 
 // Python gates and their live-tree fixtures read the canonical materialized records.
 // The materializer itself is registered in the root build, outside this gate script.
-tasks.withType<Exec>().configureEach {
-    if (name !in setOf("materializeVerificationRecords", "materializeDraftContracts")) {
-        dependsOn("materializeDraftContracts")
+val draftConsumers = setOf(
+    "checkCubismCoreApiInventory",
+    "checkCubismCoreSelectorPolicy",
+    "syncDraftPackMetadata",
+    "checkDraftPackMetadataSelfTest",
+    "checkDraftPackMetadata",
+    "checkVerificationSourcesSelfTest",
+    "checkVerificationSources"
+)
+
+val recordsConsumers = setOf(
+    "checkEditorModelAliases",
+    "checkEditorModelAliasesSelfTest",
+    "checkReviewedReleases",
+    "checkReviewedReleasesSelfTest",
+    "checkCompatibilityMatrix",
+    "checkMaterializedRecords",
+    "checkHostToolingSelfTest"
+)
+
+draftConsumers.forEach { taskName ->
+    tasks.named(taskName).configure {
         inputs.files(tasks.named("materializeDraftContracts"))
-        dependsOn("materializeVerificationRecords")
+    }
+}
+
+recordsConsumers.forEach { taskName ->
+    tasks.named(taskName).configure {
         inputs.files(tasks.named("materializeVerificationRecords"))
     }
 }

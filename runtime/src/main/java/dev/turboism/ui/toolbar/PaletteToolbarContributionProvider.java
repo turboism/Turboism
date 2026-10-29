@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.ui.contribution.EditorUiContribution;
@@ -60,12 +61,15 @@ public final class PaletteToolbarContributionProvider implements EditorUiContrib
         try {
             host.setContributions(List.copyOf(buttons));
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: clear contributions runs before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             try {
                 host.clearContributions();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+            } catch (RuntimeException | Error cleanupFailure) {
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
         final AtomicBoolean closed = new AtomicBoolean();
         return () -> {

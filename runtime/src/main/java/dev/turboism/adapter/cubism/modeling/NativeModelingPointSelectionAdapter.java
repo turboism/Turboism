@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.modeling;
 import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
 import static dev.turboism.adapter.cubism.modeling.NativeModelingPointProjector.*;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
 import java.util.ArrayList;
@@ -97,6 +98,8 @@ final class NativeModelingPointSelectionAdapter {
             resolver.invoke(END_EDIT, identity.mode(), false, null);
             editing = false;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: nested restore runs before rethrow with fatal error prioritized
+            Throwable toThrow = failure;
             // Never restore old point refs into a replacement document/mode/model.
             if (editing && sessions.isCurrent(identity)) {
                 try {
@@ -104,10 +107,11 @@ final class NativeModelingPointSelectionAdapter {
                     resolver.invoke(END_EDIT, identity.mode(), true, null);
                     refresh();
                 } catch (RuntimeException | Error cleanup) {
-                    failure.addSuppressed(cleanup);
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
                 }
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 

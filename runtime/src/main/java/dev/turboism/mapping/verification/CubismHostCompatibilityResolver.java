@@ -71,16 +71,53 @@ public final class CubismHostCompatibilityResolver {
             final Path editorJar, final Path coreJar, final Function<String, byte[]> recordSource) {
         Objects.requireNonNull(editorJar, "editorJar");
         Objects.requireNonNull(recordSource, "recordSource");
-        final HostIdentityProbe probe = CubismEditorReleaseDetector.probe(editorJar);
-        if (!probe.declared()) {
-            return CompatibilityResolution.rejected(probe);
+        try (StaticSelectorVerifier.AdmissionSession session = new StaticSelectorVerifier.AdmissionSession()) {
+            final HostIdentityProbe probe = CubismEditorReleaseDetector.probe(editorJar);
+            if (!probe.declared()) {
+                return CompatibilityResolution.rejected(probe);
+            }
+            final CubismHostIdentity identity = probe.identity().orElseThrow();
+            final Optional<String> reviewed = ReviewedHostArtifacts.cubismVersionOf(identity.artifact());
+            final CompatibilityResolution resolution;
+            if (reviewed.isPresent()) {
+                resolution = resolveVerified(probe, identity, reviewed.orElseThrow(), coreJar, session, recordSource);
+            } else {
+                resolution = resolveCompatible(probe, identity, editorJar, coreJar, session, recordSource);
+            }
+            final HostArtifactDigest editorDigest;
+            final StaticSelectorVerifier.CachedArtifact editorCached = session.get(editorJar);
+            if (editorCached != null) {
+                editorDigest = editorCached.initialDigest;
+            } else {
+                try {
+                    editorDigest = HostArtifactDigest.from(editorJar);
+                } catch (IOException | RuntimeException failure) {
+                    return CompatibilityResolution.rejected(HostIdentityProbe.rejected(
+                            HostIdentityProbe.Status.UNREADABLE, "failed to read editor host artifact"));
+                }
+            }
+            if (!identity.artifact().equals(editorDigest)) {
+                return CompatibilityResolution.rejected(HostIdentityProbe.rejected(
+                        HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
+                        "editor artifact digest conflicts with probe identity"));
+            }
+            try {
+                session.verifyAllUnchanged();
+            } catch (IllegalStateException failure) {
+                return CompatibilityResolution.rejected(HostIdentityProbe.rejected(
+                        HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
+                        "host artifact changed during admission resolution"));
+            } catch (IOException failure) {
+                return CompatibilityResolution.rejected(HostIdentityProbe.rejected(
+                        HostIdentityProbe.Status.UNREADABLE,
+                        "host artifact became unreadable during admission resolution"));
+            }
+            return resolution;
+        } catch (IOException failure) {
+            return CompatibilityResolution.rejected(HostIdentityProbe.rejected(
+                    HostIdentityProbe.Status.UNREADABLE,
+                    "host artifact could not be opened for admission verification"));
         }
-        final CubismHostIdentity identity = probe.identity().orElseThrow();
-        final Optional<String> reviewed = ReviewedHostArtifacts.cubismVersionOf(identity.artifact());
-        if (reviewed.isPresent()) {
-            return resolveVerified(probe, identity, reviewed.orElseThrow(), coreJar, recordSource);
-        }
-        return resolveCompatible(probe, identity, editorJar, coreJar, recordSource);
     }
 
     /**
@@ -93,6 +130,7 @@ public final class CubismHostCompatibilityResolver {
             final CubismHostIdentity identity,
             final String reviewedVersion,
             final Path coreJar,
+            final StaticSelectorVerifier.AdmissionSession session,
             final Function<String, byte[]> recordSource) {
         if (!reviewedVersion.equals(identity.version())
                 || !ReviewedCubismReleases.isReviewed(identity.version(), identity.build())) {
@@ -115,7 +153,7 @@ public final class CubismHostCompatibilityResolver {
                                         coreJar,
                                         orderedCandidates(sliceId, identity),
                                         loader,
-                                        new StaticSelectorVerifier(),
+                                        session::verifyStructure,
                                         recordSource)
                                 .resolution());
                 continue;
@@ -172,11 +210,11 @@ public final class CubismHostCompatibilityResolver {
             final CubismHostIdentity identity,
             final Path editorJar,
             final Path coreJar,
+            final StaticSelectorVerifier.AdmissionSession session,
             final Function<String, byte[]> recordSource) {
         final Map<String, CompatibilityResolution.SliceResolution> slices = new LinkedHashMap<>();
         final Map<String, List<CandidateOutcome>> passedOutcomes = new LinkedHashMap<>();
         final StaticVerificationRecordLoader loader = new StaticVerificationRecordLoader();
-        final StaticSelectorVerifier verifier = new StaticSelectorVerifier();
         for (final String sliceId : CubismSliceCatalog.slices()) {
             final Path effective = CORE_SLICE.equals(sliceId) ? coreJar : editorJar;
             if (effective == null || !Files.isRegularFile(effective)) {
@@ -193,7 +231,8 @@ public final class CubismHostCompatibilityResolver {
                 continue;
             }
             final List<CubismSliceCatalog.Candidate> ordered = orderedCandidates(sliceId, identity);
-            final SliceProbe probed = probeSlice(sliceId, identity, effective, ordered, loader, verifier, recordSource);
+            final SliceProbe probed =
+                    probeSlice(sliceId, identity, effective, ordered, loader, session::verifyStructure, recordSource);
             slices.put(sliceId, probed.resolution());
             passedOutcomes.put(sliceId, probed.passed());
         }
@@ -226,13 +265,19 @@ public final class CubismHostCompatibilityResolver {
      * passing candidate outcome so shared adapter groups can re-bind to one
      * common source generation.
      */
+    @FunctionalInterface
+    interface StructureVerifier {
+        StaticSelectorVerifier.StructureVerificationReport verifyStructure(
+                Path artifact, List<StaticSelector> selectors) throws IOException;
+    }
+
     static SliceProbe probeSlice(
             final String sliceId,
             final CubismHostIdentity identity,
             final Path targetArtifact,
             final List<CubismSliceCatalog.Candidate> ordered,
             final StaticVerificationRecordLoader loader,
-            final StaticSelectorVerifier verifier,
+            final StructureVerifier verifier,
             final Function<String, byte[]> recordSource) {
         if (ordered.isEmpty()) {
             return new SliceProbe(
@@ -438,7 +483,7 @@ public final class CubismHostCompatibilityResolver {
             final Path targetArtifact,
             final CubismHostIdentity identity,
             final StaticVerificationRecordLoader loader,
-            final StaticSelectorVerifier verifier) {
+            final StructureVerifier verifier) {
         final StaticVerificationRecordLoader.LoadedRecord loaded;
         try {
             loaded = loader.load(bytes, candidate.recordFileName());

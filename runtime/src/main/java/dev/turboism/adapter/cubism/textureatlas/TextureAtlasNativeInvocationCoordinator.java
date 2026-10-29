@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Objects;
 import java.util.Optional;
@@ -42,7 +43,7 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
      * including a callback that throws, the native session is restored and {@code false} is
      * returned so the host proceeds with its own behaviour. A connection change while the callback
      * is running also cancels the handled result and restores the native session before falling back.
-     * Exceptions from the callback do not propagate to the host.
+     * Exceptions from the callback do not propagate to the host, except fatal JVM errors which rethrow.
      *
      * @param callback the work to run inside the invocation scope; must not be null
      * @return a predicate the native hook can call with the packing receiver
@@ -78,18 +79,34 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
         boolean callbackSucceeded = false;
         boolean invocationCurrent = false;
         boolean result = false;
+        Throwable pending = null;
         try {
             callbackSucceeded = callback.getAsBoolean();
             invocationCurrent = currentInvocation(invocation);
             result = callbackSucceeded && invocation.handled() && invocationCurrent;
             return result;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: pending failure is checked and rethrown by FatalErrors.rethrowIfFatal in finally
+            pending = failure;
             return false;
         } finally {
             active.remove();
             if (!callbackSucceeded || !invocation.handled() || !invocationCurrent) {
-                invocation.restore();
+                try {
+                    invocation.restore();
+                } catch (RuntimeException | Error restoreFailure) {
+                    // @containment-exempt: restore failure is suppressed into pending fatal error or rethrown
+                    // immediately
+                    if (FatalErrors.isFatal(pending)) {
+                        if (pending != restoreFailure) {
+                            pending.addSuppressed(restoreFailure);
+                        }
+                    } else {
+                        throw restoreFailure;
+                    }
+                }
             }
+            FatalErrors.rethrowIfFatal(pending);
         }
     }
 

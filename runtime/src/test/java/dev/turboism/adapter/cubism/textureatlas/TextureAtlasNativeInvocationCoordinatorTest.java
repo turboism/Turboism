@@ -944,4 +944,106 @@ class TextureAtlasNativeInvocationCoordinatorTest {
                 new ArrayList<>(List.of(first, second)), new Impl(new Container(new LayerRef[] {firstRef, secondRef})));
         final Receiver receiver = new Receiver(new Settings(), data);
     }
+
+    @Test
+    void callbackFatalErrorPropagatesAndRestoresNativeSession() {
+        final Fixture fixture = new Fixture();
+        fixture.receiver.i.add(fixture.second);
+        final AffineTransform firstBefore = new AffineTransform(fixture.first.f);
+        final AffineTransform secondBefore = new AffineTransform(fixture.second.f);
+        final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+        coordinator.connect(resolver());
+        final var service = service(new TextureAtlasLayoutCoordinator(), coordinator);
+
+        final OutOfMemoryError oom = new OutOfMemoryError("synthetic OOM in callback");
+        final OutOfMemoryError thrownOom = org.junit.jupiter.api.Assertions.assertThrows(
+                OutOfMemoryError.class,
+                () -> coordinator
+                        .ingress(() -> {
+                            final var snapshot = service.current().orElseThrow();
+                            service.apply(snapshot.target(), plan());
+                            org.junit.jupiter.api.Assertions.assertNotEquals(
+                                    firstBefore, fixture.first.f, "State must be mutated before failure");
+                            throw oom;
+                        })
+                        .test(fixture.receiver));
+        org.junit.jupiter.api.Assertions.assertSame(oom, thrownOom);
+        assertEquals(firstBefore, fixture.first.f, "first must be restored after fatal");
+        assertEquals(firstBefore, fixture.firstRef.transform, "firstRef must be restored after fatal");
+        assertEquals(secondBefore, fixture.second.f, "second must be restored after fatal");
+        assertEquals(secondBefore, fixture.secondRef.transform, "secondRef must be restored after fatal");
+        assertTrue(coordinator.current().isEmpty(), "active invocation must be empty after fatal");
+
+        final ThreadDeath death = new ThreadDeath();
+        final ThreadDeath thrownDeath = org.junit.jupiter.api.Assertions.assertThrows(
+                ThreadDeath.class,
+                () -> coordinator
+                        .ingress(() -> {
+                            final var snapshot = service.current().orElseThrow();
+                            service.apply(snapshot.target(), plan());
+                            throw death;
+                        })
+                        .test(fixture.receiver));
+        org.junit.jupiter.api.Assertions.assertSame(death, thrownDeath);
+        assertEquals(firstBefore, fixture.first.f);
+        assertTrue(coordinator.current().isEmpty(), "active invocation must be empty after fatal");
+    }
+
+    @Test
+    void callbackFatalWithRestoreFailureKeepsFatalPrimaryAndAttemptsRestore() {
+        final Fixture fixture = new Fixture();
+        fixture.receiver.i.add(fixture.second);
+        final AffineTransform firstBefore = new AffineTransform(fixture.first.f);
+        final AffineTransform secondBefore = new AffineTransform(fixture.second.f);
+        final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+        coordinator.connect(resolver());
+        final var service = service(new TextureAtlasLayoutCoordinator(), coordinator);
+
+        final OutOfMemoryError oom = new OutOfMemoryError("callback fatal");
+        final OutOfMemoryError thrown = org.junit.jupiter.api.Assertions.assertThrows(
+                OutOfMemoryError.class,
+                () -> coordinator
+                        .ingress(() -> {
+                            final var snapshot = service.current().orElseThrow();
+                            service.apply(snapshot.target(), plan());
+                            org.junit.jupiter.api.Assertions.assertNotEquals(
+                                    firstBefore, fixture.first.f, "State must be mutated before failure");
+                            // Now cause restore of firstRef to throw RuntimeException
+                            fixture.firstRef.failNextWrite = true;
+                            throw oom;
+                        })
+                        .test(fixture.receiver));
+
+        org.junit.jupiter.api.Assertions.assertSame(oom, thrown, "Fatal error must remain primary when restore fails");
+        assertEquals(1, thrown.getSuppressed().length, "Restore failure must be suppressed onto fatal");
+        assertTrue(thrown.getSuppressed()[0] instanceof RuntimeException);
+        assertFalse(fixture.firstRef.failNextWrite, "Restore must have been attempted on firstRef");
+        assertEquals(secondBefore, fixture.second.f, "second must be restored despite firstRef failure");
+        assertEquals(secondBefore, fixture.secondRef.transform, "secondRef must be restored despite firstRef failure");
+        assertTrue(coordinator.current().isEmpty(), "active invocation must be empty after fatal");
+    }
+
+    @Test
+    void callbackContainableFailuresFallBackToFalseAndRestore() {
+        final Fixture fixture = new Fixture();
+        final AffineTransform before = new AffineTransform(fixture.first.f);
+        final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+        coordinator.connect(resolver());
+
+        // Ordinary RuntimeException
+        assertFalse(coordinator
+                .ingress(() -> {
+                    throw new IllegalStateException("normal callback exception");
+                })
+                .test(fixture.receiver));
+        assertEquals(before, fixture.first.f);
+
+        // Containable LinkageError
+        assertFalse(coordinator
+                .ingress(() -> {
+                    throw new NoClassDefFoundError("simulated linkage failure");
+                })
+                .test(fixture.receiver));
+        assertEquals(before, fixture.first.f);
+    }
 }

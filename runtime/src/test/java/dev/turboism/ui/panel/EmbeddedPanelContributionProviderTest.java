@@ -1,7 +1,9 @@
 package dev.turboism.ui.panel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
@@ -98,6 +100,65 @@ class EmbeddedPanelContributionProviderTest {
     }
 
     @Test
+    void updateContentFatalWithCleanupErrorPropagatesFatalAndDoesNotRebuild() {
+        RuntimeEmbeddedPanelActivationCoordinator coordinator = new RuntimeEmbeddedPanelActivationCoordinator();
+        RecordingHost host = new RecordingHost();
+        EmbeddedPanelContributionProvider provider = new EmbeddedPanelContributionProvider(
+                admission(7), host, coordinator, EditorUiActionRouter.unavailable());
+
+        Registration registration =
+                provider.apply(7, List.of(contribution("plugin-a", "p1", 0), contribution("plugin-a", "p2", 1)));
+        assertEquals(List.of("plugin-a:p1", "plugin-a:p2"), host.installed);
+
+        // When p1 updates, throw fatal OutOfMemoryError
+        final OutOfMemoryError oom = new OutOfMemoryError("synthetic OOM during updateContent");
+        host.updateFailures.put("plugin-a:p1", oom);
+        // When p1 handle closes during cleanup, throw ordinary AssertionError
+        final AssertionError closeError = new AssertionError("ordinary close failure");
+        host.closeFailures.put("plugin-a:p1", closeError);
+
+        final OutOfMemoryError thrown = assertThrows(
+                OutOfMemoryError.class,
+                () -> provider.reconcile(
+                        7,
+                        List.of(contribution("plugin-a", "p1", 10), contribution("plugin-a", "p2", 20)),
+                        registration));
+
+        assertSame(oom, thrown);
+        assertEquals(1, thrown.getSuppressed().length, "Close error must be suppressed onto fatal OOM");
+        assertSame(closeError, thrown.getSuppressed()[0]);
+
+        // Prove p2 (the other panel) was also closed during session teardown
+        assertTrue(host.closed.contains("plugin-a:p2"), "Other panel must be closed during session cleanup");
+
+        // Prove it did NOT enter apply rebuild: installed list still has only initial 2 panels
+        assertEquals(List.of("plugin-a:p1", "plugin-a:p2"), host.installed, "Must not enter apply rebuild on fatal");
+    }
+
+    @Test
+    void reconcileOrdinaryUpdateFailureRecoversByRebuildingPanels() {
+        RuntimeEmbeddedPanelActivationCoordinator coordinator = new RuntimeEmbeddedPanelActivationCoordinator();
+        RecordingHost host = new RecordingHost();
+        EmbeddedPanelContributionProvider provider = new EmbeddedPanelContributionProvider(
+                admission(7), host, coordinator, EditorUiActionRouter.unavailable());
+
+        Registration registration = provider.apply(7, List.of(contribution("plugin-a", "shared", 0)));
+        assertEquals(List.of("plugin-a:shared"), host.installed);
+
+        // When updateContent runs, throw ordinary IllegalStateException
+        host.updateFailures.put("plugin-a:shared", new IllegalStateException("ordinary update failure"));
+
+        // Reconcile must catch ordinary failure, clean up old session, and rebuild via apply
+        final Registration rebuilt =
+                provider.reconcile(7, List.of(contribution("plugin-a", "shared", 1)), registration);
+
+        org.junit.jupiter.api.Assertions.assertNotNull(rebuilt);
+        assertEquals(List.of("plugin-a:shared", "plugin-a:shared"), host.installed, "Must rebuild via apply");
+        assertTrue(host.closed.contains("plugin-a:shared"), "Old panel must be closed during recovery");
+        rebuilt.close();
+    }
+
+    @Test
     void failsClosedForMissingPanelAndStaleGeneration() {
         RuntimeEmbeddedPanelActivationCoordinator coordinator = new RuntimeEmbeddedPanelActivationCoordinator();
         EmbeddedPanelContributionProvider provider = new EmbeddedPanelContributionProvider(
@@ -166,6 +227,8 @@ class EmbeddedPanelContributionProviderTest {
         private final List<String> activated = new ArrayList<>();
         private final List<String> closed = new ArrayList<>();
         private final List<String> updated = new ArrayList<>();
+        private final java.util.Map<String, Throwable> updateFailures = new java.util.HashMap<>();
+        private final java.util.Map<String, Throwable> closeFailures = new java.util.HashMap<>();
         private final List<BiConsumer<String, Optional<UiActionEvent>>> actions = new ArrayList<>();
         private Runnable rebuild = () -> {};
 
@@ -192,6 +255,9 @@ class EmbeddedPanelContributionProviderTest {
                     if (handleClosed) {
                         throw new IllegalStateException("panel handle is closed");
                     }
+                    final Throwable failure = updateFailures.remove(key);
+                    if (failure instanceof Error err) throw err;
+                    if (failure instanceof RuntimeException re) throw re;
                     updated.add(key + "@" + descriptor.priority());
                 }
 
@@ -200,6 +266,9 @@ class EmbeddedPanelContributionProviderTest {
                     if (!handleClosed) {
                         handleClosed = true;
                         closed.add(key);
+                        final Throwable failure = closeFailures.remove(key);
+                        if (failure instanceof Error err) throw err;
+                        if (failure instanceof RuntimeException re) throw re;
                     }
                 }
             };

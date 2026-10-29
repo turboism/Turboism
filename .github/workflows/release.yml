@@ -146,10 +146,10 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Install NSIS
+      - name: Install NSIS and isolated display
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nsis
+          sudo apt-get install --yes --no-install-recommends nsis xvfb
 
       - name: Install the pinned scripts lint tool
         run: python3 -m pip install 'ruff==0.16.9'
@@ -191,7 +191,7 @@ jobs:
 
       - name: Run release verification
         run: |
-          ./gradlew --no-daemon checkRelease \
+          xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease \
             -PinstallerVersion="${{ steps.version.outputs.version }}" \
             -PturboismRelease=true \
             --console=plain

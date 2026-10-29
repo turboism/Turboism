@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.mapping.verification.selector.CubismSliceCatalog;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -58,6 +59,69 @@ class CubismHostCompatibilityResolverTest {
         }
         // The host is never relabeled as a reviewed version.
         assertEquals(Optional.of(DECLARED_VERSION), resolution.identity().map(CubismHostIdentity::version));
+    }
+
+    @Test
+    void resolveRejectsArtifactMutatedDuringAdmissionResolution() throws Exception {
+        final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
+        final CubismSliceCatalog.Candidate candidate =
+                CubismSliceCatalog.candidates("editor-model").get(0);
+
+        final byte[] record = recordBytes(
+                candidate.cubismVersion(),
+                candidate.verificationId(),
+                candidate.adapterSliceId(),
+                List.of(selectorSpec("synthetic.class", "class", "", "", 1, 0)));
+        final ObjectNode node = (ObjectNode) mapper.readTree(record);
+        node.put("profileId", candidate.profileId());
+        final byte[] validRecord = mapper.writeValueAsBytes(node);
+
+        // 1. Sanity check: valid record admits the slice when artifact remains intact
+        final CompatibilityResolution unmutated = CubismHostCompatibilityResolver.resolve(
+                artifact, null, name -> candidate.recordFileName().equals(name) ? validRecord : null);
+        assertTrue(unmutated.slices().get("editor-model").admitted(), "sanity check: slice admitted with validRecord");
+
+        // 2. Admission with mutation: mutate artifact only after candidate record was queried and cached
+        final byte[] originalBytes = Files.readAllBytes(artifact);
+        final java.util.concurrent.atomic.AtomicBoolean recordReturned =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        final java.util.concurrent.atomic.AtomicBoolean mutated = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+        final CompatibilityResolution mutatedResolution =
+                CubismHostCompatibilityResolver.resolve(artifact, null, name -> {
+                    if (candidate.recordFileName().equals(name)) {
+                        recordReturned.set(true);
+                        return validRecord;
+                    }
+                    if (recordReturned.get() && mutated.compareAndSet(false, true)) {
+                        try {
+                            final long size = Files.size(artifact);
+                            final var mtime = Files.getLastModifiedTime(artifact);
+                            final byte[] bytes = originalBytes.clone();
+                            bytes[bytes.length - 1] ^= 0x55;
+                            Files.write(artifact, bytes);
+                            assertEquals(size, Files.size(artifact));
+                            Files.setLastModifiedTime(artifact, mtime);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    return null;
+                });
+
+        assertEquals(CompatibilityResolution.Mode.REJECTED, mutatedResolution.mode());
+        assertEquals(
+                HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
+                mutatedResolution.identityProbe().status());
+        assertEquals(
+                "host artifact changed during admission resolution",
+                mutatedResolution.identityProbe().detail());
+
+        // 3. Recovery check: restore original bytes and verify fresh admission succeeds without stale cache
+        Files.write(artifact, originalBytes);
+        final CompatibilityResolution recovered = CubismHostCompatibilityResolver.resolve(
+                artifact, null, name -> candidate.recordFileName().equals(name) ? validRecord : null);
+        assertTrue(recovered.slices().get("editor-model").admitted(), "cross-admission cache cleanly isolated");
     }
 
     @Test
@@ -115,7 +179,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordBytes)::get)
                 .resolution();
 
@@ -150,7 +214,7 @@ class CubismHostCompatibilityResolverTest {
                                 candidate(SLICE, "5.3.02", recordA, "synthetic.a"),
                                 candidate(SLICE, "5.3.03", recordB, "synthetic.b")),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of(
                                 "cubism-5.3.02-editor-model.json", recordA,
                                 "cubism-5.3.03-editor-model.json", recordB)::get)
@@ -181,7 +245,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordBytes)::get)
                 .resolution();
 
@@ -215,7 +279,7 @@ class CubismHostCompatibilityResolverTest {
                                 candidate(SLICE, "5.3.02", recordA, "synthetic.a"),
                                 candidate(SLICE, "5.3.03", recordB, "synthetic.b")),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordA, "cubism-5.3.03-editor-model.json", recordB)
                                 ::get)
                 .resolution();
@@ -246,7 +310,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordBytes)::get)
                 .resolution();
 
@@ -288,7 +352,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordBytes)::get)
                 .resolution();
 
@@ -343,7 +407,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordBytes)::get)
                 .resolution();
 
@@ -379,7 +443,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate(SLICE, "5.3.02", record, "synthetic.editor-model")),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", record)::get)
                 .resolution();
 
@@ -416,7 +480,7 @@ class CubismHostCompatibilityResolverTest {
                                 candidate(SLICE, "5.3.02", recordA, "synthetic.a"),
                                 candidate(SLICE, "5.3.03", recordB, "synthetic.b")),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordA, "cubism-5.3.03-editor-model.json", recordB)
                                 ::get)
                 .resolution();
@@ -483,7 +547,7 @@ class CubismHostCompatibilityResolverTest {
                                 candidate(SLICE, "5.3.02", recordA, "synthetic.a"),
                                 candidate(SLICE, "5.3.03", recordB, "synthetic.b")),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", recordA, "cubism-5.3.03-editor-model.json", recordB)
                                 ::get)
                 .resolution();
@@ -508,7 +572,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate(SLICE, "5.3.02", record, "synthetic.editor-model")),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         Map.of("cubism-5.3.02-editor-model.json", record)::get)
                 .resolution();
 
@@ -545,7 +609,7 @@ class CubismHostCompatibilityResolverTest {
                         candidate(SLICE, "5.3.02", recordA, "synthetic.a"),
                         candidate(SLICE, "5.3.03", recordB, "synthetic.b")),
                 new StaticVerificationRecordLoader(),
-                new StaticSelectorVerifier(),
+                new StaticSelectorVerifier()::verifyStructure,
                 Map.of("cubism-5.3.02-editor-model.json", recordA, "cubism-5.3.03-editor-model.json", recordB)::get);
 
         assertEquals(
@@ -599,7 +663,7 @@ class CubismHostCompatibilityResolverTest {
                     artifact,
                     order,
                     new StaticVerificationRecordLoader(),
-                    new StaticSelectorVerifier(),
+                    new StaticSelectorVerifier()::verifyStructure,
                     name -> name.equals(a.recordFileName()) ? base : full);
             assertTrue(probe.resolution().admitted());
             assertEquals("5.2.03", probe.resolution().contract().orElseThrow().sourceVersion());
@@ -644,7 +708,7 @@ class CubismHostCompatibilityResolverTest {
                     artifact,
                     List.of(a, b),
                     new StaticVerificationRecordLoader(),
-                    new StaticSelectorVerifier(),
+                    new StaticSelectorVerifier()::verifyStructure,
                     name -> name.equals(a.recordFileName()) ? base : full);
             assertFalse(
                     probe.resolution().contract().orElseThrow().capabilities().contains("cubism.core.owned-moc.read"));
@@ -675,7 +739,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         name -> formatted)
                 .resolution();
         assertEquals(CompatibilityResolution.SliceStatus.ADMITTED, slice.status());
@@ -705,7 +769,7 @@ class CubismHostCompatibilityResolverTest {
                         artifact,
                         List.of(candidate),
                         new StaticVerificationRecordLoader(),
-                        new StaticSelectorVerifier(),
+                        new StaticSelectorVerifier()::verifyStructure,
                         name -> tampered)
                 .resolution();
 

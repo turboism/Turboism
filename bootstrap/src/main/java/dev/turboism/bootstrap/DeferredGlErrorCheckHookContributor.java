@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.invoke.MethodHandle;
@@ -78,6 +79,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
                 return null;
             }
         } catch (RuntimeException | Error unavailable) {
+            FatalErrors.rethrowIfFatal(unavailable);
             // Broken observers cannot turn an unknown seam into an admitted one.
         }
         return "uniform-seam-not-ready";

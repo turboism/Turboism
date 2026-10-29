@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.command;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -198,11 +199,12 @@ final class VerifiedTypedEditorCommandOperations {
                     Aliases.CONFIG_WRITE, config, EXTERNAL_APP_REMOTE_CONFIG_KEY, request.allowRemoteConnections());
             resolver.invoke(Aliases.EXTERNAL_START, instance);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback failure prioritized over ordinary failure, but fatal original preserved
             try {
                 rollbackExternal(manager, instance, companion, config, oldPort, oldRemote, oldConfigRemote);
-            } catch (RollbackFailed rollbackFailure) {
-                rollbackFailure.addSuppressed(failure);
-                throw rollbackFailure;
+            } catch (RuntimeException | Error rollbackFailure) {
+                // @containment-exempt: rollback failure merged with fatal prioritized before rethrow
+                throw FatalErrors.propagate(FatalErrors.mergeForCleanup(rollbackFailure, failure));
             }
             throw failure;
         }
@@ -317,11 +319,12 @@ final class VerifiedTypedEditorCommandOperations {
             resolver.invoke(Aliases.GRID_SET_SPACING, entity, request.spacingPixels());
             refreshGrid();
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback failure prioritized over ordinary failure, but fatal original preserved
             try {
                 rollbackGrid(developerSetting, entity, currentSpacing, currentRgb);
-            } catch (RollbackFailed rollbackFailure) {
-                rollbackFailure.addSuppressed(failure);
-                throw rollbackFailure;
+            } catch (RuntimeException | Error rollbackFailure) {
+                // @containment-exempt: rollback failure merged with fatal prioritized before rethrow
+                throw FatalErrors.propagate(FatalErrors.mergeForCleanup(rollbackFailure, failure));
             }
             throw failure;
         }
@@ -441,25 +444,24 @@ final class VerifiedTypedEditorCommandOperations {
             if (actualWidth != request.widthPixels() || actualHeight != request.heightPixels())
                 throw new IllegalStateException("Canvas size readback mismatch: " + actualWidth + "x" + actualHeight);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback and readback unified in single boundary with fatal original preserved
             try {
-                // Rollback through the native Undo path: close the transaction and undo the partial
-                // group so no partial canvas/model state and no open edit remain.
                 rollbackEdit(context.editMode, undoPosBefore);
-                if (rebuildInstances)
+                if (rebuildInstances) {
                     editorModelResolver.invoke(
                             "cubism.editor-model.model-source.update-instances", context.modelSource);
-            } catch (RollbackFailed rollbackFailure) {
-                rollbackFailure.addSuppressed(failure);
-                throw rollbackFailure;
-            }
-            // The native Undo must restore the exact original canvas dimensions.
-            final int widthAfter = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_WIDTH, context.canvas);
-            final int heightAfter = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_HEIGHT, context.canvas);
-            if (widthAfter != oldWidth || heightAfter != oldHeight) {
-                throw new RollbackFailed(
-                        "canvas rollback unverified: canvas=" + widthAfter + "x" + heightAfter + " expected=" + oldWidth
-                                + "x" + oldHeight,
-                        failure);
+                }
+                final int widthAfter = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_WIDTH, context.canvas);
+                final int heightAfter = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_HEIGHT, context.canvas);
+                if (widthAfter != oldWidth || heightAfter != oldHeight) {
+                    throw new RollbackFailed(
+                            "canvas rollback unverified: canvas=" + widthAfter + "x" + heightAfter + " expected="
+                                    + oldWidth + "x" + oldHeight,
+                            null);
+                }
+            } catch (RuntimeException | Error rollbackFailure) {
+                // @containment-exempt: rollback failure merged with fatal prioritized before rethrow
+                throw FatalErrors.propagate(FatalErrors.mergeForCleanup(rollbackFailure, failure));
             }
             throw failure;
         }
@@ -549,11 +551,12 @@ final class VerifiedTypedEditorCommandOperations {
                     48,
                     null);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback failure prioritized over ordinary failure, but fatal original preserved
             try {
                 rollbackEdit(context.editMode, undoPosBefore);
-            } catch (RollbackFailed rollbackFailure) {
-                rollbackFailure.addSuppressed(failure);
-                throw rollbackFailure;
+            } catch (RuntimeException | Error rollbackFailure) {
+                // @containment-exempt: rollback failure merged with fatal prioritized before rethrow
+                throw FatalErrors.propagate(FatalErrors.mergeForCleanup(rollbackFailure, failure));
             }
             throw failure;
         }

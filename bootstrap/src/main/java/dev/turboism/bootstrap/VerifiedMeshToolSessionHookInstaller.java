@@ -106,13 +106,15 @@ final class VerifiedMeshToolSessionHookInstaller implements AutoCloseable {
             }
             installed = true;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: closeLocked runs cleanup before rethrowing with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 closeLocked();
             } catch (Throwable cleanup) {
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(cleanup);
-                failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(toThrow, cleanup);
             }
-            throw failure;
+            throw dev.turboism.core.runtime.work.FatalErrors.propagate(toThrow);
         }
     }
 

@@ -171,8 +171,9 @@ final class EditorRawImagePsdAccess {
      * Parses one runtime-owned staged PSD into a verified native layered image for replacement.
      *
      * <p>Host thread only. The reconstructed value is type-checked against the same verified
-     * constructors admitted for staged replacement; a parse or construct failure is reported as an
-     * {@link IOException} so the caller can classify it without inspecting native text.</p>
+     * constructors admitted for staged replacement; a non-fatal parse or construct failure is reported
+     * as an {@link IOException} so the caller can classify it without inspecting native text, while
+     * fatal JVM errors propagate unchanged.</p>
      *
      * @param stage runtime-owned non-empty staged PSD
      * @param name runtime-issued edit file basename, matching official file-open naming semantics;

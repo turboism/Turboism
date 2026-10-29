@@ -244,12 +244,15 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         try {
             return toSettings(adapter.applySettings(target));
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback failure merged with fatal prioritized before rethrow
+            Throwable toThrow = failure;
             try {
                 rollbackTo(original);
-            } catch (RuntimeException rollbackFailure) {
-                failure.addSuppressed(rollbackFailure);
+            } catch (RuntimeException | Error rollbackFailure) {
+                // @containment-exempt: rollback failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, rollbackFailure);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 
@@ -435,6 +438,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             try {
                 target.sync(handles);
             } catch (RuntimeException | Error targetFailure) {
+                FatalErrors.rethrowIfFatal(targetFailure);
                 diagnostics.accept("backupNow:sync-target-failed "
                         + targetFailure.getClass().getName());
             }
@@ -475,6 +479,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             try {
                 target.sync(List.of(handle));
             } catch (RuntimeException | Error targetFailure) {
+                FatalErrors.rethrowIfFatal(targetFailure);
                 diagnostics.accept("backupAfterSave:sync-target-failed "
                         + targetFailure.getClass().getName());
             }

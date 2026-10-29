@@ -69,14 +69,39 @@ def reachable(graph: dict[str, set[str]], roots: set[str]) -> set[str]:
     return seen
 
 
+SIMULATION_FLAGS = {'-s', '--simulate', '--just-print', '--dry-run', '--recon', '--no-act', '-d', '--download-only'}
+
+
+def is_xvfb_install_line(line: str) -> bool:
+    if any(x in line for x in ('&&', '||', ';', '`', '$(', '|')):
+        return False
+    try:
+        tokens = shlex.split(line, comments=True)
+    except ValueError:
+        return False
+    if not tokens:
+        return False
+    cmd_start = 1 if tokens[0] == 'sudo' else 0
+    if cmd_start < len(tokens) and tokens[cmd_start] in ('apt', 'apt-get'):
+        sub_tokens = tokens[cmd_start + 1:]
+        subcmd = next((t for t in sub_tokens if not t.startswith('-')), None)
+        if subcmd == 'install' and 'xvfb' in sub_tokens:
+            return not any(flag in sub_tokens for flag in SIMULATION_FLAGS)
+    return False
+
+
 def executable_commands(document: dict, release: bool = False) -> list[list[str]]:
     commands = []
     for job in document.get('jobs', {}).values():
         assert not job.get('continue-on-error'), 'CI job must propagate failures'
+        xvfb_installed = False
         for step in job.get('steps', []):
             if 'run' not in step:
                 continue
+            is_unconditional_step = not step.get('if') and not step.get('continue-on-error')
             for line in step['run'].replace('\\\n', ' ').splitlines():
+                if is_unconditional_step and is_xvfb_install_line(line):
+                    xvfb_installed = True
                 if release and 'checkRelease' not in line:
                     continue
                 tokens = shlex.split(line, comments=True)
@@ -95,6 +120,10 @@ def executable_commands(document: dict, release: bool = False) -> list[list[str]
                             assert option in {'-a', '--auto-servernum', '-s', '--server-args'}, 'xvfb must execute Gradle'
                             index += 2 if option in {'-s', '--server-args'} else 1
                         assert index == len(prefix), 'missing xvfb option value'
+                    if release:
+                        assert prefix and tokens[0] == 'xvfb-run', 'release gate must execute under xvfb-run'
+                        assert '-screen 0 1920x1080x24' in prefix, 'xvfb-run must specify standard screen geometry'
+                        assert xvfb_installed, 'release gate requires xvfb to be installed in a preceding unconditional step'
                     args = tokens[tokens.index('./gradlew') + 1:]
                     assert not any(x in args for x in ('-m', '--dry-run', '-x', '--exclude-task')), 'disabled gate'
                     if release:
@@ -281,6 +310,112 @@ def self_test() -> None:
         pass
     else:
         raise AssertionError('xvfb wrapping echo accepted')
+
+    # Release gate must execute under xvfb-run (bare gradlew counter-example)
+    bare_release_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': 'sudo apt-get install --yes xvfb'},
+            {'run': './gradlew --no-daemon checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true'}
+        ]}}
+    }
+    try:
+        executable_commands(bare_release_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate must execute under xvfb-run' in str(err)
+    else:
+        raise AssertionError('bare gradlew checkRelease accepted')
+
+    # Comment disguise counter-example
+    comment_release_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': 'sudo apt-get install --yes xvfb'},
+            {'run': "# xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
+        ]}}
+    }
+    assert executable_commands(comment_release_wf, release=True) == [], 'commented-out checkRelease must yield no executable command'
+
+    # Unquoted echo disguise for xvfb install counter-example
+    unquoted_echo_install_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': 'echo sudo apt-get install --yes xvfb'},
+            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
+        ]}}
+    }
+    try:
+        executable_commands(unquoted_echo_install_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate requires xvfb to be installed' in str(err)
+    else:
+        raise AssertionError('unquoted echo xvfb installation accepted')
+
+    # Shell bypass in install line counter-example
+    bypass_install_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': 'false && sudo apt-get install --yes xvfb'},
+            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
+        ]}}
+    }
+    try:
+        executable_commands(bypass_install_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate requires xvfb to be installed' in str(err)
+    else:
+        raise AssertionError('shell bypass xvfb installation accepted')
+
+    # Simulation flag in install counter-example
+    simulate_install_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': 'sudo apt-get install --yes --simulate xvfb'},
+            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
+        ]}}
+    }
+    try:
+        executable_commands(simulate_install_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate requires xvfb to be installed' in str(err)
+    else:
+        raise AssertionError('simulation flag xvfb installation accepted')
+
+    # Post-gate install counter-example (installed after checkRelease)
+    post_install_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"},
+            {'run': 'sudo apt-get install --yes xvfb'}
+        ]}}
+    }
+    try:
+        executable_commands(post_install_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate requires xvfb to be installed' in str(err)
+    else:
+        raise AssertionError('post-gate xvfb installation accepted')
+
+    # Same-step post-gate install counter-example
+    same_step_post_install_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true\nsudo apt-get install --yes xvfb"}
+        ]}}
+    }
+    try:
+        executable_commands(same_step_post_install_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate requires xvfb to be installed' in str(err)
+    else:
+        raise AssertionError('same-step post-gate xvfb installation accepted')
+
+    # Non-install apt subcommand counter-example
+    remove_install_wf = {
+        'jobs': {'release': {'steps': [
+            {'run': 'sudo apt-get remove install xvfb'},
+            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
+        ]}}
+    }
+    try:
+        executable_commands(remove_install_wf, release=True)
+    except AssertionError as err:
+        assert 'release gate requires xvfb to be installed' in str(err)
+    else:
+        raise AssertionError('non-install apt command accepted')
 
 
 def main() -> int:
