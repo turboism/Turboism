@@ -349,6 +349,8 @@ public final class WebDavSettingsDialog {
                             new WebDavSyncTarget(probe, reason -> logger.warn("webdav-verify " + reason)).verify();
                             SwingUtilities.invokeLater(() ->
                                     status.setText(text(localization, "backup.dialog.status.connected", "Connected")));
+                        } catch (ThreadDeath | VirtualMachineError fatal) {
+                            throw fatal;
                         } catch (RuntimeException | Error failure) {
                             final String message = sanitized(failure);
                             SwingUtilities.invokeLater(() -> status.setText(format(
@@ -422,6 +424,8 @@ public final class WebDavSettingsDialog {
                                 }
                                 try {
                                     onSaved.accept(target);
+                                } catch (ThreadDeath | VirtualMachineError fatal) {
+                                    throw fatal;
                                 } catch (RuntimeException | Error saveFailure) {
                                     logger.warn("webdav settings saved but target rebuild failed: "
                                             + saveFailure.getClass().getSimpleName());

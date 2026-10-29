@@ -303,6 +303,7 @@ public final class VerifiedMemberResolver {
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (InvocationTargetException exception) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(exception.getCause());
             throw VerifiedAccessException.invocationFailure(
                     alias, "Verified host constructor execution failed safely.", exception.getCause());
         } catch (InstantiationException
@@ -759,6 +760,7 @@ public final class VerifiedMemberResolver {
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (InvocationTargetException exception) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(exception.getCause());
             throw VerifiedAccessException.invocationFailure(
                     selector.alias(), "Verified host method execution failed safely.", exception.getCause());
         } catch (IllegalAccessException | IllegalArgumentException | LinkageError exception) {

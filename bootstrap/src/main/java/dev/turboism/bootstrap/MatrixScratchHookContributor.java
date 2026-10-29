@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 /** Contributor for the verified matrix scratch-buffer optimization. */
@@ -31,6 +32,7 @@ final class MatrixScratchHookContributor extends NativeOptimizationHookContribut
                         "bootstrap",
                         "TURBOISM_MATRIX_SCRATCH restoration=" + (installer.restored() ? "COMPLETE" : "UNVERIFIED"));
             } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 RuntimeDiagnostics.warn("bootstrap", "TURBOISM_MATRIX_SCRATCH restoration=FAILED " + failure);
             }
         };

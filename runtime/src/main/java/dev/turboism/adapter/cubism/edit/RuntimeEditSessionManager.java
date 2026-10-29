@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.edit.CancelSource;
 import dev.turboism.sdk.cubism.edit.EditCancelledException;
 import dev.turboism.sdk.cubism.edit.EditSession;
@@ -370,20 +371,25 @@ public final class RuntimeEditSessionManager {
                 try {
                     session = new RuntimeEditSession(this, binding, editToken, document, options, uiLock, before);
                 } catch (RuntimeException | Error failure) {
+                    // @containment-exempt: cleans up uiLock and aborts native edit before rethrowing with fatal
+                    // prioritized
+                    Throwable toThrow = failure;
                     // The session never reaches `active`, so no close path will ever
                     // disengage the engaged lock — release it and abort the native edit
                     // bracket before reporting the admission failure.
                     try {
                         uiLock.disengage();
-                    } catch (RuntimeException disengageFailure) {
-                        failure.addSuppressed(disengageFailure);
+                    } catch (RuntimeException | Error disengageFailure) {
+                        // @containment-exempt: disengage cleanup merged, prioritizing fatal error
+                        toThrow = FatalErrors.mergeForCleanup(toThrow, disengageFailure);
                     }
                     try {
                         host.endEdit(binding, editToken, true);
-                    } catch (RuntimeException abortFailure) {
-                        failure.addSuppressed(abortFailure);
+                    } catch (RuntimeException | Error abortFailure) {
+                        // @containment-exempt: abort cleanup merged, prioritizing fatal error
+                        toThrow = FatalErrors.mergeForCleanup(toThrow, abortFailure);
                     }
-                    throw failure;
+                    throw FatalErrors.propagate(toThrow);
                 }
                 pending.set(session);
                 active = session;

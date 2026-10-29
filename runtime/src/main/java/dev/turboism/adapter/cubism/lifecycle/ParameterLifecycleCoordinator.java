@@ -199,7 +199,7 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
             }
         }
         final RuntimeEventBroker broker = eventBroker;
-        if (broker == null) {
+        if (broker == null || !broker.hasObserversFor(ParameterValueEvent.Before.class)) {
             return effectiveValue;
         }
         final Parameter detached = DetachedParameter.capture(parameter, parameter.getValue());
@@ -231,11 +231,18 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         if (broker == null) {
             return;
         }
+        final boolean hasOn = changed && broker.hasObserversFor(ParameterValueEvent.On.class);
+        final boolean hasAfter = broker.hasObserversFor(ParameterValueEvent.After.class);
+        if (!hasOn && !hasAfter) {
+            return;
+        }
         final Parameter detached = DetachedParameter.capture(parameter, finalValue);
-        if (changed) {
+        if (hasOn) {
             broker.publishRuntime(new ParameterValueEvent.On(detached, oldValue, finalValue));
         }
-        broker.publishRuntime(new ParameterValueEvent.After(detached, finalValue));
+        if (hasAfter) {
+            broker.publishRuntime(new ParameterValueEvent.After(detached, finalValue));
+        }
     }
 
     private void publishLegacyCompletion(

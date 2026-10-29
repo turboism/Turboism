@@ -628,6 +628,50 @@ class PreviewPluginContextFactoryCompositionTest {
         };
     }
 
+    @Test
+    void createPreservesDeclaredIOExceptionIdentityWhenStorageInitializationFails() throws Exception {
+        final HostSession session = HostSessionTestSupport.connectedSession(
+                Optional::empty, ignored -> adapters("test-project"), ignored -> exportSettingsResolver());
+        final RuntimeScheduler scheduler = PreviewRuntimeTestSupport.rejectedScheduler();
+        final Path home = tempDir.resolve("home-io-error");
+        // Create an ordinary regular file where the plugin state directory needs to be created
+        final Path stateFileConflict =
+                home.resolve("state").resolve(descriptor().id());
+        Files.createDirectories(stateFileConflict.getParent());
+        Files.writeString(stateFileConflict, "not a directory conflict");
+
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
+            try {
+                final PreviewPluginContextFactory factory = new PreviewPluginContextFactory(
+                        home,
+                        scheduler,
+                        session.adapterAccess(),
+                        lane,
+                        log,
+                        new RuntimeFailureCollector(),
+                        FileChooserHistoryService.unavailable());
+                final DisposableScope scope = new DisposableScope();
+                try {
+                    // Must throw IOException (specifically FileAlreadyExistsException), not IllegalStateException
+                    assertThrows(
+                            java.io.IOException.class,
+                            () -> factory.create(
+                                    descriptor(),
+                                    PreviewPluginContextFactoryCompositionTest.class.getClassLoader(),
+                                    scope));
+                } finally {
+                    scope.close();
+                }
+            } finally {
+                lane.close();
+            }
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
     private static PluginDescriptor.I18n emptyI18n() {
         return new PluginDescriptor.I18n() {
             @Override

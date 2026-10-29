@@ -589,6 +589,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             container.printAll(graphics);
             return image;
         } catch (RuntimeException | Error failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("paintToImage:" + failure.getClass().getName());
             return null;
         } finally {

@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.command;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.StaticSelector;
@@ -387,6 +388,22 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "unverified grid rollback must fail closed");
         assertEquals(80, host.grid.spacing, "the unverifiable spacing restore must not be claimed");
+    }
+
+    @Test
+    void canvasSettingPrioritizesFatalErrorOverRollbackAndReadbackFailure() {
+        FakeHost host = new FakeHost();
+        final OutOfMemoryError oom = new OutOfMemoryError("injected OOM after width mutation");
+        FakeHost.fatalOnSetWidth = oom;
+        host.failOnUndo = true; // Rollback failure
+        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
+
+        final OutOfMemoryError thrown = org.junit.jupiter.api.Assertions.assertThrows(
+                OutOfMemoryError.class, () -> adapter.execute(new EditorCanvasSettingsRequest(1200, 1100)));
+        assertSame(oom, thrown);
+        assertEquals(1, thrown.getSuppressed().length, "Rollback failure must be suppressed onto fatal");
+        assertTrue(thrown.getSuppressed()[0] instanceof RuntimeException);
+        assertTrue(host.editMode.endEditCalled, "end-edit cleanup must still run");
     }
 
     @Test
@@ -790,6 +807,7 @@ class VerifiedTypedEditorCommandAdapterTest {
         String editModeKind = "main";
         boolean editing;
         static boolean failOnSetWidth;
+        static Error fatalOnSetWidth;
         static boolean failOnScale;
         static boolean failOnSetRemote;
         static boolean failOnStart;
@@ -804,6 +822,7 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         FakeHost() {
             failOnSetWidth = false;
+            fatalOnSetWidth = null;
             failOnScale = false;
             failOnSetRemote = false;
             failOnStart = false;
@@ -1456,6 +1475,11 @@ class VerifiedTypedEditorCommandAdapterTest {
             public void setPixelWidth(int w) {
                 if (ignoreCanvasWidthWrite) return;
                 width = w;
+                if (FakeHost.fatalOnSetWidth != null) {
+                    final Error err = FakeHost.fatalOnSetWidth;
+                    FakeHost.fatalOnSetWidth = null;
+                    throw err;
+                }
                 if (FakeHost.failOnSetWidth) {
                     FakeHost.failOnSetWidth = false;
                     throw new IllegalStateException("injected host failure after width mutation");

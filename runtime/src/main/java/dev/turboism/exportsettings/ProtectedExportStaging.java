@@ -1305,6 +1305,8 @@ public final class ProtectedExportStaging {
                 try {
                     moveOp.move(copy, target);
                 } catch (IOException | RuntimeException | Error moveFailure) {
+                    // @containment-exempt: restoreTarget runs before unconditional rethrow preserving IOException
+                    // identity
                     if (!restoreTarget(moveOp, target, backup, moveFailure)) {
                         rollbackComplete[0] = false;
                     }

@@ -55,6 +55,7 @@ public final class McpPlugin extends AbstractTurboismPlugin {
             disposalScope().register(menu);
             server = started;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: DisposableScope.close cleans up and rethrows fatal failure with priority
             try (DisposableScope rollback = new DisposableScope()) {
                 rollback.register(started);
                 rollback.register(super::disable);

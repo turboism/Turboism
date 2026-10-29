@@ -352,9 +352,12 @@ Hook eligibility in the static probe is separate from runtime readiness. Bytecod
 
 `scripts/preview/host_validation.py` separates immutable preparation and durable
 submission from a separately supervised `serve` worker. All managed worktrees use
-one current-UID queue root and one host-admission lock; supported Cubism versions
-share a single session slot through task-owned cleanup. Build and prepare work
-may run in parallel, but must not launch the host or execute UI hooks.
+one current-UID queue root and one host-admission lock. The scheduler allocates
+execution across version-isolated slots (default 8 slots), serializing tasks targeting
+the same Cubism version while allowing different versions to run concurrently;
+`performance-host` and `interactive-desktop` remain globally exclusive, and legacy
+protocols remain serialized. Build and prepare work may run in parallel, but must
+not launch the host or execute UI hooks.
 
 The worker consumes verified input/tool snapshots, records an attempt before
 launch permission, and passes inherited admission ownership to the common
@@ -383,7 +386,7 @@ recovery, service lifecycle and Agent adoption. The service is opt-in and is not
 installed or started by Gradle. Actual exact-host acceptance is a separate gate,
 not a conclusion drawn from the scheduler's isolated process tests.
 
-Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. Every run copies the selected host project into its task directory and prefixes the copy name with the validation purpose/run ID; independent CoW prefixes and homes isolate sequential runs, not permission to open concurrent Cubism windows. The golden prefix and source project remain immutable shared inputs. All managed exact-host runs share the global admission slot until cleanup is proven. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
+Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. Every run copies the selected host project into its task directory and prefixes the copy name with the validation purpose/run ID; independent CoW prefixes and homes isolate task execution, while concurrency is governed by the scheduler, version slots, and global resource exclusivity. The golden prefix and source project remain immutable shared inputs. Managed exact-host runs schedule through version-isolated execution slots (default 8 slots, same-version serialized, different versions concurrent, with global exclusivity for performance-host and interactive-desktop) under the single-UID host-admission lock until task-owned cleanup is proven. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
 
 Fake providers, static selector records, classfile inspection, and document consistency never promote a provider to real-host readiness.
 

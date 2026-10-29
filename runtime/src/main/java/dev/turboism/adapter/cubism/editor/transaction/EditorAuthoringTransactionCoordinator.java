@@ -86,12 +86,18 @@ public final class EditorAuthoringTransactionCoordinator {
         try {
             work.run();
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: endSourceBatch runs cleanup and rethrows merged failure with fatal prioritized
+            Throwable toThrow = failure;
             try {
                 scope.endSourceBatch();
             } catch (RuntimeException | Error evaluationFailure) {
-                failure.addSuppressed(evaluationFailure);
+                // @containment-exempt: causal merge prioritizes fatal/Error over ordinary callback exception
+                toThrow = append(failure, evaluationFailure);
             }
-            throw failure;
+            if (toThrow instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw (Error) toThrow;
         }
         scope.endSourceBatch();
     }
@@ -171,6 +177,8 @@ public final class EditorAuthoringTransactionCoordinator {
                 } catch (ScopeRejectedException failure) {
                     return recover(scope, failure, true);
                 } catch (Exception | Error failure) {
+                    // @containment-exempt: delegates to recover() which runs Undo cleanup and rethrows primary
+                    // fatal/Error
                     return recover(scope, failure, false);
                 }
                 if (!scope.changed()) {
@@ -381,6 +389,7 @@ public final class EditorAuthoringTransactionCoordinator {
         } catch (ScopeRejectedException failure) {
             return recover(scope, failure, true);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: delegates to recover() which runs Undo cleanup and rethrows primary fatal/Error
             return recover(scope, failure, false);
         }
 
@@ -469,6 +478,8 @@ public final class EditorAuthoringTransactionCoordinator {
                     host.undoEditGroup(scope.binding(), scope.edit());
                     scope.markGroupUndoApplied();
                 } catch (RuntimeException | Error undoFailure) {
+                    // @containment-exempt: best-effort undo accumulates failure, prioritized and rethrown below if
+                    // fatal/Error
                     recoveryFailure = append(recoveryFailure, undoFailure);
                 }
             }
@@ -477,6 +488,8 @@ public final class EditorAuthoringTransactionCoordinator {
                 host.endEdit(scope.binding(), scope.edit(), true);
                 scope.markEditClosed();
             } catch (RuntimeException | Error abortFailure) {
+                // @containment-exempt: best-effort abort accumulates failure, prioritized and rethrown below if
+                // fatal/Error
                 recoveryFailure = append(recoveryFailure, abortFailure);
             }
         } else if (scope.edit() != null && !scope.editClosed()) {
@@ -499,6 +512,8 @@ public final class EditorAuthoringTransactionCoordinator {
                             + " on " + contribution.targetIdentity());
                 }
             } catch (RuntimeException | Error compensationFailure) {
+                // @containment-exempt: best-effort compensation accumulates failure, prioritized and rethrown below if
+                // fatal/Error
                 recoveryFailure = append(recoveryFailure, compensationFailure);
             }
         }
@@ -511,11 +526,20 @@ public final class EditorAuthoringTransactionCoordinator {
                         append(recoveryFailure, new IllegalStateException("authoring history was not restored"));
             }
         } catch (RuntimeException | Error historyFailure) {
+            // @containment-exempt: best-effort history check accumulates failure, prioritized and rethrown below if
+            // fatal/Error
             recoveryFailure = append(recoveryFailure, historyFailure);
         }
 
         // Cleanup is best-effort across all contributions, but a fatal failure is never converted
         // to a successful rollback or replaced by a later cleanup failure.
+        final boolean recoveryFatal = dev.turboism.core.runtime.work.FatalErrors.isFatal(recoveryFailure);
+        final boolean originalFatal = dev.turboism.core.runtime.work.FatalErrors.isFatal(failure);
+        if (recoveryFatal && !originalFatal) {
+            final Error fatal = (Error) recoveryFailure;
+            if (fatal != failure) fatal.addSuppressed(failure);
+            throw fatal;
+        }
         if (failure instanceof Error original) {
             if (recoveryFailure != null && recoveryFailure != original) {
                 original.addSuppressed(recoveryFailure);
@@ -672,6 +696,16 @@ public final class EditorAuthoringTransactionCoordinator {
     private static Throwable append(final Throwable current, final Throwable next) {
         if (current == null) return next;
         if (current == next) return current;
+        final boolean nextFatal = dev.turboism.core.runtime.work.FatalErrors.isFatal(next);
+        final boolean currentFatal = dev.turboism.core.runtime.work.FatalErrors.isFatal(current);
+        if (nextFatal && !currentFatal) {
+            next.addSuppressed(current);
+            return next;
+        }
+        if (currentFatal && !nextFatal) {
+            current.addSuppressed(next);
+            return current;
+        }
         if (next instanceof Error && !(current instanceof Error)) {
             next.addSuppressed(current);
             return next;

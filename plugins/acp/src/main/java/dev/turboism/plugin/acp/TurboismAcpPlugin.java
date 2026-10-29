@@ -108,6 +108,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             settings = enabledSettings;
             enabled = true;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: DisposableScope.close cleans up and rethrows fatal failure with priority
             try (DisposableScope rollback = new DisposableScope()) {
                 if (enabledSettings != null) rollback.register(enabledSettings);
                 rollback.register(super::disable);

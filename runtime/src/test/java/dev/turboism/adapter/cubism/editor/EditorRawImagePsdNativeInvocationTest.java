@@ -174,14 +174,14 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals("ILLEGAL_STATE", parsed.failure().orElseThrow().category());
         EditorRawImagePsdNativeFixture.throwOnParse = false;
         EditorRawImagePsdNativeFixture.constructFailure = () -> {
-            throw new OutOfMemoryError("private-host-path");
+            throw new IllegalStateException("private-host-path");
         };
         final var constructFailure = EditorHostThread.dispatch(
                 "stage test",
                 () -> assertThrows(java.io.IOException.class, () -> access.parseStageOnHostThread(stage, "source")));
         final var constructed = EditorRawImagePsdAccess.unreadableStage(constructFailure);
         assertEquals("CONSTRUCT", constructed.failure().orElseThrow().phase());
-        assertEquals("OUT_OF_MEMORY", constructed.failure().orElseThrow().category());
+        assertEquals("ILLEGAL_STATE", constructed.failure().orElseThrow().category());
         for (final var outcome : List.of(parsed, constructed)) {
             assertEquals("STAGE_UNREADABLE", outcome.nativeStatus());
             assertFalse(outcome.nativeReturned());
@@ -189,6 +189,34 @@ class EditorRawImagePsdNativeInvocationTest {
             assertFalse(outcome.toString().contains("private-host-path"));
         }
         assertEquals(null, constructFailure.getCause());
+    }
+
+    @Test
+    void stagedConstructionFatalErrorsPropagateUnwrappedWithoutMutation(@TempDir final Path temp) throws Exception {
+        final Path stage = temp.resolve("staged-fatal.psd");
+        Files.writeString(stage, "synthetic-fatal-psd");
+        final var access = access(resolver("5.3.02", true), (identity, model) -> {});
+
+        for (final var fatal : List.of(new OutOfMemoryError("host-oom"), new ThreadDeath())) {
+            EditorRawImagePsdNativeFixture.reset();
+            EditorRawImagePsdNativeFixture.constructFailure = () -> {
+                if (fatal instanceof OutOfMemoryError oom) {
+                    throw oom;
+                }
+                throw (ThreadDeath) fatal;
+            };
+
+            EditorHostThread.dispatch("fatal construct test", () -> {
+                final Throwable thrown =
+                        assertThrows(fatal.getClass(), () -> access.parseStageOnHostThread(stage, "source"));
+                assertSame(fatal, thrown);
+                return null;
+            });
+
+            assertEquals("synthetic-fatal-psd", Files.readString(stage));
+            assertEquals(List.of("parse", "construct"), EditorRawImagePsdNativeFixture.events());
+            assertEquals(null, EditorRawImagePsdNativeFixture.lastConstructed);
+        }
     }
 
     @Test

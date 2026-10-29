@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.ui.action.EditorUiActionRouter;
@@ -93,8 +94,9 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             session.bind();
             return session;
         } catch (RuntimeException | Error failure) {
-            session.closeSuppressing(failure);
-            throw failure;
+            // @containment-exempt: closes session before rethrow with fatal prioritized
+            final Throwable toThrow = session.closeSuppressing(failure);
+            throw FatalErrors.propagate(toThrow);
         }
     }
 
@@ -114,10 +116,12 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 session.reconcile(descriptors(contributions));
                 return session;
             } catch (RuntimeException | Error failure) {
+                // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+                final Throwable toThrow = session.closeSuppressing(failure);
+                FatalErrors.rethrowIfFatal(toThrow);
                 // A host lifecycle event (e.g. the floating frame being disposed)
                 // can close a panel behind the provider's back. Rebuild the whole
                 // panel set instead of letting every refresh fail permanently.
-                session.closeSuppressing(failure);
                 return apply(hostGeneration, contributions);
             }
         }
@@ -175,8 +179,9 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                     scheduleStartupDockCleanup(startupDockCleaner);
                 }
             } catch (RuntimeException | Error failure) {
-                closeAllSuppressing(installedBindings, failure);
-                throw failure;
+                // @containment-exempt: closes installed bindings before rethrow with fatal prioritized
+                final Throwable toThrow = closeAllReturning(installedBindings, failure);
+                throw FatalErrors.propagate(toThrow);
             }
         }
 
@@ -193,6 +198,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                                         "floating-panels", "Startup empty-dock cleanup completed");
                                 return;
                             } catch (RuntimeException | Error failure) {
+                                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
                                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                                         "floating-panels",
                                         "Startup empty-dock cleanup retry " + attempt + " failed safely",
@@ -250,8 +256,9 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                         try {
                             handle.updateContent(entry.getValue());
                         } catch (RuntimeException | Error updateFailure) {
-                            closePanelsSuppressing(java.util.List.of(handle), updateFailure);
-                            throw updateFailure;
+                            // @containment-exempt: closes failed panel before rethrow with fatal prioritized
+                            final Throwable toThrow = closeAllReturning(List.of(handle), updateFailure);
+                            throw FatalErrors.propagate(toThrow);
                         }
                         next.put(entry.getKey(), current.withDescriptor(entry.getValue()));
                         continue;
@@ -261,8 +268,9 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                     next.put(entry.getKey(), new InstalledPanel(entry.getValue(), handle));
                 }
             } catch (RuntimeException | Error failure) {
-                closePanelsSuppressing(added, failure);
-                throw failure;
+                // @containment-exempt: closes added panels before rethrow with fatal prioritized
+                final Throwable toThrow = closeAllReturning(added, failure);
+                throw FatalErrors.propagate(toThrow);
             }
 
             final List<EmbeddedPanelHostOperations.PanelHandle> removed = new ArrayList<>();
@@ -338,8 +346,13 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             // the retry task. Any already queued EDT cleanup now fails closed.
             final List<Registration> installedBindings = bindings;
             bindings = List.of();
-            RuntimeException first = closeAllReturning(installedBindings);
-            host.invalidateHost();
+            Throwable accumulated = closeAllReturning(installedBindings, null);
+            try {
+                host.invalidateHost();
+            } catch (RuntimeException | Error failure) {
+                // @containment-exempt: host invalidation failure merged with fatal prioritized
+                accumulated = FatalErrors.mergeForCleanup(accumulated, failure);
+            }
             final Thread cleanup = startupDockCleanup;
             startupDockCleanup = null;
             if (cleanup != null) {
@@ -348,25 +361,19 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             final List<EmbeddedPanelHostOperations.PanelHandle> installedPanels =
                     panels.values().stream().map(InstalledPanel::handle).toList();
             panels = Map.of();
-            try {
-                closePanels(installedPanels);
-            } catch (RuntimeException failure) {
-                if (first == null) {
-                    first = failure;
-                } else {
-                    first.addSuppressed(failure);
-                }
-            }
-            if (first != null) {
-                throw first;
+            accumulated = closeAllReturning(installedPanels, accumulated);
+            if (accumulated != null) {
+                throw FatalErrors.propagate(accumulated);
             }
         }
 
-        private synchronized void closeSuppressing(final Throwable failure) {
+        private synchronized Throwable closeSuppressing(final Throwable failure) {
             try {
                 close();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+                return failure;
+            } catch (RuntimeException | Error cleanupFailure) {
+                // @containment-exempt: close failure merged with fatal prioritized
+                return FatalErrors.mergeForCleanup(failure, cleanupFailure);
             }
         }
     }
@@ -389,44 +396,27 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
     }
 
     private static void closeAll(final List<? extends Registration> registrations) {
-        final RuntimeException failure = closeAllReturning(registrations);
+        final Throwable failure = closeAllReturning(registrations, null);
         if (failure != null) {
-            throw failure;
+            throw FatalErrors.propagate(failure);
         }
     }
 
-    private static RuntimeException closeAllReturning(final List<? extends Registration> registrations) {
-        RuntimeException first = null;
+    private static Throwable closeAllReturning(
+            final List<? extends Registration> registrations, final Throwable primary) {
+        Throwable accumulated = primary;
         for (int index = registrations.size() - 1; index >= 0; index--) {
             try {
                 registrations.get(index).close();
-            } catch (RuntimeException failure) {
-                if (first == null) {
-                    first = failure;
-                } else {
-                    first.addSuppressed(failure);
-                }
+            } catch (RuntimeException | Error failure) {
+                // @containment-exempt: close failure merged across registrations with fatal prioritized
+                accumulated = FatalErrors.mergeForCleanup(accumulated, failure);
             }
         }
-        return first;
-    }
-
-    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
-            }
-        }
+        return accumulated;
     }
 
     private static void closePanels(final List<? extends EmbeddedPanelHostOperations.PanelHandle> panels) {
         closeAll(panels);
-    }
-
-    private static void closePanelsSuppressing(
-            final List<? extends EmbeddedPanelHostOperations.PanelHandle> panels, final Throwable failure) {
-        closeAllSuppressing(panels, failure);
     }
 }

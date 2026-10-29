@@ -103,14 +103,16 @@ final class PreviewRuntimeLauncher {
         try {
             return starter.start();
         } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
+            // @containment-exempt: closePremainRuntimeHooks runs before rethrow with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 closePremainRuntimeHooks(candidate, warpAltCandidate);
             } catch (Throwable cleanupFailure) {
-                FatalErrors.rethrowIfFatal(cleanupFailure);
-                failure.addSuppressed(cleanupFailure);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
             }
-            throw failure;
+            FatalErrors.rethrowIfFatal(toThrow);
+            throw toThrow;
         }
     }
 
@@ -121,13 +123,15 @@ final class PreviewRuntimeLauncher {
         try {
             runtimeClose.run();
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: closePremainRuntimeHooks runs before rethrow with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 closePremainRuntimeHooks(candidate, warpAltCandidate);
             } catch (Throwable cleanupFailure) {
-                FatalErrors.rethrowIfFatal(cleanupFailure);
-                failure.addSuppressed(cleanupFailure);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
         closePremainRuntimeHooks(candidate, warpAltCandidate);
     }
@@ -139,17 +143,17 @@ final class PreviewRuntimeLauncher {
         try {
             WarpAltMirrorHookContributor.closeCurrent(warp);
         } catch (Throwable problem) {
-            FatalErrors.rethrowIfFatal(problem);
-            failure = problem;
+            // @containment-exempt: all hooks closed despite failure before rethrow with fatal prioritized
+            failure = FatalErrors.mergeForCleanup(failure, problem);
         }
         try {
             MeshMirrorHookContributor.closeCurrent(mesh);
         } catch (Throwable problem) {
-            FatalErrors.rethrowIfFatal(problem);
-            if (failure == null) failure = problem;
-            else if (failure != problem) failure.addSuppressed(problem);
+            // @containment-exempt: all hooks closed despite failure before rethrow with fatal prioritized
+            failure = FatalErrors.mergeForCleanup(failure, problem);
         }
         if (failure != null) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("premain runtime-hook cleanup failed", failure);
         }
     }

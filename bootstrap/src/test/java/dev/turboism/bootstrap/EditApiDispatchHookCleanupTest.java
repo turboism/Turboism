@@ -34,6 +34,54 @@ class EditApiDispatchHookCleanupTest {
     }
 
     @Test
+    void fatalDispatcherErrorPrioritizedOverSecondaryToggleException() {
+        final List<String> closed = new ArrayList<>();
+        final OutOfMemoryError fatal = new OutOfMemoryError("dispatcher fatal");
+        final IllegalStateException secondary = new IllegalStateException("toggle cleanup failure");
+
+        final OutOfMemoryError thrown = assertThrows(
+                OutOfMemoryError.class,
+                () -> EditApiDispatchHookContributor.closeResources(
+                        List.of(() -> closed.add("first"), () -> {
+                            closed.add("second");
+                            throw secondary;
+                        }),
+                        () -> {
+                            closed.add("dispatcher");
+                            throw fatal;
+                        }));
+
+        assertEquals(List.of("dispatcher", "second", "first"), closed);
+        assertSame(fatal, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(secondary, thrown.getSuppressed()[0]);
+    }
+
+    @Test
+    void subsequentFatalToggleErrorPromotedOverPrimaryDispatcherException() {
+        final List<String> closed = new ArrayList<>();
+        final IllegalStateException primary = new IllegalStateException("dispatcher failure");
+        final OutOfMemoryError fatal = new OutOfMemoryError("toggle fatal");
+
+        final OutOfMemoryError thrown = assertThrows(
+                OutOfMemoryError.class,
+                () -> EditApiDispatchHookContributor.closeResources(
+                        List.of(() -> closed.add("first"), () -> {
+                            closed.add("second");
+                            throw fatal;
+                        }),
+                        () -> {
+                            closed.add("dispatcher");
+                            throw primary;
+                        }));
+
+        assertEquals(List.of("dispatcher", "second", "first"), closed);
+        assertSame(fatal, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(primary, thrown.getSuppressed()[0]);
+    }
+
+    @Test
     void failedCreationStillClosesResourcesWhenNoDispatcherExists() throws Exception {
         final List<String> closed = new ArrayList<>();
 

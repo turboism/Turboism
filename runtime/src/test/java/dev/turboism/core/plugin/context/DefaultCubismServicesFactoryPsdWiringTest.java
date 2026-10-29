@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
@@ -104,11 +105,11 @@ class DefaultCubismServicesFactoryPsdWiringTest {
         }
     }
 
-    private static PsdExportResult await(final CompletionStage<PsdExportResult> stage) throws Exception {
+    private static <T> T await(final CompletionStage<T> stage) throws Exception {
         return stage.toCompletableFuture().get(3, TimeUnit.SECONDS);
     }
 
-    private static CubismModel model(final WiringTextures textures) {
+    private static CubismModel model(final ModelTextures textures) {
         return new CubismModel() {
             @Override
             public ModelId id() {
@@ -272,8 +273,10 @@ class DefaultCubismServicesFactoryPsdWiringTest {
             public List<PermissionRef> permissions() {
                 return List.of(
                         permission("turboism.cubism.model.read"),
+                        permission("turboism.cubism.model.write"),
                         permission("turboism.file.read"),
-                        permission("turboism.file.write"));
+                        permission("turboism.file.write"),
+                        permission("turboism.process"));
             }
 
             @Override
@@ -397,6 +400,132 @@ class DefaultCubismServicesFactoryPsdWiringTest {
         };
     }
 
+    @Test
+    void retainedHandleFailsClosedWhenGenerationFencedBeforeScopeClose() throws Exception {
+        final SuccessfulWiringTextures textures = new SuccessfulWiringTextures();
+        final DisposableScope scope = new DisposableScope();
+        final RuntimeScheduler scheduler = scheduler();
+        final java.util.concurrent.atomic.AtomicBoolean generationAdmission =
+                new java.util.concurrent.atomic.AtomicBoolean(true);
+        try {
+            final RuntimePluginTaskScheduler pluginTasks = new RuntimePluginTaskScheduler(PLUGIN_ID, scheduler, scope);
+            final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
+                    RuntimeHostAdapters.safeMode(), () -> model(textures));
+            final CorePluginContext.Dependencies dependencies = dependencies(scope, scheduler);
+
+            final var services = factory.create(dependencies, pluginTasks, generationAdmission::get);
+            final PsdExportResult result =
+                    await(services.cubismFacade().model().active().textures().exportRawImagePsd(SOURCE));
+
+            assertEquals(PsdExportResult.Status.EXPORTED, result.status());
+            assertTrue(result.file().isPresent());
+            assertTrue(result.initialRevision().isPresent());
+            final var handle = result.file().orElseThrow();
+            assertFalse(
+                    java.lang.reflect.Proxy.isProxyClass(handle.getClass()),
+                    "Raw PsdEditFile from record must escape proxy wrapping");
+
+            // Fence the generation before scope close and before scope seal
+            generationAdmission.set(false);
+            assertFalse(scope.isSealed(), "Scope must not be sealed yet");
+
+            // 1. Retained handle openInDefaultApplication returns UNAVAILABLE
+            final var openResult = await(handle.openInDefaultApplication());
+            assertEquals(dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.UNAVAILABLE, openResult.status());
+            assertTrue(openResult.diagnostic().contains("handle=inactive"));
+
+            // 2. Retained handle observeSaves rejects
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class, () -> handle.observeSaves(rev -> {}));
+
+            // 3. New export rejected along the same supplier
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () -> services.cubismFacade().model().active().textures().exportRawImagePsd(SOURCE));
+
+            // 4. New replace rejected along the same supplier
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () -> services.cubismFacade()
+                            .model()
+                            .active()
+                            .textures()
+                            .replaceRawImagePsd(
+                                    SOURCE, handle, result.initialRevision().orElseThrow()));
+            assertEquals(1, textures.exportCalls.get(), "Fenced export must not reach host");
+            assertEquals(0, textures.replaceCalls.get(), "Fenced replace must not reach host");
+
+            // 5. stop() can still clean up and settles STOPPED
+            final var stopResult = handle.stop().toCompletableFuture().get(3, TimeUnit.SECONDS);
+            assertEquals(dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.STOPPED, stopResult.status());
+            assertTrue(stopResult.diagnostic().contains("inFlight=settled"));
+        } finally {
+            scope.close();
+            if (!scheduler.isClosed()) {
+                scheduler.shutdown();
+            }
+        }
+    }
+
+    @Test
+    void retainedHandleFailsClosedWhenScopeSealedBeforeClose() throws Exception {
+        final SuccessfulWiringTextures textures = new SuccessfulWiringTextures();
+        final DisposableScope scope = new DisposableScope();
+        final RuntimeScheduler scheduler = scheduler();
+        try {
+            final RuntimePluginTaskScheduler pluginTasks = new RuntimePluginTaskScheduler(PLUGIN_ID, scheduler, scope);
+            final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
+                    RuntimeHostAdapters.safeMode(), () -> model(textures));
+            final CorePluginContext.Dependencies dependencies = dependencies(scope, scheduler);
+
+            final var services = factory.create(dependencies, pluginTasks);
+            final PsdExportResult result =
+                    await(services.cubismFacade().model().active().textures().exportRawImagePsd(SOURCE));
+
+            assertEquals(PsdExportResult.Status.EXPORTED, result.status());
+            final var handle = result.file().orElseThrow();
+
+            // Seal the scope independently (without close, generation admission is still true)
+            scope.seal();
+            assertTrue(scope.isSealed());
+
+            // 1. Retained handle openInDefaultApplication returns UNAVAILABLE
+            final var openResult = await(handle.openInDefaultApplication());
+            assertEquals(dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.UNAVAILABLE, openResult.status());
+            assertTrue(openResult.diagnostic().contains("handle=inactive"));
+
+            // 2. Retained handle observeSaves rejects
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class, () -> handle.observeSaves(rev -> {}));
+
+            // 3. New export rejected
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () -> services.cubismFacade().model().active().textures().exportRawImagePsd(SOURCE));
+
+            // 4. New replace rejected
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () -> services.cubismFacade()
+                            .model()
+                            .active()
+                            .textures()
+                            .replaceRawImagePsd(
+                                    SOURCE, handle, result.initialRevision().orElseThrow()));
+            assertEquals(1, textures.exportCalls.get(), "Sealed export must not reach host");
+            assertEquals(0, textures.replaceCalls.get(), "Sealed replace must not reach host");
+
+            // 5. stop() can still clean up and settles STOPPED
+            final var stopResult = handle.stop().toCompletableFuture().get(3, TimeUnit.SECONDS);
+            assertEquals(dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.STOPPED, stopResult.status());
+        } finally {
+            scope.close();
+            if (!scheduler.isClosed()) {
+                scheduler.shutdown();
+            }
+        }
+    }
+
     private static final class WiringTextures implements ModelTextures, PsdExportHost {
         private final AtomicInteger nativeCalls = new AtomicInteger();
 
@@ -420,6 +549,80 @@ class DefaultCubismServicesFactoryPsdWiringTest {
             admission.run();
             nativeCalls.incrementAndGet();
             return Observation.unavailable();
+        }
+
+        @Override
+        public void addModelImageGroup(final String name) {}
+
+        @Override
+        public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId id) {}
+
+        @Override
+        public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                final String name, final int widthPixels, final int heightPixels) {
+            return new dev.turboism.sdk.cubism.id.TextureAtlasId("atlas");
+        }
+
+        @Override
+        public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId id) {}
+
+        @Override
+        public void removeRawImage(final RawImageId id) {}
+    }
+
+    private static final class SuccessfulWiringTextures
+            implements ModelTextures,
+                    PsdExportHost,
+                    dev.turboism.core.runtime.psd.PsdSessionBoundHost,
+                    dev.turboism.core.runtime.psd.PsdReplaceHost {
+        private final AtomicInteger exportCalls = new AtomicInteger();
+        private final AtomicInteger replaceCalls = new AtomicInteger();
+
+        @Override
+        public String sessionIdentity() {
+            return "session-psd-1";
+        }
+
+        @Override
+        public long generation() {
+            return 101L;
+        }
+
+        @Override
+        public List<RawTexture> rawImages() {
+            return List.of();
+        }
+
+        @Override
+        public List<ModelImageGroup> modelImageGroups() {
+            return List.of();
+        }
+
+        @Override
+        public List<AtlasTexture> textureAtlases() {
+            return List.of();
+        }
+
+        @Override
+        public PsdExportHost.Observation exportPsdTo(
+                final RawImageId source, final Path destination, final Runnable admission) {
+            admission.run();
+            exportCalls.incrementAndGet();
+            try {
+                java.nio.file.Files.writeString(destination, "synthetic-psd-content");
+            } catch (java.io.IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            return new PsdExportHost.Observation("OK", "VALID", true, true, Optional.empty(), "layer-0");
+        }
+
+        @Override
+        public dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
+                final RawImageId target, final Path stage, final String sourceFileName, final Runnable admission) {
+            admission.run();
+            replaceCalls.incrementAndGet();
+            return new dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement(
+                    "OK", true, true, false, false, true, Optional.of(new RawImageId("raw-after")), "replaced-detail");
         }
 
         @Override

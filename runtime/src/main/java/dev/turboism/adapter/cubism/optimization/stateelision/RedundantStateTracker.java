@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.stateelision;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -135,6 +136,7 @@ public final class RedundantStateTracker {
                 return false;
             }
         } catch (final Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
             return false;
         }
@@ -161,6 +163,7 @@ public final class RedundantStateTracker {
                 }
             }
         } catch (final Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
         }
     }
@@ -176,6 +179,7 @@ public final class RedundantStateTracker {
                 }
             }
         } catch (final Throwable observerFailure) {
+            FatalErrors.rethrowIfFatal(observerFailure);
             observerFailures++;
         }
     }

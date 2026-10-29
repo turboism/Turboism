@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -210,14 +211,17 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
             refresh(container);
             installedParents.put(button, container);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: cleanups run before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             state.close();
             nativeState.close();
             try {
                 resolver.invoke(CONTAINER_REMOVE, container, button);
-            } catch (RuntimeException cleanup) {
-                failure.addSuppressed(cleanup);
+            } catch (RuntimeException | Error cleanup) {
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
         return () -> {
             if (!closed.compareAndSet(false, true)) return;

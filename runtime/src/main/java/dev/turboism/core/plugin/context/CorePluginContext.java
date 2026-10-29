@@ -375,7 +375,8 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies,
                 env.taskScheduler() instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
                         ? runtimeTasks
-                        : null);
+                        : null,
+                env.generationAdmission());
         final MeshCapabilityBundle meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
         final UiCapabilityBundle uiCapabilities = UiCapabilityBundle.create(
                 hostAccess, adapters, this.dependencies, env.localization(), editorApiAvailability);

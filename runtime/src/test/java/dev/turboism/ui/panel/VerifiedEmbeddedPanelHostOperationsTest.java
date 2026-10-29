@@ -125,6 +125,31 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void closePanelAttemptsSubsequentOperationsWhenFatalOccursAndPropagatesFatalPrimary() {
+        List<String> operations = new ArrayList<>();
+        final OutOfMemoryError oom = new OutOfMemoryError("synthetic OOM in close step");
+        final IllegalStateException secondFailure = new IllegalStateException("ordinary second step failure");
+
+        final OutOfMemoryError thrown = assertThrows(
+                OutOfMemoryError.class,
+                () -> VerifiedEmbeddedPanelHostOperations.closePanel(
+                        () -> {
+                            operations.add("first-step");
+                            throw oom;
+                        },
+                        () -> {
+                            operations.add("second-step");
+                            throw secondFailure;
+                        },
+                        () -> operations.add("third-step")));
+
+        assertSame(oom, thrown);
+        assertEquals(1, thrown.getSuppressed().length, "Second failure must be suppressed onto fatal OOM");
+        assertSame(secondFailure, thrown.getSuppressed()[0]);
+        assertEquals(List.of("first-step", "second-step", "third-step"), operations, "All close steps must run");
+    }
+
+    @Test
     void originalDockBoxMustStillBelongToTheWorkspaceTree() {
         final PaletteBox live = new PaletteBox(1);
         final PaletteBox detached = new PaletteBox(1);

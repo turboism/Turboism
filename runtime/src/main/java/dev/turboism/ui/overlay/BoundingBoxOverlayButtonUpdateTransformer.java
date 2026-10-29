@@ -81,6 +81,7 @@ public class BoundingBoxOverlayButtonUpdateTransformer implements ClassFileTrans
             }
             return augment(classfileBuffer, analysis);
         } catch (RuntimeException | Error failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             // Fail closed: an unexpected class shape never yields partial instrumentation.
             return null;
         }

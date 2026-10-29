@@ -31,15 +31,17 @@ briefly stalls" regression on the exact Cubism host.
 
 ### Interpreting a run
 
-The current PASS condition is only `interactionMouseEvents > 0`. Activation
-clicks occur in the INTERACTION phase and can satisfy it even when subsequent
-drags deliver no events. Before interpreting latency as a select-and-drag
+The PASS condition requires `interactionMouseEvents > 0` during the drag
+`INTERACTION` phase. Window activation clicks occur in a separate `ACTIVATION`
+phase and do not count toward interaction events, ensuring activation alone
+never satisfies PASS. Before interpreting latency as a select-and-drag
 measurement, inspect increments between successive
 `interactionAttempts[].mouseEventsTotal` values and the logged selection
 observations. An unchanged cumulative count across attempts means the intended
-workload was not demonstrated. Increasing counts alone also do not distinguish
-activation clicks from successful drags; retain that limitation when reporting
-results. A missing selection read is not proof of a selection change.
+workload was not demonstrated. A timed-out or failed selection read is tracked
+explicitly in `selectionReadStatus` and does not count as a selection change.
+Distinguish input delivery evidence (events reached EDT) from selection evidence
+(objects actually selected/changed).
 
 Report heartbeat samples with their counts, duration and workload limitation.
 Empty `stackCaptures` means no threshold-exceeding stack was captured in that

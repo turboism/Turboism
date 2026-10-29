@@ -187,12 +187,13 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             }
             installed = true;
         } catch (Exception | Error failure) {
-            // Registered transformers and rewritten classes are owned per-item:
-            // close() unwinds whatever was actually applied.
+            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
             try {
                 close();
             } catch (Exception | Error cleanup) {
-                failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
             }
             throw failure;
         }
@@ -212,15 +213,15 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
         if (restored) return;
-        IllegalStateException failure = null;
+        Throwable failure = null;
         // Detach every registered transformer even when an earlier removal fails.
         for (final var transformer : List.copyOf(registered)) {
             try {
                 instrumentation.removeTransformer(transformer);
                 registered.remove(transformer);
             } catch (Exception | Error problem) {
-                if (failure == null) failure = new IllegalStateException("upload elision restoration failed");
-                failure.addSuppressed(problem);
+                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
+                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
             }
         }
         // A failed restoration is retryable after registration has been undone.
@@ -237,8 +238,8 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
                             + entries.get(i).getName());
                 }
             } catch (Exception | Error problem) {
-                if (failure == null) failure = new IllegalStateException("upload elision restoration failed");
-                failure.addSuppressed(problem);
+                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
+                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
             }
         }
         installed = false;
@@ -249,7 +250,10 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
                         + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
                         + " clears=" + stats.get("clears") + reportTail(stats)
                         + " restored=" + restored);
-        if (failure != null) throw failure;
+        if (failure != null) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            throw new IllegalStateException("upload elision restoration failed", failure);
+        }
     }
 
     /** Pass-reason, per-kind and content-mode counters for the close marker. */

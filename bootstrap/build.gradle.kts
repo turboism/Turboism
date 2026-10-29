@@ -5,6 +5,7 @@ plugins {
 
 import java.util.jar.JarFile
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 
 dependencies {
     testImplementation(project(":testing:test-support"))
@@ -18,6 +19,10 @@ tasks.named<Test>("test") {
     // Forward optional real-host evidence to the forked test JVM.
     providers.systemProperty("turboism.test.cubismEditorJar").orNull?.let {
         systemProperty("turboism.test.cubismEditorJar", it)
+    }
+    configure<JacocoTaskExtension> {
+        // Reference host classes must retain their original bytecode without instrumentation so offline verification mirrors the raw host jar.
+        excludes = (excludes ?: emptyList()) + listOf("com.live2d.*")
     }
 }
 

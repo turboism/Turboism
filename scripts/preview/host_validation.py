@@ -116,19 +116,6 @@ class Request:
         return f"{self.task.name}:{self.version}{suffix}"
 
 
-@dataclasses.dataclass(frozen=True)
-class Lease:
-    owner: str
-    request: Request
-    slots: tuple[str, ...]
-
-
-@dataclasses.dataclass(frozen=True)
-class RunResult:
-    request: Request
-    return_code: int
-
-
 def require_dict(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise SchedulerError(f"{label} must be an object")
@@ -302,11 +289,6 @@ def render_command(request: Request, manifest: Manifest) -> list[str]:
             *(value.format(version=request.version, runLabel=request.run_label) for value in templates)]
 
 
-def plan_waves(requests: list[Request], resources: dict[str, Resource]) -> list[list[Request]]:
-    # Retained API name; the executable policy is deliberately single-session FIFO.
-    return [[request] for request in requests]
-
-
 def resource_text(resources: dict[str, int]) -> str:
     return ",".join(f"{name}={amount}" for name, amount in sorted(resources.items()))
 
@@ -399,7 +381,7 @@ def wait_job(store: queue.Store | Path, job_id: str, timeout: int | None = None)
 
 
 def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Local-only durable single-session host verification queue")
+    parser = argparse.ArgumentParser(description="Local-only durable host verification queue")
     parser.add_argument("--manifest", default=str(default_manifest))
     commands = parser.add_subparsers(dest="command", required=True)
     import host_validation_retention as retention
@@ -407,7 +389,7 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
     commands.add_parser("list")
     for name in ("plan", "prepare", "run"):
         command = commands.add_parser(name)
-        command.add_argument("tasks", nargs="+" if name != "prepare" else 1)
+        command.add_argument("tasks", nargs="+")
         command.add_argument("--run-label", default="r1")
         command.add_argument("--full-matrix", action="store_true",
             help="disable cluster-equivalence coverage annotations")
@@ -494,6 +476,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise SchedulerError("run label must be a safe bounded label")
             import host_validation_static_gates as static_gates
             families = {} if args.full_matrix else static_gates.load_cluster_table()
+            has_failure = False
             gated: list[tuple[Request, tuple[str, ...], str | None]] = []
             for spec in args.tasks:
                 request = parse_request(spec, args.run_label, manifest)
@@ -504,6 +487,8 @@ def main(argv: list[str] | None = None) -> int:
                 except static_gates.StaticGateRefusal as refusal:
                     emit({"schemaVersion": 1, "spec": request.spec, "skipped": refusal.skip,
                           "reason": refusal.reason, "detail": refusal.detail})
+                    if not refusal.skip.startswith("SKIP_"):
+                        has_failure = True
                     continue
                 if args.command != "plan":
                     for note in outcome.notes:
@@ -512,7 +497,7 @@ def main(argv: list[str] | None = None) -> int:
                     request.task.name, request.version, families)
                 gated.append((request, outcome.notes, covered))
             if args.command == "plan":
-                print("local-only FIFO; one host session, including cleanup; no SSH")
+                print("local-only FIFO; slot-managed host sessions, including cleanup; no SSH")
                 for index, (request, notes, covered) in enumerate(gated, 1):
                     state = "runnable" if request.task.runnable else f"blocked: {request.task.blocked_reason}"
                     print(f"{index}. {request.spec} {state}")
@@ -530,7 +515,7 @@ def main(argv: list[str] | None = None) -> int:
             if any(not request.task.runnable for request, _, _ in gated):
                 raise SchedulerError("cannot run blocked tasks")
             if not gated:
-                return 3  # Every spec was refused by a static gate; nothing enqueued.
+                return 1 if has_failure else 3  # Every spec was refused by a static gate; nothing enqueued.
             store = queue.Store()
             prepared: list[dict[str, Any]] = []
             accepted: list[tuple[Request, tuple[str, ...], str | None]] = []
@@ -540,20 +525,25 @@ def main(argv: list[str] | None = None) -> int:
                 except static_gates.StaticGateRefusal as refusal:
                     emit({"schemaVersion": 1, "spec": entry[0].spec, "skipped": refusal.skip,
                           "reason": refusal.reason, "detail": refusal.detail})
+                    if not refusal.skip.startswith("SKIP_"):
+                        has_failure = True
                     continue
                 accepted.append(entry)
             if not prepared:
-                return 3  # Every spec was refused by a static gate; nothing enqueued.
+                return 1 if has_failure else 3  # Every spec was refused by a static gate; nothing enqueued.
             if args.command == "prepare":
-                emit({"schemaVersion": 1, "preparedId": prepared[0]["digest"],
-                      **({"coveredByEquivalent": accepted[0][2]} if accepted[0][2] else {})})
-                return 0
+                for item, entry in zip(prepared, accepted):
+                    emit({"schemaVersion": 1, "preparedId": item["digest"],
+                          **({"coveredByEquivalent": entry[2]} if entry[2] else {})})
+                return 1 if has_failure else 0
             jobs = [store.submit(item["digest"], item["digest"], str(uuid.uuid4())) for item in prepared]
             for (_, _, covered), job in zip(accepted, jobs):
                 emit({"schemaVersion": 1, "job": job,
                       **({"coveredByEquivalent": covered} if covered else {})})
             queue.wake(store)
             results = [wait_job(store, job["job_id"]) for job in jobs]
+            if has_failure:
+                return max([1] + results)
             return max(results, default=0)
         if args.command == "wait":
             if args.timeout_seconds is not None and args.timeout_seconds < 1:

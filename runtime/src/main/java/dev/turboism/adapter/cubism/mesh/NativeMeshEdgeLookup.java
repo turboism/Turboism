@@ -169,6 +169,7 @@ public final class NativeMeshEdgeLookup {
             }
             return scope.table.find(first, second);
         } catch (Throwable failure) {
+            // @containment-exempt: discards scope before rethrowing fatal
             scope.discard();
             FatalErrors.rethrowIfFatal(failure);
             return NativeMeshEdgeTable.UNKNOWN;
@@ -188,6 +189,7 @@ public final class NativeMeshEdgeLookup {
             }
             scope.size++;
         } catch (Throwable failure) {
+            // @containment-exempt: discards scope before rethrowing fatal
             scope.discard();
             FatalErrors.rethrowIfFatal(failure);
         }

@@ -20,8 +20,15 @@ import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.plugin.PluginServiceUnavailableException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -375,6 +382,252 @@ class PluginGenerationGuardTest {
         assertEquals(1, child1.closes.get());
     }
 
+    @Test
+    void unchangedCarriersPreserveIdentityAndSkipReconstruction() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final FixtureService service = new FixtureService();
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        assertSame(service.unchangedSet(), guarded.unchangedSet());
+        assertSame(service.unchangedMap(), guarded.unchangedMap());
+        assertSame(service.unchangedOptional(), guarded.unchangedOptional());
+        assertSame(service.unchangedList(), guarded.unchangedList());
+    }
+
+    @Test
+    void nestedCarriersWrapSdkInterfacesAndEnforceFence() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final FixtureService service = new FixtureService();
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        final Optional<GuardedServiceFixture> optChild = guarded.optionalChild();
+        final List<GuardedServiceFixture> listChildren = guarded.listChildren();
+        final Set<GuardedServiceFixture> setChildren = guarded.setChildren();
+        final Map<String, GuardedServiceFixture> mapChildren = guarded.mapChildren();
+        final Map<String, List<GuardedServiceFixture>> nestedChildren = guarded.nestedCarrierChildren();
+
+        assertTrue(optChild.isPresent());
+        assertTrue(Proxy.isProxyClass(optChild.get().getClass()));
+        assertEquals("m:opt", optChild.get().mutate("opt"));
+
+        assertEquals(1, listChildren.size());
+        assertTrue(Proxy.isProxyClass(listChildren.get(0).getClass()));
+        assertEquals("m:list", listChildren.get(0).mutate("list"));
+
+        assertEquals(1, setChildren.size());
+        final GuardedServiceFixture setElem = setChildren.iterator().next();
+        assertTrue(Proxy.isProxyClass(setElem.getClass()));
+        assertEquals("m:set", setElem.mutate("set"));
+
+        assertEquals(1, mapChildren.size());
+        final GuardedServiceFixture mapElem = mapChildren.get("key");
+        assertTrue(Proxy.isProxyClass(mapElem.getClass()));
+        assertEquals("m:map", mapElem.mutate("map"));
+
+        assertEquals(1, nestedChildren.size());
+        final GuardedServiceFixture nestedElem = nestedChildren.get("group").get(0);
+        assertTrue(Proxy.isProxyClass(nestedElem.getClass()));
+        assertEquals("m:nested", nestedElem.mutate("nested"));
+
+        guard.fence();
+
+        assertThrows(IllegalStateException.class, () -> optChild.get().mutate("denied"));
+        assertThrows(IllegalStateException.class, () -> listChildren.get(0).mutate("denied"));
+        assertThrows(IllegalStateException.class, () -> setElem.mutate("denied"));
+        assertThrows(IllegalStateException.class, () -> mapElem.mutate("denied"));
+        assertThrows(IllegalStateException.class, () -> nestedElem.mutate("denied"));
+
+        optChild.get().close();
+        listChildren.get(0).close();
+        setElem.close();
+        mapElem.close();
+        nestedElem.close();
+        assertEquals(5, service.closes.get());
+    }
+
+    @Test
+    void completionStageWrapsAsyncResultAndEnforcesFence() throws Exception {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final CompletableFuture<GuardedServiceFixture> future = new CompletableFuture<>();
+        final FixtureService service = new FixtureService() {
+            @Override
+            public java.util.concurrent.CompletionStage<GuardedServiceFixture> stageChild() {
+                return future;
+            }
+        };
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+        final java.util.concurrent.CompletionStage<GuardedServiceFixture> stage = guarded.stageChild();
+
+        final FixtureService asyncDelegate = new FixtureService();
+        final AtomicReference<GuardedServiceFixture> asyncResult = new AtomicReference<>();
+        final CountDownLatch latch = new CountDownLatch(1);
+        stage.thenAccept(result -> {
+            asyncResult.set(result);
+            latch.countDown();
+        });
+
+        future.complete(asyncDelegate);
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+
+        final GuardedServiceFixture resolved = asyncResult.get();
+        assertNotNull(resolved);
+        assertNotSame(asyncDelegate, resolved);
+        assertTrue(Proxy.isProxyClass(resolved.getClass()));
+        assertEquals("m:async", resolved.mutate("async"));
+
+        guard.fence();
+        assertThrows(IllegalStateException.class, () -> resolved.mutate("blocked"));
+        resolved.close();
+        assertEquals(1, asyncDelegate.closes.get());
+    }
+
+    @Test
+    void unwrapsCarrierArgumentsBeforeDelegateInvocation() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final CarrierRecordingFixture service = new CarrierRecordingFixture();
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        final FixtureService child = new FixtureService();
+        final GuardedServiceFixture guardedChild = guard.wrapForTesting(child, GuardedServiceFixture.class);
+
+        guarded.acceptOptional(Optional.of(guardedChild));
+        assertSame(child, service.receivedOptional.orElseThrow(), "proxy in Optional must unwrap to delegate");
+
+        guarded.acceptList(List.of(guardedChild));
+        assertSame(child, service.receivedList.get(0), "proxy in List must unwrap to delegate");
+
+        guarded.acceptSet(Set.of(guardedChild));
+        assertSame(child, service.receivedSet.iterator().next(), "proxy in Set must unwrap to delegate");
+
+        guarded.acceptMap(Map.of("key", guardedChild));
+        assertSame(child, service.receivedMap.get("key"), "proxy in Map must unwrap to delegate");
+    }
+
+    @Test
+    void changedCollectionsPreserveIterationOrderNullsAndAreUnmodifiable() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final FixtureService child1 = new FixtureService();
+        final FixtureService child2 = new FixtureService();
+        final CarrierCollectionFixtureImpl service = new CarrierCollectionFixtureImpl(child1, child2);
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        // List with null and order
+        final List<GuardedServiceFixture> list = guarded.mixedList();
+        assertEquals(3, list.size());
+        assertTrue(Proxy.isProxyClass(list.get(0).getClass()));
+        assertNull(list.get(1));
+        assertTrue(Proxy.isProxyClass(list.get(2).getClass()));
+        assertEquals("m:1", list.get(0).mutate("1"));
+        assertEquals("m:2", list.get(2).mutate("2"));
+        assertThrows(UnsupportedOperationException.class, () -> list.add(child1));
+
+        // Set with null and order
+        final Set<GuardedServiceFixture> set = guarded.mixedSet();
+        assertEquals(3, set.size());
+        final List<GuardedServiceFixture> setAsList = new ArrayList<>(set);
+        assertTrue(Proxy.isProxyClass(setAsList.get(0).getClass()));
+        assertNull(setAsList.get(1));
+        assertTrue(Proxy.isProxyClass(setAsList.get(2).getClass()));
+        assertThrows(UnsupportedOperationException.class, () -> set.add(child1));
+
+        // Map with null key and null value and order
+        final Map<String, GuardedServiceFixture> map = guarded.mixedMap();
+        assertEquals(3, map.size());
+        final List<String> mapKeys = new ArrayList<>(map.keySet());
+        assertEquals("first", mapKeys.get(0));
+        assertNull(mapKeys.get(1));
+        assertEquals("third", mapKeys.get(2));
+        assertTrue(Proxy.isProxyClass(map.get("first").getClass()));
+        assertNull(map.get(null));
+        assertTrue(Proxy.isProxyClass(map.get("third").getClass()));
+        assertThrows(UnsupportedOperationException.class, () -> map.put("new", child1));
+    }
+
+    private static class CarrierCollectionFixtureImpl extends FixtureService {
+        private final GuardedServiceFixture child1;
+        private final GuardedServiceFixture child2;
+
+        CarrierCollectionFixtureImpl(final GuardedServiceFixture child1, final GuardedServiceFixture child2) {
+            this.child1 = child1;
+            this.child2 = child2;
+        }
+
+        @Override
+        public List<GuardedServiceFixture> mixedList() {
+            return Arrays.asList(child1, null, child2);
+        }
+
+        @Override
+        public Set<GuardedServiceFixture> mixedSet() {
+            final LinkedHashSet<GuardedServiceFixture> set = new LinkedHashSet<>();
+            set.add(child1);
+            set.add(null);
+            set.add(child2);
+            return set;
+        }
+
+        @Override
+        public Map<String, GuardedServiceFixture> mixedMap() {
+            final LinkedHashMap<String, GuardedServiceFixture> map = new LinkedHashMap<>();
+            map.put("first", child1);
+            map.put(null, null);
+            map.put("third", child2);
+            return map;
+        }
+    }
+
+    @Test
+    void nonEmptyPrefixPreservesIdentityBeforeLaterElementChanges() {
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final FixtureService child0 = new FixtureService();
+        final FixtureService child1 = new FixtureService();
+        final GuardedServiceFixture proxy0 = guard.wrapForTesting(child0, GuardedServiceFixture.class);
+
+        final GuardedServiceFixture service = new FixtureService() {
+            @Override
+            public List<GuardedServiceFixture> mixedList() {
+                return Arrays.asList(proxy0, child1);
+            }
+
+            @Override
+            public Set<GuardedServiceFixture> mixedSet() {
+                final LinkedHashSet<GuardedServiceFixture> set = new LinkedHashSet<>();
+                set.add(proxy0);
+                set.add(child1);
+                return set;
+            }
+
+            @Override
+            public Map<String, GuardedServiceFixture> mixedMap() {
+                final LinkedHashMap<String, GuardedServiceFixture> map = new LinkedHashMap<>();
+                map.put("p0", proxy0);
+                map.put("p1", child1);
+                return map;
+            }
+        };
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+
+        // List: index 0 was already guarded (unchanged), index 1 was raw child1 (wrapped)
+        final List<GuardedServiceFixture> list = guarded.mixedList();
+        assertEquals(2, list.size());
+        assertSame(proxy0, list.get(0), "prefix element already guarded must preserve identity");
+        assertNotSame(child1, list.get(1));
+        assertTrue(Proxy.isProxyClass(list.get(1).getClass()));
+
+        // Set: prefix element already guarded preserves identity
+        final Set<GuardedServiceFixture> set = guarded.mixedSet();
+        assertEquals(2, set.size());
+        final List<GuardedServiceFixture> setAsList = new ArrayList<>(set);
+        assertSame(proxy0, setAsList.get(0));
+        assertNotSame(child1, setAsList.get(1));
+
+        // Map: prefix entry already guarded preserves identity
+        final Map<String, GuardedServiceFixture> map = guarded.mixedMap();
+        assertEquals(2, map.size());
+        assertSame(proxy0, map.get("p0"));
+        assertNotSame(child1, map.get("p1"));
+    }
+
     private static PluginServiceDirectory createDirectory(final GuardedServiceFixture service) {
         return new PluginServiceDirectory() {
             @Override
@@ -453,6 +706,10 @@ class PluginGenerationGuardTest {
 
     private static class FixtureService implements GuardedServiceFixture {
         final java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
+        final Set<String> constantSet = Set.of("a", "b");
+        final Map<Integer, String> constantMap = Map.of(1, "marker1", 2, "marker2");
+        final Optional<String> constantOptional = Optional.of("constant");
+        final List<String> constantList = List.of("alpha", "beta");
 
         @Override
         public String mutate(final String value) {
@@ -467,6 +724,53 @@ class PluginGenerationGuardTest {
         @Override
         public void close() {
             closes.incrementAndGet();
+        }
+
+        @Override
+        public Set<String> unchangedSet() {
+            return constantSet;
+        }
+
+        @Override
+        public Map<Integer, String> unchangedMap() {
+            return constantMap;
+        }
+
+        @Override
+        public Optional<String> unchangedOptional() {
+            return constantOptional;
+        }
+
+        @Override
+        public List<String> unchangedList() {
+            return constantList;
+        }
+    }
+
+    private static class CarrierRecordingFixture extends FixtureService {
+        Optional<GuardedServiceFixture> receivedOptional;
+        List<GuardedServiceFixture> receivedList;
+        Set<GuardedServiceFixture> receivedSet;
+        Map<String, GuardedServiceFixture> receivedMap;
+
+        @Override
+        public void acceptOptional(final Optional<GuardedServiceFixture> optional) {
+            this.receivedOptional = optional;
+        }
+
+        @Override
+        public void acceptList(final List<GuardedServiceFixture> list) {
+            this.receivedList = list;
+        }
+
+        @Override
+        public void acceptSet(final Set<GuardedServiceFixture> set) {
+            this.receivedSet = set;
+        }
+
+        @Override
+        public void acceptMap(final Map<String, GuardedServiceFixture> map) {
+            this.receivedMap = map;
         }
     }
 

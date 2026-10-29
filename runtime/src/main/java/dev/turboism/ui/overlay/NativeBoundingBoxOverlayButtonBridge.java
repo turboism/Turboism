@@ -1,5 +1,6 @@
 package dev.turboism.ui.overlay;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.Properties;
@@ -55,13 +56,15 @@ public final class NativeBoundingBoxOverlayButtonBridge {
                 ACTIVE_GENERATION.set(generation);
             }
         } catch (RuntimeException | Error installFailure) {
+            // @containment-exempt: cleans up installed properties and rethrows with fatal prioritized
             ACTIVE_GENERATION.compareAndSet(generation, 0L);
+            Throwable toThrow = installFailure;
             synchronized (properties) {
-                removeExpected(properties, SETUP_PROPERTY, setup, installFailure);
-                removeExpected(properties, FAILURE_PROPERTY, failure, installFailure);
+                toThrow = removeExpected(properties, SETUP_PROPERTY, setup, toThrow);
+                toThrow = removeExpected(properties, FAILURE_PROPERTY, failure, toThrow);
             }
             HANDLER.compareAndSet(requested, null);
-            throw installFailure;
+            throw FatalErrors.propagate(toThrow);
         }
         return () -> {
             ACTIVE_GENERATION.compareAndSet(generation, 0L);
@@ -94,11 +97,9 @@ public final class NativeBoundingBoxOverlayButtonBridge {
             properties.remove(key, expected);
             return prior;
         } catch (RuntimeException | Error failure) {
-            if (prior == null) {
-                return failure;
-            }
-            prior.addSuppressed(failure);
-            return prior;
+            // @containment-exempt: property cleanup failure is merged and rethrown by rethrowCleanupFailure with fatal
+            // prioritized
+            return FatalErrors.mergeForCleanup(prior, failure);
         }
     }
 

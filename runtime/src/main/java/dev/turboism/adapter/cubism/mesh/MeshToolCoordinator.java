@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.mesh.MeshTool;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
@@ -298,12 +299,24 @@ public final class MeshToolCoordinator implements AutoCloseable {
                 if (active == next) next.activated = true;
             }
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             synchronized (monitor) {
                 if (active == next) clearActiveLocked();
             }
-            next.context.close();
-            notifyChanged();
-            throw failure;
+            try {
+                next.context.close();
+            } catch (RuntimeException | Error cleanupFailure) {
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
+            }
+            try {
+                notifyChanged();
+            } catch (RuntimeException | Error notifyFailure) {
+                // @containment-exempt: notify failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, notifyFailure);
+            }
+            throw FatalErrors.propagate(toThrow);
         }
         notifyChanged();
     }

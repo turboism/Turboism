@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.editor.history.NativeEditBeginBridge;
 import dev.turboism.adapter.cubism.editor.history.VerifiedNativeEditBeginHookInstaller;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 /**
  * Declarative contributor for the verified native edit-begin hook. It needs
@@ -55,18 +56,22 @@ final class NativeEditBeginHookContributor implements HookContributor {
                 installed.close();
             };
         } catch (final Throwable failure) {
+            // @containment-exempt: closes installer before rethrow with fatal error prioritized
+            Throwable toThrow = failure;
             if (installer != null) {
                 try {
                     installer.close();
-                } catch (final Throwable ignored) {
-                    // cleanup is best effort
+                } catch (final Throwable cleanupFailure) {
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
                 }
             }
+            FatalErrors.rethrowIfFatal(toThrow);
             NativeOptimizationHookContributor.log(
                     environment,
                     "Turboism native edit entry hook disabled safely: "
-                            + failure.getClass().getName());
-            throw new IllegalStateException("Native edit entry hook installation failed", failure);
+                            + toThrow.getClass().getName());
+            throw new IllegalStateException("Native edit entry hook installation failed", toThrow);
         }
     }
 }

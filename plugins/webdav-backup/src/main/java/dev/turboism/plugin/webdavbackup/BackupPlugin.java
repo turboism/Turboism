@@ -139,6 +139,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
             registerMenuAndAction();
             enabled = true;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: DisposableScope.close cleans up and rethrows fatal failure with priority
             try (DisposableScope rollback = new DisposableScope()) {
                 rollback.register(this::disable);
                 rollback.register(() -> {
@@ -473,6 +474,8 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
                                             + event.artifacts().size());
                         }
                     });
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error failure) {
             final PluginContext activeContext = currentContext();
             if (activeContext != null) {
@@ -589,6 +592,8 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
             }
             active.sync(artifacts);
             requireContext().logger().info("WEBDAV_SYNC_COMPLETED files=" + artifacts.size());
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error failure) {
             requireContext()
                     .logger()
@@ -669,6 +674,8 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
     private void scanPeriod() {
         try {
             scanOnce();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error failure) {
             requireContext()
                     .logger()

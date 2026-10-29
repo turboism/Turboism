@@ -460,6 +460,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         try {
             observer.accept(observation);
         } catch (RuntimeException | Error failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "texture-atlas", "Texture-atlas dialog validation observer failed safely", failure);
         }

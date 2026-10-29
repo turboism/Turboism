@@ -355,6 +355,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             // complete construction, including the shared content-coordinator state.
             PanelCollapsibleContentCoordinator.shared().onPanelRegistered(panelId);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: panel cleanup runs before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             closed.set(true);
             sectionChanges.close();
             final WindowMenuItem installedItem = windowMenuItem;
@@ -371,12 +373,10 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                         () -> resolver.invoke(PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
                         () -> refresh(dock));
             } catch (Throwable cleanupFailure) {
-                FatalErrors.rethrowIfFatal(cleanupFailure);
-                if (cleanupFailure != failure) {
-                    failure.addSuppressed(cleanupFailure);
-                }
+                // @containment-exempt: closePanel failures merged with fatal prioritized
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
 
         final JPanel installedStableContentRoot = Objects.requireNonNull(stableContentRoot, "stable content root");
@@ -766,6 +766,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             try {
                 mergeDisposedFrameEntries(frame, entries);
             } catch (RuntimeException | Error failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                         "floating-panels", "Floating-frame merge failed safely", failure);
             }
@@ -1172,32 +1173,18 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     static void closePanel(final Runnable... operations) {
         Objects.requireNonNull(operations, "operations");
-        Throwable first = null;
+        Throwable accumulated = null;
         for (Runnable operation : operations) {
             try {
                 Objects.requireNonNull(operation, "operation").run();
             } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                if (first == null) {
-                    first = failure;
-                } else if (failure != first) {
-                    first.addSuppressed(failure);
-                }
+                // @containment-exempt: all close operations attempted before rethrow with fatal prioritized
+                accumulated = FatalErrors.mergeForCleanup(accumulated, failure);
             }
         }
-        if (first != null) {
-            rethrowPanelFailure(first);
+        if (accumulated != null) {
+            throw FatalErrors.propagate(accumulated);
         }
-    }
-
-    private static void rethrowPanelFailure(final Throwable failure) {
-        if (failure instanceof Error error) {
-            throw error;
-        }
-        if (failure instanceof RuntimeException exception) {
-            throw exception;
-        }
-        throw new IllegalStateException("embedded-panel cleanup failed", failure);
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
