@@ -2,6 +2,7 @@ import { DownloadCounter,countsDocument } from './download-counts.mjs';
 import { CHANNELS,ORIGIN,SNAPSHOT_REFRESH_MS,documentFor,jsonResponse,snapshotAge,snapshotUsable } from './protocol.mjs';
 import { synchronize } from './github.mjs';
 import { serveFile } from './files.mjs';
+import { START_RE,beginEdgeDownload } from './edge-redirect.mjs';
 import { verifyGitHubIdentity } from './identity.mjs';
 const registry=env=>env.REGISTRY.get(env.REGISTRY.idFromName('turboism'));
 export default {
@@ -14,7 +15,7 @@ export default {
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'If-None-Match, Range, If-Range','Access-Control-Max-Age':'600'}});
   if(!['GET','HEAD'].includes(request.method))return jsonResponse(request,{error:{code:'METHOD_NOT_ALLOWED'}},405);
   if(path==='/')return jsonResponse(request,{service:'Turboism release API',schemaVersion:1,channels:CHANNELS.map(c=>`${ORIGIN}/v1/releases/${c}.json`),source:'https://github.com/turboism/Turboism/releases'});
-  if(/^\/v1\/downloads\/[0-9A-Za-z.-]{1,96}\.json$/.test(path)||path==='/health'||/^\/v1\/releases\/(stable|beta|nightly)\.json$/.test(path)||/^\/files\/[a-f0-9]{64}\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path))return registry(env).fetch(request);
+  if(START_RE.test(path)||/^\/v1\/downloads\/[0-9A-Za-z.-]{1,96}\.json$/.test(path)||path==='/health'||/^\/v1\/releases\/(stable|beta|nightly)\.json$/.test(path)||/^\/files\/[a-f0-9]{64}\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path))return registry(env).fetch(request);
   return jsonResponse(request,{error:{code:'NOT_FOUND'}},404);
  },
  async scheduled(_event,env,ctx){ctx.waitUntil(registry(env).fetch(new Request('https://registry.internal/_refresh',{method:'POST'})));},
@@ -61,6 +62,7 @@ export class ReleaseRegistry {
    const usable=snapshotUsable(this.snapshot),fresh=usable&&snapshotAge(this.snapshot)<=SNAPSHOT_REFRESH_MS&&!this.snapshot?.refreshError;
    return jsonResponse(request,{service:'turboism-release-api',status:fresh?'ready':usable?'degraded':'unavailable',synchronizedAt:this.snapshot?.syncedAt??null,mirrorConfigured:Boolean(this.env.DOWNLOADS),channels:CHANNELS.map(channel=>({channel,status:documentFor(this.snapshot,channel).status}))},usable?200:503);
   }
+  if(START_RE.test(path))return beginEdgeDownload(request,this.env,this.snapshot,this.counts);
   const stats=/^\/v1\/downloads\/([0-9A-Za-z.-]{1,96})\.json$/.exec(path);
   if(stats){
    const record=this.snapshot?.known?.['v'+stats[1]];
