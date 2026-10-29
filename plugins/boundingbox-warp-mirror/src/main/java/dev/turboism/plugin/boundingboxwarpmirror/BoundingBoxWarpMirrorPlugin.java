@@ -75,6 +75,8 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
                                     OVERLAY_BUTTON_ORDER,
                                     this::onOverlayClick)));
             logger.info("BoundingBox warp mirror overlay button contributed");
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error unsupported) {
             logger.warn("BoundingBox overlay contribution unavailable: "
                     + unsupported.getClass().getSimpleName());

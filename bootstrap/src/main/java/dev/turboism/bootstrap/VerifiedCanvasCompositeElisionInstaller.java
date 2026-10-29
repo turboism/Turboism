@@ -190,10 +190,13 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
             }
             installed = true;
         } catch (Exception | Error failure) {
+            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
             try {
                 close();
             } catch (Exception | Error cleanup) {
-                failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
             }
             throw failure;
         }
@@ -209,13 +212,14 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
         final Map<String, Long> stats = bridge.snapshot();
         bridge.close();
         if (restored) return;
-        IllegalStateException failure = null;
+        Throwable failure = null;
         if (registered) {
             try {
                 instrumentation.removeTransformer(transformer);
                 registered = false;
             } catch (Exception | Error problem) {
-                failure = new IllegalStateException("canvas composite elision restoration failed", problem);
+                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
+                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
             }
         }
         for (Class<?> entry : List.of(paintClass, fillClass)) {
@@ -229,15 +233,18 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
                             "canvas composite elision restoration not proven: " + entry.getName());
                 }
             } catch (Exception | Error problem) {
-                if (failure == null) failure = new IllegalStateException("canvas composite elision restoration failed");
-                failure.addSuppressed(problem);
+                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
+                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
             }
         }
         installed = false;
         restored = failure == null;
         dev.turboism.runtime.log.RuntimeDiagnostics.info(
                 "bootstrap", "TURBOISM_CANVAS_COMPOSITE closed" + report(stats) + " restored=" + restored);
-        if (failure != null) throw failure;
+        if (failure != null) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            throw new IllegalStateException("canvas composite elision restoration failed", failure);
+        }
     }
 
     /** Per-site counters for the close marker; gauges stay absolute. */

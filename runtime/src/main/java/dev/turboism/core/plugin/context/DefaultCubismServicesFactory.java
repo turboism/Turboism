@@ -193,21 +193,34 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     }
 
     CubismContextServices create(final CorePluginContext.Dependencies dependencies) {
-        return create(dependencies, null);
+        return create(dependencies, null, () -> true);
     }
 
     @Override
     public CubismContextServices create(
             final CorePluginContext.Dependencies dependencies,
             final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks) {
+        return create(dependencies, pluginTasks, () -> true);
+    }
+
+    @Override
+    public CubismContextServices create(
+            final CorePluginContext.Dependencies dependencies,
+            final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks,
+            final java.util.function.BooleanSupplier generationAdmission) {
+        final java.util.function.BooleanSupplier checkedGenerationAdmission =
+                java.util.Objects.requireNonNull(generationAdmission, "generationAdmission");
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
                 dependencies.descriptor().id(),
                 dependencies.permissions(),
                 dependencies.cubismAuditSink(),
                 dependencies.clock());
         final PermissionChecker permissionChecker = PermissionChecker.from(permissionGate);
-        final AtomicBoolean activeScope = new AtomicBoolean(true);
-        dependencies.disposableScope().register(() -> activeScope.set(false));
+        final AtomicBoolean scopeClosed = new AtomicBoolean(false);
+        dependencies.disposableScope().register(() -> scopeClosed.set(true));
+        final java.util.function.BooleanSupplier activeScope = () -> !scopeClosed.get()
+                && !dependencies.disposableScope().isSealed()
+                && checkedGenerationAdmission.getAsBoolean();
         final dev.turboism.sdk.cubism.transaction.AuthoringTransactionService authoringTransactions = modelAccess
                         instanceof
                         dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider provider
@@ -240,7 +253,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             psdExportService = null;
         } else {
             psdExportService = new RuntimePsdExportService(
-                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks);
+                    dependencies.descriptor().id(), permissionChecker, activeScope, pluginTasks);
             dependencies.disposableScope().register(psdExportService);
         }
         final RuntimePsdReplaceService psdReplaceService;
@@ -249,7 +262,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         } else {
             // Shares the export service's registry so only handles issued here can be replaced.
             psdReplaceService = new RuntimePsdReplaceService(
-                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks, psdExportService);
+                    dependencies.descriptor().id(), permissionChecker, activeScope, pluginTasks, psdExportService);
             dependencies.disposableScope().register(psdReplaceService);
         }
         final CubismFacadeImpl facade = new CubismFacadeImpl(
@@ -262,7 +275,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 textureAtlasLayouts,
                 textureAtlasNativeInvocations,
                 editorObjectLifecycle,
-                activeScope::get,
+                () -> !scopeClosed.get(),
                 textureAtlasEditorUi,
                 textureAtlasEditorSession,
                 textureAtlasAlgorithms,
@@ -283,7 +296,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 hostAdapters.clipMaskRead(),
                 dependencies.descriptor().id(),
                 CubismReadPermissionGate.from(permissionGate),
-                activeScope::get);
+                () -> !scopeClosed.get());
         final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
                 autoBackup,
                 dependencies.eventBroker(),
@@ -306,15 +319,15 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 new ModelHierarchyQueryServiceImpl(facade, permissionGate),
                 readCapabilityService,
                 new dev.turboism.adapter.cubism.model.RuntimeModelObjectService(
-                        pluginModelAccess, permissionChecker, activeScope::get),
+                        pluginModelAccess, permissionChecker, () -> !scopeClosed.get()),
                 dependencies.permissions().stream()
                                 .anyMatch(permission -> CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id()))
                         ? new dev.turboism.adapter.cubism.physics.PluginScopedPhysicsEditorService(
-                                physicsEditorCoordinator, dependencies.disposableScope(), activeScope::get)
+                                physicsEditorCoordinator, dependencies.disposableScope(), () -> !scopeClosed.get())
                         : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
                 new CubismClipMaskServiceImpl(readCapabilityService, pluginModelAccess),
                 new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
-                        editorCommands, permissionGate, editorFiles, activeScope::get),
+                        editorCommands, permissionGate, editorFiles, () -> !scopeClosed.get()),
                 backupCoordinator);
         return new CubismEditorApiAvailabilityInterceptor(
                         cubismEditorVersion, admittedCubismCapabilities, admittedCubismGeneration)

@@ -93,6 +93,115 @@ class ParameterLifecycleCoordinatorTest {
     }
 
     @Test
+    void skipsDetachedParameterCaptureWhenNoRoutesRegistered() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final SnapshotProbeParameter probe = new SnapshotProbeParameter(10.0F);
+
+        coordinator.setValue(probe, 20.0F, probe::write);
+        coordinator.awaitIdle();
+
+        assertEquals(20.0F, probe.getValue());
+        assertEquals(0, probe.captureCount, "no snapshot taken when no routes exist");
+        scheduler.shutdown();
+    }
+
+    @Test
+    void subscriptionAndUnsubscriptionDynamicallyUpdateCaptureDemand() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final RuntimeEventBroker.Owner owner = broker.admit("demand-owner");
+        owner.activate();
+        final SnapshotProbeParameter probe = new SnapshotProbeParameter(10.0F);
+
+        // 1. Initial set: no routes -> 0 captures
+        coordinator.setValue(probe, 15.0F, probe::write);
+        assertEquals(0, probe.captureCount);
+
+        // 2. Subscribe to After -> 1 capture occurs
+        final dev.turboism.sdk.plugin.Registration reg =
+                broker.subscribe(owner.key(), ParameterValueEvent.After.class, ignored -> {});
+        coordinator.setValue(probe, 20.0F, probe::write);
+        assertEquals(1, probe.captureCount);
+
+        // 3. Unsubscribe -> demand ceases, no new capture
+        reg.close();
+        coordinator.setValue(probe, 25.0F, probe::write);
+        assertEquals(1, probe.captureCount, "no capture taken after unregistering subscription");
+        scheduler.shutdown();
+    }
+
+    @Test
+    void parentInterfaceSubscriptionCapturesAndDeliversEvents() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final RuntimeEventBroker.Owner owner = broker.admit("parent-route-owner");
+        owner.activate();
+        final SnapshotProbeParameter probe = new SnapshotProbeParameter(10.0F);
+        final List<ParameterValueEvent> delivered = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final CountDownLatch latch = new CountDownLatch(3);
+
+        broker.subscribe(owner.key(), ParameterValueEvent.class, event -> {
+            delivered.add(event);
+            latch.countDown();
+        });
+
+        coordinator.setValue(probe, 30.0F, probe::write);
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS), "all three events delivered through parent route");
+        assertEquals(3, delivered.size());
+        assertTrue(delivered.get(0) instanceof ParameterValueEvent.Before);
+        final ParameterValueEvent.Before before = (ParameterValueEvent.Before) delivered.get(0);
+        assertEquals(30.0F, before.value());
+        assertEquals(10.0F, before.parameter().getValue());
+
+        assertTrue(delivered.get(1) instanceof ParameterValueEvent.On);
+        final ParameterValueEvent.On on = (ParameterValueEvent.On) delivered.get(1);
+        assertEquals(10.0F, on.oldValue());
+        assertEquals(30.0F, on.newValue());
+
+        assertTrue(delivered.get(2) instanceof ParameterValueEvent.After);
+        final ParameterValueEvent.After after = (ParameterValueEvent.After) delivered.get(2);
+        assertEquals(30.0F, after.finalValue());
+
+        assertEquals(2, probe.captureCount, "1 capture for Before and 1 shared capture for On+After");
+        scheduler.shutdown();
+    }
+
+    @Test
+    void beforeModificationIsReflectedInSubsequentAfterNotification() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final RuntimeEventBroker.Owner owner = broker.admit("before-after-owner");
+        owner.activate();
+        final SnapshotProbeParameter probe = new SnapshotProbeParameter(10.0F);
+        final AtomicReference<Float> afterObservedValue = new AtomicReference<>();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        owner.registerAnnotated(
+                new EntrypointSubscriberCatalog().inspect(List.of(new MutatingBeforeSubscriber(55.0F))));
+        broker.subscribe(owner.key(), ParameterValueEvent.After.class, event -> {
+            afterObservedValue.set(event.finalValue());
+            latch.countDown();
+        });
+
+        coordinator.setValue(probe, 20.0F, probe::write);
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        assertEquals(55.0F, probe.getValue());
+        assertEquals(55.0F, afterObservedValue.get());
+        scheduler.shutdown();
+    }
+
+    @Test
     void annotatedBeforeTransformsSynchronouslyWithCheckpointRestoreAndSealing() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
@@ -377,6 +486,19 @@ class ParameterLifecycleCoordinatorTest {
         }
     }
 
+    public static final class MutatingBeforeSubscriber {
+        private final float targetValue;
+
+        public MutatingBeforeSubscriber(final float targetValue) {
+            this.targetValue = targetValue;
+        }
+
+        @SubscribeEvent
+        public void onBefore(final ParameterValueEvent.Before event) {
+            event.setValue(targetValue);
+        }
+    }
+
     public static final class AnnotatedBeforeSubscriber {
         private final List<String> callbacks;
         private final AtomicReference<ParameterValueEvent.Before> retained;
@@ -479,6 +601,55 @@ class ParameterLifecycleCoordinatorTest {
         @Override
         public ParameterId id() {
             return new ParameterId("ParamAngleX");
+        }
+
+        @Override
+        public float getValue() {
+            return value;
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return -30.0F;
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return 30.0F;
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return 0.0F;
+        }
+
+        @Override
+        public void setValue(final float value) {
+            write(value);
+        }
+    }
+
+    private static final class SnapshotProbeParameter implements Parameter {
+        private float value;
+        private int captureCount;
+
+        private SnapshotProbeParameter(final float value) {
+            this.value = value;
+        }
+
+        private void write(final float value) {
+            this.value = value;
+        }
+
+        @Override
+        public Optional<String> name() {
+            captureCount++;
+            return Optional.of("Probe");
+        }
+
+        @Override
+        public ParameterId id() {
+            return new ParameterId("ParamProbe");
         }
 
         @Override

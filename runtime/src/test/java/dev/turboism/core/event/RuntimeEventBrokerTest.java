@@ -29,6 +29,7 @@ import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.test.concurrent.Await;
@@ -72,6 +73,37 @@ class RuntimeEventBrokerTest {
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertSame(event, received.get());
+        scheduler.shutdown();
+    }
+
+    public interface ParentTestEvent extends TurboismEvent {}
+
+    public record SubTestEvent(String value) implements ParentTestEvent {}
+
+    @Test
+    void hasObserversForTracksSubscriptionsParentRoutesAndUnregistration() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner owner = broker.admit("demand-test-owner");
+        owner.activate();
+
+        // 1. Initially false
+        assertFalse(broker.hasObserversFor(SubTestEvent.class));
+
+        // 2. Parent interface subscription
+        final Registration reg1 = broker.subscribe(owner.key(), ParentTestEvent.class, ignored -> {});
+        assertTrue(broker.hasObserversFor(SubTestEvent.class), "subtype demand covered by supertype subscription");
+
+        // 3. Unregistration clears demand
+        reg1.close();
+        assertFalse(broker.hasObserversFor(SubTestEvent.class));
+
+        // 4. Root interface (TurboismEvent) route
+        final Registration reg2 = broker.subscribe(owner.key(), TurboismEvent.class, ignored -> {});
+        assertTrue(broker.hasObserversFor(SubTestEvent.class));
+
+        reg2.close();
+        assertFalse(broker.hasObserversFor(SubTestEvent.class));
         scheduler.shutdown();
     }
 

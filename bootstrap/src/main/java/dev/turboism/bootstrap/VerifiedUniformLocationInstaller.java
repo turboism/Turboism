@@ -328,10 +328,13 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             bridge.install();
             installed = true;
         } catch (Exception | Error problem) {
+            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
             try {
                 close();
             } catch (Exception | Error cleanup) {
-                problem.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(problem, cleanup));
             }
             throw problem;
         }

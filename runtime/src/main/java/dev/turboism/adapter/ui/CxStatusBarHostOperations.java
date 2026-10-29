@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.StatusNotification;
@@ -159,17 +160,16 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         try {
             access.refresh(anchor.parent());
         } catch (RuntimeException | Error failure) {
-            // Minimal compensation for the first refresh after a successful add:
-            // a failed refresh must not leave an orphan widget with no entry
-            // and no registration. Compensation failures are suppressed onto
-            // the original failure, which is rethrown.
+            // @containment-exempt: compensation removes label and rethrows primary failure with fatal prioritized
+            Throwable toThrow = failure;
             try {
                 access.remove(anchor.parent(), widget);
                 access.refresh(anchor.parent());
             } catch (RuntimeException | Error compensation) {
-                failure.addSuppressed(compensation);
+                // @containment-exempt: compensation failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, compensation);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
         final Entry entry = new Entry(slot, notification.id(), anchor.parent(), widget);
         entries.put(slot, entry);

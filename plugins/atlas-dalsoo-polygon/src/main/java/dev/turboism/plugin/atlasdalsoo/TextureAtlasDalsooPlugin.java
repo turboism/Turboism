@@ -154,6 +154,8 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
                 return false;
             }
             return rectDelegate.applyAutomaticLayout(planner, parallel).status().isPresent();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error failure) {
             if (context != null) {
                 context.logger().error("Atlas Dalsoo native automatic-layout entry failed safely.", failure);

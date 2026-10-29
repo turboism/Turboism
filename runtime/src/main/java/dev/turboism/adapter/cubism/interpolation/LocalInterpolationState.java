@@ -52,6 +52,7 @@ final class LocalInterpolationState {
             }
             return new LocalInterpolationState(domain, input, targetStart, state, (int) writes);
         } catch (Throwable failure) {
+            // @containment-exempt: releases input cache before rethrowIfFatal
             cache.release(input);
             FatalErrors.rethrowIfFatal(failure);
             if (LocalFormState.nonFinite(failure)) return null;

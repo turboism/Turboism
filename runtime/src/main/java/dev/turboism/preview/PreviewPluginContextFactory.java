@@ -4,6 +4,7 @@ import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.graal.GraalHostConfiguration;
 import dev.turboism.graal.GraalHostManager;
@@ -131,9 +132,20 @@ final class PreviewPluginContextFactory implements AutoCloseable {
     PluginContextBundle create(
             final PluginDescriptor descriptor, final ClassLoader pluginClassLoader, final DisposableScope scope)
             throws IOException {
+        return create(descriptor, pluginClassLoader, scope, () -> true);
+    }
+
+    PluginContextBundle create(
+            final PluginDescriptor descriptor,
+            final ClassLoader pluginClassLoader,
+            final DisposableScope scope,
+            final java.util.function.BooleanSupplier generationAdmission)
+            throws IOException {
         final PluginDescriptor requestedDescriptor = Objects.requireNonNull(descriptor, "descriptor");
         final ClassLoader requestedClassLoader = Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
         final DisposableScope requestedScope = Objects.requireNonNull(scope, "scope");
+        final java.util.function.BooleanSupplier checkedGenerationAdmission =
+                Objects.requireNonNull(generationAdmission, "generationAdmission");
         final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner =
                 servicesFactory.admitEventOwner(requestedDescriptor);
         try {
@@ -156,6 +168,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                     servicesFactory.create(requestedDescriptor, requestedClassLoader, requestedScope, eventOwner);
             final dev.turboism.core.plugin.context.PluginContextEnvironment environment =
                     dev.turboism.core.plugin.context.PluginContextEnvironment.builder(hostAccess)
+                            .generationAdmission(checkedGenerationAdmission)
                             .localization(services.localization())
                             .taskScheduler(services.taskScheduler())
                             .pluginStorage(services.pluginStorage())
@@ -219,11 +232,21 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                     diagnostic -> log.warn(requestedDescriptor.id(), diagnostic)));
             return new PluginContextBundle(context, services.localization(), services.cleanupEvidence(), eventOwner);
         } catch (IOException | RuntimeException | Error failure) {
+            // @containment-exempt: closes eventOwner before rethrowing primary failure with fatal prioritized
+            Throwable toThrow = failure;
             eventOwner.beginClosing();
             if (eventOwner.awaitQuiescence(java.time.Duration.ZERO)) {
-                eventOwner.close();
+                try {
+                    eventOwner.close();
+                } catch (RuntimeException | Error cleanupFailure) {
+                    // @containment-exempt: eventOwner close failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
+                }
             }
-            throw failure;
+            if (toThrow instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw FatalErrors.propagate(toThrow);
         }
     }
 

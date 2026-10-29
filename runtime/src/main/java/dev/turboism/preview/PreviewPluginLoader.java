@@ -235,8 +235,8 @@ final class PreviewPluginLoader {
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
         resources.scope = new DisposableScope();
-        final PluginContextBundle contextBundle =
-                contextFactory.create(candidate.descriptor(), resources.classLoader, resources.scope);
+        final PluginContextBundle contextBundle = contextFactory.create(
+                candidate.descriptor(), resources.classLoader, resources.scope, () -> !resources.guard.isFenced());
         resources.eventOwner = contextBundle.eventOwner();
         if (!resources.eventSubscribers.isEmpty()) {
             requireEventSubscribePermission(candidate.descriptor());

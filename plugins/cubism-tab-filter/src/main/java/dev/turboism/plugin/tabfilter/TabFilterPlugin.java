@@ -1,6 +1,7 @@
 package dev.turboism.plugin.tabfilter;
 
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
@@ -42,12 +43,17 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
             }
             enabled = true;
         } catch (RuntimeException | Error failure) {
-            try {
-                super.disable();
+            // @containment-exempt: DisposableScope.close cleans up and rethrows fatal failure with priority
+            try (DisposableScope rollback = new DisposableScope()) {
+                rollback.register(super::disable);
+                rollback.register(() -> {
+                    throw failure;
+                });
+            } catch (RuntimeException rollbackFailure) {
+                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
-                failure.addSuppressed(rollbackFailure);
+                throw new IllegalStateException("TabFilter startup rollback failed", rollbackFailure);
             }
-            throw failure;
         }
         logger.info(
                 "TabFilterPlugin enabled: palette filter boxes enrolled for " + contributions.size() + " palette tabs");

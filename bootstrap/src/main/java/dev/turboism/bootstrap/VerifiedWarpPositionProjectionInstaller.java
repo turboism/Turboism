@@ -167,12 +167,14 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
             if (transformer.matches() != 1 || transformer.failure() != null)
                 throw new IllegalStateException("warp consumer not admitted: " + transformer.failure());
         } catch (Exception | Error failure) {
+            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
             try {
                 close();
             } catch (Exception | Error cleanup) {
-                failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
             }
-            bridge.close();
             throw failure;
         }
     }

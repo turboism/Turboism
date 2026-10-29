@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.modeling;
 
 import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.modeling.ModelingBrush;
@@ -174,15 +175,30 @@ public final class ModelingToolCoordinator implements AutoCloseable {
                 startLifetime();
                 changed();
             } catch (RuntimeException | Error failure) {
+                // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+                Throwable toThrow = failure;
                 if (active == candidate) {
                     try {
                         deactivateOnEdt();
-                    } catch (RuntimeException cleanup) {
-                        failure.addSuppressed(cleanup);
+                    } catch (RuntimeException | Error cleanup) {
+                        // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                        toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
                     }
-                } else candidate.close();
-                changed();
-                throw failure;
+                } else {
+                    try {
+                        candidate.close();
+                    } catch (RuntimeException | Error closeFailure) {
+                        // @containment-exempt: close failure merged, prioritizing fatal error
+                        toThrow = FatalErrors.mergeForCleanup(toThrow, closeFailure);
+                    }
+                }
+                try {
+                    changed();
+                } catch (RuntimeException | Error changedFailure) {
+                    // @containment-exempt: changed failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, changedFailure);
+                }
+                throw FatalErrors.propagate(toThrow);
             }
         });
     }

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorMocExportSelectorContract;
 import dev.turboism.sdk.cubism.model.CubismExportTexture;
@@ -103,8 +104,12 @@ final class EditorMocExportAccess {
                             "Official export changed the active model or its resource membership.");
                 }
             } catch (RuntimeException | Error failure) {
-                if (primary != null) primary.addSuppressed(failure);
-                else throw failure;
+                // @containment-exempt: post-export verification failure is merged with fatal prioritized, then rethrown
+                if (primary == null) {
+                    throw failure;
+                }
+                primary = FatalErrors.mergeForCleanup(primary, failure);
+                throw FatalErrors.propagate(primary);
             }
         }
     }

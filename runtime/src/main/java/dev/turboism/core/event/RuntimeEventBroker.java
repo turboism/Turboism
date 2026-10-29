@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -165,19 +164,10 @@ public final class RuntimeEventBroker {
      */
     public boolean hasObserversFor(final Class<? extends EventBus.TurboismEvent> eventType) {
         Objects.requireNonNull(eventType, "eventType");
-        synchronized (subscriptionLock) {
-            for (Map.Entry<
-                            Class<? extends EventBus.TurboismEvent>,
-                            CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>>>
-                    route : subscribers.entrySet()) {
-                if (!route.getKey().isAssignableFrom(eventType)) {
-                    continue;
-                }
-                for (Subscription<? extends EventBus.TurboismEvent> subscription : route.getValue()) {
-                    if (subscription.active()) {
-                        return true;
-                    }
-                }
+        final List<Subscription<? extends EventBus.TurboismEvent>> plan = dispatchPlan(eventType);
+        for (Subscription<? extends EventBus.TurboismEvent> subscription : plan) {
+            if (subscription.active()) {
+                return true;
             }
         }
         return false;

@@ -1,5 +1,6 @@
 package dev.turboism.ui.provider;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
@@ -66,25 +67,27 @@ public final class EditorUiProviderInstaller {
                 readyFamilies.add(candidate.family());
             }
         } catch (RuntimeException | Error failure) {
-            closeInstalled(target, installed, failure);
-            throw failure;
+            // @containment-exempt: all providers closed before rethrowing primary failure with fatal prioritized
+            final Throwable toThrow = closeInstalled(target, installed, failure);
+            throw FatalErrors.propagate(toThrow);
         }
         return new Installation(target, installed, readyFamilies);
     }
 
-    private static void closeInstalled(
+    private static Throwable closeInstalled(
             final EditorUiContributionAuthority authority,
             final List<EditorUiContributionProvider> installed,
             final Throwable failure) {
+        Throwable accumulated = failure;
         for (int index = installed.size() - 1; index >= 0; index--) {
             try {
                 authority.removeProvider(installed.get(index));
             } catch (RuntimeException | Error cleanupFailure) {
-                if (cleanupFailure != failure) {
-                    failure.addSuppressed(cleanupFailure);
-                }
+                // @containment-exempt: all providers attempted before rethrowing with fatal error prioritized
+                accumulated = FatalErrors.mergeForCleanup(accumulated, cleanupFailure);
             }
         }
+        return accumulated;
     }
 
     /** Connection-owned provider registration, closed before the connection itself. */

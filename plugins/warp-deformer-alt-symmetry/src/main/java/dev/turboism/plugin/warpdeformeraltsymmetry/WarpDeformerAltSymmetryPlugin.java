@@ -60,6 +60,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                     .register(context.services()
                             .require(WarpAltMirrorParticipation.class)
                             .participate());
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error unsupported) {
             logger.warn("warpAltMirrorParticipation unavailable: "
                     + unsupported.getClass().getSimpleName());
@@ -85,6 +87,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                             new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution(
                                     AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis())));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error unsupported) {
             logger.warn("viewContextMenu unavailable: " + unsupported.getClass().getSimpleName());
         }
@@ -120,6 +124,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         try {
             context.services().require(WarpAltMirrorParticipation.class).setArmedAxis(axis);
             context.services().require(ViewContextMenuRegistry.class).updateButtonState(AXIS_BUTTON_ID, axis);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error unsupported) {
             logger.warn("armed-axis publish failed: " + unsupported.getClass().getSimpleName());
             return;
@@ -154,6 +160,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                                         : context.localization().text("warp-alt-symmetry.hint.vertical"),
                                 dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED));
             }
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error unsupported) {
             logger.warn(
                     "notifyCanvasHint unavailable: " + unsupported.getClass().getSimpleName());
@@ -163,6 +171,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
         if (previous != null) {
             try {
                 previous.close();
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
             } catch (RuntimeException | Error failure) {
                 logger.warn("armed-hint close failed: " + failure.getClass().getSimpleName());
             }
@@ -193,6 +203,9 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             } else if (mouseEvent.getID() == MouseEvent.MOUSE_RELEASED) {
                 onRelease(mouseEvent);
             }
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            armed = null;
+            throw fatal;
         } catch (RuntimeException | Error failure) {
             armed = null;
             logger.warn("WARP_ALT_MIRROR gesture handling failed: "
@@ -243,6 +256,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     private boolean nativeMirrorActive() {
         try {
             return context.services().require(WarpAltMirrorParticipation.class).nativeMirrorActive();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (RuntimeException | Error unsupported) {
             return false;
         }

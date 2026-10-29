@@ -71,6 +71,41 @@ class NativeBoundingBoxOverlayButtonBridgeTest {
     }
 
     @Test
+    void installRollbackPropagatesFatalErrorWhenCleanupFailsWithFatal() {
+        final Properties realProperties = System.getProperties();
+        final OutOfMemoryError cleanupOom = new OutOfMemoryError("synthetic OOM during property cleanup");
+        final Properties failingProperties = new Properties() {
+            @Override
+            public synchronized boolean remove(final Object key, final Object value) {
+                if (NativeBoundingBoxOverlayButtonBridge.SETUP_PROPERTY.equals(key)) {
+                    throw cleanupOom;
+                }
+                return super.remove(key, value);
+            }
+        };
+        failingProperties.putAll(realProperties);
+        // Seed so install fails immediately with IllegalStateException
+        failingProperties.put(NativeBoundingBoxOverlayButtonBridge.FAILURE_PROPERTY, new Object());
+
+        try {
+            System.setProperties(failingProperties);
+            final OutOfMemoryError thrown = assertThrows(
+                    OutOfMemoryError.class,
+                    () -> NativeBoundingBoxOverlayButtonBridge.install((overlay, sceneGraph) -> new Object[0]));
+            assertSame(cleanupOom, thrown, "Fatal cleanup error must be prioritized over ordinary install failure");
+            assertEquals(1, thrown.getSuppressed().length);
+            assertTrue(thrown.getSuppressed()[0] instanceof IllegalStateException);
+        } finally {
+            System.setProperties(realProperties);
+        }
+
+        // Prove HANDLER and properties were not leaked: next installation succeeds
+        try (Registration next = NativeBoundingBoxOverlayButtonBridge.install((overlay, sceneGraph) -> new Object[0])) {
+            org.junit.jupiter.api.Assertions.assertNotNull(next);
+        }
+    }
+
+    @Test
     void firstFailureReportsBurstIsSuppressedAndLaterIntervalReportsAgain() throws Exception {
         // Overflow-safe pure decision helper: sentinel always reports, a recent report is
         // suppressed, an interval-elapsed report is emitted, and a nanoTime wrap cannot

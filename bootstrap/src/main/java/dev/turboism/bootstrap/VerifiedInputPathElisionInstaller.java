@@ -177,10 +177,13 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
             }
             installed = true;
         } catch (Exception | Error failure) {
+            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
             try {
                 close();
             } catch (Exception | Error cleanup) {
-                failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
             }
             throw failure;
         }

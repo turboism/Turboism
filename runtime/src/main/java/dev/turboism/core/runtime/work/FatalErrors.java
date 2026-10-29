@@ -16,6 +16,8 @@ package dev.turboism.core.runtime.work;
  * <p>Every {@code catch (Throwable)} site must call {@link #rethrowIfFatal(Throwable)} (or
  * an equivalent fatal-first catch clause) before applying its own diagnostics, so the
  * policy stays searchable and auditable instead of being re-decided per call site.
+ * Multi-step cleanups may delay rethrowing fatal failures via {@link #mergeForCleanup(Throwable, Throwable)}
+ * until all mandatory release steps execute, annotated locally with {@code @containment-exempt}.
  */
 public final class FatalErrors {
 
@@ -54,5 +56,58 @@ public final class FatalErrors {
 
     private static Error fatal(final Throwable failure) {
         return (Error) failure;
+    }
+
+    /**
+     * Merges a cleanup or secondary failure into a primary failure, ensuring a fatal JVM condition
+     * is always prioritized as the primary failure and suppressing the other failure onto it.
+     *
+     * <p>When either {@code primary} or {@code secondary} is an {@link InterruptedException}, the
+     * current thread's interrupt flag is restored so pending cancellation is preserved across cleanup.
+     * When {@code secondary} is fatal and {@code primary} is not fatal, {@code secondary} is
+     * promoted to primary and {@code primary} is suppressed on it. Otherwise, {@code primary} remains
+     * primary and {@code secondary} is suppressed on it. Nulls and identical instances are safely handled
+     * without self-suppression.</p>
+     *
+     * @param primary initial or accumulated failure, nullable
+     * @param secondary subsequent cleanup failure, nullable
+     * @return the prioritized failure to propagate
+     */
+    public static Throwable mergeForCleanup(final Throwable primary, final Throwable secondary) {
+        if (primary instanceof InterruptedException || secondary instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        if (primary == null) {
+            return secondary;
+        }
+        if (secondary == null || primary == secondary) {
+            return primary;
+        }
+        final boolean primaryFatal = isFatal(primary);
+        final boolean secondaryFatal = isFatal(secondary);
+        if (secondaryFatal && !primaryFatal) {
+            secondary.addSuppressed(primary);
+            return secondary;
+        }
+        primary.addSuppressed(secondary);
+        return primary;
+    }
+
+    /**
+     * Prepares {@code failure} to be rethrown in a {@code throw} statement: if {@code failure} is
+     * an {@link Error}, it is thrown immediately; if it is a {@link RuntimeException}, it is returned
+     * for the caller to throw; otherwise it is wrapped in an {@link IllegalStateException} and returned.
+     *
+     * @param failure the caught failure to rethrow
+     * @return a RuntimeException suitable for throwing, or never returns if failure is an Error
+     */
+    public static RuntimeException propagate(final Throwable failure) {
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        if (failure instanceof RuntimeException runtime) {
+            return runtime;
+        }
+        return new IllegalStateException(failure);
     }
 }

@@ -13,7 +13,7 @@ if ! command -v "$SHELLCHECK_BIN" >/dev/null 2>&1; then
   exit 0
 fi
 
-mapfile -t files < <(git ls-files '*.sh')
+mapfile -d '' -t files < <(git ls-files -z '*.sh')
 if [ "${#files[@]}" -eq 0 ]; then
   echo "no tracked shell scripts found." >&2
   exit 0

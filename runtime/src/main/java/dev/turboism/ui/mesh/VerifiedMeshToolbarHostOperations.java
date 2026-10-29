@@ -1,6 +1,7 @@
 package dev.turboism.ui.mesh;
 
 import dev.turboism.adapter.cubism.mesh.MeshToolCoordinator;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
@@ -336,15 +337,18 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 liveButtons++;
             }
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             // Roll back the just-inserted contribution: the binding failed, so no handle must
             // be returned and the container must not keep a button with no working observer.
             try {
                 resolver.invoke(CONTAINER_REMOVE, container, button);
                 refresh(container);
             } catch (RuntimeException | Error cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
 
         final AtomicBoolean closed = new AtomicBoolean();
@@ -384,6 +388,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                         resolver.invoke(CONTAINER_REMOVE, container, button);
                         refresh(container);
                     } catch (RuntimeException | Error failure) {
+                        // @containment-exempt: primary removal failure captured and merged below
                         primary = failure;
                     }
                     try {
@@ -394,20 +399,11 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                             unbindSessionObserver();
                         }
                     } catch (RuntimeException | Error cleanupFailure) {
-                        if (primary != null) {
-                            primary.addSuppressed(cleanupFailure);
-                        } else {
-                            throw cleanupFailure;
-                        }
-                    }
-                    if (primary instanceof RuntimeException runtimeFailure) {
-                        throw runtimeFailure;
-                    }
-                    if (primary instanceof Error errorFailure) {
-                        throw errorFailure;
+                        // @containment-exempt: unbind failure merged with fatal prioritized before rethrow
+                        primary = FatalErrors.mergeForCleanup(primary, cleanupFailure);
                     }
                     if (primary != null) {
-                        throw new RuntimeException("mesh-toolbar contribution removal failed", primary);
+                        throw FatalErrors.propagate(primary);
                     }
                 });
             }
@@ -522,14 +518,17 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 nativePeer.peer().addActionListener(callback);
             }
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback removes listeners on all peers before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             for (NativePeer nativePeer : nativePeers) {
                 try {
                     nativePeer.peer().removeActionListener(callback);
                 } catch (RuntimeException | Error cleanupFailure) {
-                    failure.addSuppressed(cleanupFailure);
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
                 }
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
         nativeCallback = callback;
         observerBound = true;
@@ -549,20 +548,14 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
             try {
                 nativePeer.peer().removeActionListener(nativeCallback);
             } catch (RuntimeException | Error failure) {
-                if (first == null) {
-                    first = failure;
-                } else {
-                    first.addSuppressed(failure);
-                }
+                // @containment-exempt: unbind failure merged across all peers with fatal prioritized
+                first = FatalErrors.mergeForCleanup(first, failure);
             }
         }
         nativeCallback = null;
         observerBound = false;
-        if (first instanceof RuntimeException runtimeFailure) {
-            throw runtimeFailure;
-        }
-        if (first instanceof Error errorFailure) {
-            throw errorFailure;
+        if (first != null) {
+            throw FatalErrors.propagate(first);
         }
     }
 

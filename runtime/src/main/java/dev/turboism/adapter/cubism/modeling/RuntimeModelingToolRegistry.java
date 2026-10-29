@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.modeling;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.modeling.ModelingTool;
 import dev.turboism.sdk.cubism.modeling.ModelingToolRegistry;
@@ -66,12 +67,15 @@ public final class RuntimeModelingToolRegistry implements ModelingToolRegistry {
             try {
                 ui = authority.contribute(descriptor.contribution());
             } catch (RuntimeException | Error failure) {
+                // @containment-exempt: closes logic registration before rethrowing with fatal error prioritized
+                Throwable toThrow = failure;
                 try {
                     logic.close();
-                } catch (RuntimeException cleanup) {
-                    failure.addSuppressed(cleanup);
+                } catch (RuntimeException | Error cleanup) {
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
                 }
-                throw failure;
+                throw FatalErrors.propagate(toThrow);
             }
             final AtomicBoolean disposed = new AtomicBoolean();
             final Registration owned = new Registration() {

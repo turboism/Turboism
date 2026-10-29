@@ -102,6 +102,7 @@ final class CoreShellRuntime implements AutoCloseable {
             final PreviewLog log)
             throws Exception {
         final ShellLoad state = new ShellLoad();
+        state.guard = new PluginGenerationGuard(ShellManifest.ID);
         awaitHostEventQueue(log);
         final PluginLifecycleLease lease = new PluginLifecycleLease(ShellManifest.ID);
         final PluginLifecycleLane.Invocation<CoreShellRuntime> invocation =
@@ -253,8 +254,8 @@ final class CoreShellRuntime implements AutoCloseable {
             throws Exception {
         state.resources = shellResourceLoader();
         state.scope = new DisposableScope();
-        state.context = contexts.create(ShellManifest.descriptor(), state.resources, state.scope);
-        state.guard = new PluginGenerationGuard(ShellManifest.ID);
+        state.context = contexts.create(
+                ShellManifest.descriptor(), state.resources, state.scope, () -> !state.guard.isFenced());
         log.info(ShellManifest.ID, "Shell startup: begin");
         state.context.eventOwner().beginInitializing();
         state.shell = admission.create(services);

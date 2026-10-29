@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 /** Contributor for the verified uniform-location cache optimization. */
@@ -38,6 +39,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
                         "bootstrap",
                         "TURBOISM_UNIFORM_LOCATION restoration=" + (installer.restored() ? "COMPLETE" : "UNVERIFIED"));
             } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 RuntimeDiagnostics.warn("bootstrap", "TURBOISM_UNIFORM_LOCATION restoration=FAILED " + failure);
             }
         };

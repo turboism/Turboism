@@ -511,10 +511,37 @@ public final class GlbViewerLoader {
                     }
 
                     // 7. Indices
-                    final int[] indices;
+                    final Accessor idxAcc;
+                    final int primTriangles;
                     if (primMap.containsKey("indices")) {
                         final int idxAccIdx = ((Number) primMap.get("indices")).intValue();
-                        indices = readIntArray(accessors.get(idxAccIdx), bufferViews, binData);
+                        if (idxAccIdx < 0 || idxAccIdx >= accessors.size()) {
+                            throw new IllegalArgumentException("Invalid index accessor index: " + idxAccIdx);
+                        }
+                        idxAcc = accessors.get(idxAccIdx);
+                        if (!"SCALAR".equals(idxAcc.type)) {
+                            throw new IllegalArgumentException("Index accessor must be SCALAR, got: " + idxAcc.type);
+                        }
+                        if (idxAcc.componentType != 5121
+                                && idxAcc.componentType != 5123
+                                && idxAcc.componentType != 5125) {
+                            throw new IllegalArgumentException(
+                                    "Index accessor componentType must be unsigned integer (5121, 5123, 5125), got: "
+                                            + idxAcc.componentType);
+                        }
+                        primTriangles = idxAcc.count / 3;
+                    } else {
+                        idxAcc = null;
+                        primTriangles = vertexCount / 3;
+                    }
+
+                    if ((long) totalTriangles + primTriangles > MAX_TRIANGLES) {
+                        throw new IllegalArgumentException("Triangle count exceeds budget of " + MAX_TRIANGLES);
+                    }
+
+                    final int[] indices;
+                    if (idxAcc != null) {
+                        indices = readIntArray(idxAcc, bufferViews, binData);
                     } else {
                         indices = new int[vertexCount];
                         for (int i = 0; i < vertexCount; i++) {
@@ -530,11 +557,7 @@ public final class GlbViewerLoader {
                         }
                     }
 
-                    final int primTriangles = indices.length / 3;
                     totalTriangles += primTriangles;
-                    if (totalTriangles > MAX_TRIANGLES) {
-                        throw new IllegalArgumentException("Triangle count exceeds budget of " + MAX_TRIANGLES);
-                    }
 
                     final var controlSamples = new ArrayList<ViewerScene.ControlSample>();
                     if (primMap.get("extras") instanceof Map<?, ?> extra

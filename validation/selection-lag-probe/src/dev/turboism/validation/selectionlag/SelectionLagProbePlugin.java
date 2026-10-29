@@ -15,6 +15,7 @@ import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.AWTEventListener;
 import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -28,39 +29,21 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Task-local selection-lag diagnostic probe (S4, host-ui-regressions-v1).
  *
- * <p>Purpose: capture machine evidence for the user-reported "selecting an
- * object briefly stalls, dragging is hard, then recovers" regression on the
- * exact Cubism host. The probe is observation-only:</p>
- *
- * <ul>
- *   <li>EDT dispatch timing: an {@link AWTEventListener} records every mouse
- *       press/drag/release dispatch on the EDT; the gap between two consecutive
- *       dispatch callbacks upper-bounds the EDT time consumed by the previous
- *       event plus queueing. A 10 ms {@code invokeLater} heartbeat records
- *       enqueue-to-run latency as an independent EDT-busy signal.</li>
- *   <li>Top-stack capture: when an event gap or heartbeat latency exceeds the
- *       threshold (default 100 ms), a watchdog thread snapshots the EDT stack
- *       via {@link ThreadMXBean#getThreadInfo(long, int, boolean)} (three shots
- *       at 20 ms spacing) and marks any {@code dev.turboism.*} frames.</li>
- *   <li>Interaction: {@link java.awt.Robot} performs press-drag-release
- *       sequences inside the main Cubism window (select-and-drag path). After
- *       each attempt the probe reads the SDK selection snapshot as best-effort
- *       evidence of whether a selection occurred. The probe never saves,
- *       never writes the model, and never creates Undo through any API.</li>
- * </ul>
- *
- * <p>This probe is validation tooling only. It is never part of the production
- * preview bundle or product build.</p>
+ * <p>Observation-only EDT timing probe measuring EDT heartbeat latency, mouse event gaps,
+ * top-stack captures during contention, and select-and-drag Robot interactions.</p>
  */
 public final class SelectionLagProbePlugin implements TurboismPlugin {
 
@@ -78,11 +61,47 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     private static final long ATTEMPT_PACING_MILLIS = 1_200L;
     private static final long TRIGGER_COOLDOWN_MILLIS = 300L;
 
-    private enum Phase { BASELINE, INTERACTION, SETTLE }
+    @FunctionalInterface
+    interface HostDispatcher {
+        void dispatch(Runnable runnable);
+    }
+
+    @FunctionalInterface
+    interface NanoClock {
+        long nanoTime();
+    }
+
+    enum Phase { BASELINE, ACTIVATION, INTERACTION, SETTLE }
+
+    enum SelectionReadStatus { SUCCESS, TIMEOUT, FAILED }
+
+    record SelectionEvidence(
+            List<String> selectedIds,
+            String activeArtMesh,
+            SelectionReadStatus readStatus,
+            long readDurationMillis) {
+        boolean isSuccess() {
+            return readStatus == SelectionReadStatus.SUCCESS;
+        }
+    }
+
+    record HostWindowEvidence(Rectangle bounds, String title, String className, String boundsText) {}
+
+    private final NanoClock clock;
+    private final HostDispatcher hostDispatcher;
 
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
+
+    public SelectionLagProbePlugin() {
+        this(System::nanoTime, SwingUtilities::invokeLater);
+    }
+
+    SelectionLagProbePlugin(final NanoClock clock, final HostDispatcher hostDispatcher) {
+        this.clock = clock;
+        this.hostDispatcher = hostDispatcher;
+    }
 
     @Override
     public void init(final PluginContext context) {
@@ -112,8 +131,8 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
 
     private void runWhenFlagged() {
         final Path flag = stateDir.resolve(FLAG);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
+        final long deadlineNanos = clock.nanoTime() + TimeUnit.MILLISECONDS.toNanos(FLAG_TIMEOUT_MILLIS);
+        while (clock.nanoTime() < deadlineNanos) {
             if (Files.isRegularFile(flag)) {
                 runProbe();
                 return;
@@ -134,7 +153,7 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     // ------------------------------------------------------------------
 
     private void runProbe() {
-        final long startedMillis = System.currentTimeMillis();
+        final long startedNanos = clock.nanoTime();
         final ProbeResult result = new ProbeResult();
         result.runId = System.getProperty("turboism.validation.runId", "unknown");
         result.hostVersion = System.getProperty("turboism.validation.hostVersion", "unknown");
@@ -154,10 +173,10 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             if (edtThreadId == -1L) {
                 result.status = "BLOCKED";
                 result.statusReason = "AWT-EventQueue thread not found";
-                finishProbe(result, startedMillis);
+                finishProbe(result, startedNanos);
                 return;
             }
-            final EdtSampler sampler = new EdtSampler(edtThreadId, thresholdMillis);
+            final EdtSampler sampler = new EdtSampler(edtThreadId, thresholdMillis, clock, hostDispatcher);
             sampler.start();
             try {
                 sampler.setPhase(Phase.BASELINE);
@@ -169,14 +188,20 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                     result.status = "BLOCKED";
                     result.statusReason = "no visible host window found for Robot interaction";
                     sampler.stop();
-                    finishProbe(result, startedMillis);
+                    finishProbe(result, startedNanos);
                     return;
                 }
-                sampler.setPhase(Phase.INTERACTION);
-                sampler.resetEventGap();
+
+                // Window activation is partitioned into ACTIVATION phase;
+                // activation clicks do not count as drag INTERACTION.
+                switchPhase(sampler, Phase.ACTIVATION);
                 activateHostWindow(result.fixtureName);
+                activateAndAwaitReceipt(robot, hostWindow, result.fixtureName, sampler);
+
+                switchPhase(sampler, Phase.INTERACTION);
                 runInteraction(robot, hostWindow, attempts, result, sampler);
-                sampler.setPhase(Phase.SETTLE);
+
+                switchPhase(sampler, Phase.SETTLE);
                 Thread.sleep(SETTLE_MILLIS);
             } finally {
                 sampler.stop();
@@ -184,27 +209,66 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
 
             sampler.exportStats(result);
             result.probeFinishedUtc = Instant.now().toString();
-            result.status = result.interactionMouseEvents > 0 ? "PASS" : "FAIL";
-            result.statusReason = result.interactionMouseEvents > 0
-                ? "probe executed; interaction mouse events were observed by the EDT sampler"
-                : "no mouse events observed during interaction (input did not reach the EDT)";
+
+            final boolean dragWorkloadDelivered =
+                result.interactionCompletedGestures > 0 && result.interactionDragCount > 0;
+            final boolean selectionChanged = result.selectionChangeCount > 0;
+            final String selectionSummary;
+            if (result.latestSelection != null && result.latestSelection.isSuccess()) {
+                if (!result.latestSelection.selectedIds().isEmpty()) {
+                    selectionSummary = "selection present (" + result.latestSelection.selectedIds().size() + " items)";
+                } else {
+                    selectionSummary = "selection empty";
+                }
+            } else {
+                selectionSummary = "selection unknown (last read: "
+                    + (result.latestSelection != null ? result.latestSelection.readStatus() : "none") + ")";
+            }
+
+            if (dragWorkloadDelivered) {
+                result.status = "PASS";
+                result.statusReason = "drag workload delivered (" + result.interactionCompletedGestures
+                    + " gesture(s), " + result.interactionDragCount + " drag event(s)); "
+                    + (selectionChanged ? "selection change observed (" + result.selectionChangeCount + " change(s)); " : "no selection change observed; ")
+                    + selectionSummary;
+            } else {
+                result.status = "FAIL";
+                result.statusReason = "no complete drag interaction delivered to EDT (drags: "
+                    + result.interactionDragCount + ", gestures: " + result.interactionCompletedGestures
+                    + ", activation events: " + result.activationMouseEvents + ")";
+            }
         } catch (Exception failure) {
             logger.error("SELECTION_LAG_PROBE_FAILED " + singleLine(failure), failure);
             result.status = "BLOCKED";
             result.statusReason = singleLine(failure);
         }
-        finishProbe(result, startedMillis);
+        finishProbe(result, startedNanos);
     }
 
-    private void finishProbe(final ProbeResult result, final long startedMillis) {
-        result.durationMillis = System.currentTimeMillis() - startedMillis;
+    void switchPhase(final EdtSampler sampler, final Phase nextPhase) throws Exception {
+        // Execute phase switch on host thread to ensure prior queued events are drained,
+        // and reset event gap and gesture tracking. Failure propagates to block probe.
+        onHostThread(() -> {
+            sampler.setPhase(nextPhase);
+            sampler.resetEventGap();
+            sampler.resetGestureState();
+            return null;
+        });
+    }
+
+    private void finishProbe(final ProbeResult result, final long startedNanos) {
+        result.durationMillis = TimeUnit.NANOSECONDS.toMillis(clock.nanoTime() - startedNanos);
         writeEvidenceJson(result);
         writeResultFile(result);
         logger.info("SELECTION_LAG_PROBE_RESULT status=" + result.status
             + " runId=" + result.runId
             + " modelId=" + result.modelId
             + " drawableCount=" + result.drawableCount
+            + " activationMouseEvents=" + result.activationMouseEvents
             + " interactionMouseEvents=" + result.interactionMouseEvents
+            + " interactionCompletedGestures=" + result.interactionCompletedGestures
+            + " interactionDragCount=" + result.interactionDragCount
+            + " selectionChanges=" + result.selectionChangeCount
             + " overThresholdEvents=" + result.overThresholdCount
             + " turboismFrames=" + result.turboismFrameCounts.size()
             + " durationMillis=" + result.durationMillis);
@@ -217,9 +281,9 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     }
 
     private CubismModel awaitActiveModel() throws Exception {
-        final long deadline = System.currentTimeMillis() + MODEL_AWAIT_MAX_MILLIS;
+        final long deadlineNanos = clock.nanoTime() + TimeUnit.MILLISECONDS.toNanos(MODEL_AWAIT_MAX_MILLIS);
         Exception lastFailure = null;
-        while (System.currentTimeMillis() < deadline) {
+        while (clock.nanoTime() < deadlineNanos) {
             try {
                 final CubismModel model = onHostThread(() -> context.cubism().model().active());
                 if (model != null) {
@@ -242,8 +306,6 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     // ------------------------------------------------------------------
 
     private long findEdtThreadId(final ProbeResult result) {
-        // Exact EDT name match: JOGL spawns "AWT-EventQueue-0-SharedResourceRunner"
-        // and similar prefixed threads which must not be mistaken for the EDT.
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
             if (thread.getName().matches("AWT-EventQueue-\\d+")) {
                 result.edtThreadName = thread.getName();
@@ -254,11 +316,11 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     }
 
     private Rectangle awaitStableHostWindow(final ProbeResult result) throws Exception {
-        final long deadline = System.currentTimeMillis() + 15_000L;
+        final long deadlineNanos = clock.nanoTime() + TimeUnit.MILLISECONDS.toNanos(15_000L);
         Rectangle previous = null;
         int stableCount = 0;
         Rectangle latest = null;
-        while (System.currentTimeMillis() < deadline) {
+        while (clock.nanoTime() < deadlineNanos) {
             final boolean readyForInput = onHostThread(() -> {
                 for (Window window : Window.getWindows()) {
                     if (window instanceof java.awt.Dialog dialog
@@ -271,11 +333,13 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                     selectTargetWindow(Window.getWindows(), result.fixtureName);
                 return selected != null && selected.isEnabled();
             });
-            latest = findHostWindow(result);
+            final HostWindowEvidence evidence = findHostWindow(result.fixtureName);
+            latest = evidence != null ? evidence.bounds() : null;
             if (readyForInput && latest != null) {
                 if (latest.equals(previous)) {
                     stableCount++;
                     if (stableCount >= 2) {
+                        applyHostWindowEvidence(result, evidence);
                         return latest;
                     }
                 } else {
@@ -288,12 +352,17 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             }
             Thread.sleep(150L);
         }
-        return latest != null ? latest : findHostWindow(result);
+        final HostWindowEvidence finalEvidence = findHostWindow(result.fixtureName);
+        if (finalEvidence != null) {
+            applyHostWindowEvidence(result, finalEvidence);
+            return finalEvidence.bounds();
+        }
+        return null;
     }
 
-    private Rectangle findHostWindow(final ProbeResult result) throws Exception {
+    private HostWindowEvidence findHostWindow(final String fixtureName) throws Exception {
         return onHostThread(() -> {
-            final Window selected = selectTargetWindow(Window.getWindows(), result.fixtureName);
+            final Window selected = selectTargetWindow(Window.getWindows(), fixtureName);
             if (selected == null) {
                 return null;
             }
@@ -301,12 +370,19 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             if (bounds.isEmpty()) {
                 return null;
             }
-            result.hostWindowTitle = selected instanceof java.awt.Frame f ? f.getTitle() : "";
-            result.hostWindowClass = selected.getClass().getName();
-            result.hostWindowBounds =
-                bounds.x + "," + bounds.y + " " + bounds.width + "x" + bounds.height;
-            return bounds;
+            final String title = selected instanceof java.awt.Frame f ? f.getTitle() : "";
+            final String className = selected.getClass().getName();
+            final String boundsText = bounds.x + "," + bounds.y + " " + bounds.width + "x" + bounds.height;
+            return new HostWindowEvidence(bounds, title, className, boundsText);
         });
+    }
+
+    private static void applyHostWindowEvidence(final ProbeResult result, final HostWindowEvidence evidence) {
+        if (evidence != null) {
+            result.hostWindowTitle = evidence.title();
+            result.hostWindowClass = evidence.className();
+            result.hostWindowBounds = evidence.boundsText();
+        }
     }
 
     static Window selectTargetWindow(final Window[] windows, final String fixtureName) {
@@ -395,9 +471,9 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             robot.delay(80);
             robot.mouseMove(centerX + 8, centerY + 8);
             robot.delay(150);
-            if (sampler.mouseEventCount() > 0) {
+            if (sampler.activationMouseEventCount() > 0) {
                 logger.info("SELECTION_LAG_ACTIVATION_RECEIPT attempt=" + attempt
-                    + " mouseEvents=" + sampler.mouseEventCount());
+                    + " activationMouseEvents=" + sampler.activationMouseEventCount());
                 return;
             }
         }
@@ -414,16 +490,19 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         };
         final int centerX = window.x + window.width / 2;
         final int centerY = window.y + window.height / 2;
-        // Wine-hosted windows may ignore input while unactivated: activate the
-        // window and verify that synthetic mouse events reach the EDT before the
-        // timed select-and-drag attempts begin.
-        activateAndAwaitReceipt(robot, window, result.fixtureName, sampler);
+
+        SelectionEvidence priorSelection = readSelectionBestEffort(() -> context.cubismRead().selection(), EDT_TIMEOUT_MILLIS);
+
         for (int index = 0; index < Math.min(attempts, offsets.length); index++) {
-            final int beforeEvents = sampler.mouseEventCount();
+            final int beforeInteractionEvents = sampler.interactionMouseEventCount();
+            final int beforeGestures = sampler.interactionCompletedGestures();
+            final int beforeDrags = sampler.interactionDragCount();
+
             final Point offset = offsets[index];
             final int startX = centerX + offset.x;
             final int startY = centerY + offset.y;
-            final long attemptStart = System.currentTimeMillis();
+            final long attemptStartNanos = clock.nanoTime();
+
             // Press at the target, then a short drag and release (select-and-drag path).
             robot.mouseMove(startX, startY);
             robot.delay(150);
@@ -435,198 +514,423 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             }
             robot.delay(60);
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-            final long attemptMillis = System.currentTimeMillis() - attemptStart;
+            final long attemptMillis = TimeUnit.NANOSECONDS.toMillis(clock.nanoTime() - attemptStartNanos);
             Thread.sleep(400L);
-            if (sampler.mouseEventCount() == beforeEvents) {
-                activateAndAwaitReceipt(robot, window, result.fixtureName, sampler);
+
+            // 1. Immediately read selection following drag completion:
+            final SelectionEvidence afterSelection =
+                readSelectionBestEffort(() -> context.cubismRead().selection(), EDT_TIMEOUT_MILLIS);
+            final boolean selectionChanged = computeSelectionChanged(priorSelection, afterSelection);
+            if (selectionChanged) {
+                result.selectionChangeCount++;
             }
-            final SelectionEvidence selection = readSelectionBestEffort();
+            result.latestSelection = afterSelection;
+
+            // 2. Record this attempt with exact interaction input deltas and full before/after selection states:
+            final int attemptEvents = sampler.interactionMouseEventCount() - beforeInteractionEvents;
+            final int attemptGestures = sampler.interactionCompletedGestures() - beforeGestures;
+            final int attemptDrags = sampler.interactionDragCount() - beforeDrags;
+
             final InteractionAttempt record = new InteractionAttempt(index, startX, startY,
-                attemptMillis, selection.selectedIds, selection.activeArtMesh,
-                selection.readTimedOutMillis, sampler.mouseEventCount());
+                attemptMillis,
+                priorSelection.selectedIds(), priorSelection.activeArtMesh(), priorSelection.readStatus().name(),
+                afterSelection.selectedIds(), afterSelection.activeArtMesh(), afterSelection.readStatus().name(),
+                afterSelection.readDurationMillis(),
+                selectionChanged, attemptEvents, attemptGestures, attemptDrags,
+                sampler.interactionMouseEventCount());
             result.interactionAttempts.add(record);
+
             logger.info("SELECTION_LAG_ATTEMPT index=" + index
                 + " point=" + startX + "," + startY
                 + " robotMillis=" + record.robotMillis
+                + " attemptEvents=" + attemptEvents
+                + " attemptGestures=" + attemptGestures
+                + " attemptDrags=" + attemptDrags
                 + " mouseEventsTotal=" + record.mouseEventsTotal
+                + " selectedBefore=" + record.selectedObjectIdsBefore
                 + " selectedAfter=" + record.selectedObjectIdsAfter
                 + " activeArtMeshAfter=" + record.activeArtMeshAfter
-                + " selectionReadTimedOutMs=" + record.selectionReadTimedOutMs);
-            final long remaining = ATTEMPT_PACING_MILLIS
-                - (System.currentTimeMillis() - attemptStart);
+                + " selectionChanged=" + record.selectionChanged
+                + " readStatusAfter=" + record.selectionReadStatusAfter
+                + " readDurationMs=" + record.selectionReadDurationMs);
+
+            priorSelection = afterSelection;
+
+            // 3. If no interaction events reached the EDT, reactivate in ACTIVATION phase
+            // and refresh priorSelection baseline:
+            if (attemptEvents == 0) {
+                switchPhase(sampler, Phase.ACTIVATION);
+                activateAndAwaitReceipt(robot, window, result.fixtureName, sampler);
+                switchPhase(sampler, Phase.INTERACTION);
+                priorSelection = readSelectionBestEffort(() -> context.cubismRead().selection(), EDT_TIMEOUT_MILLIS);
+            }
+
+            final long elapsedAttemptMillis = TimeUnit.NANOSECONDS.toMillis(clock.nanoTime() - attemptStartNanos);
+            final long remaining = ATTEMPT_PACING_MILLIS - elapsedAttemptMillis;
             if (remaining > 0) {
                 Thread.sleep(remaining);
             }
         }
     }
 
-    private record SelectionEvidence(List<String> selectedIds, String activeArtMesh,
-            long readTimedOutMillis) {
+    static boolean computeSelectionChanged(final SelectionEvidence before, final SelectionEvidence after) {
+        if (!before.isSuccess() || !after.isSuccess()) {
+            return false;
+        }
+        final Set<String> beforeIds = Set.copyOf(before.selectedIds());
+        final Set<String> afterIds = Set.copyOf(after.selectedIds());
+        if (!beforeIds.equals(afterIds)) {
+            return true;
+        }
+        return !Objects.equals(before.activeArtMesh(), after.activeArtMesh());
     }
 
-    private SelectionEvidence readSelectionBestEffort() {
-        final AtomicReference<List<String>> ids = new AtomicReference<>(List.of());
-        final AtomicReference<String> mesh = new AtomicReference<>("");
-        final AtomicReference<Long> timedOut = new AtomicReference<>(0L);
+    SelectionEvidence readSelectionBestEffort(final Callable<SelectionSnapshot> reader, final long timeoutMillis) {
+        final long startNanos = clock.nanoTime();
         try {
-            onHostThread(() -> {
-                try {
-                    final SelectionSnapshot snapshot = context.cubismRead().selection();
-                    ids.set(snapshot.selectedObjectIds());
-                    mesh.set(snapshot.activeArtMeshId().orElse(""));
-                } catch (RuntimeException unavailable) {
-                    logger.warn("SELECTION_LAG_SELECTION_READ_FAILED " + singleLine(unavailable));
-                }
-                return null;
-            });
-        } catch (Exception timedOutReading) {
-            timedOut.set(EDT_TIMEOUT_MILLIS);
-            logger.warn("SELECTION_LAG_SELECTION_READ_TIMEOUT " + singleLine(timedOutReading));
+            final SelectionSnapshot snapshot = onHostThread(reader, timeoutMillis);
+            final List<String> ids = List.copyOf(snapshot.selectedObjectIds());
+            final String mesh = snapshot.activeArtMeshId().orElse("");
+            final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(clock.nanoTime() - startNanos);
+            return new SelectionEvidence(ids, mesh, SelectionReadStatus.SUCCESS, elapsedMillis);
+        } catch (TimeoutException timedOut) {
+            final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(clock.nanoTime() - startNanos);
+            return new SelectionEvidence(List.of(), "", SelectionReadStatus.TIMEOUT, elapsedMillis);
+        } catch (Exception failed) {
+            final long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(clock.nanoTime() - startNanos);
+            return new SelectionEvidence(List.of(), "", SelectionReadStatus.FAILED, elapsedMillis);
         }
-        return new SelectionEvidence(ids.get(), mesh.get(), timedOut.get());
     }
 
     // ------------------------------------------------------------------
     // EDT sampler
     // ------------------------------------------------------------------
 
-    /**
-     * Observation-only EDT timing sampler. All callback bodies run on the EDT
-     * and are intentionally lock-free apart from short synchronized appends of
-     * numeric records; the watchdog runs on a separate daemon thread.
-     */
-    private final class EdtSampler {
+    static final class AmortizedSamples {
+        private long[] data = new long[32];
+        private int count = 0;
+
+        void add(final long value) {
+            if (count == data.length) {
+                data = Arrays.copyOf(data, data.length * 2);
+            }
+            data[count++] = value;
+        }
+
+        long[] toArray() {
+            return Arrays.copyOf(data, count);
+        }
+
+        int size() {
+            return count;
+        }
+    }
+
+    static final class PhaseStatsBuilder {
+        final AmortizedSamples gapSamples = new AmortizedSamples();
+        final AmortizedSamples latencySamples = new AmortizedSamples();
+        int eventCount = 0;
+        int pressCount = 0;
+        int dragCount = 0;
+        int releaseCount = 0;
+        int clickCount = 0;
+        int moveCount = 0;
+        int completedGestures = 0;
+    }
+
+    static final class EdtSampler {
 
         private final long edtThreadId;
-        private final long thresholdMillis;
-        private final ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-        private final List<double[]> gapSamplesByPhase = new ArrayList<>();
-        private final List<double[]> latencySamplesByPhase = new ArrayList<>();
+        private final long thresholdNanos;
+        private final NanoClock clock;
+        private final HostDispatcher dispatcher;
+        private final ThreadMXBean bean;
+
+        private final Object stateLock = new Object();
+        private boolean running = false;
+        private Phase phase = Phase.BASELINE;
+
+        private boolean hasLastEvent = false;
+        private long lastEventNanos = 0L;
+
+        private boolean currentInGesture = false;
+        private boolean currentGestureHadDrag = false;
+
+        private boolean heartbeatPending = false;
+        private long heartbeatEnqueueNanos = 0L;
+        private Phase heartbeatEnqueuePhase = Phase.BASELINE;
+
+        private long pendingTriggerMillis = -1L;
+        private String pendingTriggerReason = "";
+        private Phase pendingTriggerPhase = Phase.BASELINE;
+
+        private boolean hasCaptured = false;
+        private long lastCaptureNanos = 0L;
+
+        private int activationMouseEvents = 0;
+        private int interactionMouseEvents = 0;
+
+        private final List<PhaseStatsBuilder> phaseBuilders = new ArrayList<>();
         private final List<StackCapture> captures = new ArrayList<>();
         private final Map<String, Integer> turboismFrameCounts = new HashMap<>();
-        private volatile Phase phase = Phase.BASELINE;
-        private volatile long lastEventMillis;
-        private volatile long pendingTriggerMillis = -1L;
-        private volatile String pendingTriggerReason = "";
-        private volatile long lastCaptureMillis;
-        private volatile int mouseEventCount;
-        private final Object triggerLock = new Object();
 
+        private AWTEventListener awtListener;
         private ScheduledExecutorService heartbeat;
         private Thread watchdog;
-        private boolean running;
 
-        EdtSampler(final long edtThreadId, final long thresholdMillis) {
+        EdtSampler(final long edtThreadId, final long thresholdMillis, final NanoClock clock,
+                final HostDispatcher dispatcher, final ThreadMXBean bean) {
             this.edtThreadId = edtThreadId;
-            this.thresholdMillis = thresholdMillis;
-            for (Phase value : Phase.values()) {
-                gapSamplesByPhase.add(new double[0]);
-                latencySamplesByPhase.add(new double[0]);
+            this.thresholdNanos = TimeUnit.MILLISECONDS.toNanos(thresholdMillis);
+            this.clock = clock;
+            this.dispatcher = dispatcher;
+            this.bean = bean;
+            for (Phase ignored : Phase.values()) {
+                phaseBuilders.add(new PhaseStatsBuilder());
             }
         }
 
+        EdtSampler(final long edtThreadId, final long thresholdMillis, final NanoClock clock,
+                final HostDispatcher dispatcher) {
+            this(edtThreadId, thresholdMillis, clock, dispatcher, ManagementFactory.getThreadMXBean());
+        }
+
         void setPhase(final Phase next) {
-            phase = next;
+            synchronized (stateLock) {
+                phase = next;
+            }
         }
 
-        /** Reset the event-gap baseline so the first interaction event's gap is real. */
+        Phase getPhase() {
+            synchronized (stateLock) {
+                return phase;
+            }
+        }
+
         void resetEventGap() {
-            lastEventMillis = System.currentTimeMillis();
+            synchronized (stateLock) {
+                hasLastEvent = false;
+                lastEventNanos = clock.nanoTime();
+            }
         }
 
-        int mouseEventCount() {
-            return mouseEventCount;
+        void resetGestureState() {
+            synchronized (stateLock) {
+                currentInGesture = false;
+                currentGestureHadDrag = false;
+            }
+        }
+
+        int activationMouseEventCount() {
+            synchronized (stateLock) {
+                return activationMouseEvents;
+            }
+        }
+
+        int interactionMouseEventCount() {
+            synchronized (stateLock) {
+                return interactionMouseEvents;
+            }
+        }
+
+        int interactionCompletedGestures() {
+            synchronized (stateLock) {
+                return phaseBuilders.get(Phase.INTERACTION.ordinal()).completedGestures;
+            }
+        }
+
+        int interactionDragCount() {
+            synchronized (stateLock) {
+                return phaseBuilders.get(Phase.INTERACTION.ordinal()).dragCount;
+            }
+        }
+
+        void startObservation() {
+            synchronized (stateLock) {
+                running = true;
+                hasLastEvent = false;
+                lastEventNanos = clock.nanoTime();
+                hasCaptured = false;
+            }
+            awtListener = event -> onMouseEvent(event.getID());
+            Toolkit.getDefaultToolkit().addAWTEventListener(
+                awtListener, AWTEvent.MOUSE_EVENT_MASK | AWTEvent.MOUSE_MOTION_EVENT_MASK);
         }
 
         void start() {
-            running = true;
-            final long thresholdMillis = this.thresholdMillis;
-            lastEventMillis = System.currentTimeMillis();
-            // The registration mask below already restricts the listener to mouse
-            // events; the callback body runs on the EDT and must stay cheap.
-            Toolkit.getDefaultToolkit().addAWTEventListener(event -> {
-                if (!running) {
-                    return;
-                }
-                final long now = System.currentTimeMillis();
-                final long gap = now - lastEventMillis;
-                lastEventMillis = now;
-                final Phase current = phase;
-                appendSample(gapSamplesByPhase, current, gap);
-                mouseEventCount++;
-                if (gap >= thresholdMillis) {
-                    synchronized (triggerLock) {
-                        pendingTriggerMillis = gap;
-                        pendingTriggerReason = "EVENT_GAP";
-                    }
-                }
-            }, AWTEvent.MOUSE_EVENT_MASK | AWTEvent.MOUSE_MOTION_EVENT_MASK);
+            startObservation();
 
             heartbeat = new ScheduledThreadPoolExecutor(1, runnable -> {
                 final Thread thread = new Thread(runnable, "selection-lag-heartbeat");
                 thread.setDaemon(true);
                 return thread;
             });
-            heartbeat.scheduleAtFixedRate(() -> {
-                if (!running) {
-                    return;
-                }
-                final long enqueue = System.currentTimeMillis();
-                SwingUtilities.invokeLater(() -> {
-                    final long latency = System.currentTimeMillis() - enqueue;
-                    final Phase current = phase;
-                    appendSample(latencySamplesByPhase, current, latency);
-                    if (latency >= thresholdMillis) {
-                        synchronized (triggerLock) {
-                            pendingTriggerMillis = latency;
-                            pendingTriggerReason = "HEARTBEAT";
-                        }
-                    }
-                });
-            }, HEARTBEAT_PERIOD_MILLIS, HEARTBEAT_PERIOD_MILLIS, TimeUnit.MILLISECONDS);
+            heartbeat.scheduleAtFixedRate(
+                this::heartbeatTick, HEARTBEAT_PERIOD_MILLIS, HEARTBEAT_PERIOD_MILLIS, TimeUnit.MILLISECONDS);
 
-            watchdog = new Thread(() -> {
-                while (running) {
-                    final String reason;
-                    final long millis;
-                    synchronized (triggerLock) {
-                        if (pendingTriggerMillis < 0) {
-                            reason = null;
-                            millis = -1;
-                        } else {
-                            reason = pendingTriggerReason;
-                            millis = pendingTriggerMillis;
-                            pendingTriggerMillis = -1;
-                            pendingTriggerReason = "";
-                        }
-                    }
-                    if (reason != null) {
-                        final long now = System.currentTimeMillis();
-                        if (now - lastCaptureMillis >= TRIGGER_COOLDOWN_MILLIS) {
-                            lastCaptureMillis = now;
-                            captureStack(reason, millis);
-                        }
-                    }
-                    try {
-                        Thread.sleep(5L);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                }
-            }, "selection-lag-stack-watchdog");
+            watchdog = new Thread(this::watchdogLoop, "selection-lag-stack-watchdog");
             watchdog.setDaemon(true);
             watchdog.start();
         }
 
-        private void captureStack(final String reason, final long triggerMillis) {
-            final String capturedPhase = phase.name();
-            for (int shot = 0; shot < CAPTURE_SHOTS; shot++) {
-                if (captures.size() >= CAPTURE_LIMIT) {
+        void onMouseEvent(final int eventId) {
+            final long nowNanos = clock.nanoTime();
+            synchronized (stateLock) {
+                if (!running) {
                     return;
                 }
-                final ThreadInfo info = bean.getThreadInfo(
-                    new long[] {edtThreadId}, STACK_DEPTH)[0];
+                final long gapNanos;
+                if (hasLastEvent) {
+                    gapNanos = nowNanos - lastEventNanos;
+                } else {
+                    gapNanos = 0L;
+                    hasLastEvent = true;
+                }
+                lastEventNanos = nowNanos;
+                final long gapMillis = TimeUnit.NANOSECONDS.toMillis(gapNanos);
+                final Phase current = phase;
+                final PhaseStatsBuilder stats = phaseBuilders.get(current.ordinal());
+                stats.gapSamples.add(gapMillis);
+                stats.eventCount++;
+
+                if (current == Phase.ACTIVATION) {
+                    activationMouseEvents++;
+                } else if (current == Phase.INTERACTION) {
+                    interactionMouseEvents++;
+                }
+
+                switch (eventId) {
+                    case MouseEvent.MOUSE_PRESSED -> {
+                        stats.pressCount++;
+                        currentInGesture = true;
+                        currentGestureHadDrag = false;
+                    }
+                    case MouseEvent.MOUSE_DRAGGED -> {
+                        stats.dragCount++;
+                        if (currentInGesture) {
+                            currentGestureHadDrag = true;
+                        }
+                    }
+                    case MouseEvent.MOUSE_RELEASED -> {
+                        stats.releaseCount++;
+                        if (currentInGesture && currentGestureHadDrag) {
+                            stats.completedGestures++;
+                        }
+                        currentInGesture = false;
+                        currentGestureHadDrag = false;
+                    }
+                    case MouseEvent.MOUSE_CLICKED -> stats.clickCount++;
+                    case MouseEvent.MOUSE_MOVED -> stats.moveCount++;
+                    default -> {}
+                }
+
+                if (hasLastEvent && gapNanos >= thresholdNanos) {
+                    triggerWatchdogLocked("EVENT_GAP", gapMillis, current);
+                }
+            }
+        }
+
+        void heartbeatTick() {
+            final long nowNanos = clock.nanoTime();
+            synchronized (stateLock) {
+                if (!running) {
+                    return;
+                }
+                if (!heartbeatPending) {
+                    heartbeatPending = true;
+                    heartbeatEnqueueNanos = nowNanos;
+                    heartbeatEnqueuePhase = phase;
+                } else {
+                    final long blockedNanos = nowNanos - heartbeatEnqueueNanos;
+                    if (blockedNanos >= thresholdNanos) {
+                        final long blockedMillis = TimeUnit.NANOSECONDS.toMillis(blockedNanos);
+                        triggerWatchdogLocked("HEARTBEAT_BLOCKED", blockedMillis, heartbeatEnqueuePhase);
+                    }
+                    return;
+                }
+            }
+
+            dispatcher.dispatch(() -> {
+                final long finishNanos = clock.nanoTime();
+                synchronized (stateLock) {
+                    if (!running || !heartbeatPending) {
+                        heartbeatPending = false;
+                        return;
+                    }
+                    final long enqueueNanos = heartbeatEnqueueNanos;
+                    final Phase enqueuePhase = heartbeatEnqueuePhase;
+                    heartbeatPending = false;
+                    final long latencyNanos = finishNanos - enqueueNanos;
+                    final long latencyMillis = TimeUnit.NANOSECONDS.toMillis(latencyNanos);
+                    phaseBuilders.get(enqueuePhase.ordinal()).latencySamples.add(latencyMillis);
+                    if (latencyNanos >= thresholdNanos) {
+                        triggerWatchdogLocked("HEARTBEAT", latencyMillis, enqueuePhase);
+                    }
+                }
+            });
+        }
+
+        private void triggerWatchdogLocked(final String reason, final long millis, final Phase triggerPhase) {
+            pendingTriggerMillis = millis;
+            pendingTriggerReason = reason;
+            pendingTriggerPhase = triggerPhase;
+        }
+
+        void watchdogTick() {
+            final String reason;
+            final long millis;
+            final Phase triggerPhase;
+            synchronized (stateLock) {
+                if (!running || pendingTriggerMillis < 0) {
+                    return;
+                }
+                reason = pendingTriggerReason;
+                millis = pendingTriggerMillis;
+                triggerPhase = pendingTriggerPhase;
+                pendingTriggerMillis = -1;
+                pendingTriggerReason = "";
+            }
+
+            final long nowNanos = clock.nanoTime();
+            boolean shouldCapture = false;
+            synchronized (stateLock) {
+                if (running && (!hasCaptured || nowNanos - lastCaptureNanos >= TimeUnit.MILLISECONDS.toNanos(TRIGGER_COOLDOWN_MILLIS))) {
+                    hasCaptured = true;
+                    lastCaptureNanos = nowNanos;
+                    shouldCapture = true;
+                }
+            }
+            if (shouldCapture) {
+                captureStack(reason, millis, triggerPhase);
+            }
+        }
+
+        private void watchdogLoop() {
+            while (true) {
+                synchronized (stateLock) {
+                    if (!running) {
+                        return;
+                    }
+                }
+                watchdogTick();
+                try {
+                    Thread.sleep(5L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+
+        private void captureStack(final String reason, final long triggerMillis, final Phase triggerPhase) {
+            final String capturedPhase = triggerPhase.name();
+            for (int shot = 0; shot < CAPTURE_SHOTS; shot++) {
+                synchronized (stateLock) {
+                    if (!running || captures.size() >= CAPTURE_LIMIT) {
+                        return;
+                    }
+                }
+                final ThreadInfo info = bean.getThreadInfo(new long[] {edtThreadId}, STACK_DEPTH)[0];
                 if (info == null) {
                     return;
                 }
@@ -639,11 +943,20 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                     frames.add(line);
                     if (frame.getClassName().startsWith("dev.turboism.")) {
                         turboismFrames.add(line);
+                    }
+                }
+
+                synchronized (stateLock) {
+                    if (!running || captures.size() >= CAPTURE_LIMIT) {
+                        return;
+                    }
+                    captures.add(new StackCapture(Instant.now().toString(), reason, triggerMillis,
+                        capturedPhase, info.getThreadState().name(), frames, turboismFrames));
+                    for (String line : turboismFrames) {
                         turboismFrameCounts.merge(line, 1, Integer::sum);
                     }
                 }
-                captures.add(new StackCapture(Instant.now().toString(), reason, triggerMillis,
-                    capturedPhase, info.getThreadState().name(), frames, turboismFrames));
+
                 try {
                     Thread.sleep(CAPTURE_SHOT_GAP_MILLIS);
                 } catch (InterruptedException interrupted) {
@@ -653,49 +966,63 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             }
         }
 
-        private static void appendSample(final List<double[]> perPhase, final Phase phase,
-                final long value) {
-            final double[] samples = perPhase.get(phase.ordinal());
-            final double[] grown = new double[samples.length + 1];
-            System.arraycopy(samples, 0, grown, 0, samples.length);
-            grown[samples.length] = value;
-            perPhase.set(phase.ordinal(), grown);
-        }
-
         void stop() {
-            running = false;
+            if (awtListener != null) {
+                Toolkit.getDefaultToolkit().removeAWTEventListener(awtListener);
+                awtListener = null;
+            }
+            synchronized (stateLock) {
+                running = false;
+            }
             if (heartbeat != null) {
                 heartbeat.shutdownNow();
+                try {
+                    heartbeat.awaitTermination(500, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
             }
             if (watchdog != null) {
                 watchdog.interrupt();
+                try {
+                    watchdog.join(500L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
 
         void exportStats(final ProbeResult result) {
-            for (Phase value : Phase.values()) {
-                result.phases.put(value.name(), new PhaseStats(
-                    gapSamplesByPhase.get(value.ordinal()).length,
-                    percentiles(gapSamplesByPhase.get(value.ordinal())),
-                    latencySamplesByPhase.get(value.ordinal()).length,
-                    percentiles(latencySamplesByPhase.get(value.ordinal()))));
+            synchronized (stateLock) {
+                for (Phase value : Phase.values()) {
+                    final PhaseStatsBuilder builder = phaseBuilders.get(value.ordinal());
+                    final long[] gapSamples = builder.gapSamples.toArray();
+                    final long[] latencySamples = builder.latencySamples.toArray();
+                    result.phases.put(value.name(), new PhaseStats(
+                        builder.eventCount,
+                        percentiles(gapSamples),
+                        latencySamples.length,
+                        percentiles(latencySamples)));
+                }
+                result.activationMouseEvents = activationMouseEvents;
+                result.interactionMouseEvents = interactionMouseEvents;
+                result.interactionCompletedGestures = phaseBuilders.get(Phase.INTERACTION.ordinal()).completedGestures;
+                result.interactionDragCount = phaseBuilders.get(Phase.INTERACTION.ordinal()).dragCount;
+                result.overThresholdCount = captures.size();
+                result.stackCaptures = List.copyOf(captures);
+                result.turboismFrameCounts = new HashMap<>(turboismFrameCounts);
             }
-            result.interactionMouseEvents =
-                gapSamplesByPhase.get(Phase.INTERACTION.ordinal()).length;
-            result.overThresholdCount = captures.size();
-            result.stackCaptures = List.copyOf(captures);
-            result.turboismFrameCounts = new HashMap<>(turboismFrameCounts);
         }
 
-        private static long[] percentiles(final double[] samples) {
+        private static long[] percentiles(final long[] samples) {
             if (samples.length == 0) {
                 return new long[] {-1, -1, -1};
             }
-            final double[] sorted = samples.clone();
+            final long[] sorted = samples.clone();
             Arrays.sort(sorted);
-            final long p50 = (long) sorted[(int) (sorted.length * 0.50)];
-            final long p95 = (long) sorted[(int) Math.min(sorted.length - 1, sorted.length * 0.95)];
-            final long max = (long) sorted[sorted.length - 1];
+            final long p50 = sorted[(int) (sorted.length * 0.50)];
+            final long p95 = sorted[(int) Math.min(sorted.length - 1, sorted.length * 0.95)];
+            final long max = sorted[sorted.length - 1];
             return new long[] {p50, p95, max};
         }
     }
@@ -704,20 +1031,33 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     // Evidence records
     // ------------------------------------------------------------------
 
-    private record StackCapture(String utc, String trigger, long triggerMillis, String phase,
+    record StackCapture(String utc, String trigger, long triggerMillis, String phase,
             String edtState, List<String> frames, List<String> turboismFrames) {
     }
 
-    private record PhaseStats(long eventCount, long[] eventGapMillis,
+    record PhaseStats(long eventCount, long[] eventGapMillis,
             long heartbeatCount, long[] heartbeatLatencyMillis) {
     }
 
-    private record InteractionAttempt(int index, int x, int y, long robotMillis,
-            List<String> selectedObjectIdsAfter, String activeArtMeshAfter,
-            long selectionReadTimedOutMs, int mouseEventsTotal) {
+    record InteractionAttempt(
+            int index,
+            int x, int y,
+            long robotMillis,
+            List<String> selectedObjectIdsBefore,
+            String activeArtMeshBefore,
+            String selectionReadStatusBefore,
+            List<String> selectedObjectIdsAfter,
+            String activeArtMeshAfter,
+            String selectionReadStatusAfter,
+            long selectionReadDurationMs,
+            boolean selectionChanged,
+            int attemptEvents,
+            int attemptGestures,
+            int attemptDrags,
+            int mouseEventsTotal) {
     }
 
-    private static final class ProbeResult {
+    static final class ProbeResult {
         String runId;
         String hostVersion;
         String fixtureName;
@@ -731,7 +1071,12 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         String hostWindowBounds = "";
         final List<InteractionAttempt> interactionAttempts = new ArrayList<>();
         final Map<String, PhaseStats> phases = new HashMap<>();
+        int activationMouseEvents;
         int interactionMouseEvents;
+        int interactionCompletedGestures;
+        int interactionDragCount;
+        int selectionChangeCount;
+        SelectionEvidence latestSelection = null;
         int overThresholdCount;
         List<StackCapture> stackCaptures = List.of();
         Map<String, Integer> turboismFrameCounts = new HashMap<>();
@@ -741,33 +1086,38 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     }
 
     // ------------------------------------------------------------------
-    // Host thread helper
+    // Host thread helper with FutureTask, bounded wait, and cancellation
     // ------------------------------------------------------------------
 
-    private <T> T onHostThread(final Callable<T> operation) throws Exception {
+    <T> T onHostThread(final Callable<T> operation) throws Exception {
+        return onHostThread(operation, EDT_TIMEOUT_MILLIS);
+    }
+
+    <T> T onHostThread(final Callable<T> operation, final long timeoutMillis) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) {
             return operation.call();
         }
-        final AtomicReference<T> result = new AtomicReference<>();
-        final AtomicReference<Exception> failure = new AtomicReference<>();
-        final CountDownLatch completed = new CountDownLatch(1);
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                result.set(operation.call());
-            } catch (Exception exception) {
-                failure.set(exception);
-            } finally {
-                completed.countDown();
+        final FutureTask<T> future = new FutureTask<>(operation);
+        hostDispatcher.dispatch(future);
+        try {
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timedOut) {
+            future.cancel(false);
+            throw timedOut;
+        } catch (InterruptedException interrupted) {
+            future.cancel(false);
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (ExecutionException executionException) {
+            final Throwable cause = executionException.getCause();
+            if (cause instanceof Exception exception) {
+                throw exception;
             }
-        });
-        if (!completed.await(EDT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
-            throw new IllegalStateException(
-                "Cubism EDT did not accept the probe read within " + EDT_TIMEOUT_MILLIS + " ms.");
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException(cause);
         }
-        if (failure.get() != null) {
-            throw failure.get();
-        }
-        return result.get();
     }
 
     // ------------------------------------------------------------------
@@ -788,7 +1138,11 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                 .append("edtThreadName=").append(result.edtThreadName).append('\n')
                 .append("hostWindowBounds=").append(result.hostWindowBounds).append('\n')
                 .append("interactionAttempts=").append(result.interactionAttempts.size()).append('\n')
+                .append("activationMouseEvents=").append(result.activationMouseEvents).append('\n')
                 .append("interactionMouseEvents=").append(result.interactionMouseEvents).append('\n')
+                .append("interactionCompletedGestures=").append(result.interactionCompletedGestures).append('\n')
+                .append("interactionDragCount=").append(result.interactionDragCount).append('\n')
+                .append("selectionChanges=").append(result.selectionChangeCount).append('\n')
                 .append("overThresholdEvents=").append(result.overThresholdCount).append('\n')
                 .append("turboismFrameCounts=").append(result.turboismFrameCounts.size()).append('\n')
                 .append("durationMillis=").append(result.durationMillis).append('\n')
@@ -837,7 +1191,11 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         field(json, "hostWindowClass", result.hostWindowClass);
         field(json, "hostWindowBounds", result.hostWindowBounds);
         field(json, "durationMillis", result.durationMillis);
+        field(json, "activationMouseEvents", result.activationMouseEvents);
         field(json, "interactionMouseEvents", result.interactionMouseEvents);
+        field(json, "interactionCompletedGestures", result.interactionCompletedGestures);
+        field(json, "interactionDragCount", result.interactionDragCount);
+        field(json, "selectionChanges", result.selectionChangeCount);
         field(json, "overThresholdEvents", result.overThresholdCount);
 
         json.append("  \"interactionAttempts\": [\n");
@@ -847,7 +1205,18 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                 .append(", \"x\": ").append(attempt.x())
                 .append(", \"y\": ").append(attempt.y())
                 .append(", \"robotMillis\": ").append(attempt.robotMillis())
-                .append(", \"mouseEventsTotal\": ").append(attempt.mouseEventsTotal());
+                .append(", \"attemptEvents\": ").append(attempt.attemptEvents())
+                .append(", \"attemptGestures\": ").append(attempt.attemptGestures())
+                .append(", \"attemptDrags\": ").append(attempt.attemptDrags())
+                .append(", \"mouseEventsTotal\": ").append(attempt.mouseEventsTotal())
+                .append(", \"selectedObjectIdsBefore\": ").append(jsonArray(attempt.selectedObjectIdsBefore()))
+                .append(", \"activeArtMeshBefore\": \"").append(escape(attempt.activeArtMeshBefore())).append("\"")
+                .append(", \"selectionReadStatusBefore\": \"").append(escape(attempt.selectionReadStatusBefore())).append("\"")
+                .append(", \"selectedObjectIdsAfter\": ").append(jsonArray(attempt.selectedObjectIdsAfter()))
+                .append(", \"activeArtMeshAfter\": \"").append(escape(attempt.activeArtMeshAfter())).append("\"")
+                .append(", \"selectionReadStatusAfter\": \"").append(escape(attempt.selectionReadStatusAfter())).append("\"")
+                .append(", \"selectionReadDurationMs\": ").append(attempt.selectionReadDurationMs())
+                .append(", \"selectionChanged\": ").append(attempt.selectionChanged());
             if (index + 1 < result.interactionAttempts.size()) {
                 json.append("},\n");
             } else {
@@ -858,6 +1227,7 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
 
         json.append("  \"phases\": {\n");
         final List<String> phaseNames = new ArrayList<>(result.phases.keySet());
+        phaseNames.sort(String::compareTo);
         for (int index = 0; index < phaseNames.size(); index++) {
             final String name = phaseNames.get(index);
             final PhaseStats stats = result.phases.get(name);
@@ -928,6 +1298,18 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         json.append("  }\n");
         json.append("}\n");
         return json.toString();
+    }
+
+    private static String jsonArray(final List<String> items) {
+        final StringBuilder builder = new StringBuilder("[");
+        for (int i = 0; i < items.size(); i++) {
+            builder.append('"').append(escape(items.get(i))).append('"');
+            if (i + 1 < items.size()) {
+                builder.append(", ");
+            }
+        }
+        builder.append(']');
+        return builder.toString();
     }
 
     private static void field(final StringBuilder json, final String name, final String value) {

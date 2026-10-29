@@ -343,6 +343,30 @@ final class VerifiedMeshMirrorHookInstallerTest {
     }
 
     @Test
+    void startPreviewRuntimeRestoresInterruptFlagWhenInterruptedAndCleanupSucceeds() throws Exception {
+        final VerifiedMeshMirrorHookInstaller candidate = new VerifiedMeshMirrorHookInstaller(
+                instrumentation(new ArrayList<>()), getClass().getClassLoader(), null, null, profile());
+        candidate.install();
+        MeshMirrorHookContributor.CURRENT.set(candidate);
+        final InterruptedException interrupted = new InterruptedException("startup interrupted");
+        try {
+            final InterruptedException observed = assertThrows(
+                    InterruptedException.class,
+                    () -> PreviewRuntimeLauncher.startPreviewRuntime(candidate, null, () -> {
+                        throw interrupted;
+                    }));
+            assertSame(interrupted, observed);
+            assertTrue(Thread.currentThread().isInterrupted());
+            assertFalse(candidate.isInstalled());
+            assertNull(MeshMirrorHookContributor.CURRENT.get());
+        } finally {
+            Thread.interrupted();
+            MeshMirrorHookContributor.CURRENT.compareAndSet(candidate, null);
+            candidate.close();
+        }
+    }
+
+    @Test
     void hostIdentityRejectionBeforeRuntimeCreationClosesBothPremainMirrors() throws Exception {
         final List<String> calls = new ArrayList<>();
         final VerifiedMeshMirrorHookInstaller mesh = new VerifiedMeshMirrorHookInstaller(

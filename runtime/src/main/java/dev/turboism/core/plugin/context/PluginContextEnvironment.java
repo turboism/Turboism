@@ -33,6 +33,7 @@ public final class PluginContextEnvironment {
     private final ExportSettingsContributionService exportSettings;
     private final ScriptService scriptService;
     private final McpConnectionService mcpConnectionService;
+    private final java.util.function.BooleanSupplier generationAdmission;
 
     PluginContextEnvironment(
             final RuntimeHostAdapterAccess hostAccess,
@@ -47,7 +48,8 @@ public final class PluginContextEnvironment {
             final FileChooserHistoryService fileChooserHistory,
             final ExportSettingsContributionService exportSettings,
             final ScriptService scriptService,
-            final McpConnectionService mcpConnectionService) {
+            final McpConnectionService mcpConnectionService,
+            final java.util.function.BooleanSupplier generationAdmission) {
         this.hostAccess = hostAccess;
         this.hostAdapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.servicesFactory = Objects.requireNonNull(servicesFactory, "servicesFactory");
@@ -61,6 +63,7 @@ public final class PluginContextEnvironment {
         this.exportSettings = exportSettings;
         this.scriptService = scriptService;
         this.mcpConnectionService = mcpConnectionService;
+        this.generationAdmission = Objects.requireNonNull(generationAdmission, "generationAdmission");
     }
 
     /**
@@ -209,6 +212,15 @@ public final class PluginContextEnvironment {
         return mcpConnectionService;
     }
 
+    /**
+     * Returns the generation admission gate supplier.
+     *
+     * @return generation admission supplier
+     */
+    public java.util.function.BooleanSupplier generationAdmission() {
+        return generationAdmission;
+    }
+
     static DefaultCubismServicesFactory defaultServicesFactory(
             final RuntimeHostAdapterAccess hostAccess, final UserFileAccessService userFiles) {
         return new DefaultCubismServicesFactory(
@@ -255,6 +267,7 @@ public final class PluginContextEnvironment {
         private ExportSettingsContributionService exportSettings;
         private ScriptService scriptService;
         private McpConnectionService mcpConnectionService;
+        private java.util.function.BooleanSupplier generationAdmission = () -> true;
 
         Builder(final RuntimeHostAdapterAccess hostAccess) {
             this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
@@ -388,6 +401,17 @@ public final class PluginContextEnvironment {
         }
 
         /**
+         * Sets the generation admission gate supplier.
+         *
+         * @param generationAdmission generation admission supplier
+         * @return this builder
+         */
+        public Builder generationAdmission(final java.util.function.BooleanSupplier generationAdmission) {
+            this.generationAdmission = Objects.requireNonNull(generationAdmission, "generationAdmission");
+            return this;
+        }
+
+        /**
          * Builds the immutable {@link PluginContextEnvironment}.
          *
          * @return assembled environment
@@ -411,7 +435,8 @@ public final class PluginContextEnvironment {
                     fileChooserHistory,
                     exportSettings,
                     scriptService,
-                    mcpConnectionService);
+                    mcpConnectionService,
+                    generationAdmission);
         }
     }
 }

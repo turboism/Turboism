@@ -1,5 +1,6 @@
 package dev.turboism.ui.overlay;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
@@ -86,19 +87,20 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
             this.descriptors = List.of();
             // 2. Disable and detach every custom entity, clearing side-table references even
             //    when individual operations fail; every failure is aggregated.
-            final RuntimeException cleanupFailure = cleanupCustomEntities();
+            final Throwable cleanupFailure = cleanupCustomEntities();
             // 3. Identity-remove the callback properties and clear the bridge handler.
             //    (The transformer removal and original-byte restoration are owned by the
             //    bootstrap hook registration, which closes before runtime/contribution
             //    close during full shutdown.)
-            RuntimeException failure = cleanupFailure;
+            Throwable failure = cleanupFailure;
             try {
                 bridge.close();
             } catch (RuntimeException | Error bridgeFailure) {
+                // @containment-exempt: bridge close failure merged with fatal prioritized before rethrow
                 failure = append(failure, bridgeFailure);
             }
             if (failure != null) {
-                throw failure;
+                throw FatalErrors.propagate(failure);
             }
         };
     }
@@ -133,9 +135,9 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
             // Cleanup of every cached entity with the side table cleared; an aggregated
             // failure is observable once through the augmentation's fail-open diagnostic
             // channel instead of being silently swallowed.
-            final RuntimeException cleanupFailure = cleanupCustomEntities();
+            final Throwable cleanupFailure = cleanupCustomEntities();
             if (cleanupFailure != null) {
-                throw cleanupFailure;
+                throw FatalErrors.propagate(cleanupFailure);
             }
             return EMPTY_BUTTONS;
         }
@@ -162,14 +164,14 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
         }
         // Evicted overlays lose their side-table entry; their buttons are detached through the
         // last scene each entry observed so nothing lingers in a live host scene.
-        RuntimeException evictFailure = null;
+        Throwable evictFailure = null;
         for (final CachedButtons entry : evicted) {
             for (final Object button : entry.buttons) {
                 evictFailure = append(evictFailure, detachButton(button, entry.scene));
             }
         }
         if (evictFailure != null) {
-            throw evictFailure;
+            throw FatalErrors.propagate(evictFailure);
         }
         // The native update$setupButton helper is the sole enabler/setup/positioning path;
         // no proactive setEnabled(true) is emitted here. setEnabled(false) is reserved for
@@ -287,7 +289,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
                 buttons.add(byIdentity.get(descriptor.button()));
             }
             if (previous != null) {
-                RuntimeException first = null;
+                Throwable first = null;
                 for (Map.Entry<BoundingBoxOverlayButton, Object> removed : previous.byIdentity.entrySet()) {
                     if (!byIdentity.containsKey(removed.getKey())) {
                         first = append(first, detachButton(removed.getValue(), previous.scene));
@@ -298,18 +300,20 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
                     // surfaced through the fail-open native failure channel instead of
                     // silently returning success. Newly created entities of this rebuild
                     // are cleaned below and the prior cached state stays retryable.
-                    throw first;
+                    throw FatalErrors.propagate(first);
                 }
             }
             return new CachedButtons(current, List.copyOf(buttons), buttons.toArray(), byIdentity);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: button detachment failure merged with fatal prioritized before rethrow
+            Throwable toThrow = failure;
             for (Object button : created) {
-                final RuntimeException cleanupFailure = detachButton(button, sceneGraph);
+                final Throwable cleanupFailure = detachButton(button, sceneGraph);
                 if (cleanupFailure != null) {
-                    failure.addSuppressed(cleanupFailure);
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
                 }
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 
@@ -317,17 +321,19 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
      * Best-effort disable/volatile/component-child removal: one failed operation never
      * prevents the remaining operations; the first failure is returned for aggregation.
      */
-    private RuntimeException detachButton(final Object button, final Object sceneGraph) {
-        RuntimeException first = null;
+    private Throwable detachButton(final Object button, final Object sceneGraph) {
+        Throwable first = null;
         try {
             resolver.invoke(BUTTON_SET_ENABLED, button, Boolean.FALSE);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: detach step failure merged with fatal prioritized
             first = append(first, failure);
         }
         if (sceneGraph != null) {
             try {
                 resolver.invoke(SCENE_REMOVE_VOLATILE, sceneGraph, button);
             } catch (RuntimeException | Error failure) {
+                // @containment-exempt: detach step failure merged with fatal prioritized
                 first = append(first, failure);
             }
             try {
@@ -335,6 +341,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
                 final Object children = resolver.invoke(ENTITY_CHILDREN, objects);
                 resolver.invoke(ENTITIES_REMOVE, children, button);
             } catch (RuntimeException | Error failure) {
+                // @containment-exempt: detach step failure merged with fatal prioritized
                 first = append(first, failure);
             }
         }
@@ -429,9 +436,9 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
      * observed by the update augmentation. Every cached overlay/button is attempted; the
      * side table is always cleared and the first failure is returned for aggregation.
      */
-    private RuntimeException cleanupCustomEntities() {
+    private Throwable cleanupCustomEntities() {
         synchronized (buttonsByOverlay) {
-            RuntimeException first = null;
+            Throwable first = null;
             try {
                 for (CachedButtons cached : buttonsByOverlay.values()) {
                     final Object scene = cached.scene;
@@ -457,15 +464,20 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
         }
     }
 
-    private static RuntimeException append(final RuntimeException first, final Throwable next) {
+    private static Throwable append(final Throwable first, final Throwable next) {
         if (next == null) {
             return first;
         }
-        final RuntimeException failure = first == null
+        if (FatalErrors.isFatal(next) || FatalErrors.isFatal(first)) {
+            return FatalErrors.mergeForCleanup(first, next);
+        }
+        final Throwable failure = first == null
                 ? new IllegalStateException("bounding-box overlay cleanup failed safely: "
                         + next.getClass().getName())
                 : first;
-        failure.addSuppressed(next);
+        if (failure != next) {
+            failure.addSuppressed(next);
+        }
         return failure;
     }
 

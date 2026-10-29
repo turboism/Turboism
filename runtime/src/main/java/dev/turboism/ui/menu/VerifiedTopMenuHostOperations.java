@@ -1,5 +1,6 @@
 package dev.turboism.ui.menu;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
@@ -93,14 +94,17 @@ public final class VerifiedTopMenuHostOperations implements TopMenuHostOperation
             added = true;
             refresh(menuBar);
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: rollback removes menu before rethrow with fatal prioritized
+            Throwable toThrow = failure;
             if (added) {
                 try {
                     removeMenu(menuBar, menu);
-                } catch (RuntimeException cleanupFailure) {
-                    failure.addSuppressed(cleanupFailure);
+                } catch (RuntimeException | Error cleanupFailure) {
+                    // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                    toThrow = FatalErrors.mergeForCleanup(toThrow, cleanupFailure);
                 }
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
 
         final AtomicBoolean closed = new AtomicBoolean();

@@ -149,6 +149,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
         try {
             eventThread.accept(this::runRebind);
         } catch (Throwable refused) {
+            // @containment-exempt: cancels queued rebind before rethrowing fatal
             cancelQueuedRebind();
             FatalErrors.rethrowIfFatal(refused);
         }

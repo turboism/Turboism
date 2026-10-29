@@ -280,6 +280,7 @@ public final class TurboismAgent {
             Thread.currentThread().interrupt();
             runtimeWarn("Turboism bootstrap interrupted");
         } catch (Throwable failure) {
+            // @containment-exempt: loading phase set to failed before rethrowing fatal
             loading.phase(StartupLoadingWindow.Phase.FAILED);
             FatalErrors.rethrowIfFatal(failure);
             final PreviewRuntime runtime = RUNTIME.get();

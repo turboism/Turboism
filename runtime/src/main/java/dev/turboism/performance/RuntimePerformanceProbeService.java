@@ -144,16 +144,19 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
                 updateCadence();
                 return subscription;
             } catch (RuntimeException | Error failure) {
+                // @containment-exempt: stops sampling before rethrowing with fatal error prioritized
+                Throwable toThrow = failure;
                 consumers.remove(subscription);
                 subscription.cancel();
                 if (consumers.isEmpty()) {
                     try {
                         stopSampling();
                     } catch (RuntimeException | Error cleanup) {
-                        if (cleanup != failure) failure.addSuppressed(cleanup);
+                        // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                        toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
                     }
                 }
-                throw failure;
+                throw FatalErrors.propagate(toThrow);
             }
         }
     }

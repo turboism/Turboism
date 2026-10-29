@@ -3,6 +3,7 @@ package dev.turboism.core.plugin.context;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -11,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
+import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.test.concurrent.Await;
 import java.lang.ref.Reference;
@@ -18,10 +20,18 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -990,6 +1000,331 @@ class CubismEditorApiAvailabilityInterceptorTest {
         // On 5.3.02, ExactOnlyService is permitted
         version.set(Optional.of("5.3.02"));
         assertDoesNotThrow(output[0]::exact);
+    }
+
+    @Test
+    void sdkSnapshotContractsArePreservedWhenUnchanged() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+
+        final Set<EditorCommand> commandSnapshot = Set.copyOf(EnumSet.of(EditorCommand.SELECT_ALL));
+        final CommandSnapshotCarrier commandProxy =
+                interceptor.wrapForTesting(() -> commandSnapshot, CommandSnapshotCarrier.class);
+        assertSame(commandSnapshot, commandProxy.available());
+
+        final Map<Integer, String> markerSnapshot = Map.of(1, "start", 10, "end");
+        final MarkerSnapshotCarrier markerProxy =
+                interceptor.wrapForTesting(() -> markerSnapshot, MarkerSnapshotCarrier.class);
+        assertSame(markerSnapshot, markerProxy.markers());
+    }
+
+    @CubismEditor
+    interface CommandSnapshotCarrier {
+        Set<EditorCommand> available();
+    }
+
+    @CubismEditor
+    interface MarkerSnapshotCarrier {
+        Map<Integer, String> markers();
+    }
+
+    @Test
+    void nestedCarriersWrapRestrictedServicesAndEnforceAvailability() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final ExactOnlyService target = new ExactOnlyServiceImpl();
+        final NestedCarrierCarrier service = new NestedCarrierCarrier() {
+            @Override
+            public Set<ExactOnlyService> servicesSet() {
+                return Set.of(target);
+            }
+
+            @Override
+            public Map<String, ExactOnlyService> servicesMap() {
+                return Map.of("key", target);
+            }
+
+            @Override
+            public Map<String, List<ExactOnlyService>> nestedMap() {
+                return Map.of("group", List.of(target));
+            }
+        };
+        final NestedCarrierCarrier proxy = interceptor.wrapForTesting(service, NestedCarrierCarrier.class);
+
+        final Set<ExactOnlyService> set = proxy.servicesSet();
+        final Map<String, ExactOnlyService> map = proxy.servicesMap();
+        final Map<String, List<ExactOnlyService>> nested = proxy.nestedMap();
+
+        final ExactOnlyService fromSet = set.iterator().next();
+        final ExactOnlyService fromMap = map.get("key");
+        final ExactOnlyService fromNested = nested.get("group").get(0);
+
+        assertTrue(Proxy.isProxyClass(fromSet.getClass()));
+        assertTrue(Proxy.isProxyClass(fromMap.getClass()));
+        assertTrue(Proxy.isProxyClass(fromNested.getClass()));
+
+        assertDoesNotThrow(fromSet::exact);
+        assertDoesNotThrow(fromMap::exact);
+        assertDoesNotThrow(fromNested::exact);
+
+        version.set(Optional.of("5.2.03"));
+        assertThrows(CubismEditorApiUnavailableException.class, fromSet::exact);
+        assertThrows(CubismEditorApiUnavailableException.class, fromMap::exact);
+        assertThrows(CubismEditorApiUnavailableException.class, fromNested::exact);
+
+        version.set(Optional.empty());
+        assertThrows(CubismEditorApiUnavailableException.class, fromSet::exact);
+        assertThrows(CubismEditorApiUnavailableException.class, fromMap::exact);
+        assertThrows(CubismEditorApiUnavailableException.class, fromNested::exact);
+    }
+
+    @CubismEditor
+    interface NestedCarrierCarrier {
+        Set<ExactOnlyService> servicesSet();
+
+        Map<String, ExactOnlyService> servicesMap();
+
+        Map<String, List<ExactOnlyService>> nestedMap();
+    }
+
+    @Test
+    void completionStageWrapsAsyncResultAndEnforcesAvailability() throws Exception {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final CompletableFuture<ExactOnlyService> future = new CompletableFuture<>();
+        final StageCarrier proxy = interceptor.wrapForTesting(() -> future, StageCarrier.class);
+        final CompletionStage<ExactOnlyService> stage = proxy.stage();
+
+        final ExactOnlyService target = new ExactOnlyServiceImpl();
+        final AtomicReference<ExactOnlyService> result = new AtomicReference<>();
+        final CountDownLatch latch = new CountDownLatch(1);
+        stage.thenAccept(svc -> {
+            result.set(svc);
+            latch.countDown();
+        });
+
+        future.complete(target);
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+
+        final ExactOnlyService wrapped = result.get();
+        assertNotNull(wrapped);
+        assertNotSame(target, wrapped);
+        assertTrue(Proxy.isProxyClass(wrapped.getClass()));
+
+        assertDoesNotThrow(wrapped::exact);
+
+        version.set(Optional.of("5.2.03"));
+        assertThrows(CubismEditorApiUnavailableException.class, wrapped::exact);
+    }
+
+    @CubismEditor
+    interface StageCarrier {
+        CompletionStage<ExactOnlyService> stage();
+    }
+
+    @Test
+    void unwrapsAllCarrierArgumentsBeforeDelegateInvocation() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final CarrierReceiverImpl delegate = new CarrierReceiverImpl();
+        final CarrierReceiver proxy = interceptor.wrapForTesting(delegate, CarrierReceiver.class);
+
+        final ExactOnlyService raw = new ExactOnlyServiceImpl();
+        final ExactOnlyService wrapped = interceptor.wrapForTesting(raw, ExactOnlyService.class);
+
+        proxy.acceptCarriers(Optional.of(wrapped), List.of(wrapped), Set.of(wrapped), Map.of("k", wrapped));
+
+        assertSame(raw, delegate.receivedOpt.orElseThrow(), "proxy in Optional must unwrap to delegate");
+        assertSame(raw, delegate.receivedList.get(0), "proxy in List must unwrap to delegate");
+        assertSame(raw, delegate.receivedSet.iterator().next(), "proxy in Set must unwrap to delegate");
+        assertSame(raw, delegate.receivedMap.get("k"), "proxy in Map must unwrap to delegate");
+    }
+
+    @CubismEditor
+    interface CarrierReceiver {
+        void acceptCarriers(
+                Optional<ExactOnlyService> opt,
+                List<ExactOnlyService> list,
+                Set<ExactOnlyService> set,
+                Map<String, ExactOnlyService> map);
+    }
+
+    static final class CarrierReceiverImpl implements CarrierReceiver {
+        Optional<ExactOnlyService> receivedOpt;
+        List<ExactOnlyService> receivedList;
+        Set<ExactOnlyService> receivedSet;
+        Map<String, ExactOnlyService> receivedMap;
+
+        @Override
+        public void acceptCarriers(
+                final Optional<ExactOnlyService> opt,
+                final List<ExactOnlyService> list,
+                final Set<ExactOnlyService> set,
+                final Map<String, ExactOnlyService> map) {
+            this.receivedOpt = opt;
+            this.receivedList = list;
+            this.receivedSet = set;
+            this.receivedMap = map;
+        }
+    }
+
+    @Test
+    void unchangedReferenceArrayPreservesDefensiveCopy() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final StringArrayService service = new StringArrayServiceImpl();
+        final StringArrayService proxy = interceptor.wrapForTesting(service, StringArrayService.class);
+
+        final String[] input = new String[] {"x", "y"};
+        final String[] output = proxy.transferStrings(input);
+
+        assertNotSame(input, output);
+        assertNotSame(input, ((StringArrayServiceImpl) service).received);
+        assertArrayEquals(new String[] {"x", "y"}, output);
+
+        input[0] = "mutated";
+        assertEquals("x", output[0]);
+        assertEquals("x", ((StringArrayServiceImpl) service).received[0]);
+    }
+
+    @CubismEditor
+    interface StringArrayService {
+        String[] transferStrings(String[] input);
+    }
+
+    static final class StringArrayServiceImpl implements StringArrayService {
+        String[] received;
+
+        @Override
+        public String[] transferStrings(final String[] input) {
+            this.received = input;
+            return input;
+        }
+    }
+
+    @Test
+    void changedCollectionsPreserveOrderNullsAndAreUnmodifiable() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final ExactOnlyService child1 = new ExactOnlyServiceImpl();
+        final ExactOnlyService child2 = new ExactOnlyServiceImpl();
+        final MixedCarrierService service = new MixedCarrierService() {
+            @Override
+            public List<ExactOnlyService> mixedList() {
+                return Arrays.asList(child1, null, child2);
+            }
+
+            @Override
+            public Set<ExactOnlyService> mixedSet() {
+                final LinkedHashSet<ExactOnlyService> set = new LinkedHashSet<>();
+                set.add(child1);
+                set.add(null);
+                set.add(child2);
+                return set;
+            }
+
+            @Override
+            public Map<String, ExactOnlyService> mixedMap() {
+                final LinkedHashMap<String, ExactOnlyService> map = new LinkedHashMap<>();
+                map.put("first", child1);
+                map.put(null, null);
+                map.put("third", child2);
+                return map;
+            }
+        };
+        final MixedCarrierService proxy = interceptor.wrapForTesting(service, MixedCarrierService.class);
+
+        final List<ExactOnlyService> list = proxy.mixedList();
+        assertEquals(3, list.size());
+        assertTrue(Proxy.isProxyClass(list.get(0).getClass()));
+        assertNull(list.get(1));
+        assertTrue(Proxy.isProxyClass(list.get(2).getClass()));
+        assertThrows(UnsupportedOperationException.class, () -> list.add(child1));
+
+        final Set<ExactOnlyService> set = proxy.mixedSet();
+        assertEquals(3, set.size());
+        final List<ExactOnlyService> setList = new ArrayList<>(set);
+        assertTrue(Proxy.isProxyClass(setList.get(0).getClass()));
+        assertNull(setList.get(1));
+        assertTrue(Proxy.isProxyClass(setList.get(2).getClass()));
+        assertThrows(UnsupportedOperationException.class, () -> set.add(child1));
+
+        final Map<String, ExactOnlyService> map = proxy.mixedMap();
+        assertEquals(3, map.size());
+        final List<String> mapKeys = new ArrayList<>(map.keySet());
+        assertEquals("first", mapKeys.get(0));
+        assertNull(mapKeys.get(1));
+        assertEquals("third", mapKeys.get(2));
+        assertTrue(Proxy.isProxyClass(map.get("first").getClass()));
+        assertNull(map.get(null));
+        assertTrue(Proxy.isProxyClass(map.get("third").getClass()));
+        assertThrows(UnsupportedOperationException.class, () -> map.put("new", child1));
+    }
+
+    @Test
+    void nonEmptyPrefixPreservesIdentityBeforeLaterElementChanges() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get);
+        final ExactOnlyService raw0 = new ExactOnlyServiceImpl();
+        final ExactOnlyService proxy0 = interceptor.wrapForTesting(raw0, ExactOnlyService.class);
+        final ExactOnlyService raw1 = new ExactOnlyServiceImpl();
+
+        final MixedCarrierService service = new MixedCarrierService() {
+            @Override
+            public List<ExactOnlyService> mixedList() {
+                return Arrays.asList(proxy0, raw1);
+            }
+
+            @Override
+            public Set<ExactOnlyService> mixedSet() {
+                final LinkedHashSet<ExactOnlyService> set = new LinkedHashSet<>();
+                set.add(proxy0);
+                set.add(raw1);
+                return set;
+            }
+
+            @Override
+            public Map<String, ExactOnlyService> mixedMap() {
+                final LinkedHashMap<String, ExactOnlyService> map = new LinkedHashMap<>();
+                map.put("p0", proxy0);
+                map.put("p1", raw1);
+                return map;
+            }
+        };
+        final MixedCarrierService proxy = interceptor.wrapForTesting(service, MixedCarrierService.class);
+
+        final List<ExactOnlyService> list = proxy.mixedList();
+        assertEquals(2, list.size());
+        assertSame(proxy0, list.get(0), "prefix element already proxied must preserve identity");
+        assertNotSame(raw1, list.get(1));
+        assertTrue(Proxy.isProxyClass(list.get(1).getClass()));
+
+        final Set<ExactOnlyService> set = proxy.mixedSet();
+        assertEquals(2, set.size());
+        final List<ExactOnlyService> setAsList = new ArrayList<>(set);
+        assertSame(proxy0, setAsList.get(0));
+        assertNotSame(raw1, setAsList.get(1));
+
+        final Map<String, ExactOnlyService> map = proxy.mixedMap();
+        assertEquals(2, map.size());
+        assertSame(proxy0, map.get("p0"));
+        assertNotSame(raw1, map.get("p1"));
+    }
+
+    @CubismEditor
+    interface MixedCarrierService {
+        List<ExactOnlyService> mixedList();
+
+        Set<ExactOnlyService> mixedSet();
+
+        Map<String, ExactOnlyService> mixedMap();
     }
 
     @CubismEditor

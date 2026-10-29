@@ -60,12 +60,15 @@ public final class PermissionCheckedPerformanceProbeService implements Performan
             scope.register(service);
             return service;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: closes service before rethrowing with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 service.close();
             } catch (RuntimeException | Error cleanup) {
-                if (cleanup != failure) failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 
@@ -97,12 +100,15 @@ public final class PermissionCheckedPerformanceProbeService implements Performan
             requireOpen();
             return registration;
         } catch (RuntimeException | Error failure) {
+            // @containment-exempt: closes registration before rethrowing with fatal error prioritized
+            Throwable toThrow = failure;
             try {
                 registration.close();
             } catch (RuntimeException | Error cleanup) {
-                if (cleanup != failure) failure.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                toThrow = FatalErrors.mergeForCleanup(toThrow, cleanup);
             }
-            throw failure;
+            throw FatalErrors.propagate(toThrow);
         }
     }
 

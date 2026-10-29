@@ -114,6 +114,31 @@ class VerifiedElisionInstallerRollbackTest {
         }
     }
 
+    @Test
+    void fatalRestorationFailureDoesNotAbandonOtherClassesAndCanBeRetried() throws Exception {
+        for (Hook hook : List.of(Hook.UPLOAD, Hook.COMPOSITE)) {
+            try (Fixture f = fixture(hook)) {
+                Installer installer = f.installer();
+                f.throwAfter = 2;
+                f.failFatalRestore = true;
+                OutOfMemoryError failure = assertThrows(OutOfMemoryError.class, installer.install::run);
+                assertEquals(
+                        1, failure.getSuppressed().length, "install failure is suppressed on fatal cleanup failure");
+                assertTrue(failure.getSuppressed()[0] instanceof UnmodifiableClassException);
+                assertFalse(installer.restored.getAsBoolean());
+                assertEquals(2, f.rewritten.size());
+                assertEquals(
+                        1,
+                        f.rewritten.stream().filter(f::isRestored).count(),
+                        "the other class must still be restored after the first restoration fails");
+                assertTrue(f.active.isEmpty());
+                installer.handle.close();
+                assertTrue(installer.restored.getAsBoolean());
+                f.assertRestored();
+            }
+        }
+    }
+
     private static Fixture fixture(Hook hook) throws Exception {
         String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
         assumeTrue(supplied != null && !supplied.isBlank(), "exact reference artifact not supplied");
@@ -129,7 +154,7 @@ class VerifiedElisionInstallerRollbackTest {
         final Set<Class<?>> rewritten = new LinkedHashSet<>();
         final Instrumentation instrumentation;
         int hookClasses, rejectAt, throwAfter;
-        boolean failFirstRestore;
+        boolean failFirstRestore, failFatalRestore;
 
         Fixture(Path artifact, Hook hook) throws Exception {
             this.artifact = artifact;
@@ -187,6 +212,10 @@ class VerifiedElisionInstallerRollbackTest {
             if (!hooking && failFirstRestore && rewritten.contains(type)) {
                 failFirstRestore = false;
                 throw new UnmodifiableClassException("injected restoration failure");
+            }
+            if (!hooking && failFatalRestore && rewritten.contains(type)) {
+                failFatalRestore = false;
+                throw new OutOfMemoryError("injected fatal restoration failure");
             }
             byte[] bytes;
             try (var input = type.getResourceAsStream("/" + type.getName().replace('.', '/') + ".class")) {

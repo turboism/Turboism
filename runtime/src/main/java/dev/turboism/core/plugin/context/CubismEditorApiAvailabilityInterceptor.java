@@ -6,25 +6,18 @@ import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.Array;
-import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
 /** Applies exact Cubism Editor availability policy to one plugin's SDK object graph. */
@@ -297,136 +290,20 @@ final class CubismEditorApiAvailabilityInterceptor {
     }
 
     private Object wrapValue(final Object value, final Type declaredType) {
-        if (value == null) {
-            return null;
-        }
-        if (declaredType instanceof Class<?> declaredClass) {
-            if (declaredClass.isInterface() && isInterceptableSdkInterface(declaredClass)) {
-                return wrapInterface(value, declaredClass);
-            }
-            if (declaredClass.isArray()) {
-                return mapArray(value, declaredClass.getComponentType(), declaredClass.getComponentType());
-            }
-            return value;
-        }
-        if (declaredType instanceof GenericArrayType arrayType) {
-            final Type component = arrayType.getGenericComponentType();
-            final Class<?> componentClass = rawClass(component);
-            return mapArray(value, componentClass, component);
-        }
-        if (!(declaredType instanceof ParameterizedType parameterized)) {
-            return value;
-        }
-        final Class<?> raw = rawClass(parameterized.getRawType());
-        final Type[] types = parameterized.getActualTypeArguments();
-        if (raw == Optional.class) {
-            return ((Optional<?>) value).map(item -> wrapValue(item, types[0]));
-        }
-        if (raw == List.class || raw == Collection.class) {
-            final Collection<?> source = (Collection<?>) value;
-            ArrayList<Object> mapped = null;
-            int index = 0;
-            for (Object item : source) {
-                final Object wrapped = wrapValue(item, types[0]);
-                if (wrapped != item) {
-                    if (mapped == null) mapped = new ArrayList<>(source);
-                    mapped.set(index, wrapped);
-                }
-                index++;
-            }
-            // Preserve immutable value/snapshot caches when there is nothing to proxy.
-            // Lists containing restricted SDK objects still get a wrapped, read-only copy.
-            return mapped == null ? value : Collections.unmodifiableList(mapped);
-        }
-        if (raw == Set.class) {
-            final LinkedHashSet<Object> mapped = new LinkedHashSet<>();
-            for (Object item : (Set<?>) value) mapped.add(wrapValue(item, types[0]));
-            return Collections.unmodifiableSet(mapped);
-        }
-        if (raw == Map.class) {
-            final LinkedHashMap<Object, Object> mapped = new LinkedHashMap<>();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-                mapped.put(wrapValue(entry.getKey(), types[0]), wrapValue(entry.getValue(), types[1]));
-            }
-            return Collections.unmodifiableMap(mapped);
-        }
-        if (CompletionStage.class.isAssignableFrom(raw)) {
-            return ((CompletionStage<?>) value).thenApply(item -> wrapValue(item, types[0]));
-        }
-        if (raw.isInterface() && isInterceptableSdkInterface(raw)) {
-            return wrapInterface(value, raw);
-        }
-        return value;
+        return SdkCarrierTraversal.wrapValue(value, declaredType, this::wrapInterface);
     }
 
     private Object[] unwrapArguments(final Object[] arguments) {
-        if (arguments == null || arguments.length == 0) {
-            return arguments;
-        }
-        final Object[] unwrapped = arguments.clone();
-        for (int index = 0; index < unwrapped.length; index++) {
-            unwrapped[index] = unwrapValue(unwrapped[index]);
-        }
-        return unwrapped;
+        return SdkCarrierTraversal.unwrapArguments(arguments, this::unwrapOwnedProxy);
     }
 
-    private Object unwrapValue(final Object value) {
-        if (value == null) return null;
-        if (Proxy.isProxyClass(value.getClass())) {
-            final InvocationHandler handler = Proxy.getInvocationHandler(value);
-            if (handler instanceof Handler owned && owned.owner == this) {
-                return owned.delegate;
-            }
-        }
-        if (value instanceof Optional<?> optional) {
-            return optional.map(this::unwrapValue);
-        }
-        if (value instanceof List<?> list) {
-            return list.stream().map(this::unwrapValue).toList();
-        }
-        if (value instanceof Set<?> set) {
-            final LinkedHashSet<Object> unwrapped = new LinkedHashSet<>();
-            for (Object item : set) unwrapped.add(unwrapValue(item));
-            return Collections.unmodifiableSet(unwrapped);
-        }
-        if (value instanceof Map<?, ?> map) {
-            final LinkedHashMap<Object, Object> unwrapped = new LinkedHashMap<>();
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                unwrapped.put(unwrapValue(entry.getKey()), unwrapValue(entry.getValue()));
-            }
-            return Collections.unmodifiableMap(unwrapped);
-        }
-        if (value.getClass().isArray()) {
-            final Class<?> componentClass = value.getClass().getComponentType();
-            final int length = Array.getLength(value);
-            final Object copy = Array.newInstance(componentClass, length);
-            if (componentClass.isPrimitive()) {
-                System.arraycopy(value, 0, copy, 0, length);
-                return copy;
-            }
-            final Object[] source = (Object[]) value;
-            final Object[] target = (Object[]) copy;
-            for (int index = 0; index < length; index++) {
-                target[index] = unwrapValue(source[index]);
-            }
-            return target;
+    private Object unwrapOwnedProxy(final Object value) {
+        if (Proxy.isProxyClass(value.getClass())
+                && Proxy.getInvocationHandler(value) instanceof Handler handler
+                && handler.owner == this) {
+            return handler.delegate;
         }
         return value;
-    }
-
-    private Object mapArray(final Object value, final Class<?> componentClass, final Type componentType) {
-        final int length = Array.getLength(value);
-        final Object mapped = Array.newInstance(componentClass, length);
-        if (componentClass.isPrimitive()) {
-            System.arraycopy(value, 0, mapped, 0, length);
-            return mapped;
-        }
-        final Object[] source = (Object[]) value;
-        final Object[] target = (Object[]) mapped;
-        for (int index = 0; index < length; index++) {
-            target[index] = wrapValue(source[index], componentType);
-        }
-        return target;
     }
 
     private static boolean isInterceptableSdkInterface(final Class<?> type) {
@@ -454,12 +331,6 @@ final class CubismEditorApiAvailabilityInterceptor {
             if (hasTypeAvailability(parent, visited)) return true;
         }
         return false;
-    }
-
-    private static Class<?> rawClass(final Type type) {
-        if (type instanceof Class<?> value) return value;
-        if (type instanceof ParameterizedType value) return rawClass(value.getRawType());
-        throw new IllegalStateException("Unsupported SDK carrier type: " + type.getTypeName());
     }
 
     private static String apiId(final Method method) {

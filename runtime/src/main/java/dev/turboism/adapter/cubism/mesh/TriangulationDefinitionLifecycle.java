@@ -336,6 +336,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
             } catch (RuntimeException | LinkageError invalid) {
                 failed = true;
             } catch (Error failure) {
+                // @containment-exempt: records fatal state before unconditional rethrow
                 if (FatalErrors.isFatal(failure)) {
                     failed = true;
                     fatal = failure;

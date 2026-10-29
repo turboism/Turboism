@@ -250,10 +250,13 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             }
             installed = true;
         } catch (Exception | Error failed) {
+            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
             try {
                 close();
             } catch (Exception | Error cleanup) {
-                failed.addSuppressed(cleanup);
+                // @containment-exempt: cleanup failure merged, prioritizing fatal error
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failed, cleanup));
             }
             throw failed;
         }

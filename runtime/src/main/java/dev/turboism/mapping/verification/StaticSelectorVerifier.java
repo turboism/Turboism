@@ -21,6 +21,102 @@ public final class StaticSelectorVerifier {
 
     private static final int CLASS_MAGIC = 0xCAFEBABE;
 
+    static final class AdmissionSession implements AutoCloseable {
+        private final Map<Path, CachedArtifact> artifacts = new HashMap<>();
+        private boolean closed;
+
+        CachedArtifact getOrCreate(final Path artifact) throws IOException {
+            if (closed) {
+                throw new IllegalStateException("AdmissionSession is closed");
+            }
+            final Path normalized = artifact.toAbsolutePath().normalize();
+            CachedArtifact existing = artifacts.get(normalized);
+            if (existing != null) {
+                return existing;
+            }
+            final CachedArtifact created = new CachedArtifact(normalized);
+            artifacts.put(normalized, created);
+            return created;
+        }
+
+        CachedArtifact get(final Path artifact) {
+            return artifacts.get(artifact.toAbsolutePath().normalize());
+        }
+
+        StructureVerificationReport verifyStructure(final Path artifact, final List<StaticSelector> selectors)
+                throws IOException {
+            if (closed) {
+                throw new IllegalStateException("AdmissionSession is closed");
+            }
+            final List<StaticSelector> requested = List.copyOf(Objects.requireNonNull(selectors, "selectors"));
+            if (requested.isEmpty()) {
+                throw new IllegalArgumentException("selectors must not be empty");
+            }
+            final CachedArtifact cached = getOrCreate(artifact);
+            final List<StaticSelectorResult> results = verifySelectors(cached.jar, requested, cached.metadataCache);
+            return new StructureVerificationReport(cached.initialDigest, results);
+        }
+
+        void verifyAllUnchanged() throws IOException {
+            for (CachedArtifact artifact : artifacts.values()) {
+                artifact.verifyUnchanged();
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            Throwable failure = null;
+            for (CachedArtifact artifact : artifacts.values()) {
+                try {
+                    artifact.close();
+                } catch (IOException | RuntimeException | Error t) {
+                    // @containment-exempt: all cached artifacts closed despite failures before rethrow with fatal
+                    // prioritized
+                    failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, t);
+                }
+            }
+            artifacts.clear();
+            if (failure != null) {
+                if (failure instanceof IOException ioe) throw ioe;
+                if (failure instanceof Error err) throw err;
+                throw (RuntimeException) failure;
+            }
+        }
+    }
+
+    static final class CachedArtifact implements AutoCloseable {
+        final Path path;
+        final HostArtifactDigest initialDigest;
+        final JarFile jar;
+        final Map<String, ClassMetadata> metadataCache = new HashMap<>();
+
+        CachedArtifact(final Path path) throws IOException {
+            this.path = path;
+            this.initialDigest = HostArtifactDigest.from(path);
+            this.jar = new JarFile(path.toFile(), false);
+        }
+
+        void verifyUnchanged() throws IOException {
+            final HostArtifactDigest current = HostArtifactDigest.from(path);
+            if (!initialDigest.equals(current)) {
+                throw new IllegalStateException("host artifact changed during admission: " + path);
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                jar.close();
+            } finally {
+                metadataCache.clear();
+            }
+        }
+    }
+
     /**
      * Checks each selector against the class metadata in the jar, parsing class
      * files directly rather than loading any host class, so verification runs
@@ -68,20 +164,9 @@ public final class StaticSelectorVerifier {
                             .toList());
         }
 
-        final Set<String> duplicateAliases = duplicateAliases(requested);
-        final Map<String, ClassMetadata> cache = new HashMap<>();
-        final List<StaticSelectorResult> results = new ArrayList<>();
+        final List<StaticSelectorResult> results;
         try (JarFile jar = new JarFile(artifact.toFile(), false)) {
-            for (StaticSelector selector : requested) {
-                if (duplicateAliases.contains(selector.alias())) {
-                    results.add(result(
-                            selector,
-                            StaticVerificationStatus.DUPLICATE_ALIAS,
-                            "Selector alias is duplicated in the verification request."));
-                    continue;
-                }
-                results.add(verifySelector(jar, selector, cache));
-            }
+            results = verifySelectors(jar, requested, new HashMap<>());
         }
         return new StaticVerificationReport(expectedFingerprint, actual, true, results);
     }
@@ -111,20 +196,9 @@ public final class StaticSelectorVerifier {
             throw new IllegalArgumentException("selectors must not be empty");
         }
         final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
-        final Set<String> duplicateAliases = duplicateAliases(requested);
-        final Map<String, ClassMetadata> cache = new HashMap<>();
-        final List<StaticSelectorResult> results = new ArrayList<>();
+        final List<StaticSelectorResult> results;
         try (JarFile jar = new JarFile(artifact.toFile(), false)) {
-            for (StaticSelector selector : requested) {
-                if (duplicateAliases.contains(selector.alias())) {
-                    results.add(result(
-                            selector,
-                            StaticVerificationStatus.DUPLICATE_ALIAS,
-                            "Selector alias is duplicated in the verification request."));
-                    continue;
-                }
-                results.add(verifySelector(jar, selector, cache));
-            }
+            results = verifySelectors(jar, requested, new HashMap<>());
         }
         return new StructureVerificationReport(digest, results);
     }
@@ -151,11 +225,29 @@ public final class StaticSelectorVerifier {
                             report.results().stream()
                                     .map(StaticSelectorResult::selector)
                                     .toList());
-            if (!report.artifact().equals(HostArtifactDigest.from(artifact))) {
+            final HostArtifactDigest endDigest = HostArtifactDigest.from(artifact);
+            if (!report.artifact().equals(endDigest)) {
                 throw new IllegalArgumentException("host artifact changed during runtime attestation");
             }
         }
         return report;
+    }
+
+    private static List<StaticSelectorResult> verifySelectors(
+            final JarFile jar, final List<StaticSelector> requested, final Map<String, ClassMetadata> cache) {
+        final Set<String> duplicateAliases = duplicateAliases(requested);
+        final List<StaticSelectorResult> results = new ArrayList<>();
+        for (StaticSelector selector : requested) {
+            if (duplicateAliases.contains(selector.alias())) {
+                results.add(result(
+                        selector,
+                        StaticVerificationStatus.DUPLICATE_ALIAS,
+                        "Selector alias is duplicated in the verification request."));
+                continue;
+            }
+            results.add(verifySelector(jar, selector, cache));
+        }
+        return results;
     }
 
     /**
@@ -180,7 +272,7 @@ public final class StaticSelectorVerifier {
         }
     }
 
-    private StaticSelectorResult verifySelector(
+    private static StaticSelectorResult verifySelector(
             final JarFile jar, final StaticSelector selector, final Map<String, ClassMetadata> cache) {
         final ClassMetadata metadata;
         try {
@@ -238,7 +330,7 @@ public final class StaticSelectorVerifier {
         return result(selector, StaticVerificationStatus.VERIFIED_STATIC, "Member signature is verified statically.");
     }
 
-    private ClassMetadata metadata(
+    private static ClassMetadata metadata(
             final JarFile jar, final String ownerInternalName, final Map<String, ClassMetadata> cache)
             throws IOException, MissingClassException {
         final ClassMetadata existing = cache.get(ownerInternalName);
@@ -259,7 +351,7 @@ public final class StaticSelectorVerifier {
         }
     }
 
-    private ClassMetadata parseClass(final InputStream input) throws IOException {
+    private static ClassMetadata parseClass(final InputStream input) throws IOException {
         try (DataInputStream data = new DataInputStream(new BufferedInputStream(input))) {
             if (data.readInt() != CLASS_MAGIC) {
                 throw new IOException("Invalid class magic");
@@ -286,7 +378,7 @@ public final class StaticSelectorVerifier {
         }
     }
 
-    private ConstantPool readConstantPool(final DataInputStream data) throws IOException {
+    private static ConstantPool readConstantPool(final DataInputStream data) throws IOException {
         final int count = data.readUnsignedShort();
         final String[] utf8 = new String[count];
         final int[] classNameIndexes = new int[count];
@@ -309,7 +401,7 @@ public final class StaticSelectorVerifier {
         return new ConstantPool(utf8, classNameIndexes);
     }
 
-    private List<String> readInterfaces(final DataInputStream data, final ConstantPool constantPool)
+    private static List<String> readInterfaces(final DataInputStream data, final ConstantPool constantPool)
             throws IOException {
         final int count = data.readUnsignedShort();
         final List<String> names = new ArrayList<>(count);
@@ -319,7 +411,8 @@ public final class StaticSelectorVerifier {
         return List.copyOf(names);
     }
 
-    private List<MemberMetadata> readMembers(final DataInputStream data, final String[] utf8) throws IOException {
+    private static List<MemberMetadata> readMembers(final DataInputStream data, final String[] utf8)
+            throws IOException {
         final int count = data.readUnsignedShort();
         final List<MemberMetadata> members = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
@@ -332,7 +425,7 @@ public final class StaticSelectorVerifier {
         return List.copyOf(members);
     }
 
-    private void skipAttributes(final DataInputStream data) throws IOException {
+    private static void skipAttributes(final DataInputStream data) throws IOException {
         final int count = data.readUnsignedShort();
         for (int index = 0; index < count; index++) {
             data.readUnsignedShort();
@@ -341,14 +434,14 @@ public final class StaticSelectorVerifier {
         }
     }
 
-    private String requireUtf8(final String[] utf8, final int index) throws IOException {
+    private static String requireUtf8(final String[] utf8, final int index) throws IOException {
         if (index <= 0 || index >= utf8.length || utf8[index] == null) {
             throw new IOException("Invalid UTF-8 constant-pool index");
         }
         return utf8[index];
     }
 
-    private Set<String> duplicateAliases(final List<StaticSelector> selectors) {
+    private static Set<String> duplicateAliases(final List<StaticSelector> selectors) {
         final Set<String> seen = new HashSet<>();
         final Set<String> duplicates = new HashSet<>();
         for (StaticSelector selector : selectors) {
