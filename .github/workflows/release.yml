@@ -155,10 +155,12 @@ jobs:
           key: turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-Unified build channel checks-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-${{ needs.preflight.outputs.channel }}-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-beta-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-stable-${{ github.sha }}-
             turboism-gradle-build-cache-v1-Unified build channel checks-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
             turboism-gradle-build-cache-v1-CI-
             turboism-gradle-build-cache-v1-
 
