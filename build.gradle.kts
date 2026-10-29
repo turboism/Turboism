@@ -65,6 +65,12 @@ allprojects {
 tasks.register<Exec>("checkInstallerLocalization") {
     group = "verification"
     description = "Checks installer and plugin metadata localization parity."
+    inputs.files(
+        "packaging/windows-installer/test-installer-localization.py",
+        fileTree("packaging") { exclude("**/build/**") },
+        fileTree("plugins") { include("*/src/main/resources/META-INF/turboism/**") }
+    )
+    VerificationStamps.apply(this)
     commandLine("python3", "packaging/windows-installer/test-installer-localization.py")
 }
 
@@ -75,12 +81,24 @@ tasks.register<Exec>("checkWindowsInstaller") {
     group = "verification"
     description = "Checks the Windows NSIS installer script, payload simulation and uninstall contract."
     dependsOn("checkWindowsInstallerPackaging")
+    inputs.files(
+        "packaging/windows-installer/test-config-merge.py",
+        "gradle/libs.versions.toml",
+        fileTree("packaging") { exclude("**/build/**") },
+        fileTree("plugins") { include("*/src/main/resources/META-INF/turboism/**", "*/README*.md") }
+    )
+    VerificationStamps.apply(this)
     commandLine("python3", "packaging/windows-installer/test-config-merge.py")
 }
 
 tasks.register<Exec>("checkWindowsInstallerPackaging") {
     group = "verification"
     description = "Exercises the actual thin installer/offline ZIP generators and engine pins."
+    inputs.files(
+        "packaging/windows-installer/test-installer-packaging.py",
+        fileTree("packaging") { exclude("**/build/**") }
+    )
+    VerificationStamps.apply(this)
     commandLine("python3", "packaging/windows-installer/test-installer-packaging.py")
 }
 

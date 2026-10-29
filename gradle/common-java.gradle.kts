@@ -109,6 +109,9 @@ allprojects {
             metaInf {
                 ignoreAttribute("Turboism-Build-Number")
                 ignoreAttribute("Turboism-Source-Revision")
+                ignoreAttribute("Turboism-Channel")
+                ignoreAttribute("Turboism-Version")
+                ignoreAttribute("Implementation-Version")
             }
         }
     }
@@ -123,7 +126,8 @@ allprojects {
         }
         // The SDK remains a byte-exact reviewed library, not a numbered product.
         if (project.path != ":sdk" && turboismBuildNumber.isNotEmpty()
-            && !project.path.startsWith(":plugins:")) {
+            && !project.path.startsWith(":plugins:")
+            && !project.path.startsWith(":testing:")) {
             manifest.attributes(
                 "Turboism-Build-Number" to turboismBuildNumber,
                 "Turboism-Source-Revision" to turboismBuildSource,

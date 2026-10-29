@@ -96,6 +96,16 @@ val prepareSdkHistoryGradleCache by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(fileTree("scripts/test/sdk-history-cache") { exclude("**/build/**", "**/.gradle/**") })
     inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
+    val historyBuildFile = file("scripts/test/sdk-history-cache/build.gradle.kts")
+    onlyIf {
+        val home = sdkHistoryGradleUserHome.get()
+        val modulesDir = home.resolve("caches/modules-2")
+        val stampFile = home.resolve("caches/turboism-sdk-reference-v1/warm-history-cache-v1.stamp")
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(historyBuildFile.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        !(modulesDir.isDirectory && stampFile.isFile && stampFile.readText().trim() == digest)
+    }
     doFirst {
         commandLine(
             sdkHistoryGradleLauncher(), "--no-daemon", "--no-build-cache",
@@ -105,6 +115,15 @@ val prepareSdkHistoryGradleCache by tasks.registering(Exec::class) {
             "warmSdkHistoryCache", "--console=plain"
         )
         if (gradle.startParameter.isOffline) args("--offline")
+    }
+    doLast {
+        val home = sdkHistoryGradleUserHome.get()
+        val stampFile = home.resolve("caches/turboism-sdk-reference-v1/warm-history-cache-v1.stamp")
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(historyBuildFile.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        stampFile.parentFile.mkdirs()
+        stampFile.writeText("$digest\n")
     }
 }
 
@@ -181,6 +200,7 @@ val sdkExactCompatibilityCheckTasks = sdkBaselineAnchors.map { anchor ->
         }
         inputs.files(sdkApiHelperFiles, sdkExactBaseline(version), sdkExactReferenceBuilder,
             sdkExactReferenceArtifact(version), auditedArtifact)
+            .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
         inputs.property("expectedCommit", anchor.commit)
         VerificationStamps.apply(this)
         commandLine(
@@ -203,6 +223,7 @@ val checkSdkV8Linkage by tasks.registering(Exec::class) {
     description = "Compiles history/settings/atlas entry points against v8 and runs that bytecode on the live SDK."
     dependsOn(":sdk:jar", "prepareSdkV8ExactReference")
     inputs.files("scripts/test/test_sdk_v8_linkage.sh", sdkExactReferenceArtifact(8), sdkJarArtifact)
+        .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     VerificationStamps.apply(this)
     commandLine("bash", "scripts/test/test_sdk_v8_linkage.sh",
         sdkExactReferenceArtifact(8).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
@@ -213,6 +234,7 @@ val checkTextureAtlasSdkV7Linkage by tasks.registering(Exec::class) {
     description = "Compiles the legacy texture-atlas constructors against v7 and runs that bytecode on the live SDK."
     dependsOn(":sdk:jar", "prepareSdkV7ExactReference")
     inputs.files("scripts/test/test_texture_atlas_sdk_linkage.sh", sdkExactReferenceArtifact(7), sdkJarArtifact)
+        .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     VerificationStamps.apply(this)
     commandLine("bash", "scripts/test/test_texture_atlas_sdk_linkage.sh",
         sdkExactReferenceArtifact(7).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
@@ -267,9 +289,10 @@ val generateSdkApiReport by tasks.registering(Exec::class) {
     description = "Generates the current pre-release public SDK surface for review without changing a baseline."
     dependsOn(":sdk:jar")
     val output = layout.buildDirectory.file("reports/sdk-api/current.txt")
-    inputs.file(sdkJarArtifact)
+    inputs.file(sdkJarArtifact).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
     inputs.files(sdkApiHelperFiles)
     outputs.file(output)
+    outputs.cacheIf { true }
     doFirst {
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "dump",
