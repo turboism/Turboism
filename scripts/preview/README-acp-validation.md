@@ -130,7 +130,7 @@ text. Neither offline check proves host or model acceptance.
 Packaging also checks the three staged JAR identities and every required plugin
 dependency against the actual stamped versions. A stale range fails before host
 launch (`validation/acp-host-probe/check_bundle.py`); the probe follows the
-production ACP plugin's current `[0.1.0,0.68.0)` MCP dependency window.
+production ACP plugin's current `[0.1.0,1.0.0)` MCP dependency window.
 
 
 ## Raw-output-only render forwarding
