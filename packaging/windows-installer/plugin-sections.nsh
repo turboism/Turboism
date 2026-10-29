@@ -746,7 +746,8 @@ Function SyncPluginSelectionFromListView
   StrCpy $4 0
   StrCpy $5 -1
   SendMessage $PluginSelectionList 0x102C 0 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -757,7 +758,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 1 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -768,7 +770,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 2 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -779,7 +782,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 3 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -790,7 +794,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 4 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -801,7 +806,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 5 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -812,7 +818,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 6 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -823,7 +830,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 7 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -834,7 +842,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 8 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -845,7 +854,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 9 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -856,7 +866,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 10 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -867,7 +878,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 11 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -878,7 +890,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 12 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -889,7 +902,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 13 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -900,7 +914,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 14 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -911,7 +926,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 15 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -922,7 +938,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 16 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -933,7 +950,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 17 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -944,7 +962,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 18 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -955,7 +974,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 19 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -966,7 +986,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 20 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -977,7 +998,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 21 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -988,7 +1010,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 22 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -999,7 +1022,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 23 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1010,7 +1034,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 24 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1021,7 +1046,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 25 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1032,7 +1058,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 26 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1043,7 +1070,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 27 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1054,7 +1082,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 28 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1065,7 +1094,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 29 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
@@ -1076,7 +1106,8 @@ Function SyncPluginSelectionFromListView
   ${EndIf}
   IntOp $4 $4 + $1
   SendMessage $PluginSelectionList 0x102C 30 0xF000 $1
-  ${If} $1 == 0x2000
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
     StrCpy $1 1
   ${Else}
     StrCpy $1 0
