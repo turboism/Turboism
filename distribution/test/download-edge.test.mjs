@@ -33,6 +33,7 @@ test('edge allows ONLY latest verified release URLs from a private bucket',async
  const response=await edge.fetch(new Request(url),e);
  assert.equal(response.status,200);
  assert.equal(response.headers.get('cache-control'),'public, max-age=0, s-maxage=60, must-revalidate');
+ assert.equal(response.headers.get('cache-tag'),`turboism-stable-${sha}`);
  assert.equal(response.headers.get('content-length'),String(size));
  assert.equal(response.headers.get('etag'),`"${sha}"`);
  assert.deepEqual([...new Uint8Array(await response.arrayBuffer())],[...bytes]);
