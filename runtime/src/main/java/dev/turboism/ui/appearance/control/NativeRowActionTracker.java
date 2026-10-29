@@ -55,6 +55,7 @@ final class NativeRowActionTracker {
         label.setToolTipText(value.tooltip());
         label.putClientProperty(MARKER, value.state());
         label.addMouseListener(binding.listener);
+        label.addMouseMotionListener(binding.listener);
         label.revalidate();
         label.repaint();
     }
@@ -63,6 +64,7 @@ final class NativeRowActionTracker {
         final Binding binding = bindings.remove(label);
         if (binding == null) return;
         label.removeMouseListener(binding.listener);
+        label.removeMouseMotionListener(binding.listener);
         if (binding.lockedForeground.equals(label.getForeground())) label.setForeground(binding.originalForeground);
         // Do not overwrite a newer native icon installed since this decoration.
         if (label.getIcon() == binding) label.setIcon(binding.originalIcon);
@@ -93,23 +95,104 @@ final class NativeRowActionTracker {
         private final int slotWidth;
         private final Icon unlocked;
         private final MouseAdapter listener = new MouseAdapter() {
+            private boolean pressedOnIcon;
+
+            private boolean iconContains(final JLabel current, final MouseEvent event) {
+                if (current == null || !current.isShowing() || current.getIcon() != Binding.this) return false;
+                final Rectangle icon = new Rectangle(
+                        originalInsets(current).left,
+                        (current.getHeight() - normal.getIconHeight()) / 2,
+                        normal.getIconWidth(),
+                        normal.getIconHeight());
+                return icon.contains(event.getPoint());
+            }
+
             // A listener on the label makes Swing stop delivering mouse events to its
             // ancestors, which would swallow the native row popup menu and selection.
+            // Native parameter rows nest the label inside intermediate containers
+            // (CHBox, CVBox, CFoldingPane, CLayeredPane) beneath the RowLayoutVBox that
+            // owns the native selection, popup-menu, and drag listener, and AWT
+            // dispatchEvent does not bubble through listener-less containers.
             private void forward(final MouseEvent event) {
                 final JLabel current = label.get();
                 if (current == null || event.isConsumed()) return;
-                final Container parent = current.getParent();
-                if (parent == null) return;
-                parent.dispatchEvent(SwingUtilities.convertMouseEvent(current, event, parent));
+                final Container target = targetAncestor(current, event);
+                if (target == null) return;
+                final MouseEvent converted = SwingUtilities.convertMouseEvent(current, event, target);
+                target.dispatchEvent(converted);
+                if (event.getID() == MouseEvent.MOUSE_DRAGGED && !SwingUtilities.isDescendingFrom(current, target)) {
+                    final java.awt.Window window = SwingUtilities.getWindowAncestor(target);
+                    if (window != null) {
+                        final java.awt.Point point = SwingUtilities.convertPoint(target, converted.getPoint(), window);
+                        window.dispatchEvent(new MouseEvent(
+                                window,
+                                MouseEvent.MOUSE_MOVED,
+                                event.getWhen(),
+                                0,
+                                point.x,
+                                point.y,
+                                event.getXOnScreen(),
+                                event.getYOnScreen(),
+                                0,
+                                false,
+                                MouseEvent.NOBUTTON));
+                    }
+                }
+            }
+
+            private static Container targetAncestor(final Component source, final MouseEvent event) {
+                final boolean motion =
+                        event.getID() == MouseEvent.MOUSE_MOVED || event.getID() == MouseEvent.MOUSE_DRAGGED;
+                for (Container ancestor = source.getParent(); ancestor != null; ancestor = ancestor.getParent()) {
+                    if (motion
+                            ? ancestor.getMouseMotionListeners().length > 0
+                            : ancestor.getMouseListeners().length > 0) {
+                        return ancestor;
+                    }
+                }
+                return source.getParent();
             }
 
             @Override
             public void mousePressed(final MouseEvent event) {
+                final JLabel current = label.get();
+                if (SwingUtilities.isLeftMouseButton(event)
+                        && !event.isPopupTrigger()
+                        && iconContains(current, event)) {
+                    pressedOnIcon = true;
+                    event.consume();
+                    return;
+                }
+                pressedOnIcon = false;
                 forward(event);
             }
 
             @Override
             public void mouseReleased(final MouseEvent event) {
+                final JLabel current = label.get();
+                final boolean onIcon = pressedOnIcon
+                        || (SwingUtilities.isLeftMouseButton(event)
+                                && !event.isPopupTrigger()
+                                && iconContains(current, event));
+                pressedOnIcon = false;
+                if (onIcon) {
+                    event.consume();
+                    return;
+                }
+                forward(event);
+            }
+
+            @Override
+            public void mouseDragged(final MouseEvent event) {
+                if (pressedOnIcon) {
+                    event.consume();
+                    return;
+                }
+                forward(event);
+            }
+
+            @Override
+            public void mouseMoved(final MouseEvent event) {
                 forward(event);
             }
 
@@ -126,24 +209,14 @@ final class NativeRowActionTracker {
             @Override
             public void mouseClicked(final MouseEvent event) {
                 final JLabel current = label.get();
-                if (current == null
-                        || !current.isShowing()
-                        || current.getIcon() != Binding.this
-                        || !SwingUtilities.isLeftMouseButton(event)
-                        || event.getClickCount() != 1) {
-                    forward(event);
-                    return;
-                }
-                final Rectangle icon = new Rectangle(
-                        originalInsets(current).left,
-                        (current.getHeight() - normal.getIconHeight()) / 2,
-                        normal.getIconWidth(),
-                        normal.getIconHeight());
-                if (!icon.contains(event.getPoint())) {
+                if (!SwingUtilities.isLeftMouseButton(event)
+                        || event.isPopupTrigger()
+                        || !iconContains(current, event)) {
                     forward(event);
                     return;
                 }
                 event.consume();
+                if (event.getClickCount() != 1) return;
                 try {
                     action.onClick().run();
                 } catch (Throwable failure) {
