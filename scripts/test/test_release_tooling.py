@@ -109,7 +109,7 @@ class ReleaseBaselineAuditTest(unittest.TestCase):
 
 
 class ReleaseWorkflowTest(unittest.TestCase):
-    PLUGIN_DIRECTORY_REVISION = "04fae07e613797f36fead44deb99965094f063ea"
+    PLUGIN_DIRECTORY_REVISION = "eec14bd6ba46c339122bf9cfa238b82227d797aa"
 
     def test_minimum_ci_runs_dev_check_for_pull_requests_and_main(self):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
