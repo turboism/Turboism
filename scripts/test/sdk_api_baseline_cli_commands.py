@@ -81,7 +81,10 @@ def _artifact_binding_mismatch(expected, actual_sha, actual_size):
 
 
 def _verify_records(args, baseline, reference_dump, exact):
-    current_dump, artifact_sha, artifact_size = canonical_dump(args.input, args.package_prefix)
+    if args.input.resolve() == args.reference_input.resolve():
+        current_dump = reference_dump
+    else:
+        current_dump, _artifact_sha, _artifact_size = canonical_dump(args.input, args.package_prefix)
     baseline_lines, current_lines = _record_lines(reference_dump, current_dump)
     removed, added = sorted(set(baseline_lines) - set(current_lines)), sorted(set(current_lines) - set(baseline_lines))
     if removed or (exact and added):

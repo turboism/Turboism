@@ -104,6 +104,14 @@ tasks.register("printBuildInfo") {
 allprojects {
     group = "dev.turboism"
     version = effectiveVersion
+    normalization {
+        runtimeClasspath {
+            metaInf {
+                ignoreAttribute("Turboism-Build-Number")
+                ignoreAttribute("Turboism-Source-Revision")
+            }
+        }
+    }
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true
