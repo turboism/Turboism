@@ -10,24 +10,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.68.1] - 2026-10-30
 
+0.68.0 was published only as beta builds (`0.68.0-beta.1`, `0.68.0-beta.2`). This release includes every change from those betas.
+
 ### Added
 
 - The SDK adds the incubating `UiScheduler.runUiTeardown(Runnable, Duration)` for bounded UI cleanup during plugin disable. It runs inline on the EDT, otherwise waits up to the timeout; when the EDT is blocked or the caller is interrupted it returns `false`, keeps the cleanup queued to run exactly once, and restores the interrupt flag. The plugin generation fence admits it after disable.
-
-### Changed
-
-- `clipmask-viewer` and `project-inspector` dispose their windows through the new teardown API, so their minimum API requirement is now `0.68.1`; other official plugins keep their existing floors. `project-inspector` logs a warning instead of failing disable when the EDT does not respond in time.
-- The runtime derives its first-party plugin list from the bundled `packaging/release-plugins.txt` instead of a hand-maintained copy, and fails closed when the manifest is missing or malformed.
-
-### Fixed
-
-- Full installations that only contain newer official plugins (`atlas-bitmask-nesting`, `atlas-dalsoo-polygon`, `atlas-folder-layout`, `deformer-batch-rename`, `frame-animation-import`, `parameter-sync`) are no longer misdetected as thin builds by the updater.
-- Stabilized the WebDAV backup shutdown test by joining worker threads instead of polling, and made the admission mutation test report whether its mutation hook fired.
-
-## [0.68.0] - 2026-10-28
-
-### Added
-
 - Added a first-party plugin selection page to the Windows installer, featuring RichEdit20W-rendered localized README previews (English, Simplified Chinese, Japanese, Korean), select-all/deselect-all controls, per-plugin install skip markers, and payload filtering.
 - Enrolled `parameter-sync` (real-time normalized parameter value synchronization) and `deformer-batch-rename` (batch deformer renaming with native Cubism Warp and Rotation icon previews) into the official release manifests and bundled installer payloads.
 - Added comprehensive Korean documentation (`README_ko.md`) across all official first-party plugins with runtime metadata and packaging support.
@@ -35,20 +22,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added a compact undecorated startup loading window during early bootstrap to provide visual feedback before the editor interface opens.
 - Parameter batch transfer supports inverting self-targeted parameter keyform bindings in place without requiring an external temporary parameter.
 - Added dark-theme variants and palette matching for the selection brush and mesh edit mirror buttons across native dark toolbars.
+- Added the `geometric-mesh-layout` official plugin (preview): a mesh-editing toolbar tool that places a center anchor on the canvas and generates circular or regular-polygon vertices and edges, including concentric rings and radial spokes.
+- The SDK adds typed table-selection dialogs (`SelectionTableDialogRequest`, `SelectionTableDialogRequest.Row`, `SelectionTableDialogResultListener`), the `ArtMeshMirrorService.Unavailable` and `OrdinaryKeyformWriteSupport.Check.ABSENT` sentinels, and `@CubismEditor` version annotations across the remaining public hook, mesh, model, file-chooser and PSD interfaces.
 
 ### Changed
 
+- `clipmask-viewer` and `project-inspector` dispose their windows through the new teardown API, so their minimum API requirement is now `0.68.1`; other official plugins keep their existing floors. `project-inspector` logs a warning instead of failing disable when the EDT does not respond in time.
+- The runtime derives its first-party plugin list from the bundled `packaging/release-plugins.txt` instead of a hand-maintained copy, and fails closed when the manifest is missing or malformed.
 - Decoupled Plugin Market publication (`packaging/market-plugins.txt`) from installer bundling (`packaging/release-plugins.txt`), enabling official plugins such as `parameter-lock` to publish independently through the Plugin Directory without installer bloat.
 - Moved Plugin Market catalog download, archive verification, and staging disk operations completely off the Swing Event Dispatch Thread (EDT) onto bounded background workers.
 - Bounded asynchronous file logging writes and added session log rotation to protect high-frequency logging from memory bloat.
+- Unified the layout, naming and tooltips of the performance settings.
+- Widened reviewed host support: protected export hooks now cover Cubism 5.1.00 and later, and control-appearance and deformer-source profiles cover every reviewed release from 5.0.00.
+- `acp` accepts `mcp` plugin versions in `[0.1.0,1.0.0)`.
 
 ### Fixed
 
+- Full installations that only contain newer official plugins (`atlas-bitmask-nesting`, `atlas-dalsoo-polygon`, `atlas-folder-layout`, `deformer-batch-rename`, `frame-animation-import`, `parameter-sync`) are no longer misdetected as thin builds by the updater.
+- Stabilized the WebDAV backup shutdown test by joining worker threads instead of polling, and made the admission mutation test report whether its mutation hook fired.
 - Fixed native incremental callbacks replaying across threads, extended optimization compatibility, and reliably invalidated rebuilt geometries and mirrored selection drag ownership in Cubism.
 - Restored canvas viewport capture and hover previews for recently opened files in the Recent Preview plugin.
 - Handled UAC cancellation cleanly, bounded elevation wait timers, self-healed stale BAT launcher records, and stripped obsolete GraalVM launcher paths during reinstallation.
 - Repaired 3D model import upgrade paths and compacted the import confirmation dialog.
 - Hardened parameter-sync cache lifecycle and write suppression, removed the test preview slider, and fixed deformer-batch-rename Korean punctuation and stale preview detection.
+- The view context menu and its bootstrap host profiles work across Cubism 5.0.00–5.3.04.
+- The Windows installer plugin selection page reads checkbox states correctly when syncing the selection.
+- Clicking a `parameter-lock` row label now reaches the row like clicking elsewhere on the row.
+- Hardened plugin generation fencing and fatal error propagation.
+- Compatibility probing of unreviewed hosts visits slices in a fixed order on every run; previously the order could change between launches.
 
 ## [0.67.4] - 2026-10-24
 
