@@ -71,6 +71,16 @@ final class FrameworkUpdateApplier {
 
     record Result(Outcome outcome, String detail) {}
 
+    /**
+     * Restoring the previous installation did not fully succeed (typically a locked file). The journal and backups
+     * are kept; the installation may be mixed until {@link #recover} succeeds, e.g. on the next start.
+     */
+    static final class IncompleteRollbackException extends IOException {
+        IncompleteRollbackException(final String message, final Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     private final Path root;
     private final Path work;
     private final Faults faults;
@@ -176,8 +186,11 @@ final class FrameworkUpdateApplier {
                 cleanup();
             } catch (IOException rollbackFailure) {
                 // Leave the journal in place: the next start retries the restore from durable state.
-                failure.addSuppressed(rollbackFailure);
-                throw failure;
+                final var incomplete = new IncompleteRollbackException(
+                        "Update failed (" + failure + ") and the previous installation could not be fully restored",
+                        failure);
+                incomplete.addSuppressed(rollbackFailure);
+                throw incomplete;
             }
             if (failure instanceof InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
@@ -285,38 +298,72 @@ final class FrameworkUpdateApplier {
     private void restore(final ObjectNode journal) throws IOException {
         final Path backupDir = work.resolve("backup");
         final var files = journal.path("files");
-        // Restore in reverse so a partially applied tail is undone first.
+        final List<IOException> failures = new ArrayList<>();
+        // Restore in reverse so a partially applied tail is undone first. One locked file must not stop the others
+        // from being restored, so every file is attempted and failures are reported together.
         for (int i = files.size() - 1; i >= 0; i--) {
             final String relative = files.get(i).path("path").asText();
             final boolean existed = files.get(i).path("existed").asBoolean();
-            final Path target = root.resolve(relative).normalize();
-            if (!target.startsWith(root) || target.equals(root)) throw new IOException("Journal path escapes installation");
-            Files.deleteIfExists(target.resolveSibling(target.getFileName() + ".turboism-new"));
-            if (existed) {
-                final Path backup = backupDir.resolve(relative);
-                if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
-                    // Backup not yet taken means the original was never replaced (backups precede replacement).
-                    if (journal.path("state").asText().equals("APPLYING")) {
-                        throw new IOException("Backup missing during rollback: " + relative);
-                    }
-                    continue;
+            try {
+                final Path target = root.resolve(relative).normalize();
+                if (!target.startsWith(root) || target.equals(root)) {
+                    throw new IOException("Journal path escapes installation");
                 }
-                Files.createDirectories(target.getParent());
-                Files.copy(backup, target, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
-                force(target);
-            } else {
-                Files.deleteIfExists(target);
+                Files.deleteIfExists(target.resolveSibling(target.getFileName() + ".turboism-new"));
+                if (existed) {
+                    restoreFile(journal, backupDir.resolve(relative), target, relative);
+                } else {
+                    Files.deleteIfExists(target);
+                }
+            } catch (IOException failure) {
+                failures.add(new IOException("Could not restore " + relative + ": " + failure, failure));
             }
         }
         // installed-build.json is only ever written after every file, so restoring files without it is consistent,
         // but a rollback after it was written must restore the previous identity too.
-        final Path previousIdentity = backupDir.resolve(InstalledBuild.METADATA_FILE_NAME);
-        final Path identity = root.resolve(InstalledBuild.METADATA_FILE_NAME);
-        if (Files.isRegularFile(previousIdentity, LinkOption.NOFOLLOW_LINKS)) {
-            Files.copy(previousIdentity, identity, StandardCopyOption.REPLACE_EXISTING);
-        } else if (!journal.path("identityExisted").asBoolean(true)) {
-            Files.deleteIfExists(identity);
+        try {
+            final Path previousIdentity = backupDir.resolve(InstalledBuild.METADATA_FILE_NAME);
+            final Path identity = root.resolve(InstalledBuild.METADATA_FILE_NAME);
+            if (Files.isRegularFile(previousIdentity, LinkOption.NOFOLLOW_LINKS)) {
+                restoreFile(journal, previousIdentity, identity, InstalledBuild.METADATA_FILE_NAME);
+            } else if (!journal.path("identityExisted").asBoolean(true)) {
+                Files.deleteIfExists(identity);
+            }
+        } catch (IOException failure) {
+            failures.add(new IOException("Could not restore installed-build.json: " + failure, failure));
         }
+        if (!failures.isEmpty()) {
+            final var all = new IOException(failures.size() + " file(s) could not be restored");
+            failures.forEach(all::addSuppressed);
+            throw all;
+        }
+    }
+
+    private void restoreFile(final ObjectNode journal, final Path backup, final Path target, final String relative)
+            throws IOException {
+        if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+            // Backup not yet taken means the original was never replaced (backups precede replacement).
+            if (journal.path("state").asText().equals("APPLYING")) {
+                throw new IOException("Backup missing during rollback: " + relative);
+            }
+            return;
+        }
+        // A file whose bytes already equal the backup was never changed (or is already restored): leave it alone.
+        // This matters on Windows, where touching a still-locked, unchanged file would fail needlessly.
+        final BasicFileAttributes current = FrameworkUpdateCache.attributes(target);
+        if (current != null && current.isRegularFile() && current.size() == Files.size(backup)) {
+            try {
+                if (FrameworkUpdateCache.hash(target, current.size()).equals(FrameworkUpdateCache.hash(backup, current.size()))) {
+                    return;
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while verifying " + relative, interrupted);
+            }
+        }
+        Files.createDirectories(target.getParent());
+        Files.copy(backup, target, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
+        force(target);
     }
 
     private void cleanup() throws IOException {
