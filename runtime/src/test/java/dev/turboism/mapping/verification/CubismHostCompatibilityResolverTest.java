@@ -62,6 +62,14 @@ class CubismHostCompatibilityResolverTest {
     }
 
     @Test
+    void sliceCatalogIteratesInDeclarationOrder() {
+        // Map.copyOf would reshuffle slices per JVM; probing order must not depend on the run.
+        final List<String> slices = CubismSliceCatalog.slices();
+        assertEquals(slices.stream().sorted().toList(), slices);
+        assertNotEquals(slices.size() - 1, slices.indexOf("editor-model"));
+    }
+
+    @Test
     void resolveRejectsArtifactMutatedDuringAdmissionResolution() throws Exception {
         final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
         final CubismSliceCatalog.Candidate candidate =
