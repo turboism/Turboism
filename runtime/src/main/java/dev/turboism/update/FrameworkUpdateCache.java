@@ -11,7 +11,12 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.UserPrincipal;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,7 +27,12 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 
-/** Private POSIX resource cache. Static checks only; Windows ACL/reparse admission is not implemented. */
+/**
+ * Private resource cache. POSIX uses owner-only permission bits; Windows uses an owner/SYSTEM/Administrators-only
+ * ACL. Both are static checks, not a sandbox against a hostile process running as the same user. Content is always
+ * re-hashed before use, and cache files are replaced (never rewritten in place), so a pre-planted link cannot
+ * change what is verified or installed.
+ */
 final class FrameworkUpdateCache implements AutoCloseable {
     private static final byte[] MARKER =
             "turboism-framework-resource-cache-v1\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
@@ -37,6 +47,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
     private final Faults faults;
     private final Set<String> sessionPins = new HashSet<>();
     private final Path root;
+    private final boolean posix;
     private final FileChannel lockChannel;
     private final FileLock lock;
 
@@ -50,13 +61,19 @@ final class FrameworkUpdateCache implements AutoCloseable {
         this.faults = faults;
         root = requested.toAbsolutePath().normalize();
         directoryChain(root.getParent());
-        if (!Files.getFileStore(root.getParent()).supportsFileAttributeView("posix")) {
-            throw new IOException("Private cache requires POSIX ownership/permissions; Windows ACL support is pending");
+        posix = Files.getFileStore(root.getParent()).supportsFileAttributeView("posix");
+        if (!posix && !Files.getFileStore(root.getParent()).supportsFileAttributeView("acl")) {
+            throw new IOException("Private cache requires POSIX permissions or ACL support");
         }
         final BasicFileAttributes existing = attributes(root);
         if (existing == null) {
-            Files.createDirectory(
-                    root, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+            if (posix) {
+                Files.createDirectory(
+                        root, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+            } else {
+                Files.createDirectory(root);
+                restrictAcl(root);
+            }
             create(root.resolve("owner"));
             Files.write(root.resolve("owner"), MARKER, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
         }
@@ -70,9 +87,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
         if (existing == null) {
             forceFile(root.resolve("owner"));
             forceDirectory();
-            try (FileChannel parent = FileChannel.open(root.getParent(), StandardOpenOption.READ)) {
-                parent.force(true);
-            }
+            forceDirectory(root.getParent());
         }
         final Path lockPath = root.resolve("writer.lock");
         if (attributes(lockPath) == null) create(lockPath);
@@ -180,10 +195,19 @@ final class FrameworkUpdateCache implements AutoCloseable {
 
     void forceDirectory() throws IOException {
         faults.hit("before-directory-force");
-        try (FileChannel channel = FileChannel.open(root, StandardOpenOption.READ)) {
+        forceDirectory(root);
+        faults.hit("after-directory-force");
+    }
+
+    /**
+     * Flush a directory entry. Windows cannot open a directory as a FileChannel; NTFS commits renames
+     * (MoveFileEx) through the journal, and each file is force()d before it is renamed, so this is a no-op there.
+     */
+    private void forceDirectory(final Path directory) throws IOException {
+        if (!posix) return;
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
             channel.force(true);
         }
-        faults.hit("after-directory-force");
     }
 
     void forceFile(final Path path) throws IOException {
@@ -219,7 +243,12 @@ final class FrameworkUpdateCache implements AutoCloseable {
     void create(final Path path) throws IOException {
         requireOwnedPath(path);
         if (files().size() >= 4096) throw new IOException("Cache entry limit reached");
-        Files.createFile(path, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+        if (posix) {
+            Files.createFile(path, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+        } else {
+            Files.createFile(path);
+            restrictAcl(path);
+        }
     }
 
     void remove(final Path path) throws IOException {
@@ -285,6 +314,17 @@ final class FrameworkUpdateCache implements AutoCloseable {
         return HexFormat.of().formatHex(digest.digest());
     }
 
+    /**
+     * True unless the file has more than one hard link. Where the provider has no link count (Windows via NIO),
+     * this cannot be established and returns true: callers always re-hash content, files are replaced by
+     * rename rather than rewritten in place, and the cache directory is ACL-private, so an alias cannot alter
+     * the bytes that are verified or staged.
+     */
+    static boolean singleLink(final Path path) throws IOException {
+        if (!Files.getFileStore(path).supportsFileAttributeView("unix")) return true;
+        return ((Number) Files.getAttribute(path, "unix:nlink", LinkOption.NOFOLLOW_LINKS)).longValue() == 1;
+    }
+
     static BasicFileAttributes attributes(final Path path) throws IOException {
         try {
             return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
@@ -318,17 +358,65 @@ final class FrameworkUpdateCache implements AutoCloseable {
         final BasicFileAttributes a = attributes(path);
         if (a == null || !a.isRegularFile() || a.isSymbolicLink() || a.isOther())
             throw new IOException("Unsafe cache file");
-        // Fail closed when hard-link count cannot be established on this platform/provider.
-        if (((Number) Files.getAttribute(path, "unix:nlink", LinkOption.NOFOLLOW_LINKS)).longValue() != 1) {
-            throw new IOException("Hard-linked cache file");
-        }
+        if (!singleLink(path)) throw new IOException("Hard-linked cache file");
         privatePermissions(path, false);
         if (!Files.getOwner(path, LinkOption.NOFOLLOW_LINKS).equals(Files.getOwner(root, LinkOption.NOFOLLOW_LINKS))) {
             throw new IOException("Cache file owner mismatch");
         }
     }
 
-    private static void privatePermissions(final Path path, final boolean directory) throws IOException {
+    /** Replace the DACL with owner-only access (plus SYSTEM and Administrators if resolvable). */
+    private static void restrictAcl(final Path path) throws IOException {
+        final AclFileAttributeView view =
+                Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        final UserPrincipal owner = Files.getOwner(path, LinkOption.NOFOLLOW_LINKS);
+        final var lookup = path.getFileSystem().getUserPrincipalLookupService();
+        final List<AclEntry> entries = new ArrayList<>();
+        final List<UserPrincipal> principals = new ArrayList<>();
+        principals.add(owner);
+        for (final String name : new String[] {"SYSTEM", "Administrators"}) {
+            try {
+                principals.add(lookup.lookupPrincipalByName(name));
+            } catch (IOException | UnsupportedOperationException unavailable) {
+                // Owner-only is stricter; absence of a well-known account is not an error.
+            }
+        }
+        final boolean directory = Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS);
+        for (final UserPrincipal principal : principals) {
+            entries.add(AclEntry.newBuilder()
+                    .setType(AclEntryType.ALLOW)
+                    .setPrincipal(principal)
+                    .setPermissions(java.util.EnumSet.allOf(AclEntryPermission.class))
+                    .setFlags(
+                            directory
+                                    ? java.util.EnumSet.of(
+                                            java.nio.file.attribute.AclEntryFlag.FILE_INHERIT,
+                                            java.nio.file.attribute.AclEntryFlag.DIRECTORY_INHERIT)
+                                    : java.util.EnumSet.noneOf(java.nio.file.attribute.AclEntryFlag.class))
+                    .build());
+        }
+        view.setAcl(entries);
+    }
+
+    private static boolean trustedAclPrincipal(final UserPrincipal principal, final UserPrincipal owner) {
+        if (principal.equals(owner)) return true;
+        final String name = principal.getName().toUpperCase(java.util.Locale.ROOT);
+        return name.endsWith("\\SYSTEM") || name.endsWith("\\ADMINISTRATORS");
+    }
+
+    private void privatePermissions(final Path path, final boolean directory) throws IOException {
+        if (!posix) {
+            final var view =
+                    Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            final UserPrincipal owner = Files.getOwner(path, LinkOption.NOFOLLOW_LINKS);
+            for (final AclEntry entry : view.getAcl()) {
+                // Any ALLOW for an untrusted principal (Everyone, Users, ...) makes the cache non-private.
+                if (entry.type() == AclEntryType.ALLOW && !trustedAclPrincipal(entry.principal(), owner)) {
+                    throw new IOException("Cache is not private");
+                }
+            }
+            return;
+        }
         final var expected = PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------");
         if (!Files.getPosixFilePermissions(path, LinkOption.NOFOLLOW_LINKS).equals(expected)) {
             throw new IOException("Cache is not private");

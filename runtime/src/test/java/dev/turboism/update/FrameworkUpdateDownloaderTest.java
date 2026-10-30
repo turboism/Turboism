@@ -441,8 +441,7 @@ final class FrameworkUpdateDownloaderTest {
                 assertThrows(IOException.class, () -> cache.preflight(1024L * 1024 * 1024 + 1));
                 final Path part = cache.path("object", f.hash, "part");
                 cache.create(part);
-                Files.setPosixFilePermissions(
-                        part, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+                makeReadableByOthers(part);
                 assertThrows(IOException.class, () -> cache.present(part));
             }
             final Path alias = temporary.resolve("installation-alias");
@@ -747,10 +746,7 @@ final class FrameworkUpdateDownloaderTest {
                     .recover(firstId, f.candidate, f.context, f.install, ignored -> {})
                     .get(5, TimeUnit.SECONDS);
             final Path outside = temporary.resolve("outside-private-file");
-            Files.createFile(
-                    outside,
-                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                            java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+            createPrivateFile(outside);
             Files.writeString(outside, "user");
             try (FrameworkUpdateCache cache = new FrameworkUpdateCache(f.cache)) {
                 assertThrows(IOException.class, () -> cache.remove(outside));
@@ -759,10 +755,7 @@ final class FrameworkUpdateDownloaderTest {
             }
             assertEquals("user", Files.readString(outside));
             final Path unknown = f.cache.resolve("user.keep");
-            Files.createFile(
-                    unknown,
-                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                            java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+            createPrivateFile(unknown);
             Files.writeString(unknown, "user");
             f.downloader().discard(firstId).get(5, TimeUnit.SECONDS);
             try (FrameworkUpdateCache cache = new FrameworkUpdateCache(f.cache, tight, ignored -> {})) {
@@ -1262,5 +1255,33 @@ final class FrameworkUpdateDownloaderTest {
 
     private static String sha(final byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    private static void makeReadableByOthers(final Path path) throws IOException {
+        if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
+            Files.setPosixFilePermissions(
+                    path, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+            return;
+        }
+        final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
+        final var everyone = path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
+        final var acl = new java.util.ArrayList<>(view.getAcl());
+        acl.add(java.nio.file.attribute.AclEntry.newBuilder()
+                .setType(java.nio.file.attribute.AclEntryType.ALLOW)
+                .setPrincipal(everyone)
+                .setPermissions(java.nio.file.attribute.AclEntryPermission.READ_DATA)
+                .build());
+        view.setAcl(acl);
+    }
+
+    private static void createPrivateFile(final Path path) throws IOException {
+        if (Files.getFileStore(path.getParent()).supportsFileAttributeView("posix")) {
+            Files.createFile(
+                    path,
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+        } else {
+            Files.createFile(path);
+        }
     }
 }

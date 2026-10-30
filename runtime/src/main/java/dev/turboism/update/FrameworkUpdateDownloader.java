@@ -394,7 +394,7 @@ public final class FrameworkUpdateDownloader {
                         || attributes.isSymbolicLink()
                         || attributes.isOther()
                         || attributes.size() > UpdateManifest.MAX_FILE_BYTES
-                        || ((Number) Files.getAttribute(path, "unix:nlink", LinkOption.NOFOLLOW_LINKS)).longValue() != 1
+                        || !FrameworkUpdateCache.singleLink(path)
                         || !FrameworkUpdateCache.hash(path, attributes.size()).equals(entry.getValue())) {
                     throw new IOException("Trusted old installation evidence no longer matches");
                 }

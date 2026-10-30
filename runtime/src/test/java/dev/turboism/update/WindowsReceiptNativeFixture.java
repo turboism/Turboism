@@ -36,7 +36,7 @@ public final class WindowsReceiptNativeFixture {
     public static void main(final String[] args) throws Exception {
         if (args.length == 2 && args[0].equals("--classpath-smoke")) {
             final Path base = Files.createDirectory(Path.of(args[1]));
-            final var smoke = new WindowsReceiptNativeFixture(base, FrameworkInstallationFiles.Posix::new);
+            final var smoke = new WindowsReceiptNativeFixture(base, FrameworkInstallationFiles::system);
             final Fixture fixture = smoke.new Fixture();
             try (var paths = Files.walk(fixture.root.resolve("state"))) {
                 for (Path path : paths.toList()) {

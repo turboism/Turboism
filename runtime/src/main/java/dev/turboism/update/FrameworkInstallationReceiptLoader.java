@@ -24,7 +24,7 @@ public final class FrameworkInstallationReceiptLoader {
     private final Supplier<Path> loadedArtifact;
 
     private FrameworkInstallationReceiptLoader() {
-        fileFactory = FrameworkInstallationFiles.Posix::new;
+        fileFactory = FrameworkInstallationFiles::system;
         root = null;
         verifier = null;
         loaded = FrameworkBuildInfo::current;
@@ -51,7 +51,7 @@ public final class FrameworkInstallationReceiptLoader {
             final UpdateManifestVerifier verifier,
             final Supplier<FrameworkBuildInfo> loaded,
             final Supplier<Path> loadedArtifact) {
-        this(root, verifier, loaded, loadedArtifact, FrameworkInstallationFiles.Posix::new);
+        this(root, verifier, loaded, loadedArtifact, FrameworkInstallationFiles::system);
     }
 
     /** Explicit validation seam only. No deployed Windows native library trust configuration. */
