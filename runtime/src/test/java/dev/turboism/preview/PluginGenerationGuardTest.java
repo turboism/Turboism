@@ -191,8 +191,7 @@ class PluginGenerationGuardTest {
         assertTrue(guarded.runUiTeardown(() -> ran.set("cleanup"), java.time.Duration.ofSeconds(1)));
         assertEquals("cleanup", ran.get());
         assertThrows(IllegalStateException.class, () -> guarded.runOnUiThread(() -> {}));
-        assertThrows(
-                IllegalStateException.class, () -> guarded.runOnUiThreadLater(() -> {}, java.time.Duration.ZERO));
+        assertThrows(IllegalStateException.class, () -> guarded.runOnUiThreadLater(() -> {}, java.time.Duration.ZERO));
         assertEquals(List.of("runUiTeardown"), calls);
     }
 

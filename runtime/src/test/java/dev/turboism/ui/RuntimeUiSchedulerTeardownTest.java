@@ -48,11 +48,7 @@ class RuntimeUiSchedulerTeardownTest {
         runtimeScheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(
-                        500L,
-                        1,
-                        4,
-                        event -> {},
-                        Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC)),
+                        500L, 1, 4, event -> {}, Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC)),
                 new NoopSidecarDispatcher(),
                 (PluginWorkBudgetEvent event) -> {});
         uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
