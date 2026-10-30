@@ -48,7 +48,7 @@ final class FrameworkInstallationReceiptLoaderTest {
         final Fixture f = new Fixture();
         final var closes = new java.util.concurrent.atomic.AtomicInteger();
         final FrameworkInstallationFiles.Factory factory = root -> {
-            final var delegate = new FrameworkInstallationFiles.Posix(root);
+            final var delegate = FrameworkInstallationFiles.system(root);
             return new FrameworkInstallationFiles() {
                 @Override
                 public String rootIdentity() throws IOException {
@@ -157,6 +157,13 @@ final class FrameworkInstallationReceiptLoaderTest {
                 "permissions-state"
             })
     void rejectsCorruptOrUnsafeReceiptWithoutWritingInstallation(final String mode) throws Exception {
+        // Windows via NIO has neither a hard-link count nor POSIX mode bits. Those two checks are defence in depth
+        // only: every file is still re-hashed against the signed receipt, so they are skipped there, and the
+        // limitation is documented in FrameworkInstallationFiles.Local rather than silently claimed.
+        final boolean posix = Files.getFileStore(temporary).supportsFileAttributeView("posix");
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                posix || !java.util.List.of("hardlink-file", "hardlink-index", "permissions-file").contains(mode),
+                "needs POSIX link count / permission bits; bytes are still verified by hash");
         final Fixture f = new Fixture();
         final Path agent = f.root.resolve("turboism-agent.jar");
         switch (mode) {
@@ -195,7 +202,7 @@ final class FrameworkInstallationReceiptLoaderTest {
                 Files.write(
                         f.documents.resolve("manifest.json.sig"),
                         new byte[UpdateManifestVerifier.MAX_ENVELOPE_BYTES + 1]);
-            case "unreadable" -> Files.setPosixFilePermissions(agent, PosixFilePermissions.fromString("-w-------"));
+            case "unreadable" -> Support.denyRead(agent);
             case "symlink-file", "hardlink-file", "symlink-index", "hardlink-index" -> {
                 final Path target = mode.endsWith("index") ? f.index : agent;
                 final Path saved = target.resolveSibling("saved");
@@ -210,11 +217,11 @@ final class FrameworkInstallationReceiptLoaderTest {
                 Files.createSymbolicLink(lib, saved);
             }
             case "permissions-file" ->
-                Files.setPosixFilePermissions(agent, PosixFilePermissions.fromString("rw-rw-r--"));
+                Support.groupWritable(agent);
             case "permissions-index" ->
-                Files.setPosixFilePermissions(f.index, PosixFilePermissions.fromString("rw-r--r--"));
+                Support.worldReadable(f.index);
             case "permissions-state" ->
-                Files.setPosixFilePermissions(f.index.getParent(), PosixFilePermissions.fromString("rwxr-xr-x"));
+                Support.worldReadable(f.index.getParent());
             default -> throw new AssertionError(mode);
         }
         if (mode.equals("bad-signature")) {
@@ -549,7 +556,7 @@ final class FrameworkInstallationReceiptLoaderTest {
             documents = index.getParent().resolve("receipts").resolve(hash);
             Files.createDirectories(documents);
             for (Path p = documents; !p.equals(root); p = p.getParent())
-                Files.setPosixFilePermissions(p, PosixFilePermissions.fromString("rwx------"));
+                Support.makePrivate(p);
             writePrivate(documents.resolve("manifest.json"), manifest);
             writePrivate(documents.resolve("manifest.json.sig"), envelope);
             final var record = UpdateFileSupport.JSON
@@ -558,7 +565,7 @@ final class FrameworkInstallationReceiptLoaderTest {
                     .put("schemaVersion", 1)
                     .put("layout", FrameworkInstallationReceiptLoader.LAYOUT)
                     .put("manifestSha256", hash)
-                    .put("rootIdentity", new FrameworkInstallationFiles.Posix(root).rootIdentity());
+                    .put("rootIdentity", FrameworkInstallationFiles.system(root).rootIdentity());
             writePrivate(index, UpdateFileSupport.JSON.writeValueAsBytes(record));
         }
 
@@ -587,7 +594,76 @@ final class FrameworkInstallationReceiptLoaderTest {
 
         private void writePrivate(final Path path, final byte[] bytes) throws IOException {
             Files.write(path, bytes);
-            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
+            Support.makePrivate(path);
+        }
+    }
+
+    /** Platform-neutral permission helpers: POSIX mode bits where available, otherwise ACLs. */
+    private static final class Support {
+        static boolean posix(final Path path) throws IOException {
+            return Files.getFileStore(path).supportsFileAttributeView("posix");
+        }
+
+        static void makePrivate(final Path path) throws IOException {
+            if (posix(path)) {
+                final boolean directory = Files.isDirectory(path);
+                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------"));
+                return;
+            }
+            final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
+            final var owner = Files.getOwner(path);
+            view.setAcl(java.util.List.of(allow(owner, java.util.EnumSet.allOf(java.nio.file.attribute.AclEntryPermission.class))));
+        }
+
+        static void worldReadable(final Path path) throws IOException {
+            if (posix(path)) {
+                final boolean directory = Files.isDirectory(path);
+                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(directory ? "rwxr-xr-x" : "rw-r--r--"));
+                return;
+            }
+            addEveryone(path, java.nio.file.attribute.AclEntryPermission.READ_DATA);
+        }
+
+        static void groupWritable(final Path path) throws IOException {
+            if (posix(path)) {
+                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-rw-r--"));
+                return;
+            }
+            addEveryone(path, java.nio.file.attribute.AclEntryPermission.WRITE_DATA);
+        }
+
+        static void denyRead(final Path path) throws IOException {
+            if (posix(path)) {
+                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("-w-------"));
+                return;
+            }
+            final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
+            final var acl = new java.util.ArrayList<>(view.getAcl());
+            acl.add(0, java.nio.file.attribute.AclEntry.newBuilder()
+                    .setType(java.nio.file.attribute.AclEntryType.DENY)
+                    .setPrincipal(Files.getOwner(path))
+                    .setPermissions(java.nio.file.attribute.AclEntryPermission.READ_DATA)
+                    .build());
+            view.setAcl(acl);
+        }
+
+        private static void addEveryone(final Path path, final java.nio.file.attribute.AclEntryPermission permission)
+                throws IOException {
+            final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
+            final var everyone = path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
+            final var acl = new java.util.ArrayList<>(view.getAcl());
+            acl.add(allow(everyone, java.util.EnumSet.of(permission)));
+            view.setAcl(acl);
+        }
+
+        private static java.nio.file.attribute.AclEntry allow(
+                final java.nio.file.attribute.UserPrincipal principal,
+                final java.util.Set<java.nio.file.attribute.AclEntryPermission> permissions) {
+            return java.nio.file.attribute.AclEntry.newBuilder()
+                    .setType(java.nio.file.attribute.AclEntryType.ALLOW)
+                    .setPrincipal(principal)
+                    .setPermissions(permissions)
+                    .build();
         }
     }
 }
