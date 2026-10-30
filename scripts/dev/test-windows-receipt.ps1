@@ -166,7 +166,7 @@ try {
     $classpath = (@($verified.records.Keys | Where-Object { $_.EndsWith('.jar') } | Sort-Object | ForEach-Object { Join-Path $Bundle $_ }) -join ';')
     $javaExit = Invoke-BoundedFixture $java @('-Djava.awt.headless=true', '-cp', $classpath, 'dev.turboism.update.WindowsReceiptNativeFixture', $javaRoot, $dll, $ExpectedDllSha256, $javaReport) 'java'
     if (!(Test-Path $javaReport)) { throw 'Java fixture failed before report; inspect console. Native acceptance NOT verified.' }
-    $report.java = Get-Content -Raw $javaReport | ConvertFrom-Json
+    $report.java = Get-Content -Raw -Encoding UTF8 $javaReport | ConvertFrom-Json
     $report.cases += $report.java.cases
     $probe = Join-Path $Bundle 'windows-fixture-probe.exe'
     $env:TURBOISM_W2_NATIVE_FIXTURE = Join-Path $FixtureRoot 'native-probe'
