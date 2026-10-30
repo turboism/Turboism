@@ -173,6 +173,22 @@ public final class PendingPluginOperations {
         return List.copyOf(readOperations());
     }
 
+    /** Completes an exact install after hot apply or confirmed rollback; retains other pending work. */
+    synchronized void completeHotApply(final PreparedPluginJar prepared) {
+        final Path applied = prepared.stagedJar().toAbsolutePath().normalize();
+        final List<Operation> previous = readOperations();
+        final List<Operation> remaining = previous.stream()
+                .filter(operation -> !(operation.type.equals("INSTALL")
+                        && operation.pluginId.equals(prepared.descriptor().id())
+                        && Path.of(operation.stagedJar)
+                                .toAbsolutePath()
+                                .normalize()
+                                .equals(applied)))
+                .toList();
+        if (remaining.size() != previous.size()) writeOperations(remaining);
+        discardIfUnreferenced(applied);
+    }
+
     synchronized boolean canHotApply(final String pluginId) {
         try {
             final List<Path> existing = installed(pluginId);
