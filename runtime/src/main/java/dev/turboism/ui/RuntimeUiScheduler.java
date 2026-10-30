@@ -42,6 +42,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     private final RuntimeScheduler scheduler;
     private final String pluginId;
     private final ScheduledExecutorService timer;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     public RuntimeUiScheduler(RuntimeScheduler scheduler, String pluginId) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
@@ -76,8 +77,34 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         };
     }
 
+    /**
+     * Runs idempotent plugin UI cleanup through {@link EdtDispatch#runEventually}, deliberately
+     * bypassing the runtime scheduler: teardown executes during unload, when worker budgets and
+     * queues are not guaranteed to admit new work. Runs inline on the EDT; otherwise the caller
+     * waits up to {@code timeout} for the EDT to start the cleanup, then abandons the wait with
+     * a diagnostic while the cleanup stays queued and still runs exactly once.
+     */
+    @Override
+    public boolean runUiTeardown(final Runnable cleanup, final Duration timeout) {
+        Objects.requireNonNull(cleanup, "cleanup");
+        Objects.requireNonNull(timeout, "timeout");
+        if (timeout.isZero() || timeout.isNegative()) {
+            throw new IllegalArgumentException("timeout must be positive");
+        }
+        if (closed.get()) {
+            throw new IllegalStateException("UI_SCHEDULER_CLOSED");
+        }
+        final AtomicBoolean completed = new AtomicBoolean();
+        EdtDispatch.runEventually(pluginId + " ui teardown", timeout, () -> {
+            cleanup.run();
+            completed.set(true);
+        });
+        return completed.get();
+    }
+
     @Override
     public void close() {
+        closed.set(true);
         timer.shutdownNow();
     }
 
