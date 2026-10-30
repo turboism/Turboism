@@ -265,31 +265,53 @@ final class FrameworkUpdateApplierTest {
     }
 
     /**
-     * A file held open without FILE_SHARE_DELETE (antivirus, or the still-running JVM) blocks replacement, and for
-     * the same reason also blocks restoring that very file. The applier must not report success, must keep its
-     * journal, and must finish the rollback on the next start once the lock is gone.
+     * A file held open without FILE_SHARE_DELETE (antivirus, or the still-running JVM) blocks replacing that file.
+     * Because the locked file was never changed, rollback restores everything else and leaves it alone: the result
+     * must be the exact old installation, reported as an ordinary rollback with the journal removed.
      */
     @Test
-    void lockedFileOnWindowsKeepsJournalAndRecoversAfterRelease() throws Exception {
+    void lockedFileOnWindowsRollsBackEverythingElseAndKeepsLockedFileUntouched() throws Exception {
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 System.getProperty("os.name").startsWith("Windows"), "Windows sharing-violation semantics");
         final Fixture f = new Fixture();
         try (var held = new java.io.RandomAccessFile(f.root.resolve("turboism-agent.jar").toFile(), "r")) {
-            // README.txt is replaced first; the locked agent then fails the move. Rolling back README works,
-            // so the final state may already be consistent; either way no success may be reported.
-            try {
-                final var result = f.applier(p -> {}).apply(f.manifest(), f.staged, f.newIdentity);
-                assertEquals(FrameworkUpdateApplier.Outcome.ROLLED_BACK, result.outcome());
-            } catch (IOException rollbackBlockedByLock) {
-                assertTrue(Files.exists(f.work.resolve("journal.json")), "journal retained for retry");
-            }
+            final var result = f.applier(p -> {}).apply(f.manifest(), f.staged, f.newIdentity);
+            assertEquals(FrameworkUpdateApplier.Outcome.ROLLED_BACK, result.outcome());
             assertNotNull(held);
         }
+        f.assertOld();
+    }
+
+    /**
+     * A file that WAS replaced and then becomes locked before rollback cannot be restored. The applier must say so
+     * (never report an ordinary rollback), keep the journal, and fully repair on the next run once the lock clears.
+     */
+    @Test
+    void replacedFileThatBecomesLockedReportsIncompleteRollbackThenRecovers() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                System.getProperty("os.name").startsWith("Windows"), "Windows sharing-violation semantics");
+        final Fixture f = new Fixture();
+        final var holder = new java.io.RandomAccessFile[1];
+        try {
+            final var thrown = assertThrows(
+                    FrameworkUpdateApplier.IncompleteRollbackException.class,
+                    () -> f.applier(p -> {
+                                if (p.equals("after-replace:turboism-agent.jar")) {
+                                    // New agent is in place; now something grabs it and the update then fails.
+                                    holder[0] = new java.io.RandomAccessFile(
+                                            f.root.resolve("turboism-agent.jar").toFile(), "r");
+                                    throw new IOException("injected failure after agent replaced");
+                                }
+                            })
+                            .apply(f.manifest(), f.staged, f.newIdentity));
+            assertTrue(thrown.getSuppressed().length > 0);
+            assertTrue(Files.exists(f.work.resolve("journal.json")), "journal retained");
+            assertTrue(Files.exists(f.work.resolve("backup")), "backups retained");
+        } finally {
+            if (holder[0] != null) holder[0].close();
+        }
         final var recovered = f.applier(p -> {}).recover();
-        assertTrue(
-                recovered.outcome() == FrameworkUpdateApplier.Outcome.RECOVERED
-                        || recovered.outcome() == FrameworkUpdateApplier.Outcome.NOTHING,
-                recovered.toString());
+        assertEquals(FrameworkUpdateApplier.Outcome.RECOVERED, recovered.outcome());
         f.assertOld();
     }
 

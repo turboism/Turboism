@@ -29,13 +29,16 @@ import java.util.Optional;
  * A compromised application process can therefore at worst ask for an update the publisher really signed.
  *
  * <p>Exit codes: 0 applied, 10 nothing to do, 20 rolled back (installation unchanged), 30 recovered an earlier
- * interrupted update, 64 usage error, 70 rejected (verification/policy), 75 Cubism still running (retry later).
+ * interrupted update, 40 rollback INCOMPLETE (installation may be mixed; journal kept, must be re-run), 64 usage
+ * error, 70 rejected (verification/policy), 75 Cubism still running (retry later).
  */
 public final class FrameworkUpdateHelper {
     static final int EXIT_APPLIED = 0;
     static final int EXIT_NOTHING = 10;
     static final int EXIT_ROLLED_BACK = 20;
     static final int EXIT_RECOVERED = 30;
+    /** Rollback incomplete: installation may be mixed. Journal kept; run again (or restart) once locks clear. */
+    static final int EXIT_NEEDS_RECOVERY = 40;
     static final int EXIT_USAGE = 64;
     static final int EXIT_REJECTED = 70;
     static final int EXIT_BUSY = 75;
@@ -115,6 +118,11 @@ public final class FrameworkUpdateHelper {
                 case RECOVERED -> EXIT_RECOVERED;
                 case NOTHING -> EXIT_NOTHING;
             };
+        } catch (FrameworkUpdateApplier.IncompleteRollbackException incomplete) {
+            err.println("ROLLBACK INCOMPLETE - installation may be mixed; will be repaired on next run: "
+                    + incomplete.getMessage());
+            for (final Throwable detail : incomplete.getSuppressed()) err.println("  " + detail);
+            return EXIT_NEEDS_RECOVERY;
         } catch (UpdateManifestVerifier.UpdateManifestVerificationException rejected) {
             err.println("Rejected update: " + rejected.errorCode() + ": " + rejected.getMessage());
             return EXIT_REJECTED;
