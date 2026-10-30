@@ -87,8 +87,10 @@ class CubismHostCompatibilityResolverTest {
                 new java.util.concurrent.atomic.AtomicBoolean(false);
         final java.util.concurrent.atomic.AtomicBoolean mutated = new java.util.concurrent.atomic.AtomicBoolean(false);
 
+        final java.util.List<String> queried = new java.util.ArrayList<>();
         final CompatibilityResolution mutatedResolution =
                 CubismHostCompatibilityResolver.resolve(artifact, null, name -> {
+                    queried.add(name);
                     if (candidate.recordFileName().equals(name)) {
                         recordReturned.set(true);
                         return validRecord;
@@ -109,6 +111,10 @@ class CubismHostCompatibilityResolverTest {
                     return null;
                 });
 
+        assertTrue(
+                mutated.get(),
+                "mutation hook must fire during resolution; candidate=" + candidate.recordFileName() + " queried="
+                        + queried + " res=" + mutatedResolution.slices());
         assertEquals(CompatibilityResolution.Mode.REJECTED, mutatedResolution.mode());
         assertEquals(
                 HostIdentityProbe.Status.DECLARATION_AMBIGUOUS,
