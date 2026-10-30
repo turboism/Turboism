@@ -430,7 +430,8 @@ final class BackupPluginTest {
     private static void awaitWorkerThreadExit() throws InterruptedException {
         final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
         for (final Thread thread : workerThreads()) {
-            final long remainingMillis = Duration.ofNanos(deadline - System.nanoTime()).toMillis();
+            final long remainingMillis =
+                    Duration.ofNanos(deadline - System.nanoTime()).toMillis();
             if (remainingMillis <= 0) {
                 return;
             }
