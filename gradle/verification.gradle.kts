@@ -1731,6 +1731,26 @@ val checkCompletedCommit by tasks.registering {
     )
 }
 
+// The offline signing fixture is ordinary CI: temporary keys only, no publishing.
+val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Tests deterministic offline framework signing and build inventory boundaries."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/release/build-framework-update.py",
+        fileTree("scripts/release/turboism_release") { include("*.py") },
+        "scripts/test/test_release_tooling.py",
+        fileTree("packaging") { include("**/*") },
+        "LICENSE",
+        "graal-host/build.gradle.kts",
+        "buildSrc/src/main/kotlin/turboism.java-conventions.gradle.kts"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "-v",
+        "scripts.test.test_release_tooling.FrameworkUpdateToolTest")
+}
+tasks.named("checkCompletedCommit") { dependsOn(checkFrameworkUpdateTooling) }
+
 val checkReleaseTooling by tasks.registering(Exec::class) {
     group = "release verification"
     description = "Verifies changelog extraction, release payloads, and deterministic release planning."
@@ -1740,6 +1760,8 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/release/verify-release.py",
         "scripts/release/audit-v0.42.0.py",
         "scripts/release/build-updates-manifests.py",
+        "scripts/release/build-framework-update.py",
+        "packaging/framework-update-layout.json",
         "scripts/release/turboism-release.py",
         "scripts/release/promote-github-release.py",
         "scripts/release/verify-github-assets.py",
