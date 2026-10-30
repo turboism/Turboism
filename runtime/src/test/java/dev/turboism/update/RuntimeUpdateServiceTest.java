@@ -704,6 +704,21 @@ final class RuntimeUpdateServiceTest {
         final InstalledBuild inferredFull = InstalledBuild.forHome(home);
         assertEquals("full", inferredFull.variant());
 
+        // 2b. Plugins added after the original hard-coded list still count as first-party
+        java.nio.file.Files.delete(plugins.resolve("mcp.jar"));
+        for (final String newer : List.of(
+                "atlas-bitmask-nesting.jar",
+                "atlas-dalsoo-polygon.jar",
+                "atlas-folder-layout.jar",
+                "deformer-batch-rename.jar",
+                "frame-animation-import.jar",
+                "parameter-sync.jar")) {
+            java.nio.file.Files.writeString(plugins.resolve(newer), "dummy");
+            assertEquals("full", InstalledBuild.forHome(home).variant(), newer);
+            java.nio.file.Files.delete(plugins.resolve(newer));
+        }
+        java.nio.file.Files.writeString(plugins.resolve("mcp.jar"), "dummy");
+
         // 3. When absent and no first-party plugins, infer thin
         java.nio.file.Files.delete(plugins.resolve("mcp.jar"));
         java.nio.file.Files.writeString(plugins.resolve("custom-third-party.jar"), "dummy");
