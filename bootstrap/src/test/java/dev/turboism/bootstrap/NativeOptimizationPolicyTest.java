@@ -37,6 +37,10 @@ class NativeOptimizationPolicyTest {
         dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge.setConfiguredDefault(
                 false);
         dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.setConfiguredDefault(false);
+        dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge.setConfiguredDefault(false);
+        dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBridge.setConfiguredDefault(false);
+        dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge.setConfiguredDefault(false);
+        dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.setConfiguredDefault(false);
     }
 
     private HookEnvironment environment() {
@@ -83,6 +87,12 @@ class NativeOptimizationPolicyTest {
         assertTrue(NativeOptimizationPolicy.inputPathElisionEnabled(next));
         assertTrue(NativeOptimizationPolicy.mesaGlThreadEnabled(next));
         assertTrue(NativeOptimizationPolicy.meshInterpolationEnabled(next));
+        assertTrue(NativeOptimizationPolicy.shaderUniformEnabled(next));
+        assertTrue(NativeOptimizationPolicy.matrixScratchEnabled(next));
+        assertTrue(NativeOptimizationPolicy.imageArchiveReuseEnabled(next));
+        assertTrue(NativeOptimizationPolicy.floatArrayParseCacheEnabled(next));
+        assertTrue(NativeOptimizationPolicy.textureUploadPreparationEnabled(next));
+        assertTrue(NativeOptimizationPolicy.warpPositionProjectionEnabled(next));
     }
 
     @Test

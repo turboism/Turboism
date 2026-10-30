@@ -13,19 +13,30 @@ final class MatrixScratchHookContributor extends NativeOptimizationHookContribut
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+        if (!NativeOptimizationPolicy.matrixScratchEnabled(environment)) {
+            log(environment, id() + " installation=NOT_ADMITTED");
+            return refused("preference-disabled");
+        }
         final var host = environment.host().orElseThrow();
         if (!VerifiedMatrixScratchInstaller.admitted(
                 host.artifact(),
                 NativeOptimizationPolicy.load(environment.options().home()),
-                Boolean.getBoolean(MatrixScratchTransformer.ENABLE_PROPERTY),
+                true,
                 Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedMatrixScratchInstaller installer =
                 new VerifiedMatrixScratchInstaller(environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
+        final boolean ownedEnableProperty = System.getProperty(MatrixScratchTransformer.ENABLE_PROPERTY) == null;
+        if (ownedEnableProperty) {
+            System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, "true");
+        }
         return () -> {
+            if (ownedEnableProperty) {
+                System.clearProperty(MatrixScratchTransformer.ENABLE_PROPERTY);
+            }
             try {
                 installer.close();
                 RuntimeDiagnostics.info(

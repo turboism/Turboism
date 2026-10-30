@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge;
-
 /** Contributor for the verified image archive reuse optimization (exact 5.3.02). */
 final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContributor {
 
@@ -11,8 +9,9 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!Boolean.getBoolean(ImageArchiveReuseBridge.ENABLE_PROPERTY)) {
-            return noOp();
+        if (!NativeOptimizationPolicy.imageArchiveReuseEnabled(environment)) {
+            log(environment, id() + " installation=NOT_ADMITTED");
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedImageArchiveReuseInstaller.admitted(
@@ -20,7 +19,7 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
                 NativeOptimizationPolicy.load(environment.options().home()),
                 true)) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedImageArchiveReuseInstaller installer = new VerifiedImageArchiveReuseInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

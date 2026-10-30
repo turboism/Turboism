@@ -270,13 +270,10 @@ class DeclarativeSettingsRendererTest {
         final javax.swing.JLabel label = java.util.Arrays.stream(performance.getComponents())
                 .filter(javax.swing.JLabel.class::isInstance)
                 .map(javax.swing.JLabel.class::cast)
-                .filter(candidate -> candidate.getText() != null
-                        && candidate.getText().startsWith("settings.cubism-jvm.memory-profile "))
+                .filter(candidate -> "settings.cubism-jvm.memory-profile".equals(candidate.getText()))
                 .findFirst()
                 .orElseThrow();
-        assertTrue(
-                label.getText().contains("settings.locale.restart-required"),
-                "the rendered label states the restart requirement");
+        assertEquals("settings.cubism-jvm.memory-profile", label.getText());
         assertEquals("system", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
         for (int index = 0; index < combo.getItemCount(); index++) {

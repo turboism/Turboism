@@ -97,7 +97,7 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(18, context.uiHost().settingsContributions().size());
+        assertEquals(24, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
                         "cubism-graalvm-path",
@@ -113,6 +113,12 @@ class CoreShellTest {
                         "input-path-elision",
                         "mesa-gl-thread",
                         "mesh-interpolation",
+                        "shader-uniform",
+                        "matrix-scratch",
+                        "image-archive-reuse",
+                        "float-array-parse-cache",
+                        "texture-upload-preparation",
+                        "warp-position-projection",
                         "performance-restart-note",
                         "mesh-triangulation-hash",
                         "triangulation-edge-index",
@@ -121,6 +127,20 @@ class CoreShellTest {
                 context.uiHost().settingsContributions().stream()
                         .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
                         .toList());
+        int maxToggleIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Toggle)
+                .mapToInt(c -> c.index().orElseThrow())
+                .max()
+                .orElseThrow();
+        int minInputOrChoiceIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Text
+                        || c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Choice)
+                .mapToInt(c -> c.index().orElseThrow())
+                .min()
+                .orElseThrow();
+        assertTrue(
+                maxToggleIndex < minInputOrChoiceIndex,
+                "All checkboxes must appear above input fields and dropdowns on the Performance tab");
         assertTrue(context.uiHost().settingsContributions().stream()
                 .allMatch(contribution -> contribution.tab().id().equals("performance")));
         assertEquals(1, context.uiHost().panelContributions().size());

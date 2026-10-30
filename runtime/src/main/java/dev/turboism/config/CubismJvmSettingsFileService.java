@@ -235,6 +235,66 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean shaderUniform() {
+        return optimization("shaderUniform");
+    }
+
+    @Override
+    public boolean saveShaderUniform(final boolean value) {
+        return saveOptimization("shaderUniform", value);
+    }
+
+    @Override
+    public boolean matrixScratch() {
+        return optimization("matrixScratch");
+    }
+
+    @Override
+    public boolean saveMatrixScratch(final boolean value) {
+        return saveOptimization("matrixScratch", value);
+    }
+
+    @Override
+    public boolean imageArchiveReuse() {
+        return optimization("imageArchiveReuse");
+    }
+
+    @Override
+    public boolean saveImageArchiveReuse(final boolean value) {
+        return saveOptimization("imageArchiveReuse", value);
+    }
+
+    @Override
+    public boolean floatArrayParseCache() {
+        return optimization("floatArrayParseCache");
+    }
+
+    @Override
+    public boolean saveFloatArrayParseCache(final boolean value) {
+        return saveOptimization("floatArrayParseCache", value);
+    }
+
+    @Override
+    public boolean textureUploadPreparation() {
+        return optimization("textureUploadPreparation");
+    }
+
+    @Override
+    public boolean saveTextureUploadPreparation(final boolean value) {
+        return saveOptimization("textureUploadPreparation", value);
+    }
+
+    @Override
+    public boolean warpPositionProjection() {
+        return optimization("warpPositionProjection");
+    }
+
+    @Override
+    public boolean saveWarpPositionProjection(final boolean value) {
+        return saveOptimization("warpPositionProjection", value);
+    }
+
+    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }

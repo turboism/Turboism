@@ -165,8 +165,34 @@ class CoreWindowsTest {
         final var contribution = CubismJvmSettingsContribution.createPath(I18N, service);
         final var text = (dev.turboism.sdk.ui.settings.SettingsControl.Text) contribution.control();
 
+        final var jvmContribution = CubismJvmSettingsContribution.create(I18N, service);
         assertEquals("performance", contribution.tab().id());
-        assertEquals(90, contribution.index().orElseThrow());
+        assertEquals(100, contribution.index().orElseThrow());
+        assertTrue(contribution.index().orElseThrow() < jvmContribution.index().orElseThrow());
+        for (String id : java.util.List.of(
+                "mesh-triangulation-hash",
+                "atlas-tile-bbox",
+                "atlas-cache-reuse",
+                "triangulation-edge-index",
+                "model-update-skip",
+                "incremental-update",
+                "uniform-location-cache",
+                "upload-elision",
+                "input-path-elision",
+                "mesa-gl-thread",
+                "mesh-interpolation",
+                "shader-uniform",
+                "matrix-scratch",
+                "image-archive-reuse",
+                "float-array-parse-cache",
+                "texture-upload-preparation",
+                "warp-position-projection",
+                "cubism-disable-auto-backup",
+                "cubism-zgc",
+                "cubism-jvm",
+                "cubism-memory-profile")) {
+            assertTrue(CubismJvmSettingsContribution.tooltipKey(id).isPresent(), "Missing tooltip key for " + id);
+        }
         assertEquals("C:\\GraalVM", text.binding().read());
         assertTrue(text.validator().validate(saved[0], "").accepted());
         assertFalse(text.validator()

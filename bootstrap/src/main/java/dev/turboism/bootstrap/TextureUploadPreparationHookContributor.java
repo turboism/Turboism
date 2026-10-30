@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge;
-
 /** Contributor for the verified texture upload preparation optimization. */
 final class TextureUploadPreparationHookContributor extends NativeOptimizationHookContributor {
 
@@ -11,8 +9,9 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!Boolean.getBoolean(TextureUploadPreparationBridge.ENABLE_PROPERTY)) {
-            return noOp();
+        if (!NativeOptimizationPolicy.textureUploadPreparationEnabled(environment)) {
+            log(environment, id() + " installation=NOT_ADMITTED");
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedTextureUploadPreparationInstaller.admitted(
@@ -21,7 +20,7 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
                 true,
                 Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedTextureUploadPreparationInstaller installer = new VerifiedTextureUploadPreparationInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

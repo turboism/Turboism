@@ -19,6 +19,19 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
     /** Payload-free statistics. Prepared bytes are not an actual GPU-upload measurement. */
     public static final String STATS_PROPERTY = "turboism.texture-upload-preparation.stats";
 
+    private static volatile boolean configuredDefault;
+
+    /** Sets the startup-configured default when the diagnostic system property is absent. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
+    /** True when enabled by diagnostic property or global startup configuration. */
+    public static boolean enabledByPreference() {
+        final String value = System.getProperty(ENABLE_PROPERTY);
+        return value == null ? configuredDefault : Boolean.parseBoolean(value);
+    }
+
     private final Class<?> profileClass;
     private final Method desktopProfile;
     private final AtomicBoolean active = new AtomicBoolean();
@@ -61,7 +74,7 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
     }
 
     private Object invoke(Object image, Object profile) {
-        if (!active.get() || !Boolean.getBoolean(ENABLE_PROPERTY)) return null;
+        if (!active.get() || !enabledByPreference()) return null;
         calls.increment();
         long start = System.nanoTime();
         try {
@@ -73,7 +86,7 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
             if (source.getType() == BufferedImage.TYPE_INT_ARGB) argb.increment();
             if (source.getType() == BufferedImage.TYPE_4BYTE_ABGR) abgr.increment();
             BufferedImage result = CanonicalRgbaImage.prepare(source);
-            if (result != null && active.get() && Boolean.getBoolean(ENABLE_PROPERTY)) {
+            if (result != null && active.get() && enabledByPreference()) {
                 prepared.increment();
                 pixels.add((long) result.getWidth() * result.getHeight());
                 return result;
