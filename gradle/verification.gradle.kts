@@ -1846,3 +1846,17 @@ recordsConsumers.forEach { taskName ->
         inputs.files(tasks.named("materializeVerificationRecords"))
     }
 }
+
+// Ordinary CI checks sources/pins/ABI without requiring MinGW or pretending native tests passed.
+val checkWindowsUpdateNativeSources by tasks.registering(Exec::class) {
+    group = "verification"
+    workingDir(rootDir)
+    inputs.files(fileTree("native/update-files"),
+        "scripts/dev/build_windows_update_files.py",
+        "scripts/dev/test-windows-receipt.ps1",
+        "scripts/test/test_windows_update_native.py",
+        "runtime/src/main/java/dev/turboism/update/WindowsInstallationFiles.java")
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_windows_update_native")
+}
+tasks.named("checkCompletedCommit") { dependsOn(checkWindowsUpdateNativeSources) }

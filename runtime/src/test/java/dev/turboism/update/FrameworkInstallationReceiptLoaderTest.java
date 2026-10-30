@@ -44,6 +44,43 @@ final class FrameworkInstallationReceiptLoaderTest {
     Path temporary;
 
     @Test
+    void injectedFileBoundaryClosesOnSuccessAndVerificationFailure() throws Exception {
+        final Fixture f = new Fixture();
+        final var closes = new java.util.concurrent.atomic.AtomicInteger();
+        final FrameworkInstallationFiles.Factory factory = root -> {
+            final var delegate = new FrameworkInstallationFiles.Posix(root);
+            return new FrameworkInstallationFiles() {
+                @Override
+                public String rootIdentity() throws IOException {
+                    return delegate.rootIdentity();
+                }
+
+                @Override
+                public byte[] document(Path path, int limit) throws IOException, InterruptedException {
+                    return delegate.document(path, limit);
+                }
+
+                @Override
+                public void verify(UpdateManifestEntry entry) throws IOException, InterruptedException {
+                    delegate.verify(entry);
+                }
+
+                @Override
+                public void close() {
+                    closes.incrementAndGet();
+                }
+            };
+        };
+        final var loader = new FrameworkInstallationReceiptLoader(
+                f.root, f.verifier, () -> f.info, () -> f.root.resolve("turboism-agent.jar"), factory);
+        loader.load();
+        assertEquals(1, closes.get());
+        Files.writeString(f.root.resolve("turboism-agent.jar"), "changed");
+        assertThrows(IOException.class, loader::load);
+        assertEquals(2, closes.get());
+    }
+
+    @Test
     void historicalAuthenticationAndPrivateEvidenceDoNotAdmitOldBuildAsNewTarget() throws Exception {
         final Fixture f = new Fixture();
         final var evidence = f.loader().load();

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "headers": [
+    {
+      "path": "include/win32/jni_md.h",
+      "url": "https://raw.githubusercontent.com/openjdk/jdk17u/jdk-17.0.16%2B8/src/java.base/windows/native/include/jni_md.h",
+      "sha256": "dbf96659c4c840b15ef40237db0c65657eca7a70904225fc984deb38999df515",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0"
+    },
+    {
+      "path": "include/OPENJDK-LICENSE",
+      "url": "https://raw.githubusercontent.com/openjdk/jdk17u/jdk-17.0.16%2B8/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0"
+    },
+    {
+      "path": "include/OPENJDK-ADDITIONAL_LICENSE_INFO",
+      "url": "https://raw.githubusercontent.com/openjdk/jdk17u/jdk-17.0.16%2B8/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0"
+    }
+  ],
+  "imports": [
+    "ADVAPI32.dll",
+    "KERNEL32.dll",
+    "ntdll.dll"
+  ],
+  "abi": 1,
+  "platform": "windows-x64",
+  "compilerFlags": [
+    "-std=c11",
+    "-Os",
+    "-ffreestanding",
+    "-fno-builtin",
+    "-fno-stack-protector",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-nostdlib",
+    "-shared",
+    "-Wl,--entry,DllMain",
+    "-Wl,--no-insert-timestamp",
+    "-Wl,--image-base,0x180000000",
+    "-Wl,--strip-all"
+  ],
+  "officialApiSources": [
+    {
+      "name": "ntstatus",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-rtlntstatustodoserror.md",
+      "sha256": "b6f71306e052e9a573c4ef0b1ce5b5cd7623f70945ebfe6629d455385610ed92"
+    },
+    {
+      "name": "generic",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/securitybaseapi/nf-securitybaseapi-mapgenericmask.md",
+      "sha256": "90f10f776b878203174edef02a4071f50042344888fd0489aec79f55f3e0eb9c"
+    },
+    {
+      "name": "ace",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/securitybaseapi/nf-securitybaseapi-getace.md",
+      "sha256": "8c5ee07f882ffbcc140f876c2482df859bb4ba4bf6ac50c1ac9cd669a125ff6d"
+    },
+    {
+      "name": "ntquery",
+      "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile",
+      "sha256": "298aead6788ba5ff9cefc98870d1031e7c33bbbe3d4769a5ac9311174f4f5b46"
+    },
+    {
+      "name": "streams",
+      "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_stream_information",
+      "sha256": "8d0157611a39dc0710373112c66c8a5ad10e7b9ca1dffdc125563cf40af883bf"
+    },
+    {
+      "name": "createfile",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fileapi/nf-fileapi-createfilew.md",
+      "bytes": 64528,
+      "sha256": "f3e2604b109bc721d4bb6674ce0e10dd883c3d820c48156ca527690b5d19e437"
+    },
+    {
+      "name": "ntcreatefile",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntcreatefile.md",
+      "bytes": 37266,
+      "sha256": "d35698185fa62bd5d819a78b7f0f4b5161e6211fae1a461fdbde8a673d29469e"
+    },
+    {
+      "name": "fileinfo",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fileapi/nf-fileapi-getfileinformationbyhandleex.md",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "name": "fileid",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/ns-winbase-file_id_info.md",
+      "bytes": 2600,
+      "sha256": "010d7f24b1bdafc79f80bd6225775f5df2eb22ee2ea093d105c588cbaca61929"
+    },
+    {
+      "name": "getsecurity",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/aclapi/nf-aclapi-getsecurityinfo.md",
+      "bytes": 7110,
+      "sha256": "7a753ed7bd6ba7b7496c0ed3cd1d1c95ccb2b740eddb3abe52292922d05e5536"
+    },
+    {
+      "name": "gettoken",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/securitybaseapi/nf-securitybaseapi-gettokeninformation.md",
+      "bytes": 6769,
+      "sha256": "c44e37ee00a0a4d8991ef840c7338dc763a8382f7773f659a990b705a67104c1"
+    }
+  ]
+}
