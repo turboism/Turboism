@@ -8,6 +8,22 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-10-30
+
+### 추가
+
+- SDK에 플러그인 비활성화 시 UI 정리를 제한 시간 내에 수행하는 실험적 `UiScheduler.runUiTeardown(Runnable, Duration)`을 추가했습니다. EDT에서는 즉시 실행하고, 그 외에는 제한 시간까지 기다립니다. EDT가 응답하지 않거나 호출 스레드가 인터럽트되면 `false`를 반환하며, 정리 작업은 대기열에 남아 정확히 한 번 실행되고 인터럽트 플래그는 복원됩니다. 플러그인 세대 펜스는 비활성화 이후에도 이 호출을 허용합니다.
+
+### 변경
+
+- `clipmask-viewer`와 `project-inspector`는 새 정리 API로 창을 닫으므로 최소 API가 `0.68.1`로 변경되었습니다. 다른 공식 플러그인의 하한은 그대로입니다. EDT가 제때 응답하지 않으면 `project-inspector`는 비활성화를 실패시키지 않고 경고를 기록합니다.
+- 런타임은 수동으로 관리하던 목록 대신 내장된 `packaging/release-plugins.txt`에서 공식 플러그인 목록을 읽으며, 매니페스트가 없거나 잘못되면 실패합니다.
+
+### 수정
+
+- 새 공식 플러그인(`atlas-bitmask-nesting`, `atlas-dalsoo-polygon`, `atlas-folder-layout`, `deformer-batch-rename`, `frame-animation-import`, `parameter-sync`)만 포함한 전체 설치가 업데이터에서 thin 빌드로 잘못 판별되지 않습니다.
+- WebDAV 백업 중지 테스트는 폴링 대신 작업자 스레드 종료를 기다리며, 승인 변경 테스트는 변경 훅이 실행되었는지 보고합니다.
+
 ## [0.68.0] - 2026-10-28
 
 ### 추가

@@ -8,6 +8,22 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-10-30
+
+### 新增
+
+- SDK 新增孵化中的 `UiScheduler.runUiTeardown(Runnable, Duration)`，用于插件停用时有界地清理界面。在 EDT 上直接执行，否则最多等待指定时长；EDT 阻塞或调用线程被中断时返回 `false`，清理任务保留在队列中且只执行一次，并恢复中断标记。插件代际围栏在停用后放行该调用。
+
+### 变更
+
+- `clipmask-viewer` 和 `project-inspector` 改用新的清理接口关闭窗口，最低 API 要求改为 `0.68.1`；其他官方插件保持原有下限。EDT 未及时响应时，`project-inspector` 记录警告而不再令停用失败。
+- 运行时改为从内置的 `packaging/release-plugins.txt` 读取第一方插件列表，不再手工维护副本；清单缺失或格式错误时直接失败。
+
+### 修复
+
+- 只包含较新官方插件（`atlas-bitmask-nesting`、`atlas-dalsoo-polygon`、`atlas-folder-layout`、`deformer-batch-rename`、`frame-animation-import`、`parameter-sync`）的完整安装不再被更新器误判为精简版。
+- WebDAV 备份停用测试改为等待工作线程结束而非轮询；准入变更测试会报告其变更钩子是否触发。
+
 ## [0.68.0] - 2026-10-28
 
 ### 新增
