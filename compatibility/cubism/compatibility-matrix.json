@@ -941,7 +941,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorParameterInterpolationSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "source": "scripts\\verification-sources\\templates\\dev\\turboism\\mapping\\verification\\selector\\EditorParameterInterpolationSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -3315,7 +3315,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorMocExportSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "source": "scripts\\verification-sources\\templates\\dev\\turboism\\mapping\\verification\\selector\\EditorMocExportSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
       "5.3.00",
       "5.3.01",
@@ -4878,7 +4878,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "source": "scripts\\verification-sources\\templates\\dev\\turboism\\mapping\\verification\\selector\\EditorRawImagePsdSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -4956,7 +4956,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "source": "scripts\\verification-sources\\templates\\dev\\turboism\\mapping\\verification\\selector\\EditorRawImagePsdReplaceSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -5138,7 +5138,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRenderPixelsSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "source": "scripts\\verification-sources\\templates\\dev\\turboism\\mapping\\verification\\selector\\EditorRenderPixelsSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -6500,7 +6500,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java:SUPPORTED_VERSIONS",
+     "source": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\mesh\\MeshToolSessionSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -6556,7 +6556,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java:SUPPORTED_VERSIONS",
+     "source": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\modeling\\ModelingSelectionSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
       "5.2.00",
       "5.2.01",
@@ -7233,7 +7233,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java:SUPPORTED_VERSIONS",
+     "source": "runtime\\src\\main\\java\\dev\\turboism\\ui\\mesh\\MeshToolbarSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -9411,7 +9411,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\CubismFacade.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()",
@@ -9427,7 +9427,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\CubismFacade.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()",
@@ -9443,7 +9443,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\CubismFacade.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()",
@@ -9459,7 +9459,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\CubismFacade.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService",
@@ -9479,7 +9479,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
@@ -9499,7 +9499,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()",
@@ -9519,7 +9519,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupNow()",
@@ -9539,7 +9539,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#registerSyncTarget()",
@@ -9559,7 +9559,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#settings()",
@@ -9579,7 +9579,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#statuses()",
@@ -9599,7 +9599,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#updateSettings()",
@@ -9619,7 +9619,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.command.EditorCommandService",
@@ -9639,7 +9639,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\command\\EditorCommandService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.CancelSource",
@@ -9657,7 +9657,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/CancelSource.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\CancelSource.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.DeformerOps",
@@ -9675,7 +9675,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/DeformerOps.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\DeformerOps.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditAlphaBlend",
@@ -9693,7 +9693,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditAlphaBlend.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditAlphaBlend.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditArtMeshData#EditArtMeshData()",
@@ -9711,7 +9711,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditArtMeshData.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditArtMeshData.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditCancelledException",
@@ -9729,7 +9729,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditCancelledException.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditCancelledException.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditColorBlend",
@@ -9747,7 +9747,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditColorBlend.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditColorBlend.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditDeformerAttachMode",
@@ -9765,7 +9765,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditDeformerAttachMode.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditDeformerAttachMode.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditGlueData#EditGlueData()",
@@ -9783,7 +9783,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditGlueData.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditGlueData.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditLabelColor#EditLabelColor()",
@@ -9801,7 +9801,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditLabelColor.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditLabelColor.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditLabelColorType",
@@ -9819,7 +9819,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditLabelColorType.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditLabelColorType.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditObjectData",
@@ -9837,7 +9837,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditObjectData.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditObjectData.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditObjectKind",
@@ -9855,7 +9855,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditObjectKind.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditObjectKind.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditObjectNode#EditObjectNode()",
@@ -9873,7 +9873,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditObjectNode.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditObjectNode.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditObjectSnapshot#EditObjectSnapshot()",
@@ -9891,7 +9891,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditObjectSnapshot.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditObjectSnapshot.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditParameterGroupNode#EditParameterGroupNode()",
@@ -9909,7 +9909,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditParameterGroupNode.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditParameterGroupNode.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditParameterKeyCondition#EditParameterKeyCondition()",
@@ -9927,7 +9927,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditParameterKeyCondition.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditParameterKeyCondition.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditParameterNode#EditParameterNode()",
@@ -9945,7 +9945,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditParameterNode.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditParameterNode.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditParameterStructureEntry",
@@ -9963,7 +9963,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditParameterStructureEntry.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditParameterStructureEntry.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditPartData#EditPartData()",
@@ -9981,7 +9981,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditPartData.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditPartData.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditRectangle#EditRectangle()",
@@ -9999,7 +9999,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditRectangle.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditRectangle.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditRotationDeformerData#EditRotationDeformerData()",
@@ -10017,7 +10017,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditRotationDeformerData.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditRotationDeformerData.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSession",
@@ -10035,7 +10035,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSession.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSession.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionCloseOutcome",
@@ -10053,7 +10053,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionCloseOutcome.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionCloseOutcome.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionCloseResult#EditSessionCloseResult()",
@@ -10071,7 +10071,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionCloseResult.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionCloseResult.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionException",
@@ -10089,7 +10089,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionException.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionException.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionOpenResult#EditSessionOpenResult()",
@@ -10107,7 +10107,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionOpenResult.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionOpenResult.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionOptions#EditSessionOptions()",
@@ -10125,7 +10125,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionOptions.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionOptions.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionService",
@@ -10143,7 +10143,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditSessionState",
@@ -10161,7 +10161,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditSessionState.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditSessionState.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditUnavailableException",
@@ -10179,7 +10179,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditUnavailableException.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditUnavailableException.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.EditWarpDeformerData#EditWarpDeformerData()",
@@ -10197,7 +10197,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/EditWarpDeformerData.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\EditWarpDeformerData.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.ParameterKeyOps",
@@ -10215,7 +10215,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/ParameterKeyOps.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\ParameterKeyOps.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.ParameterStructureOps",
@@ -10233,7 +10233,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/ParameterStructureOps.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\ParameterStructureOps.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.PartObjectOps",
@@ -10251,7 +10251,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/PartObjectOps.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\PartObjectOps.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.SelectionOps",
@@ -10269,7 +10269,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/edit/SelectionOps.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\edit\\SelectionOps.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.export.ExportSettingsContribution#ExportSettingsContribution()",
@@ -10289,7 +10289,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsContribution.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\export\\ExportSettingsContribution.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.export.ExportSettingsContributionService",
@@ -10309,7 +10309,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsContributionService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\export\\ExportSettingsContributionService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.export.ExportSettingsContributionService.Unavailable",
@@ -10329,7 +10329,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsContributionService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\export\\ExportSettingsContributionService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()",
@@ -10349,7 +10349,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsDecision.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\export\\ExportSettingsDecision.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.export.Outcome",
@@ -10369,7 +10369,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsDecision.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\export\\ExportSettingsDecision.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.AlphaComposition",
@@ -10381,7 +10381,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AlphaComposition.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\AlphaComposition.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.AutoYure",
@@ -10401,7 +10401,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYure.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\AutoYure.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.AutoYureBinding",
@@ -10421,7 +10421,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYureBinding.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\AutoYureBinding.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.AutoYureConfig",
@@ -10441,7 +10441,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYureConfig.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\AutoYureConfig.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()",
@@ -10453,7 +10453,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismExportTexture.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\CubismExportTexture.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()",
@@ -10465,7 +10465,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExport.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\CubismMocExport.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()",
@@ -10477,7 +10477,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExportSettings.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\CubismMocExportSettings.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.CubismModel#exportMoc()",
@@ -10489,7 +10489,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\CubismModel.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()",
@@ -10501,7 +10501,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Drawable.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#alphaComposition()",
@@ -10513,7 +10513,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Part.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#maskIds()",
@@ -10525,7 +10525,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Part.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#setAlphaComposition()",
@@ -10537,7 +10537,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Part.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#setMaskIds()",
@@ -10549,7 +10549,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Part.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#setOpacity()",
@@ -10561,7 +10561,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Part.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.YureDeformConfig",
@@ -10581,7 +10581,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/YureDeformConfig.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\YureDeformConfig.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.modeling.ModelingBrush",
@@ -10597,7 +10597,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingBrush.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\modeling\\ModelingBrush.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.modeling.ModelingToolContext",
@@ -10613,7 +10613,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingToolContext.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\modeling\\ModelingToolContext.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.modeling.ModelingToolRegistry",
@@ -10629,7 +10629,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingToolRegistry.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\modeling\\ModelingToolRegistry.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
@@ -10645,7 +10645,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorPanel.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasEditorPanel.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession",
@@ -10661,7 +10661,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasEditorSession.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi",
@@ -10677,7 +10677,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorUi.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasEditorUi.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService",
@@ -10693,12 +10693,12 @@
     "5.3.03",
     "5.3.04"
    ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
+   "file": "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasPolygonLayoutService.java"
   }
  ],
  "runtimeGates": [
   {
-   "file": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java",
+   "file": "plugins\\mcp\\src\\main\\java\\dev\\turboism\\plugin\\mcp\\McpHistoryCommandDomain.java",
    "symbol": "HISTORY_SUPPORTED_VERSIONS",
    "versions": [
     "5.0.00",
@@ -10749,7 +10749,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/serialization/FloatArrayParseTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\serialization\\FloatArrayParseTransformer.java"
   },
   {
    "name": "image-archive-reuse",
@@ -10775,7 +10775,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/image/ImageArchiveReuseTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\image\\ImageArchiveReuseTransformer.java"
   },
   {
    "name": "incremental-update",
@@ -10801,7 +10801,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\modelupdate\\incremental\\IncrementalUpdateTarget.java"
   },
   {
    "name": "matrix-scratch",
@@ -10827,7 +10827,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/geometry/MatrixScratchTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\geometry\\MatrixScratchTransformer.java"
   },
   {
    "name": "mesh-interpolation",
@@ -10853,7 +10853,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\interpolation\\MeshInterpolationTransformer.java"
   },
   {
    "name": "mesh-mirror",
@@ -10879,7 +10879,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\mesh\\MeshMirrorHostProfile.java"
   },
   {
    "name": "mesh-triangulation-hash",
@@ -10905,7 +10905,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshTriangulationHashTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\mesh\\MeshTriangulationHashTransformer.java"
   },
   {
    "name": "model-update-skip",
@@ -10931,7 +10931,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\modelupdate\\ModelUpdateSkipTarget.java"
   },
   {
    "name": "shader-uniform",
@@ -10957,7 +10957,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\shader\\ShaderUniformTransformer.java"
   },
   {
    "name": "startup-suppression",
@@ -10983,7 +10983,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/startup/StartupSuppressionProfile.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\startup\\StartupSuppressionProfile.java"
   },
   {
    "name": "texture-upload-preparation",
@@ -11009,7 +11009,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/image/TextureUploadPreparationTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\image\\TextureUploadPreparationTransformer.java"
   },
   {
    "name": "uniform-location-lifecycle",
@@ -11035,7 +11035,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uniform/UniformLocationLifecycleTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\uniform\\UniformLocationLifecycleTransformer.java"
   },
   {
    "name": "warp-alt-mirror",
@@ -11061,7 +11061,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\warpalt\\WarpAltMirrorHostProfile.java"
   },
   {
    "name": "warp-position-projection",
@@ -11087,7 +11087,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/geometry/WarpPositionProjectionTransformer.java"
+   "loadedBy": "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\optimization\\geometry\\WarpPositionProjectionTransformer.java"
   }
  ],
  "plugins": [
@@ -11295,7 +11295,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasPolygonLayoutService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -11384,7 +11384,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasPolygonLayoutService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -12068,7 +12068,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\command\\EditorCommandService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -12424,7 +12424,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\Part.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -12495,6 +12495,60 @@
      }
     }
    ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
+   "id": "dev.turboism.plugin.geometric-mesh-layout",
+   "name": "Geometric Mesh Layout",
+   "directory": "geometric-mesh-layout",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [],
    "unmappedCapabilities": [],
    "hostValidation": {}
   },
@@ -12654,7 +12708,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\model\\CubismModel.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -12811,7 +12865,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\CubismFacade.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -12904,7 +12958,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\command\\EditorCommandService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -14200,7 +14254,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsContributionService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\export\\ExportSettingsContributionService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -14700,7 +14754,7 @@
       "cubism.modeling-tool.selection-brush"
      ],
      "sourceFiles": [
-      "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java"
+      "runtime\\src\\main\\java\\dev\\turboism\\adapter\\cubism\\modeling\\ModelingSelectionSelectorContract.java"
      ],
      "narrowed": true,
      "missingNature": {
@@ -14853,7 +14907,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorPanel.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasEditorPanel.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -14898,7 +14952,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasEditorSession.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -14943,7 +14997,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorUi.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\textureatlas\\TextureAtlasEditorUi.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -15360,7 +15414,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -15401,7 +15455,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",
@@ -15442,7 +15496,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+      "sdk\\src\\main\\java\\dev\\turboism\\sdk\\cubism\\backup\\EditorAutoBackupService.java"
      ],
      "missingNature": {
       "5.0.00": "boundary",

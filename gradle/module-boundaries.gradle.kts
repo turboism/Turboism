@@ -658,6 +658,13 @@ private val pluginBoundaryExtras = mapOf(
             "dev.turboism.mapping", "VerifiedMemberResolver", "ClassLoader", "getDeclared"
         ),
         contractTaskNames = listOf("verifySelectionBrushJar")
+    ),
+    ":plugins:geometric-mesh-layout" to PluginBoundaryExtras(
+        forbiddenSourceTokens = listOf(
+            "java.awt", "javax.swing", "java.lang.reflect", "dev.turboism.runtime",
+            "dev.turboism.mapping", "VerifiedMemberResolver", "ClassLoader", "getDeclared"
+        ),
+        contractTaskNames = listOf("verifyGeometricMeshLayoutJar")
     )
 )
 
