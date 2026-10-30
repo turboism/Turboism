@@ -292,4 +292,23 @@ final class FrameworkUpdateApplierTest {
                 recovered.toString());
         f.assertOld();
     }
+
+    @Test
+    void omittedStagedFileIsAcceptedOnlyWhenInstalledCopyIsExactlyTheSignedBytes() throws Exception {
+        final Fixture f = new Fixture();
+        // README.txt is "unchanged": installed bytes already equal the new signed bytes, so the stage omits it.
+        Files.write(f.root.resolve("README.txt"), f.newFiles.get("README.txt"));
+        Files.delete(f.staged.resolve("README.txt"));
+        final var result = f.applier(p -> {}).apply(f.manifest(), f.staged, f.newIdentity);
+        assertEquals(FrameworkUpdateApplier.Outcome.APPLIED, result.outcome());
+        f.assertNew();
+    }
+
+    @Test
+    void omittedStagedFileWithDifferentInstalledBytesIsRejected() throws Exception {
+        final Fixture f = new Fixture();
+        Files.delete(f.staged.resolve("README.txt")); // installed README is still the OLD bytes
+        assertThrows(IOException.class, () -> f.applier(p -> {}).apply(f.manifest(), f.staged, f.newIdentity));
+        f.assertOld();
+    }
 }
