@@ -127,7 +127,14 @@ public final class WindowsReceiptNativeFixture {
         });
         check("ADS-including-MOTW", () -> {
             final Fixture f = new Fixture();
-            Files.writeString(Path.of(f.agent() + ":Zone.Identifier"), "[ZoneTransfer]\nZoneId=3");
+            // Java NIO rejects ':' in paths; create the alternate data stream through the shell.
+            final Process ads = new ProcessBuilder(
+                            "cmd.exe", "/d", "/c", "echo [ZoneTransfer]> \"" + f.agent() + ":Zone.Identifier\"")
+                    .redirectErrorStream(true)
+                    .start();
+            final String adsOut =
+                    new String(ads.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            if (ads.waitFor() != 0) throw new AssertionError("ADS setup failed: " + adsOut);
             rejects(f.loader(f.verifier)::load);
         });
         check("bad-DACL", () -> {
@@ -138,7 +145,7 @@ public final class WindowsReceiptNativeFixture {
                     .setType(AclEntryType.ALLOW)
                     .setPrincipal(f.root.getFileSystem()
                             .getUserPrincipalLookupService()
-                            .lookupPrincipalByName("S-1-1-0"))
+                            .lookupPrincipalByName("Everyone"))
                     .setPermissions(AclEntryPermission.WRITE_DATA)
                     .build());
             view.setAcl(entries);
@@ -271,7 +278,7 @@ public final class WindowsReceiptNativeFixture {
             final Fixture f = new Fixture();
             try {
                 final var everyone =
-                        f.root.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("S-1-1-0");
+                        f.root.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
                 Files.setOwner(f.agent(), everyone);
             } catch (IOException failure) {
                 throw new CapabilityMissing("unprivileged foreign owner setup unavailable: " + failure);
