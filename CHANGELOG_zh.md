@@ -10,24 +10,11 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [0.68.1] - 2026-10-30
 
+0.68.0 仅以 Beta 版本发布（`0.68.0-beta.1`、`0.68.0-beta.2`），本版本包含这些 Beta 版的全部变更。
+
 ### 新增
 
 - SDK 新增孵化中的 `UiScheduler.runUiTeardown(Runnable, Duration)`，用于插件停用时有界地清理界面。在 EDT 上直接执行，否则最多等待指定时长；EDT 阻塞或调用线程被中断时返回 `false`，清理任务保留在队列中且只执行一次，并恢复中断标记。插件代际围栏在停用后放行该调用。
-
-### 变更
-
-- `clipmask-viewer` 和 `project-inspector` 改用新的清理接口关闭窗口，最低 API 要求改为 `0.68.1`；其他官方插件保持原有下限。EDT 未及时响应时，`project-inspector` 记录警告而不再令停用失败。
-- 运行时改为从内置的 `packaging/release-plugins.txt` 读取第一方插件列表，不再手工维护副本；清单缺失或格式错误时直接失败。
-
-### 修复
-
-- 只包含较新官方插件（`atlas-bitmask-nesting`、`atlas-dalsoo-polygon`、`atlas-folder-layout`、`deformer-batch-rename`、`frame-animation-import`、`parameter-sync`）的完整安装不再被更新器误判为精简版。
-- WebDAV 备份停用测试改为等待工作线程结束而非轮询；准入变更测试会报告其变更钩子是否触发。
-
-## [0.68.0] - 2026-10-28
-
-### 新增
-
 - Windows 安装器新增第一方插件选择页，支持通过 RichEdit20W 实时渲染中、英、日、韩四语 README 预览，提供全选/全不选操作、单插件安装跳过标记与载荷过滤。
 - 正式将参数同步（`parameter-sync`，归一化进度数值联动）与变形器批量重命名（`deformer-batch-rename`，带有 Cubism 原生弯曲/旋转图标预览）提升为官方发布插件，并随安装包分发。
 - 全量第一方官方插件新增完整韩语多语言文档（`README_ko.md`），并提供运行时归档元数据与打包支持。
@@ -35,20 +22,34 @@ Turboism 的所有重要变更都记录在本文件中。
 - 启动引导阶段新增紧凑无边框加载窗口，在编辑器主界面呈现前提供平滑视觉过渡。
 - 参数批量传递支持在原参数上直接反转自绑定关键点取值，无需创建临时过渡参数。
 - 为选区画笔与网格镜像编辑按钮适配原生深色主题工具栏图标与调色板。
+- 新增官方插件 `geometric-mesh-layout`（预览）：在网格编辑工具栏中提供工具，在画布上设置中心锚点后生成圆形或正多边形的顶点与边，支持同心环与放射辐条。
+- SDK 新增类型化的表格选择对话框（`SelectionTableDialogRequest`、`SelectionTableDialogRequest.Row`、`SelectionTableDialogResultListener`）、`ArtMeshMirrorService.Unavailable` 与 `OrdinaryKeyformWriteSupport.Check.ABSENT` 哨兵值，并为其余公开的钩子、网格、模型、文件选择与 PSD 接口补齐 `@CubismEditor` 版本注解。
 
 ### 变更
 
+- `clipmask-viewer` 和 `project-inspector` 改用新的清理接口关闭窗口，最低 API 要求改为 `0.68.1`；其他官方插件保持原有下限。EDT 未及时响应时，`project-inspector` 记录警告而不再令停用失败。
+- 运行时改为从内置的 `packaging/release-plugins.txt` 读取第一方插件列表，不再手工维护副本；清单缺失或格式错误时直接失败。
 - 解耦插件市场发布清单（`packaging/market-plugins.txt`）与安装包捆绑清单（`packaging/release-plugins.txt`），支持官方插件（如 `parameter-lock`）独立发布至插件市场而无需捆绑进安装包。
 - 将插件市场的目录下载、归档校验和磁盘暂存操作完全移出 Swing 事件派发线程（EDT），交由有界后台线程池处理。
 - 限制异步日志文件写入并引入会话日志轮转，防止极端高频日志导致内存膨胀。
+- 统一性能设置的布局、命名与提示文字。
+- 扩大已审核宿主的支持范围：保护导出钩子覆盖 Cubism 5.1.00 及以后版本，控件外观与变形器来源配置覆盖自 5.0.00 起的全部已审核版本。
+- `acp` 接受 `[0.1.0,1.0.0)` 范围内的 `mcp` 插件版本。
 
 ### 修复
 
+- 只包含较新官方插件（`atlas-bitmask-nesting`、`atlas-dalsoo-polygon`、`atlas-folder-layout`、`deformer-batch-rename`、`frame-animation-import`、`parameter-sync`）的完整安装不再被更新器误判为精简版。
+- WebDAV 备份停用测试改为等待工作线程结束而非轮询；准入变更测试会报告其变更钩子是否触发。
 - 修复 Cubism 跨线程重放原生增量回调的问题，扩展优化兼容性，并可靠失效重建后的几何体及镜像拖拽选区归属。
 - 恢复最近文件预览插件（`recent-preview`）的画布视口捕获与最近打开文件悬停缩略图预览。
 - 优化 Windows 安装器稳定性：妥善处理 UAC 取消、设置提权等待超时、自愈失效的 BAT 启动器记录并在重装时清理过期的 GraalVM 启动路径。
 - 修复 3D 模型导入插件的升级路径并紧凑化导入确认界面。
 - 强化参数同步插件的缓存生命周期与程序写入抑制，移除测试预览滑块；修正变形器批量重命名的韩语标点并修复过期预览检测。
+- 视图右键菜单及其引导宿主配置在 Cubism 5.0.00–5.3.04 全部可用。
+- Windows 安装器插件选择页同步选择时能正确读取复选框状态。
+- 点击 `parameter-lock` 行标签与点击该行其他位置效果一致。
+- 强化插件代际围栏与致命错误传递。
+- 对未审核宿主进行兼容性探测时，每次运行都按固定顺序遍历切片；此前顺序可能在每次启动时变化。
 
 ## [0.67.4] - 2026-10-24
 
