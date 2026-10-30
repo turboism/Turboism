@@ -2,6 +2,7 @@ package dev.turboism.plugin.clipmaskviewer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,9 +31,10 @@ import dev.turboism.sdk.task.TaskSubmissionStatus;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.test.ui.RecordingUiHost;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -163,13 +165,32 @@ class ClipMaskViewerPluginTest {
         fixture.plugin.disable();
 
         assertTrue(fixture.ui.view.disposed);
-        assertEquals(1, fixture.ui.invokeAndWaitCount);
+        assertEquals(1, fixture.ui.teardownCount);
+        assertSame(fixture.uiScheduler, fixture.ui.teardownScheduler);
 
         fixture.scope.close();
 
         assertTrue(fixture.actions.ids().isEmpty());
         assertTrue(fixture.uiHost.sections.isEmpty());
         assertTrue(fixture.menus.contributions.isEmpty());
+    }
+
+    @Test
+    void deferredTeardownWarnsAndTeardownFailureIsContained() {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context);
+        fixture.plugin.enable();
+        fixture.openViewer();
+
+        fixture.ui.teardownDeferred = true;
+        fixture.plugin.disable();
+        assertFalse(fixture.ui.view.disposed);
+        assertTrue(fixture.logger.warns.stream().anyMatch(message -> message.contains("disposal deferred")));
+
+        fixture.ui.teardownDeferred = false;
+        fixture.ui.teardownFailure = new IllegalStateException("closed");
+        fixture.plugin.shutdown();
+        assertTrue(fixture.logger.warns.stream().anyMatch(message -> message.contains("disposal failed safely")));
     }
 
     @Test
@@ -195,6 +216,17 @@ class ClipMaskViewerPluginTest {
         private final FakeClipMasks clipMasks = new FakeClipMasks();
         private final DisposableScope scope = new DisposableScope();
         private final PluginLocalization localization = new FakeLocalization();
+        private final UiScheduler uiScheduler = new UiScheduler() {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+                throw new UnsupportedOperationException();
+            }
+        };
         private final PluginContext context = (PluginContext) Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
@@ -202,6 +234,7 @@ class ClipMaskViewerPluginTest {
                     case "localization" -> localization;
                     case "logger" -> logger;
                     case "disposableScope" -> scope;
+                    case "uiScheduler" -> uiScheduler;
                     case "actions" -> actions;
                     case "menus" -> menus;
                     case "tasks" -> tasks;
@@ -234,7 +267,10 @@ class ClipMaskViewerPluginTest {
         private FakeWindowView view = new FakeWindowView();
         private boolean headless;
         private int createCount;
-        private int invokeAndWaitCount;
+        private int teardownCount;
+        private UiScheduler teardownScheduler;
+        private boolean teardownDeferred;
+        private RuntimeException teardownFailure;
 
         @Override
         public boolean isHeadless() {
@@ -247,9 +283,17 @@ class ClipMaskViewerPluginTest {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
-            invokeAndWaitCount++;
+        public boolean runTeardown(final UiScheduler scheduler, final Runnable action) {
+            teardownCount++;
+            teardownScheduler = scheduler;
+            if (teardownFailure != null) {
+                throw teardownFailure;
+            }
+            if (teardownDeferred) {
+                return false;
+            }
             action.run();
+            return true;
         }
 
         @Override
