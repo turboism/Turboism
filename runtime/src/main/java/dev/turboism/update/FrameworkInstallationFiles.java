@@ -11,7 +11,15 @@ import java.nio.file.attribute.UserPrincipal;
 import java.util.Set;
 
 /** Read-only installation file boundary. Windows requires a separate native handle implementation. */
-interface FrameworkInstallationFiles {
+interface FrameworkInstallationFiles extends AutoCloseable {
+    @FunctionalInterface
+    interface Factory {
+        FrameworkInstallationFiles open(Path root) throws IOException;
+    }
+
+    @Override
+    default void close() throws IOException {}
+
     String rootIdentity() throws IOException;
 
     byte[] document(Path path, int limit) throws IOException, InterruptedException;

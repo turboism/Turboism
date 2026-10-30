@@ -17,12 +17,14 @@ public final class FrameworkInstallationReceiptLoader {
     static final String FORMAT = "turboism-installed-receipt-v1";
     static final String LAYOUT = "windows-standard-zip";
     static final Path STATE = Path.of("state/runtime/update");
+    private final FrameworkInstallationFiles.Factory fileFactory;
     private final Path root;
     private final UpdateManifestVerifier verifier;
     private final Supplier<FrameworkBuildInfo> loaded;
     private final Supplier<Path> loadedArtifact;
 
     private FrameworkInstallationReceiptLoader() {
+        fileFactory = FrameworkInstallationFiles.Posix::new;
         root = null;
         verifier = null;
         loaded = FrameworkBuildInfo::current;
@@ -49,6 +51,17 @@ public final class FrameworkInstallationReceiptLoader {
             final UpdateManifestVerifier verifier,
             final Supplier<FrameworkBuildInfo> loaded,
             final Supplier<Path> loadedArtifact) {
+        this(root, verifier, loaded, loadedArtifact, FrameworkInstallationFiles.Posix::new);
+    }
+
+    /** Explicit validation seam only. No deployed Windows native library trust configuration. */
+    FrameworkInstallationReceiptLoader(
+            final Path root,
+            final UpdateManifestVerifier verifier,
+            final Supplier<FrameworkBuildInfo> loaded,
+            final Supplier<Path> loadedArtifact,
+            final FrameworkInstallationFiles.Factory fileFactory) {
+        this.fileFactory = Objects.requireNonNull(fileFactory, "fileFactory");
         this.loadedArtifact = Objects.requireNonNull(loadedArtifact, "loadedArtifact");
         this.root = root.toAbsolutePath().normalize();
         this.verifier = Objects.requireNonNull(verifier, "verifier");
@@ -72,7 +85,13 @@ public final class FrameworkInstallationReceiptLoader {
                 || !info.sourceRevision().matches("[a-f0-9]{40}")) {
             throw new IOException("Loaded framework has no clean numbered source identity");
         }
-        final FrameworkInstallationFiles files = new FrameworkInstallationFiles.Posix(root);
+        try (FrameworkInstallationFiles files = fileFactory.open(root)) {
+            return load(files, info);
+        }
+    }
+
+    private Evidence load(final FrameworkInstallationFiles files, final FrameworkBuildInfo info)
+            throws IOException, InterruptedException, UpdateManifestVerifier.UpdateManifestVerificationException {
         final String rootIdentity = files.rootIdentity();
         final Path indexPath = root.resolve(STATE).resolve("installed-receipt.json");
         final byte[] indexBytes = files.document(indexPath, 4096);

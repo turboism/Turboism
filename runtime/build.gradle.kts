@@ -529,3 +529,21 @@ tasks.withType<Test>().configureEach {
     dependsOn(rootProject.tasks.named("materializeDraftContracts"))
     inputs.files(rootProject.tasks.named("materializeDraftContracts"))
 }
+
+// W2 is opt-in. This creates a portable validation classpath, never loads the native DLL on Linux.
+val windowsReceiptFixtureJar by tasks.registering(Jar::class) {
+    dependsOn(tasks.named("testClasses"))
+    archiveFileName.set("windows-receipt-fixture.jar")
+    destinationDirectory.set(rootProject.layout.buildDirectory.dir("native/windows-receipt-validation"))
+    from(sourceSets["main"].output)
+    from(sourceSets["test"].output) {
+        include("dev/turboism/update/WindowsReceiptNativeFixture*.class")
+    }
+}
+val windowsReceiptValidationBundle by tasks.registering(Copy::class) {
+    group = "verification"
+    description = "Builds opt-in standalone Windows receipt fixture; no native execution or product enabling."
+    dependsOn(windowsReceiptFixtureJar)
+    from(configurations.runtimeClasspath.map { files -> files.filter { it.name.startsWith("jackson-") } })
+    into(rootProject.layout.buildDirectory.dir("native/windows-receipt-validation"))
+}
