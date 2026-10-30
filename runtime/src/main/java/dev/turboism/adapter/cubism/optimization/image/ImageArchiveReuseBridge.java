@@ -24,6 +24,19 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
     /** Read-only, payload-free counters for diagnostics and exact-host validation. */
     public static final String STATS_PROPERTY = "turboism.image-archive-reuse.stats";
 
+    private static volatile boolean configuredDefault;
+
+    /** Sets the startup-configured default when the diagnostic system property is absent. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
+    /** True when enabled by diagnostic property or global startup configuration. */
+    public static boolean enabledByPreference() {
+        final String value = System.getProperty(ENABLE_PROPERTY);
+        return value == null ? configuredDefault : Boolean.parseBoolean(value);
+    }
+
     private final PngArchiveReuseCache cache = new PngArchiveReuseCache(1024);
     private final Class<?> resourceClass;
     private final Class<?> imageClass;
@@ -90,7 +103,7 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
     }
 
     private Object invoke(final Object resource, final Object archiveImage) {
-        if (!active.get() || !Boolean.getBoolean(ENABLE_PROPERTY)) return null;
+        if (!active.get() || !enabledByPreference()) return null;
         try {
             if (resource == null || resource.getClass() != resourceClass || !Thread.holdsLock(resource)) return null;
             final Object currentImage = image.get(resource);
@@ -112,7 +125,7 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
             }
             archiveChecks.increment();
             final byte[] result = cache.reusable(resource, currentImage, encoded, w, h, argb);
-            if (result != null && active.get() && Boolean.getBoolean(ENABLE_PROPERTY)) {
+            if (result != null && active.get() && enabledByPreference()) {
                 reused.increment();
                 return result;
             }

@@ -21,6 +21,12 @@ public final class PerformanceSettingsConfig {
         INPUT_PATH_ELISION("inputPathElision", true, "false"),
         MESA_GL_THREAD("mesaGlThread", true, "false"),
         MESH_INTERPOLATION("meshInterpolation", true, "false"),
+        SHADER_UNIFORM("shaderUniform", true, "false"),
+        MATRIX_SCRATCH("matrixScratch", true, "false"),
+        IMAGE_ARCHIVE_REUSE("imageArchiveReuse", true, "false"),
+        FLOAT_ARRAY_PARSE_CACHE("floatArrayParseCache", true, "false"),
+        TEXTURE_UPLOAD_PREPARATION("textureUploadPreparation", true, "false"),
+        WARP_POSITION_PROJECTION("warpPositionProjection", true, "false"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "false"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "false"),
         ATLAS_TILE_BBOX("atlasTileBbox", false, "false"),
@@ -109,6 +115,9 @@ public final class PerformanceSettingsConfig {
                     && System.getProperty("turboism.meshInterpolation.enabled") != null) {
                 value = Boolean.toString(
                         Boolean.parseBoolean(System.getProperty("turboism.meshInterpolation.enabled")));
+                source = "jvm-override";
+            } else if (field == Field.SHADER_UNIFORM && System.getProperty("turboism.shaderUniform.enabled") != null) {
+                value = Boolean.toString(Boolean.parseBoolean(System.getProperty("turboism.shaderUniform.enabled")));
                 source = "jvm-override";
             } else if (field == Field.REDUCE_AUTO_BACKUP && System.getenv("TURBOISM_REDUCE_AUTO_BACKUP") != null) {
                 String override = System.getenv("TURBOISM_REDUCE_AUTO_BACKUP").trim();

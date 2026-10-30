@@ -221,6 +221,66 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /** Launcher preference: per-shader uniform location cache (premain hook). Off by default. */
+    default boolean shaderUniform() {
+        return false;
+    }
+
+    /** Persists the per-shader uniform location cache preference; installation changes require restart. */
+    default boolean saveShaderUniform(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: invocation-local matrix scratch storage in GTransform. Off by default. */
+    default boolean matrixScratch() {
+        return false;
+    }
+
+    /** Persists the matrix scratch preference; installation changes require restart. */
+    default boolean saveMatrixScratch(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: reuse unchanged PNG archives during saving. Off by default. */
+    default boolean imageArchiveReuse() {
+        return false;
+    }
+
+    /** Persists the image-archive reuse preference; installation changes require restart. */
+    default boolean saveImageArchiveReuse(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: cache float-array parsing during model serialization. Off by default. */
+    default boolean floatArrayParseCache() {
+        return false;
+    }
+
+    /** Persists the float-array parse cache preference; installation changes require restart. */
+    default boolean saveFloatArrayParseCache(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: accelerate texture upload pixel preparation (bundled Java 17 only). Off by default. */
+    default boolean textureUploadPreparation() {
+        return false;
+    }
+
+    /** Persists the texture-upload preparation preference; installation changes require restart. */
+    default boolean saveTextureUploadPreparation(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: accelerate warp deformer position projection (bundled Java 17 only). Off by default. */
+    default boolean warpPositionProjection() {
+        return false;
+    }
+
+    /** Persists the warp-position projection preference; installation changes require restart. */
+    default boolean saveWarpPositionProjection(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /**
      * Experimental launcher preference: explicit true adds
      * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed

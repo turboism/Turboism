@@ -75,4 +75,40 @@ final class NativeOptimizationPolicy {
     static boolean meshInterpolationEnabled(final HookEnvironment environment) {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MESH_INTERPOLATION);
     }
+
+    static boolean shaderUniformEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.SHADER_UNIFORM);
+    }
+
+    static boolean matrixScratchEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MATRIX_SCRATCH);
+    }
+
+    static boolean imageArchiveReuseEnabled(final HookEnvironment environment) {
+        final boolean enabled =
+                requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.IMAGE_ARCHIVE_REUSE);
+        dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
+
+    static boolean floatArrayParseCacheEnabled(final HookEnvironment environment) {
+        final boolean enabled =
+                requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.FLOAT_ARRAY_PARSE_CACHE);
+        dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
+
+    static boolean textureUploadPreparationEnabled(final HookEnvironment environment) {
+        final boolean enabled =
+                requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.TEXTURE_UPLOAD_PREPARATION);
+        dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
+
+    static boolean warpPositionProjectionEnabled(final HookEnvironment environment) {
+        final boolean enabled =
+                requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.WARP_POSITION_PROJECTION);
+        dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
 }

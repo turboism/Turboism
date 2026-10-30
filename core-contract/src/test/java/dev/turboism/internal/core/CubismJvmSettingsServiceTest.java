@@ -32,6 +32,12 @@ class CubismJvmSettingsServiceTest {
         assertFalse(service.inputPathElision());
         assertFalse(service.mesaGlThread());
         assertFalse(service.incrementalUpdate());
+        assertFalse(service.shaderUniform());
+        assertFalse(service.matrixScratch());
+        assertFalse(service.imageArchiveReuse());
+        assertFalse(service.floatArrayParseCache());
+        assertFalse(service.textureUploadPreparation());
+        assertFalse(service.warpPositionProjection());
     }
 
     @Test
@@ -47,6 +53,12 @@ class CubismJvmSettingsServiceTest {
         assertThrows(IllegalStateException.class, () -> service.saveUniformLocationCache(true));
         assertThrows(IllegalStateException.class, () -> service.saveModelUpdateSkip(true));
         assertThrows(IllegalStateException.class, () -> service.saveIncrementalUpdate(true));
+        assertThrows(IllegalStateException.class, () -> service.saveShaderUniform(true));
+        assertThrows(IllegalStateException.class, () -> service.saveMatrixScratch(true));
+        assertThrows(IllegalStateException.class, () -> service.saveImageArchiveReuse(true));
+        assertThrows(IllegalStateException.class, () -> service.saveFloatArrayParseCache(true));
+        assertThrows(IllegalStateException.class, () -> service.saveTextureUploadPreparation(true));
+        assertThrows(IllegalStateException.class, () -> service.saveWarpPositionProjection(true));
         assertThrows(IllegalStateException.class, service::installManagedRuntime);
         assertThrows(IllegalStateException.class, service::removeManagedRuntime);
     }
