@@ -3,6 +3,7 @@ package dev.turboism.preview;
 import dev.turboism.core.plugin.context.SdkCarrierTraversal;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginServiceDirectory;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
@@ -40,6 +41,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       able to detach and close them — including blocking closers such as atlas
  *       {@code Registration.close()} — or the generation could never release its resources.
  *       Terminal calls are still counted in-flight so retention waits for a slow close.</li>
+ *   <li>{@code UiScheduler.runUiTeardown(Runnable, Duration)}, the only argument-taking
+ *       exemption (exact declaring type and name), because plugin UI teardown always runs after
+ *       the fence and needs a bounded synchronous EDT hop. It is counted in-flight too.</li>
  * </ul>
  *
  * <p>{@code disposableScope()} is gated here and additionally fenced by
@@ -61,6 +65,12 @@ final class PluginGenerationGuard {
     // A method taking any argument is never terminal and stays fenced.
     private static final Set<String> TERMINAL_OPERATIONS =
             Set.of("close", "cancel", "dispose", "release", "unregister");
+
+    // The one admitted exception to the zero-arity rule: UiScheduler.runUiTeardown carries
+    // arguments, but it exists precisely so disable()/shutdown()/scope closers (which always
+    // run after the fence) can release UI resources. It is matched by exact declaring type and
+    // name, so no other method can ride on it.
+    private static final String UI_TEARDOWN_OPERATION = "runUiTeardown";
 
     private final String pluginId;
     private final AtomicBoolean open = new AtomicBoolean(true);
@@ -249,7 +259,8 @@ final class PluginGenerationGuard {
             // Terminal release operations bypass the fence: teardown must be able to detach and
             // close handles acquired before fencing, but they still count toward in-flight work
             // so retention waits for a blocking close to actually return.
-            final boolean terminal = TERMINAL_OPERATIONS.contains(method.getName()) && method.getParameterCount() == 0;
+            final boolean terminal = TERMINAL_OPERATIONS.contains(method.getName()) && method.getParameterCount() == 0
+                    || isUiTeardown(method);
             if (terminal) {
                 enterTerminal();
             } else {
@@ -263,6 +274,10 @@ final class PluginGenerationGuard {
             } finally {
                 exit();
             }
+        }
+
+        private static boolean isUiTeardown(final Method method) {
+            return method.getDeclaringClass() == UiScheduler.class && UI_TEARDOWN_OPERATION.equals(method.getName());
         }
 
         private Object wrapInvocationResult(final Method method, final Object[] arguments, final Object result) {
