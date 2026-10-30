@@ -206,13 +206,24 @@ final class FrameworkUpdateApplier {
             if (!target.startsWith(root) || target.equals(root)) throw new IOException("Path escapes installation");
             if (!source.startsWith(staged)) throw new IOException("Staged path escapes staging directory");
             requirePlainDirectories(target.getParent());
-            requirePlainFile(source, entry.bytes());
-            if (!FrameworkUpdateCache.hash(source, entry.bytes()).equals(entry.sha256())) {
-                throw new IOException("Staged bytes do not match signed manifest: " + relative);
-            }
             final BasicFileAttributes existing = FrameworkUpdateCache.attributes(target);
             if (existing != null && (!existing.isRegularFile() || existing.isSymbolicLink() || existing.isOther())) {
                 throw new IOException("Existing target is not a plain file: " + relative);
+            }
+            if (!Files.exists(source, LinkOption.NOFOLLOW_LINKS)) {
+                // Nothing staged: legitimate only for a file that is already exactly the signed bytes. The stage
+                // omits unchanged files, but "omitted" must be proven by hash here, never assumed.
+                if (existing == null
+                        || existing.size() != entry.bytes()
+                        || !FrameworkUpdateCache.hash(target, entry.bytes()).equals(entry.sha256())) {
+                    throw new IOException("Staged file missing and installed copy differs: " + relative);
+                }
+                byLowerPath.remove(relative.toLowerCase(java.util.Locale.ROOT));
+                continue;
+            }
+            requirePlainFile(source, entry.bytes());
+            if (!FrameworkUpdateCache.hash(source, entry.bytes()).equals(entry.sha256())) {
+                throw new IOException("Staged bytes do not match signed manifest: " + relative);
             }
             byLowerPath.put(relative.toLowerCase(java.util.Locale.ROOT), new Step(relative, entry, target, source, existing != null));
         }
