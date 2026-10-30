@@ -3,8 +3,12 @@ package dev.turboism.update;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.FrameworkBuildInfo;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,32 +28,16 @@ public record InstalledBuild(
     public static final String VARIANT_THIN = "thin";
     public static final String METADATA_FILE_NAME = "installed-build.json";
 
-    public static final Set<String> FIRST_PARTY_PLUGIN_JARS = Set.of(
-            "acp.jar",
-            "artmesh-mirror.jar",
-            "atlas-maxrects-bssf.jar",
-            "boundingbox-warp-mirror.jar",
-            "clipmask-viewer.jar",
-            "command-palette.jar",
-            "cubism-tab-filter.jar",
-            "external-psd-edit.jar",
-            "history-panel.jar",
-            "mcp.jar",
-            "mesh-edit-mirror-axis-enhance.jar",
-            "model-import-3d.jar",
-            "palette-label-style.jar",
-            "parameter-batch-transfer.jar",
-            "perf-stats.jar",
-            "physics-editor.jar",
-            "protected-export.jar",
-            "psd-clip-mask-import.jar",
-            "recent-preview.jar",
-            "scene-palette-enhancer.jar",
-            "selection-brush.jar",
-            "texture-atlas-stats.jar",
-            "ui-theme.jar",
-            "warp-deformer-alt-symmetry.jar",
-            "webdav-backup.jar");
+    private static final String RELEASE_PLUGINS_RESOURCE = "/META-INF/turboism/release-plugins.txt";
+    private static final String RELEASE_PLUGIN_PREFIX = ":plugins:";
+
+    /**
+     * JAR file names of the first-party plugins a full release installs, derived from the single
+     * manifest shared with the packaging lanes ({@code packaging/release-plugins.txt}), bundled into
+     * the runtime JAR at build time. A missing or malformed manifest fails class initialization
+     * closed rather than falling back to a stale list.
+     */
+    public static final Set<String> FIRST_PARTY_PLUGIN_JARS = loadFirstPartyPluginJars();
 
     /** Creates an installed build identity, defaulting variant to full. */
     public InstalledBuild(
@@ -108,6 +96,37 @@ public record InstalledBuild(
                 info.displayVersion(),
                 channelFor(info.channel()),
                 inferVariant(home));
+    }
+
+    /**
+     * Loads the bundled release-plugin manifest. Each entry is a {@code :plugins:<module>} project
+     * path and installs as {@code plugins/<module>.jar}; blank lines, comments, duplicates and any
+     * other shape fail closed, matching the packaging lanes' parsing.
+     */
+    private static Set<String> loadFirstPartyPluginJars() {
+        try (InputStream in = InstalledBuild.class.getResourceAsStream(RELEASE_PLUGINS_RESOURCE)) {
+            if (in == null) {
+                throw new IllegalStateException("bundled release plugin manifest is missing");
+            }
+            final List<String> jars = new ArrayList<>();
+            for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                final String entry = line.strip();
+                if (!entry.matches(RELEASE_PLUGIN_PREFIX + "[a-z0-9-]+")) {
+                    throw new IllegalStateException("release plugin manifest contains an invalid entry");
+                }
+                jars.add(entry.substring(RELEASE_PLUGIN_PREFIX.length()) + ".jar");
+            }
+            if (jars.isEmpty()) {
+                throw new IllegalStateException("release plugin manifest is empty");
+            }
+            final Set<String> unique = Set.copyOf(jars);
+            if (unique.size() != jars.size()) {
+                throw new IllegalStateException("release plugin manifest contains duplicates");
+            }
+            return unique;
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read bundled release plugin manifest", e);
+        }
     }
 
     /** Detects whether the installed variant is full or thin from metadata or plugin presence. */
