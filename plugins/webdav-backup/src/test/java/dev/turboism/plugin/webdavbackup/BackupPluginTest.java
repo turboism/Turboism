@@ -109,10 +109,7 @@ final class BackupPluginTest {
         assertTrue(context.awaitLog("WEBDAV_TARGET_RETRY attempt=1", Duration.ofSeconds(2)));
         plugin.disable(); // clears the retry state; binding is disabled
         context.registry.completeSchema();
-        final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-        while (System.nanoTime() < deadline && liveWorkerThreads() > 0) {
-            Thread.sleep(20L);
-        }
+        awaitWorkerThreadExit();
         assertEquals(0, liveWorkerThreads(), "disable drains all retry workers before returning");
         assertFalse(context.hasLog("WEBDAV_TARGET_READY"), "a cancelled retry must never build the target");
         assertFalse(context.hasLog("WEBDAV_TARGET_RETRY attempt=2"), "disable must stop the retry chain");
@@ -385,10 +382,7 @@ final class BackupPluginTest {
         plugin.disable();
         plugins.remove(plugin);
 
-        final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-        while (System.nanoTime() < deadline && liveWorkerThreads() > 0) {
-            Thread.sleep(20L);
-        }
+        awaitWorkerThreadExit();
         assertEquals(0, liveWorkerThreads(), "no plugin worker thread may survive disable()");
     }
 
@@ -411,17 +405,38 @@ final class BackupPluginTest {
         assertEquals(1, actionsRevoked.get(), "action must be revoked on partial enable failure");
     }
 
-    /** Live threads owned by this plugin's worker executors. */
-    private static int liveWorkerThreads() {
-        int count = 0;
+    /** Live threads owned by plugin worker executors. */
+    private static List<Thread> workerThreads() {
+        final List<Thread> threads = new ArrayList<>();
         for (final Thread thread : Thread.getAllStackTraces().keySet()) {
             final String name = thread.getName();
             if (thread.isAlive()
                     && (name.startsWith("webdav-upload-reader-") || name.startsWith("turboism-webdav-tasks-"))) {
-                count++;
+                threads.add(thread);
             }
         }
-        return count;
+        return threads;
+    }
+
+    private static int liveWorkerThreads() {
+        return workerThreads().size();
+    }
+
+    /**
+     * An executor reports itself terminated before its last worker thread has finished
+     * exiting, so a returned {@code disable()} only guarantees the pool is terminated;
+     * joining the threads is the exact signal that they are gone.
+     */
+    private static void awaitWorkerThreadExit() throws InterruptedException {
+        final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        for (final Thread thread : workerThreads()) {
+            final long remainingMillis =
+                    Duration.ofNanos(deadline - System.nanoTime()).toMillis();
+            if (remainingMillis <= 0) {
+                return;
+            }
+            thread.join(remainingMillis);
+        }
     }
 
     private dev.turboism.plugin.webdavbackup.webdav.WebDavConfig autoConfig() {
