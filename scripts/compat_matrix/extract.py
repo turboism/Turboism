@@ -113,7 +113,7 @@ def load_contract_gates(root: Path) -> dict[str, list[dict]]:
             cap_ids = set(CAPABILITY_CONSTANT_RE.findall(text))
             if not cap_ids:
                 continue
-            rel = str(path.relative_to(root))
+            rel = path.relative_to(root).as_posix()
             for symbol, body in SUPPORTED_SET_RE.findall(text):
                 versions = sorted(
                     (reviewed_range_versions(body, set(load_reviewed_versions(root)))
@@ -230,7 +230,7 @@ def parse_sdk_annotations(root: Path, reviewed: list[str]) -> tuple[list[dict], 
     sdk_dir = root / SDK_MAIN
     for path in sorted(sdk_dir.rglob("*.java")):
         text = path.read_text(encoding="utf-8")
-        rel = str(path.relative_to(root))
+        rel = path.relative_to(root).as_posix()
         package_match = PACKAGE_RE.search(text)
         package = package_match.group(1) if package_match else ""
         imports = {m.split(".")[-1]: m for m in IMPORT_RE.findall(text)}
@@ -322,7 +322,7 @@ def load_class_pins(root: Path) -> dict[str, dict]:
     if runtime_dir.is_dir():
         for path in sorted(runtime_dir.rglob("*.java")):
             for pin in CLASS_PIN_LOAD_RE.findall(path.read_text(encoding="utf-8")):
-                loaded_by.setdefault(pin, str(path.relative_to(root)))
+                loaded_by.setdefault(pin, path.relative_to(root).as_posix())
     pins: dict[str, dict] = {}
     pins_dir = root / CLASS_PINS_DIR
     if pins_dir.is_dir():
@@ -360,7 +360,7 @@ def load_runtime_gates(root: Path) -> list[dict]:
                 if versions:
                     gates.append(
                         {
-                            "file": str(path.relative_to(root)),
+                            "file": path.relative_to(root).as_posix(),
                             "symbol": symbol,
                             "versions": versions,
                         }
