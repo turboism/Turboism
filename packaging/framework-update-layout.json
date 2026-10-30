@@ -1,0 +1,14 @@
+{
+  "format": "turboism.framework-update-layout",
+  "schemaVersion": 1,
+  "layout": "windows-standard-zip",
+  "frameworkRootFiles": [
+    "EULA.en.txt", "EULA.ja.txt", "EULA.ko.txt", "EULA.zh-Hans.txt", "LICENSE.txt",
+    "README.ja.txt", "README.ko.txt", "README.txt", "README.zh.txt",
+    "configure_turboism.ps1", "cubism-launch-common.ps1", "install-jar-payload.ps1",
+    "install-managed-graal.ps1", "install-script-engine.ps1", "launch-cubism-turboism.bat",
+    "launch-cubism-turboism.ps1", "managed-graal.json", "retired-plugins.txt", "script-engine.json",
+    "turboism-agent.jar", "turboism.ico", "turboism.png"
+  ],
+  "excludedStateFiles": ["config.json", "installed-build.json"]
+}

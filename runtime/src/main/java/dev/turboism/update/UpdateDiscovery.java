@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -14,9 +13,9 @@ import java.util.OptionalLong;
 /**
  * Validated, immutable projection of one {@code api.turboism.dev} release-channel document.
  *
- * <p>Only the fields needed to decide whether a newer product build exists are
- * retained. Asset URLs and free-form notes from the response are deliberately not
- * carried into the client: the download entry uses a fixed first-party page.</p>
+ * <p>Retains candidate identity and optional incremental metadata without granting signature
+ * trust or installation ownership. Legacy discoveries keep the full-update path. Incremental
+ * references contain digest/length identities, never arbitrary download URLs.</p>
  */
 public record UpdateDiscovery(int schemaVersion, String channel, Status status, Optional<Candidate> candidate) {
     public static final int SCHEMA_VERSION = 1;
@@ -76,6 +75,15 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
         candidate.ifPresent(value -> {
             final ObjectNode node = root.putObject("release");
             node.put("version", value.versionText());
+            value.sourceRevision().ifPresent(source -> node.put("sourceRevision", source));
+            value.incremental().ifPresent(capability -> {
+                node.put("channel", capability.channel());
+                node.set("incremental", capability.toJson(mapper));
+                root.put(
+                        "metadataUrl",
+                        HttpUpdateTransport.endpointForChannel(channel).toString());
+                root.putObject("source").put("repository", UpdateIncrementalDiscovery.REPOSITORY);
+            });
             if (value.buildNumber().isPresent()) {
                 node.put("buildNumber", value.buildNumber().getAsLong());
             }
@@ -125,7 +133,18 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
             String versionText,
             OptionalLong buildNumber,
             Optional<Instant> publishedAt,
-            List<Asset> assets) {
+            List<Asset> assets,
+            Optional<String> sourceRevision,
+            Optional<UpdateIncrementalDiscovery> incremental) {
+        /** Legacy full-update candidate without incremental discovery evidence. */
+        public Candidate(
+                final UpdateVersion version,
+                final String versionText,
+                final OptionalLong buildNumber,
+                final Optional<Instant> publishedAt,
+                final List<Asset> assets) {
+            this(version, versionText, buildNumber, publishedAt, assets, Optional.empty(), Optional.empty());
+        }
         /** Creates a candidate whose wire version text equals the canonical numeric version. */
         public Candidate(
                 final UpdateVersion version, final OptionalLong buildNumber, final Optional<Instant> publishedAt) {
@@ -148,7 +167,23 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
             }
             buildNumber = Objects.requireNonNull(buildNumber, "buildNumber");
             publishedAt = Objects.requireNonNull(publishedAt, "publishedAt");
-            assets = Collections.unmodifiableList(Objects.requireNonNull(assets, "assets"));
+            assets = List.copyOf(Objects.requireNonNull(assets, "assets"));
+            sourceRevision = Objects.requireNonNull(sourceRevision, "sourceRevision");
+            incremental = Objects.requireNonNull(incremental, "incremental");
+            if (sourceRevision.isPresent() && !sourceRevision.orElseThrow().matches("[0-9a-f]{40}")) {
+                throw new IllegalArgumentException("invalid candidate source revision");
+            }
+            if (incremental.isPresent()) {
+                final UpdateIncrementalDiscovery capability = incremental.orElseThrow();
+                if (!version.equals(UpdateVersion.parseInstalled(versionText))
+                        || !versionText.equals(capability.version())
+                        || buildNumber.isEmpty()
+                        || buildNumber.getAsLong() != capability.buildNumber()
+                        || sourceRevision.isEmpty()
+                        || !sourceRevision.orElseThrow().equals(capability.sourceRevision())) {
+                    throw new IllegalArgumentException("incremental candidate identity mismatch");
+                }
+            }
             if (buildNumber.isPresent()) {
                 final long value = buildNumber.getAsLong();
                 if (value <= 0 || value > MAX_BUILD_NUMBER) {

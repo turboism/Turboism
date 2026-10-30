@@ -360,6 +360,13 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
 }
 
 tasks.named<Test>("test") {
+    // Cross-language update verification consumes the actual offline Python/OpenSSL producer.
+    inputs.files(
+        rootProject.file("scripts/release/build-framework-update.py"),
+        rootProject.fileTree("scripts/release/turboism_release") { include("*.py") },
+        rootProject.file("scripts/test/test_release_tooling.py"),
+        rootProject.file("packaging/framework-update-layout.json")
+    )
     @Suppress("UNCHECKED_CAST")
     val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
     systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
