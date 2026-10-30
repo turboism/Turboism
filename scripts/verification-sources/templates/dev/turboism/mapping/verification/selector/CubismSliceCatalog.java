@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification.selector;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -2574,7 +2575,7 @@ public final class CubismSliceCatalog {
         index.put("ui-status-bar", CANDIDATES_UI_STATUS_BAR);
         index.put("ui-top-menu", CANDIDATES_UI_TOP_MENU);
         index.put("workspace-control", CANDIDATES_WORKSPACE_CONTROL);
-        return Map.copyOf(index);
+        return Collections.unmodifiableMap(index);
     }
 
     /**
