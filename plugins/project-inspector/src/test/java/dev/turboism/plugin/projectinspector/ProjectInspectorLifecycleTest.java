@@ -23,8 +23,10 @@ import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
-import java.lang.reflect.InvocationTargetException;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.lang.reflect.Proxy;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -195,40 +197,39 @@ class ProjectInspectorLifecycleTest {
     }
 
     @Test
-    void disposeRunsSynchronouslyThroughUiAccessAndUsesHideOnClosePolicy() {
+    void disposeRunsTeardownThroughUiAccessWithTheCapturedSchedulerAndUsesHideOnClosePolicy() {
         final Fixture fixture = new Fixture();
         fixture.host.accepted();
         fixture.plugin.enable();
         fixture.ui.runNext();
         fixture.plugin.disable();
 
-        assertEquals(1, fixture.ui.invokeAndWaitCount);
+        assertEquals(1, fixture.ui.teardownCount);
+        assertSame(fixture.uiScheduler, fixture.ui.teardownScheduler);
         assertTrue(fixture.ui.view.disposed);
         assertEquals(WindowConstants.HIDE_ON_CLOSE, ProjectInspectorPlugin.windowCloseOperation());
     }
 
     @Test
-    void interruptedDisposeRestoresInterruptAndPropagatesStableFailure() {
+    void deferredTeardownWarnsInsteadOfFailingTheUnload() {
         final Fixture fixture = new Fixture();
-        fixture.ui.invokeAndWaitFailure = new InterruptedException("private interruption");
+        fixture.ui.teardownDeferred = true;
 
-        final IllegalStateException failure = assertThrows(IllegalStateException.class, fixture.plugin::disable);
+        fixture.plugin.disable();
 
-        assertEquals("Project Inspector window disposal failed.", failure.getMessage());
-        assertTrue(Thread.currentThread().isInterrupted());
-        Thread.interrupted();
+        assertEquals(1, fixture.ui.teardownCount);
+        assertTrue(fixture.logger.warns.stream().anyMatch(message -> message.contains("disposal deferred")));
     }
 
     @Test
-    void invocationFailurePropagatesStableFailureThroughDisposableScope() {
+    void teardownFailurePropagatesStableFailureThroughDisposableScope() {
         final Fixture fixture = new Fixture();
-        fixture.ui.invokeAndWaitFailure =
-                new InvocationTargetException(new IllegalStateException("private /home/user selector"));
+        fixture.ui.teardownFailure = new IllegalStateException("private /home/user selector");
 
         final IllegalStateException failure = assertThrows(IllegalStateException.class, fixture.scope::close);
 
         assertEquals("Project Inspector window disposal failed.", failure.getMessage());
-        assertTrue(failure.getCause() instanceof InvocationTargetException);
+        assertSame(fixture.ui.teardownFailure, failure.getCause());
         assertFalse(failure.getMessage().contains("/home/user"));
     }
 
@@ -282,6 +283,17 @@ class ProjectInspectorLifecycleTest {
         private final FakeHostReads host = new FakeHostReads();
         private final RecordingLogger logger = new RecordingLogger();
         private final DisposableScope scope = new DisposableScope();
+        private final UiScheduler uiScheduler = new UiScheduler() {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+                throw new UnsupportedOperationException();
+            }
+        };
         private final ProjectInspectorPlugin plugin = new ProjectInspectorPlugin(ui);
 
         private Fixture() {
@@ -294,6 +306,7 @@ class ProjectInspectorLifecycleTest {
                         case "localization" -> localization;
                         case "logger" -> logger;
                         case "disposableScope" -> scope;
+                        case "uiScheduler" -> uiScheduler;
                         case "permissions" -> List.of();
                         case "toString" -> "FakePluginContext";
                         case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
@@ -309,8 +322,10 @@ class ProjectInspectorLifecycleTest {
         private FakeView previousView;
         private boolean headless;
         private int createCount;
-        private int invokeAndWaitCount;
-        private Exception invokeAndWaitFailure;
+        private int teardownCount;
+        private UiScheduler teardownScheduler;
+        private boolean teardownDeferred;
+        private RuntimeException teardownFailure;
 
         @Override
         public boolean isHeadless() {
@@ -323,18 +338,17 @@ class ProjectInspectorLifecycleTest {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
-            invokeAndWaitCount++;
-            if (invokeAndWaitFailure instanceof InterruptedException interrupted) {
-                throw interrupted;
+        public boolean runTeardown(final UiScheduler scheduler, final Runnable action) {
+            teardownCount++;
+            teardownScheduler = scheduler;
+            if (teardownFailure != null) {
+                throw teardownFailure;
             }
-            if (invokeAndWaitFailure instanceof InvocationTargetException invocation) {
-                throw invocation;
-            }
-            if (invokeAndWaitFailure instanceof RuntimeException runtime) {
-                throw runtime;
+            if (teardownDeferred) {
+                return false;
             }
             action.run();
+            return true;
         }
 
         @Override
