@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-10-30
+
+### Added
+
+- The SDK adds the incubating `UiScheduler.runUiTeardown(Runnable, Duration)` for bounded UI cleanup during plugin disable. It runs inline on the EDT, otherwise waits up to the timeout; when the EDT is blocked or the caller is interrupted it returns `false`, keeps the cleanup queued to run exactly once, and restores the interrupt flag. The plugin generation fence admits it after disable.
+
+### Changed
+
+- `clipmask-viewer` and `project-inspector` dispose their windows through the new teardown API, so their minimum API requirement is now `0.68.1`; other official plugins keep their existing floors. `project-inspector` logs a warning instead of failing disable when the EDT does not respond in time.
+- The runtime derives its first-party plugin list from the bundled `packaging/release-plugins.txt` instead of a hand-maintained copy, and fails closed when the manifest is missing or malformed.
+
+### Fixed
+
+- Full installations that only contain newer official plugins (`atlas-bitmask-nesting`, `atlas-dalsoo-polygon`, `atlas-folder-layout`, `deformer-batch-rename`, `frame-animation-import`, `parameter-sync`) are no longer misdetected as thin builds by the updater.
+- Stabilized the WebDAV backup shutdown test by joining worker threads instead of polling, and made the admission mutation test report whether its mutation hook fired.
+
 ## [0.68.0] - 2026-10-28
 
 ### Added

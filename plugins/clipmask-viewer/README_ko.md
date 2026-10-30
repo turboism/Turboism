@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: analysis
 tags: clip-mask, viewer, graph
-turboismApi: "[0.68.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -35,7 +35,7 @@ interface: swing
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.68.0,1.0.0)`。
+- **SDK API 範囲:** `[0.68.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、レビュー済みの厳密な Editor 成果物 `5.0.00` から `5.3.04` を受け入れます。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグインの依存関係:** 宣言されていません。
