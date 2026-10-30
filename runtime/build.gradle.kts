@@ -178,6 +178,9 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("packaging/retired-plugins.txt")) {
         into("META-INF/turboism")
     }
+    from(rootProject.file("packaging/release-plugins.txt")) {
+        into("META-INF/turboism")
+    }
     from(rootProject.file("packaging/managed-graal.json")) {
         into("META-INF/turboism")
     }
