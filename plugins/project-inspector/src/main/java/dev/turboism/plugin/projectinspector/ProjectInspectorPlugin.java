@@ -11,11 +11,11 @@ import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import java.awt.BorderLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.GridLayout;
-import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -32,6 +32,7 @@ import javax.swing.WindowConstants;
 public final class ProjectInspectorPlugin implements TurboismPlugin {
 
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(2);
+    private static final Duration TEARDOWN_TIMEOUT = Duration.ofSeconds(5);
 
     static int windowCloseOperation() {
         return WindowConstants.HIDE_ON_CLOSE;
@@ -43,6 +44,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
     private final AtomicReference<AsyncHostReadHandle> currentRead = new AtomicReference<>();
     private PluginContext context;
     private PluginLocalization localization;
+    private UiScheduler uiScheduler;
     private boolean initialized;
     private boolean enabled;
     private long generation;
@@ -59,6 +61,9 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
         this.localization = context.localization();
+        // Captured while live: context accessors are fenced once unload begins, but teardown
+        // through the captured scheduler stays admitted.
+        this.uiScheduler = context.uiScheduler();
         context.hostReads();
         synchronized (lifecycleLock) {
             initialized = true;
@@ -236,11 +241,10 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             }
         };
         try {
-            ui.invokeAndWait(dispose);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw disposalFailure(exception);
-        } catch (InvocationTargetException | RuntimeException exception) {
+            if (!ui.runTeardown(uiScheduler, dispose)) {
+                context.logger().warn("Project Inspector EDT disposal deferred.");
+            }
+        } catch (RuntimeException exception) {
             throw disposalFailure(exception);
         }
     }
@@ -255,7 +259,13 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
 
         void invokeLater(Runnable action);
 
-        void invokeAndWait(Runnable action) throws InterruptedException, InvocationTargetException;
+        /**
+         * Runs idempotent teardown {@code action} on the UI thread and waits for it, bounded; a hung
+         * UI thread or an interrupt defers the action instead of blocking unload.
+         *
+         * @return whether the action finished before this method returned
+         */
+        boolean runTeardown(UiScheduler scheduler, Runnable action);
 
         InspectorView create(PluginLocalization localization, Runnable refreshAction);
     }
@@ -284,12 +294,8 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
-            if (SwingUtilities.isEventDispatchThread()) {
-                action.run();
-            } else {
-                SwingUtilities.invokeAndWait(action);
-            }
+        public boolean runTeardown(final UiScheduler scheduler, final Runnable action) {
+            return scheduler.runUiTeardown(action, TEARDOWN_TIMEOUT);
         }
 
         @Override
