@@ -45,6 +45,7 @@ EXPECTED_PATHS = [
     ":plugins:deformer-batch-rename",
     ":plugins:external-psd-edit",
     ":plugins:frame-animation-import",
+    ":plugins:geometric-mesh-layout",
     ":plugins:history-panel",
     ":plugins:mcp",
     ":plugins:mesh-edit-mirror-axis-enhance",

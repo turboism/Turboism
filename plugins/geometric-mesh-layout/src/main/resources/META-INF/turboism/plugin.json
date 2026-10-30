@@ -1,0 +1,66 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.geometric-mesh-layout",
+  "name": "Geometric Mesh Layout",
+  "version": "0.1.0",
+  "description": "Generates circular or equilateral-triangle mesh vertices and edges around a canvas anchor in mesh edit mode.",
+  "entrypoints": [
+    "dev.turboism.plugin.geometricmeshlayout.GeometricMeshLayoutPlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [
+    "icons/"
+  ],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.toolbar.mesh.contribute",
+      "scope": "application",
+      "reason": "Contributes the Geometric Mesh Layout tool button to the mesh toolbar."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads active editable-mesh vertex coordinates and camera projection for anchor placement and preview."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Adds generated circular or equilateral-triangle vertices and edges to the active editable mesh."
+    }
+  ],
+  "capabilities": [
+    "cubism.mesh.custom-tools"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "mesh",
+    "artmesh",
+    "editing"
+  ],
+  "category": "modeling"
+}

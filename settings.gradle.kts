@@ -15,6 +15,7 @@ include(
     "plugins:parameter",
     "plugins:mesh-edit-mirror-axis-enhance",
     "plugins:selection-brush",
+    "plugins:geometric-mesh-layout",
     "plugins:mcp",
     "plugins:acp",
     "plugins:project-inspector",
