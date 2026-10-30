@@ -331,3 +331,63 @@ the template repository (on a daily schedule and via `workflow_dispatch`):
 3. Replaces the template repository working tree (preserving `.git`), updates
    `turboismSdkVersion` in `gradle.properties`, commits if changed, and tags
    `sdk-<version>` using the template repository's own `GITHUB_TOKEN`.
+
+### Offline framework update signing (local tooling only)
+
+`writeFrameworkPayloadInventory` is an explicit, unsigned build-inventory task for
+numbered, clean CI builds. It depends on `stageInstallerPayload` and writes
+`build/windows-installer/generated/framework-payload-inventory.json` from the
+explicit Windows package roots and the resolved Graal build output. It does not
+sign, upload, or change the ordinary release asset contract. Its inventory is a
+trusted build input, **not** a receipt proving ownership of a user's installation.
+
+The offline producer accepts the existing release candidate and allocated build
+identity receipt from that same protected build, its standard Windows ZIP, and
+that inventory:
+
+```sh
+python3 scripts/release/build-framework-update.py \
+  --candidate CANDIDATE_JSON --receipt BUILD_IDENTITY_JSON \
+  --inventory FRAMEWORK_PAYLOAD_INVENTORY_JSON --archive STANDARD_ZIP \
+  --version VERSION --channel CHANNEL --build-number BUILD_NUMBER \
+  --source-revision SOURCE_SHA --minimum-updater UPDATER_VERSION \
+  --key-id KEY_ID --trusted-keys PUBLIC_KEYRING_JSON \
+  --private-key PRIVATE_PEM_FILE --output LOCAL_OUTPUT_DIRECTORY
+```
+
+The local public keyring maps approved key IDs to base64 X.509 DER Ed25519 public
+keys. The supplied private PEM must match the selected public key and be private
+to its owner on POSIX. Missing, unknown, encrypted, or mismatched signing material
+fails closed; no key material is emitted in the output or error diagnostics.
+Tests generate disposable keys and require the existing OpenSSL command-line
+provider; this introduces no Python cryptography dependency.
+
+The output is a versioned manifest, its detached v1 signature envelope, an object
+inventory, a v1 incremental-candidate descriptor, and `objects/<sha256>/payload`. Existing exact objects are rechecked and
+reused without overwriting. These are local paths, not promises of public download
+URLs. The producer checks candidate archive hashes, build/source identities,
+embedded Agent/runtime metadata, and the complete inventory before signing.
+Configuration, installed state and independent plugins are explicitly excluded;
+unknown files or unsafe archive aliases fail closed. The supported layout is the
+standard Windows ZIP; it does not describe installed private GraalVM downloads or
+historical NSIS path differences. No installer receipt persistence, downloader,
+apply helper or production admission is supplied by this command.
+
+Focused verification:
+
+```sh
+./gradlew checkFrameworkUpdateTooling
+./gradlew :runtime:test --tests 'dev.turboism.update.*'
+```
+
+Ordinary `checkCompletedCommit` reaches the offline tool tests and the Java test
+that consumes real producer output. `checkReleaseTooling` also retains the
+existing release tests. Signing and publication remain separate operations.
+
+The offline [incremental admission contract](distribution/INCREMENTAL.md) consumes
+the descriptor, authenticates the exact manifest, recomputes its object closure,
+and verifies actual bytes before immutable registration and a final channel CAS.
+Its storage interface is exercised with an in-memory adapter by
+`node --test distribution/test/*.test.mjs`; it is not connected to the deployed
+worker or current publisher. Production activation requires reviewed trust and
+historical-evidence configuration plus a transactional storage adapter.
