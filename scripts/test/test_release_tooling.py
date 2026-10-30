@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
+import hashlib
+import base64
+import os
+import stat
+import sys
+import subprocess
 import re
 import tempfile
 import unittest
@@ -20,6 +27,10 @@ def load(name: str, path: Path):
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+sys.path.insert(0, str(ROOT / "scripts/release"))
+from turboism_release import framework_update
 
 
 notes = load("extract_release_notes", ROOT / "scripts/release/extract-release-notes.py")
@@ -605,6 +616,316 @@ class ReleaseVerifierTest(unittest.TestCase):
             sidecar(processor)
             with self.assertRaises(ValueError):
                 self.verify(fixture)
+
+class FrameworkUpdateToolTest(unittest.TestCase):
+    """Offline trust-bound build fixtures; no product signing material or network."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="framework-sign-test-")
+        self.addCleanup(self.temporary.cleanup)
+        self.home = Path(self.temporary.name)
+        self.identity = {"version": "0.68.0", "channel": "stable", "buildNumber": 50,
+                         "sourceRevision": "0123456789abcdef0123456789abcdef01234567"}
+        self.key = self.home / "temporary.pem"
+        framework_update.openssl(["genpkey", "-algorithm", "Ed25519", "-out", str(self.key)])
+        self.key.chmod(0o600)
+        public = framework_update.openssl(["pkey", "-in", str(self.key), "-pubout", "-outform", "DER"])
+        self.keyring = self.home / "public-keys.json"
+        self.keyring.write_text(json.dumps({"offline-test": base64.b64encode(public).decode("ascii")}))
+        self.payloads = {name: (name + "\n").encode("ascii") for name in
+                         json.loads(framework_update.POLICY.read_text())["frameworkRootFiles"]}
+        self.payloads["turboism-agent.jar"] = self.agent()
+        self.payloads["graal/lib/sdk-0.68.0.jar"] = b"sdk"
+        self.payloads["graal/lib/graal-host-0.68.0.jar"] = b"host"
+        self.payloads["graal/lib/polyglot-25.2.4.jar"] = b"dependency"
+        self.excluded = {"config.json": b"user-config-seed", "installed-build.json": b"installation-state",
+                         "plugins/acp.jar": b"independent-catalog-plugin"}
+        self.archive = self.home / "turboism-0.68.0.zip"
+        self.candidate = self.home / "candidate.json"
+        self.receipt = self.home / "build-identity.json"
+        self.inventory = self.home / "framework-payload-inventory.json"
+        self.rebuild()
+
+    def agent(self):
+        data = io.BytesIO()
+        fields = {"Manifest-Version": "1.0", "Implementation-Version": self.identity["version"],
+                  "Turboism-Version": self.identity["version"], "Turboism-Channel": self.identity["channel"],
+                  "Turboism-Build-Number": str(self.identity["buildNumber"]),
+                  "Turboism-Source-Revision": self.identity["sourceRevision"]}
+        properties = {**self.identity, "buildKind": "ci", "dirty": "false"}
+        with zipfile.ZipFile(data, "w") as jar:
+            jar.writestr("META-INF/MANIFEST.MF", "\r\n".join(f"{k}: {v}" for k, v in fields.items()) + "\r\n\r\n")
+            jar.writestr("META-INF/turboism/framework-version.properties", "\n".join(f"{k}={v}" for k, v in properties.items()) + "\n")
+        return data.getvalue()
+
+    def rebuild(self):
+        with zipfile.ZipFile(self.archive, "w", zipfile.ZIP_DEFLATED) as archive_file:
+            for name, data in sorted({**self.payloads, **self.excluded}.items()):
+                archive_file.writestr(name, data)
+        self.bind_archive()
+        self.receipt.write_text(json.dumps({"schemaVersion": 1, **self.identity, "runId": "123", "runAttempt": 1}))
+        entries = [{"relativePath": name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+                   for name, data in sorted(self.payloads.items())]
+        self.inventory.write_text(json.dumps({"format": "turboism.framework-payload-inventory", "schemaVersion": 1,
+                                             "layout": "windows-standard-zip", "identity": self.identity,
+                                             "files": entries, "excludedPaths": sorted(self.excluded)}))
+
+    def bind_archive(self):
+        self.candidate.write_text(json.dumps({"format": "turboism.release-candidate", "schemaVersion": 1,
+                                             "source": {"repository": "turboism/Turboism", "revision": self.identity["sourceRevision"], "tag": None},
+                                             "framework": {"version": self.identity["version"], "artifacts": [
+                                                 {"name": self.archive.name, "size": self.archive.stat().st_size,
+                                                  "sha256": hashlib.sha256(self.archive.read_bytes()).hexdigest()}]}}))
+
+    def generate(self, output=None, **changes):
+        args = dict(candidate=self.candidate, receipt=self.receipt, inventory=self.inventory, archive=self.archive,
+                    identity=self.identity, key_id="offline-test", private_key=self.key, trusted_keys=self.keyring,
+                    minimum_updater="0.67.0", output=output or self.home / "out")
+        args.update(changes)
+        return framework_update.generate(**args)
+
+    def test_actual_zip_builder_and_staging_source_agree_with_inventory(self):
+        # Derive root payloads from real staging source, NOT from update layout policy.
+        staging = (ROOT / "packaging/java-installer/installer.gradle.kts").read_text()
+        staging = staging.split("val stageInstallerPayload by tasks.registering {", 1)[1].split("// Opt-in source-bound", 1)[0]
+        roots = {}
+        for source in re.findall(r'from\("([^"$]+)"\)', staging):
+            target = {"LICENSE": "LICENSE.txt"}.get(source, Path(source).name)
+            roots[target] = (ROOT / source).read_bytes()
+        for template, target in re.findall(r'"(README[^" ]+\.template)" to "([^"]+)"', staging):
+            roots[target] = (ROOT / "packaging/windows-installer" / template).read_bytes().replace(b"__VERSION__", self.identity["version"].encode())
+        roots["turboism-agent.jar"] = self.agent()
+        # Installer-only files are deliberately stripped by the real ZIP builder.
+        roots["config.template.json"] = (ROOT / "packaging/windows-installer/config.template.json").read_bytes()
+        roster = (ROOT / "packaging/release-plugins.txt").read_text().splitlines()
+        self.excluded = {**self.excluded, **{"plugins/" + n.split(":")[-1] + ".jar": b"catalog-only" for n in roster}}
+        self.payloads["graal/lib/graal-host-0.68.0-feat-issue-50.jar"] = self.payloads.pop("graal/lib/graal-host-0.68.0.jar")
+        self.assertIn("archiveClassifier.set(resolvedWorktreeId)",
+                      (ROOT / "buildSrc/src/main/kotlin/turboism.java-conventions.gradle.kts").read_text())
+        stage = self.home / "stage"
+        for name, data in {**roots, **{n: d for n, d in self.payloads.items() if n.startswith("graal/lib/")},
+                           **{n: d for n, d in self.excluded.items() if n.startswith("plugins/")}}.items():
+            path = stage / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        source = (ROOT / "packaging/windows-installer/assemble-release.sh").read_text()
+        block = source.split("zip_dir() {", 1)[1].split("<<'PYEOF'\n", 1)[1].split("\nPYEOF", 1)[0]
+        subprocess.run([sys.executable, "-", str(stage), str(self.archive), self.identity["version"]],
+                       input=block, text=True, check=True, capture_output=True)
+        with zipfile.ZipFile(self.archive) as actual:
+            self.payloads = {n: actual.read(n) for n in actual.namelist()
+                             if n not in self.excluded}
+            self.excluded = {n: actual.read(n) for n in self.excluded}
+            self.assertTrue(all(not i.extra and not i.is_dir() for i in actual.infolist()))
+        self.assertEqual(set(self.payloads) - {n for n in self.payloads if n.startswith("graal/lib/")},
+                         set(json.loads(framework_update.POLICY.read_text())["frameworkRootFiles"]))
+        original = self.archive.read_bytes()
+        self.rebuild()  # Write matching inventory/receipt; restore REAL ZIP bytes afterwards.
+        self.archive.write_bytes(original)
+        self.bind_archive()
+        self.generate()
+        # Roster is independent catalog inventory, not an update ownership allowlist.
+        roster = (ROOT / "packaging/release-plugins.txt").read_text().splitlines()
+        self.assertTrue(all(re.fullmatch(r":plugins:[a-z0-9-]+", n) for n in roster))
+        self.assertIn('pluginModuleNames.map { "plugins/$it.jar" }',
+                      (ROOT / "packaging/java-installer/installer.gradle.kts").read_text())
+        self.assertIn('implementation(project(":sdk"))', (ROOT / "graal-host/build.gradle.kts").read_text())
+
+    def test_protocol_rejects_java_incompatible_path_and_numeric_boundaries(self):
+        for name in ("graal/lib/foo..bar.jar", "graal/lib/NUL.jar", "graal/lib/" + "a" * 230 + ".jar"):
+            with self.subTest(path=name), self.assertRaises(ValueError):
+                framework_update.path_name(name)
+        for value in (True, 0, -1, 9007199254740992):
+            with self.subTest(build=value), self.assertRaises(ValueError):
+                self.generate(identity={**self.identity, "buildNumber": value})
+        for version in ("2147483648.0.0", "0.068.0", "0.68.0-beta.01", "0.68.1٠"):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                self.generate(identity={**self.identity, "version": version})
+        for updater in ("2147483648.0.0", "00.68.0", "0.68"):
+            with self.subTest(updater=updater), self.assertRaises(ValueError):
+                self.generate(minimum_updater=updater)
+
+    def test_deterministic_output_and_immutable_object_reuse(self):
+        first = self.generate()
+        output = self.home / "out"
+        before = {p.relative_to(output): (p.read_bytes(), p.stat().st_mtime_ns) for p in output.rglob("*") if p.is_file()}
+        self.assertEqual(first, self.generate())
+        after = {p.relative_to(output): (p.read_bytes(), p.stat().st_mtime_ns) for p in output.rglob("*") if p.is_file()}
+        self.assertEqual(before, after)
+        self.generate(self.home / "second")
+        self.assertEqual({p: data[0] for p, data in before.items()},
+                         {p.relative_to(self.home / "second"): p.read_bytes() for p in (self.home / "second").rglob("*") if p.is_file()})
+        # Change one legitimate build output and its trusted inventory/candidate, retaining old objects.
+        self.payloads["README.txt"] += b"updated"
+        self.rebuild()
+        second = self.generate(self.home / "changed")
+        old = {o["sha256"] for o in first["objects"]}
+        new = {o["sha256"] for o in second["objects"]}
+        self.assertEqual(len(old - new), 1)
+        self.assertEqual(len(new - old), 1)
+        self.assertEqual(len(old & new), len(old) - 1)
+        # Add a second release to the shared object store; unchanged objects retain mtimes.
+        self.identity = {**self.identity, "version": "0.68.1", "buildNumber": 51}
+        self.archive = self.home / "turboism-0.68.1.zip"
+        self.payloads["turboism-agent.jar"] = self.agent()
+        for module in ("sdk", "graal-host"):
+            self.payloads[f"graal/lib/{module}-0.68.1.jar"] = self.payloads.pop(f"graal/lib/{module}-0.68.0.jar")
+        self.rebuild()
+        self.generate(output)
+        for relative, (data, timestamp) in before.items():
+            self.assertEqual(data, (output / relative).read_bytes())
+            self.assertEqual(timestamp, (output / relative).stat().st_mtime_ns)
+
+    def test_cli_executes_real_tool_and_masks_invalid_key_diagnostics(self):
+        command = [sys.executable, str(ROOT / "scripts/release/build-framework-update.py"),
+                   "--candidate", str(self.candidate), "--receipt", str(self.receipt),
+                   "--inventory", str(self.inventory), "--archive", str(self.archive),
+                   "--version", self.identity["version"], "--channel", self.identity["channel"],
+                   "--build-number", str(self.identity["buildNumber"]),
+                   "--source-revision", self.identity["sourceRevision"], "--minimum-updater", "0.67.0",
+                   "--key-id", "offline-test", "--private-key", str(self.key),
+                   "--trusted-keys", str(self.keyring), "--output", str(self.home / "cli-out")]
+        result = subprocess.run(command, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        command[command.index("--key-id") + 1] = "unknown"
+        failed = subprocess.run(command, capture_output=True, timeout=30)
+        self.assertEqual(failed.returncode, 1)
+        self.assertIn(b"Offline framework signing failed", failed.stderr)
+        self.assertNotIn(self.key.read_bytes(), failed.stdout + failed.stderr)
+        self.assertNotIn(str(self.key).encode(), failed.stdout + failed.stderr)
+
+    def test_complete_framework_payload_and_explicit_exclusions(self):
+        self.generate()
+        manifest = json.loads((self.home / "out/turboism-0.68.0-manifest.json").read_bytes())
+        self.assertEqual({e["relativePath"] for e in manifest["entries"]}, set(self.payloads))
+        self.assertFalse({e["relativePath"] for e in manifest["entries"]} & set(self.excluded))
+        self.assertEqual(len(manifest["entries"]), len(self.payloads))
+        self.assertNotIn(b"user-config-seed", b"".join(p.read_bytes() for p in (self.home / "out/objects").rglob("payload")))
+        for name, data in {**self.payloads, **self.excluded}.items():
+            with zipfile.ZipFile(self.archive) as archive_file:
+                self.assertEqual(data, archive_file.read(name))
+
+    def test_wrong_identity_and_embedded_metadata_fail_before_output(self):
+        for field, value in {"version": "0.69.0", "channel": "beta", "buildNumber": 51, "sourceRevision": "f" * 40}.items():
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.generate(identity={**self.identity, field: value})
+        doc = json.loads(self.receipt.read_text())
+        doc["sourceRevision"] = "f" * 40
+        self.receipt.write_text(json.dumps(doc))
+        with self.assertRaises(ValueError):
+            self.generate()
+        self.rebuild()
+        self.payloads["turboism-agent.jar"] = agent("0.68.0")  # Old unbound JAR metadata is insufficient.
+        self.rebuild()
+        with self.assertRaises((ValueError, KeyError)):
+            self.generate()
+        self.assertFalse((self.home / "out").exists())
+
+    def test_tamper_missing_unknown_and_dangerous_paths_fail_closed(self):
+        original = self.archive.read_bytes()
+        self.archive.write_bytes(original + b"tamper")
+        with self.assertRaises(ValueError):
+            self.generate()
+        self.rebuild()
+        cases = ["missing", "extra", "link", "alias", "unsafe", "case-alias"]
+        for case in cases:
+            self.rebuild()
+            with zipfile.ZipFile(self.archive) as source:
+                contents = {n: source.read(n) for n in source.namelist()}
+            with zipfile.ZipFile(self.archive, "w") as target:
+                for name, data in contents.items():
+                    if case != "missing" or name != "README.txt":
+                        target.writestr(name, data)
+                if case == "extra":
+                    target.writestr("project.cmo3", b"user-project")
+                elif case == "link":
+                    info = zipfile.ZipInfo("graal/lib/link.jar")
+                    info.create_system = 3
+                    info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    target.writestr(info, b"README.txt")
+                elif case == "alias":
+                    target.writestr("graal/lib/./a.jar", b"alias")
+                elif case == "unsafe":
+                    target.writestr("../outside", b"escape")
+                elif case == "case-alias":
+                    target.writestr("readme.txt", b"alias")
+            self.bind_archive()  # Archive digest alone must not authorize contents.
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                self.generate()
+        self.assertFalse((self.home / "out").exists())
+
+    def test_unknown_ownership_and_untrusted_payload_changes_fail(self):
+        for name in ("plugins/acp.jar", "config.json", "unknown-helper.exe", "graal/lib/CON.jar"):
+            self.rebuild()
+            doc = json.loads(self.inventory.read_text())
+            doc["files"].append({"relativePath": name, "bytes": 1, "sha256": "a" * 64})
+            self.inventory.write_text(json.dumps(doc))
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.generate()
+        self.rebuild()
+        self.payloads["README.txt"] = b"modified-after-build-inventory"
+        with zipfile.ZipFile(self.archive, "w") as archive_file:
+            for name, data in {**self.payloads, **self.excluded}.items():
+                archive_file.writestr(name, data)
+        self.bind_archive()
+        with self.assertRaises(ValueError):
+            self.generate()
+
+    def test_links_hardlinks_limits_and_signing_material_fail(self):
+        for field in ("archive", "inventory", "receipt", "candidate", "private_key", "trusted_keys"):
+            original = {"private_key": self.key, "trusted_keys": self.keyring}.get(field, getattr(self, field, None))
+            link = self.home / (field + "-link")
+            link.symlink_to(original)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.generate(**{field: link})
+        hardlink = self.home / "hardlink"
+        os.link(self.archive, hardlink)
+        try:
+            with self.assertRaises(ValueError):
+                self.generate()
+        finally:
+            hardlink.unlink()
+        with self.assertRaises(ValueError):
+            self.generate(key_id="unknown")
+        with self.assertRaises((ValueError, OSError)):
+            self.generate(private_key=self.home / "missing")
+        wrong = self.home / "wrong.pem"
+        framework_update.openssl(["genpkey", "-algorithm", "Ed25519", "-out", str(wrong)])
+        wrong.chmod(0o600)
+        with self.assertRaises(ValueError):
+            self.generate(private_key=wrong)
+        doc = json.loads(self.inventory.read_text())
+        doc["files"][0]["bytes"] = framework_update.MAX_FILE + 1
+        self.inventory.write_text(json.dumps(doc))
+        with self.assertRaises(ValueError):
+            self.generate()
+        doc["files"] *= framework_update.MAX_ENTRIES
+        self.inventory.write_text(json.dumps(doc))
+        with self.assertRaises(ValueError):
+            self.generate()
+        self.assertFalse((self.home / "out").exists())
+
+    def test_output_conflict_is_rejected_before_changes_and_no_key_is_exported(self):
+        self.generate()
+        output = self.home / "out"
+        obj = next((output / "objects").rglob("payload"))
+        obj.write_bytes(b"conflict")
+        before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+        with self.assertRaises(ValueError):
+            self.generate()
+        self.assertEqual(before, {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()})
+        self.assertFalse(any(b"PRIVATE KEY" in data for data in before.values()))
+
+
+def write_framework_java_fixture(target: Path):
+    """Called by the existing Java verifier test: real Python/OpenSSL production-tool output."""
+    fixture = FrameworkUpdateToolTest("test_complete_framework_payload_and_explicit_exclusions")
+    fixture.setUp()
+    try:
+        fixture.generate(target)
+        (target / "public-keys.json").write_bytes(fixture.keyring.read_bytes())
+    finally:
+        fixture.doCleanups()
 
 
 if __name__ == "__main__":

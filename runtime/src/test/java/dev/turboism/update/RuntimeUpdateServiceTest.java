@@ -460,6 +460,92 @@ final class RuntimeUpdateServiceTest {
         }
     }
 
+    @Test
+    void incrementalMetadataNeverMixesFailedResponsesWithCachedIdentity(@TempDir final Path home) throws Exception {
+        final DeferredTransport transport = new DeferredTransport();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
+        try {
+            assertTrue(service.incrementalCandidate().isEmpty());
+            final var first = service.checkManual();
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            transport.completeWithDocument(
+                    UpdateDiscoveryParserTest.incrementalDocument().toString());
+            assertEquals(
+                    CoreUpdateService.Status.UPDATE_AVAILABLE,
+                    first.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            final var candidate = service.incrementalCandidate().orElseThrow();
+            assertEquals(Optional.of("a".repeat(40)), candidate.sourceRevision());
+            final var failed = service.checkManual();
+            assertTrue(service.incrementalCandidate().isEmpty());
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            transport.fail(new IOException("offline"));
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE,
+                    failed.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertTrue(service.incrementalCandidate().isEmpty());
+            assertEquals(
+                    Optional.of(candidate),
+                    new UpdateStateStore(home).read().cachedResult().flatMap(UpdateDiscovery::candidate));
+            final var malformed = service.checkManual();
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            final var mixed = UpdateDiscoveryParserTest.incrementalDocument();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) mixed.get("release"))
+                    .put("sourceRevision", "f".repeat(40));
+            transport.completeWithDocument(mixed.toString());
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE,
+                    malformed.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertTrue(service.incrementalCandidate().isEmpty());
+            assertEquals(
+                    Optional.of(candidate),
+                    new UpdateStateStore(home).read().cachedResult().flatMap(UpdateDiscovery::candidate));
+            final var legacy = service.checkManual();
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            transport.completeWithVersion("3.0.0");
+            assertEquals(
+                    CoreUpdateService.Status.UPDATE_AVAILABLE,
+                    legacy.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertTrue(service.incrementalCandidate().isEmpty());
+            assertTrue(new UpdateStateStore(home)
+                    .read()
+                    .cachedResult()
+                    .orElseThrow()
+                    .candidate()
+                    .orElseThrow()
+                    .sourceRevision()
+                    .isEmpty());
+        } finally {
+            service.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void restartUsesWholeIncrementalCandidateOnlyAfterAConditionalSuccess(@TempDir final Path home) throws Exception {
+        final var discovery = new UpdateDiscoveryParser().parseNode(UpdateDiscoveryParserTest.incrementalDocument());
+        new UpdateStateStore(home)
+                .save(new UpdateStateStore.State(Optional.empty(), Optional.of(discovery), Optional.of("\"v50\"")));
+        final DeferredTransport transport = new DeferredTransport();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
+        try {
+            assertTrue(service.incrementalCandidate().isEmpty());
+            final var check = service.checkManual();
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            transport.completeNotModified();
+            assertEquals(
+                    CoreUpdateService.Status.UPDATE_AVAILABLE,
+                    check.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(discovery.candidate(), service.incrementalCandidate());
+        } finally {
+            service.close();
+            scheduler.shutdown();
+        }
+    }
+
     private static RuntimeUpdateService service(
             final Path home,
             final RuntimeScheduler scheduler,
@@ -971,6 +1057,12 @@ final class RuntimeUpdateServiceTest {
             reset();
             current.complete(
                     new Response(200, document.getBytes(StandardCharsets.UTF_8), Optional.of("\"release-1\"")));
+        }
+
+        void completeNotModified() {
+            final CompletableFuture<Response> current = pending;
+            reset();
+            current.complete(new Response(304, new byte[0], Optional.of("\"v50\"")));
         }
 
         void fail(final Throwable failure) {

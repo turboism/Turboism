@@ -80,6 +80,9 @@ public final class UpdateStateStore {
             state.etag().ifPresent(value -> root.put("etag", value));
             state.cachedResult().ifPresent(value -> root.set("cachedResult", value.toJson(UpdateFileSupport.JSON)));
             try {
+                // Revalidate the complete detached candidate before persistence; never merge capability
+                // or identity fields from a different response or an earlier cache entry.
+                state.cachedResult().ifPresent(value -> parser.parseNode(value.toJson(UpdateFileSupport.JSON)));
                 UpdateFileSupport.writeAtomic(home, path, root);
                 return SaveResult.success();
             } catch (RuntimeException | IOException failure) {
