@@ -13,7 +13,7 @@ final class RuntimeMeshToolContext implements MeshToolContext, AutoCloseable {
     private final Runnable deactivate;
     private final MeshTool tool;
     private final dev.turboism.permissions.PermissionChecker permissions;
-    private RuntimeSelectionBrush brush;
+    private MeshBrush brush;
     private boolean closed;
 
     RuntimeMeshToolContext(
@@ -40,14 +40,26 @@ final class RuntimeMeshToolContext implements MeshToolContext, AutoCloseable {
         lease.requireCurrent();
         if (closed) throw new IllegalStateException("mesh-tool context is closed");
         if (brush == null) {
-            final RuntimeSelectionBrush candidate =
-                    RuntimeSelectionBrush.production(editor, lease, deactivate, tool, permissions);
-            try {
-                candidate.install();
-                brush = candidate;
-            } catch (RuntimeException | Error failure) {
-                candidate.close();
-                throw failure;
+            if (RuntimeGeometricMeshLayout.matches(tool)) {
+                final RuntimeGeometricMeshLayout candidate =
+                        RuntimeGeometricMeshLayout.production(editor, lease, deactivate, tool, permissions);
+                try {
+                    candidate.install();
+                    brush = candidate;
+                } catch (RuntimeException | Error failure) {
+                    candidate.close();
+                    throw failure;
+                }
+            } else {
+                final RuntimeSelectionBrush candidate =
+                        RuntimeSelectionBrush.production(editor, lease, deactivate, tool, permissions);
+                try {
+                    candidate.install();
+                    brush = candidate;
+                } catch (RuntimeException | Error failure) {
+                    candidate.close();
+                    throw failure;
+                }
             }
         }
         return brush;
@@ -57,6 +69,12 @@ final class RuntimeMeshToolContext implements MeshToolContext, AutoCloseable {
     public synchronized void close() {
         if (closed) return;
         closed = true;
-        if (brush != null) brush.close();
+        if (brush != null) {
+            try {
+                brush.close();
+            } catch (Exception failure) {
+                throw new IllegalStateException("failed to close mesh tool handle", failure);
+            }
+        }
     }
 }

@@ -33,6 +33,7 @@ public record InstalledBuild(
             "command-palette.jar",
             "cubism-tab-filter.jar",
             "external-psd-edit.jar",
+            "geometric-mesh-layout.jar",
             "history-panel.jar",
             "mcp.jar",
             "mesh-edit-mirror-axis-enhance.jar",

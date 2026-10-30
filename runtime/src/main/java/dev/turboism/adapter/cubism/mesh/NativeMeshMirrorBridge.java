@@ -1697,12 +1697,300 @@ public final class NativeMeshMirrorBridge {
         return addPointMethod(mesh) != null;
     }
 
-    static void addPoint(final Object mesh, final float x, final float y) throws ReflectiveOperationException {
+    static int addPoint(final Object mesh, final float x, final float y) throws ReflectiveOperationException {
         final Method method = addPointMethod(mesh);
         if (method == null) throw new NoSuchMethodException("mesh point addition");
         final Object normal = enumConstant(method.getParameterTypes()[2], "NORMAL");
         if (normal == null) throw new NoSuchFieldException("NORMAL point type");
-        method.invoke(mesh, x, y, normal, -1L);
+        final Object result = method.invoke(mesh, x, y, normal, -1L);
+        return result instanceof Number number ? number.intValue() : -1;
+    }
+
+    static List<Integer> addClosedLoopPointsAndEdges(
+            final Object editMode,
+            final Object editableMesh,
+            final Object completePack,
+            final String label,
+            final float[] pointsXY)
+            throws ReflectiveOperationException {
+        if (pointsXY == null || pointsXY.length < 6 || (pointsXY.length & 1) != 0) {
+            throw new IllegalArgumentException("closed loop requires at least three finite XY point pairs");
+        }
+        final int count = pointsXY.length / 2;
+        final int[] edgePairs = new int[count * 2];
+        for (int index = 0; index < count; index++) {
+            edgePairs[index * 2] = index;
+            edgePairs[index * 2 + 1] = (index + 1) % count;
+        }
+        return addGeometricPointsAndEdges(editMode, editableMesh, completePack, label, pointsXY, edgePairs);
+    }
+
+    static List<Integer> addGeometricPointsAndEdges(
+            final Object editMode,
+            final Object editableMesh,
+            final Object completePack,
+            final String label,
+            final float[] pointsXY,
+            final int[] edgePairs)
+            throws ReflectiveOperationException {
+        if (editableMesh == null || pointsXY == null || pointsXY.length < 6 || (pointsXY.length & 1) != 0) {
+            throw new IllegalArgumentException("geometric layout requires at least three finite XY point pairs");
+        }
+        if (edgePairs == null || (edgePairs.length & 1) != 0) {
+            throw new IllegalArgumentException("geometric layout edge pairs must have even length");
+        }
+        if (!canAddPoint(editableMesh)) {
+            throw new NoSuchMethodException("mesh point addition");
+        }
+        Object undoOwner = null;
+        boolean started = false;
+        try {
+            Object actionPack = activeMeshActionPack();
+            if (actionPack == null && completePack != null) {
+                actionPack = resolveActionPackFromCompletePack(completePack, editMode);
+            }
+            if (actionPack != null && actionPackOwnsEditMode(actionPack, editMode)) {
+                final Object group = beginUndoGroup(actionPack, label);
+                if (group != null) {
+                    undoOwner = actionPack;
+                    started = true;
+                    snapshotMeshesForUndo(actionPack, label, group);
+                }
+            }
+            if (!started && editMode != null) {
+                final Object group = beginUndoGroup(editMode, label);
+                if (group != null) {
+                    undoOwner = editMode;
+                    started = true;
+                    snapshotMeshOnEditMode(editMode, editableMesh, label, group);
+                }
+            }
+            final int count = pointsXY.length / 2;
+            removeCrossingInnerEdges(editableMesh, pointsXY, edgePairs);
+            try {
+                call(editableMesh, "clearAutoTriangulation", NO_PARAMS);
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+            }
+            final List<Integer> addedIds = new ArrayList<>(count);
+            for (int index = 0; index < count; index++) {
+                final int id = addPoint(editableMesh, pointsXY[index * 2], pointsXY[index * 2 + 1]);
+                if (id < 0) {
+                    throw new IllegalStateException("host did not return a valid point index");
+                }
+                addedIds.add(id);
+            }
+            for (int index = 0; index + 1 < edgePairs.length; index += 2) {
+                final int u = edgePairs[index];
+                final int v = edgePairs[index + 1];
+                if (u >= 0 && u < count && v >= 0 && v < count && u != v) {
+                    final int startId = addedIds.get(u);
+                    final int endId = addedIds.get(v);
+                    if (startId != endId) {
+                        final MeshEdgeRef edge =
+                                new MeshEdgeRef(startId, endId, dev.turboism.sdk.cubism.mesh.MeshEdgeKind.INNER);
+                        if (canAddEdge(editableMesh, edge)) {
+                            addEdge(editableMesh, edge);
+                        }
+                    }
+                }
+            }
+            refreshTriangulationAndCaches(editMode, editableMesh);
+            if (started && undoOwner != null) {
+                commitUndoGroup(undoOwner);
+                started = false;
+            }
+            disarmNativePointAddPreview(editableMesh.getClass().getClassLoader());
+            if (completePack != null) {
+                try {
+                    invoke(completePack, "repaintCanvas", true);
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    // Best-effort canvas refresh.
+                }
+            }
+            return List.copyOf(addedIds);
+        } catch (ReflectiveOperationException | RuntimeException | Error failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            if (started && undoOwner != null) {
+                try {
+                    cancelUndoGroup(undoOwner);
+                } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
+                }
+            }
+            throw failure;
+        }
+    }
+
+    private static void snapshotMeshOnEditMode(
+            final Object editMode, final Object editableMesh, final String label, final Object group)
+            throws ReflectiveOperationException {
+        if ("com.live2d.graphics3d.editableMesh.GEditableMesh2"
+                .equals(editableMesh.getClass().getName())) {
+            PopupMeshUndoContract.snapshotMeshes(
+                    editMode.getClass().getClassLoader(), label, group, List.of(editableMesh));
+        }
+    }
+
+    private static Object resolveActionPackFromCompletePack(final Object completePack, final Object editMode) {
+        try {
+            final Object viewContext = property(completePack, "currentViewContext");
+            if (viewContext == null) return null;
+            final Object cached = invoke(viewContext, "getLastActionPack");
+            if (actionPackOwnsEditMode(cached, editMode)) return cached;
+            final Object refreshed = PopupMeshUndoContract.refresh(viewContext, cached);
+            return actionPackOwnsEditMode(refreshed, editMode) ? refreshed : null;
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    static void disarmNativePointAddPreview(final ClassLoader loader) {
+        if (loader == null) return;
+        try {
+            final Class<?> toolModeClass = Class.forName(
+                    "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolMode_MeshEdit_Manual", false, loader);
+            java.lang.reflect.Field subToolField = null;
+            try {
+                subToolField = toolModeClass.getDeclaredField("currentMeshEditSubTool");
+            } catch (NoSuchFieldException ignored) {
+                for (java.lang.reflect.Field candidate : toolModeClass.getDeclaredFields()) {
+                    if (Modifier.isStatic(candidate.getModifiers())
+                            && candidate.getType().isEnum()) {
+                        subToolField = candidate;
+                        break;
+                    }
+                }
+            }
+            if (subToolField == null) return;
+            ReflectAccess.open(subToolField);
+            final Class<?> subToolEnum = subToolField.getType();
+            Object arrow = enumConstant(subToolEnum, "ARROW");
+            if (arrow == null) {
+                arrow = enumConstant(subToolEnum, "a");
+            }
+            if (arrow != null) {
+                subToolField.set(null, arrow);
+            }
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
+    }
+
+    private static void removeCrossingInnerEdges(
+            final Object editableMesh, final float[] pointsXY, final int[] edgePairs) {
+        try {
+            final Object rawPositions = call(editableMesh, "getGlPositions", NO_PARAMS);
+            if (!(rawPositions instanceof float[] existingXY) || existingXY.length < 4) return;
+            final int pointCount = existingXY.length / 2;
+            final int newPointCount = pointsXY.length / 2;
+            final List<int[]> toRemove = new ArrayList<>();
+            for (Object edge : edges(editableMesh)) {
+                final Object type = call(edge, "getType", NO_PARAMS);
+                if (type instanceof Enum<?> e && "LOCKED".equals(e.name())) {
+                    continue;
+                }
+                final Object first = call(edge, "getIndex1", NO_PARAMS);
+                final Object second = call(edge, "getIndex2", NO_PARAMS);
+                if (!(first instanceof Number s) || !(second instanceof Number t)) continue;
+                final int i1 = s.intValue();
+                final int i2 = t.intValue();
+                if (i1 < 0 || i1 >= pointCount || i2 < 0 || i2 >= pointCount) continue;
+                final float p1x = existingXY[i1 * 2];
+                final float p1y = existingXY[i1 * 2 + 1];
+                final float p2x = existingXY[i2 * 2];
+                final float p2y = existingXY[i2 * 2 + 1];
+                boolean crosses = false;
+                for (int k = 0; k + 1 < edgePairs.length; k += 2) {
+                    final int u = edgePairs[k];
+                    final int v = edgePairs[k + 1];
+                    if (u < 0 || u >= newPointCount || v < 0 || v >= newPointCount) continue;
+                    final float q1x = pointsXY[u * 2];
+                    final float q1y = pointsXY[u * 2 + 1];
+                    final float q2x = pointsXY[v * 2];
+                    final float q2y = pointsXY[v * 2 + 1];
+                    if (segmentsIntersect(p1x, p1y, p2x, p2y, q1x, q1y, q2x, q2y)) {
+                        crosses = true;
+                        break;
+                    }
+                }
+                if (crosses) {
+                    toRemove.add(new int[] {i1, i2});
+                }
+            }
+            if (!toRemove.isEmpty()) {
+                final Method removeEdge = declaredMethod(editableMesh.getClass(), "removeEdge", int.class, int.class);
+                if (removeEdge != null) {
+                    for (int[] pair : toRemove) {
+                        try {
+                            removeEdge.invoke(editableMesh, pair[0], pair[1]);
+                        } catch (ReflectiveOperationException | RuntimeException ignored) {
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
+    }
+
+    private static boolean segmentsIntersect(
+            final float ax,
+            final float ay,
+            final float bx,
+            final float by,
+            final float cx,
+            final float cy,
+            final float dx,
+            final float dy) {
+        final float d1 = cross(cx, cy, dx, dy, ax, ay);
+        final float d2 = cross(cx, cy, dx, dy, bx, by);
+        final float d3 = cross(ax, ay, bx, by, cx, cy);
+        final float d4 = cross(ax, ay, bx, by, dx, dy);
+        return ((d1 > 0.0f && d2 < 0.0f) || (d1 < 0.0f && d2 > 0.0f))
+                && ((d3 > 0.0f && d4 < 0.0f) || (d3 < 0.0f && d4 > 0.0f));
+    }
+
+    private static float cross(
+            final float ax, final float ay, final float bx, final float by, final float cx, final float cy) {
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    }
+
+    private static void refreshTriangulationAndCaches(final Object editMode, final Object editableMesh) {
+        try {
+            call(editableMesh, "setUpdated", NO_PARAMS);
+            call(editableMesh, "getGlPositions", NO_PARAMS);
+            for (Method method : MethodHandleCache.overloads(editableMesh.getClass(), "getGlIndices$default", 5)) {
+                if (Modifier.isStatic(method.getModifiers())) {
+                    method.invoke(null, editableMesh, null, false, 3, null);
+                    break;
+                }
+            }
+            call(editableMesh, "getLockedEdges", NO_PARAMS);
+            call(editableMesh, "getNormalEdges", NO_PARAMS);
+            call(editableMesh, "getUserTriangulationEdges", NO_PARAMS);
+            call(editableMesh, "getAutoTriangulationEdges", NO_PARAMS);
+            markSelectionBoundingBoxDirty(editMode, null);
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
+    }
+
+    static void markSelectionBoundingBoxDirty(final Object editMode, final Object completePack) {
+        try {
+            if (editMode != null) {
+                final Object selector = call(editMode, "getSelector", NO_PARAMS);
+                final Object boundingBox = selector == null ? null : call(selector, "getBoundingBox", NO_PARAMS);
+                if (boundingBox != null) {
+                    call(boundingBox, "setDirty", NO_PARAMS);
+                }
+            }
+            if (completePack != null) {
+                invoke(completePack, "repaintCanvas", true);
+            }
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+        }
     }
 
     private static Method addPointMethod(final Object mesh) {
