@@ -8,6 +8,22 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-10-30
+
+### 追加
+
+- SDK に、プラグイン無効化時の UI 後処理を時間制限付きで行う、試験的な `UiScheduler.runUiTeardown(Runnable, Duration)` を追加しました。EDT 上ではその場で実行し、それ以外ではタイムアウトまで待機します。EDT が応答しない場合や呼び出しスレッドが割り込まれた場合は `false` を返し、後処理はキューに残って一度だけ実行され、割り込みフラグは復元されます。プラグイン世代フェンスは無効化後もこの呼び出しを許可します。
+
+### 変更
+
+- `clipmask-viewer` と `project-inspector` は新しい後処理 API でウィンドウを閉じるため、最小 API を `0.68.1` に変更しました。その他の公式プラグインの下限は変わりません。EDT が時間内に応答しない場合、`project-inspector` は無効化を失敗させず警告を記録します。
+- ランタイムは手動管理の一覧ではなく、同梱の `packaging/release-plugins.txt` から公式プラグイン一覧を取得します。マニフェストが欠落または不正な場合は失敗します。
+
+### 修正
+
+- 新しい公式プラグイン（`atlas-bitmask-nesting`、`atlas-dalsoo-polygon`、`atlas-folder-layout`、`deformer-batch-rename`、`frame-animation-import`、`parameter-sync`）のみを含むフルインストールが、アップデーターに thin ビルドと誤判定されなくなりました。
+- WebDAV バックアップの停止テストはポーリングではなくワーカースレッドの終了を待つようになり、アドミッション変更テストは変更フックが実行されたかを報告します。
+
 ## [0.68.0] - 2026-10-28
 
 ### 追加
