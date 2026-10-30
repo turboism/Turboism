@@ -18,6 +18,19 @@ public final class FloatArrayParseBridge implements AutoCloseable {
     /** Payload-free diagnostic supplier. */
     public static final String STATS_PROPERTY = "turboism.float-array-parse-cache.stats";
 
+    private static volatile boolean configuredDefault;
+
+    /** Sets the startup-configured default when the diagnostic system property is absent. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
+    /** True when enabled by diagnostic property or global startup configuration. */
+    public static boolean enabledByPreference() {
+        final String value = System.getProperty(ENABLE_PROPERTY);
+        return value == null ? configuredDefault : Boolean.parseBoolean(value);
+    }
+
     private final FloatArrayParseCache cache = new FloatArrayParseCache(8192, 262144);
     private final AtomicBoolean active = new AtomicBoolean();
     private final LongAdder fallback = new LongAdder();
@@ -50,14 +63,14 @@ public final class FloatArrayParseBridge implements AutoCloseable {
     // Serialize admission and parsing with close so cleared keys cannot be repopulated.
     private synchronized Object invoke(Object count, Object list) {
         if (!active.get()) return null;
-        if (!Boolean.getBoolean(ENABLE_PROPERTY)) {
+        if (!enabledByPreference()) {
             cache.clear();
             return null;
         }
         try {
             if (!(count instanceof Integer length)) return null;
             float[] result = cache.parse(length, list);
-            if (result != null && active.get() && Boolean.getBoolean(ENABLE_PROPERTY)) return result;
+            if (result != null && active.get() && enabledByPreference()) return result;
         } catch (RuntimeException failure) {
             // The pure native parser remains the owner of input/format exceptions.
         }

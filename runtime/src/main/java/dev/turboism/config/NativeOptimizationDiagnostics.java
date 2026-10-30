@@ -72,6 +72,12 @@ public final class NativeOptimizationDiagnostics {
                     case "TURBOISM_INPUT_PATH" -> Option.INPUT_PATH_ELISION;
                     case "TURBOISM_DEFERRED_GL_ERROR_CHECK" -> Option.MESA_GL_THREAD;
                     case "TURBOISM_MESH_INTERPOLATION" -> Option.MESH_INTERPOLATION;
+                    case "TURBOISM_SHADER_UNIFORM" -> Option.SHADER_UNIFORM;
+                    case "TURBOISM_MATRIX_SCRATCH" -> Option.MATRIX_SCRATCH;
+                    case "TURBOISM_IMAGE_ARCHIVE_REUSE" -> Option.IMAGE_ARCHIVE_REUSE;
+                    case "TURBOISM_FLOAT_ARRAY_PARSE_CACHE" -> Option.FLOAT_ARRAY_PARSE_CACHE;
+                    case "TURBOISM_TEXTURE_UPLOAD_PREPARATION" -> Option.TEXTURE_UPLOAD_PREPARATION;
+                    case "TURBOISM_WARP_POSITION_PROJECTION" -> Option.WARP_POSITION_PROJECTION;
                     default -> null;
                 };
         if (option == null) return;

@@ -21,6 +21,19 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
     /** Payload-free statistics. */
     public static final String STATS_PROPERTY = "turboism.warp-position-projection.stats";
 
+    private static volatile boolean configuredDefault;
+
+    /** Sets the startup-configured default when the diagnostic system property is absent. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
+    /** True when enabled by diagnostic property or global startup configuration. */
+    public static boolean enabledByPreference() {
+        final String value = System.getProperty(ENABLE_PROPERTY);
+        return value == null ? configuredDefault : Boolean.parseBoolean(value);
+    }
+
     private static final int MAX_POINTS = 131_072;
     private final Class<?> formType;
     private final MethodHandle positions, source, vector;
@@ -65,7 +78,7 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
     }
 
     private Object project(Object form) {
-        if (!active.get() || !Boolean.getBoolean(ENABLE_PROPERTY)) return null;
+        if (!active.get() || !enabledByPreference()) return null;
         calls.increment();
         if (form == null || form.getClass() != formType) return null;
         try {
@@ -82,7 +95,7 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
             if (input != (float[]) positions.invokeExact(form)
                     || (count != 0 && owner != (Object) source.invokeExact(form))
                     || !active.get()
-                    || !Boolean.getBoolean(ENABLE_PROPERTY)) return null;
+                    || !enabledByPreference()) return null;
             projected.increment();
             points.add(count);
             return result;

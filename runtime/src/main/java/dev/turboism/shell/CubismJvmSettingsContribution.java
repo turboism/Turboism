@@ -23,19 +23,47 @@ final class CubismJvmSettingsContribution {
 
     private CubismJvmSettingsContribution() {}
 
+    static java.util.Optional<String> tooltipKey(final String contributionId) {
+        if (contributionId == null) return java.util.Optional.empty();
+        return java.util.Optional.ofNullable(
+                switch (contributionId) {
+                    case MeshTriangulationSettingsContribution.CONTRIBUTION_ID ->
+                        "settings.mesh-triangulation.hash-degeneracy.tooltip";
+                    case AtlasTileBboxSettingsContribution.CONTRIBUTION_ID -> "settings.atlas.tile-bbox.tooltip";
+                    case AtlasCacheReuseSettingsContribution.CONTRIBUTION_ID -> "settings.atlas.cache-reuse.tooltip";
+                    case TriangulationEdgeIndexSettingsContribution.CONTRIBUTION_ID ->
+                        "settings.mesh-triangulation.edge-index.tooltip";
+                    case "model-update-skip" -> "settings.optimization.model-update-skip.tooltip";
+                    case "incremental-update" -> "settings.optimization.incremental-update.tooltip";
+                    case "uniform-location-cache" -> "settings.optimization.uniform-location-cache.tooltip";
+                    case "upload-elision" -> "settings.optimization.upload-elision.tooltip";
+                    case "input-path-elision" -> "settings.optimization.input-path-elision.tooltip";
+                    case "mesa-gl-thread" -> "settings.optimization.mesa-gl-thread.tooltip";
+                    case "mesh-interpolation" -> "settings.optimization.mesh-interpolation.tooltip";
+                    case "shader-uniform" -> "settings.optimization.shader-uniform.tooltip";
+                    case "matrix-scratch" -> "settings.optimization.matrix-scratch.tooltip";
+                    case "image-archive-reuse" -> "settings.optimization.image-archive-reuse.tooltip";
+                    case "float-array-parse-cache" -> "settings.optimization.float-array-parse-cache.tooltip";
+                    case "texture-upload-preparation" -> "settings.optimization.texture-upload-preparation.tooltip";
+                    case "warp-position-projection" -> "settings.optimization.warp-position-projection.tooltip";
+                    case "cubism-disable-auto-backup" -> "settings.cubism-jvm.disable-auto-backup.tooltip";
+                    case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
+                    case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
+                    case "cubism-memory-profile" -> "settings.cubism-jvm.memory-profile.tooltip";
+                    default -> null;
+                });
+    }
+
     static SettingsContribution createPath(final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         Objects.requireNonNull(i18n, "i18n");
         Objects.requireNonNull(settings, "settings");
         return new SettingsContribution(
                 PATH_CONTRIBUTION_ID,
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(90),
+                OptionalInt.of(100),
                 new SettingsControl.Text(
                         PATH_CONTRIBUTION_ID,
-                        i18n.text("settings.cubism-jvm.graalvm-path")
-                                + " ("
-                                + i18n.text("settings.locale.restart-required")
-                                + ")",
+                        i18n.text("settings.cubism-jvm.graalvm-path"),
                         36,
                         SettingsBinding.of(settings::graalVmPath, settings::saveGraalVmPath),
                         (current, proposed) -> settings.graalVmPathCompatible(proposed)
@@ -51,10 +79,10 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 CONTRIBUTION_ID,
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(100),
+                OptionalInt.of(110),
                 new SettingsControl.Choice(
                         CONTRIBUTION_ID,
-                        i18n.text("settings.cubism-jvm") + " (" + i18n.text("settings.locale.restart-required") + ")",
+                        i18n.text("settings.cubism-jvm"),
                         List.of(
                                 new SettingsControl.Option(
                                         CubismJvmSettingsService.CubismJvm.GRAALVM.configValue(),
@@ -103,7 +131,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-disable-auto-backup",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(110),
+                OptionalInt.of(93),
                 new SettingsControl.Toggle(
                         "cubism-disable-auto-backup",
                         i18n.text("settings.cubism-jvm.disable-auto-backup"),
@@ -124,7 +152,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-zgc",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(120),
+                OptionalInt.of(94),
                 new SettingsControl.Toggle(
                         "cubism-zgc",
                         i18n.text("settings.cubism-jvm.zgc"),
@@ -151,10 +179,7 @@ final class CubismJvmSettingsContribution {
                 OptionalInt.of(130),
                 new SettingsControl.Choice(
                         "cubism-memory-profile",
-                        i18n.text("settings.cubism-jvm.memory-profile")
-                                + " ("
-                                + i18n.text("settings.locale.restart-required")
-                                + ")",
+                        i18n.text("settings.cubism-jvm.memory-profile"),
                         List.of(
                                 new SettingsControl.Option(
                                         CubismJvmSettingsService.MemoryProfile.SYSTEM.configValue(),
@@ -330,6 +355,108 @@ final class CubismJvmSettingsContribution {
                     return value;
                 },
                 86);
+    }
+
+    static SettingsContribution createShaderUniformToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "shader-uniform",
+                "settings.optimization.shader-uniform",
+                settings::shaderUniform,
+                value -> {
+                    if (settings.saveShaderUniform(value) != value) {
+                        throw new IllegalStateException("Shader-uniform preference was not saved");
+                    }
+                    return value;
+                },
+                87);
+    }
+
+    static SettingsContribution createMatrixScratchToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "matrix-scratch",
+                "settings.optimization.matrix-scratch",
+                settings::matrixScratch,
+                value -> {
+                    if (settings.saveMatrixScratch(value) != value) {
+                        throw new IllegalStateException("Matrix-scratch preference was not saved");
+                    }
+                    return value;
+                },
+                88);
+    }
+
+    static SettingsContribution createImageArchiveReuseToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "image-archive-reuse",
+                "settings.optimization.image-archive-reuse",
+                settings::imageArchiveReuse,
+                value -> {
+                    if (settings.saveImageArchiveReuse(value) != value) {
+                        throw new IllegalStateException("Image-archive reuse preference was not saved");
+                    }
+                    return value;
+                },
+                89);
+    }
+
+    static SettingsContribution createFloatArrayParseCacheToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "float-array-parse-cache",
+                "settings.optimization.float-array-parse-cache",
+                settings::floatArrayParseCache,
+                value -> {
+                    if (settings.saveFloatArrayParseCache(value) != value) {
+                        throw new IllegalStateException("Float-array parse cache preference was not saved");
+                    }
+                    return value;
+                },
+                90);
+    }
+
+    static SettingsContribution createTextureUploadPreparationToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "texture-upload-preparation",
+                "settings.optimization.texture-upload-preparation",
+                settings::textureUploadPreparation,
+                value -> {
+                    if (settings.saveTextureUploadPreparation(value) != value) {
+                        throw new IllegalStateException("Texture-upload preparation preference was not saved");
+                    }
+                    return value;
+                },
+                91);
+    }
+
+    static SettingsContribution createWarpPositionProjectionToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "warp-position-projection",
+                "settings.optimization.warp-position-projection",
+                settings::warpPositionProjection,
+                value -> {
+                    if (settings.saveWarpPositionProjection(value) != value) {
+                        throw new IllegalStateException("Warp-position projection preference was not saved");
+                    }
+                    return value;
+                },
+                92);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

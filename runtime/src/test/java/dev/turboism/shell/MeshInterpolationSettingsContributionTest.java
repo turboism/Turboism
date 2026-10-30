@@ -128,7 +128,7 @@ class MeshInterpolationSettingsContributionTest {
                 "settings.tab.performance",
                 "Performance",
                 "settings.optimization.mesh-interpolation",
-                "Accelerate extended interpolation (ArtMesh & deformer Ellipse/SNS; restart required)");
+                "Accelerate ArtMesh and deformer extended interpolation");
         return localization(texts);
     }
 

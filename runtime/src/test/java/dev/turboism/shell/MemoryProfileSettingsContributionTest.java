@@ -55,12 +55,10 @@ class MemoryProfileSettingsContributionTest {
     }
 
     @Test
-    void labelStatesTheRestartRequirement() {
+    void labelUsesCleanUnifiedTextWithoutParentheticalRestartSuffix() {
         var choice = (SettingsControl.Choice) CubismJvmSettingsContribution.createMemoryProfile(i18n(), new Settings())
                 .control();
-        assertTrue(
-                choice.label().contains("settings.locale.restart-required"),
-                "the control label carries the shared restart-required wording");
+        assertEquals("settings.cubism-jvm.memory-profile", choice.label());
     }
 
     @Test

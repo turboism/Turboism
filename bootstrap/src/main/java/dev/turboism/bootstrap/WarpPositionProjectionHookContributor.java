@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge;
-
 /** Contributor for the verified warp position projection optimization. */
 final class WarpPositionProjectionHookContributor extends NativeOptimizationHookContributor {
 
@@ -11,8 +9,9 @@ final class WarpPositionProjectionHookContributor extends NativeOptimizationHook
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!Boolean.getBoolean(WarpPositionProjectionBridge.ENABLE_PROPERTY)) {
-            return noOp();
+        if (!NativeOptimizationPolicy.warpPositionProjectionEnabled(environment)) {
+            log(environment, id() + " installation=NOT_ADMITTED");
+            return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedWarpPositionProjectionInstaller.admitted(
@@ -21,7 +20,7 @@ final class WarpPositionProjectionHookContributor extends NativeOptimizationHook
                 true,
                 Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
-            return noOp();
+            return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedWarpPositionProjectionInstaller installer = new VerifiedWarpPositionProjectionInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

@@ -433,7 +433,9 @@ final class CoreWindows implements AutoCloseable {
                 }
                 showRejectedChange(owner, decision);
             });
-            add(panel, row, new JLabel(choice.label()), combo);
+            final JLabel choiceLabel = new JLabel(choice.label());
+            applyControlTooltip(choice.id(), choiceLabel, combo);
+            add(panel, row, choiceLabel, combo);
             return () -> {
                 if (CubismJvmSettingsContribution.CONTRIBUTION_ID.equals(choice.id())) {
                     final SettingsChangeDecision decision = choice.validator().validate(initial, accepted[0]);
@@ -450,6 +452,7 @@ final class CoreWindows implements AutoCloseable {
             final boolean initial = Boolean.TRUE.equals(toggle.binding().read());
             final JCheckBox checkbox = new JCheckBox(toggle.label(), initial);
             checkbox.setName(toggle.id());
+            applyControlTooltip(toggle.id(), checkbox);
             final boolean[] accepted = {initial};
             final boolean[] changing = {false};
             checkbox.addActionListener(ignored -> {
@@ -517,6 +520,26 @@ final class CoreWindows implements AutoCloseable {
         }
         throw new IllegalArgumentException(
                 "unsupported settings control: " + control.getClass().getName());
+    }
+
+    private void applyControlTooltip(final String controlId, final javax.swing.JComponent... components) {
+        CubismJvmSettingsContribution.tooltipKey(controlId).ifPresent(key -> {
+            if (i18n.contains(key)) {
+                final String raw = text(key);
+                if (raw != null && !raw.isBlank()) {
+                    final String tip = raw.length() > 40 && !raw.startsWith("<html>")
+                            ? "<html><div style='width: 360px;'>"
+                                    + raw.replace("&", "&amp;")
+                                            .replace("<", "&lt;")
+                                            .replace(">", "&gt;")
+                                    + "</div></html>"
+                            : raw;
+                    for (javax.swing.JComponent component : components) {
+                        component.setToolTipText(tip);
+                    }
+                }
+            }
+        });
     }
 
     private static String requireChoiceValue(final SettingsControl.Choice choice, final String value) {

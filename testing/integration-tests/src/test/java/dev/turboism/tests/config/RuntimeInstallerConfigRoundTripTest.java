@@ -51,6 +51,8 @@ class RuntimeInstallerConfigRoundTripTest {
                                 null,
                                 null,
                                 null,
+                                "-encoding",
+                                "UTF-8",
                                 "--release",
                                 "17",
                                 "-d",
