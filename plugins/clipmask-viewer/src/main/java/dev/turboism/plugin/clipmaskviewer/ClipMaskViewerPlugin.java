@@ -25,8 +25,9 @@ import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.awt.GraphicsEnvironment;
-import java.lang.reflect.InvocationTargetException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,6 +49,8 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
     static final String MENU_ROOT = "Turboism";
     static final int SECTION_ORDER = 100;
 
+    private static final Duration TEARDOWN_TIMEOUT = Duration.ofSeconds(5);
+
     private final UiAccess ui;
     private final Object lifecycleLock = new Object();
     private final AtomicReference<WindowView> window = new AtomicReference<>();
@@ -55,6 +58,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
     private PluginContext context;
     private PluginLocalization localization;
     private PluginLogger logger;
+    private UiScheduler uiScheduler;
     private boolean initialized;
     private boolean enabled;
     private long generation;
@@ -72,6 +76,9 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.localization = context.localization();
         this.logger = context.logger();
+        // Captured while live: context accessors are fenced once unload begins, but teardown
+        // through the captured scheduler stays admitted.
+        this.uiScheduler = context.uiScheduler();
         context.tasks();
         synchronized (lifecycleLock) {
             initialized = true;
@@ -330,11 +337,10 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
             }
         };
         try {
-            ui.invokeAndWait(dispose);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            logger.warn("Clip Mask Viewer EDT disposal interrupted");
-        } catch (InvocationTargetException | RuntimeException exception) {
+            if (!ui.runTeardown(uiScheduler, dispose)) {
+                logger.warn("Clip Mask Viewer EDT disposal deferred");
+            }
+        } catch (RuntimeException exception) {
             logger.warn("Clip Mask Viewer EDT disposal failed safely");
         }
     }
@@ -369,14 +375,15 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         void invokeLater(Runnable action);
 
         /**
-         * Runs {@code action} on the UI event thread and waits for it to finish. Calling it
-         * from that thread already runs the action directly.
+         * Runs idempotent teardown {@code action} on the UI event thread and waits for it, bounded.
+         * Calling it from that thread already runs the action directly; a hung UI thread or an
+         * interrupt defers the action instead of blocking unload.
          *
+         * @param scheduler the plugin's UI scheduler, captured while the plugin was live
          * @param action the UI work to run; must not be null
-         * @throws InterruptedException if the calling thread is interrupted while waiting
-         * @throws InvocationTargetException if the action fails while being dispatched
+         * @return whether the action finished before this method returned
          */
-        void invokeAndWait(Runnable action) throws InterruptedException, InvocationTargetException;
+        boolean runTeardown(UiScheduler scheduler, Runnable action);
 
         /**
          * Creates a new viewer window; the returned view is not visible until
@@ -439,12 +446,8 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
-            if (SwingUtilities.isEventDispatchThread()) {
-                action.run();
-            } else {
-                SwingUtilities.invokeAndWait(action);
-            }
+        public boolean runTeardown(final UiScheduler scheduler, final Runnable action) {
+            return scheduler.runUiTeardown(action, TEARDOWN_TIMEOUT);
         }
 
         @Override
