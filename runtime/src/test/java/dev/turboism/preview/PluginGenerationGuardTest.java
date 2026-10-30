@@ -159,6 +159,43 @@ class PluginGenerationGuardTest {
     }
 
     @Test
+    void uiTeardownReachesTheDelegateAfterFenceWhileOtherSchedulerCallsStayFenced() {
+        final List<String> calls = new ArrayList<>();
+        final dev.turboism.sdk.ui.UiScheduler scheduler = new dev.turboism.sdk.ui.UiScheduler() {
+            @Override
+            public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
+                calls.add("runOnUiThread");
+                return () -> {};
+            }
+
+            @Override
+            public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
+                    final Runnable work, final java.time.Duration delay) {
+                calls.add("runOnUiThreadLater");
+                return () -> {};
+            }
+
+            @Override
+            public boolean runUiTeardown(final Runnable cleanup, final java.time.Duration timeout) {
+                calls.add("runUiTeardown");
+                cleanup.run();
+                return true;
+            }
+        };
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final dev.turboism.sdk.ui.UiScheduler guarded =
+                guard.wrapForTesting(scheduler, dev.turboism.sdk.ui.UiScheduler.class);
+        guard.fence();
+
+        final AtomicReference<String> ran = new AtomicReference<>();
+        assertTrue(guarded.runUiTeardown(() -> ran.set("cleanup"), java.time.Duration.ofSeconds(1)));
+        assertEquals("cleanup", ran.get());
+        assertThrows(IllegalStateException.class, () -> guarded.runOnUiThread(() -> {}));
+        assertThrows(IllegalStateException.class, () -> guarded.runOnUiThreadLater(() -> {}, java.time.Duration.ZERO));
+        assertEquals(List.of("runUiTeardown"), calls);
+    }
+
+    @Test
     void inFlightAdmittedCallsKeepDrainedFalse() throws Exception {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
