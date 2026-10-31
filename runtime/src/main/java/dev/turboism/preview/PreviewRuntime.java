@@ -400,9 +400,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
         final var pendingPlugins = new dev.turboism.pluginmanagement.PendingPluginOperations(home).apply();
-        if (!pendingPlugins.applied()) {
-            throw new IOException(pendingPlugins.code());
-        }
+        requireSafePendingPlugins(pendingPlugins);
 
         final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final PreviewLog log = PreviewLog.openSession(
@@ -410,6 +408,10 @@ public final class PreviewRuntime implements AutoCloseable {
                 Clock.systemUTC(),
                 ProcessHandle.current().pid(),
                 PreviewLog.Sink.NONE);
+        if (!pendingPlugins.applied()) {
+            log.warn("plugin-management", pendingPlugins.code()
+                    + ": installed plugins kept; failed intent retained. Review pending changes in Plugin Management.");
+        }
         dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
             switch (level) {
                 case TRACE -> log.trace(component, message);
@@ -648,13 +650,37 @@ public final class PreviewRuntime implements AutoCloseable {
             runtime.publishStartupBanner(verifiedHostClassLoader);
             publishNativeStartupNotice(verifiedHostClassLoader, log);
             startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
-            dev.turboism.update.FrameworkUpdateHealth.startupSucceeded(
-                    home, message -> log.info("updates", message));
+            confirmFrameworkHealthAfterPluginApply(
+                    pendingPlugins,
+                    () -> dev.turboism.update.FrameworkUpdateHealth.startupSucceeded(
+                            home, message -> log.info("updates", message)),
+                    message -> log.warn("updates", message));
             return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
             RecentPreviewDiagnostics.uninstall();
             throw failure;
+        }
+    }
+
+    static void requireSafePendingPlugins(
+            final dev.turboism.pluginmanagement.PendingPluginOperations.ApplyResult result) throws IOException {
+        if (result.status() != dev.turboism.pluginmanagement.PendingPluginOperations.Status.APPLIED
+                && result.status() != dev.turboism.pluginmanagement.PendingPluginOperations.Status.ROLLED_BACK
+                && result.status() != dev.turboism.pluginmanagement.PendingPluginOperations.Status.DEFERRED) {
+            throw new IOException(result.code());
+        }
+    }
+
+    static void confirmFrameworkHealthAfterPluginApply(
+            final dev.turboism.pluginmanagement.PendingPluginOperations.ApplyResult result,
+            final Runnable confirmation,
+            final java.util.function.Consumer<String> diagnostic) {
+        if (result.applied()) {
+            confirmation.run();
+        } else {
+            // A complete plugin rollback permits old plugins, not acceptance of the framework update.
+            diagnostic.accept("UPDATE_STARTUP_NOT_CONFIRMED: " + result.code());
         }
     }
 

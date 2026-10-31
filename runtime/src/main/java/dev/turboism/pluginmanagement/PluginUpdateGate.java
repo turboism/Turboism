@@ -76,7 +76,9 @@ public final class PluginUpdateGate {
             try {
                 final Path helperWork = FrameworkUpdateHealth.workDirectory(home);
                 if (Files.exists(helperWork.resolve("pending.json"), LinkOption.NOFOLLOW_LINKS)
-                        || Files.exists(helperWork.resolve("journal.json"), LinkOption.NOFOLLOW_LINKS)) {
+                        || Files.exists(helperWork.resolve("journal.json"), LinkOption.NOFOLLOW_LINKS)
+                        || Files.exists(home.resolve("state/runtime/plugin-management/failed-pending.json"),
+                                LinkOption.NOFOLLOW_LINKS)) {
                     return true;
                 }
             } catch (Exception conservative) {

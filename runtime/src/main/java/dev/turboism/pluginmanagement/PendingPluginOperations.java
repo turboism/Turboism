@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PluginJarPreflight;
 import dev.turboism.distribution.PreparedPluginJar;
+import dev.turboism.internal.core.CorePluginManagement;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -28,12 +29,14 @@ import java.util.stream.Collectors;
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final int MAX_JOURNAL_BYTES = 64 * 1024;
     private static final String CORE_ID = dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     private final Path home;
     private final Path plugins;
     private final Path staging;
     private final Path packages;
     private final Path journal;
+    private final Path failedJournal;
     private final ConfinedPluginFiles files;
     private final SnapshotCopier snapshotCopier;
     private final SnapshotCopier backupCopier;
@@ -53,12 +56,14 @@ public final class PendingPluginOperations {
         staging = home.resolve("state/runtime/plugin-management");
         packages = staging.resolve("packages");
         journal = staging.resolve("pending.json");
+        failedJournal = staging.resolve("failed-pending.json");
         files = new ConfinedPluginFiles(home);
         this.snapshotCopier = java.util.Objects.requireNonNull(snapshotCopier, "snapshotCopier");
         this.backupCopier = java.util.Objects.requireNonNull(backupCopier, "backupCopier");
     }
 
     synchronized StagedInstall stage(final Path source) {
+        if (recoveryRequired()) return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
         final LocalPluginJarPreparer.Preparation result = new LocalPluginJarPreparer().prepare(source, packages);
         if (result instanceof LocalPluginJarPreparer.PreparationRejected rejected) {
             return new StagedInstall(false, rejected.code(), null);
@@ -68,6 +73,7 @@ public final class PendingPluginOperations {
     }
 
     synchronized StagedInstall stage(final PreparedPluginJar prepared) {
+        if (recoveryRequired()) return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
         Objects.requireNonNull(prepared, "prepared");
         final Path stagedJar;
         try {
@@ -142,6 +148,7 @@ public final class PendingPluginOperations {
 
     synchronized StagedBatchResult stageBatch(final List<PreparedPluginJar> batch, final List<Operation> expected) {
         Objects.requireNonNull(batch, "batch");
+        if (recoveryRequired()) return new StagedBatchResult(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", List.of());
         if (expected != null && !expected.equals(readOperations())) {
             return new StagedBatchResult(false, "PLUGIN_PLAN_CHANGED", List.of());
         }
@@ -223,7 +230,7 @@ public final class PendingPluginOperations {
             final Path path = files.confined(candidate);
             if (!path.startsWith(packages)) return;
             files.rejectLinks(path);
-            final boolean referenced = readOperations().stream()
+            final boolean referenced = operations().stream()
                     .filter(operation -> operation.type.equals("INSTALL"))
                     .anyMatch(operation -> Path.of(operation.stagedJar)
                             .toAbsolutePath()
@@ -237,6 +244,7 @@ public final class PendingPluginOperations {
 
     synchronized StagedUninstall stageUninstall(final String pluginId) {
         if (CORE_ID.equals(pluginId)) return new StagedUninstall(false, "PLUGIN_CORE_PROTECTED");
+        if (recoveryRequired()) return new StagedUninstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED");
         try {
             final List<Operation> previous = readOperations();
             final List<Operation> operations = withoutPlugin(previous, pluginId);
@@ -261,7 +269,90 @@ public final class PendingPluginOperations {
     }
 
     synchronized List<Operation> operations() {
-        return List.copyOf(readOperations());
+        final List<Operation> known = new ArrayList<>();
+        if (hasSuspendedIntent()) known.addAll(readJournal(failedJournal).operations());
+        known.addAll(readOperations());
+        return List.copyOf(known);
+    }
+
+    synchronized CorePluginManagement.PendingChanges pendingChanges() {
+        try {
+            final JournalSnapshot observed = reviewedJournal();
+            final List<Operation> current = observed.operations();
+            final String code = observed.file().equals(failedJournal)
+                    ? (current.isEmpty() ? "PLUGIN_PENDING_RECOVERY_REQUIRED" : "PLUGIN_PENDING_FAILED")
+                    : (current.isEmpty() ? "PLUGIN_PENDING_EMPTY" : "PLUGIN_PENDING_READY");
+            return new CorePluginManagement.PendingChanges(
+                    observed.snapshot(), code,
+                    current.stream().map(op -> new CorePluginManagement.PendingChange(
+                            op.pluginId, op.type, op.version)).toList());
+        } catch (RuntimeException failure) {
+            return new CorePluginManagement.PendingChanges("", "PLUGIN_PENDING_RECOVERY_REQUIRED", List.of());
+        }
+    }
+
+    /** Caller owns the root update lease; CAS protects the exact intent shown before consent. */
+    synchronized CorePluginManagement.OperationResult discardPendingChanges(final String expectedSnapshot) {
+        try {
+            final JournalSnapshot observed = reviewedJournal();
+            final List<Operation> current = observed.operations();
+            if (expectedSnapshot == null || !observed.snapshot().equals(expectedSnapshot)) {
+                return CorePluginManagement.OperationResult.rejected("PLUGIN_PLAN_CHANGED", "Pending changes changed; review them again.");
+            }
+            if (current.isEmpty()) {
+                return CorePluginManagement.OperationResult.rejected("PLUGIN_PENDING_EMPTY", "No pending changes.");
+            }
+            files.delete(observed.file(), files.parent(observed.file()));
+            // Only the reviewed active OR suspended journal is cancelled, never the other one.
+            // The journal is committed first. Cleanup may leave an orphan, never delete user/live files.
+            for (Operation op : current) {
+                try {
+                    if (!op.type.equals("INSTALL") || !op.jarSha256.matches("[0-9a-f]{64}")) continue;
+                    final Path owned = packages.resolve(op.pluginId + "-" + op.jarSha256 + ".jar").normalize();
+                    if (owned.getParent().equals(packages)
+                            && owned.equals(Path.of(op.stagedJar).toAbsolutePath().normalize())) {
+                        discardIfUnreferenced(owned);
+                    }
+                } catch (RuntimeException orphanRetained) {
+                    // Intent was already cancelled; unsafe/unrecognized cleanup paths are preserved.
+                }
+            }
+            clearCancelledCatalogEntries(current);
+            return CorePluginManagement.OperationResult.accepted(
+                    "PLUGIN_PENDING_DISCARDED", "Pending changes cancelled; installed plugins were not changed.");
+        } catch (RuntimeException | IOException failure) {
+            return CorePluginManagement.OperationResult.rejected(
+                    "PLUGIN_PENDING_RECOVERY_REQUIRED", "Pending changes could not be safely cancelled.");
+        }
+    }
+
+    private JournalSnapshot reviewedJournal() {
+        return readJournal(hasSuspendedIntent() ? failedJournal : journal);
+    }
+
+    private boolean hasSuspendedIntent() {
+        try {
+            files.rejectLinks(failedJournal);
+            Files.readAttributes(failedJournal, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            return true;
+        } catch (NoSuchFileException absent) {
+            return false;
+        } catch (IOException | RuntimeException unsafe) {
+            throw new PendingJournalInvalidException(unsafe);
+        }
+    }
+
+    private String snapshotOf(final Path file, final byte[] journalBytes) {
+        try {
+            final var digest = java.security.MessageDigest.getInstance("SHA-256");
+            digest.update(home.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            digest.update((byte) 0);
+            digest.update(file.getFileName().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            digest.update((byte) 0);
+            return java.util.HexFormat.of().formatHex(digest.digest(journalBytes));
+        } catch (java.security.NoSuchAlgorithmException failure) {
+            throw new IllegalStateException("PLUGIN_PENDING_SNAPSHOT_FAILED", failure);
+        }
     }
 
     synchronized boolean canHotApply(final String pluginId) {
@@ -279,7 +370,7 @@ public final class PendingPluginOperations {
     synchronized boolean recoveryRequired() {
         try {
             readOperations();
-            return false;
+            return hasSuspendedIntent();
         } catch (PendingJournalInvalidException failure) {
             return true;
         }
@@ -288,23 +379,31 @@ public final class PendingPluginOperations {
     /**
      * Applies the journalled install and uninstall operations at startup, before plugins are loaded.
      * The current plugin directory is backed up first and restored wholesale if any single operation
-     * fails, so the directory is never left half-updated. Symlinks anywhere on the touched paths are
-     * rejected rather than followed. The journal is deleted only after every operation succeeded;
-     * staged JARs for applied installs are then cleaned up.
+     * fails. Incomplete backup preparation never restores over live files; incomplete rollback
+     * blocks startup. Symlinks on touched paths are rejected. After a complete rollback, original
+     * intent is moved to failed-pending.json and packages retained for explicit native review.
+     * Suspended intent is not retried, even by older runtimes ignoring that filename.
+     * Active intent is deleted only after every operation succeeded.
      *
      * <p>An empty or absent journal is a success. Failures are reported as a status, never thrown.
      *
      * @return {@code APPLIED} when the journal was applied and cleared, {@code ROLLED_BACK} when the
-     *     previous directory was restored intact, or {@code RECOVERY_REQUIRED} when the journal could
+     *     previous directory was restored intact, {@code DEFERRED} while failed intent awaits review,
+     *     or {@code RECOVERY_REQUIRED} when the journal could
      *     not be read, backup preparation failed, or rollback itself failed and manual repair is needed
      */
     public synchronized ApplyResult apply() {
         final List<Operation> operations;
+        final JournalSnapshot intent;
         try {
             files.rejectLinks(home);
             files.rejectLinks(staging);
             files.rejectLinks(packages);
-            operations = readOperations();
+            intent = readJournal(journal);
+            operations = intent.operations();
+            if (hasSuspendedIntent()) {
+                return new ApplyResult(Status.DEFERRED, "PLUGIN_PENDING_REVIEW_REQUIRED");
+            }
         } catch (Exception failure) {
             return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_INVALID");
         }
@@ -326,23 +425,16 @@ public final class PendingPluginOperations {
         try {
             for (Operation operation : operations) applyOne(operation);
         } catch (Exception failure) {
-            try {
-                restore(backup);
-                return new ApplyResult(Status.ROLLED_BACK, "PLUGIN_PENDING_ROLLED_BACK");
-            } catch (Exception rollbackFailure) {
-                return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_RECOVERY_REQUIRED");
-            }
+            return rollbackAndSuspend(backup, intent.snapshot());
         }
         try {
+            if (!readJournal(journal).snapshot().equals(intent.snapshot())) {
+                throw new IOException("pending intent changed during apply");
+            }
             final ConfinedPluginFiles.ParentIdentity journalParent = files.parent(journal);
             files.delete(journal, journalParent);
-        } catch (IOException failure) {
-            try {
-                restore(backup);
-                return new ApplyResult(Status.ROLLED_BACK, "PLUGIN_PENDING_ROLLED_BACK");
-            } catch (Exception rollbackFailure) {
-                return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_RECOVERY_REQUIRED");
-            }
+        } catch (IOException | RuntimeException failure) {
+            return rollbackAndSuspend(backup, intent.snapshot());
         }
         deleteTreeQuietly(backup);
         operations.stream()
@@ -351,6 +443,35 @@ public final class PendingPluginOperations {
         cleanupOrphans();
         clearStagedUpdatesQuietly();
         return new ApplyResult(Status.APPLIED, "PLUGIN_PENDING_APPLIED");
+    }
+
+    private ApplyResult rollbackAndSuspend(final Path backup, final String expectedSnapshot) {
+        try {
+            restore(backup);
+            if (!readJournal(journal).snapshot().equals(expectedSnapshot) || hasSuspendedIntent()) {
+                throw new IOException("pending intent changed during rollback");
+            }
+            // Inactive name is intentionally ignored by older runtimes after a framework rollback.
+            // Keep the complete original intent and packages; do not retry corrupt bytes every launch.
+            files.move(journal, failedJournal, files.parent(journal), false);
+            return new ApplyResult(Status.ROLLED_BACK, "PLUGIN_PENDING_ROLLED_BACK");
+        } catch (Exception unsafeRecovery) {
+            return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_RECOVERY_REQUIRED");
+        }
+    }
+
+    private void clearCancelledCatalogEntries(final List<Operation> cancelled) {
+        try {
+            final Set<String> active = readOperations().stream().map(Operation::pluginId).collect(Collectors.toSet());
+            final Set<String> removed = cancelled.stream().map(Operation::pluginId).collect(Collectors.toSet());
+            final PluginCatalogStateStore store = new PluginCatalogStateStore(home);
+            final var current = store.read();
+            final var staged = new java.util.HashMap<>(current.stagedUpdates());
+            staged.keySet().removeIf(id -> removed.contains(id) && !active.contains(id));
+            if (!staged.equals(current.stagedUpdates())) store.save(current.withStagedUpdates(staged));
+        } catch (RuntimeException orphanedHint) {
+            // Diagnostic cache is not execution authority; cancellation already committed.
+        }
     }
 
     private void clearStagedUpdatesQuietly() {
@@ -458,21 +579,32 @@ public final class PendingPluginOperations {
     }
 
     private List<Operation> readOperations() {
+        return readJournal(journal).operations();
+    }
+
+    private record JournalSnapshot(Path file, List<Operation> operations, String snapshot) {}
+
+    private JournalSnapshot readJournal(final Path file) {
         try {
-            files.rejectLinks(journal);
+            files.rejectLinks(file);
             final BasicFileAttributes attributes =
-                    Files.readAttributes(journal, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-            if (!attributes.isRegularFile() || attributes.size() > 64L * 1024L) throw new IOException();
-            final JsonNode root = JSON.readTree(Files.readAllBytes(journal));
+                    Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            if (!attributes.isRegularFile() || attributes.size() > MAX_JOURNAL_BYTES) throw new IOException();
+            final byte[] bytes;
+            try (var input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+                bytes = input.readNBytes(MAX_JOURNAL_BYTES + 1);
+            }
+            if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException();
+            final JsonNode root = JSON.readTree(bytes);
             if (root == null
                     || !root.path("format").asText().equals("turboism.plugin.pending")
                     || root.path("schemaVersion").asInt() != 1
                     || !root.path("operations").isArray()) throw new IOException();
             final List<Operation> result = new ArrayList<>();
             for (JsonNode node : root.path("operations")) result.add(Operation.from(node));
-            return result;
+            return new JournalSnapshot(file, result, snapshotOf(file, bytes));
         } catch (NoSuchFileException missing) {
-            return new ArrayList<>();
+            return new JournalSnapshot(file, new ArrayList<>(), snapshotOf(file, new byte[0]));
         } catch (IOException | RuntimeException failure) {
             throw new PendingJournalInvalidException(failure);
         }
@@ -486,14 +618,20 @@ public final class PendingPluginOperations {
             final ObjectNode root = JSON.createObjectNode();
             root.put("format", "turboism.plugin.pending");
             root.put("schemaVersion", 1);
+            // Generation changes even when a user re-stages byte-identical operations (ABA protection).
+            root.put("revision", UUID.randomUUID().toString());
             final ArrayNode values = root.putArray("operations");
             operations.stream()
                     .sorted(Comparator.comparing(operation -> operation.pluginId))
                     .forEach(operation -> values.add(operation.json()));
+            final byte[] bytes = JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
+            if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException("pending journal too large");
             temporary = staging.resolve(".pending-" + UUID.randomUUID() + ".tmp");
             try (var output = files.createNew(temporary, parent)) {
-                output.write(
-                        ByteBuffer.wrap(JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root)));
+                final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                while (buffer.hasRemaining()) output.write(buffer);
+                if (!(output instanceof FileChannel channel)) throw new IOException("durable journal channel unavailable");
+                channel.force(true);
             }
             files.move(temporary, journal, parent, true);
         } catch (IOException failure) {
@@ -579,6 +717,8 @@ public final class PendingPluginOperations {
         APPLIED,
         /** The apply failed and the staged changes were rolled back. */
         ROLLED_BACK,
+        /** Failed intent is suspended; installed plugins are untouched and may run. */
+        DEFERRED,
         /** The journal could not be applied safely; manual recovery is required. */
         RECOVERY_REQUIRED
     }
