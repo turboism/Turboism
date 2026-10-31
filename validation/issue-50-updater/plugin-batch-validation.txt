@@ -33,6 +33,12 @@ Executed on the independent worktree
   BUILD SUCCESSFUL; runtime: 38 suites / 483 tests / 0 failures / 0 errors / 6 skips.
   core-contract: existing 31-test green result reused by Gradle (UP-TO-DATE).
 
+After squash integration 22a8ba3c1 on the lead worktree
+- The same runtime selection passes: 483 tests, 0 failures/errors, 6 skips.
+- Core-contract's 31-test green result is retained; bootstrap JAR builds and license checks pass.
+- Python bootstrap/release/native selection: 70 tests, 0 failures, 1 skip.
+- Node distribution selection: 78 pass. Configuration merge and installer-packaging checks pass.
+
 Evidence boundaries
 - Service integration uses real temporary Ed25519 signatures, catalog bytes and JAR containers.
   Fixture plugin entrypoint bytes are not executed as real Cubism plugins.

@@ -76,9 +76,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
 7. Qualify the durable install-next-launch workflow on the actual supported Windows host, including interrupted
    scheduling, atomic launch/apply interlocking and broken-launcher recovery. The reviewed production path no longer
    depends on a one-hour helper lifetime. Peer-process checks do not establish an atomic launch/apply lease.
-8. Finish native-window host acceptance, opt-in and retry/recovery diagnostics. The current framework window has
-   no selected-plugin batch controls: the existing signed-catalog plugin updater is a separate workflow. Connect only
-   user-selected compatible plugin updates to the restart plan without claiming partial success as complete success.
+8. Finish native-window host acceptance, opt-in and retry/recovery diagnostics for the now-wired selected-plugin
+   workflow. Downloads and explicit installation consent are separate; plugin and framework journals are not a global
+   atomic transaction. Qualify plugin-apply failures together with framework startup health/rollback on the host.
    Never replace loaded framework/Graal/SDK bytes in process or force Cubism to close.
 9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
    beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
@@ -111,7 +111,15 @@ pre-existing gates. Passing local tests or building this branch does not activat
 - **Combined client regression after both integrations:** update package **356 tests, 0 failures/errors, 6 skips**;
   core-contract **31 tests, 0 failures/skips**; release/native Python **56 tests, 0 failures, 1 skip**; Node **78 pass**;
   bootstrap JAR builds. These do not replace native-window host acceptance or the complete shell suite.
-- **Selected-plugin linkage remains absent from this branch:** the read-only audit is complete; implementation is
-  delegated using the existing planner, verified catalog and pending operations. It must separate download from user
-  install consent, preserve dual-API compatibility and avoid falsely claiming cross-journal atomicity. No plugin-batch
-  implementation or acceptance evidence has been approved yet.
+- **Selected-plugin linkage integrated:** `22a8ba3c1` squashes the delegated work and lead takeover fixes. The Fast
+  agent stopped on a provider usage limit; its unfinished work was checkpointed locally, not silently approved or
+  rerouted to another model. The lead finished independent cancellation, stable planning failures, owned worker-side
+  leases, frozen/invalidated selection, explicit framework-only fallback, final dependency/pending checks and truthful
+  partial-status reporting. See `plugin-batch-validation.txt` for implementation and evidence boundaries.
+- **Latest combined integration regression:** runtime update/plugin-management/window selection **483 tests,
+  0 failures/errors, 6 skips**; core-contract retains its **31-test** green result; Python bootstrap/release/native
+  **70 tests, 0 failures, 1 skip**; Node **78 pass**; bootstrap JAR and configuration/installer-packaging checks pass.
+  UI tests use injected services; signed catalog/JAR containers are not executed as real host plugins. The full shell
+  suite and actual download/selected-plugin/managed-restart/repeated-update host chain remain unqualified.
+- **NSIS tooling attempt:** the official SourceForge download timed out on this machine. No real EXE compilation
+  or installation is claimed. Production keys, activation and deployment remain unchanged.
