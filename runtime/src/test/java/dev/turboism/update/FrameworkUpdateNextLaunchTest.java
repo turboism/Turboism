@@ -326,6 +326,9 @@ final class FrameworkUpdateNextLaunchTest {
 
     @Test
     void prepareLaunchWhenApplyFailsAndRollsBackReturnsExitRolledBackAndDiscardsTask() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("windows"),
+                "This fault injection requires Windows open-file replacement semantics");
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         f.persistPending("1.1.0");
 

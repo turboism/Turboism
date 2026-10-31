@@ -15,8 +15,10 @@ This is an in-progress branch, **not a production-ready self-updater**.
   before starting Cubism. This is next-launch recovery, not forced shutdown or immediate recovery inside a JVM.
 - A PREPARED journal must never restore backup files: copying may have been interrupted and the old installation
   has not yet been modified. Such preparation is discarded. APPLYING or unconfirmed-health states restore backups.
-- The coordinator copies the helper into independent storage before launching it. An installed agent cannot serve
-  as its own updater classpath on Windows because the executing JAR remains locked.
+- The coordinator persists an install-next-launch descriptor and copies the helper into independent storage.
+  Production does not start a one-hour background waiter. The controlled launcher consumes the task before Cubism
+  starts; it reauthenticates the manifest, old receipt and staged bytes. The descriptor supplies no signing authority.
+  An installed agent cannot serve as its own updater classpath on Windows because the executing JAR remains locked.
 - The production helper reauthenticates signed old installation ownership, advances the exact new receipt index in
   the same rollback transaction, and hash-guards retirement of old owned versioned libraries. Mutable installed-build
   metadata cannot supply old identity. Runtime health confirmation revalidates the entire new signed layout.
@@ -69,9 +71,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
    Do not assert that content hashes alone provide anti-hardlink-write safety or power-loss durability.
 6. Harden recovery against hostile journal/backup/path mutation; allowlist validation and shared cross-process
    helper/health locking are present but are not a complete handle-based TOCTOU defense.
-7. Qualify process-exit identity and detached helper lifecycle, including sessions longer than the current one-hour
-   helper wait, durable install-next-launch intent, atomic launch/apply interlocking and broken-launcher recovery.
-   Additional Windows peer-process checks exist, but do not prove those lifecycle properties.
+7. Qualify the durable install-next-launch workflow on the actual supported Windows host, including interrupted
+   scheduling, atomic launch/apply interlocking and broken-launcher recovery. The reviewed production path no longer
+   depends on a one-hour helper lifetime. Peer-process checks do not establish an atomic launch/apply lease.
 8. Finish native-window host acceptance, opt-in and retry/recovery diagnostics. The current framework window has
    no selected-plugin batch controls: the existing signed-catalog plugin updater is a separate workflow. Connect only
    user-selected compatible plugin updates to the restart plan without claiming partial success as complete success.
@@ -91,13 +93,19 @@ pre-existing gates. Passing local tests or building this branch does not activat
   Failed public preflight withdraws the candidate; ordinary retry of a withdrawn candidate returns 409
   `REACTIVATION_REQUIRED`. Only explicit protected reactivation may advertise it again. Admission precedes preflight;
   compensation is not atomic preflight-before-advertising. Nothing was deployed or activated.
-- **Next-launch submission `65e9491cf` not approved:** source review found pending-task deletion at the start of
-  no-op recovery, before an application journal exists, and early malformed/missing-stage failures that can leave
-  a task blocking subsequent launches. Returned for lifecycle, bounded parsing and failure-path corrections.
+- **Next-launch approved/integrated:** merge `b49c670f1` incorporates the reviewed revisions through `a360896e0`.
+  Earlier no-op-recovery task loss, malformed-task startup loops, unbounded reading and partial writing were corrected.
+  Complete rollback (exit 20) permits old-version startup; incomplete recovery and live-use failures still block it.
+  Independent update-package execution on `a72de30b3`: **353 tests, 0 failures/errors, 6 skips**. After integrating the
+  final fixes, independent receipt/downloader/next-launch execution: **150 tests, 0 failures/errors, 3 skips**.
+  The real second-JVM signed-receipt test runs; this is not physical power-loss evidence. The open-file rollback test
+  is explicitly Windows-only, because POSIX permits replacement of an open file.
 - **Bootstrap revision `af27624e` not approved:** independent Python execution passes **10 tests**, including real
   Ed25519 receipt initialization and payload-tamper rejection on this Windows host. Review nevertheless found use
   of nonexistent installation-state fields, incomplete explicit-ACL cleanup/junction guards, and developer-worktree
   and cache paths hardcoded in its integration test. Returned for correction and real different-receipt collision
   coverage. ZIP embedding now has a real ZIP fixture; no actual NSIS compilation has been performed.
-- **Selected-plugin linkage remains absent:** a separate read-only audit is preparing a minimal design reusing the
-  existing plugin planner, verified catalog and pending operations. This is not implementation or acceptance evidence.
+- **Selected-plugin linkage remains absent from this branch:** the read-only audit is complete; implementation is
+  delegated using the existing planner, verified catalog and pending operations. It must separate download from user
+  install consent, preserve dual-API compatibility and avoid falsely claiming cross-journal atomicity. No plugin-batch
+  implementation or acceptance evidence has been approved yet.
