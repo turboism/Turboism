@@ -12,6 +12,7 @@ import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.awt.GraphicsEnvironment;
 import java.time.Duration;
 import java.util.Locale;
@@ -70,6 +71,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private final AtomicReference<PerfStatsWindow> window = new AtomicReference<>();
     private final ChartStore store = new ChartStore(WINDOW_POINTS * 2);
     private PluginContext context;
+    private UiScheduler uiScheduler;
     private Registration sampling;
     private Registration cpuStatus;
     private boolean initialized;
@@ -81,6 +83,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
+        this.uiScheduler = context.uiScheduler();
         synchronized (lifecycleLock) {
             initialized = true;
         }
@@ -270,7 +273,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     }
 
     private void disposeWindow(final PerfStatsWindow active) {
-        if (active != null && !context.uiScheduler().runUiTeardown(active::dispose, Duration.ofSeconds(2))) {
+        if (active != null && !uiScheduler.runUiTeardown(active::dispose, Duration.ofSeconds(2))) {
             context.logger().warn("Performance Statistics window disposal deferred");
         }
     }
@@ -399,7 +402,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             context.logger().warn("Performance Statistics window cannot open because the JVM is headless");
             return;
         }
-        context.uiScheduler().runOnUiThread(() -> openWindow(openGeneration));
+        uiScheduler.runOnUiThread(() -> openWindow(openGeneration));
     }
 
     private static boolean isHeadless() {

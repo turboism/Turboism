@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
-version: 0.1.1
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -117,7 +117,7 @@ interface: swing
 
 ## 更新日志
 
-### 0.1.1
+### 0.68.1
 
 - 使用框架调度器清理窗口，阻止停用或重新启用后的旧打开任务重建窗口。
 

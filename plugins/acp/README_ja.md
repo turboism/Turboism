@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.1.1
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -122,7 +122,7 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 
 ## 変更履歴
 
-### 0.1.1
+### 0.68.1
 
 - フレームワークのスケジューラーでウィンドウを破棄し、無効化や再有効化後の古い表示タスクを拒否します。
 

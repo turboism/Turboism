@@ -88,6 +88,7 @@ class CommandPalettePluginTest {
 
         @Override
         public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
+            if (scheduler.fenced) throw new IllegalStateException("generation fenced: uiScheduler accessor");
             return scheduler;
         }
 

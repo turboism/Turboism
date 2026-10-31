@@ -7,6 +7,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.awt.GraphicsEnvironment;
 import java.time.Duration;
 import java.util.Objects;
@@ -33,6 +34,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
     private final AtomicReference<CommandPaletteDialog> palette = new AtomicReference<>();
     private final Object lifecycleLock = new Object();
     private PluginContext context;
+    private UiScheduler uiScheduler;
     private PluginLogger logger;
     private PluginLocalization localization;
     private boolean initialized;
@@ -44,6 +46,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
+        this.uiScheduler = context.uiScheduler();
         this.logger = context.logger();
         this.localization = context.localization();
         synchronized (lifecycleLock) {
@@ -92,7 +95,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
             logger.warn("Command Palette cannot open because the JVM is headless");
             return;
         }
-        context.uiScheduler().runOnUiThread(() -> togglePalette(openGeneration));
+        uiScheduler.runOnUiThread(() -> togglePalette(openGeneration));
     }
 
     private void togglePalette(final long openGeneration) {
@@ -116,7 +119,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
             dialog = palette.getAndSet(null);
         }
         // Capture the old dialog before waiting: a deferred cleanup must not touch a new enable.
-        if (dialog != null && !context.uiScheduler().runUiTeardown(dialog::dispose, Duration.ofSeconds(2))) {
+        if (dialog != null && !uiScheduler.runUiTeardown(dialog::dispose, Duration.ofSeconds(2))) {
             logger.warn("Command Palette window disposal deferred");
         }
     }
