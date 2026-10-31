@@ -532,7 +532,10 @@ def main() -> int:
         package_dir = base / VERIFICATION_PACKAGE
         if package_dir.is_dir():
             for stale in package_dir.rglob("*.java"):
-                stale.unlink()
+                stale_path = str(stale.resolve())
+                if os.name == "nt" and len(stale_path) >= 240 and not stale_path.startswith("\\\\?\\"):
+                    stale_path = "\\\\?\\" + stale_path
+                os.unlink(stale_path)
         for relpath, text in sorted(rendered.items()):
             out = base / relpath
             out.parent.mkdir(parents=True, exist_ok=True)
