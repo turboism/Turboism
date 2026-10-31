@@ -3,12 +3,12 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.acp",
   "name": "Turboism ACP",
-  "version": "0.68.0",
+  "version": "0.68.1",
   "description": "ACP v1 Agent and Settings windows that connect a user-installed ACP-compatible agent to the authenticated Turboism MCP server.",
   "entrypoints": [
     "dev.turboism.plugin.acp.TurboismAcpPlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.1,1.0.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],

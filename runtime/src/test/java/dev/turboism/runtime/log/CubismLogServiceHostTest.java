@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -80,7 +81,7 @@ class CubismLogServiceHostTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.log-pressure");
-        final List<CubismLogBatchEvent> events = new ArrayList<>();
+        final List<CubismLogBatchEvent> events = new CopyOnWriteArrayList<>();
         final CountDownLatch latch = new CountDownLatch(1);
         broker.subscribe(observer.key(), CubismLogBatchEvent.class, event -> {
             events.add(event);
@@ -88,22 +89,44 @@ class CubismLogServiceHostTest {
         });
         observer.activate();
         final CubismLogServiceHost host = new CubismLogServiceHost(2, 2, Duration.ofMillis(50));
-        host.attachEventBroker(broker, scheduler);
+        final CountDownLatch timerStarted = new CountDownLatch(1);
+        final CountDownLatch releaseTimer = new CountDownLatch(1);
+        try {
+            // Hold the shared timer until all entries are queued, regardless of publisher pauses.
+            assertTrue(scheduler
+                    .schedule(Duration.ZERO, () -> {
+                        timerStarted.countDown();
+                        try {
+                            releaseTimer.await();
+                        } catch (InterruptedException exception) {
+                            Thread.currentThread().interrupt();
+                        }
+                    })
+                    .accepted());
+            assertTrue(timerStarted.await(5, TimeUnit.SECONDS));
+            host.attachEventBroker(broker, scheduler);
+            try {
+                host.publish(CubismLogService.LogLevel.INFO, "one", 1L);
+                host.publish(CubismLogService.LogLevel.INFO, "two", 2L);
+                host.publish(CubismLogService.LogLevel.INFO, "three", 3L);
+            } finally {
+                releaseTimer.countDown();
+            }
 
-        host.publish(CubismLogService.LogLevel.INFO, "one", 1L);
-        host.publish(CubismLogService.LogLevel.INFO, "two", 2L);
-        host.publish(CubismLogService.LogLevel.INFO, "three", 3L);
-
-        assertTrue(latch.await(1, TimeUnit.SECONDS));
-        assertEquals(2, events.get(0).entries().size());
-        assertEquals(1L, events.get(0).droppedEntries());
-        final int deliveredBeforeClose = events.size();
-        host.close();
-        host.publish(CubismLogService.LogLevel.ERROR, "late", 4L);
-        // Intentionally assert nothing happens: late log event published after close must not deliver within 100ms.
-        Thread.sleep(100L);
-        assertEquals(deliveredBeforeClose, events.size());
-        scheduler.shutdown();
+            assertTrue(latch.await(5, TimeUnit.SECONDS));
+            assertEquals(2, events.get(0).entries().size());
+            assertEquals(1L, events.get(0).droppedEntries());
+            final int deliveredBeforeClose = events.size();
+            host.close();
+            host.publish(CubismLogService.LogLevel.ERROR, "late", 4L);
+            // Intentionally assert nothing happens: late log event published after close must not deliver within 100ms.
+            Thread.sleep(100L);
+            assertEquals(deliveredBeforeClose, events.size());
+        } finally {
+            releaseTimer.countDown();
+            host.close();
+            scheduler.shutdown();
+        }
     }
 
     @Test

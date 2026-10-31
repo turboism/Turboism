@@ -370,6 +370,153 @@ def target_files(families: list[dict]) -> dict[str, dict]:
     return targets
 
 
+MODEL_UPDATE_SOURCE = AUTHORING_ROOT / "model-update-targets.json"
+MODEL_UPDATE_PINS = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
+MODEL_UPDATE_TARGET = VERIFICATION_PACKAGE + "/ModelUpdateTargetTable.java"
+MODEL_UPDATE_ADAPTERS = (
+    "optimization/modelupdate/ModelUpdateSkipTarget.java",
+    "optimization/modelupdate/incremental/IncrementalUpdateTarget.java",
+)
+
+
+def unique_model_update_object(pairs: list[tuple]) -> dict:
+    """Reject duplicate declaration keys instead of silently choosing the last value."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise GenerationError(f"model-update targets: duplicate JSON key {key}")
+        result[key] = value
+    return result
+
+
+def render_model_update_targets(root: Path) -> dict[str, str]:
+    """Render declaration data only; adapters retain dependencies and admission policy.
+
+    Exact version references never expand ranges. Shared updater/context names occur
+    once per profile; entry descriptors must resolve those same names. Artifact
+    identity and ordering come exclusively from the reviewed release registry.
+    """
+    from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
+
+    source = root / MODEL_UPDATE_SOURCE
+    releases_path = root / SOURCE_RELATIVE
+    # Small isolated manifest fixtures need no release registry. A real tree with
+    # either input must contain both; deleting the authoring file cannot bypass coverage.
+    if not source.exists() and not releases_path.exists():
+        return {}
+    try:
+        document = read_json(source, object_pairs_hook=unique_model_update_object)
+        releases = load_releases(releases_path)
+    except (ValueError, OSError) as exc:
+        raise GenerationError(str(exc)) from exc
+    if not isinstance(document, dict) or set(document) != {"format", "entryDescriptor", "profiles", "targets"}:
+        raise GenerationError("model-update targets: unexpected or missing schema fields")
+    if document["format"] != "turboism.model-update-targets/v1":
+        raise GenerationError("model-update targets: unsupported format")
+    profiles = document["profiles"]
+    fields = ("updater", "updateContext", "contextParam", "developSetting", "appearanceSetting",
+              "conflictPolygonFlag", "extendedUpdateContext", "appearanceAuxSettings")
+    if not isinstance(profiles, dict) or not profiles:
+        raise GenerationError("model-update targets: missing profiles")
+    for name, profile in profiles.items():
+        if not isinstance(profile, dict) or set(profile) != set(fields):
+            raise GenerationError(f"{name}: unexpected or missing profile fields")
+        for field in fields[:5]:
+            separator = '/' if field in fields[:3] else '.'
+            pattern = r'[A-Za-z_$][A-Za-z0-9_$]*(?:' + re.escape(separator) + r'[A-Za-z_$][A-Za-z0-9_$]*)+'
+            if not isinstance(profile[field], str) or not re.fullmatch(pattern, profile[field]):
+                raise GenerationError(f"{name}: invalid class name {field}")
+        if any(type(profile[field]) is not bool for field in fields[5:]):
+            raise GenerationError(f"{name}: variant flags must be booleans")
+    targets = document["targets"]
+    if not isinstance(targets, list):
+        raise GenerationError("model-update targets: targets must be a list")
+    by_version = {}
+    used = set()
+    for target in targets:
+        if not isinstance(target, dict) or set(target) != {"version", "profile"}:
+            raise GenerationError("model-update targets: invalid target reference")
+        version, profile = target['version'], target['profile']
+        if not isinstance(version, str) or not isinstance(profile, str):
+            raise GenerationError("model-update targets: references must be strings")
+        if version in by_version:
+            raise GenerationError(f"{version}: duplicate/conflicting model-update target")
+        if profile not in profiles:
+            raise GenerationError(f"{version}: unknown profile {profile}")
+        by_version[version] = profiles[profile]
+        used.add(profile)
+    versions = [r['version'] for r in releases if r['fullRuntime']]
+    if set(by_version) != set(versions):
+        raise GenerationError("model-update targets: missing/unknown reviewed versions: "
+                              + str(sorted(set(by_version) ^ set(versions))))
+    if used != set(profiles):
+        raise GenerationError("model-update targets: unused profiles")
+    try:
+        pins = {name: read_json(root / MODEL_UPDATE_PINS / (name + '.json'))
+                for name in ('model-update-skip', 'incremental-update')}
+    except (ValueError, OSError) as exc:
+        raise GenerationError(f"model-update targets: missing/invalid class pins: {exc}") from exc
+    rows = []
+    shape = document['entryDescriptor']
+    if not isinstance(shape, str) or any(shape.count('${' + field + '}') != 1
+                                        for field in ('updateContext', 'contextParam', 'conflictPolygonFlag')):
+        raise GenerationError("model-update targets: descriptor must reference shared context and variant fields")
+    for version in versions:
+        p = by_version[version]
+        for family, names in (
+            ('model-update-skip', [p['updater'], p['updateContext'],
+                                   p['developSetting'].replace('.', '/'), p['appearanceSetting'].replace('.', '/')]),
+            ('incremental-update', [p['updater'], p['updateContext'], p['contextParam']]),
+        ):
+            missing = set(names) - set(pins[family].get(version, {}))
+            if missing:
+                raise GenerationError(f"{version}: unknown class pin references in {family}: {sorted(missing)}")
+        descriptor = shape
+        for field in ('updateContext', 'contextParam', 'conflictPolygonFlag'):
+            value = ('Z' if p[field] else '') if field == 'conflictPolygonFlag' else p[field]
+            descriptor = descriptor.replace('${' + field + '}', value)
+        atom = r'(?:[BCDFIJSZ]|L[A-Za-z_$][A-Za-z0-9_$]*(?:/[A-Za-z_$][A-Za-z0-9_$]*)*;)'
+        if not re.fullmatch(r'\((?:\[{0,255}' + atom + r')*\)(?:V|\[{0,255}' + atom + r')', descriptor):
+            raise GenerationError(f"{version}: invalid method descriptor {descriptor}")
+        symbol = 'ReviewedHostArtifacts.CUBISM_' + version.replace('.', '_')
+        values = [symbol, json.dumps(version)] + [json.dumps(p[f]) for f in fields[:3]]
+        values += [json.dumps(descriptor)] + [json.dumps(p[f]) for f in fields[3:]]
+        rows.append('            new Row(' + ', '.join(values) + ')')
+    for relative in MODEL_UPDATE_ADAPTERS:
+        path = root / SOURCE_ROOT / 'dev/turboism/adapter/cubism' / relative
+        if path.exists():
+            text = mask_comments(_read(path))
+            if re.search(r'\bCUBISM_\d|"com[./]live2d[./]cubism[./](?:view[./](?!context[./]CEViewContext)|doc[./]model[./](?:au|ax|ay|az)\b)', text):
+                raise GenerationError(f"{relative}: migrated declaration shadow table reappeared")
+            if re.search(r'new\s+(?:ModelUpdateSkipTarget|IncrementalUpdateTarget)\s*\(\s*(?!row\.)\S', text):
+                raise GenerationError(f"{relative}: targets must consume generated rows")
+    content = '''package dev.turboism.mapping.verification;
+
+import java.util.List;
+
+/** Reviewed model-update declaration data; generated from verification-sources/model-update-targets.json. */
+public final class ModelUpdateTargetTable {
+    private ModelUpdateTargetTable() {}
+
+    /** Shared declaration facts; each adapter retains its independent evidence and admission policy. */
+    public record Row(
+            HostArtifactDigest digest, String version, String updater, String updateContext,
+            String contextParam, String entryDescriptor, String developSetting, String appearanceSetting,
+            boolean conflictPolygonFlag, boolean extendedUpdateContext, boolean appearanceAuxSettings) {}
+
+    private static final List<Row> ROWS = List.of(
+'''
+    content += ',\n'.join(rows) + ''');
+
+    /** All explicitly reviewed targets, in reviewed registry order. */
+    public static List<Row> all() {
+        return ROWS;
+    }
+}
+'''
+    return {MODEL_UPDATE_TARGET: content}
+
+
 def render_all(root: Path) -> dict[str, str]:
     """Renders and validates every declared target; returns relpath -> text."""
     records = load_records(root)
@@ -391,6 +538,7 @@ def render_all(root: Path) -> dict[str, str]:
         violations.extend(validate_family(root, family, records, packs, owned))
     if violations:
         raise GenerationError("; ".join(violations))
+    rendered.update(render_model_update_targets(root))
     return rendered
 
 
@@ -401,7 +549,7 @@ def checked_in_targets(root: Path) -> set[str]:
     found = set()
     for path in sorted(base.rglob("*.java")):
         relative = path.relative_to(root / SOURCE_ROOT).as_posix()
-        if GENERATED_TARGETS.match(relative):
+        if GENERATED_TARGETS.match(relative) or relative == MODEL_UPDATE_TARGET:
             found.add(relative)
     return found
 
