@@ -61,6 +61,25 @@ final class CoreDialogs {
         return Integer.valueOf(JOptionPane.YES_OPTION).equals(pane.getValue());
     }
 
+    static boolean confirmScrollable(
+            final Window owner, final String title, final String message,
+            final String accept, final String keep) {
+        final javax.swing.JTextArea text = new javax.swing.JTextArea(message, 18, 72);
+        text.setEditable(false);
+        text.setLineWrap(true);
+        text.setWrapStyleWord(true);
+        text.setCaretPosition(0);
+        final JOptionPane pane = new JOptionPane(new javax.swing.JScrollPane(text),
+                JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION, null,
+                new Object[] {accept, keep}, keep);
+        final JDialog dialog = pane.createDialog(owner, title);
+        TurboismWindowFactory.style(dialog);
+        dialog.setResizable(true);
+        dialog.setVisible(true);
+        dialog.dispose();
+        return accept.equals(pane.getValue());
+    }
+
     static void onEdt(final Runnable action) {
         EdtDispatch.post("core shell dialog", action);
     }

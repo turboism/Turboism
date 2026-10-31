@@ -74,6 +74,24 @@ class CorePluginManagementTest {
     }
 
     @Test
+    void legacyImplementationsCannotDiscardIntentThroughDefaultRecoveryApi() {
+        final CorePluginManagement management = new Stub(List.of());
+        assertEquals("PLUGIN_PENDING_UNAVAILABLE", management.pendingChanges().code());
+        assertTrue(management.pendingChanges().changes().isEmpty());
+        assertFalse(management.discardPendingChanges("untrusted").accepted());
+    }
+
+    @Test
+    void pendingReviewDefensivelyCopiesTheExactDisplayedChanges() {
+        final List<CorePluginManagement.PendingChange> mutable = new ArrayList<>();
+        mutable.add(new CorePluginManagement.PendingChange("example.plugin", "INSTALL", "2.0.0"));
+        final var review = new CorePluginManagement.PendingChanges("opaque", "PLUGIN_PENDING_READY", mutable);
+        mutable.clear();
+        assertEquals(1, review.changes().size());
+        assertThrows(UnsupportedOperationException.class, () -> review.changes().clear());
+    }
+
+    @Test
     void detailsDefaultsToSummaryOfMatchingPlugin() {
         final PluginInfo first = info("first");
         final PluginInfo second = info("second");
