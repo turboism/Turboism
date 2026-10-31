@@ -98,7 +98,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
         this.helperClasspath = helperClasspath.toAbsolutePath().normalize();
         this.javaExecutable = javaExecutable.toAbsolutePath().normalize();
         this.io = Objects.requireNonNull(io, "io");
-        this.launcher = Objects.requireNonNull(launcher, "launcher");
+        this.launcher = launcher;
         this.ownPid = Objects.requireNonNull(ownPid, "ownPid");
         if (this.stagesRoot.startsWith(this.root) || this.root.startsWith(this.stagesRoot)) {
             throw new IllegalArgumentException("Stage area must be separate from the installation");

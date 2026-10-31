@@ -94,7 +94,7 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
             final var coordinator = new FrameworkUpdateCoordinator(root, area.resolve("stages"),
                     FrameworkUpdateHealth.workDirectory(root), agent,
                     java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java"), worker,
-                    FrameworkUpdateCoordinator.defaultLauncher(), () -> ProcessHandle.current().pid());
+                    null, () -> ProcessHandle.current().pid());
             final var result = new RuntimeFrameworkUpdates(discovery,
                     new FrameworkInstallationReceiptLoader(root, verifier), downloader, coordinator, worker);
             final var ownedWorker = worker;

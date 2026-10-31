@@ -211,8 +211,15 @@ if (!$ProbeOnly) {
             }
         }
         $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
-        & $updateJava '-cp' $updateRunner 'dev.turboism.update.FrameworkUpdateHelper' `
-            '--root' $turboismHome '--work' $updateWork '--prepare-launch' "$PID"
+        $prevNativePref = if (Test-Path Variable:PSNativeCommandUseErrorActionPreference) { $PSNativeCommandUseErrorActionPreference } else { $null }
+        try {
+            if ($prevNativePref -ne $null) { $PSNativeCommandUseErrorActionPreference = $false }
+            & $updateJava '-cp' $updateRunner 'dev.turboism.update.FrameworkUpdateHelper' `
+                '--root' $turboismHome '--work' $updateWork '--prepare-launch' "$PID"
+        }
+        finally {
+            if ($prevNativePref -ne $null) { $PSNativeCommandUseErrorActionPreference = $prevNativePref }
+        }
         if ($LASTEXITCODE -notin @(0, 10, 30)) {
             throw "Update startup preparation failed (exit $LASTEXITCODE); no Cubism process was started."
         }

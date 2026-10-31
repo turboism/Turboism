@@ -661,6 +661,53 @@ final class FrameworkInstallationReceiptLoaderTest {
         assertFalse(Files.exists(work.resolve("journal.json")));
     }
 
+    /**
+     * Real second JVM reading on-disk pending.json and applying authentic Ed25519 signed update with real installed
+     * receipt. Note: this is independent child-process execution evidence, not physical machine power-loss / kernel
+     * crash evidence.
+     */
+    @Test
+    void realChildProcessNextLaunchAppliesVerifiedPendingTaskUsingInstalledAuthorityNonPowerLossEvidence() throws Exception {
+        final Fixture f = new Fixture();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final Path stage = helperStage(f, target);
+        final Path work = FrameworkUpdateHealth.workDirectory(f.root);
+        FrameworkUpdatePendingTask.write(work, f.root, stage, "1.1.0");
+        assertTrue(FrameworkUpdatePendingTask.read(work).isPresent());
+
+        // Test-only entry point: pass the fixture public key file to the child process
+        final Path keyFile = Files.createTempFile(temporary, "fixture-key-", ".b64");
+        Files.writeString(keyFile, Base64.getEncoder().encodeToString(f.keys.getPublic().getEncoded()));
+
+        final long launcherPid = ProcessHandle.current().pid();
+        final Process child = new ProcessBuilder(
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        "dev.turboism.update.TestKeyHelperMain",
+                        keyFile.toString(),
+                        "--installed",
+                        "--root", f.root.toString(),
+                        "--work", work.toString(),
+                        "--prepare-launch", Long.toString(launcherPid))
+                .redirectErrorStream(true)
+                .start();
+        final String output = new String(child.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(child.waitFor(60, TimeUnit.SECONDS), "child helper process must terminate");
+        assertEquals(0, child.exitValue(), output);
+
+        assertFalse(FrameworkUpdatePendingTask.read(work).isPresent(), "pending task must be consumed by child process");
+        f.info = target.identity();
+        assertEquals("1.1.0", f.loader().load().loaded().version());
+        assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")), "old versioned library must be retired");
+        assertTrue(Files.exists(work.resolve("journal.json")));
+
+        // Confirm health on successful startup
+        final var applier = new FrameworkUpdateApplier(f.root, work);
+        assertTrue(applier.confirmHealthy("1.1.0", f.root.resolve("turboism-agent.jar")));
+        assertFalse(Files.exists(work.resolve("journal.json")));
+    }
+
     @Test
     void coldHelperCannotApplyWithoutSignedOldOwnershipEvenWhenTargetSignatureIsValid() throws Exception {
         final Fixture f = new Fixture();
