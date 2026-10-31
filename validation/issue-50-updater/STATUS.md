@@ -31,8 +31,10 @@ This is an in-progress branch, **not a production-ready self-updater**.
 - Local test updates 0.67.5/0.67.6 are synthetic identities, NOT official releases. The 0.67.6 agent uses 0.67.4 code
   with modified version metadata. The first synthetic update had an API-version mismatch; the later one started
   with 29 plugins loaded, zero plugin failures and no startup ERROR.
-- Those earlier manual runs did NOT validate the new health-confirmation handshake; it still needs a rebuilt-agent
-  Cubism test. Neither substitute JVM tests nor synthetic versions constitute complete Issue #50 acceptance.
+- Subsequent rebuilt-agent Windows Cubism tests exercised health confirmation using actual new updater code,
+  including recovery from an unconfirmed launch and successful startup confirmation after fixing null CodeSource
+  for bootstrap-loaded classes. See cubism-health-validation.txt. These are local test builds, not official
+  numbered release acceptance; discovery/download/UI interaction and complete consecutive upgrades remain unproven.
 - No Linux/Proton execution evidence has been collected in this Windows session.
 
 ## Remaining release blockers
@@ -40,8 +42,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
 1. Complete product lifecycle binding of trusted receipt/downloader/coordinator configuration. A modeless native
    Updates window and asynchronous core adapter now exist, with EN, zh-Hans, zh-Hant, JA and KO strings. A legacy
    discovery service remains explicitly UNAVAILABLE for installation; the UI does not bypass missing authority.
-2. Implement a reviewed, framework-specific signing-key policy; plugin catalog trust must not implicitly authorize
-   framework updates merely because its keys are bundled. No private production key is required by the client.
+2. Provision and review the dedicated framework signing keyring. The helper now reads only framework-specific
+   bundled authority, supports revocation, and rejects installation when no active key exists. It no longer borrows
+   plugin-catalog keys. No production key has been provisioned; no private production key belongs in the client.
 3. Publish signed manifests/payload objects through a deliberately migrated asset contract and release gate.
 4. Write/migrate trusted installed receipts and update them transactionally after each application. Without this,
    consecutive fully authenticated delta downloads are not a complete chain.
@@ -55,8 +58,10 @@ This is an in-progress branch, **not a production-ready self-updater**.
 8. Finish native-window host acceptance, opt-in, retry/recovery diagnostics, and safe plugin hot updates through
    the existing coordinator. The UI exposes background download, cancellation and install-on-user-exit, never forced
    restart. Never replace loaded framework/Graal/SDK bytes in process.
-9. Run complete supported-Windows Cubism acceptance, repeated upgrade and crash/locked-file tests with the actual
-   new implementation. Retain reports; distinguish any future Linux/Proton evidence.
+9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
+   beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
+   A broader shell test currently fails DeclarativeSettingsRendererTest's long-control layout assertion; no baseline
+   causality has been established, so the full shell suite is not claimed green.
 
 Earlier offline protocol documentation (`distribution/INCREMENTAL.md`, `native/update-files/README.md`) describes
 pre-existing gates. Passing local tests or building this branch does not activate production endpoints or keys.
