@@ -42,6 +42,8 @@ public final class FrameworkUpdateHelper {
     static final int EXIT_USAGE = 64;
     static final int EXIT_REJECTED = 70;
     static final int EXIT_BUSY = 75;
+    /** IO/admission failed before application; unlike exit 20, this does not claim a completed rollback. */
+    static final int EXIT_FAILED = 74;
 
     /** Parsed, validated invocation. */
     record Invocation(
@@ -52,12 +54,13 @@ public final class FrameworkUpdateHelper {
             long waitMillis,
             boolean recoverOnly,
             boolean requireHealth,
-            Optional<Long> launcherPid) {}
+            Optional<Long> launcherPid,
+            boolean initializeReceipt) {}
 
     private FrameworkUpdateHelper() {}
 
     public static void main(final String[] args) {
-        System.exit(run(args, System.out, System.err, trustedKeys(), ProcessHandle::of, Instant::now));
+        System.exit(runInstalled(args, System.out, System.err, trustedKeys(), ProcessHandle::of, Instant::now));
     }
 
     /** Framework-specific bundled authority; never reuse plugin-catalog keys or accept keys from the stage. */
@@ -75,13 +78,22 @@ public final class FrameworkUpdateHelper {
         Optional<ProcessHandle> of(long pid);
     }
 
-    static int run(
-            final String[] args,
-            final PrintStream out,
-            final PrintStream err,
-            final Map<String, PublicKey> keys,
-            final ProcessLookup processes,
+    /** Explicit package-local component-test seam; production main always requires old signed ownership. */
+    static int run(final String[] args, final PrintStream out, final PrintStream err,
+            final Map<String, PublicKey> keys, final ProcessLookup processes,
             final java.util.function.Supplier<Instant> clock) {
+        return run(args, out, err, keys, processes, clock, false);
+    }
+
+    static int runInstalled(final String[] args, final PrintStream out, final PrintStream err,
+            final Map<String, PublicKey> keys, final ProcessLookup processes,
+            final java.util.function.Supplier<Instant> clock) {
+        return run(args, out, err, keys, processes, clock, true);
+    }
+
+    private static int run(final String[] args, final PrintStream out, final PrintStream err,
+            final Map<String, PublicKey> keys, final ProcessLookup processes,
+            final java.util.function.Supplier<Instant> clock, final boolean installedAuthority) {
         final Invocation invocation;
         try {
             invocation = parse(args);
@@ -99,6 +111,10 @@ public final class FrameworkUpdateHelper {
                 return EXIT_BUSY;
             }
             try (var transaction = FrameworkUpdateLock.acquire(invocation.work())) {
+            if (installedAuthority && runtimeInUse(invocation.root())) {
+                err.println("A live process still references this installed agent; no application or recovery performed");
+                return EXIT_BUSY;
+            }
             if (invocation.launcherPid().isPresent()) {
                 final var prepared = applier.prepareLaunch(invocation.launcherPid().get());
                 out.println(prepared.outcome() + ": " + prepared.detail());
@@ -118,16 +134,39 @@ public final class FrameworkUpdateHelper {
             final byte[] manifestBytes = readBounded(invocation.stage().resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
             final byte[] envelopeBytes = readBounded(
                     invocation.stage().resolve("manifest.json.sig"), UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
-            final UpdateManifest manifest = new UpdateManifestVerifier(keys).authenticate(manifestBytes, envelopeBytes);
-            final String problem = policyProblem(invocation, manifest);
-            if (problem != null) {
-                err.println("Rejected update: " + problem);
-                return EXIT_REJECTED;
+            final var verifier = new UpdateManifestVerifier(keys);
+            final UpdateManifest manifest = verifier.authenticate(manifestBytes, envelopeBytes);
+            if (invocation.initializeReceipt()) {
+                FrameworkUpdateReceipt.initialize(invocation.root(), manifestBytes, envelopeBytes, verifier);
+                out.println("RECEIPT_INITIALIZED: " + manifest.version());
+                return EXIT_NOTHING;
             }
-            final byte[] identity = identity(invocation.root(), manifest);
-            final var result = invocation.requireHealth()
-                    ? applier.applyPendingHealth(manifest, invocation.stage().resolve("files"), identity)
-                    : applier.apply(manifest, invocation.stage().resolve("files"), identity);
+            final FrameworkUpdateApplier.Result result;
+            if (installedAuthority) {
+                final var previous = FrameworkInstallationReceiptLoader.loadForHelper(invocation.root(), verifier);
+                final var context = new UpdateVerificationContext(manifest.version(), manifest.channel(),
+                        manifest.buildNumber(), manifest.sourceRevision(),
+                        dev.turboism.core.FrameworkBuildInfo.current().version(), "windows-x64",
+                        InstalledBuild.from(previous.loaded()), previous.hashes(), previous.binding(), () -> {});
+                verifier.verify(manifestBytes, envelopeBytes, context, clock.get());
+                final var receipt = FrameworkUpdateReceipt.prepare(invocation.root(), manifestBytes, envelopeBytes, verifier);
+                if (runtimeInUse(invocation.root())) {
+                    err.println("Cubism started during verification; application deferred without changing payload");
+                    return EXIT_BUSY;
+                }
+                result = applier.applyAuthenticated(receipt, previous, invocation.stage().resolve("files"),
+                        identity(invocation.root(), manifest));
+            } else {
+                final String problem = policyProblem(invocation, manifest);
+                if (problem != null) {
+                    err.println("Rejected update: " + problem);
+                    return EXIT_REJECTED;
+                }
+                final byte[] identity = identity(invocation.root(), manifest);
+                result = invocation.requireHealth()
+                        ? applier.applyPendingHealth(manifest, invocation.stage().resolve("files"), identity)
+                        : applier.apply(manifest, invocation.stage().resolve("files"), identity);
+            }
             out.println(result.outcome() + ": " + result.detail());
             return switch (result.outcome()) {
                 case APPLIED, AWAITING_HEALTH -> EXIT_APPLIED;
@@ -150,8 +189,14 @@ public final class FrameworkUpdateHelper {
             return EXIT_ROLLED_BACK;
         } catch (IOException | RuntimeException failure) {
             err.println("Update failed: " + failure);
-            return EXIT_ROLLED_BACK;
+            return Files.exists(invocation.work().resolve(FrameworkUpdateApplier.JOURNAL), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    ? EXIT_NEEDS_RECOVERY : EXIT_FAILED;
         }
+    }
+
+    /** Additional same-user process guard for concurrent Cubism instances and an orphaned launcher child. */
+    static boolean runtimeInUse(final Path root) throws IOException, InterruptedException {
+        return FrameworkUpdateProcessGuard.inUse(root);
     }
 
     /** Policy checks that depend on the installation, not on signatures. Returns a reason, or null if acceptable. */
@@ -196,6 +241,7 @@ public final class FrameworkUpdateHelper {
         boolean recover = false;
         boolean requireHealth = false;
         Long launcherPid = null;
+        boolean initializeReceipt = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--root" -> root = path(args, ++i);
@@ -206,16 +252,23 @@ public final class FrameworkUpdateHelper {
                 case "--recover" -> recover = true;
                 case "--require-health" -> requireHealth = true;
                 case "--prepare-launch" -> launcherPid = number(args, ++i);
+                case "--initialize-receipt" -> initializeReceipt = true;
                 default -> throw new IllegalArgumentException("unknown argument " + args[i]);
             }
         }
         if (root == null || work == null || (!recover && launcherPid == null && stage == null)) {
             throw new IllegalArgumentException("--root, --work and (unless --recover) --stage are required");
         }
+        if ((recover ? 1 : 0) + (launcherPid == null ? 0 : 1) + (initializeReceipt ? 1 : 0) > 1) {
+            throw new IllegalArgumentException("Recovery, startup preparation and receipt initialization are exclusive");
+        }
+        if (pid != null && pid <= 0 || launcherPid != null && launcherPid <= 0) {
+            throw new IllegalArgumentException("Process IDs must be positive");
+        }
         if (waitSeconds < 0 || waitSeconds > 3600) throw new IllegalArgumentException("--wait-seconds out of range");
         return new Invocation(
                 root, stage == null ? null : stage, work, Optional.ofNullable(pid), waitSeconds * 1000, recover,
-                requireHealth, Optional.ofNullable(launcherPid));
+                requireHealth, Optional.ofNullable(launcherPid), initializeReceipt);
     }
 
     private static Path path(final String[] args, final int index) {
