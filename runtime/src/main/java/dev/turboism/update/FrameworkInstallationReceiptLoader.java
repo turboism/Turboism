@@ -156,13 +156,7 @@ public final class FrameworkInstallationReceiptLoader {
     }
 
     private static Path runtimeArtifact() {
-        try {
-            final var source = FrameworkBuildInfo.class.getProtectionDomain().getCodeSource();
-            if (source == null || !"file".equals(source.getLocation().getProtocol())) return null;
-            return Path.of(source.getLocation().toURI()).toAbsolutePath().normalize();
-        } catch (java.net.URISyntaxException | SecurityException failure) {
-            return null;
-        }
+        return FrameworkRuntimeArtifact.resolve();
     }
 
     private static boolean text(final ObjectNode index, final String field, final String expected) {
