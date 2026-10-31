@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mesh-edit-mirror-axis-enhance
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -111,10 +111,6 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Angle change is rejected | Check the supported -180° to 180° range and inspect the plugin log for host-service availability. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

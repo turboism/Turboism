@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.clipmask-viewer
-version: 0.68.1
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -110,10 +110,6 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Window does not open | Check for a headless environment or an unavailable clip-mask read capability in the log. |
 
 ## Changelog
-
-### 0.68.1
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

@@ -877,7 +877,16 @@ val checkPluginApiFloors by tasks.registering(Exec::class) {
     VerificationStamps.apply(this)
 }
 
+val checkOfficialPluginReadmesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Tests the README documented-version contract."
+    inputs.files("scripts/test/check_official_plugin_readmes.py", "scripts/test/test_check_official_plugin_readmes.py")
+    commandLine("python3", "-m", "unittest", "scripts.test.test_check_official_plugin_readmes")
+    VerificationStamps.apply(this)
+}
+
 val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
+    dependsOn(checkOfficialPluginReadmesSelfTest)
     group = "verification"
     description = "Verifies every first-party plugin has a README matching its descriptor and delivery role."
     workingDir(rootDir)

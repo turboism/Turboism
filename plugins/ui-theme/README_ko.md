@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.uitheme
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -109,10 +109,6 @@ interface: none
 | 再起動後にテーマがない | `ui-theme/selection.cfg` を確認し、選択したユーザーパッケージがプラグインデータにまだ存在することを確認してください。 |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

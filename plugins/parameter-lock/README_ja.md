@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -129,10 +129,6 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 | 再起動後にロックが復元されない | モデルが保存されており、`.cmo3` ファイルのネイティブ GUID が改変されていないことを確認します。 |
 
 ## 変更履歴
-
-### 0.68.0
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

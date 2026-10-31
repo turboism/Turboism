@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-sync
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -119,10 +119,6 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Synchronization paused | Use Toggle Parameter Sync from the context menu or check the global switch in the dialog. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

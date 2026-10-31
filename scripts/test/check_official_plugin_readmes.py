@@ -57,6 +57,21 @@ REQUIRED_FRONT_MATTER = {
 }
 
 
+def documented_version_errors(documented: str, current: str) -> list[str]:
+    """README text ships inside the plugin JAR, so it records the version of the last content change.
+
+    The descriptor version may move ahead of it without republishing, but never behind.
+    """
+    try:
+        documented_key = tuple(int(part) for part in documented.split("."))
+        current_key = tuple(int(part) for part in current.split("."))
+    except ValueError:
+        return [f"version: README {documented!r} or descriptor {current!r} is not MAJOR.MINOR.PATCH"]
+    if len(documented_key) != 3 or len(current_key) != 3 or documented_key > current_key:
+        return [f"version: README documents {documented!r}, which is not at or below descriptor {current!r}"]
+    return []
+
+
 def parse_front_matter(path: Path, text: str) -> dict[str, str]:
     lines = text.splitlines()
     if not lines or lines[0] != "---":
@@ -113,7 +128,8 @@ def validate_readme(
 
     expect(metadata["turboismReadmeSchema"], "1", "turboismReadmeSchema", errors)
     expect(metadata["pluginId"], descriptor["id"], "pluginId", errors)
-    expect(metadata["version"], descriptor["version"], "version", errors)
+    documented_version = metadata["version"]
+    errors.extend(documented_version_errors(documented_version, descriptor["version"]))
     expect(metadata["category"], descriptor["category"], "category", errors)
     expect(metadata["tags"], ", ".join(descriptor["tags"]), "tags", errors)
     expect(metadata["turboismApi"], descriptor["turboismApi"], "turboismApi", errors)
@@ -187,7 +203,7 @@ def validate_readme(
         if not re.search(empty_capabilities[filename], text):
             errors.append("empty capability inventory is not stated")
 
-    plugin_version = descriptor["version"]
+    plugin_version = documented_version
     changelog_heading = {
         "README.md": "## Changelog",
         "README_zh.md": "## 更新日志",
@@ -197,7 +213,7 @@ def validate_readme(
     if changelog_heading and changelog_heading in text:
         pattern = rf"^###\s+\[?{re.escape(plugin_version)}\]?"
         if not re.search(pattern, text, re.MULTILINE):
-            errors.append(f"changelog does not contain entry for current version {plugin_version}")
+            errors.append(f"changelog does not contain entry for documented version {plugin_version}")
     return errors
 
 
