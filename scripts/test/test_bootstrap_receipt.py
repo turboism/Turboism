@@ -26,26 +26,25 @@ sys.path.insert(0, str(ROOT / "scripts/release"))
 from turboism_release import framework_update
 
 
-def resolve_worktree_id() -> str:
-    res = subprocess.run(["bash", str(ROOT / "scripts/dev/worktree-id.sh"), "--resolve"],
-                         capture_output=True, text=True, check=True)
-    return res.stdout.strip()
-
-
 @functools.lru_cache(maxsize=1)
 def resolve_bootstrap_receipt_test_classpath() -> str:
     """Invokes Gradle verification task to export the exact test runtime classpath."""
     gradlew = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
     cmd = [gradlew, ":runtime:writeBootstrapReceiptTestClasspath", "--console=plain"]
-    subprocess.run(cmd, cwd=ROOT, check=True)
-    wt_id = resolve_worktree_id()
-    expected = ROOT / f"build/worktree/{wt_id}/runtime/update-test/bootstrap-receipt-test-classpath.txt"
-    if expected.is_file():
-        return expected.read_text(encoding="utf-8").strip()
-    candidates = list((ROOT / "build").glob("**/runtime/update-test/bootstrap-receipt-test-classpath.txt"))
-    if candidates and candidates[0].is_file():
-        return candidates[0].read_text(encoding="utf-8").strip()
-    raise RuntimeError("Failed to resolve test classpath from Gradle task output")
+    result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, errors="replace")
+    if result.returncode:
+        raise RuntimeError(f"Gradle classpath export failed:\n{result.stdout}\n{result.stderr}")
+    prefix = "BOOTSTRAP_RECEIPT_TEST_CLASSPATH: "
+    exported = [line[len(prefix):] for line in result.stdout.splitlines() if line.startswith(prefix)]
+    if len(exported) != 1:
+        raise RuntimeError(f"Expected one current Gradle classpath export:\n{result.stdout}")
+    path = Path(exported[0])
+    if not path.is_absolute() or not path.is_file():
+        raise RuntimeError(f"Gradle classpath export is missing: {path}")
+    classpath = path.read_text(encoding="utf-8").strip()
+    if not classpath:
+        raise RuntimeError(f"Gradle classpath export is empty: {path}")
+    return classpath
 
 
 class BootstrapReceiptStaticContractTest(unittest.TestCase):
@@ -337,6 +336,59 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         self.assertEqual(sddl_after, sddl_before, "External target SDDL must be completely unmodified through junction")
 
         subprocess.run(["cmd", "/c", "rmdir", str(junc_state)], check=True)
+
+    def test_managed_zip_launch_bootstrap_wiring_and_skip_guards(self):
+        """Execute the launcher's bootstrap block in isolation, not a real Cubism launch."""
+        launcher = (ROOT / "packaging/windows-installer/launch-cubism-turboism.ps1").read_text(encoding="utf-8")
+        block = launcher.split("# Update and recovery execute", 1)[1]
+        block = block[block.index("if (!$ProbeOnly) {"):]
+        block = block.split("    if ((Test-Path -LiteralPath $updateJournal)", 1)[0] + "}\n"
+        home = self.fixture / "launcher-home"
+        home.mkdir()
+        docs = home / "bootstrap"
+        docs.mkdir()
+        (docs / "manifest.json").write_text("{}", encoding="utf-8")
+        (docs / "manifest.json.sig").write_text("fixture", encoding="utf-8")
+        marker = home / "invoked.txt"
+        (home / "bootstrap-receipt.ps1").write_text(
+            'param($HomePath, $StagePath, $JavaPath, [switch]$PassThru)\n'
+            'Set-Content -LiteralPath (Join-Path $HomePath "invoked.txt") -Value $JavaPath\n'
+            '[pscustomobject]@{Success=$false; ExitCode=70}\n', encoding="utf-8")
+        journal = home / "state/runtime/update/helper/journal.json"
+        receipt = home / "state/runtime/update/installed-receipt.json"
+        runner = self.fixture / "launcher-bootstrap-block.ps1"
+
+        def run(probe=False):
+            runner.write_text(
+                '$ErrorActionPreference = "Stop"\n'
+                f"$turboismHome = '{home}'\n"
+                '$javaOverride = "selected-java"\n'
+                '$cubism = [pscustomobject]@{Java="bundled-java"}\n'
+                f'$ProbeOnly = ${str(probe).lower()}\n' + block +
+                'Write-Output "CONTINUED"\n', encoding="utf-8")
+            result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-File", str(runner)],
+                                    capture_output=True, text=True, errors="replace", check=True)
+            self.assertIn("CONTINUED", result.stdout)
+
+        run()
+        self.assertEqual(marker.read_text().strip(), "selected-java")
+        marker.unlink()
+        run(probe=True)
+        self.assertFalse(marker.exists(), "ProbeOnly must not initialize a receipt")
+        receipt.parent.mkdir(parents=True)
+        receipt.write_bytes(b"existing receipt must remain untouched")
+        run()
+        self.assertFalse(marker.exists(), "Existing receipts must not be reinitialized")
+        self.assertEqual(receipt.read_bytes(), b"existing receipt must remain untouched")
+        receipt.unlink()
+        journal.parent.mkdir(parents=True)
+        journal.write_bytes(b"recovery takes precedence")
+        run()
+        self.assertFalse(marker.exists(), "Recovery must not bootstrap a missing receipt")
+        journal.unlink()
+        (docs / "manifest.json.sig").unlink()
+        run()
+        self.assertFalse(marker.exists(), "Missing package documents must not trigger discovery elsewhere")
 
     def test_upgraded_receipt_with_stale_bootstrap_documents_regression(self):
         """Point 4 & 5: existing upgraded receipt skips stale bootstrap docs; reports SKIPPED_EXISTING_RECEIPT."""

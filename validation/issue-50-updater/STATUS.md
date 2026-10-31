@@ -23,7 +23,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
   the same rollback transaction, and hash-guards retirement of old owned versioned libraries. Mutable installed-build
   metadata cannot supply old identity. Runtime health confirmation revalidates the entire new signed layout.
 - Full-install receipt initialization verifies explicit signed inventory and installed bytes, is idempotent for the
-  same receipt, and refuses to overwrite a different index. Its full-package installer invocation remains unwired.
+  same receipt, and refuses to overwrite a different index. Full-package assembly embeds optional signed bootstrap
+  documents in the ZIP and NSIS payload without adding public release assets. Installer finalization and the first
+  managed ZIP launch invoke initialization; probes, existing receipts and recovery journals skip re-bootstrap.
 - PreviewPluginRuntimeResources now binds the configured installer adapter. Activation and public keys are read
   only from the defining runtime JAR; absent activation, missing keys or legacy discovery keep installation disabled.
 
@@ -63,9 +65,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
 3. Deploy and qualify the reviewed framework API and protected publisher with owner approval. The implementation
    preserves the eight public release assets and serves independent signed documents/payloads from R2. Production
    endpoints, actual Cloudflare streaming behavior and incoming-object lifecycle remain unverified.
-4. Wire signed bootstrap documents and receipt initialization into full installer/ZIP delivery, and qualify migration
-   of existing private state/ownership. Transactional receipt advancement and two-upgrade fixture tests are now present;
-   this does not yet establish bootstrap ownership for current publicly installed versions.
+4. Qualify the wired full-package bootstrap on the actual installer/ZIP lifecycle and protected signing pipeline.
+   The NSIS changes have not been compiled into a real EXE here. Private-state ownership migration and adoption of
+   existing publicly installed versions still require qualification; signed fixtures are not that evidence.
 5. Review cache/installation safety changes on Windows: pure NIO does not provide hard-link counts, and directory
    fsync is unavailable through FileChannel. These limitations are NOT equivalent to native handle guarantees.
    Do not assert that content hashes alone provide anti-hardlink-write safety or power-loss durability.
@@ -100,11 +102,15 @@ pre-existing gates. Passing local tests or building this branch does not activat
   final fixes, independent receipt/downloader/next-launch execution: **150 tests, 0 failures/errors, 3 skips**.
   The real second-JVM signed-receipt test runs; this is not physical power-loss evidence. The open-file rollback test
   is explicitly Windows-only, because POSIX permits replacement of an open file.
-- **Bootstrap revision `af27624e` not approved:** independent Python execution passes **10 tests**, including real
-  Ed25519 receipt initialization and payload-tamper rejection on this Windows host. Review nevertheless found use
-  of nonexistent installation-state fields, incomplete explicit-ACL cleanup/junction guards, and developer-worktree
-  and cache paths hardcoded in its integration test. Returned for correction and real different-receipt collision
-  coverage. ZIP embedding now has a real ZIP fixture; no actual NSIS compilation has been performed.
+- **Bootstrap approved/integrated:** merge `875f3c5fb` incorporates revisions through `20cf6f19`, with reviewer
+  fixes to consume only the current Gradle classpath export and to wire the missing first-ZIP-launch call. Independent
+  execution passes **14 Python tests**, including real Ed25519 initialization, tamper rejection, different-receipt
+  collision preserving index/documents, explicit-ACL cleanup, junction sentinel/SDDL preservation and isolated
+  launcher wiring. Real ZIP embedding is tested. PowerShell bootstrap checks pass **33 assertions**; configuration
+  merge and installer-packaging checks pass. No actual NSIS compilation or real ZIP-to-Cubism launch is claimed.
+- **Combined client regression after both integrations:** update package **356 tests, 0 failures/errors, 6 skips**;
+  core-contract **31 tests, 0 failures/skips**; release/native Python **56 tests, 0 failures, 1 skip**; Node **78 pass**;
+  bootstrap JAR builds. These do not replace native-window host acceptance or the complete shell suite.
 - **Selected-plugin linkage remains absent from this branch:** the read-only audit is complete; implementation is
   delegated using the existing planner, verified catalog and pending operations. It must separate download from user
   install consent, preserve dual-API compatibility and avoid falsely claiming cross-journal atomicity. No plugin-batch

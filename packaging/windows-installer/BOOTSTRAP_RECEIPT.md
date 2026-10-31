@@ -115,22 +115,18 @@ Before running `FrameworkUpdateHelper`, `bootstrap-receipt.ps1` ensures that `<r
    - On uninstall, cleans up `$INSTDIR\bootstrap` and `$INSTDIR\bootstrap-receipt.ps1`.
    - When omitted (e.g. legacy build), NSIS builds cleanly without receipt bundling.
 
-## Interface for Launcher Sub-Agent (`launch-cubism-turboism.ps1`)
+## Managed Launcher (`launch-cubism-turboism.ps1`)
 
-If launcher cooperation is desired before launching Cubism, the launcher script can invoke
-`bootstrap-receipt.ps1` with the discovered Cubism Java:
+The managed launcher automatically attempts initialization on the first standard-ZIP launch,
+using the selected Java and structured `-PassThru` result. It runs only when the package's
+`bootstrap/manifest.json` and `.sig` are present and neither a receipt nor a recovery journal
+exists. `-ProbeOnly` never initializes state. Existing receipts are not re-bootstrapped.
 
-```powershell
-# Optional bootstrap receipt check before starting Cubism:
-$bootstrapScript = Join-Path $turboismHome 'bootstrap-receipt.ps1'
-if (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) {
-    $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
-    & $bootstrapScript -Home $turboismHome -JavaPath $updateJava
-}
-```
-
-If no documents are staged, or if the receipt is already initialized, the call completes
-with exit code 0 and does not delay normal launch.
+Initialization failure emits a warning and leaves the full framework unchanged; normal Cubism
+startup may continue, while the runtime receipt loader keeps self-update unavailable. Journal
+recovery remains authoritative and can still block startup if the installation is unsafe.
+The isolated launcher-block test covers this wiring and its skip guards; it is not a real
+Cubism launch acceptance test.
 
 ## Verification Status and Limits
 
