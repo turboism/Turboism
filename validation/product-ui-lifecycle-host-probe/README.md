@@ -23,7 +23,7 @@ submission and observation through `host_validation.py`. An independently manage
 
 The agent refuses an unbound task home. Structured assertions and screenshots
 are written to `state/product-ui-lifecycle` within the isolated task home. A
-blocked-EDT scenario has a 12-second independent watchdog, a bounded EDT wait and
+blocked-EDT scenario has a 2.5-second independent watchdog, a bounded EDT wait and
 an unconditional release. Each product records actual blocked-disable time,
 old window disposal, generation identity, queued-open fencing and replacement
 window survival. Ordinary disable also exercises production shutdown. Success
@@ -31,9 +31,9 @@ requires the shared supervisor's identity, fixture and cleanup proofs in additio
 to `status=PASS`; screenshots or process startup alone are insufficient.
 
 A separate deterministic delayed-cleanup scenario installs a task-only scheduler
-decorator on the old product instance. It retains the actual product cleanup
+decorator on the old product instance. It retains the actual product open callback and cleanup
 closure, lets production management unload/reload the plugin and opens the new
-window, then replays the old closure on the EDT. Assertions require old disposal
+window, then replays the old callbacks and closure on the EDT. Assertions require old disposal
 and new-window survival. This injected delay is explicitly distinguished from
 the earlier real blocked-EDT scenario; it is not evidence that production delays
 cleanup by that duration. The decorator never ships in a product JAR.

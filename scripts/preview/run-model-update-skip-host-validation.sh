@@ -78,7 +78,8 @@ if [[ "$workload" == resize ]]; then
 fi
 ready_markers=(--ready-marker 'MODEL_UPDATE_SKIP_EXERCISER_READY')
 if [[ "$enabled" == true ]]; then
-  ready_markers+=(--ready-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=COMPLETE')
+  ready_markers+=(--ready-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=COMPLETE'
+    --failure-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=NOT_ADMITTED')
 fi
 if [[ "$probe" == true ]]; then
   probe_options+=(--jvm-option '-Dturboism.model-update-skip.probe=true')
@@ -100,7 +101,6 @@ exec bash "$runner" \
   "${driver_options[@]}" \
   "${ready_markers[@]}" \
   --failure-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=FAILED' \
-  --failure-marker 'TURBOISM_MODEL_UPDATE_SKIP installation=NOT_ADMITTED' \
   --result-file 'state/dev.turboism.validation.model-update-skip/result.txt' \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
