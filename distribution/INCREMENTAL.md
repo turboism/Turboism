@@ -1,8 +1,10 @@
 # Offline incremental admission v1
 
-`incremental.mjs` is an offline protocol implementation. Neither `worker.mjs`
-nor `mirror.mjs` imports it. No deployment, production key, bucket binding, URL,
-or existing eight-asset release rule changes as part of this implementation.
+`incremental.mjs` is the admission protocol. `framework.mjs` (imported by `worker.mjs`)
+supplies the production storage authority and public reads described in
+"Production service (api.turboism.dev)" at the end of this file. The text below
+describes the protocol and client contract; where it says "not deployed", read it
+as "inert until an operator configures keys and a publisher workflow".
 
 The local Python producer writes `turboism-V-incremental.json`:
 
@@ -233,3 +235,49 @@ refuse cleanup. No recursive or record-supplied path deletion exists.
 This remains a local POSIX implementation. Windows requires a separately reviewed
 private DACL/owner/nlink/reparse/handle file layer and native evidence. It remains
 fail-closed; Linux tests do not complete the Windows product path.
+
+## Production service (api.turboism.dev)
+
+The GitHub Release contract is **unchanged**: exactly the eight existing assets, the
+EXE/ZIP whitelist in `parseRelease`, and the R2 `files/` mirror. Incremental resources
+are never GitHub assets and never pass through the mirror. They have a separate,
+authenticated delivery path:
+
+1. The protected publisher signs the manifest offline (`build-framework-update.py`) and
+   runs `publish-framework.mjs`. It uploads manifest, envelope and payloads to the
+   non-public R2 prefix `framework-incoming/` (give it a lifecycle expiry; never serve it).
+2. `POST /v1/framework/admit` (GitHub OIDC, audience `https://api.turboism.dev`, workflow
+   `FRAMEWORK_PUBLISHER_WORKFLOW`, optional `FRAMEWORK_PUBLISHER_ENVIRONMENT`; the sync
+   notifier workflow is refused) runs `admitIncremental` inside the `FrameworkAuthority`
+   Durable Object. Payloads are hashed and copied as streams; R2 enforces the digest and
+   never replaces a key. Documents and payloads land in `framework/`, records in
+   `framework/releases|versions|builds/`. The channel pointer CAS, the release row and the
+   public-resource registration commit in one SQLite transaction. Failure leaves the old
+   channel and only unreferenced immutable orphans.
+3. `GET|HEAD /v1/framework/documents/<sha256>` and `/v1/framework/objects/<sha256>/payload`
+   serve only registered resources from the official origin: exact bytes, `Content-Length`,
+   strong ETag `"<sha256>"`, `application/octet-stream`, `Cache-Control: ... no-transform`,
+   `Range`/`If-Range` (206, 416; a stale validator yields a full 200). Unknown keys are JSON
+   404; a stored object whose size/R2 checksum disagrees is a 503, never served.
+4. `/v1/releases/<channel>.json` gains `release.incremental` only when an admitted,
+   unwithdrawn record has the same version, channel, buildNumber and sourceRevision as the
+   release. Any authority failure silently returns the plain full-installer document.
+5. `publish-framework.mjs` finishes with a public preflight (redirect-free, byte-exact, Range).
+   Note that this design relies on post-admission failure rollback compensation: an admission-to-preflight
+   window exists where the release has committed in the authority before preflight finishes. If public
+   preflight fails after admission, the publisher immediately issues a compensation rollback withdrawal
+   (`POST /v1/framework/withdraw`) so `release.incremental` ceases being advertised for a failing candidate,
+   leaving full-installer package delivery unaffected. If rollback withdrawal also fails, a compound error
+   is reported. Only after preflight passes should the GitHub release be published/synchronized.
+   Retrying a previously withdrawn candidate retains its withdrawn status by default; the authority
+   returns 409 `REACTIVATION_REQUIRED` unless the publisher explicitly supplies `reactivate: true` (`--reactivate`)
+   to re-enable advertising once all cryptographic and preflight checks pass. Tests validate these protocol and
+   authority semantics locally with SQLite and mock storage without deploying to or asserting live Cloudflare infrastructure.
+6. `POST /v1/framework/withdraw {"id": "<manifest sha256>"}` (same identity) stops
+   advertising a release; resources stay served for in-flight resumes.
+
+Operator configuration (all inert while unset): `FRAMEWORK_TRUSTED_KEYS` (JSON key id ->
+base64 Ed25519 SPKI; the same public keys must be compiled into the client),
+`FRAMEWORK_PUBLISHER_WORKFLOW`, `FRAMEWORK_PUBLISHER_ENVIRONMENT`. The client endpoint
+`https://api.turboism.dev/v1/framework/` is now this service's prefix. Deploying adds the
+`FrameworkAuthority` Durable Object (migration `v2`); it changes no existing route.
