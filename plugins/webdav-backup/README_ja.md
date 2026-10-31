@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.webdav
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -109,10 +109,6 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 | アップグレード後に WebDAV 項目が 2 つ表示される | プラグインは `plugins/webdav-backup.jar` に改名されました。管理アップグレードは改名前の `backup.jar` を埋め込みプラグイン id で削除し、旧 id `dev.turboism.plugin.backup` はランタイムが拒否します。ロックされたファイルをインストーラーが削除できなかった場合のみ、残った `backup.jar` を手動で削除してください。 |
 
 ## 変更履歴
-
-### 0.68.0
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

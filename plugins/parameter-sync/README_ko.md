@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-sync
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -118,10 +118,6 @@ interface: swing
 | 동기화 일시 중지됨 | 컨텍스트 메뉴에서 매개변수 동기화 전환을 사용하거나 대화상자의 전체 스위치를 확인하십시오. |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

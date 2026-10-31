@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -222,10 +222,6 @@ Circle500/Geometry500の各実装を、同じDW-Proton/:0環境の新規ホス�
 | レイアウトが適用されない | Turboism ログでパッキングまたは検証の失敗を確認し、テクスチャアトラスセッションがアクティブであることを確認してください。 |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

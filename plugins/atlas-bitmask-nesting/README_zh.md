@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-nesting
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -58,10 +58,6 @@ interface: none
 算法入口缺失时检查插件启用状态、宿主兼容性和日志。固定倍率下放不下的项遵守框架当前页溢出契约。执行 `./gradlew :plugins:atlas-bitmask-nesting:test` 运行碰撞及几何回归；`:plugins:atlas-bitmask-nesting:nestingBenchmark` 测量合成样例的内核耗时，不等于 Cubism 界面总耗时。
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 
