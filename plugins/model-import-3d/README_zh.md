@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -104,6 +104,10 @@ interface: embedded
 - **切换文档后中止：** 打开目标模型后重新从菜单发起导入。
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

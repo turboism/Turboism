@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -85,6 +85,10 @@ Turboism 0.67.0 이상 버전과 열려 있는 Cubism 모델이 필요합니다.
 먼저 모델을 여세요. 미리 보기가 열려 있는 동안 모델을 전환하거나 계층 구조, 이름 또는 파라미터 바인딩을 변경한 경우 취소하고 다시 여세요. 오래된 미리 보기는 확인 시 거부됩니다. 트랜잭션 실패 시 플러그인 로그와 보고된 트랜잭션 결과를 확인하세요.
 
 ## 변경 이력
+
+### 0.68.1
+
+- 플러그인이 실제로 사용하는 SDK 멤버에 맞춰 최소 Turboism API를 0.68.0으로 올렸습니다.
 
 ### 0.1.0
 

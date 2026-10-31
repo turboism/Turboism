@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: integration
 tags: mcp, automation, external-tools
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,7 +36,7 @@ interface: swing
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.68.0,1.0.0)`。
 - **Cubism:** Turboism は現在、レビュー済みの正確な Editor アーティファクト `5.0.00` から `5.3.04` を受け入れます。ホスト向けリソースは、その公開 SDK 機能を利用できないとき、クローズドに失敗します。空の成功結果を捏造することはありません。
 - **トランスポート:** プロトコル `2025-11-25` を使用する MCP Streamable HTTP。サポート対象の以前のプロトコルバージョンについては互換性ネゴシエーションを行います。
 - **インターフェースモード:** `swing`。ローカル MCP 接続情報ウィンドウを提供します。
@@ -344,6 +344,10 @@ url = "http://127.0.0.1:43123/mcp"
 | リソースが権限拒否を返す | プラグインディスクリプターの許可と、上記で指定した特定のランタイム権限を確認します。 |
 
 ## 変更履歴
+
+### 0.68.1
+
+- 実際に使用する SDK メンバーに合わせて、必要な Turboism API の下限を 0.68.0 に引き上げました。
 
 ### 0.1.0
 

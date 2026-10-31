@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -221,6 +221,10 @@ Circle500、Geometry500各自对原生与新算法执行一次，均为同一 DW
 | 布局未应用 | 检查 Turboism 日志中是否有打包或验证失败，并确认纹理图集会话处于活动状态。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

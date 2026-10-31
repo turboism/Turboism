@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.selection-brush",
   "name": "Selection Brush",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Selects ArtMesh vertices and Warp Deformer control points in verified modeling and mesh modes.",
   "entrypoints": [
     "dev.turboism.plugin.selectionbrush.SelectionBrushPlugin"

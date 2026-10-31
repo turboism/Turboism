@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-batch-transfer
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -109,6 +109,10 @@ interface: swing
 | 某项传输被跳过 | 检查目标有效性、选择状态，以及状态通知中被拒绝行的内容。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

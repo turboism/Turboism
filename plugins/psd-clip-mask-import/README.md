@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.psd-clip-mask-import
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -118,6 +118,10 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 | Import fails safely | Check the localized status summary and the plugin log; confirm the required PSD, clip-mask, dialog, write/Undo, and status services are present. |
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 
