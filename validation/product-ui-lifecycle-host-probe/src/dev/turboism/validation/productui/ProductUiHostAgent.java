@@ -94,10 +94,28 @@ public final class ProductUiHostAgent {
         check("PLUGIN_HOT_APPLIED".equals(call(result, "code")), product[0] + ".managementApplied." + value);
         check((Boolean)call(coordinator, "isLoaded", id(product)) == value, product[0] + ".loaded." + value);
     }
-    private static void screenshot(String name) throws Exception {
+    private static void screenshot(String name, Window target) throws Exception {
         Thread.sleep(300);
+        // Wine desktop capture is diagnostic only. Assert this showing window's
+        // real Swing paint, captured at actual dimensions on the host EDT.
         Rectangle bounds = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
-        ImageIO.write(new Robot().createScreenCapture(bounds), "png", output.resolve(name + ".png").toFile());
+        ImageIO.write(new Robot().createScreenCapture(bounds), "png", output.resolve(name + "-desktop.png").toFile());
+        java.awt.image.BufferedImage painted = edt(() -> {
+            check(target.isShowing(), name + ".showingAtCapture");
+            java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(
+                target.getWidth(), target.getHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = image.createGraphics();
+            try { target.printAll(graphics); } finally { graphics.dispose(); }
+            return image;
+        });
+        Set<Integer> colors = new HashSet<>();
+        for (int y = 0; y < painted.getHeight(); y++) for (int x = 0; x < painted.getWidth(); x++) {
+            colors.add(painted.getRGB(x, y));
+            if (colors.size() > 32) break;
+        }
+        RESULT.setProperty(name + ".paintDistinctColors", Integer.toString(colors.size()));
+        check(colors.size() > 8, name + ".nonblankNativePaint");
+        ImageIO.write(painted, "png", output.resolve(name + ".png").toFile());
     }
     // Task-only scheduler decorator: retain the actual product cleanup closure, then
     // replay it after a new generation is showing. Ordinary scenarios above/below
@@ -142,7 +160,7 @@ public final class ProductUiHostAgent {
         Object old = loaded(product);
         open(old, product);
         Window first = awaitWindow(old, product);
-        screenshot(key + "-opened");
+        screenshot(key + "-opened", first);
         enabled(product, false);
         check(edt(() -> !first.isDisplayable()), key + ".disabledDisposed");
         enabled(product, true);
@@ -150,20 +168,23 @@ public final class ProductUiHostAgent {
         open(second, product);
         Window replacement = awaitWindow(second, product);
         check(first != replacement, key + ".newWindowIdentity");
-        screenshot(key + "-reenabled");
+        screenshot(key + "-reenabled", replacement);
 
         // An actual EDT stall, always bounded even if the probe/lifecycle fails.
         CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
         AtomicBoolean watchdogReleased = new AtomicBoolean();
+        long blockedStart = System.nanoTime();
         Thread watchdog = new Thread(() -> {
             try { if (!release.await(2500, TimeUnit.MILLISECONDS)) { watchdogReleased.set(true); release.countDown(); } }
             catch (InterruptedException e) { release.countDown(); Thread.currentThread().interrupt(); }
+            RESULT.setProperty(key + ".releaseMillis", Long.toString(TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-blockedStart)));
         }, "product-ui-bounded-edt-watchdog");
         watchdog.setDaemon(true); watchdog.start();
         SwingUtilities.invokeLater(() -> {
             entered.countDown();
             try { release.await(3, TimeUnit.SECONDS); }
             catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            RESULT.setProperty(key + ".edtUnblockedMillis", Long.toString(TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-blockedStart)));
         });
         check(entered.await(5, TimeUnit.SECONDS), key + ".edtBlocked");
         long start = System.nanoTime();
@@ -184,7 +205,7 @@ public final class ProductUiHostAgent {
         // Drain every earlier EDT callback, then prove the replacement survived.
         edt(() -> null); Thread.sleep(500); edt(() -> null);
         check(edt(newest::isDisplayable), key + ".newWindowSurvivesOldCallbacks");
-        screenshot(key + "-after-deferred-cleanup");
+        screenshot(key + "-after-deferred-cleanup", newest);
         enabled(product, false); // Also runs production shutdown and scope closure.
         check(edt(() -> !newest.isDisplayable()), key + ".shutdownDisposed");
         check(edt(() -> !first.isDisplayable() && !replacement.isDisplayable()), key + ".noOldWindows");
@@ -213,7 +234,7 @@ public final class ProductUiHostAgent {
         });
         check(edt(() -> !retainedWindow.isDisplayable()), key + ".delayedClosureDisposedOld");
         check(edt(afterWindow::isDisplayable), key + ".delayedClosurePreservedNew");
-        screenshot(key + "-after-retained-closure");
+        screenshot(key + "-after-retained-closure", afterWindow);
         enabled(product, false);
         check(edt(() -> !afterWindow.isDisplayable()), key + ".finalShutdownDisposed");
         RESULT.setProperty(key + ".status", "PASS");
