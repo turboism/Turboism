@@ -41,3 +41,10 @@ cleanup by that duration. The decorator never ships in a product JAR.
 This tool uses reflection only inside validation to inspect plugin/window
 identity. It does not add product APIs or change distributed artifacts. The
 separate model-update and incremental-update probes remain necessary for #55.
+
+Window screenshots use the showing product window's `printAll` on the actual
+host EDT, at its live dimensions, and reject a capture with eight or fewer
+distinct colors. These images prove native Swing window content, not physical
+desktop presentation. Separate `*-desktop.png` Robot captures are retained as
+diagnostics; Wine may return a black desktop image, which is never accepted as
+visual proof. Lifecycle assertions and safe cleanup remain independently required.
