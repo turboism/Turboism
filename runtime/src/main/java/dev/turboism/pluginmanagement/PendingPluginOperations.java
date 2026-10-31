@@ -36,12 +36,18 @@ public final class PendingPluginOperations {
     private final Path journal;
     private final ConfinedPluginFiles files;
     private final SnapshotCopier snapshotCopier;
+    private final SnapshotCopier backupCopier;
 
     public PendingPluginOperations(final Path requestedHome) {
         this(requestedHome, PendingPluginOperations::copySnapshot);
     }
 
     PendingPluginOperations(final Path requestedHome, final SnapshotCopier snapshotCopier) {
+        this(requestedHome, snapshotCopier, PendingPluginOperations::copySnapshot);
+    }
+
+    PendingPluginOperations(
+            final Path requestedHome, final SnapshotCopier snapshotCopier, final SnapshotCopier backupCopier) {
         home = requestedHome.toAbsolutePath().normalize();
         plugins = home.resolve("plugins");
         staging = home.resolve("state/runtime/plugin-management");
@@ -49,6 +55,7 @@ public final class PendingPluginOperations {
         journal = staging.resolve("pending.json");
         files = new ConfinedPluginFiles(home);
         this.snapshotCopier = java.util.Objects.requireNonNull(snapshotCopier, "snapshotCopier");
+        this.backupCopier = java.util.Objects.requireNonNull(backupCopier, "backupCopier");
     }
 
     synchronized StagedInstall stage(final Path source) {
@@ -289,7 +296,7 @@ public final class PendingPluginOperations {
      *
      * @return {@code APPLIED} when the journal was applied and cleared, {@code ROLLED_BACK} when the
      *     previous directory was restored intact, or {@code RECOVERY_REQUIRED} when the journal could
-     *     not be read or the rollback itself failed and manual repair is needed
+     *     not be read, backup preparation failed, or rollback itself failed and manual repair is needed
      */
     public synchronized ApplyResult apply() {
         final List<Operation> operations;
@@ -303,12 +310,20 @@ public final class PendingPluginOperations {
         }
         if (operations.isEmpty()) return new ApplyResult(Status.APPLIED, "PLUGIN_PENDING_EMPTY");
         final Path backup = staging.resolve("backup-" + UUID.randomUUID());
+        boolean backupCreated = false;
         try {
             Files.createDirectories(plugins);
-            Files.createDirectories(backup);
             files.rejectLinks(plugins);
+            Files.createDirectory(backup);
+            backupCreated = true;
             files.rejectLinks(backup);
             backupCurrent(backup);
+        } catch (Exception failure) {
+            // No live mutation has started. Never restore an incomplete snapshot over good plugins.
+            if (backupCreated) deleteTreeQuietly(backup);
+            return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_BACKUP_FAILED");
+        }
+        try {
             for (Operation operation : operations) applyOne(operation);
         } catch (Exception failure) {
             try {
@@ -411,9 +426,7 @@ public final class PendingPluginOperations {
                     .filter(candidate -> candidate.getFileName().toString().endsWith(".jar"))
                     .toList()) {
                 final Path target = backup.resolve(path.getFileName());
-                try (var output = files.createNew(target, parent)) {
-                    output.write(ByteBuffer.wrap(Files.readAllBytes(path)));
-                }
+                backupCopier.copy(path, target, parent);
             }
         }
     }
@@ -433,10 +446,12 @@ public final class PendingPluginOperations {
                     .toList()) {
                 final Path target = plugins.resolve(path.getFileName());
                 final Path temporary = plugins.resolve(".restore-" + UUID.randomUUID() + ".tmp");
-                try (var output = files.createNew(temporary, pluginParent)) {
-                    output.write(ByteBuffer.wrap(Files.readAllBytes(path)));
+                try {
+                    copySnapshot(path, temporary, pluginParent);
+                    files.move(temporary, target, pluginParent, false);
+                } finally {
+                    files.delete(temporary, pluginParent);
                 }
-                files.move(temporary, target, pluginParent, false);
             }
         }
         deleteTree(backup);
@@ -520,6 +535,7 @@ public final class PendingPluginOperations {
                 while (buffer.hasRemaining()) output.write(buffer);
                 buffer.clear();
             }
+            output.force(true);
         }
         parent.verify();
     }
