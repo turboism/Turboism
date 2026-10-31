@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.1.1
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -121,7 +121,7 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 
 ## 변경 이력
 
-### 0.1.1
+### 0.68.1
 
 - 프레임워크 스케줄러로 창을 정리하고 비활성화 또는 재활성화 후 오래된 창 열기 작업을 차단합니다.
 

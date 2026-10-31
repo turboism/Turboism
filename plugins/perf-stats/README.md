@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.1.1
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -106,7 +106,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 ## Changelog
 
-### 0.1.1
+### 0.68.1
 
 - Bound UI teardown through the framework scheduler; reject stale queued window opens after disable or re-enable.
 

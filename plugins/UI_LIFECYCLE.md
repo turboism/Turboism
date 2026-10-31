@@ -20,7 +20,7 @@ means the path needs a separate change; it does not claim a reproduced host bug.
 | --- | --- |
 | acp | **Migrated:** `TurboismAcpPlugin.disable`, `shutdown`, scope `disposeUi`; detach window/controller under lock, close registrations then controller, dispatch captured window cleanup, then close settings. Open callbacks carry the enable generation. `AcpChatController` already drops queued updates after `close` and clears its pending UI queue. Component-local permission dialog and rendering dispatch remain component-owned. |
 | mcp | **Migrated:** `McpPlugin.stop` from disable/shutdown/runtime scope; detach server/window and fence opens under lock, then close registrations, server, captured window outside the lock. Cache scheduler/logger for runtime-scope cleanup after base shutdown clears context. |
-| command-palette | **Migrated:** `disposePalette` from disable/shutdown/scope; capture dialog while fencing opens. `onOpen` dispatches through the SDK scheduler; `togglePalette` rechecks the captured generation before creation/show. |
+| command-palette | **Migrated:** `disposePalette` from disable/shutdown/scope; capture dialog while fencing opens. `onOpen` dispatches through the SDK scheduler cached at init (the context accessor is fenced during close); `togglePalette` rechecks the captured generation before creation/show. |
 | perf-stats | **Migrated:** `deactivate` from disable/shutdown/scope; detach window while fencing opens/sampling, close sampling/status outside the lock, always attempt captured window teardown. In-flight CPU publication checks its sample generation before installing a registration; canceled publication cannot clear a newer status handle. |
 | clipmask-viewer | **Previously migrated:** `ClipMaskViewerPlugin.disposeWindow` uses teardown; opens/refreshes check generation. **Follow-up:** cleanup currently reads `window.getAndSet(null)` inside the deferred callback. Review capture timing for disable/re-enable before delayed cleanup; this issue changes only the four owners above. |
 | project-inspector | **Previously migrated:** `ProjectInspectorPlugin.disposeWindow` uses teardown; opens/results check generation. **Follow-up:** as in clipmask-viewer, the deferred cleanup reads the current window field rather than a captured old view. |
@@ -83,3 +83,8 @@ window after old cleanup. The command-palette latch regression also exercises
 “EDT blocked → open queued → disable → EDT released” through the registered action.
 SDK/runtime teardown and generation-guard tests cover the scheduler's real
 wait-start timeout, interruption and exception propagation contracts.
+
+Window owners cache `UiScheduler` during initialization. After generation fencing,
+reacquiring it via `PluginContext.uiScheduler()` is denied; only the previously
+acquired handle admits `runUiTeardown`. This applies to command-palette and
+perf-stats as well as ACP and MCP.

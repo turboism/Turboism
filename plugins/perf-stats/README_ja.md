@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.1.1
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -106,7 +106,7 @@ Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計�
 
 ## 変更履歴
 
-### 0.1.1
+### 0.68.1
 
 - フレームワークのスケジューラーでウィンドウを破棄し、無効化や再有効化後の古い表示タスクを拒否します。
 
