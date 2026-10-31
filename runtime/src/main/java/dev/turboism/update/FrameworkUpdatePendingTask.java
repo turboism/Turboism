@@ -76,11 +76,17 @@ final class FrameworkUpdatePendingTask {
 
         final byte[] bytes = (UpdateFileSupport.JSON.writerWithDefaultPrettyPrinter().writeValueAsString(node) + "\n")
                 .getBytes(StandardCharsets.UTF_8);
+        if (bytes.length <= 0 || bytes.length > MAX_PENDING_BYTES) {
+            throw new IllegalArgumentException("Pending task record exceeds maximum allowed bytes: " + bytes.length);
+        }
 
         final Path temp = Files.createTempFile(workParent, ".pending-", ".tmp");
         try {
             try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
-                channel.write(ByteBuffer.wrap(bytes));
+                final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
                 channel.force(true);
             }
             Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -104,7 +110,14 @@ final class FrameworkUpdatePendingTask {
                 return Optional.empty();
             }
 
-            final byte[] bytes = Files.readAllBytes(path);
+            final byte[] bytes;
+            try (var in = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                bytes = in.readNBytes(MAX_PENDING_BYTES + 1);
+            }
+            if (bytes.length <= 0 || bytes.length > MAX_PENDING_BYTES) {
+                discard(workDir);
+                return Optional.empty();
+            }
             final JsonNode rootNode = UpdateFileSupport.JSON.readTree(bytes);
             if (!(rootNode instanceof ObjectNode obj) || !FORMAT.equals(obj.path("format").asText())) {
                 discard(workDir);
