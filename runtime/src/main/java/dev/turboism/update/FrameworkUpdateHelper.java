@@ -50,7 +50,9 @@ public final class FrameworkUpdateHelper {
             Path work,
             Optional<Long> waitForPid,
             long waitMillis,
-            boolean recoverOnly) {}
+            boolean recoverOnly,
+            boolean requireHealth,
+            Optional<Long> launcherPid) {}
 
     private FrameworkUpdateHelper() {}
 
@@ -94,6 +96,13 @@ public final class FrameworkUpdateHelper {
                 err.println("Cubism process " + invocation.waitForPid().get() + " is still running; not touching files");
                 return EXIT_BUSY;
             }
+            try (var transaction = FrameworkUpdateLock.acquire(invocation.work())) {
+            if (invocation.launcherPid().isPresent()) {
+                final var prepared = applier.prepareLaunch(invocation.launcherPid().get());
+                out.println(prepared.outcome() + ": " + prepared.detail());
+                return prepared.outcome() == FrameworkUpdateApplier.Outcome.RECOVERED
+                        ? EXIT_RECOVERED : EXIT_NOTHING;
+            }
             // Always finish or undo any earlier interrupted transaction first.
             final var recovered = applier.recover();
             if (invocation.recoverOnly()) {
@@ -110,14 +119,17 @@ public final class FrameworkUpdateHelper {
                 return EXIT_REJECTED;
             }
             final byte[] identity = identity(invocation.root(), manifest);
-            final var result = applier.apply(manifest, invocation.stage().resolve("files"), identity);
+            final var result = invocation.requireHealth()
+                    ? applier.applyPendingHealth(manifest, invocation.stage().resolve("files"), identity)
+                    : applier.apply(manifest, invocation.stage().resolve("files"), identity);
             out.println(result.outcome() + ": " + result.detail());
             return switch (result.outcome()) {
-                case APPLIED -> EXIT_APPLIED;
+                case APPLIED, AWAITING_HEALTH -> EXIT_APPLIED;
                 case ROLLED_BACK -> EXIT_ROLLED_BACK;
                 case RECOVERED -> EXIT_RECOVERED;
                 case NOTHING -> EXIT_NOTHING;
             };
+            }
         } catch (FrameworkUpdateApplier.IncompleteRollbackException incomplete) {
             err.println("ROLLBACK INCOMPLETE - installation may be mixed; will be repaired on next run: "
                     + incomplete.getMessage());
@@ -176,6 +188,8 @@ public final class FrameworkUpdateHelper {
         Long pid = null;
         long waitSeconds = 120;
         boolean recover = false;
+        boolean requireHealth = false;
+        Long launcherPid = null;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--root" -> root = path(args, ++i);
@@ -184,15 +198,18 @@ public final class FrameworkUpdateHelper {
                 case "--wait-pid" -> pid = number(args, ++i);
                 case "--wait-seconds" -> waitSeconds = number(args, ++i);
                 case "--recover" -> recover = true;
+                case "--require-health" -> requireHealth = true;
+                case "--prepare-launch" -> launcherPid = number(args, ++i);
                 default -> throw new IllegalArgumentException("unknown argument " + args[i]);
             }
         }
-        if (root == null || work == null || (!recover && stage == null)) {
+        if (root == null || work == null || (!recover && launcherPid == null && stage == null)) {
             throw new IllegalArgumentException("--root, --work and (unless --recover) --stage are required");
         }
         if (waitSeconds < 0 || waitSeconds > 3600) throw new IllegalArgumentException("--wait-seconds out of range");
         return new Invocation(
-                root, stage == null ? null : stage, work, Optional.ofNullable(pid), waitSeconds * 1000, recover);
+                root, stage == null ? null : stage, work, Optional.ofNullable(pid), waitSeconds * 1000, recover,
+                requireHealth, Optional.ofNullable(launcherPid));
     }
 
     private static Path path(final String[] args, final int index) {

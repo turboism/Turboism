@@ -230,7 +230,30 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             final List<String> command = new ArrayList<>();
             command.add(javaExecutable.toString());
             command.add("-cp");
-            command.add(helperClasspath.toString());
+            // Never execute from the installed agent: Windows keeps an executing JAR locked. The helper must
+            // have its own immutable copy before it can replace that agent after Cubism exits.
+            if (!Files.isRegularFile(helperClasspath, LinkOption.NOFOLLOW_LINKS)
+                    || !helperClasspath.getFileName().toString().endsWith(".jar")) {
+                throw new IOException("Helper requires a bundled standalone agent JAR");
+            }
+            final long helperBytes = Files.size(helperClasspath);
+            if (helperBytes <= 0 || helperBytes > 64L * 1024 * 1024) {
+                throw new IOException("Invalid helper JAR size");
+            }
+            final Path helperArea = Files.createTempDirectory(stagesRoot, "helper-");
+            final Path helperCopy = helperArea.resolve("turboism-agent.jar");
+            Files.copy(helperClasspath, helperCopy);
+            if (!FrameworkUpdateCache.hash(helperClasspath, helperBytes)
+                    .equals(FrameworkUpdateCache.hash(helperCopy, helperBytes))) {
+                throw new IOException("Helper copy digest mismatch");
+            }
+            if (!workDir.equals(FrameworkUpdateHealth.workDirectory(root))) {
+                throw new IOException("Helper work directory must match the startup recovery location");
+            }
+            final Path runner = workDir.getParent().resolve("helper-runner.jar");
+            Files.createDirectories(runner.getParent());
+            UpdateFileSupport.copyAtomic(helperCopy, runner);
+            command.add(runner.toString());
             command.add(FrameworkUpdateHelper.class.getName());
             command.add("--root");
             command.add(root.toString());
@@ -238,6 +261,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             command.add(directory.toString());
             command.add("--work");
             command.add(workDir.toString());
+            command.add("--require-health");
             command.add("--wait-pid");
             command.add(Long.toString(ownPid.get()));
             command.add("--wait-seconds");

@@ -1091,13 +1091,14 @@ final class FrameworkUpdateDownloaderTest {
     // ---------------------------------------------------------------- coordinator
 
     private FrameworkUpdateCoordinator coordinator(
-            final Fixture f, final FrameworkUpdateCoordinator.HelperLauncher launcher) {
+            final Fixture f, final FrameworkUpdateCoordinator.HelperLauncher launcher) throws IOException {
         final Path area = f.install.getParent();
+        Files.writeString(area.resolve("helper.jar"), "helper-copy-test");
         return new FrameworkUpdateCoordinator(
                 f.install,
                 area.resolve("stages"),
-                area.resolve("work"),
-                area.resolve("helper-classpath"),
+                FrameworkUpdateHealth.workDirectory(f.install),
+                area.resolve("helper.jar"),
                 Path.of(System.getProperty("java.home"), "bin", "java"),
                 f.io,
                 launcher,
@@ -1140,6 +1141,9 @@ final class FrameworkUpdateDownloaderTest {
                 final List<String> command = launched.get();
                 assertEquals("dev.turboism.update.FrameworkUpdateHelper", command.get(command.indexOf("-cp") + 2));
                 assertEquals("4242", command.get(command.indexOf("--wait-pid") + 1), "waits for OUR pid");
+                final Path copiedHelper = Path.of(command.get(command.indexOf("-cp") + 1));
+                assertNotEquals(f.install.getParent().resolve("helper.jar"), copiedHelper);
+                assertEquals("helper-copy-test", Files.readString(copiedHelper));
                 assertTrue(Files.isRegularFile(c.stageDirectory().orElseThrow().resolve("manifest.json")));
                 assertTrue(Files.isRegularFile(c.stageDirectory().orElseThrow().resolve("files/turboism-agent.jar")));
                 assertFalse(
