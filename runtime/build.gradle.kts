@@ -561,6 +561,8 @@ val writeBootstrapReceiptTestClasspath by tasks.registering {
     dependsOn(tasks.named("testClasses"))
     inputs.files(sourceSets["test"].runtimeClasspath)
     outputs.file(bootstrapReceiptTestClasspathFile)
+    // The Python caller consumes this invocation's marker, never a guessed/stale worktree export.
+    outputs.upToDateWhen { false }
     doLast {
         val cp = sourceSets["test"].runtimeClasspath.asPath
         val target = bootstrapReceiptTestClasspathFile.get().asFile
