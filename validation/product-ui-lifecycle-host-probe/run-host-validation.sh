@@ -24,6 +24,9 @@ exec bash scripts/preview/run-cubism-host-validation.sh \
  --fixture-host "$fixture_src" --fixture-sha256 "$fixture_sha256" \
  --fixture-name product-ui-lifecycle.cmo3 --require-fixture-unchanged \
  --ready-marker 'Plugin load complete' \
+ --failure-marker 'PLUGIN_DISABLE_FAILED' --failure-marker 'PLUGIN_SHUTDOWN_FAILED' \
+ --failure-marker 'PLUGIN_SCOPE_CLEANUP_FAILED' --failure-marker 'PLUGIN_CLASSLOADER_RETAINED' \
+ --failure-marker 'PLUGIN_CLOSE_TIMEOUT' \
  --result-file state/product-ui-lifecycle/result.txt --result-pass-line status=PASS --result-fail-line status=FAIL \
  --jvm-option '-Dturboism.validation.runId={TASK_ID}' \
  --jvm-option '-Dturboism.validation.nativeStartupFreeOnly=true' \
