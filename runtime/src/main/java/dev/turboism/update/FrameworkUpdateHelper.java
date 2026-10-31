@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.PublicKey;
 import java.time.Instant;
@@ -116,14 +117,105 @@ public final class FrameworkUpdateHelper {
                 return EXIT_BUSY;
             }
             if (invocation.launcherPid().isPresent()) {
-                final var prepared = applier.prepareLaunch(invocation.launcherPid().get());
+                final long launcherPid = invocation.launcherPid().get();
+                final var prepared = applier.prepareLaunch(launcherPid);
+                if (prepared.outcome() == FrameworkUpdateApplier.Outcome.RECOVERED) {
+                    FrameworkUpdatePendingTask.discard(invocation.work());
+                    out.println(prepared.outcome() + ": " + prepared.detail());
+                    return EXIT_RECOVERED;
+                }
+                if (prepared.outcome() == FrameworkUpdateApplier.Outcome.APPLIED) {
+                    FrameworkUpdatePendingTask.discard(invocation.work());
+                    out.println(prepared.outcome() + ": " + prepared.detail());
+                    return EXIT_NOTHING;
+                }
+                if ("first startup awaiting health confirmation".equals(prepared.detail())
+                        || "already starting for this launcher".equals(prepared.detail())) {
+                    FrameworkUpdatePendingTask.discard(invocation.work());
+                    out.println(prepared.outcome() + ": " + prepared.detail());
+                    return EXIT_NOTHING;
+                }
+                final var pendingOpt = FrameworkUpdatePendingTask.read(invocation.work());
+                if (pendingOpt.isPresent()) {
+                    final var pending = pendingOpt.get();
+                    if (!invocation.root().equals(pending.root().toAbsolutePath().normalize())) {
+                        FrameworkUpdatePendingTask.discard(invocation.work());
+                        err.println("Pending update root does not match invocation root; discarding");
+                        return EXIT_REJECTED;
+                    }
+                    final Path stage = pending.stage();
+                    if (!Files.isDirectory(stage, LinkOption.NOFOLLOW_LINKS) || stage.startsWith(invocation.root())) {
+                        FrameworkUpdatePendingTask.discard(invocation.work());
+                        err.println("Pending update stage is invalid; discarding");
+                        return EXIT_FAILED;
+                    }
+                    if (keys.isEmpty()) {
+                        FrameworkUpdatePendingTask.discard(invocation.work());
+                        err.println("Rejected update: no active framework-update signing keys are provisioned");
+                        return EXIT_REJECTED;
+                    }
+                    final byte[] manifestBytes = readBounded(stage.resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
+                    final byte[] envelopeBytes = readBounded(
+                            stage.resolve("manifest.json.sig"), UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
+                    final var verifier = new UpdateManifestVerifier(keys);
+                    final UpdateManifest manifest;
+                    try {
+                        manifest = verifier.authenticate(manifestBytes, envelopeBytes);
+                    } catch (UpdateManifestVerifier.UpdateManifestVerificationException rejected) {
+                        FrameworkUpdatePendingTask.discard(invocation.work());
+                        err.println("Rejected update: " + rejected.errorCode() + ": " + rejected.getMessage());
+                        return EXIT_REJECTED;
+                    }
+                    final FrameworkUpdateApplier.Result result;
+                    if (installedAuthority) {
+                        final var previous = FrameworkInstallationReceiptLoader.loadForHelper(invocation.root(), verifier);
+                        final var context = new UpdateVerificationContext(manifest.version(), manifest.channel(),
+                                manifest.buildNumber(), manifest.sourceRevision(),
+                                dev.turboism.core.FrameworkBuildInfo.current().version(), "windows-x64",
+                                InstalledBuild.from(previous.loaded()), previous.hashes(), previous.binding(), () -> {});
+                        verifier.verify(manifestBytes, envelopeBytes, context, clock.get());
+                        final var receipt = FrameworkUpdateReceipt.prepare(invocation.root(), manifestBytes, envelopeBytes, verifier);
+                        if (runtimeInUse(invocation.root())) {
+                            err.println("Cubism started during verification; application deferred without changing payload");
+                            return EXIT_BUSY;
+                        }
+                        result = applier.applyAuthenticated(receipt, previous, stage.resolve("files"),
+                                identity(invocation.root(), manifest));
+                    } else {
+                        final String problem = policyProblem(invocation, manifest);
+                        if (problem != null) {
+                            FrameworkUpdatePendingTask.discard(invocation.work());
+                            err.println("Rejected update: " + problem);
+                            return EXIT_REJECTED;
+                        }
+                        if (runtimeInUse(invocation.root())) {
+                            err.println("Cubism started during verification; application deferred without changing payload");
+                            return EXIT_BUSY;
+                        }
+                        final byte[] identity = identity(invocation.root(), manifest);
+                        result = applier.applyPendingHealth(manifest, stage.resolve("files"), identity);
+                    }
+                    FrameworkUpdatePendingTask.discard(invocation.work());
+                    out.println(result.outcome() + ": " + result.detail());
+                    if (result.outcome() == FrameworkUpdateApplier.Outcome.AWAITING_HEALTH) {
+                        final var preparedHealth = applier.prepareLaunch(launcherPid);
+                        out.println(preparedHealth.outcome() + ": " + preparedHealth.detail());
+                        return EXIT_APPLIED;
+                    }
+                    return switch (result.outcome()) {
+                        case APPLIED, AWAITING_HEALTH -> EXIT_APPLIED;
+                        case ROLLED_BACK -> EXIT_ROLLED_BACK;
+                        case RECOVERED -> EXIT_RECOVERED;
+                        case NOTHING -> EXIT_NOTHING;
+                    };
+                }
                 out.println(prepared.outcome() + ": " + prepared.detail());
-                return prepared.outcome() == FrameworkUpdateApplier.Outcome.RECOVERED
-                        ? EXIT_RECOVERED : EXIT_NOTHING;
+                return EXIT_NOTHING;
             }
             // Always finish or undo any earlier interrupted transaction first.
             final var recovered = applier.recover();
             if (invocation.recoverOnly()) {
+                FrameworkUpdatePendingTask.discard(invocation.work());
                 out.println(recovered.outcome() + ": " + recovered.detail());
                 return recovered.outcome() == FrameworkUpdateApplier.Outcome.RECOVERED ? EXIT_RECOVERED : EXIT_NOTHING;
             }
@@ -167,6 +259,7 @@ public final class FrameworkUpdateHelper {
                         ? applier.applyPendingHealth(manifest, invocation.stage().resolve("files"), identity)
                         : applier.apply(manifest, invocation.stage().resolve("files"), identity);
             }
+            FrameworkUpdatePendingTask.discard(invocation.work());
             out.println(result.outcome() + ": " + result.detail());
             return switch (result.outcome()) {
                 case APPLIED, AWAITING_HEALTH -> EXIT_APPLIED;
@@ -181,6 +274,7 @@ public final class FrameworkUpdateHelper {
             for (final Throwable detail : incomplete.getSuppressed()) err.println("  " + detail);
             return EXIT_NEEDS_RECOVERY;
         } catch (UpdateManifestVerifier.UpdateManifestVerificationException rejected) {
+            FrameworkUpdatePendingTask.discard(invocation.work());
             err.println("Rejected update: " + rejected.errorCode() + ": " + rejected.getMessage());
             return EXIT_REJECTED;
         } catch (InterruptedException interrupted) {

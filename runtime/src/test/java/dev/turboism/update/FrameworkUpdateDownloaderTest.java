@@ -1217,7 +1217,7 @@ final class FrameworkUpdateDownloaderTest {
     }
 
     @Test
-    void coordinatorDoesNotReportScheduledWhenHelperDiesImmediately() throws Exception {
+    void coordinatorSchedulesNextLaunchEvenWhenHelperDiesImmediately() throws Exception {
         try (Fixture f = new Fixture()) {
             try (var c = coordinator(f, command -> {
                 final Process dead = new ProcessBuilder(
@@ -1237,8 +1237,14 @@ final class FrameworkUpdateDownloaderTest {
                         FrameworkUpdateCoordinator.State.STAGED,
                         c.download(f.downloader(), f.candidate, f.context).get(20, TimeUnit.SECONDS).state());
                 final var result = c.applyOnExit().get(10, TimeUnit.SECONDS);
-                assertEquals(FrameworkUpdateCoordinator.State.FAILED, result.state(), "must not claim a scheduled apply");
-                assertTrue(result.message().orElse("").contains("helper"));
+                assertEquals(
+                        FrameworkUpdateCoordinator.State.APPLY_PENDING,
+                        result.state(),
+                        "persisted next-launch task is scheduled even if background helper dies");
+                final var pending = FrameworkUpdatePendingTask.read(f.install.resolve("state/runtime/update/helper"));
+                assertTrue(pending.isPresent(), "pending task must be persisted on disk");
+                assertEquals("2.0.0", pending.get().version());
+                assertTrue(Files.isRegularFile(f.install.resolve("state/runtime/update/helper-runner.jar")));
             }
         }
     }

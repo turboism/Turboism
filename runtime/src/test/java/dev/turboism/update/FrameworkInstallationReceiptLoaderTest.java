@@ -635,6 +635,33 @@ final class FrameworkInstallationReceiptLoaderTest {
     }
 
     @Test
+    void nextLaunchInstalledHelperAppliesPendingTaskWithoutPriorHelperProcess() throws Exception {
+        final Fixture f = new Fixture();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final Path stage = helperStage(f, target);
+        final Path work = FrameworkUpdateHealth.workDirectory(f.root);
+        FrameworkUpdatePendingTask.write(work, f.root, stage, "1.1.0");
+        assertTrue(FrameworkUpdatePendingTask.read(work).isPresent());
+
+        final int status = FrameworkUpdateHelper.runInstalled(new String[] {
+                    "--root", f.root.toString(),
+                    "--work", work.toString(),
+                    "--prepare-launch", Long.toString(ProcessHandle.current().pid())
+                }, System.out, System.err, Map.of("fixture", f.keys.getPublic()), ProcessHandle::of, java.time.Instant::now);
+        assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, status);
+        assertFalse(FrameworkUpdatePendingTask.read(work).isPresent(), "pending task must be consumed");
+        f.info = target.identity();
+        assertEquals("1.1.0", f.loader().load().loaded().version());
+        assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
+        assertTrue(Files.exists(work.resolve("journal.json")));
+
+        // Confirm health on successful startup
+        final var applier = new FrameworkUpdateApplier(f.root, work);
+        assertTrue(applier.confirmHealthy("1.1.0", f.root.resolve("turboism-agent.jar")));
+        assertFalse(Files.exists(work.resolve("journal.json")));
+    }
+
+    @Test
     void coldHelperCannotApplyWithoutSignedOldOwnershipEvenWhenTargetSignatureIsValid() throws Exception {
         final Fixture f = new Fixture();
         final var target = upgrade(f, "1.1.0", 50, 'c');
