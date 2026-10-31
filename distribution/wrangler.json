@@ -5,10 +5,10 @@
   "compatibility_date": "2026-09-09",
   "workers_dev": false,
   "preview_urls": false,
-  "vars": { "EDGE_DOWNLOADS_ENABLED": "true" },
+  "vars": { "EDGE_DOWNLOADS_ENABLED": "true", "FRAMEWORK_PUBLISHER_WORKFLOW": "", "FRAMEWORK_PUBLISHER_ENVIRONMENT": "", "FRAMEWORK_TRUSTED_KEYS": "{}" },
   "routes": [{ "pattern": "api.turboism.dev", "custom_domain": true }],
-  "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "ReleaseRegistry" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReleaseRegistry"] }],
+  "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "ReleaseRegistry" }, { "name": "FRAMEWORK", "class_name": "FrameworkAuthority" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReleaseRegistry"] }, { "tag": "v2", "new_sqlite_classes": ["FrameworkAuthority"] }],
   "triggers": { "crons": ["7,22,37,52 * * * *"] },
   "observability": { "enabled": true },
   "r2_buckets": [{ "binding": "DOWNLOADS", "bucket_name": "turboism-downloads" }]
