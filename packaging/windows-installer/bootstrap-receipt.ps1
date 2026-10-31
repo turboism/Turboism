@@ -33,6 +33,9 @@ $scriptDir = Split-Path -Parent $scriptPath
 
 # Dot-source common launcher utilities if available
 $commonScript = Join-Path $scriptDir "cubism-launch-common.ps1"
+if (-not (Test-Path -LiteralPath $commonScript -PathType Leaf)) {
+    $commonScript = Join-Path $turboismHome "cubism-launch-common.ps1"
+}
 if (Test-Path -LiteralPath $commonScript -PathType Leaf) {
     . $commonScript
 }
@@ -77,10 +80,18 @@ function Find-RunnableJava {
     if (Test-Path -LiteralPath $stateFile -PathType Leaf) {
         try {
             $state = Read-CubismInstallationState -StatePath $stateFile
-            if ($state.Valid -and $null -ne $state.Candidates) {
-                foreach ($c in @($state.Candidates | Where-Object { $_.Selected })) {
-                    if (-not [string]::IsNullOrWhiteSpace($c.Java) -and (Test-Jdk17Runnable $c.Java)) {
-                        return $c.Java
+            if ($state.Valid -and $null -ne $state.Installations) {
+                foreach ($inst in @($state.Installations | Where-Object { $_.Selected })) {
+                    if (Get-Command New-CubismInstallationCandidate -ErrorAction SilentlyContinue) {
+                        $candidate = New-CubismInstallationCandidate -Root $inst.Root -TurboismHome $TurboismHome
+                        if (-not [string]::IsNullOrWhiteSpace($candidate.Java) -and (Test-Jdk17Runnable $candidate.Java)) {
+                            return $candidate.Java
+                        }
+                    } else {
+                        $candJava = Join-Path $inst.Root "app\jre\bin\java.exe"
+                        if (Test-Jdk17Runnable $candJava) {
+                            return $candJava
+                        }
                     }
                 }
             }
@@ -183,48 +194,65 @@ function Initialize-PrivateStateNamespace {
     # FrameworkUpdateReceipt requires that the receipt state directories
     # (root/state, root/state/runtime, root/state/runtime/update) have owner-only
     # access (plus SYSTEM and Administrators on Windows).
+    # Must NOT follow junctions, must verify owner matches root, and must purge all other explicit/inherited ACEs.
+    if ($env:OS -ne "Windows_NT") {
+        return
+    }
+
+    $rootItem = Get-Item -LiteralPath $TurboismHome -Force
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Turboism root directory is a reparse point: $TurboismHome"
+    }
+    $rootInfo = New-Object System.IO.DirectoryInfo($TurboismHome)
+    $rootAcl = $rootInfo.GetAccessControl([System.Security.AccessControl.AccessControlSections]::Owner)
+    $rootOwner = $rootAcl.GetOwner([System.Security.Principal.SecurityIdentifier])
+
     $stateRoot = Join-Path $TurboismHome "state"
     $runtimeDir = Join-Path $stateRoot "runtime"
     $updateDir = Join-Path $runtimeDir "update"
 
     foreach ($dir in @($stateRoot, $runtimeDir, $updateDir)) {
-        if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+        if (Test-Path -LiteralPath $dir) {
+            $dirItem = Get-Item -LiteralPath $dir -Force
+            if (($dirItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "State directory is a reparse point or link: $dir"
+            }
+            if (-not $dirItem.PSIsContainer) {
+                throw "State path is not a directory: $dir"
+            }
+            $dirInfo = New-Object System.IO.DirectoryInfo($dir)
+            $dirOwner = $dirInfo.GetAccessControl([System.Security.AccessControl.AccessControlSections]::Owner).GetOwner([System.Security.Principal.SecurityIdentifier])
+            if (-not $dirOwner.Equals($rootOwner)) {
+                throw "State directory owner does not match root owner: $dir"
+            }
+        } else {
             [void][System.IO.Directory]::CreateDirectory($dir)
+            $dirInfo = New-Object System.IO.DirectoryInfo($dir)
         }
-        if ($env:OS -eq "Windows_NT") {
-            try {
-                $dirInfo = New-Object System.IO.DirectoryInfo($dir)
-                $sections = [System.Security.AccessControl.AccessControlSections]::Access -bor [System.Security.AccessControl.AccessControlSections]::Owner
-                $acl = $dirInfo.GetAccessControl($sections)
-                $acl.SetAccessRuleProtection($true, $false)
-                $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
-                $ownerRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                    $owner,
-                    [System.Security.AccessControl.FileSystemRights]::FullControl,
-                    [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit",
-                    [System.Security.AccessControl.PropagationFlags]::None,
-                    [System.Security.AccessControl.AccessControlType]::Allow
-                )
-                $acl.ResetAccessRule($ownerRule)
-                foreach ($sidStr in @("S-1-5-18", "S-1-5-32-544")) {
-                    try {
-                        $sid = New-Object System.Security.Principal.SecurityIdentifier($sidStr)
-                        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                            $sid,
-                            [System.Security.AccessControl.FileSystemRights]::FullControl,
-                            [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit",
-                            [System.Security.AccessControl.PropagationFlags]::None,
-                            [System.Security.AccessControl.AccessControlType]::Allow
-                        )
-                        $acl.AddAccessRule($rule)
-                    } catch { }
-                }
-                $dirInfo.SetAccessControl($acl)
-            } catch { }
+
+        # Build complete allowlist DACL: owner, SYSTEM, Administrators FullControl, no other ACEs
+        $newAcl = New-Object System.Security.AccessControl.DirectorySecurity
+        $newAcl.SetAccessRuleProtection($true, $false)
+        $newAcl.SetOwner($rootOwner)
+        $allowed = @($rootOwner)
+        foreach ($sidStr in @("S-1-5-18", "S-1-5-32-544")) {
+            try { $allowed += New-Object System.Security.Principal.SecurityIdentifier($sidStr) } catch { }
         }
+        foreach ($sid in $allowed) {
+            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $sid,
+                [System.Security.AccessControl.FileSystemRights]::FullControl,
+                [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit",
+                [System.Security.AccessControl.PropagationFlags]::None,
+                [System.Security.AccessControl.AccessControlType]::Allow
+            )
+            $newAcl.AddAccessRule($rule)
+        }
+        $dirInfo.SetAccessControl($newAcl)
     }
 }
 
+if ($MyInvocation.InvocationName -ne ".") {
 # 1. Resolve and validate Turboism Home
 if (-not [string]::IsNullOrWhiteSpace($HomePath)) {
     $turboismHome = [System.IO.Path]::GetFullPath($HomePath.TrimEnd('\', '/'))
@@ -243,13 +271,13 @@ if (-not [System.IO.Directory]::Exists($turboismHome)) {
 $receiptFile = Join-Path $turboismHome "state\runtime\update\installed-receipt.json"
 if (-not $Strict -and (Test-Path -LiteralPath $receiptFile -PathType Leaf)) {
     try {
-        $receiptItem = Get-Item -LiteralPath $receiptFile
+        $receiptItem = Get-Item -LiteralPath $receiptFile -Force -ErrorAction Stop
         if ($receiptItem.Length -gt 0) {
             Write-Host "[bootstrap-receipt] Existing installation receipt detected; skipping bootstrap receipt initialization."
             if ($PassThru) {
                 return [pscustomobject]@{
                     Success = $true
-                    Status = "ALREADY_INITIALIZED"
+                    Status = "SKIPPED_EXISTING_RECEIPT"
                     ExitCode = 0
                     ReceiptPath = $receiptFile
                 }
@@ -387,4 +415,5 @@ try {
     if ($null -ne $tempStage -and (Test-Path -LiteralPath $tempStage)) {
         try { Remove-Item -LiteralPath $tempStage -Recurse -Force -ErrorAction SilentlyContinue } catch { }
     }
+}
 }
