@@ -107,6 +107,7 @@ final class FrameworkUpdateApplier {
     /** Restore any interrupted transaction. Safe to call at every start and idempotent. */
     Result recover() throws IOException {
         FrameworkUpdateCache.installationAncestors(work);
+        FrameworkUpdatePendingTask.discard(work);
         final Path journalPath = work.resolve(JOURNAL);
         if (!Files.exists(journalPath, LinkOption.NOFOLLOW_LINKS)) return new Result(Outcome.NOTHING, "no journal");
         final ObjectNode journal = readJournal(journalPath);
