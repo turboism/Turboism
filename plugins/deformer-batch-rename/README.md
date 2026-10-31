@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -85,6 +85,10 @@ Release candidate. The preview and both native deformer icon types were verified
 Open a model first. If you switch models or change hierarchy, names or parameter bindings while the preview is open, cancel and reopen it. Confirmation rejects a stale preview. For failed transactions, check the plugin log and the reported transaction outcome.
 
 ## Changelog
+
+### 0.68.1
+
+- Raised the minimum Turboism API to 0.68.0, matching the SDK members this plugin uses.
 
 ### 0.1.0
 

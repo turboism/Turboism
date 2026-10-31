@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.frame-animation-import",
   "name": "Frame Animation Import",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Import sequence frame animations from sprite sheets or image lists and bind to parameters with keyframe visibility.",
   "entrypoints": [
     "dev.turboism.plugin.frameanimation.FrameAnimationImportPlugin"

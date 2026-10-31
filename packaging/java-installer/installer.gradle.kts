@@ -697,7 +697,6 @@ val checkJavaInstaller by tasks.registering(Exec::class) {
             "--payload", javaInstallerPayloadDir.get().asFile.absolutePath,
             "--regression-jar", installerRegressionJarTask.get().archiveFile.get().asFile.absolutePath,
             "--manifest", releasePluginsFile.absolutePath,
-            "--plugin-version", frameworkVersion.substringBefore('-'),
             "--installer-xml", izpackBaseDir.get().file("installer.xml").asFile.absolutePath
         )
     }

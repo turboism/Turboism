@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -85,6 +85,10 @@ interface: swing
 请先打开模型。预览期间若切换模型或修改层级、名称、参数绑定，请取消并重新打开预览；确认时发现预览已过期会拒绝本次修改。失败时查看插件日志中的事务结果。
 
 ## 更新日志
+
+### 0.68.1
+
+- 将最低 Turboism API 提升到 0.68.0，与插件实际使用的 SDK 成员一致。
 
 ### 0.1.0
 

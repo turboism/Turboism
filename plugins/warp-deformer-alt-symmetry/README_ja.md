@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -107,6 +107,10 @@ Turboism 公式リリースパッケージに同梱されています。イン�
 | ヒントが表示されない | キャンバスヒント権限が付与されているか、ホストがネイティブヒント領域を提供しているかを確認してください。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

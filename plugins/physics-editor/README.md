@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -112,6 +112,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Header displays a minus/dash | The indeterminate state indicates that some groups are enabled and others are disabled. Clicking the checkbox will enable all groups. |
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

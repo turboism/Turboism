@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.protected-export",
   "name": "Protected Export",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Optional protected runtime-model export: works on a task-owned copy, flattens Warp/Rotation deformers, obfuscates ArtMesh identities, validates the complete staged output, then publishes atomically. Admitted only on reviewed Cubism versions and eligible models.",
   "entrypoints": [
     "dev.turboism.plugin.protectedexport.ProtectedExportPlugin"

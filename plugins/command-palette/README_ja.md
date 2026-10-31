@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -116,6 +116,10 @@ Turboism 公式リリースパッケージに同梱されています。イン�
 | Enter を押しても実行されない | ホストログを確認してください。拒否または失敗時には結果ステータスが記録されます。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

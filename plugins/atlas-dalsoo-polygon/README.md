@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -212,6 +212,10 @@ No telemetry is sent by this plugin.
 | Layout is not applied | Check the Turboism log for validation failure; plans are rejected atomically. |
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

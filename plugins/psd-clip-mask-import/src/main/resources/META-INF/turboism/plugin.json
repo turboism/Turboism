@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.psd-clip-mask-import",
   "name": "PSD Clip Mask Import Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments with an explicit overwrite policy.",
   "entrypoints": [
     "dev.turboism.plugin.psdclipmaskimport.PsdClipMaskImportPlugin"

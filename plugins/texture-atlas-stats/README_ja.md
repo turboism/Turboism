@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-stats
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -103,6 +103,10 @@ Cubism のネイティブテクスチャアトラスエディターで、モデ�
 | 利用不可のテキストが表示される | テクスチャアトラスセッションの読み取り失敗について Turboism ログを確認してください。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

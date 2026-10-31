@@ -3,12 +3,12 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.mcp",
   "name": "Turboism MCP Server",
-  "version": "0.1.0",
+  "version": "0.68.1",
   "description": "Loopback Model Context Protocol server exposing typed Cubism inspection, editing, history, and Editor-command workflows.",
   "entrypoints": [
     "dev.turboism.plugin.mcp.McpPlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.0,1.0.0)",
   "authors": [
     {
       "name": "Turboism Contributors"
