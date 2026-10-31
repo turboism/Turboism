@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -535,7 +536,11 @@ def main() -> int:
         for relpath, text in sorted(rendered.items()):
             out = base / relpath
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(text, encoding="utf-8")
+            target = str(out.resolve())
+            if os.name == "nt" and len(target) >= 240 and not target.startswith("\\\\?\\"):
+                target = "\\\\?\\" + target
+            with open(target, "w", encoding="utf-8") as destination:
+                destination.write(text)
         print(f"rendered {len(rendered)} generated verification sources")
         return 0
 
