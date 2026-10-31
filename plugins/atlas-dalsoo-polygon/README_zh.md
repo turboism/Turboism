@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -187,10 +187,6 @@ Dalsoo 使用 `QUARTER` 旋转。
 | 排版未应用 | 查看 Turboism 日志中的校验失败；计划是原子拒绝的。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.external-psd-edit
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -123,10 +123,6 @@ Turboism のプラグイン設定で「External PSD Edit」を開き、実行フ
 | 確認後に何も開かない | 権限の取り消しや原画の利用不可により安全に中止された可能性があります。 |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

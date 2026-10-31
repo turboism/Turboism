@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.clipmask-viewer
-version: 0.68.1
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -110,10 +110,6 @@ interface: swing
 | ウィンドウが開かない | ヘッドレス環境または利用できないクリップマスク読み取り機能がログにないか確認してください。 |
 
 ## 変更履歴
-
-### 0.68.1
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

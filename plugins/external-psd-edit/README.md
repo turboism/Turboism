@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.external-psd-edit
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -136,10 +136,6 @@ Plugin lifecycle and failure records can appear in Turboism's session log with t
 | Nothing opened after confirming | Export can fail closed when permissions are revoked or the native export reports the raw image unavailable. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

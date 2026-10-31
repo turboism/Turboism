@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.uitheme
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -108,10 +108,6 @@ interface: none
 | 重启后主题缺失 | 检查 `ui-theme/selection.cfg`，并确认所选用户包仍存在于插件数据中。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.frame-animation-import
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -117,10 +117,6 @@ Plugin lifecycle and diagnostic records appear in Turboism's local session log w
 | Import is aborted | Check the status notification and runtime log for validation details. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

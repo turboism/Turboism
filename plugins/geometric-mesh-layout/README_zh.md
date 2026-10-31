@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.geometric-mesh-layout
-version: 0.68.1
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -67,10 +67,6 @@ Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 如果工具未显示，请确认已选中单个图形网格并进入网格编辑模式。
 
 ## 更新日志
-
-### 0.68.1
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

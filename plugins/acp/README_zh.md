@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -124,10 +124,6 @@ OpenCode 1.15.13 在模型接口返回鉴权错误时，可能只返回 `end_tur
 - **无法加载会话**：保存的持久会话可能已失效；插件会自动回退到新会话。
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 
