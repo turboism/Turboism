@@ -39,7 +39,7 @@ class ResultLines(unittest.TestCase):
 class TerminalPublicationRace(unittest.TestCase):
     """Exercise the runner's actual polling helpers with task-local evidence only."""
 
-    def poll(self, payload, marker=False, preexisting=False):
+    def poll(self, payload, marker=False, preexisting=False, fail_lines=None):
         source = RUNNER.read_text()
         functions = source.split('terminal_result_observed() {', 1)[1].split('\nresult_passed=0', 1)[0]
         functions = 'terminal_result_observed() {' + functions
@@ -47,14 +47,15 @@ class TerminalPublicationRace(unittest.TestCase):
             evidence = Path(directory) / 'terminal'
             if preexisting:
                 evidence.write_text(payload)
-            env = dict(os.environ, TEST_RESULT_PATH=str(evidence), TEST_PAYLOAD=payload)
+            env = dict(os.environ, TEST_RESULT_PATH=str(evidence), TEST_PAYLOAD=payload,
+                       TEST_FAIL_LINES=" ".join(fail_lines or ["status=FAIL"]))
             script = """
 set -eu
 log_file=$TEST_RESULT_PATH
 result_file=$TEST_RESULT_PATH
 result_marker=''
 result_pass_line='status=PASS'
-result_fail_line='status=FAIL'
+result_fail_lines=(${TEST_FAIL_LINES:-'status=FAIL'})
 failure_markers=()
 fail() { printf '%s\n' "$1" >&2; exit 23; }
 latest_runtime_log() { printf '%s' "$TEST_RESULT_PATH"; }
@@ -82,6 +83,16 @@ remote_process_alive() { printf '%s\n' "$TEST_PAYLOAD" > "$TEST_RESULT_PATH"; re
         result = self.poll('unfinished=1')
         self.assertEqual(23, result.returncode)
         self.assertIn('host exited before terminal result', result.stderr)
+
+    def test_any_configured_fail_line_matches(self):
+        # The wrapper passes one fail line per non-pass terminal state, so BLOCKED and
+        # SKIPPED runs fail even when the result file carries no `status=FAIL` line.
+        for payload in ('status=BLOCKED', 'status=SKIPPED'):
+            with self.subTest(payload=payload):
+                result = self.poll(payload,
+                    fail_lines=['status=FAIL', 'status=BLOCKED', 'status=SKIPPED'])
+                self.assertEqual(23, result.returncode)
+                self.assertIn('result file reported failure', result.stderr)
 
     def test_preexisting_pass_does_not_need_process_probe(self):
         self.assertEqual(0, self.poll('status=PASS', preexisting=True).returncode)

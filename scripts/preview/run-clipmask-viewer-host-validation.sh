@@ -62,8 +62,11 @@ exec bash "$runner" \
   --result-file 'state/clipmask-viewer-validation-result.properties' \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
+  --result-fail-line 'status=BLOCKED' \
+  --result-fail-line 'status=SKIPPED' \
   --failure-marker 'CLIPMASK_VIEWER_MATRIX_RESULT status=FAIL' \
   --failure-marker 'CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED' \
+  --failure-marker 'CLIPMASK_VIEWER_MATRIX_RESULT status=SKIPPED' \
   --failure-marker 'CLIPMASK_VIEWER_PROBE_FLAG_TIMEOUT' \
   --ready-timeout 300 \
   --result-timeout 900 \
