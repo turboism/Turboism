@@ -1,16 +1,19 @@
 ﻿# Synthetic production-seam gate for the Windows managed launcher.
 # It creates only temporary Cubism-shaped fixtures; it never discovers or starts
-# an installed Cubism host.
+# an installed Cubism host. Subprocess fixtures use a test-only probe/argument-echo executable;
+# real application-artifact admission is covered separately by Java/host validation.
 [CmdletBinding()]
 param([switch]$JdkParserOnly)
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
 Set-StrictMode -Version 3.0
+$script:ManagedLaunchAssertions = 0
 
 function Assert-ManagedLaunch {
     param([bool]$Condition, [string]$Message)
     if (-not $Condition) { throw "FAIL: $Message" }
+    $script:ManagedLaunchAssertions++
     Write-Host "ok: $Message"
 }
 
@@ -283,8 +286,19 @@ function New-SyntheticCubism {
         '>>"%TURBOISM_TEST_OUTPUT%" echo JAVA_ARGS=%*',
         'exit /b 23'
     )
-    [System.IO.File]::WriteAllBytes((Join-Path $root "app\jre\bin\java.exe"), [byte[]](1, 2, 3, 4))
-    [System.IO.File]::WriteAllBytes((Join-Path $root "app\lib\Live2D_Cubism.jar"), [byte[]](5, 6, 7, 8))
+    Copy-Item -LiteralPath $fixtureProbeJava -Destination (Join-Path $root "app\jre\bin\java.exe")
+    $applicationJar = Join-Path $root "app\lib\Live2D_Cubism.jar"
+    [System.IO.File]::WriteAllBytes($applicationJar, [byte[]](5, 6, 7, 8))
+    $admitted = $Version -in @("5.2.03", "5.3.02", "5.3.03")
+    $probeResult = [ordered]@{
+        schemaVersion = 2
+        identity = @{ version = $Version }
+        runtimeAdmitted = $admitted
+        status = $(if ($admitted) { "COMPATIBLE" } else { "REJECTED" })
+        reason = "Synthetic subprocess probe fixture; not actual artifact verification."
+    }
+    [System.IO.File]::WriteAllText($applicationJar + ".fixture-probe.json",
+        ($probeResult | ConvertTo-Json -Depth 4 -Compress), (New-Object System.Text.UTF8Encoding($false)))
     if ($D3D) {
         # D3D follows the same admitted BAT structure as the real official entry.
         $d3dText = [System.IO.File]::ReadAllText((Join-Path $root "CubismEditor5.bat"))
@@ -294,6 +308,34 @@ function New-SyntheticCubism {
 }
 
 try {
+    # The parent resolver scriptblock cannot cross a PowerShell process boundary.
+    # This executable models probe transport/envelope and argument echo only;
+    # it never loads placeholder JARs or changes production admission code.
+    $fixtureProbeJava = Join-Path $temp "synthetic-probe.exe"
+    Add-Type -Language CSharp -OutputType ConsoleApplication -OutputAssembly $fixtureProbeJava -TypeDefinition @'
+using System;
+using System.IO;
+public static class SyntheticCubismProbe {
+    public static int Main(string[] args) {
+        if (args.Length == 4 && args[0] == "-cp" &&
+            args[2] == "dev.turboism.mapping.verification.CubismHostProbeCli") {
+            string result = args[3] + ".fixture-probe.json";
+            if (!File.Exists(result)) return 2;
+            Console.Write(File.ReadAllText(result));
+            return 0;
+        }
+        if (Array.IndexOf(args, "com.live2d.cubism.CECubismEditorApp") >= 0) {
+            string marker = Environment.GetEnvironmentVariable("TURBOISM_TEST_OUTPUT");
+            if (String.IsNullOrEmpty(marker)) return 64;
+            File.AppendAllText(marker, "JAVA_ARGS=" + String.Join(" ", args) + Environment.NewLine,
+                System.Text.Encoding.Default);
+            return 23;
+        }
+        // Never masquerade as a real JVM in the separate Java-17 parser regression.
+        return 64;
+    }
+}
+'@
     [System.IO.File]::WriteAllBytes((Join-Path $turboismHome "turboism-agent.jar"), [byte[]](9, 8, 7, 6))
     $defaultConfig = [ordered]@{
         format = "turboism.runtime.config"
@@ -626,7 +668,7 @@ try {
         [System.IO.File]::WriteAllBytes($incompatibleJava, [byte[]](41, 42, 43, 44))
         [System.IO.File]::WriteAllText(
             (Join-Path $incompatibleHome "release"),
-            "IMPLEMENTOR=`"Other VM`"`r`nJAVA_VERSION=`"25.0.4`"`r`nGRAALVM_VERSION=`"25.2.4`"`r`n",
+            "IMPLEMENTOR=`"Other VM`"`r`nJAVA_VERSION=`"25.0.4`"`r`n",
             (New-Object System.Text.UTF8Encoding($false))
         )
         $env:GRAALVM_HOME = $incompatibleHome
@@ -678,7 +720,7 @@ try {
     # substitution rather than the runner's unrelated legacy ANSI code page.
     $javaOverride = Join-Path $temp "graalvm\bin\java.exe"
     New-Item -ItemType Directory -Path (Split-Path -Parent $javaOverride) -Force | Out-Null
-    [System.IO.File]::WriteAllBytes($javaOverride, [byte[]](11, 12, 13, 14))
+    Copy-Item -LiteralPath $fixtureProbeJava -Destination $javaOverride
     [System.IO.File]::WriteAllText(
         (Join-Path $temp "graalvm\release"),
         "IMPLEMENTOR=`"Oracle Corporation`"`r`nJAVA_VERSION=`"25.0.4+7`"`r`nGRAALVM_VERSION=`"25.0.4+7.1`"`r`n",
@@ -860,7 +902,8 @@ try {
         Assert-ManagedLaunch ($overrideMarker -match 'NORMAL=1') "staged GraalVM override preserves official BAT behavior"
         Assert-ManagedLaunch ($overrideMarker -match ('JAVA=' + [regex]::Escape($javaOverride))) "staged GraalVM override replaces only the Cubism Java executable"
         Assert-ManagedLaunch ($overrideMarker -match ('CWD=' + [regex]::Escape((ConvertTo-CubismCanonicalRoot $root53)))) "staged GraalVM override preserves the Cubism working directory"
-        Assert-ManagedLaunch ($overrideMarker -match '(?im)^SCRIPT=.*[\\/]state[\\/]managed-launch[\\/]\.turboism-java-[0-9]+-[0-9a-f]{32}\.bat\s*$') "staged GraalVM override executes the Turboism-owned BAT"
+        $ownedOptionsRoot = Join-Path $turboismHome "state\managed-launch"
+        Assert-ManagedLaunch ($overrideMarker -match ('(?im)^SCRIPT=' + [regex]::Escape($ownedOptionsRoot) + '[\\/]\.turboism-options-[0-9]+-[0-9a-f]{32}\.bat\s*$')) "staged GraalVM override executes the home-bound Turboism options wrapper"
         Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "Graal child host is enabled exactly once"
         Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.java=')).Count -eq 1) "Graal child host Java is passed process-locally"
         Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.classpath=')).Count -eq 1) "isolated Graal child classpath is passed without changing Cubism classpath"
@@ -1218,6 +1261,7 @@ try {
     New-Item -ItemType Directory -Path $batHome -Force | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $batHome "turboism-agent.jar"), [byte[]](1, 2, 3))
     $batRoot = New-SyntheticCubism -Name "BAT" -Version "5.3.03" -D3D $false
+    $resolvedVersions[(Join-Path $batRoot "app\lib\Live2D_Cubism.jar").ToUpperInvariant()] = "5.3.03"
     $batCandidate = New-CubismInstallationCandidate -Root $batRoot -Source "manual"
     $batCandidate.Selected = $true
     $batFixtureText = "@echo off`r`nset CUBISM_TEST=flower`r`n"
@@ -1232,7 +1276,7 @@ try {
     Assert-ManagedLaunch (Test-Path -LiteralPath $batBackup) "official BAT backup is created"
     Assert-ManagedLaunch ([System.Linq.Enumerable]::SequenceEqual([byte[]]$batOriginal, [byte[]][System.IO.File]::ReadAllBytes($batBackup))) "fresh official BAT backup preserves exact original bytes"
     $batManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
-    Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $batManaged -match 'launch-cubism-turboism\.ps1') "official BAT delegates to the current managed launcher"
+    Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN\r?$' -and $batManaged -match 'launch-cubism-turboism\.ps1') "official BAT delegates to the current managed launcher"
     Assert-ManagedLaunch ($batManaged -notmatch 'JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|-javaagent:') "official BAT carries no frozen JVM options"
     Assert-ManagedLaunch ($batManaged.Contains('-CubismRoot "%~dp0." -Variant normal %*')) "official BAT forwards root, variant and file arguments"
     $batHash = Get-CubismSha256 $batCandidate.OfficialBat
@@ -1251,12 +1295,13 @@ try {
     [System.IO.File]::WriteAllText($batCandidate.OfficialBat, $legacyText, [System.Text.Encoding]::Default)
     $legacyRecords = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate))
     $legacyManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
-    Assert-ManagedLaunch ($legacyManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $legacyManaged -notmatch 'old\\turboism-agent') "recognized legacy BAT integration upgrades to current form"
+    Assert-ManagedLaunch ($legacyManaged -match '(?m)^rem TURBOISM MANAGED BEGIN\r?$' -and $legacyManaged -notmatch 'old\\turboism-agent') "recognized legacy BAT integration upgrades to current form"
     Restore-CubismBatIntegrations -Records $legacyRecords
 
     # Expected native child failures above are asserted explicitly; do not let
     # their retained process status fail the completed PowerShell test script.
     $global:LASTEXITCODE = 0
+    Write-Host "MANAGED_LAUNCH_ASSERTIONS=$script:ManagedLaunchAssertions"
     Write-Host "MANAGED_LAUNCH_TEST=PASS"
 }
 finally {

@@ -1,0 +1,31 @@
+Broader shell baseline check, Windows, 2026-10-31
+
+Current Issue #50 branch:
+  ./gradlew :runtime:test --tests 'dev.turboism.shell.*' --console=plain
+  123 tests: 121 passed, 1 failure, 1 skip.
+  Failure: DeclarativeSettingsRendererTest.pluginSettingsFitLongControlsInSingleAndMultipleTabs
+  Assertion: DeclarativeSettingsRendererTest.java:553, wrapped note height > font line height.
+
+Independent clean baseline:
+  git worktree add --detach ../issue50-shell-baseline origin/main
+  Baseline revision: 9767e2b61 (Merge pull request #58).
+  Initial build hit Windows path length during generated-source writing, before test execution.
+  Moved only this test-owned detached worktree to the shorter ../b50 path (no main ref changes).
+  In ../b50:
+    ./gradlew :runtime:test --tests \
+      'dev.turboism.shell.DeclarativeSettingsRendererTest.pluginSettingsFitLongControlsInSingleAndMultipleTabs' \
+      --console=plain
+  Result: 1 test, 1 failure at the SAME assertion/line 553.
+  Baseline tracked files remain clean. JDK: 17.0.20.1+1, same Windows machine.
+  Renderer and test source have no diff between origin/main and this Issue #50 branch.
+
+Conclusion:
+  The failure exists without Issue #50. This establishes baseline reproduction, not a fix or a
+  claim that all shell tests pass. No production layout behavior/assertion was weakened to pass it.
+  Native Updates-window tests are included in the separate passing selected regression.
+
+Evidence retained locally:
+  /tmp/issue50-broader-shell.log
+  /tmp/issue50-shell-baseline.log
+  ../b50/build/worktree/b50/runtime/test-results/test/
+  The latter isolated baseline XML persists independently of later current-branch test runs.
