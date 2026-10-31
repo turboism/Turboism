@@ -96,8 +96,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
    Never replace loaded framework/Graal/SDK bytes in process or force Cubism to close.
 9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
    beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
-   A broader shell test currently fails DeclarativeSettingsRendererTest's long-control layout assertion; no baseline
-   causality has been established, so the full shell suite is not claimed green.
+   Broader shell execution: 123 tests, 1 failure, 1 skip. The long-control assertion also fails on the clean detached
+   origin/main baseline 9767e2b61, independent of Issue #50; see `shell-baseline-validation.txt`. The complete shell
+   suite is not claimed green.
 
 Earlier offline protocol documentation (`distribution/INCREMENTAL.md`, `native/update-files/README.md`) describes
 pre-existing gates. Passing local tests or building this branch does not activate production endpoints or keys.
@@ -139,9 +140,10 @@ pre-existing gates. Passing local tests or building this branch does not activat
   plugin loading and unchanged protected files; see `host-batch-validation.txt`. Latest selected Java regression:
   **483 tests, 0 failures/errors, 6 skips**. Python bootstrap/release/native: **71 tests, 0 failures, 1 skip**;
   standalone proxy regression and PowerShell bootstrap **33 assertions** pass, as do packaging/configuration checks.
-  The broad managed-launch PowerShell suite's aliased-root and incomplete-D3D fixtures were corrected without
-  weakening runtime guards. It then fails a child-process admission check on its placeholder application JAR;
-  the whole suite is not claimed green (parser-only mode passes). No complete official framework update or native
-  Update-button acceptance is claimed.
+  The synthetic managed-launch PowerShell suite now passes **188 assertions**, repeated twice after fixture
+  corrections without changing production admission. Its child processes use an explicit mock probe/argument-echo
+  executable, not genuine Java/Graal execution; the separate option parser uses actual Java 17. One concurrent run
+  saw an atomic-shortcut sharing violation; cause/stability remain unqualified. No complete official framework
+  update or native Update-button acceptance is claimed.
 - **NSIS tooling attempt:** the official SourceForge download timed out on this machine. No real EXE compilation
   or installation is claimed. Production keys, activation and deployment remain unchanged.
