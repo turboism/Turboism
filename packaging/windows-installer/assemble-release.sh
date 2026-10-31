@@ -19,13 +19,38 @@
 
 set -euo pipefail
 
-VER="${1:-}"
+VER=""
 SKIP_NSIS=0
-if [[ "${2:-}" == "--skip-nsis" ]]; then
-  SKIP_NSIS=1
-fi
+BOOTSTRAP_RECEIPT_DIR="${TURBOISM_BOOTSTRAP_RECEIPT_DIR:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-nsis)
+      SKIP_NSIS=1
+      shift
+      ;;
+    --bootstrap-receipt-dir)
+      BOOTSTRAP_RECEIPT_DIR="${2:-}"
+      shift 2
+      ;;
+    -*)
+      echo "error: unknown option: $1" >&2
+      exit 2
+      ;;
+    *)
+      if [[ -z "$VER" ]]; then
+        VER="$1"
+      else
+        echo "error: unexpected argument: $1" >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+
 if [[ -z "$VER" ]]; then
-  echo "usage: assemble-release.sh <version> [--skip-nsis]" >&2
+  echo "usage: assemble-release.sh <version> [--skip-nsis] [--bootstrap-receipt-dir <path>]" >&2
   exit 2
 fi
 
@@ -407,6 +432,7 @@ core_payload.extend(
     for path in sorted((stage / "graal" / "lib").glob("*.jar"))
 )
 core_payload.extend([
+    ("bootstrap-receipt.ps1", stage / "bootstrap-receipt.ps1"),
     ("install-jar-payload.ps1", stage / "install-jar-payload.ps1"),
     ("launch-cubism-turboism.bat", stage / "launch-cubism-turboism.bat"),
     ("launch-cubism-turboism.ps1", stage / "launch-cubism-turboism.ps1"),
@@ -762,6 +788,29 @@ else
   if [[ -n "$ver_numeric" ]]; then
     nsis_args+=(-DVER_NUMERIC="$ver_numeric")
     echo "[assemble] VIProductVersion: $ver_numeric"
+  fi
+  if [[ -n "$BOOTSTRAP_RECEIPT_DIR" && -d "$BOOTSTRAP_RECEIPT_DIR" ]]; then
+    bootstrap_stage="$generated/bootstrap-receipt"
+    mkdir -p "$bootstrap_stage"
+    if [[ -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" ]]; then
+      cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json" "$bootstrap_stage/manifest.json"
+      cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
+    elif [[ -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" ]]; then
+      cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" "$bootstrap_stage/manifest.json"
+      cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
+    else
+      echo "error: bootstrap receipt directory must contain manifest.json and manifest.json.sig (or turboism-$VER-manifest.json and .sig)" >&2
+      exit 1
+    fi
+    nsis_args+=(-DBOOTSTRAP_RECEIPT_DIR="$bootstrap_stage")
+    cp "$bootstrap_stage/manifest.json" "$dist/turboism-$VER-manifest.json"
+    cp "$bootstrap_stage/manifest.json.sig" "$dist/turboism-$VER-manifest.json.sig"
+    (
+      cd "$dist"
+      sha256sum "turboism-$VER-manifest.json" > "turboism-$VER-manifest.json.sha256"
+      sha256sum "turboism-$VER-manifest.json.sig" > "turboism-$VER-manifest.json.sig.sha256"
+    )
+    echo "[assemble] bootstrap receipt bundled: $bootstrap_stage"
   fi
   makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
   (

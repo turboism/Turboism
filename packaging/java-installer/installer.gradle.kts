@@ -159,6 +159,7 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/README.zh.txt.template",
     "packaging/windows-installer/README.ja.txt.template",
     "packaging/windows-installer/README.ko.txt.template",
+    "packaging/windows-installer/bootstrap-receipt.ps1",
     "packaging/windows-installer/launch-cubism-turboism.bat",
     "packaging/windows-installer/launch-cubism-turboism.ps1",
     "packaging/windows-installer/configure_turboism.ps1",
@@ -321,6 +322,7 @@ val stageInstallerPayload by tasks.registering {
         }
         // OS-appropriate launcher/configuration files
         copy {
+            from("packaging/windows-installer/bootstrap-receipt.ps1")
             from("packaging/windows-installer/launch-cubism-turboism.bat")
             from("packaging/windows-installer/launch-cubism-turboism.ps1")
             from("packaging/windows-installer/configure_turboism.ps1")
