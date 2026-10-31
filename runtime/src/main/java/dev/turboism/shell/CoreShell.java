@@ -462,14 +462,18 @@ public final class CoreShell implements ShellHandle {
         registerAction(
                 CoreUpdateService.MANUAL_CHECK_ACTION_ID,
                 localized("updates.check", "Check for updates"),
-                ignored -> updates.checkManual());
+                ignored -> {
+                    windows.showUpdates(updates);
+                    updates.checkManual();
+                });
         try {
             final String root = localized("main-toolbar.menu-root.label", "Turboism");
             context.disposableScope()
                     .register(context.menus().contribute(new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
                         @Override
                         public String menuPath() {
-                            return root + "/" + localized("updates.check", "Check for updates");
+                            return root + "/" + localized("updates.install.title", "Updates")
+                                    + "/" + localized("updates.check", "Check for updates");
                         }
 
                         @Override

@@ -37,7 +37,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
 
 ## Remaining release blockers
 
-1. Wire discovery, installed receipt, downloader and coordinator into product lifecycle and native Updates UI.
+1. Complete product lifecycle binding of trusted receipt/downloader/coordinator configuration. A modeless native
+   Updates window and asynchronous core adapter now exist, with EN, zh-Hans, zh-Hant, JA and KO strings. A legacy
+   discovery service remains explicitly UNAVAILABLE for installation; the UI does not bypass missing authority.
 2. Implement a reviewed, framework-specific signing-key policy; plugin catalog trust must not implicitly authorize
    framework updates merely because its keys are bundled. No private production key is required by the client.
 3. Publish signed manifests/payload objects through a deliberately migrated asset contract and release gate.
@@ -50,8 +52,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
    helper/health locking are present but are not a complete handle-based TOCTOU defense.
 7. Qualify process-exit identity and detached helper lifecycle, including sessions longer than the current one-hour
    helper wait, launcher death while Cubism remains alive, and normal close/restart with unsaved documents.
-8. Integrate four-language presentation, opt-in, truthful progress, retry/cancel/recovery diagnostics, and safe plugin
-   hot updates through the existing coordinator. Never replace loaded framework/Graal/SDK bytes in process.
+8. Finish native-window host acceptance, opt-in, retry/recovery diagnostics, and safe plugin hot updates through
+   the existing coordinator. The UI exposes background download, cancellation and install-on-user-exit, never forced
+   restart. Never replace loaded framework/Graal/SDK bytes in process.
 9. Run complete supported-Windows Cubism acceptance, repeated upgrade and crash/locked-file tests with the actual
    new implementation. Retain reports; distinguish any future Linux/Proton evidence.
 

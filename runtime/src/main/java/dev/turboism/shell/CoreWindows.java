@@ -61,6 +61,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog pluginsDialog;
     private JDialog pluginDetailsDialog;
     private JDialog aboutDialog;
+    private FrameworkUpdatesWindow updatesWindow;
     private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
             java.util.concurrent.Executors.newSingleThreadExecutor(new PluginDetailsThreadFactory());
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -170,6 +171,14 @@ final class CoreWindows implements AutoCloseable {
         });
     }
 
+    void showUpdates(final CoreUpdateService updates) {
+        CoreDialogs.onEdt(() -> {
+            if (closed.get()) return;
+            if (updatesWindow == null) updatesWindow = new FrameworkUpdatesWindow(i18n, updates);
+            updatesWindow.show();
+        });
+    }
+
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
@@ -177,6 +186,7 @@ final class CoreWindows implements AutoCloseable {
         CoreDialogs.onEdt(() -> {
             logWindow.close();
             keybindingsWindow.close();
+            if (updatesWindow != null) updatesWindow.close();
             if (pluginSettingsWindow != null) pluginSettingsWindow.close();
             if (pluginMarketWindow != null) pluginMarketWindow.close();
             final ActiveSettingsAction active = activeSettingsAction;

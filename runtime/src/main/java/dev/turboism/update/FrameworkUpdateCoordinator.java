@@ -81,6 +81,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
     private FrameworkUpdateDownloader.Downloaded staged;
     private Path stageDirectory;
     private boolean closed;
+    private long generation;
 
     FrameworkUpdateCoordinator(
             final Path root,
@@ -141,11 +142,12 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                 return joined;
             }
             if (status.state() == State.APPLY_PENDING) return CompletableFuture.completedFuture(status);
+            final long requestGeneration = ++generation;
             final String version = candidate.incremental().orElseThrow().version();
             publish(new Status(State.DOWNLOADING, version, 0, 0, 0, Optional.empty()));
             final var download = downloader.stage(candidate, context, root, progress -> {
                 synchronized (lock) {
-                    if (status.state() == State.DOWNLOADING) {
+                    if (!closed && generation == requestGeneration && status.state() == State.DOWNLOADING) {
                         publish(new Status(
                                 State.DOWNLOADING,
                                 version,
@@ -160,6 +162,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             inFlight = download.handleAsync(
                     (downloaded, failure) -> {
                         synchronized (lock) {
+                            if (closed || generation != requestGeneration) return status;
                             if (failure != null) {
                                 final boolean cancelled = failure instanceof java.util.concurrent.CancellationException
                                         || failure.getCause() instanceof java.util.concurrent.CancellationException;
@@ -172,12 +175,14 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                                         Optional.of(cancelled ? "Download cancelled" : describe(failure))));
                             } else {
                                 staged = downloaded;
+                                final long total = downloaded.plan().decisions().stream()
+                                        .mapToLong(d -> d.entry().bytes()).sum();
                                 publish(new Status(
                                         State.STAGED,
                                         version,
                                         downloaded.plan().bytesToDownload(),
-                                        downloaded.plan().bytesToDownload(),
-                                        downloaded.plan().bytesToDownload(),
+                                        total,
+                                        total,
                                         Optional.empty()));
                             }
                             return status;
@@ -197,6 +202,11 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             // Cancel the transfer, never the future handed to callers: they must observe the CANCELLED status
             // as a normal result rather than an exception.
             toCancel = status.state() == State.DOWNLOADING ? transfer : null;
+            if (toCancel != null) {
+                ++generation;
+                publish(new Status(State.CANCELLED, status.version(), status.bytesToDownload(),
+                        status.bytesVerified(), status.bytesTotal(), Optional.empty()));
+            }
         }
         if (toCancel != null) toCancel.cancel(true);
     }
@@ -288,6 +298,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
     public Status reset() {
         synchronized (lock) {
             if (status.state() == State.DOWNLOADING || status.state() == State.APPLY_PENDING) return status;
+            ++generation;
             staged = null;
             return publish(new Status(State.IDLE, "", 0, 0, 0, Optional.empty()));
         }
