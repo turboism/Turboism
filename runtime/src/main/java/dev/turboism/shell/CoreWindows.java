@@ -60,6 +60,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog pluginDetailsDialog;
+    private volatile PendingPluginChangesAction pendingChangesAction;
     private JDialog aboutDialog;
     private FrameworkUpdatesWindow updatesWindow;
     private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
@@ -183,7 +184,9 @@ final class CoreWindows implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         pluginDetailsExecutor.shutdownNow();
+        if (pendingChangesAction != null) pendingChangesAction.close();
         CoreDialogs.onEdt(() -> {
+            if (pendingChangesAction != null) pendingChangesAction.close();
             logWindow.close();
             keybindingsWindow.close();
             if (updatesWindow != null) updatesWindow.close();
@@ -728,7 +731,10 @@ final class CoreWindows implements AutoCloseable {
         pluginCount.setBorder(BorderFactory.createEmptyBorder(8, 8, 0, 8));
         pluginTableModel.addTableModelListener(
                 ignored -> pluginCount.setText(i18n.format("plugins.count", pluginTableModel.installedPluginCount())));
-        dialog.add(pluginCount, BorderLayout.NORTH);
+        final JPanel header = new JPanel(new BorderLayout(8, 0));
+        header.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 8));
+        header.add(pluginCount, BorderLayout.CENTER);
+        dialog.add(header, BorderLayout.NORTH);
         pluginTable = new JTable(pluginTableModel);
         pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         pluginSorter = new TableRowSorter<>(pluginTableModel);
@@ -756,6 +762,26 @@ final class CoreWindows implements AutoCloseable {
             }
         });
         pluginStatus = new JLabel(text("plugins.restart-hint"));
+        pendingChangesAction = new PendingPluginChangesAction(
+                text("plugins.pending.review"), plugins, snapshot -> {
+                    final StringBuilder message = new StringBuilder(text(snapshot.code().equals("PLUGIN_PENDING_FAILED")
+                            ? "plugins.pending.failed-confirm" : "plugins.pending.confirm")).append("\n\n");
+                    for (CorePluginManagement.PendingChange change : snapshot.changes()) {
+                        message.append(change.pluginId()).append("  ")
+                                .append(text(change.operation().equals("UNINSTALL")
+                                        ? "plugins.pending.uninstall" : "plugins.pending.install"))
+                                .append("  ").append(change.version()).append('\n');
+                    }
+                    return CoreDialogs.confirmScrollable(pluginsDialog, text("plugins.pending.review"),
+                            message.toString(), text("plugins.pending.discard"), text("plugins.pending.keep"));
+                }, code -> pluginStatus.setText(pendingChangesStatus(code)), this::refreshPlugins);
+        header.add(pendingChangesAction.button(), BorderLayout.EAST);
+        dialog.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentHidden(final java.awt.event.ComponentEvent event) {
+                pendingChangesAction.viewHidden();
+            }
+        });
 
         final JTextField filter = new JTextField(20);
         filter.setToolTipText(text("plugins.filter.tooltip"));
@@ -830,6 +856,20 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(new JScrollPane(pluginTable), BorderLayout.CENTER);
         dialog.add(bottom, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    private String pendingChangesStatus(final String code) {
+        return text(switch (code) {
+            case "PLUGIN_PENDING_LOADING" -> "plugins.pending.loading";
+            case "PLUGIN_PENDING_DISCARDING" -> "plugins.pending.discarding";
+            case "PLUGIN_PENDING_DISCARDED" -> "plugins.pending.discarded";
+            case "PLUGIN_PENDING_EMPTY" -> "plugins.pending.empty";
+            case "PLUGIN_PENDING_UNCHANGED" -> "plugins.pending.unchanged";
+            case "PLUGIN_PLAN_CHANGED" -> "plugins.pending.changed";
+            case "PLUGIN_PENDING_BUSY" -> "plugins.pending.busy";
+            case "PLUGIN_FRAMEWORK_RECOVERY_PENDING" -> "plugins.pending.framework-recovery";
+            default -> "plugins.pending.failed";
+        });
     }
 
     static boolean pluginDetailsDoubleClick(final java.awt.event.MouseEvent event) {

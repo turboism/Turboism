@@ -155,6 +155,9 @@ public class CoordinatedPluginUpdateService {
         Objects.requireNonNull(catalog, "catalog");
         Objects.requireNonNull(installedPlugins, "installedPlugins");
         Objects.requireNonNull(targetApiVersion, "targetApiVersion");
+        if (pending.recoveryRequired()) {
+            throw new IllegalStateException("PLUGIN_PENDING_REVIEW_REQUIRED: review pending changes in Plugin Management first.");
+        }
 
         final Map<String, CorePluginManagement.PluginInfo> byId = new LinkedHashMap<>();
         final Map<String, PluginVersion> installedVersions = new LinkedHashMap<>();
@@ -361,6 +364,10 @@ public class CoordinatedPluginUpdateService {
             final Optional<PluginVersion> targetApiVersion,
             final java.util.function.BooleanSupplier cancelled,
             final PluginCatalogClient.DownloadControl control) {
+        if (pending.recoveryRequired()) {
+            return DownloadResult.failure("PLUGIN_PENDING_REVIEW_REQUIRED",
+                    "Review pending changes in Plugin Management before downloading again.");
+        }
         final List<PluginAutoUpdatePlanner.PlannedUpdate> selectedUpdates = rows.stream()
                 .filter(PluginUpdateRow::selected)
                 .flatMap(r -> r.plannedUpdate().stream())
