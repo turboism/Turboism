@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Protected-publisher helper: stage producer output, request admission, then prove the public
  * API serves the exact bytes. Run only from the dedicated publisher workflow (GitHub OIDC).
- *   node distribution/publish-framework.mjs <producer-output-dir> <prefix> <keyId> [--initialize]
+ *   node distribution/publish-framework.mjs <producer-output-dir> <prefix> <keyId> [--initialize] [--reactivate]
  * The private signing key never reaches this script; it uploads already-signed documents.
  */
 import {createHash} from 'node:crypto';
@@ -47,25 +47,32 @@ export async function withdrawCandidate({id,token,origin=ORIGIN,fetcher=fetch}){
  return body;
 }
 /** Request admission for candidate, run public preflight verification, and roll back via withdrawal if verification fails. */
-export async function publishCandidate({candidate,expected,keyId,initialize=false,token,origin=ORIGIN,fetcher=fetch,verifier=verifyPublic}){
+export async function publishCandidate({candidate,expected,keyId,initialize=false,reactivate=false,token,origin=ORIGIN,fetcher=fetch,verifier=verifyPublic}){
  const authToken=typeof token==='object'&&token?.value?token.value:token;
  const headers={'Content-Type':'application/json'};
  if(authToken)headers.Authorization=`Bearer ${authToken}`;
  const response=await fetcher(`${origin}/v1/framework/admit`,{
   method:'POST',
   headers,
-  body:JSON.stringify({candidate,expected:{identity:candidate.identity,keyId},initialize})
+  body:JSON.stringify({candidate,expected:{identity:candidate.identity,keyId},initialize,reactivate})
  });
  const result=await response.text();
  if(!response.ok)throw new Error(`Admission failed (HTTP ${response.status}): ${result}`);
  let body=null;try{body=JSON.parse(result);}catch{}
- const id=body?.id||candidate.manifest?.sha256;
+ const expectedId=candidate?.manifest?.sha256,identity=candidate?.identity;
+ if(!body||typeof body!=='object'||body.status!=='admitted'||body.id!==expectedId||!body.identity||
+    body.identity.version!==identity?.version||
+    body.identity.buildNumber!==identity?.buildNumber||
+    body.identity.channel!==identity?.channel||
+    body.identity.sourceRevision!==identity?.sourceRevision){
+  throw new Error(`Invalid admission receipt: expected candidate ${expectedId} (${identity?.version}#${identity?.buildNumber}) on channel ${identity?.channel}`);
+ }
  try{
   await verifier(candidate,expected,fetcher,origin);
  }catch(preflightError){
   let withdrawError=null;
   try{
-   await withdrawCandidate({id,token:authToken,origin,fetcher});
+   await withdrawCandidate({id:expectedId,token:authToken,origin,fetcher});
   }catch(err){
    withdrawError=err;
   }
@@ -74,16 +81,17 @@ export async function publishCandidate({candidate,expected,keyId,initialize=fals
    error.cause={preflightError,withdrawError};
    throw error;
   }
-  const error=new Error(`Public preflight failed: ${preflightError.message}; candidate ${id} withdrawn`);
+  const error=new Error(`Public preflight failed: ${preflightError.message}; candidate ${expectedId} withdrawn`);
   error.cause=preflightError;
   error.withdrawn=true;
-  error.id=id;
+  error.id=expectedId;
   throw error;
  }
- return {status:'published',id,identity:candidate.identity,candidate};
+ return {status:'published',id:expectedId,identity:candidate.identity,candidate};
 }
 export const publishFramework=publishCandidate;
-async function main([directory,prefix,keyId,flag]){
+async function main(args){
+ const [directory,prefix,keyId]=args,flags=new Set(args.slice(3));
  const {candidate,expected}=collect(directory,prefix),token=await (await fetch(`${process.env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encodeURIComponent(ORIGIN)}`,{headers:{Authorization:`Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}`}})).json();
  for(const [key] of expected){ // objects first; the Worker refuses to register anything not matching the signed manifest
   const file=key.startsWith('documents/')?join(directory,prefix+(key.endsWith(candidate.manifest.sha256)?'-manifest.json':'-manifest.json.sig')):join(directory,key);
@@ -93,7 +101,8 @@ async function main([directory,prefix,keyId,flag]){
   candidate,
   expected,
   keyId,
-  initialize:flag==='--initialize',
+  initialize:flags.has('--initialize'),
+  reactivate:flags.has('--reactivate'),
   token:token.value,
  });
  console.log('admit 200 id:',published.id);
