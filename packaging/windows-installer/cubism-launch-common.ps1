@@ -2561,6 +2561,17 @@ function New-CubismManagedOptionsBat {
     $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
     $text = [regex]::Replace($text, $legacy, '')
 
+    # The copy lives under Turboism, but dp0 must retain the official BAT's directory
+    # (including the PATH entry for dependent DLLs), not the managed staging directory.
+    $officialRootPrefix = $root.TrimEnd('\', '/') + '\'
+    $text = [regex]::Replace($text, '(?i)%~dp0', { param($match) $officialRootPrefix })
+    # Preserve the official proxy setup even when NoDefaultCurrentDirectoryInExePath
+    # disables bare-name lookup. Do not weaken that environment security setting.
+    $proxyPath = Join-Path $root 'ProxyConfig.bat'
+    $proxyPattern = '(?im)^if[ \t]+exist[ \t]+ProxyConfig\.bat[ \t]+call[ \t]+ProxyConfig\.bat[ \t]*(?:\r?\n|$)'
+    $proxyCall = 'if exist "' + $proxyPath + '" call "' + $proxyPath + '"' + "`r`n"
+    $text = [regex]::Replace($text, $proxyPattern, { param($match) $proxyCall })
+
     if (Test-CubismBatExplicitHeapLimit -Text $text) {
         # The BAT already carries an explicit heap limit; keep it authoritative
         # over the managed memory profile's -Xmx (soft-reference tuning is

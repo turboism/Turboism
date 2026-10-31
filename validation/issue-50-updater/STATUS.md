@@ -52,6 +52,20 @@ This is an in-progress branch, **not a production-ready self-updater**.
 - Windows JDK ProcessHandle command-line inspection proved insufficient in a real child-process test. The corrected
   helper uses bounded PowerShell/CIM inspection, rejects a live peer using the same agent, and fails closed on query
   errors. This is not an atomic launch/apply lease.
+- With explicit host-testing permission, the fe110e4 local runtime/full payload started Cubism 5.3.04 with
+  **32 plugins, 0 failures**. In a separate 29-plugin lab baseline, two selective plugin batches downloaded through
+  a temporary signed catalog/loopback transport and applied on actual managed startups: BoundingBox Warp Mirror,
+  then Clip Mask Viewer, both 0.67.4 -> locally built 0.68.1. Each batch preserved the other 28 JAR hashes and five
+  protected configuration/sentinel hashes. These were real plugin executions, not the earlier inert-JAR fixtures.
+- Real launch checks also covered live-instance refusal without terminating that instance, damaged pending-task
+  removal, and unconfirmed component README recovery through the retained helper before normal Cubism startup.
+  The component probe reused the agent unchanged; it was not a full signed framework or bytecode upgrade/rollback.
+- Host testing found and fixed official ProxyConfig/dp0 handling under disabled current-directory executable search,
+  plus unnecessary WRITE_OWNER in bootstrap ACL preparation. See `host-batch-validation.txt` for detailed evidence,
+  lab paths and strict boundaries. A subsequent full-layout bootstrap fixture signed all 36 actual files using
+  a temporary key bundled only in the lab agent: real managed receipt initialization and 29-plugin startup passed.
+  Original agent was restored and fixture receipt/key material removed afterward; another 29-plugin startup passed.
+  Framework client activation stayed disabled for this unnumbered local build.
 - No Linux/Proton execution evidence has been collected in this Windows session.
 
 ## Remaining release blockers
@@ -120,6 +134,14 @@ pre-existing gates. Passing local tests or building this branch does not activat
   0 failures/errors, 6 skips**; core-contract retains its **31-test** green result; Python bootstrap/release/native
   **70 tests, 0 failures, 1 skip**; Node **78 pass**; bootstrap JAR and configuration/installer-packaging checks pass.
   UI tests use injected services; signed catalog/JAR containers are not executed as real host plugins. The full shell
-  suite and actual download/selected-plugin/managed-restart/repeated-update host chain remain unqualified.
+  suite and full admitted-framework/native-window/repeated-framework-update host chain remain unqualified.
+- **Authorized real-host checkpoint:** selective plugin download/next-start application succeeded twice, with real
+  plugin loading and unchanged protected files; see `host-batch-validation.txt`. Latest selected Java regression:
+  **483 tests, 0 failures/errors, 6 skips**. Python bootstrap/release/native: **71 tests, 0 failures, 1 skip**;
+  standalone proxy regression and PowerShell bootstrap **33 assertions** pass, as do packaging/configuration checks.
+  The broad managed-launch PowerShell suite's aliased-root and incomplete-D3D fixtures were corrected without
+  weakening runtime guards. It then fails a child-process admission check on its placeholder application JAR;
+  the whole suite is not claimed green (parser-only mode passes). No complete official framework update or native
+  Update-button acceptance is claimed.
 - **NSIS tooling attempt:** the official SourceForge download timed out on this machine. No real EXE compilation
   or installation is claimed. Production keys, activation and deployment remain unchanged.

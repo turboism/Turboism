@@ -76,7 +76,8 @@ Each candidate is tested via `-version` to require Java 17+.
 Before running `FrameworkUpdateHelper`, `bootstrap-receipt.ps1` ensures that `<root>\state`,
 `<root>\state\runtime`, and `<root>\state\runtime\update` have owner-only access
 (plus SYSTEM and Administrators on Windows), disabling inheritance, as required by
-`FrameworkUpdateReceipt.requirePrivate`. Existing user files under `state` are preserved.
+`FrameworkUpdateReceipt.requirePrivate`. Directory ownership is checked and preserved; only the DACL is changed,
+without requesting `WRITE_OWNER`. Existing user file bytes under `state` are preserved.
 
 ### Exit Codes
 
@@ -106,14 +107,14 @@ Before running `FrameworkUpdateHelper`, `bootstrap-receipt.ps1` ensures that `<r
    - Validates `--bootstrap-receipt-dir` in the shared phase before packaging.
    - When provided, bundles `bootstrap/manifest.json` and `bootstrap/manifest.json.sig` into `turboism-<ver>.zip`.
    - Keeps public `$dist` strictly to the 8 approved release assets; no sidecars are published to `$dist`.
-   - Candidate ZIP SHA-256 and size remain exact and match candidate/receipt.
+   - Compute candidate ZIP SHA-256 and size from the final archive after embedding these documents.
 3. **NSIS Installer** (`packaging/windows-installer/installer.nsi`):
    - Conditional compile flag: `-DBOOTSTRAP_RECEIPT_DIR=<dir>`.
    - Uses `SetOutPath "$INSTDIR\bootstrap"` followed by `File "/oname=manifest.json"` and `.sig`,
      restoring `SetOutPath "$INSTDIR"`.
    - During `.onInstSuccess`, `configure_turboism.ps1 -InitializeSelection` automatically executes `bootstrap-receipt.ps1`.
    - On uninstall, cleans up `$INSTDIR\bootstrap` and `$INSTDIR\bootstrap-receipt.ps1`.
-   - When omitted (e.g. legacy build), NSIS builds cleanly without receipt bundling.
+   - When omitted (e.g. legacy build), the conditional receipt payload is absent; real NSIS compilation remains unverified here.
 
 ## Managed Launcher (`launch-cubism-turboism.ps1`)
 
@@ -132,8 +133,8 @@ Cubism launch acceptance test.
 
 - **Verified via automated tests**:
   - Python `unittest` (`scripts/test/test_bootstrap_receipt.py`): cross-layer consistency (JSON layout, Java allowlist, Gradle staging, assemble script), real `FrameworkUpdateReceipt` integration with Ed25519 signing and Windows ACL validation, upgraded receipt collision protection, ZIP embedding, and tamper rejection.
-  - PowerShell (`packaging/windows-installer/test-bootstrap-receipt.ps1`): 26 assertions covering syntax, mock and real execution, stale document bypass, strict collision rejection, and configurator failure propagation.
+  - PowerShell (`packaging/windows-installer/test-bootstrap-receipt.ps1`): 33 assertions covering script plumbing with a mock helper, stale-document bypass, collision/error propagation. Real receipt/signature execution is covered separately by the Python integration tests.
   - Full existing test suites: `test-config-merge.py`, `test-installer-packaging.py`, `test_release_tooling.py`, `test_windows_update_native.py`.
 - **Explicitly Unverified / Downstream Scope**:
-  - **Real NSIS compiler (`makensis`) execution**: `makensis` binary was not run in this environment; NSIS script validity is checked by AST and config-merge tests, real binary compilation belongs to CI.
+  - **Real NSIS compiler (`makensis`) execution**: `makensis` binary was not run in this environment; only source-contract/config-merge checks were run; real binary compilation belongs to CI.
   - **Protected Signing CI and Production Keys**: Client and installer remain strictly verification-only; production keys are not yet provisioned in `framework-update-trusted-keys.json`.

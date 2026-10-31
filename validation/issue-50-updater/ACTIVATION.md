@@ -70,8 +70,10 @@ java -cp <trusted-agent-or-helper-copy.jar> dev.turboism.update.FrameworkUpdateH
 - The runtime reloads signed installed receipts on its IO worker; the core UI never supplies hashes or paths.
 - Download and materialization authenticate exact documents and stream/rehash changed objects. Unchanged files are
   omitted from the stage and are independently rehashed by the helper before reuse.
-- The independent helper waits for process exit, obtains its transaction lock, reauthenticates the old receipt and
-  full installed payload, and re-verifies target admission. Mutable installed-build.json is not old identity.
+- The coordinator persists next-launch intent and a retained helper copy. Production does not depend on a
+  one-hour background waiter. Before starting Cubism, the controlled launcher runs that helper, which obtains its
+  transaction lock, reauthenticates old receipt/full payload and re-verifies the target. Mutable installed-build.json
+  is not old identity.
 - Existing targets absent from old signed ownership cannot be overwritten. Old owned files absent from the new
   layout (e.g. versioned SDK/Graal-host JARs) are retired only when their old hashes still match. User additions are
   never inferred as retired files.
@@ -87,15 +89,18 @@ Windows JDK 17 does not reliably provide ProcessHandle command lines. The helper
 PowerShell 5.1 CIM query, with a Base64 path value, explicit UTF-8/text output and no user path interpolated as code.
 It terminates only its own query subprocess on timeout. Query failure blocks apply/recovery rather than treating
 missing data as "not running". This is an additional guard, not an atomic launch/apply lease; concurrent launch
-serialization and long-session durable install intent remain acceptance blockers.
+serialization and long-session/full-release qualification remain acceptance blockers; durable next-launch intent
+is implemented. Authorized local host checks cover live-instance refusal and malformed-intent recovery, not an
+atomic launch/apply lease.
 
 ## Required before enabling
 
 - Migrate the release asset/publication contract and deploy immutable resources plus an admitted channel authority.
 - Provision reviewed public keys and activation resources; never ship local test keys or invent release identity.
-- Wire full-package bootstrap receipt initialization and verify migration from existing supported installations.
-- Complete durable install-next-launch handling and launcher/apply interlocking, including a broken new launcher,
-  sessions beyond the helper timeout, multiple Cubism instances and restart/power-loss recovery.
+- Qualify the wired full-package bootstrap and migration from existing supported installations. Host testing fixed
+  DACL preparation on owned Modify-only directories: it must not require re-setting ownership/WRITE_OWNER.
+- Qualify the implemented durable next-launch handling and launcher/apply interlocking, including a broken new
+  launcher, long sessions, multiple Cubism instances and restart/power-loss recovery.
 - Qualify Windows writable-cache safety and metadata durability; file force/atomic rename alone is not proof of
   Windows power-loss safety or handle-based anti-TOCTOU safety.
 - Validate UI download/cancel/resume and at least two successive real signed updates inside supported Windows
