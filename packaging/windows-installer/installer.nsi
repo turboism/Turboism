@@ -1715,6 +1715,12 @@ Section "-核心文件" SecCore
   FileOpen $0 "$INSTDIR\installed-build.json" w
   FileWrite $0 '{"schemaVersion":1,"variant":"full","version":"${VER}"}$\r$\n'
   FileClose $0
+
+!ifdef BOOTSTRAP_RECEIPT_DIR
+  CreateDirectory "$INSTDIR\state\runtime\update\bootstrap"
+  File "/oname=$INSTDIR\state\runtime\update\bootstrap\manifest.json" "${BOOTSTRAP_RECEIPT_DIR}\manifest.json"
+  File "/oname=$INSTDIR\state\runtime\update\bootstrap\manifest.json.sig" "${BOOTSTRAP_RECEIPT_DIR}\manifest.json.sig"
+!endif
 SectionEnd
 
 
@@ -1787,6 +1793,7 @@ Section "Uninstall"
   Delete "$INSTDIR\launch-cubism-turboism.ps1"
   Delete "$INSTDIR\cubism-launch-common.ps1"
   Delete "$INSTDIR\configure_turboism.ps1"
+  Delete "$INSTDIR\bootstrap-receipt.ps1"
   Delete "$INSTDIR\install-jar-payload.ps1"
   Delete "$INSTDIR\install-managed-graal.ps1"
   Delete "$INSTDIR\install-script-engine.ps1"
