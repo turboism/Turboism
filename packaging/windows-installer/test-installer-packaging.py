@@ -138,7 +138,7 @@ def synthetic_test() -> None:
         (stage / "plugins").mkdir(parents=True)
         (stage / "graal/lib").mkdir(parents=True)
         names = (
-            "turboism-agent.jar install-jar-payload.ps1 launch-cubism-turboism.bat "
+            "turboism-agent.jar bootstrap-receipt.ps1 install-jar-payload.ps1 launch-cubism-turboism.bat "
             "launch-cubism-turboism.ps1 configure_turboism.ps1 cubism-launch-common.ps1 "
             "install-managed-graal.ps1 install-script-engine.ps1 turboism.ico turboism.png "
             "retired-plugins.txt managed-graal.json "
@@ -147,13 +147,13 @@ def synthetic_test() -> None:
         ).split()
         for name in names:
             (stage / name).write_text("synthetic " + name, encoding="utf-8")
-        modules = [line.split(":")[-1] for line in (ROOT / "packaging/release-plugins.txt").read_text().splitlines()]
+        modules = [line.split(":")[-1] for line in (ROOT / "packaging/release-plugins.txt").read_text(encoding="utf-8").splitlines()]
         for module in modules:
             with zipfile.ZipFile(stage / "plugins" / (module + ".jar"), "w") as archive:
                 archive.writestr("META-INF/turboism/plugin.json", json.dumps({"id": "dev.turboism.plugin." + module, "name": module, "version": "0.67.0"}))
                 for locale in ("en", "zh_Hans", "ja", "ko"):
                     archive.writestr("META-INF/turboism/i18n/messages_" + locale + ".properties", "plugin.name=" + module + "\nplugin.description=synthetic fixture\n")
-        manifest = json.loads((PACKAGE / "script-engine.json").read_text())
+        manifest = json.loads((PACKAGE / "script-engine.json").read_text(encoding="utf-8"))
         for entry in manifest["artifacts"]:
             path = stage / "graal/lib" / entry["name"]
             path.write_bytes(("synthetic " + entry["name"]).encode())
@@ -175,7 +175,7 @@ def synthetic_test() -> None:
         for name in ("sdk-0.67.0.jar", "graal-host-0.67.0.jar", "polyglot-25.2.4.jar"):
             (stage / "graal/lib" / name).write_bytes(b"synthetic base library")
         _, generated = generate(stage, work, verification)
-        core = (generated / "payload-core.sha256").read_text()
+        core = (generated / "payload-core.sha256").read_text(encoding="utf-8")
         extractor = (generated / "payload-extract.nsh").read_text(encoding="utf-8-sig")
         for entry in manifest["artifacts"]:
             assert entry["name"] in core and entry["name"] in extractor, "standard EXE must embed the verified offline engine"
