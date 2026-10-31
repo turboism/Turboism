@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -531,11 +532,18 @@ def main() -> int:
         package_dir = base / VERIFICATION_PACKAGE
         if package_dir.is_dir():
             for stale in package_dir.rglob("*.java"):
-                stale.unlink()
+                stale_path = str(stale.resolve())
+                if os.name == "nt" and len(stale_path) >= 240 and not stale_path.startswith("\\\\?\\"):
+                    stale_path = "\\\\?\\" + stale_path
+                os.unlink(stale_path)
         for relpath, text in sorted(rendered.items()):
             out = base / relpath
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(text, encoding="utf-8")
+            target = str(out.resolve())
+            if os.name == "nt" and len(target) >= 240 and not target.startswith("\\\\?\\"):
+                target = "\\\\?\\" + target
+            with open(target, "w", encoding="utf-8") as destination:
+                destination.write(text)
         print(f"rendered {len(rendered)} generated verification sources")
         return 0
 

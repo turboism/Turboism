@@ -553,3 +553,20 @@ val windowsReceiptValidationBundle by tasks.registering(Copy::class) {
     from(configurations.runtimeClasspath.map { files -> files.filter { it.name.startsWith("jackson-") } })
     into(rootProject.layout.buildDirectory.dir("native/windows-receipt-validation"))
 }
+
+val bootstrapReceiptTestClasspathFile = layout.buildDirectory.file("update-test/bootstrap-receipt-test-classpath.txt")
+val writeBootstrapReceiptTestClasspath by tasks.registering {
+    group = "verification"
+    description = "Exports the exact runtime test classpath for Issue #50 bootstrap receipt integration tests."
+    dependsOn(tasks.named("testClasses"))
+    inputs.files(sourceSets["test"].runtimeClasspath)
+    outputs.file(bootstrapReceiptTestClasspathFile)
+    doLast {
+        val cp = sourceSets["test"].runtimeClasspath.asPath
+        val target = bootstrapReceiptTestClasspathFile.get().asFile
+        target.parentFile.mkdirs()
+        target.writeText(cp, Charsets.UTF_8)
+        println("BOOTSTRAP_RECEIPT_TEST_CLASSPATH: ${target.absolutePath}")
+    }
+}
+
