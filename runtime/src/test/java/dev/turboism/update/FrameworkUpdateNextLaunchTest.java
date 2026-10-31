@@ -279,4 +279,65 @@ final class FrameworkUpdateNextLaunchTest {
         assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
         assertFalse(Files.exists(f.work.resolve(FrameworkUpdatePendingTask.FILE_NAME)));
     }
+
+    @Test
+    void pendingTaskWriteAndReadRoundTrip() throws Exception {
+        final Path workDir = temporary.resolve("work-roundtrip");
+        final Path root = temporary.resolve("root-roundtrip");
+        final Path stage = temporary.resolve("stage-roundtrip");
+        FrameworkUpdatePendingTask.write(workDir, root, stage, "1.2.3");
+
+        final var taskOpt = FrameworkUpdatePendingTask.read(workDir);
+        assertTrue(taskOpt.isPresent());
+        final var task = taskOpt.get();
+        assertEquals(root.normalize(), task.root());
+        assertEquals(stage.normalize(), task.stage());
+        assertEquals("1.2.3", task.version());
+        assertNotNull(task.created());
+    }
+
+    @Test
+    void pendingTaskWriteOversizedRejectsAndBoundedReadDiscards() throws Exception {
+        final Path workDir = temporary.resolve("work-oversized");
+        final Path root = temporary.resolve("root-oversized");
+        final Path stage = temporary.resolve("stage-oversized");
+
+        // 1. Version string too long
+        assertThrows(IllegalArgumentException.class, () ->
+                FrameworkUpdatePendingTask.write(workDir, root, stage, "x".repeat(65)));
+
+        // 2. Relative paths rejected
+        assertThrows(IllegalArgumentException.class, () ->
+                FrameworkUpdatePendingTask.write(workDir, Path.of("rel/root"), stage, "1.0.0"));
+        assertThrows(IllegalArgumentException.class, () ->
+                FrameworkUpdatePendingTask.write(workDir, root, Path.of("rel/stage"), "1.0.0"));
+
+        // 3. Stage inside root rejected
+        assertThrows(IllegalArgumentException.class, () ->
+                FrameworkUpdatePendingTask.write(workDir, root, root.resolve("stage"), "1.0.0"));
+
+        // 4. File on disk exceeding MAX_PENDING_BYTES is discarded by read
+        Files.createDirectories(workDir);
+        final Path taskFile = workDir.resolve(FrameworkUpdatePendingTask.FILE_NAME);
+        Files.write(taskFile, new byte[65 * 1024]);
+        assertFalse(FrameworkUpdatePendingTask.read(workDir).isPresent());
+        assertFalse(Files.exists(taskFile), "oversized file must be discarded");
+    }
+
+    @Test
+    void prepareLaunchWhenApplyFailsAndRollsBackReturnsExitRolledBackAndDiscardsTask() throws Exception {
+        final Fixture f = new Fixture("1.0.0", "1.1.0");
+        f.persistPending("1.1.0");
+
+        // On Windows, holding an open FileChannel on the target file prevents Files.move(REPLACE_EXISTING)
+        // from overwriting it, triggering a clean rollback to old version and returning EXIT_ROLLED_BACK (20).
+        try (var channel = java.nio.channels.FileChannel.open(f.root.resolve("turboism-agent.jar"), java.nio.file.StandardOpenOption.READ)) {
+            final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
+            assertEquals(FrameworkUpdateHelper.EXIT_ROLLED_BACK, code);
+            assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
+            assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent(),
+                    "pending task must be consumed/discarded on rollback");
+            assertFalse(Files.exists(f.work.resolve("journal.json")));
+        }
+    }
 }
