@@ -726,6 +726,8 @@ class PerfStatsPluginLifecycleTest {
                     new Class<?>[] {PluginContext.class},
                     (proxy, method, args) -> {
                         if (method.getName().equals("uiScheduler")) {
+                            if (scheduler.fenced)
+                                throw new IllegalStateException("generation fenced: uiScheduler accessor");
                             return scheduler;
                         }
                         if (method.getName().equals("performanceStats")) {
