@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-sync
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -118,10 +118,6 @@ Live2D Cubism Editor でチェックしたパラメーター同士を正規化�
 | 同期が一時停止している | 右クリックメニューの「パラメータ同期を切り替え」またはダイアログ上部のチェックボックスで有効化してください。 |
 
 ## 変更履歴
-
-### 0.68.0
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

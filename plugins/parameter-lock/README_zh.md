@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -130,10 +130,6 @@ interface: embedded
 | 重新打开模型后锁定未恢复 | 确保模型已保存，且 `.cmo3` 文件的原生 GUID 未被手动修改。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

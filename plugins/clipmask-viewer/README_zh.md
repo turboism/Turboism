@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.clipmask-viewer
-version: 0.68.1
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -110,10 +110,6 @@ interface: swing
 | 窗口未打开 | 检查日志中是否存在无头环境或不可用的裁剪蒙版读取能力。 |
 
 ## 更新日志
-
-### 0.68.1
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

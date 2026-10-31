@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -113,10 +113,6 @@ Cubism の「物理演算・シーンブレンド設定」ダイアログのグ�
 | 表頭が横線（未確定状態）になっている | 一部のグループのみが有効になっている場合、ヘッダーは未確定状態（indeterminate）を表示します。これは正常な動作であり、クリックすると全グループが有効化されます。 |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

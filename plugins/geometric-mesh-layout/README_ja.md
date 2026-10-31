@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.geometric-mesh-layout
-version: 0.68.1
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -66,10 +66,6 @@ Turboism 公式配布パッケージに同梱されています。プラグイ�
 ボタンが表示されない場合は、単一のアートメッシュでメッシュ編集モードに入っていることを確認してください。
 
 ## 変更履歴
-
-### 0.68.1
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -118,10 +118,6 @@ Cubism 매개변수 값의 의도치 않은 수정을 방지하고, 세션 간 �
 | 다시 연 후 잠금이 복원되지 않음 | 모델이 저장되었고 `.cmo3` 파일의 네이티브 GUID가 수동으로 변경되지 않았는지 확인합니다. |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 
