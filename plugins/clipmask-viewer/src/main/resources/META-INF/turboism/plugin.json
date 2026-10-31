@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.clipmask-viewer",
   "name": "Clip Mask Viewer",
-  "version": "0.1.0",
+  "version": "0.68.1",
   "description": "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy.",
   "entrypoints": [
     "dev.turboism.plugin.clipmaskviewer.ClipMaskViewerPlugin"

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.selection-brush
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -88,6 +88,10 @@ Turboism 公式 Full または Thin インストーラー、あるいは Full �
 | 半径変更がすぐ反映されない | 半径は開始時に固定され、新しい値は次のストロークで使われます。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

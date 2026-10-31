@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.boundingbox-warp-mirror
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -86,6 +86,10 @@ Turboism ディストリビューションに同梱されています。イン�
 - 対象がブロックされたと報告される：通知内の理由（ロック状態、グルーの有無、補間中の編集コンテキスト、補償計算不能）を確認してください。
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

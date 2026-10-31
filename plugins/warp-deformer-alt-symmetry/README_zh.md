@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -108,6 +108,10 @@ interface: none
 | 未显示画布提示 | 检查是否已授予画布提示权限，以及宿主是否提供原生提示表面。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

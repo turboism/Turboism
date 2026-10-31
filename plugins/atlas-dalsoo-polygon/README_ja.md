@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -211,6 +211,10 @@ Dalsooは500個のホスト輪郭を取得し、矩形へのフォールバッ�
 | レイアウトが適用されない | Turboism ログで検証失敗を確認。プランは原子的に拒否されます。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

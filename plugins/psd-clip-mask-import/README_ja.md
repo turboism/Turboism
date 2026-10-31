@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.psd-clip-mask-import
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -118,6 +118,10 @@ interface: embedded
 | インポートが安全に失敗する | ローカライズされた状態概要とプラグインログを確認し、PSD、クリッピングマスク、ダイアログ、書き込み/Undo、状態サービスが利用可能か確認してください。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

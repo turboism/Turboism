@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-folders
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -69,6 +69,10 @@ Bitmask Nesting と Dalsoo は画像ローカル座標のメッシュ輪郭を�
 利用可能なアルゴリズムがない場合は、対応するプラグインを有効にしてください。アトラスがない場合は現在のモデルで作成するか開いてください。元に戻す操作で以前の配置を復元できます。
 
 ## 변경 이력
+
+### 0.68.0
+
+- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

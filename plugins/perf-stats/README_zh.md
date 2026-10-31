@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -105,6 +105,10 @@ interface: swing
 | CPU 标签消失 | 检查状态通知可用性，以及插件是否已被禁用或重新加载。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 
