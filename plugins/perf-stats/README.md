@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: performance
 tags: metrics, diagnostics, fps
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,7 +36,7 @@ Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.68.1,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
@@ -105,6 +105,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | CPU label disappears | Check status-notification availability and whether the plugin was disabled or reloaded. |
 
 ## Changelog
+
+### 0.1.1
+
+- Bound UI teardown through the framework scheduler; reject stale queued window opens after disable or re-enable.
 
 ### 0.1.0
 

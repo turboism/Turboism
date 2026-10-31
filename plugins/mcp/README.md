@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.68.1
+version: 0.68.2
 kind: feature
 status: preview
 delivery: store-candidate
 category: integration
 tags: mcp, automation, external-tools
-turboismApi: "[0.68.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -37,7 +37,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.68.0,1.0.0)`.
+- **SDK API range:** `[0.68.1,1.0.0)`.
 - **Cubism:** Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`. A host-facing resource fails closed when its public SDK capability is unavailable; it never fabricates an empty success.
 - **Transport:** MCP Streamable HTTP using protocol `2025-11-25`, with compatibility negotiation for the supported earlier protocol versions.
 - **Interface mode:** `swing`, with a local connection-details window.
@@ -372,6 +372,10 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 | Resource returns permission denied | Check the plugin descriptor grant and the specific runtime permission named above. |
 
 ## Changelog
+
+### 0.68.2
+
+- Bound UI teardown through the framework scheduler; reject stale queued window opens after disable or re-enable.
 
 ### 0.68.1
 
