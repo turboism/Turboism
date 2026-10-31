@@ -3,6 +3,11 @@
 The Runner's in-container result is preliminary. This module cannot release a
 queue slot or signal processes; it verifies fixed inputs again, archives evidence
 and returns a lifecycle record to the single queue owner.
+
+A recovery pass additionally re-reads the result file: a `status`/`terminal` record or an
+`assertion.<name>.status` record that reports `FAIL`, `BLOCKED` or `SKIPPED`, and any
+published assertion count of zero, all fail the task. A run that asserted nothing or could
+not exercise its contract therefore never becomes release evidence.
 """
 from __future__ import annotations
 
@@ -34,6 +39,44 @@ def checked_path(path: Path) -> Path:
     if any(parent.is_symlink() for parent in (path, *path.parents)):
         raise QueueError("evidence path traverses a symlink")
     return path
+
+
+# Probe terminal records are `status=`/`terminal=`; per-assertion records are
+# `assertion.<name>.status=`. Only these keys decide the verdict, so unrelated fields
+# such as `collectionStatus=COMPLETE` or `skippedExamples=3` never fail a pass.
+STATUS_RECORD = re.compile(r"^(?:[A-Za-z0-9_.-]*\.)?(?:status|terminal)$")
+# A probe run may only pass when every recorded status is PASS. BLOCKED means the run
+# could not exercise its assertions; SKIPPED means it skipped part of its contract.
+BLOCKING_STATUSES = frozenset({"FAIL", "BLOCKED", "SKIPPED"})
+# Assertion counters published by the shared probe recorder.
+ASSERTION_COUNT_KEYS = frozenset({"assertions", "assertionCount"})
+
+
+def result_status_records(lines: list[bytes]) -> list[tuple[str, str]]:
+    """Status-bearing `key=value` records, in file order."""
+    records = []
+    for raw in lines:
+        text = raw.decode("utf-8", "replace").strip()
+        key, separator, value = text.partition("=")
+        if not separator:
+            continue
+        key, value = key.strip(), value.strip()
+        if STATUS_RECORD.match(key) and value:
+            records.append((key, value))
+    return records
+
+
+def result_assertion_count(lines: list[bytes]) -> int | None:
+    """Published assertion count, `None` when the result file carries none, `-1` when malformed."""
+    for raw in lines:
+        text = raw.decode("utf-8", "replace").strip()
+        key, separator, value = text.partition("=")
+        if separator and key.strip() in ASSERTION_COUNT_KEYS:
+            try:
+                return int(value.strip())
+            except ValueError:
+                return -1
+    return None
 
 
 def layout(descriptor: dict[str, Any], prepared_root: Path, job: dict[str, Any]) -> dict[str, Any]:
@@ -103,12 +146,21 @@ def terminal_result(paths: dict[str, Any]) -> dict[str, Any]:
     # Match the Runner's exact LF/CRLF record semantics, not a substring or prefix.
     lines = [line.removesuffix(b"\r") for line in raw.split(b"\n")]
     pass_line = options.get("--result-pass-line", [""])[0]
-    fail_line = options.get("--result-fail-line", [""])[0]
+    fail_lines = [line for line in options.get("--result-fail-line", [""]) if line]
     passed = bool(pass_line) and pass_line.encode() in lines
-    failed = bool(fail_line) and fail_line.encode() in lines
+    failed = any(line.encode() in lines for line in fail_lines)
+    # Re-derive the verdict from the status records so a run that published PASS while
+    # recording a blocked, skipped or failed assertion cannot finalize as a pass.
+    blocking = [f"{key}={value}" for key, value in result_status_records(lines)
+                if value in BLOCKING_STATUSES]
+    assertion_count = result_assertion_count(lines)
+    # A run that asserted nothing proved nothing, even when it published a pass line.
+    empty_run = assertion_count is not None and assertion_count < 1
     return {"mode": "file", "path": str(target), "sha256": file_digest(target),
             "passSeen": passed, "failSeen": failed, "failureMarkers": failures,
-            "passed": passed and not failed and not failures}
+            "assertionCount": assertion_count, "blockingStatusRecords": blocking,
+            "emptyRun": empty_run,
+            "passed": passed and not failed and not failures and not blocking and not empty_run}
 
 def finalize(job: dict[str, Any], descriptor: dict[str, Any], prepared_root: Path,
              directory: Path, preliminary: dict[str, Any] | None, proof: dict[str, Any],

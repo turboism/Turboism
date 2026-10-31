@@ -100,6 +100,59 @@ class EvidenceTest(unittest.TestCase):
         self.result.unlink()
         self.assertEqual("failed", self.finish()["terminalState"])
 
+    def test_zero_assertion_result_is_not_pass(self):
+        # A run that recorded nothing proves nothing, even with a published pass line.
+        self.result.write_bytes(b"status=PASS\nassertions=0\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertTrue(terminal["passSeen"])
+        self.assertEqual(0, terminal["assertionCount"])
+        self.assertTrue(terminal["emptyRun"])
+        self.assertFalse(terminal["passed"])
+        self.assertTrue(self.paths["prefix"].exists())
+
+    def test_malformed_assertion_count_is_not_pass(self):
+        self.result.write_bytes(b"status=PASS\nassertions=many\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        self.assertEqual(-1, result["details"]["postContainmentChecks"]["terminalResult"]["assertionCount"])
+
+    def test_blocking_assertion_status_under_published_pass_is_not_pass(self):
+        for status in (b"BLOCKED", b"SKIPPED", b"FAIL"):
+            with self.subTest(status=status):
+                self.result.write_bytes(
+                    b"status=PASS\nassertions=12\nassertion.matrix.status=" + status + b"\n")
+                result = self.finish()
+                self.assertEqual("failed", result["terminalState"])
+                terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+                self.assertTrue(terminal["passSeen"])
+                self.assertEqual([f"assertion.matrix.status={status.decode()}"],
+                    terminal["blockingStatusRecords"])
+                self.assertTrue(self.paths["prefix"].exists())
+
+    def test_blocked_terminal_value_is_not_pass_even_with_a_secondary_pass_line(self):
+        argv = self.descriptor["argv"]
+        pass_index = argv.index("--result-pass-line")
+        self.descriptor["argv"] = argv[:pass_index] + ["--result-pass-line",
+            "collectionStatus=COMPLETE", "--result-fail-line", "status=FAIL"]
+        self.result.write_bytes(b"collectionStatus=COMPLETE\nstatus=BLOCKED\nassertions=4\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertTrue(terminal["passSeen"])
+        self.assertEqual(["status=BLOCKED"], terminal["blockingStatusRecords"])
+
+    def test_non_status_counters_do_not_fail_a_pass(self):
+        self.result.write_bytes(
+            b"status=PASS\nassertions=3\nskippedExamples=0\nceilUnexpected=0\n"
+            b"assertion.zero.expected=0\nassertion.zero.actual=0\nassertion.zero.status=PASS\n")
+        result = self.finish()
+        self.assertEqual("succeeded", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertEqual(3, terminal["assertionCount"])
+        self.assertEqual([], terminal["blockingStatusRecords"])
+
     def test_late_failure_marker_overrides_terminal_pass(self):
         self.descriptor["argv"] += ["--failure-marker", "ASSERTION_FAILED"]
         log = self.paths["task"] / "turboism-home/logs/runtime/day/runtime.log"
