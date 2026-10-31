@@ -2,6 +2,10 @@
 
 This is an in-progress branch, **not a production-ready self-updater**.
 
+**Current handoff:** [HANDOFF.zh-CN.md](HANDOFF.zh-CN.md). Latest implementation `f173f64e2`.
+Primary user Cubism p40752 is left running on the older e72137 local agent. The separate f173 recovery
+instance was stopped; its STARTING_HEALTH component transaction and suspended intent are retained.
+
 ## Latest implementation
 
 - `FrameworkUpdateApplier.applyPendingHealth` retains backups with `AWAITING_HEALTH`.
@@ -94,8 +98,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
    workflow. Downloads and explicit installation consent are separate; plugin and framework journals are not a global
    atomic transaction. Qualify plugin-apply failures together with framework startup health/rollback on the host.
    Actual two-plugin failure restored all 29 old JARs and prevented health confirmation; the next controlled launch
-   recovered the README component. However, corrupt plugin intent then blocked the extension runtime until manual
-   fixture repair. Native diagnostics/retry/degraded-startup policy remains a blocker; see `failure-host-acceptance.txt`.
+   recovered the README component. The earlier corrupt-intent startup trap (`failure-host-acceptance.txt`) is now
+   addressed in `f173f64e2`: complete rollback suspends original intent, permits installed plugins, and defers health.
+   Native review/cancellation and full controlled recovery still require host qualification; see the handoff.
    Never replace loaded framework/Graal/SDK bytes in process or force Cubism to close.
 9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
    beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
@@ -155,5 +160,15 @@ pre-existing gates. Passing local tests or building this branch does not activat
   **29 plugins, zero failures**, unchanged JAR hashes. Post-fix Python: **71 tests, 1 skip**. Actual capture revealed
   the vendor trial notice still blocks an interactive editor session; startup banners precede it. Manual click on
   Continue Using is needed before further GUI acceptance. See `failure-host-acceptance.txt`; production stays disabled.
+- **Suspended-intent/native recovery implementation:** `f173f64e2` adds inactive failed intent, graceful old-plugin
+  startup without health confirmation, root/generation-bound consented cancellation, owned worker/view lifecycle,
+  native Plugin Management entry and all six locales. Latest selected tests: **524, zero failures/errors, 6 skips**;
+  core-contract **33 pass**; bootstrap build/license checks pass. A broader lifecycle class has two failures also
+  reproduced on clean pre-change a5b0c2525; it is not claimed green.
+- **Newest isolated host observation (partial):** all **32 plugin hashes restored**, bad active intent suspended,
+  STARTING_HEALTH retained and confirmation deferred. Runtime reached ACTIVE but **30 loaded / 2 failures** due to
+  MCP port collision with the deliberately preserved primary instance and ACP dependency failure. Native cancellation
+  was not clicked/qualified. The secondary test process was stopped; next managed launch should recover README.
+  Do not call this 32-plugin green acceptance. Exact continuation and lab fixture sources are in the handoff.
 - **NSIS tooling attempt:** the official SourceForge download timed out on this machine. No real EXE compilation
   or installation is claimed. Production keys, activation and deployment remain unchanged.
