@@ -90,6 +90,16 @@ public final class FrameworkInstallationReceiptLoader {
         }
     }
 
+    /** Cold helper verification: identity comes from the authenticated old receipt, not installed-build.json.
+     * This is not an observation of a running JVM; only the external helper may use it for ownership checks. */
+    static Evidence loadForHelper(final Path root, final UpdateManifestVerifier verifier)
+            throws IOException, InterruptedException, UpdateManifestVerifier.UpdateManifestVerificationException {
+        final var loader = new FrameworkInstallationReceiptLoader(root, verifier);
+        try (var files = FrameworkInstallationFiles.system(loader.root)) {
+            return loader.load(files, null);
+        }
+    }
+
     private Evidence load(final FrameworkInstallationFiles files, final FrameworkBuildInfo info)
             throws IOException, InterruptedException, UpdateManifestVerifier.UpdateManifestVerificationException {
         final String rootIdentity = files.rootIdentity();
@@ -119,10 +129,13 @@ public final class FrameworkInstallationReceiptLoader {
         if (!FrameworkUpdateTaskStore.hash(manifestBytes).equals(digest))
             throw new IOException("Receipt document digest mismatch");
         final UpdateManifest manifest = verifier.authenticate(manifestBytes, envelopeBytes);
-        if (!manifest.version().equals(info.version())
-                || !manifest.channel().equals(info.channel().wireName())
-                || manifest.buildNumber() != info.buildNumber().orElseThrow()
-                || !manifest.sourceRevision().equals(info.sourceRevision())
+        final FrameworkBuildInfo identity = info != null ? info : new FrameworkBuildInfo(
+                manifest.version(), FrameworkBuildInfo.Channel.valueOf(manifest.channel().toUpperCase(java.util.Locale.ROOT)),
+                java.util.OptionalLong.of(manifest.buildNumber()), manifest.sourceRevision(), "ci", false);
+        if (!manifest.version().equals(identity.version())
+                || !manifest.channel().equals(identity.channel().wireName())
+                || manifest.buildNumber() != identity.buildNumber().orElseThrow()
+                || !manifest.sourceRevision().equals(identity.sourceRevision())
                 || !manifest.targetPlatform().equals("windows-x64")) {
             throw new IOException("Signed receipt differs from loaded framework identity");
         }
@@ -135,8 +148,8 @@ public final class FrameworkInstallationReceiptLoader {
             files.verify(entry);
             hashes.put(entry.relativePath(), entry.sha256());
         }
-        if (!root.resolve("turboism-agent.jar").equals(loadedArtifact.get())
-                || !info.equals(loaded.get())
+        if (info != null && (!root.resolve("turboism-agent.jar").equals(loadedArtifact.get())
+                        || !info.equals(loaded.get()))
                 || !rootIdentity.equals(files.rootIdentity())
                 || !java.util.Arrays.equals(indexBytes, files.document(indexPath, 4096))
                 || !java.util.Arrays.equals(
@@ -152,7 +165,7 @@ public final class FrameworkInstallationReceiptLoader {
                 FrameworkUpdateTaskStore.hash((rootIdentity + "\n" + FrameworkUpdateTaskStore.hash(indexBytes) + "\n"
                                 + digest + "\n" + FrameworkUpdateTaskStore.hash(envelopeBytes))
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        return new Evidence(root, info, hashes, binding);
+        return new Evidence(root, identity, hashes, binding);
     }
 
     private static Path runtimeArtifact() {
@@ -164,7 +177,7 @@ public final class FrameworkInstallationReceiptLoader {
                 && expected.equals(index.path(field).textValue());
     }
 
-    private static void validateLayout(final UpdateManifest manifest) throws IOException {
+    static void validateLayout(final UpdateManifest manifest) throws IOException {
         final Set<String> paths = manifest.entries().stream()
                 .map(UpdateManifestEntry::relativePath)
                 .collect(java.util.stream.Collectors.toSet());

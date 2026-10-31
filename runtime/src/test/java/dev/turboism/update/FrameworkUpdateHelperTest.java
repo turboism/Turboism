@@ -180,7 +180,7 @@ final class FrameworkUpdateHelperTest {
         Files.writeString(f.stage.resolve("files/turboism-agent.jar"), "agent-bad");
         final int code = f.run(f, GONE);
         assertTrue(
-                code == FrameworkUpdateHelper.EXIT_ROLLED_BACK || code == FrameworkUpdateHelper.EXIT_REJECTED,
+                code == FrameworkUpdateHelper.EXIT_FAILED || code == FrameworkUpdateHelper.EXIT_REJECTED,
                 "exit " + code);
         assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
     }

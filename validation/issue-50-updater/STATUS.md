@@ -17,6 +17,13 @@ This is an in-progress branch, **not a production-ready self-updater**.
   has not yet been modified. Such preparation is discarded. APPLYING or unconfirmed-health states restore backups.
 - The coordinator copies the helper into independent storage before launching it. An installed agent cannot serve
   as its own updater classpath on Windows because the executing JAR remains locked.
+- The production helper reauthenticates signed old installation ownership, advances the exact new receipt index in
+  the same rollback transaction, and hash-guards retirement of old owned versioned libraries. Mutable installed-build
+  metadata cannot supply old identity. Runtime health confirmation revalidates the entire new signed layout.
+- Full-install receipt initialization verifies explicit signed inventory and installed bytes, is idempotent for the
+  same receipt, and refuses to overwrite a different index. Its full-package installer invocation remains unwired.
+- PreviewPluginRuntimeResources now binds the configured installer adapter. Activation and public keys are read
+  only from the defining runtime JAR; absent activation, missing keys or legacy discovery keep installation disabled.
 
 ## Evidence boundaries
 
@@ -35,26 +42,34 @@ This is an in-progress branch, **not a production-ready self-updater**.
   including recovery from an unconfirmed launch and successful startup confirmation after fixing null CodeSource
   for bootstrap-loaded classes. See cubism-health-validation.txt. These are local test builds, not official
   numbered release acceptance; discovery/download/UI interaction and complete consecutive upgrades remain unproven.
+- Signed-fixture tests perform two consecutive authenticated receipt upgrades, preserve config/third-party additions,
+  retire only old owned libraries, and restore both old index and payload after injected receipt-write failures/crash.
+  These are unit/integration fixtures, not two actual published Cubism release upgrades.
+- Windows JDK ProcessHandle command-line inspection proved insufficient in a real child-process test. The corrected
+  helper uses bounded PowerShell/CIM inspection, rejects a live peer using the same agent, and fails closed on query
+  errors. This is not an atomic launch/apply lease.
 - No Linux/Proton execution evidence has been collected in this Windows session.
 
 ## Remaining release blockers
 
-1. Complete product lifecycle binding of trusted receipt/downloader/coordinator configuration. A modeless native
-   Updates window and asynchronous core adapter now exist, with EN, zh-Hans, zh-Hant, JA and KO strings. A legacy
-   discovery service remains explicitly UNAVAILABLE for installation; the UI does not bypass missing authority.
+1. Provision/review release activation for the now-wired product lifecycle. The native Updates window, asynchronous
+   adapter and configured receipt/downloader/coordinator construction are connected; actual published activation and
+   eligible discovery are still absent. EN, zh-Hans, zh-Hant, JA and KO UI remains fail-closed for legacy discovery.
 2. Provision and review the dedicated framework signing keyring. The helper now reads only framework-specific
    bundled authority, supports revocation, and rejects installation when no active key exists. It no longer borrows
    plugin-catalog keys. No production key has been provisioned; no private production key belongs in the client.
 3. Publish signed manifests/payload objects through a deliberately migrated asset contract and release gate.
-4. Write/migrate trusted installed receipts and update them transactionally after each application. Without this,
-   consecutive fully authenticated delta downloads are not a complete chain.
+4. Wire signed bootstrap documents and receipt initialization into full installer/ZIP delivery, and qualify migration
+   of existing private state/ownership. Transactional receipt advancement and two-upgrade fixture tests are now present;
+   this does not yet establish bootstrap ownership for current publicly installed versions.
 5. Review cache/installation safety changes on Windows: pure NIO does not provide hard-link counts, and directory
    fsync is unavailable through FileChannel. These limitations are NOT equivalent to native handle guarantees.
    Do not assert that content hashes alone provide anti-hardlink-write safety or power-loss durability.
 6. Harden recovery against hostile journal/backup/path mutation; allowlist validation and shared cross-process
    helper/health locking are present but are not a complete handle-based TOCTOU defense.
 7. Qualify process-exit identity and detached helper lifecycle, including sessions longer than the current one-hour
-   helper wait, launcher death while Cubism remains alive, and normal close/restart with unsaved documents.
+   helper wait, durable install-next-launch intent, atomic launch/apply interlocking and broken-launcher recovery.
+   Additional Windows peer-process checks exist, but do not prove those lifecycle properties.
 8. Finish native-window host acceptance, opt-in, retry/recovery diagnostics, and safe plugin hot updates through
    the existing coordinator. The UI exposes background download, cancellation and install-on-user-exit, never forced
    restart. Never replace loaded framework/Graal/SDK bytes in process.

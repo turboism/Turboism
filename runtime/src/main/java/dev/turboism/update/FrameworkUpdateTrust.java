@@ -27,11 +27,9 @@ final class FrameworkUpdateTrust {
     private FrameworkUpdateTrust() {}
 
     static Policy bundled() throws IOException {
-        try (var input = FrameworkUpdateTrust.class.getResourceAsStream(RESOURCE)) {
-            // No production signing key has been provisioned for this feature. Missing is disabled, not a
-            // reason to borrow the marketplace key or trust a key delivered alongside the manifest.
-            return input == null ? new Policy(Map.of(), Set.of()) : parse(input.readNBytes(LIMIT + 1));
-        }
+        final byte[] bytes = FrameworkUpdateResources.read(RESOURCE, LIMIT);
+        // Missing authority disables installation; never borrow marketplace or stage-supplied keys.
+        return bytes == null ? new Policy(Map.of(), Set.of()) : parse(bytes);
     }
 
     static Policy parse(final byte[] bytes) throws IOException {

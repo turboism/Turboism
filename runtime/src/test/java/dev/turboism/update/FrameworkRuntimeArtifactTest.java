@@ -18,6 +18,10 @@ final class FrameworkRuntimeArtifactTest {
         public static void main(final String[] args) {
             System.out.println("source-null=" + (FrameworkBuildInfo.class.getProtectionDomain().getCodeSource() == null));
             System.out.println("artifact=" + FrameworkRuntimeArtifact.resolve());
+            try {
+                final byte[] policy = FrameworkUpdateResources.read(FrameworkUpdateClientPolicy.RESOURCE, 4096);
+                System.out.println("policy=" + (policy == null ? "missing" : new String(policy, java.nio.charset.StandardCharsets.UTF_8)));
+            } catch (Exception failure) { throw new IllegalStateException(failure); }
         }
     }
 
@@ -27,6 +31,10 @@ final class FrameworkRuntimeArtifactTest {
             add(zip, FrameworkBuildInfo.class);
             for (final Class<?> nested : FrameworkBuildInfo.class.getDeclaredClasses()) add(zip, nested);
             add(zip, FrameworkRuntimeArtifact.class);
+            add(zip, FrameworkUpdateResources.class);
+            zip.putNextEntry(new JarEntry("META-INF/turboism/framework-update-client.json"));
+            zip.write("bundled-policy".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
         }
         final Path output = temporary.resolve("boot-probe.log");
         final Process process = new ProcessBuilder(
@@ -42,6 +50,7 @@ final class FrameworkRuntimeArtifactTest {
         assertEquals(0, process.exitValue(), log);
         assertTrue(log.contains("source-null=true"), log);
         assertTrue(log.contains("artifact=" + agent.toAbsolutePath().normalize()), log);
+        assertTrue(log.contains("policy=bundled-policy"), log);
     }
 
     private static void add(final JarOutputStream zip, final Class<?> type) throws Exception {

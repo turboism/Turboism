@@ -210,7 +210,7 @@ record PreviewPluginRuntimeResources(
                 new dev.turboism.config.AtlasCacheReuseSettingsFileService(home);
         final dev.turboism.config.TriangulationEdgeIndexSettingsFileService triangulationEdgeIndexSettings =
                 new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home);
-        final dev.turboism.internal.core.CoreUpdateService updateService = new dev.turboism.update.RuntimeUpdateService(
+        final dev.turboism.update.RuntimeUpdateService updateService = new dev.turboism.update.RuntimeUpdateService(
                 home,
                 scheduler,
                 runtimeSettings,
@@ -222,6 +222,8 @@ record PreviewPluginRuntimeResources(
                 // A failed check must leave a trace: the user-visible state is deliberately vague
                 // (unavailable), so the reason belongs in the log rather than nowhere at all.
                 message -> log.warn("updates", message));
+        updateService.bindFrameworkUpdates(dev.turboism.update.RuntimeFrameworkUpdates.createConfigured(
+                home, updateService, message -> log.warn("updates", message)));
         pluginManagement.bindAutoUpdater(new dev.turboism.pluginmanagement.RuntimePluginAutoUpdater(
                 home,
                 scheduler,

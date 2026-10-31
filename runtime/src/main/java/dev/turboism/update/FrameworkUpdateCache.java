@@ -366,7 +366,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
     }
 
     /** Replace the DACL with owner-only access (plus SYSTEM and Administrators if resolvable). */
-    private static void restrictAcl(final Path path) throws IOException {
+    static void restrictAcl(final Path path) throws IOException {
         final AclFileAttributeView view =
                 Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         final UserPrincipal owner = Files.getOwner(path, LinkOption.NOFOLLOW_LINKS);

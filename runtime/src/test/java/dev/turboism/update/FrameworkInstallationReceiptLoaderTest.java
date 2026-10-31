@@ -496,6 +496,223 @@ final class FrameworkInstallationReceiptLoaderTest {
         }
     }
 
+    private record Upgrade(FrameworkUpdateReceipt.Prepared receipt, Path staged, FrameworkBuildInfo identity) {}
+
+    private Upgrade upgrade(final Fixture f, final String version, final long build, final char revision) throws Exception {
+        final Path stage = Files.createTempDirectory(temporary, "signed-upgrade-");
+        final List<String> paths = new ArrayList<>(UpdateManifestEntry.FRAMEWORK_ROOT_FILES);
+        paths.add("graal/lib/sdk-" + version + ".jar");
+        paths.add("graal/lib/graal-host-" + version + "-all.jar");
+        final List<UpdateManifestEntry> entries = new ArrayList<>();
+        for (final String path : paths) {
+            final Path installed = f.root.resolve(path);
+            final byte[] bytes = path.equals("turboism-agent.jar") || !Files.exists(installed)
+                    ? ("signed:" + version + ":" + path).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                    : Files.readAllBytes(installed);
+            entries.add(Fixture.entry(path, bytes));
+            if (!Files.exists(installed) || !java.util.Arrays.equals(bytes, Files.readAllBytes(installed))) {
+                final Path target = stage.resolve(path);
+                Files.createDirectories(target.getParent());
+                Files.write(target, bytes);
+            }
+        }
+        final String source = String.valueOf(revision).repeat(40);
+        final var manifest = new UpdateManifest(1, "fixture", version, "stable", build, source,
+                "0.1.0", "windows-x64", entries);
+        final byte[] bytes = manifest.toCanonicalBytes();
+        final var receipt = FrameworkUpdateReceipt.prepare(f.root, bytes, f.sign(bytes), f.verifier);
+        return new Upgrade(receipt, stage, new FrameworkBuildInfo(version, FrameworkBuildInfo.Channel.STABLE,
+                OptionalLong.of(build), source, "ci", false));
+    }
+
+    @Test
+    void consecutiveAuthenticatedUpdatesAdvanceReceiptsAndRetireOnlyOwnedOldLibraries() throws Exception {
+        final Fixture f = new Fixture();
+        Files.writeString(f.root.resolve("config.json"), "user configuration");
+        Files.writeString(f.root.resolve("graal/lib/user-addon.jar"), "third party");
+        final var applier = new FrameworkUpdateApplier(f.root, temporary.resolve("apply-work"));
+        String previous = "1.0.0";
+        for (int i = 1; i <= 2; i++) {
+            final String version = "1." + i + ".0";
+            final var old = f.loader().load();
+            final var target = upgrade(f, version, 49 + i, (char) ('b' + i));
+            assertEquals(FrameworkUpdateApplier.Outcome.AWAITING_HEALTH,
+                    applier.applyAuthenticated(target.receipt(), old, target.staged(),
+                            ("{\"version\":\"" + version + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8)).outcome());
+            f.info = target.identity();
+            final var installed = f.loader().load();
+            assertEquals(version, installed.loaded().version());
+            assertTrue(installed.hashes().containsKey("graal/lib/sdk-" + version + ".jar"));
+            assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-" + previous + ".jar")));
+            assertFalse(Files.exists(f.root.resolve("graal/lib/graal-host-" + previous + "-all.jar")));
+            assertTrue(applier.confirmHealthy(version, f.root.resolve("turboism-agent.jar")));
+            assertEquals("user configuration", Files.readString(f.root.resolve("config.json")));
+            assertEquals("user", Files.readString(f.root.resolve("plugins/acp.jar")));
+            assertEquals("third party", Files.readString(f.root.resolve("graal/lib/user-addon.jar")));
+            previous = version;
+        }
+    }
+
+    @Test
+    void receiptIndexFailureRestoresOldReceiptPayloadAndRetiredLibraries() throws Exception {
+        final Fixture f = new Fixture();
+        final byte[] index = Files.readAllBytes(f.index);
+        final var old = f.loader().load();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final var applier = new FrameworkUpdateApplier(f.root, temporary.resolve("apply-work"), point -> {
+            if (point.equals("after-receipt-index")) throw new IOException("injected index failure");
+        });
+        assertEquals(FrameworkUpdateApplier.Outcome.ROLLED_BACK,
+                applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'}).outcome());
+        assertArrayEquals(index, Files.readAllBytes(f.index));
+        assertEquals(old.hashes(), f.loader().load().hashes());
+        assertTrue(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
+        assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.1.0.jar")));
+    }
+
+    @Test
+    void crashAfterReceiptAdvanceRestoresOldIdentityAndReceiptOnRecovery() throws Exception {
+        final Fixture f = new Fixture();
+        final byte[] index = Files.readAllBytes(f.index);
+        final var old = f.loader().load();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final class Crash extends Error {}
+        final Path work = temporary.resolve("apply-work");
+        final var applier = new FrameworkUpdateApplier(f.root, work, point -> {
+            if (point.equals("after-receipt-index")) throw new Crash();
+        });
+        assertThrows(Crash.class,
+                () -> applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'}));
+        assertEquals(FrameworkUpdateApplier.Outcome.RECOVERED,
+                new FrameworkUpdateApplier(f.root, work).recover().outcome());
+        assertArrayEquals(index, Files.readAllBytes(f.index));
+        assertEquals(old.hashes(), f.loader().load().hashes());
+    }
+
+    @Test
+    void modifiedOwnedFileAndUnownedNewTargetCannotBeOverwritten() throws Exception {
+        for (final boolean modifiedOld : List.of(true, false)) {
+            final Fixture f = new Fixture();
+            final var old = f.loader().load();
+            final var target = upgrade(f, "1.1.0", 50, 'c');
+            final Path conflict = f.root.resolve(modifiedOld ? "graal/lib/sdk-1.0.0.jar" : "graal/lib/sdk-1.1.0.jar");
+            Files.writeString(conflict, "user changes");
+            final var applier = new FrameworkUpdateApplier(f.root, Files.createTempDirectory(temporary, "work-"));
+            assertThrows(IOException.class,
+                    () -> applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'}));
+            assertEquals("user changes", Files.readString(conflict));
+            assertArrayEquals(f.manifest, Files.readAllBytes(f.documents.resolve("manifest.json")));
+        }
+    }
+
+    private Path helperStage(final Fixture f, final Upgrade target) throws Exception {
+        final Path directory = Files.createTempDirectory(temporary, "helper-stage-");
+        Files.move(target.staged(), directory.resolve("files"));
+        final byte[] bytes = target.receipt().manifest().toCanonicalBytes();
+        Files.write(directory.resolve("manifest.json"), bytes);
+        Files.write(directory.resolve("manifest.json.sig"), f.sign(bytes));
+        return directory;
+    }
+
+    private int runInstalledHelper(final Fixture f, final Path stage) {
+        return FrameworkUpdateHelper.runInstalled(new String[] {
+                    "--root", f.root.toString(), "--stage", stage.toString(),
+                    "--work", FrameworkUpdateHealth.workDirectory(f.root).toString()
+                }, System.out, System.err, Map.of("fixture", f.keys.getPublic()), ProcessHandle::of, java.time.Instant::now);
+    }
+
+    @Test
+    void coldHelperUsesSignedOldIdentityNotMutableInstalledBuildAndAdvancesReceipt() throws Exception {
+        final Fixture f = new Fixture();
+        Files.writeString(f.root.resolve("installed-build.json"), "{\"version\":\"99.0.0\",\"buildNumber\":99999}");
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final Path stage = helperStage(f, target);
+        assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, runInstalledHelper(f, stage));
+        f.info = target.identity();
+        assertEquals("1.1.0", f.loader().load().loaded().version());
+        assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
+        assertTrue(Files.exists(FrameworkUpdateHealth.workDirectory(f.root).resolve("backup/receipt-index.json")));
+    }
+
+    @Test
+    void coldHelperCannotApplyWithoutSignedOldOwnershipEvenWhenTargetSignatureIsValid() throws Exception {
+        final Fixture f = new Fixture();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final Path stage = helperStage(f, target);
+        Files.delete(f.index);
+        assertEquals(FrameworkUpdateHelper.EXIT_FAILED, runInstalledHelper(f, stage));
+        assertEquals("old:turboism-agent.jar", Files.readString(f.root.resolve("turboism-agent.jar")));
+        assertTrue(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
+        assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.1.0.jar")));
+    }
+
+    @Test
+    void firstFullInstallCanInitializeReceiptOnlyFromMatchingSignedPayload() throws Exception {
+        final Fixture f = new Fixture();
+        final byte[] original = Files.readAllBytes(f.index);
+        Files.delete(f.index);
+        FrameworkUpdateReceipt.initialize(f.root, f.manifest, f.envelope, f.verifier);
+        assertArrayEquals(original, Files.readAllBytes(f.index));
+        assertEquals(f.old.entries().size(), f.loader().load().hashes().size());
+        FrameworkUpdateReceipt.initialize(f.root, f.manifest, f.envelope, f.verifier);
+        assertArrayEquals(original, Files.readAllBytes(f.index));
+    }
+
+    @Test
+    void initializerCannotAdoptModifiedPayloadOrReplaceAnotherReceipt() throws Exception {
+        final Fixture f = new Fixture();
+        final byte[] index = Files.readAllBytes(f.index);
+        final var other = new UpdateManifest(1, "fixture", "1.0.0", "stable", 50, "c".repeat(40),
+                "0.1.0", "windows-x64", f.old.entries());
+        final byte[] document = other.toCanonicalBytes();
+        assertThrows(IOException.class,
+                () -> FrameworkUpdateReceipt.initialize(f.root, document, f.sign(document), f.verifier));
+        assertArrayEquals(index, Files.readAllBytes(f.index));
+        Files.delete(f.index);
+        Files.writeString(f.root.resolve("turboism-agent.jar"), "user bytes");
+        assertThrows(IOException.class,
+                () -> FrameworkUpdateReceipt.initialize(f.root, f.manifest, f.envelope, f.verifier));
+        assertFalse(Files.exists(f.index));
+        assertEquals("user bytes", Files.readString(f.root.resolve("turboism-agent.jar")));
+    }
+
+    @Test
+    void helperReceiptInitializationDoesNotClaimPayloadWasInstalled() throws Exception {
+        final Fixture f = new Fixture();
+        Files.delete(f.index);
+        final Path stage = Files.createTempDirectory(temporary, "bootstrap-documents-");
+        Files.write(stage.resolve("manifest.json"), f.manifest);
+        Files.write(stage.resolve("manifest.json.sig"), f.envelope);
+        final int status = FrameworkUpdateHelper.runInstalled(new String[] {
+                "--initialize-receipt", "--root", f.root.toString(), "--stage", stage.toString(),
+                "--work", FrameworkUpdateHealth.workDirectory(f.root).toString()
+        }, System.out, System.err, Map.of("fixture", f.keys.getPublic()), ProcessHandle::of, java.time.Instant::now);
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, status);
+        assertEquals("1.0.0", f.loader().load().loaded().version());
+        assertFalse(Files.exists(f.root.resolve("installed-build.json")));
+    }
+
+    @Test
+    void productionHelperRefusesAnotherLiveProcessReferencingTheSameAgent() throws Exception {
+        final Fixture f = new Fixture();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final Path stage = helperStage(f, target);
+        final Process live = new ProcessBuilder(
+                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-cp", f.root.resolve("turboism-agent.jar") + java.io.File.pathSeparator + System.getProperty("java.class.path"),
+                FrameworkUpdateHelperTest.Sleep.class.getName())
+                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+        try {
+            assertTrue(live.isAlive());
+            assertEquals(FrameworkUpdateHelper.EXIT_BUSY, runInstalledHelper(f, stage));
+            assertEquals("old:turboism-agent.jar", Files.readString(f.root.resolve("turboism-agent.jar")));
+            assertEquals("1.0.0", f.loader().load().loaded().version());
+        } finally {
+            live.destroyForcibly();
+            assertTrue(live.waitFor(10, TimeUnit.SECONDS));
+        }
+    }
+
     private static final class Settings implements RuntimeSettingsService {
         @Override
         public DockCleanupResult cleanEmptyDocks() {
