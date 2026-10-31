@@ -113,6 +113,7 @@ export class FrameworkAuthority {
    // The authority supplies the snapshot; the CAS inside admission is what resolves races.
    const previous=this.readChannel(channel);
    const record=await admitIncremental(body.candidate,body.expected,keys,source,store,{previous,initialize:previous===null&&body.initialize===true,objects,signal:AbortSignal.timeout(600000)});
+   this.ctx.storage.sql.exec('UPDATE framework_releases SET withdrawn=0 WHERE id=?',record.id);
    return json({status:'admitted',id:record.id,identity:record.candidate.identity});
   }catch(error){
    console.error('Framework admission rejected:',error.message);

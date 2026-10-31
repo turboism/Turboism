@@ -263,8 +263,11 @@ authenticated delivery path:
    unwithdrawn record has the same version, channel, buildNumber and sourceRevision as the
    release. Any authority failure silently returns the plain full-installer document.
 5. `publish-framework.mjs` finishes with a public preflight (redirect-free, byte-exact, Range).
-   Only after it passes should the GitHub release be published/synchronized, so the
-   version document never advertises resources that are not yet reachable.
+   If public preflight fails after admission, the publisher immediately issues a rollback
+   withdrawal (`POST /v1/framework/withdraw`) so `release.incremental` is not advertised
+   for a failing candidate while full-installer package delivery remains unaffected.
+   If rollback withdrawal also fails, a compound error is reported. Only after preflight
+   passes should the GitHub release be published/synchronized.
 6. `POST /v1/framework/withdraw {"id": "<manifest sha256>"}` (same identity) stops
    advertising a release; resources stay served for in-flight resumes.
 

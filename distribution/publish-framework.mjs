@@ -30,14 +30,73 @@ export function collect(directory,prefix){
  for(const d of readdirSync(join(directory,'objects')))expected.set(`objects/${d}/payload`,readFileSync(join(directory,'objects',d,'payload')));
  return {candidate,expected};
 }
+/** Withdraw an admitted candidate release so it is no longer advertised by the release API. */
+export async function withdrawCandidate({id,token,origin=ORIGIN,fetcher=fetch}){
+ const authToken=typeof token==='object'&&token?.value?token.value:token;
+ const headers={'Content-Type':'application/json'};
+ if(authToken)headers.Authorization=`Bearer ${authToken}`;
+ const response=await fetcher(`${origin}/v1/framework/withdraw`,{
+  method:'POST',
+  headers,
+  body:JSON.stringify({id})
+ });
+ const text=await response.text();let body=null;try{body=JSON.parse(text);}catch{}
+ if(!response.ok||!body||body.matched!==true){
+  throw new Error(`Withdrawal failed (HTTP ${response.status}): ${text}`);
+ }
+ return body;
+}
+/** Request admission for candidate, run public preflight verification, and roll back via withdrawal if verification fails. */
+export async function publishCandidate({candidate,expected,keyId,initialize=false,token,origin=ORIGIN,fetcher=fetch,verifier=verifyPublic}){
+ const authToken=typeof token==='object'&&token?.value?token.value:token;
+ const headers={'Content-Type':'application/json'};
+ if(authToken)headers.Authorization=`Bearer ${authToken}`;
+ const response=await fetcher(`${origin}/v1/framework/admit`,{
+  method:'POST',
+  headers,
+  body:JSON.stringify({candidate,expected:{identity:candidate.identity,keyId},initialize})
+ });
+ const result=await response.text();
+ if(!response.ok)throw new Error(`Admission failed (HTTP ${response.status}): ${result}`);
+ let body=null;try{body=JSON.parse(result);}catch{}
+ const id=body?.id||candidate.manifest?.sha256;
+ try{
+  await verifier(candidate,expected,fetcher,origin);
+ }catch(preflightError){
+  let withdrawError=null;
+  try{
+   await withdrawCandidate({id,token:authToken,origin,fetcher});
+  }catch(err){
+   withdrawError=err;
+  }
+  if(withdrawError){
+   const error=new Error(`Public preflight failed: ${preflightError.message}; rollback withdrawal failed: ${withdrawError.message}`);
+   error.cause={preflightError,withdrawError};
+   throw error;
+  }
+  const error=new Error(`Public preflight failed: ${preflightError.message}; candidate ${id} withdrawn`);
+  error.cause=preflightError;
+  error.withdrawn=true;
+  error.id=id;
+  throw error;
+ }
+ return {status:'published',id,identity:candidate.identity,candidate};
+}
+export const publishFramework=publishCandidate;
 async function main([directory,prefix,keyId,flag]){
  const {candidate,expected}=collect(directory,prefix),token=await (await fetch(`${process.env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encodeURIComponent(ORIGIN)}`,{headers:{Authorization:`Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}`}})).json();
  for(const [key] of expected){ // objects first; the Worker refuses to register anything not matching the signed manifest
   const file=key.startsWith('documents/')?join(directory,prefix+(key.endsWith(candidate.manifest.sha256)?'-manifest.json':'-manifest.json.sig')):join(directory,key);
   execFileSync('npx',['--yes','wrangler@4.127.0','r2','object','put',`${BUCKET}/framework-incoming/${key}`,'--file',file,'--remote'],{stdio:'inherit'});
  }
- const response=await fetch(`${ORIGIN}/v1/framework/admit`,{method:'POST',headers:{Authorization:`Bearer ${token.value}`,'Content-Type':'application/json'},body:JSON.stringify({candidate,expected:{identity:candidate.identity,keyId},initialize:flag==='--initialize'})});
- const result=await response.text();console.log('admit',response.status,result);if(!response.ok)process.exit(1);
- await verifyPublic(candidate,expected);console.log('public preflight ok; descriptor to publish:',JSON.stringify(candidate));
+ const published=await publishCandidate({
+  candidate,
+  expected,
+  keyId,
+  initialize:flag==='--initialize',
+  token:token.value,
+ });
+ console.log('admit 200 id:',published.id);
+ console.log('public preflight ok; descriptor to publish:',JSON.stringify(published.candidate));
 }
 if(import.meta.url===`file://${process.argv[1]}`)await main(process.argv.slice(2));

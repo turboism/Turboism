@@ -122,7 +122,7 @@ test('publisher endpoints stay closed without the dedicated workflow and a valid
  const served=await worker.fetch(new Request('https://api.turboism.dev/v1/framework/documents/'+x.candidate.manifest.sha256),x.env);assert.equal(served.status,404);
  assert.equal((await worker.fetch(new Request('https://api.turboism.dev/v1/framework/documents/xyz'),x.env)).status,404);
 });
-import {verifyPublic} from '../publish-framework.mjs';
+import {verifyPublic,publishCandidate,withdrawCandidate} from '../publish-framework.mjs';
 test('public preflight proves exact bytes through the Worker and rejects redirects or altered content',async()=>{
  const x=setup();await x.admit();const expected=new Map(x.source);
  const viaWorker=(url,init)=>worker.fetch(new Request(url,init),x.env);
@@ -130,4 +130,103 @@ test('public preflight proves exact bytes through the Worker and rejects redirec
  const key=firstObject(x),changed=new Map(expected);changed.set(key,Buffer.from('other'));
  await assert.rejects(()=>verifyPublic(x.candidate,changed,viaWorker),/content mismatch/);
  await assert.rejects(()=>verifyPublic(x.candidate,expected,async()=>new Response(null,{status:302,headers:{Location:'https://example.invalid'}})),/HTTP 302/);
+});
+test('public preflight failure rolls back admission so release.incremental is not projected while full package path remains intact',async()=>{
+ const x=setup();
+ const fullAssets=[
+  {name:'TurboismInstaller-0.68.0.exe',key:'files/'+'a'.repeat(64)+'/TurboismInstaller-0.68.0.exe',sha256:'a'.repeat(64),sources:[{id:'official',url:'https://api.turboism.dev/files/...'}]},
+  {name:'turboism-0.68.0.zip',key:'files/'+'b'.repeat(64)+'/turboism-0.68.0.zip',sha256:'b'.repeat(64),sources:[{id:'official',url:'https://api.turboism.dev/files/...'}]},
+ ];
+ x.release.release.assets=fullAssets;
+ const fetcher=async(url,init={})=>{
+  const parsed=new URL(url);
+  if(parsed.pathname==='/v1/framework/admit')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/admit',init));
+  if(parsed.pathname==='/v1/framework/withdraw')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/withdraw',init));
+  return worker.fetch(new Request(url,init),x.env);
+ };
+ const expected=new Map(x.source);
+ expected.set(firstObject(x),Buffer.from('corrupted payload for preflight failure test'));
+
+ await assert.rejects(
+  ()=>publishCandidate({candidate:x.candidate,expected,keyId:'offline-test',initialize:true,token:'test-token',fetcher}),
+  err=>{
+   assert.match(err.message,/Public preflight failed: Public objects\/.*\/payload: content mismatch; candidate .* withdrawn/);
+   assert.equal(err.withdrawn,true);
+   assert.equal(err.id,x.candidate.manifest.sha256);
+   return true;
+  }
+ );
+
+ const projected=await withIncremental(x.release,x.env);
+ assert.equal(projected.release.incremental,undefined,'release.incremental must not be projected after preflight failure');
+ assert.equal(projected.status,'ready');
+ assert.equal(projected.channel,x.release.channel);
+ assert.equal(projected.release.version,x.release.release.version);
+ assert.equal(projected.release.buildNumber,x.release.release.buildNumber);
+ assert.equal(projected.release.sourceRevision,x.release.release.sourceRevision);
+ assert.deepEqual(projected.release.assets,fullAssets,'full package assets must remain intact');
+});
+test('public preflight failure clearly reports when rollback withdrawal also fails',async()=>{
+ const x=setup();
+ const fetcher=async(url,init={})=>{
+  const parsed=new URL(url);
+  if(parsed.pathname==='/v1/framework/admit')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/admit',init));
+  if(parsed.pathname==='/v1/framework/withdraw')return new Response(JSON.stringify({error:{code:'INTERNAL_ERROR',message:'Storage unreachable'}}),{status:500,headers:{'Content-Type':'application/json'}});
+  return worker.fetch(new Request(url,init),x.env);
+ };
+ const expected=new Map(x.source);
+ expected.set(firstObject(x),Buffer.from('bad bytes'));
+
+ await assert.rejects(
+  ()=>publishCandidate({candidate:x.candidate,expected,keyId:'offline-test',initialize:true,token:'test-token',fetcher}),
+  err=>{
+   assert.match(err.message,/Public preflight failed: Public objects\/.*\/payload: content mismatch/);
+   assert.match(err.message,/rollback withdrawal failed: Withdrawal failed \(HTTP 500\)/);
+   assert.ok(err.cause?.preflightError,'preserves preflightError cause');
+   assert.ok(err.cause?.withdrawError,'preserves withdrawError cause');
+   return true;
+  }
+ );
+});
+test('withdrawCandidate rejects when endpoint returns non-200 or unmatched release',async()=>{
+ await assert.rejects(
+  ()=>withdrawCandidate({id:'a'.repeat(64),token:'tok',fetcher:async()=>new Response('{"status":"withdrawn","matched":false}',{status:200,headers:{'Content-Type':'application/json'}})}),
+  /Withdrawal failed/
+ );
+ await assert.rejects(
+  ()=>withdrawCandidate({id:'a'.repeat(64),token:'tok',fetcher:async()=>new Response('Gateway error',{status:502})}),
+  /HTTP 502/
+ );
+});
+test('publishCandidate successfully admits, verifies, and advertises release.incremental on success path',async()=>{
+ const x=setup();
+ const fetcher=async(url,init={})=>{
+  const parsed=new URL(url);
+  if(parsed.pathname==='/v1/framework/admit')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/admit',init));
+  if(parsed.pathname==='/v1/framework/withdraw')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/withdraw',init));
+  return worker.fetch(new Request(url,init),x.env);
+ };
+ const res=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,token:'test-token',fetcher});
+ assert.equal(res.status,'published');
+ assert.equal(res.id,x.candidate.manifest.sha256);
+ assert.deepEqual(res.identity,x.candidate.identity);
+ const projected=await withIncremental(x.release,x.env);
+ assert.deepEqual(projected.release.incremental,{source:{origin:'https://api.turboism.dev',redirects:'reject'},descriptor:x.candidate});
+});
+test('retry of candidate re-activates advertising after preflight succeeds',async()=>{
+ const x=setup();
+ const fetcher=async(url,init={})=>{
+  const parsed=new URL(url);
+  if(parsed.pathname==='/v1/framework/admit')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/admit',init));
+  if(parsed.pathname==='/v1/framework/withdraw')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/withdraw',init));
+  return worker.fetch(new Request(url,init),x.env);
+ };
+ const badExpected=new Map(x.source);
+ badExpected.set(firstObject(x),Buffer.from('bad'));
+ await assert.rejects(()=>publishCandidate({candidate:x.candidate,expected:badExpected,keyId:'offline-test',initialize:true,token:'t',fetcher}));
+ assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined);
+
+ const ok=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,token:'t',fetcher});
+ assert.equal(ok.status,'published');
+ assert.deepEqual((await withIncremental(x.release,x.env)).release.incremental,{source:{origin:'https://api.turboism.dev',redirects:'reject'},descriptor:x.candidate});
 });
