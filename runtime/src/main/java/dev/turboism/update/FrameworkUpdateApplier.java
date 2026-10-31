@@ -61,6 +61,8 @@ final class FrameworkUpdateApplier {
     enum Outcome {
         /** Update applied, journal removed. */
         APPLIED,
+        /** Files replaced, but backups retained until a successful runtime startup confirms the new agent. */
+        AWAITING_HEALTH,
         /** A previous interrupted run was rolled back; nothing new was applied. */
         RECOVERED,
         /** The update failed and the previous installation was restored. */
@@ -107,7 +109,15 @@ final class FrameworkUpdateApplier {
         final Path journalPath = work.resolve(JOURNAL);
         if (!Files.exists(journalPath, LinkOption.NOFOLLOW_LINKS)) return new Result(Outcome.NOTHING, "no journal");
         final ObjectNode journal = readJournal(journalPath);
+        if (journal.has("root") && !root.toString().equals(journal.path("root").asText())) {
+            throw new IOException("Update journal belongs to a different installation");
+        }
         final String state = journal.path("state").asText();
+        if (state.equals("PREPARED")) {
+            // No installation mutation occurs until APPLYING. Discard possibly partial backup copies.
+            cleanup();
+            return new Result(Outcome.RECOVERED, "discarded preparation; installation unchanged");
+        }
         if (state.equals("COMMITTED")) {
             cleanup();
             return new Result(Outcome.APPLIED, "finished cleanup of committed update");
@@ -124,6 +134,17 @@ final class FrameworkUpdateApplier {
      */
     Result apply(final UpdateManifest manifest, final Path staged, final byte[] installedBuildJson)
             throws IOException, InterruptedException {
+        return apply(manifest, staged, installedBuildJson, false);
+    }
+
+    /** Retain backups until a subsequent startup confirms the exact installed agent. */
+    Result applyPendingHealth(final UpdateManifest manifest, final Path staged, final byte[] installedBuildJson)
+            throws IOException, InterruptedException {
+        return apply(manifest, staged, installedBuildJson, true);
+    }
+
+    private Result apply(final UpdateManifest manifest, final Path staged, final byte[] installedBuildJson,
+            final boolean requireHealth) throws IOException, InterruptedException {
         Objects.requireNonNull(manifest, "manifest");
         Objects.requireNonNull(staged, "staged");
         Objects.requireNonNull(installedBuildJson, "installedBuildJson");
@@ -139,6 +160,14 @@ final class FrameworkUpdateApplier {
         journal.put("format", JOURNAL_FORMAT);
         journal.put("state", "PREPARED");
         journal.put("version", manifest.version());
+        journal.put("root", root.toString());
+        if (requireHealth) {
+            final UpdateManifestEntry agent = manifest.entries().stream()
+                    .filter(e -> e.relativePath().equals("turboism-agent.jar"))
+                    .findFirst().orElseThrow(() -> new IOException("Health check requires an agent entry"));
+            journal.put("agentSha256", agent.sha256());
+            journal.put("agentBytes", agent.bytes());
+        }
         final Path identity = root.resolve(InstalledBuild.METADATA_FILE_NAME);
         final BasicFileAttributes identityAttributes = FrameworkUpdateCache.attributes(identity);
         if (identityAttributes != null && (!identityAttributes.isRegularFile() || identityAttributes.isSymbolicLink())) {
@@ -178,11 +207,11 @@ final class FrameworkUpdateApplier {
             }
             faults.hit("before-installed-build");
             writeAtomic(root.resolve(InstalledBuild.METADATA_FILE_NAME), installedBuildJson);
-            setState(journal, "COMMITTED");
+            setState(journal, requireHealth ? "AWAITING_HEALTH" : "COMMITTED");
             faults.hit("after-commit");
         } catch (IOException | RuntimeException | InterruptedException failure) {
             try {
-                restore(journal);
+                if (!"PREPARED".equals(journal.path("state").asText())) restore(journal);
                 cleanup();
             } catch (IOException rollbackFailure) {
                 // Leave the journal in place: the next start retries the restore from durable state.
@@ -198,8 +227,61 @@ final class FrameworkUpdateApplier {
             }
             return new Result(Outcome.ROLLED_BACK, failure.getClass().getSimpleName() + ": " + failure.getMessage());
         }
+        if (!requireHealth) cleanup();
+        return new Result(requireHealth ? Outcome.AWAITING_HEALTH : Outcome.APPLIED, manifest.version());
+    }
+
+    /** Called only after runtime startup succeeds, outside the EDT. Does not mutate loaded payload files. */
+    boolean confirmHealthy(final String loadedVersion, final Path loadedAgent)
+            throws IOException, InterruptedException {
+        final Path journalPath = work.resolve(JOURNAL);
+        if (!Files.exists(journalPath, LinkOption.NOFOLLOW_LINKS)) return false;
+        final ObjectNode journal = readJournal(journalPath);
+        if (!java.util.Set.of("AWAITING_HEALTH", "STARTING_HEALTH")
+                .contains(journal.path("state").asText())) return false;
+        if (!root.toString().equals(journal.path("root").asText())
+                || !loadedVersion.equals(journal.path("version").asText())
+                || !root.resolve("turboism-agent.jar").equals(loadedAgent.toAbsolutePath().normalize())) {
+            throw new IOException("Health confirmation identity mismatch");
+        }
+        final long bytes = journal.path("agentBytes").asLong(-1);
+        if (bytes <= 0 || bytes > UpdateManifest.MAX_FILE_BYTES
+                || !FrameworkUpdateCache.hash(loadedAgent, bytes).equals(journal.path("agentSha256").asText())) {
+            throw new IOException("Health confirmation agent hash mismatch");
+        }
+        setState(journal, "COMMITTED");
         cleanup();
-        return new Result(Outcome.APPLIED, manifest.version());
+        return true;
+    }
+
+    /** External launcher calls this before starting Cubism. One startup attempt must confirm health. */
+    Result prepareLaunch(final long launcherPid) throws IOException {
+        final Path journalPath = work.resolve(JOURNAL);
+        if (!Files.exists(journalPath, LinkOption.NOFOLLOW_LINKS)) return new Result(Outcome.NOTHING, "no journal");
+        final ObjectNode journal = readJournal(journalPath);
+        if (!root.toString().equals(journal.path("root").asText())) {
+            throw new IOException("Startup journal belongs to another installation");
+        }
+        if ("AWAITING_HEALTH".equals(journal.path("state").asText())) {
+            final var launcher = ProcessHandle.of(launcherPid).filter(ProcessHandle::isAlive)
+                    .orElseThrow(() -> new IOException("Launcher process is not running"));
+            final var started = launcher.info().startInstant()
+                    .orElseThrow(() -> new IOException("Launcher process identity unavailable"));
+            journal.put("launcherPid", launcherPid);
+            journal.put("launcherStarted", started.toString());
+            setState(journal, "STARTING_HEALTH");
+            return new Result(Outcome.NOTHING, "first startup awaiting health confirmation");
+        }
+        if ("STARTING_HEALTH".equals(journal.path("state").asText())) {
+            final var previous = ProcessHandle.of(journal.path("launcherPid").asLong(-1));
+            if (previous.isPresent() && previous.get().isAlive()) {
+                final var started = previous.get().info().startInstant();
+                if (started.isEmpty() || started.get().toString().equals(journal.path("launcherStarted").asText())) {
+                    throw new IOException("Previous launch still running; recovery must wait for exit");
+                }
+            }
+        }
+        return recover();
     }
 
     // ---------------------------------------------------------------- preparation
@@ -211,7 +293,7 @@ final class FrameworkUpdateApplier {
         final Map<String, Step> byLowerPath = new LinkedHashMap<>();
         for (final UpdateManifestEntry entry : manifest.entries()) {
             final String relative = entry.relativePath();
-            if (byLowerPath.put(relative.toLowerCase(java.util.Locale.ROOT), null) != null) {
+            if (byLowerPath.containsKey(relative.toLowerCase(java.util.Locale.ROOT))) {
                 throw new IOException("Duplicate or case-colliding manifest path: " + relative);
             }
             final Path target = root.resolve(relative).normalize();
@@ -343,7 +425,7 @@ final class FrameworkUpdateApplier {
             throws IOException {
         if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
             // Backup not yet taken means the original was never replaced (backups precede replacement).
-            if (journal.path("state").asText().equals("APPLYING")) {
+            if (!journal.path("state").asText().equals("PREPARED")) {
                 throw new IOException("Backup missing during rollback: " + relative);
             }
             return;
@@ -387,6 +469,26 @@ final class FrameworkUpdateApplier {
         final var parsed = UpdateFileSupport.JSON.readTree(Files.readAllBytes(path));
         if (!(parsed instanceof ObjectNode object) || !JOURNAL_FORMAT.equals(object.path("format").asText())) {
             throw new IOException("Unrecognized update journal");
+        }
+        if (!java.util.Set.of("PREPARED", "APPLYING", "AWAITING_HEALTH", "STARTING_HEALTH", "COMMITTED")
+                .contains(object.path("state").asText())
+                || !object.path("files").isArray()
+                || object.path("files").size() > UpdateManifest.MAX_ENTRIES) {
+            throw new IOException("Invalid journal state or file inventory");
+        }
+        final var paths = new java.util.HashSet<String>();
+        for (final var entry : object.path("files")) {
+            final String relative = entry.path("path").asText();
+            final String hash = entry.path("sha256").asText();
+            try {
+                new UpdateManifestEntry(relative, 1, hash, "sha256:" + hash);
+            } catch (IllegalArgumentException invalid) {
+                throw new IOException("Journal names a non-framework path", invalid);
+            }
+            if (!entry.path("existed").isBoolean()
+                    || !paths.add(relative.toLowerCase(java.util.Locale.ROOT))) {
+                throw new IOException("Invalid or duplicate journal entry");
+            }
         }
         return object;
     }
