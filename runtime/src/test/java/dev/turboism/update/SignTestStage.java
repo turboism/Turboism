@@ -30,7 +30,8 @@ final class SignTestStage {
         }
         final KeyPair keys = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         final byte[] manifest = new UpdateManifest(
-                        1, "local-test", System.getenv("TURBOISM_SIGN_VERSION"), "stable", Long.parseLong(System.getenv("TURBOISM_SIGN_BUILD")), System.getenv("TURBOISM_SIGN_REV").repeat(40), "0.67.0", "windows-x64", entries)
+                        1, "local-test", System.getenv("TURBOISM_SIGN_VERSION"), "stable", Long.parseLong(System.getenv("TURBOISM_SIGN_BUILD")), (System.getenv("TURBOISM_SIGN_REV").length() == 40
+                                ? System.getenv("TURBOISM_SIGN_REV") : System.getenv("TURBOISM_SIGN_REV").repeat(40)), "0.67.0", "windows-x64", entries)
                 .toCanonicalBytes();
         final Signature signer = Signature.getInstance("Ed25519");
         signer.initSign(keys.getPrivate());

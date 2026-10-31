@@ -19,9 +19,11 @@ public final class FrameworkUpdateHealth {
             if (javax.swing.SwingUtilities.isEventDispatchThread()) {
                 throw new java.io.IOException("Startup health verification cannot run on EDT");
             }
-            final var source = FrameworkBuildInfo.class.getProtectionDomain().getCodeSource();
-            if (source == null || !"file".equals(source.getLocation().getProtocol())) return;
-            final Path artifact = Path.of(source.getLocation().toURI()).toAbsolutePath().normalize();
+            final Path artifact = FrameworkRuntimeArtifact.resolve();
+            if (artifact == null) {
+                diagnostic.accept("UPDATE_STARTUP_NOT_CONFIRMED: runtime artifact unavailable");
+                return;
+            }
             final Path work = workDirectory(home);
             if (!java.nio.file.Files.exists(work.resolve(FrameworkUpdateApplier.JOURNAL),
                     java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
