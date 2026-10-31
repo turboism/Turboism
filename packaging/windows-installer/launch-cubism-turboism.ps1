@@ -194,6 +194,28 @@ if (!$ProbeOnly) {
     $updateWork = Join-Path $turboismHome 'state\runtime\update\helper'
     $updateJournal = Join-Path $updateWork 'journal.json'
     $updatePending = Join-Path $updateWork 'pending.json'
+    $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
+    $receiptIndex = Join-Path $turboismHome 'state\runtime\update\installed-receipt.json'
+    $bootstrapScript = Join-Path $turboismHome 'bootstrap-receipt.ps1'
+    $bootstrapDocuments = Join-Path $turboismHome 'bootstrap'
+    # First standard-ZIP launch: initialize only from the package's dedicated signed documents.
+    # Never re-bootstrap an existing receipt or interfere with journal recovery. Failure leaves
+    # the full framework untouched; receipt loading keeps self-update unavailable, not Cubism.
+    if (!(Test-Path -LiteralPath $updateJournal) -and !(Test-Path -LiteralPath $receiptIndex) -and
+        (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $bootstrapDocuments 'manifest.json') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $bootstrapDocuments 'manifest.json.sig') -PathType Leaf)) {
+        try {
+            $receiptResult = & $bootstrapScript -HomePath $turboismHome -StagePath $bootstrapDocuments `
+                -JavaPath $updateJava -PassThru
+            if (!$receiptResult.Success) {
+                Write-Warning "Framework receipt initialization failed (exit $($receiptResult.ExitCode)); self-update remains unavailable."
+            }
+        }
+        catch {
+            Write-Warning "Framework receipt initialization was skipped: $($_.Exception.Message)"
+        }
+    }
     if ((Test-Path -LiteralPath $updateJournal) -or (Test-Path -LiteralPath $updatePending)) {
         # A launcher may have died while its Cubism child survived. Never restore loaded bytes in that case.
         $activeAgentUsers = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" -ErrorAction Stop |
@@ -210,7 +232,6 @@ if (!$ProbeOnly) {
                 throw 'Update recovery helper is missing; installation was not launched. Use the full package to recover.'
             }
         }
-        $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
         & $updateJava '-cp' $updateRunner 'dev.turboism.update.FrameworkUpdateHelper' `
             '--root' $turboismHome '--work' $updateWork '--prepare-launch' "$PID"
         if ($LASTEXITCODE -notin @(0, 10, 20, 30)) {
