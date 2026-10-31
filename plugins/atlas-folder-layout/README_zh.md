@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-folders
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -70,6 +70,10 @@ Bitmask Nesting 与 Dalsoo 使用图片局部坐标下的网格轮廓；轮廓�
 没有可用算法时，先启用兼容的算法插件；没有纹理集时，先为当前模型创建或打开纹理集。使用撤销恢复上一次布局。
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

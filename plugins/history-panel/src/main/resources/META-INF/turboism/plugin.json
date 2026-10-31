@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.historypanel",
   "name": "History Panel Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Photoshop-style history pane projecting the active document's native Undo history with snapshot-bound Undo/Redo navigation.",
   "entrypoints": [
     "dev.turboism.plugin.historypanel.HistoryPanelPlugin"

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -117,6 +117,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | A command or action does not run on Enter | Check the host log; the result status is logged when execution is denied or fails, and action invocations are audited with this plugin's identity. |
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

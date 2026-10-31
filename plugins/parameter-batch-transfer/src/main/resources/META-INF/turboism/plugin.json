@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.parameter-batch-transfer",
   "name": "Parameter Batch Transfer",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Batch-transfer parameter bindings of one ArtMesh or Deformer to other parameters, with optional inversion, through a modal dialog.",
   "entrypoints": [
     "dev.turboism.plugin.parameterbatchtransfer.ParameterBatchTransferPlugin"

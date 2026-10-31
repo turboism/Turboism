@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.cubism-tab-filter",
   "name": "Cubism Tab Filter",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs.",
   "entrypoints": [
     "dev.turboism.plugin.tabfilter.TabFilterPlugin"

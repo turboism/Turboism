@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -122,6 +122,10 @@ OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` an
 - **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

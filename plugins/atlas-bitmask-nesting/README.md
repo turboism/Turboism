@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-nesting
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -58,6 +58,10 @@ Development build. Native invocations pack the current page with real contours. 
 If the selector is missing, check plugin enablement, host compatibility and the runtime log. Overflow at fixed scale is left to the runtime current-page contract. Run `./gradlew :plugins:atlas-bitmask-nesting:test` for collision and geometry regressions. `:plugins:atlas-bitmask-nesting:nestingBenchmark` measures synthetic planner time; it is separate from Cubism UI time.
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

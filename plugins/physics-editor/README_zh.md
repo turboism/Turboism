@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -112,6 +112,10 @@ interface: swing
 | 表头显示为横线/半选状态 | 当部分组处于启用、部分组处于禁用时，表头显示为半选状态属于正常现象，此时点击即可一次性全部启用。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

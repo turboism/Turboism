@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.artmesh-mirror
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing, symmetry
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -19,7 +19,7 @@ interface: none
 
 ## 요구 사항 및 호환성
 
-Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).
@@ -62,6 +62,10 @@ Turboism の公式配布に同梱されます。プラグイン管理で有効�
 軸が表示されない場合は、プラグインとボタンを有効にし、通常のモデリング画面でアートメッシュを選択してください。対応点が動かない場合は反射位置付近に頂点があるか確認してください。
 
 ## 변경 이력
+
+### 0.68.1
+
+- 플러그인이 실제로 사용하는 SDK 멤버에 맞춰 최소 Turboism API를 0.68.0으로 올렸습니다.
 
 ### 0.1.0
 

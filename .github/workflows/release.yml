@@ -201,7 +201,6 @@ jobs:
             --output build/market-release \
             --source-revision "${{ github.sha }}" \
             --catalog https://plugin.turboism.dev/api/v2/catalog.json \
-            --framework-version "${{ steps.version.outputs.version }}" \
             --release-channel "${{ needs.preflight.outputs.channel }}")"
           printf '%s\n' "$OUTPUT"
           STAGED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"

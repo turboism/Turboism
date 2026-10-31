@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.protected-export
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -77,6 +77,10 @@ interface: none
 - **復元の失敗や拒否**はフェーズ付きで記録されます。失敗箇所の前後にあるプラグインログでフェーズを特定してください。
 
 ## 변경 이력
+
+### 0.68.0
+
+- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 
