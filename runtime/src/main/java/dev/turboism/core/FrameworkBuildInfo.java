@@ -57,7 +57,19 @@ public record FrameworkBuildInfo(
     }
     /** Plugin API is the framework base version, independent of release channel or local suffixes. */
     public PluginVersion apiVersion() {
-        return PluginVersion.parse(version.split("-", 2)[0]);
+        return parseApiVersion(version);
+    }
+
+    /**
+     * Parses the framework API version from a framework version string by stripping pre-release suffixes.
+     */
+    public static PluginVersion parseApiVersion(final String frameworkVersion) {
+        Objects.requireNonNull(frameworkVersion, "frameworkVersion");
+        final String trimmed = frameworkVersion.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("frameworkVersion must not be blank");
+        }
+        return PluginVersion.parse(trimmed.split("-", 2)[0]);
     }
 
     /** True only for an unnumbered local development build. */

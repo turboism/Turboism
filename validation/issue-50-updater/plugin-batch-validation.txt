@@ -1,0 +1,45 @@
+Issue #50 selected-plugin batch validation
+
+Scope
+- Delegated submissions 82034415 / rebased 49a0ffd9 were not approved as submitted.
+- The Fast agent stopped on a provider usage limit. Its interrupted changes were preserved
+  in local checkpoint d47f5ebfa; the lead completed the remaining implementation without
+  switching subagent models.
+- The native window reuses the verified plugin catalog, existing JAR inspection/preparation,
+  dependency planner and pending operations. It stages only selected compatible updates.
+
+Implemented behavior
+- EDT-owned view state; one serial worker owns disk/network operations and owned leases.
+- Stable failed planning until explicit retry; generation-checked preview results.
+- Independent cancellation controls per download; stale results cannot revive cancelled batches.
+- Selection is frozen while downloading/committing. Editing a prepared selection invalidates it.
+- Explicit framework-only choice remains possible when the plugin catalog is unavailable.
+  It does not bypass local installed/pending compatibility checks or framework signatures.
+- Downloads do not publish plugin pending operations. User installation consent commits the
+  plugin batch, then schedules the framework. A failure between these two journals is reported
+  as partial success, not a globally atomic transaction.
+- Prepared plugin descriptors support both current and authenticated target APIs. Final checks
+  use actual installed archive metadata, existing pending installs/uninstalls and required
+  dependency ranges; they do not silently enable disabled dependencies or downgrade plugins.
+- Batch publication rejects changed pending snapshots, duplicate IDs and a corrupt last item.
+- The root-bound gate serializes automatic stage/hot-apply with manual lease acquisition;
+  acquisition/cleanup never waits on the EDT. Framework pending/health journals suspend auto-updates.
+- Closing the view does not cancel an already-consented commit or delete journalled packages.
+
+Executed on the independent worktree
+  ./gradlew :runtime:test --tests 'dev.turboism.pluginmanagement.*' \
+    --tests 'dev.turboism.shell.FrameworkUpdatesWindowTest' \
+    --tests 'dev.turboism.update.*' :core-contract:test --console=plain
+  BUILD SUCCESSFUL; runtime: 38 suites / 483 tests / 0 failures / 0 errors / 6 skips.
+  core-contract: existing 31-test green result reused by Gradle (UP-TO-DATE).
+
+Evidence boundaries
+- Service integration uses real temporary Ed25519 signatures, catalog bytes and JAR containers.
+  Fixture plugin entrypoint bytes are not executed as real Cubism plugins.
+- UI orchestration uses injected services, EDT actions and latch-controlled asynchronous work;
+  it is not native-window host acceptance.
+- The automatic mutation barrier test actually attempts a competing owned lease while paused
+  inside the mutation section. It is not a live Cubism hot-reload qualification.
+- No actual Cubism download/selected-plugin/next-launch/repeated-upgrade acceptance was performed.
+  Plugin apply failure together with framework health/rollback still needs host-level qualification.
+- No production activation, signing credentials or deployment were configured.
