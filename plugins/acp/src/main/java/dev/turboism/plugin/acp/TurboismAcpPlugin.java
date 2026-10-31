@@ -6,12 +6,13 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import java.awt.GraphicsEnvironment;
-import java.lang.reflect.InvocationTargetException;
+import java.time.Duration;
 import java.util.Objects;
-import javax.swing.SwingUtilities;
 
 /**
  * Official automation plugin that connects Turboism to a user-installed ACP v1 agent.
@@ -39,6 +40,9 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
     private AcpChatWindow window;
     private AcpChatController controller;
     private volatile boolean enabled;
+    private long generation;
+    private UiScheduler uiScheduler;
+    private PluginLogger logger;
 
     /** Creates the production plugin entrypoint. */
     public TurboismAcpPlugin() {
@@ -53,6 +57,8 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
     public synchronized void init(final PluginContext context) {
         super.init(context);
         localization = context.localization();
+        uiScheduler = context.uiScheduler();
+        logger = context.logger();
         context.disposableScope().register(this::disposeUi);
         context.logger().info("Turboism ACP initialized");
     }
@@ -128,8 +134,12 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
     public void disable() {
         final AcpChatController currentController;
         final AcpPluginSettings currentSettings;
+        final AcpChatWindow currentWindow;
         synchronized (this) {
             enabled = false;
+            generation++;
+            currentWindow = window;
+            window = null;
             currentController = controller;
             currentSettings = settings;
             settings = null;
@@ -138,7 +148,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
         // Reuse the SDK's reverse-order cleanup and fatal-error priority rules.
         try (DisposableScope cleanup = new DisposableScope()) {
             if (currentSettings != null) cleanup.register(currentSettings);
-            cleanup.register(this::disposeFrames);
+            cleanup.register(() -> disposeFrames(currentWindow));
             if (currentController != null) cleanup.register(currentController);
             cleanup.register(super::disable);
         } catch (RuntimeException failure) {
@@ -194,20 +204,24 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
     }
 
     private void openWindow(final WindowTarget target) {
-        if (!enabled) return;
+        final long openGeneration;
+        synchronized (this) {
+            if (!enabled) return;
+            openGeneration = generation;
+        }
         if (GraphicsEnvironment.isHeadless()) {
             context().logger().warn("Turboism ACP cannot open because the JVM is headless");
             return;
         }
-        SwingUtilities.invokeLater(() -> showWindow(target));
+        uiScheduler.runOnUiThread(() -> showWindow(target, openGeneration));
     }
 
-    private void showWindow(final WindowTarget target) {
+    private void showWindow(final WindowTarget target, final long openGeneration) {
         beforeWindowConstruction.run();
         final AcpChatWindow toShow;
         AcpChatController autoConnect = null;
         synchronized (this) {
-            if (!enabled || settings == null) return;
+            if (!enabled || generation != openGeneration || settings == null) return;
             if (window == null) {
                 final AcpPluginSettings currentSettings = settings;
                 final AcpChatWindow created = new AcpChatWindow(
@@ -239,13 +253,13 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             if (toShow != null && controller != null && target == WindowTarget.AGENT && toShow.claimAutoConnect()) {
                 autoConnect = controller;
             }
+            if (target == WindowTarget.SETTINGS) {
+                presentSettingsWindow(toShow::showSettingsAndFront);
+                return;
+            }
+            final AcpChatController connection = autoConnect;
+            presentAgentWindow(connection == null ? null : connection::connect, toShow::showAgentAndFront);
         }
-        if (target == WindowTarget.SETTINGS) {
-            presentSettingsWindow(toShow::showSettingsAndFront);
-            return;
-        }
-        final AcpChatController connection = autoConnect;
-        presentAgentWindow(connection == null ? null : connection::connect, toShow::showAgentAndFront);
     }
 
     /** Starts first-open background work before the Agent frame claims foreground focus. */
@@ -271,37 +285,28 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
 
     private void disposeUi() {
         final AcpChatController current;
+        final AcpChatWindow currentWindow;
         synchronized (this) {
+            enabled = false;
+            generation++;
             current = controller;
             controller = null;
+            currentWindow = window;
+            window = null;
         }
-        if (current != null) current.close();
-        disposeFrames();
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(() -> disposeFrames(currentWindow));
+            if (current != null) cleanup.register(current);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("Turboism ACP UI disposal failed", failure);
+        }
     }
 
-    private void disposeFrames() {
-        final Runnable dispose = () -> {
-            final AcpChatWindow current;
-            synchronized (this) {
-                current = window;
-                window = null;
-            }
-            if (current != null) current.dispose();
-        };
-        try {
-            if (SwingUtilities.isEventDispatchThread()) dispose.run();
-            else SwingUtilities.invokeAndWait(dispose);
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            try {
-                context().logger().warn("Turboism ACP window disposal was interrupted");
-            } catch (IllegalStateException ignored) {
-            }
-        } catch (InvocationTargetException | RuntimeException failure) {
-            try {
-                context().logger().warn("Turboism ACP window disposal failed");
-            } catch (IllegalStateException ignored) {
-            }
+    private void disposeFrames(final AcpChatWindow current) {
+        if (current != null && !uiScheduler.runUiTeardown(current::dispose, Duration.ofSeconds(2))) {
+            logger.warn("Turboism ACP window disposal deferred");
         }
     }
 

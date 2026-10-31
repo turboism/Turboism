@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.optimization.modelupdate;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTarget.Dep;
+import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
@@ -159,5 +160,67 @@ public class ModelUpdateSkipTargetTest {
         assertTrue(v5303.dependencies().stream()
                 .anyMatch(dep -> dep.owner().equals("com.live2d.cubism.view.ay")
                         && dep.name().equals("b")));
+    }
+
+    @Test
+    void completeOutputMatchesIndependentPreMigrationBaseline() throws Exception {
+        StringBuilder actual = new StringBuilder();
+        for (var target : ModelUpdateSkipTarget.all()) {
+            actual.append(target).append('\n');
+            for (var dependency : target.dependencies()) {
+                actual.append(dependency).append('\n');
+            }
+        }
+        for (var target : IncrementalUpdateTarget.all()) {
+            actual.append(target).append('\n');
+            actual.append(target.coreDescriptor()).append('\n');
+            actual.append(target.deformerUpdateDescriptor()).append('\n');
+            actual.append(target.artMeshUpdateDescriptor()).append('\n');
+            actual.append(target.deformerInterpolateDescriptor()).append('\n');
+            actual.append(target.meshInterpolateDescriptor()).append('\n');
+            actual.append(target.deformerBinary()).append('\n');
+            actual.append(target.meshFormBinary()).append('\n');
+            for (var dependency : target.dependencies()) {
+                actual.append(dependency).append('\n');
+            }
+        }
+        try (var input = getClass().getResourceAsStream("targets-before-generation.txt")) {
+            assertNotNull(input);
+            assertEquals(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), actual.toString());
+        }
+    }
+
+    @Test
+    void generatedQueriesPreserveOrderIdentityAndUnknownVersionRejection() {
+        assertEquals(
+                ReviewedHostArtifacts.reviewedCubismVersions(),
+                new java.util.LinkedHashSet<>(ModelUpdateSkipTarget.all().stream()
+                        .map(ModelUpdateSkipTarget::version)
+                        .toList()));
+        assertEquals(
+                ModelUpdateSkipTarget.all().stream()
+                        .map(ModelUpdateSkipTarget::version)
+                        .toList(),
+                IncrementalUpdateTarget.all().stream()
+                        .map(IncrementalUpdateTarget::version)
+                        .toList());
+        for (var target : ModelUpdateSkipTarget.all()) {
+            assertSame(
+                    target,
+                    ModelUpdateSkipTarget.forReviewedVersion(target.version()).orElseThrow());
+            var incremental =
+                    IncrementalUpdateTarget.forReviewedVersion(target.version()).orElseThrow();
+            assertSame(
+                    incremental,
+                    IncrementalUpdateTarget.of(incremental.digest()).orElseThrow());
+            assertEquals(target.owner(), incremental.updater());
+            assertEquals(target.updateContext().replace('.', '/'), incremental.updateContext());
+        }
+        assertTrue(ModelUpdateSkipTarget.forReviewedVersion("5.3.99").isEmpty());
+        assertTrue(IncrementalUpdateTarget.forReviewedVersion("5.3.99").isEmpty());
+        assertTrue(IncrementalUpdateTarget.of(new HostArtifactDigest(1L, "9".repeat(64)))
+                .isEmpty());
+        assertThrows(NullPointerException.class, () -> IncrementalUpdateTarget.of(null));
+        assertThrows(NullPointerException.class, () -> ModelUpdateSkipTarget.forReviewedVersion(null));
     }
 }

@@ -695,6 +695,12 @@ val checkVerificationSourcesSelfTest by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/generate_verification_sources.py",
+        "compatibility/cubism/reviewed-releases.json",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/turboism_dev/json_io.py",
+        "scripts/verification-sources/model-update-targets.json",
+        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
+        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json",
         "scripts/test/test_generate_verification_sources.py"
     )
     VerificationStamps.apply(this)
@@ -712,6 +718,12 @@ val checkVerificationSources by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/generate_verification_sources.py",
+        "compatibility/cubism/reviewed-releases.json",
+        "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/turboism_dev/json_io.py",
+        "scripts/verification-sources/model-update-targets.json",
+        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
+        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json",
         fileTree("scripts/verification-sources") { include("**/*") },
         fileTree("build/generated/verification") { include("*.json") },
         fileTree("build/generated/draft/mapping-packs") { include("*.json") },

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
@@ -780,6 +781,120 @@ final class McpHttpServerIntegrationTest {
         } finally {
             server.close();
         }
+    }
+
+    @Test
+    void queuedConnectionOpenAndDeferredCleanupStayInTheirOwnGeneration() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless());
+        final var scheduler = new TestUiScheduler();
+        scheduler.queueOpens = true;
+        final var ui = new RecordingUi();
+        final var base = pluginContext(
+                new CapturingLogger(), new MutableObjects(), new FakeReadServices(), new RecordingConnections(), ui);
+        final var plugin = new McpPlugin();
+        plugin.init(withScheduler(base, scheduler));
+        plugin.enable();
+        ui.actions.get(McpPlugin.CONNECTION_ACTION_ID).handler().accept(new ActionRegistry.ActionContext() {});
+        assertEquals(1, scheduler.opens.size());
+        plugin.disable();
+        plugin.enable();
+        onEdt(scheduler.opens.remove(0));
+        assertEquals(null, field(plugin, "window"));
+        ui.actions.get(McpPlugin.CONNECTION_ACTION_ID).handler().accept(new ActionRegistry.ActionContext() {});
+        onEdt(scheduler.opens.remove(0));
+        final var old = (java.awt.Window) field(field(plugin, "window"), "frame");
+        scheduler.fenced = true;
+        scheduler.deferTeardown = true;
+        plugin.disable();
+        assertTrue(old.isDisplayable());
+        assertEquals(1, scheduler.teardowns);
+        scheduler.fenced = false;
+        plugin.enable();
+        ui.actions.get(McpPlugin.CONNECTION_ACTION_ID).handler().accept(new ActionRegistry.ActionContext() {});
+        onEdt(scheduler.opens.remove(0));
+        final var fresh = (java.awt.Window) field(field(plugin, "window"), "frame");
+        try {
+            onEdt(scheduler.cleanups.get(0));
+            onEdt(scheduler.cleanups.get(0));
+            assertFalse(old.isDisplayable());
+            assertTrue(fresh.isDisplayable());
+        } finally {
+            scheduler.deferTeardown = false;
+            onEdt(() -> {
+                try {
+                    plugin.shutdown();
+                } catch (Exception failure) {
+                    throw new AssertionError(failure);
+                }
+            });
+            plugin.disable();
+        }
+        assertFalse(fresh.isDisplayable());
+        assertEquals(2, scheduler.teardowns);
+    }
+
+    private static final class TestUiScheduler implements dev.turboism.sdk.ui.UiScheduler {
+        boolean fenced;
+        boolean deferTeardown;
+        boolean queueOpens;
+        int teardowns;
+        final java.util.List<Runnable> opens = new java.util.ArrayList<>();
+        final java.util.List<Runnable> cleanups = new java.util.ArrayList<>();
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
+            if (!fenced) {
+                if (queueOpens) opens.add(work);
+                else javax.swing.SwingUtilities.invokeLater(work);
+            }
+            return () -> {};
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
+                final Runnable work, final java.time.Duration delay) {
+            return runOnUiThread(work);
+        }
+
+        @Override
+        public boolean runUiTeardown(final Runnable cleanup, final java.time.Duration timeout) {
+            teardowns++;
+            if (deferTeardown) {
+                cleanups.add(cleanup);
+                return false;
+            }
+            onEdt(cleanup);
+            return true;
+        }
+    }
+
+    private static void onEdt(final Runnable work) {
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) work.run();
+        else {
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(work);
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
+        }
+    }
+
+    private static PluginContext withScheduler(final PluginContext base, final TestUiScheduler scheduler) {
+        return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
+                PluginContext.class.getClassLoader(), new Class<?>[] {PluginContext.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("uiScheduler")) return scheduler;
+                    try {
+                        return method.invoke(base, args);
+                    } catch (java.lang.reflect.InvocationTargetException failure) {
+                        throw failure.getCause();
+                    }
+                });
+    }
+
+    private static Object field(final Object target, final String name) throws Exception {
+        final var field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     @Test
