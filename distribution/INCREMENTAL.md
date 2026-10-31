@@ -263,11 +263,16 @@ authenticated delivery path:
    unwithdrawn record has the same version, channel, buildNumber and sourceRevision as the
    release. Any authority failure silently returns the plain full-installer document.
 5. `publish-framework.mjs` finishes with a public preflight (redirect-free, byte-exact, Range).
-   If public preflight fails after admission, the publisher immediately issues a rollback
-   withdrawal (`POST /v1/framework/withdraw`) so `release.incremental` is not advertised
-   for a failing candidate while full-installer package delivery remains unaffected.
-   If rollback withdrawal also fails, a compound error is reported. Only after preflight
-   passes should the GitHub release be published/synchronized.
+   Note that this design relies on post-admission failure rollback compensation: an admission-to-preflight
+   window exists where the release has committed in the authority before preflight finishes. If public
+   preflight fails after admission, the publisher immediately issues a compensation rollback withdrawal
+   (`POST /v1/framework/withdraw`) so `release.incremental` ceases being advertised for a failing candidate,
+   leaving full-installer package delivery unaffected. If rollback withdrawal also fails, a compound error
+   is reported. Only after preflight passes should the GitHub release be published/synchronized.
+   Retrying a previously withdrawn candidate retains its withdrawn status by default; the publisher must
+   explicitly supply `reactivate: true` (`--reactivate`) to re-enable advertising once all cryptographic and
+   preflight checks pass. Tests validate these protocol and authority semantics locally with SQLite and mock
+   storage without deploying to or asserting live Cloudflare infrastructure.
 6. `POST /v1/framework/withdraw {"id": "<manifest sha256>"}` (same identity) stops
    advertising a release; resources stay served for in-flight resumes.
 
