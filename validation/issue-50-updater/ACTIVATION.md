@@ -57,8 +57,12 @@ java -cp <trusted-agent-or-helper-copy.jar> dev.turboism.update.FrameworkUpdateH
 5. Receipt directories must have the existing private owner/permission/ACL policy. The initializer creates missing
    private directories but never silently makes an existing insecure directory private. The installer must prepare
    its own state namespace deliberately without discarding user state; migration needs separate acceptance.
-6. Full installer extraction/invocation and bootstrap-document packaging are not wired into NSIS/ZIP publication
-   yet. This helper command is the implemented seam, not evidence that current public packages contain receipts.
+6. Full installer extraction/invocation and bootstrap-document packaging are wired through
+   `packaging/windows-installer/bootstrap-receipt.ps1`, `configure_turboism.ps1 -InitializeReceipt`,
+   `installer.nsi` (`BOOTSTRAP_RECEIPT_DIR`), and `assemble-release.sh` (`--bootstrap-receipt-dir`).
+   Legacy packages lacking bootstrap documents preserve their original installation function without
+   claiming self-update is available. Actual publication of signed bootstrap documents remains gated on
+   the protected release signing authority and reviewed key provisioning.
 
 ## Normal incremental transaction
 
