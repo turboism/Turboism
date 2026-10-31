@@ -1149,6 +1149,41 @@ val checkInstallerPluginSectionsGateSelfTest by tasks.registering(Exec::class) {
     commandLine("python3", "packaging/windows-installer/selftest-plugin-sections.py")
 }
 
+/*
+ * The four host probes share one fail-closed terminal rule (PASS/FAIL/BLOCKED/SKIPPED
+ * plus zero-assertion rejection). The shared self check compiles and runs that rule
+ * offline, so a probe-side regression cannot reach the compatibility matrix unnoticed.
+ * Inputs cover the shared sources, every probe that consumes them, and the evidence
+ * parser that interprets their output; a change in any of them re-runs the check
+ * instead of reporting an up-to-date success.
+ */
+val hostProbeDirectories = listOf(
+    "validation/animation-timeline-host-probe",
+    "validation/atlas-polygon-host-probe",
+    "validation/clipmask-viewer-host-probe",
+    "validation/parameter-batch-transfer-host-probe"
+)
+
+val checkProbeTerminalSelftest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs the offline shared probe-terminal contract (PASS/FAIL/BLOCKED/SKIPPED, zero assertions)."
+    workingDir(rootDir)
+    val script = "validation/shared/check-probe-terminal.sh"
+    // validation/shared is covered as a tree so a missing script reaches the explicit
+    // require below instead of a generic "input file does not exist" validation error.
+    inputs.files(fileTree("validation/shared") { include("**/*") })
+    inputs.files(hostProbeDirectories.map { directory -> fileTree(directory) { include("**/*") } })
+    inputs.file("scripts/preview/host_validation_evidence.py")
+    doFirst {
+        // A missing check must fail instead of turning into an empty green run.
+        require(rootProject.file(script).isFile) {
+            "$script is missing: the shared probe-terminal contract cannot be verified"
+        }
+    }
+    VerificationStamps.apply(this)
+    commandLine("bash", script)
+}
+
 val checkPluginTemplateSetup by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs offline unit tests for the plugin template setup scripts."
@@ -1221,6 +1256,7 @@ val devCheck by tasks.registering {
         "checkResolvedBytecodeDependencyGraph",
         "checkInstallerPluginSections",
         checkInstallerPluginSectionsGateSelfTest,
+        checkProbeTerminalSelftest,
         "checkCleanWorktreeSafety",
         "checkShellLintRequiresShellcheck",
         "checkHostCleanupEnvMerge",

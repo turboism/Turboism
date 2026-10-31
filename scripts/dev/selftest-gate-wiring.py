@@ -115,6 +115,30 @@ def main() -> int:
         '!include "plugin-sections.nsh"' in (ROOT / "packaging/windows-installer/installer.nsi").read_text(encoding="utf-8"),
     )
 
+    # 4b. the shared probe-terminal contract must run in devCheck with complete inputs.
+    probe_terminal = task_block(verification, "val checkProbeTerminalSelftest by tasks.registering(Exec::class)")
+    check('devCheck runs the shared probe-terminal contract', 'checkProbeTerminalSelftest' in dev_check)
+    check(
+        'probe-terminal gate is registered',
+        "check-probe-terminal.sh" in probe_terminal,
+    )
+    for required_input in ('"validation/shared"', '"scripts/preview/host_validation_evidence.py"'):
+        check(
+            f"probe-terminal gate declares input {required_input.strip(chr(34))}",
+            required_input in probe_terminal,
+        )
+    check(
+        "probe-terminal gate consumes the probe directory set",
+        "hostProbeDirectories" in probe_terminal,
+    )
+    for probe in (
+        "validation/animation-timeline-host-probe",
+        "validation/atlas-polygon-host-probe",
+        "validation/clipmask-viewer-host-probe",
+        "validation/parameter-batch-transfer-host-probe",
+    ):
+        check(f"probe-terminal inputs cover {probe}", f'"{probe}"' in verification)
+
     # 5. shell lint must fail closed and be documented as a build requirement.
     shell_lint = SHELL_LINT.read_text(encoding="utf-8")
     check("checkShellLint stays in devCheck", '"checkShellLint"' in dev_check)
