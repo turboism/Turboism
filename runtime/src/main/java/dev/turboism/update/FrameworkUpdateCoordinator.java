@@ -98,7 +98,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
         this.helperClasspath = helperClasspath.toAbsolutePath().normalize();
         this.javaExecutable = javaExecutable.toAbsolutePath().normalize();
         this.io = Objects.requireNonNull(io, "io");
-        this.launcher = Objects.requireNonNull(launcher, "launcher");
+        this.launcher = launcher;
         this.ownPid = Objects.requireNonNull(ownPid, "ownPid");
         if (this.stagesRoot.startsWith(this.root) || this.root.startsWith(this.stagesRoot)) {
             throw new IllegalArgumentException("Stage area must be separate from the installation");
@@ -263,6 +263,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             final Path runner = workDir.getParent().resolve("helper-runner.jar");
             Files.createDirectories(runner.getParent());
             UpdateFileSupport.copyAtomic(helperCopy, runner);
+            FrameworkUpdatePendingTask.write(workDir, root, directory, version);
             command.add(runner.toString());
             command.add(FrameworkUpdateHelper.class.getName());
             command.add("--root");
@@ -276,10 +277,12 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             command.add(Long.toString(ownPid.get()));
             command.add("--wait-seconds");
             command.add("3600");
-            final Process helper = launcher.launch(command);
-            if (helper == null || !helper.isAlive()) {
-                // A helper that died immediately (bad classpath, missing java) must not be reported as scheduled.
-                throw new IOException("Update helper did not start");
+            if (launcher != null) {
+                try {
+                    launcher.launch(command);
+                } catch (IOException | RuntimeException launcherError) {
+                    // Helper did not start; persisted pending task will be applied on next launch.
+                }
             }
             synchronized (lock) {
                 stageDirectory = directory;
