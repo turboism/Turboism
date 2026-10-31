@@ -1717,9 +1717,10 @@ Section "-核心文件" SecCore
   FileClose $0
 
 !ifdef BOOTSTRAP_RECEIPT_DIR
-  CreateDirectory "$INSTDIR\state\runtime\update\bootstrap"
-  File "/oname=$INSTDIR\state\runtime\update\bootstrap\manifest.json" "${BOOTSTRAP_RECEIPT_DIR}\manifest.json"
-  File "/oname=$INSTDIR\state\runtime\update\bootstrap\manifest.json.sig" "${BOOTSTRAP_RECEIPT_DIR}\manifest.json.sig"
+  SetOutPath "$INSTDIR\bootstrap"
+  File "/oname=manifest.json" "${BOOTSTRAP_RECEIPT_DIR}\manifest.json"
+  File "/oname=manifest.json.sig" "${BOOTSTRAP_RECEIPT_DIR}\manifest.json.sig"
+  SetOutPath "$INSTDIR"
 !endif
 SectionEnd
 
@@ -1795,6 +1796,7 @@ Section "Uninstall"
   Delete "$INSTDIR\configure_turboism.ps1"
   Delete "$INSTDIR\bootstrap-receipt.ps1"
   Delete "$INSTDIR\install-jar-payload.ps1"
+  RMDir /r "$INSTDIR\bootstrap"
   Delete "$INSTDIR\install-managed-graal.ps1"
   Delete "$INSTDIR\install-script-engine.ps1"
   Delete "$INSTDIR\script-engine.json"

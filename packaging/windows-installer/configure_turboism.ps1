@@ -1086,6 +1086,9 @@ if ($InitializeReceipt) {
         if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
             $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
         }
+        if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
+            $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
+        }
         & $bootstrapScript @bArgs
         exit $LASTEXITCODE
     }
@@ -1114,7 +1117,14 @@ if ($InitializeSelection) {
             if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
                 $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
             }
+            if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
+                $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
+            }
             & $bootstrapScript @bArgs
+            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 10) {
+                Write-Error "Bootstrap receipt initialization failed with exit code $LASTEXITCODE"
+                exit $LASTEXITCODE
+            }
         }
         exit 0
     }

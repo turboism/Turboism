@@ -10,6 +10,7 @@ param(
     [string]$WorkPath = "",
     [string]$Classpath = "",
     [string]$HelperClass = "dev.turboism.update.FrameworkUpdateHelper",
+    [string[]]$HelperPrefixArgs = @(),
     [switch]$Strict,
     [switch]$PassThru
 )
@@ -60,79 +61,74 @@ function Find-RunnableJava {
     param(
         [string]$ExplicitJava,
         [string]$TurboismHome,
-        [string]$SnapshotPath
+        [string]$SnapshotPath,
+        [string]$SnapshotSha256
     )
 
-    $candidates = New-Object System.Collections.Generic.List[string]
-
-    # 1. Explicit override
+    # 1. Prioritize explicit Java from trusted caller
     if (-not [string]::IsNullOrWhiteSpace($ExplicitJava)) {
-        [void]$candidates.Add($ExplicitJava)
+        if (Test-Jdk17Runnable $ExplicitJava) {
+            return $ExplicitJava
+        }
     }
 
-    # 2. Discovery snapshot from installer (Cubism bundled JRE)
-    if (-not [string]::IsNullOrWhiteSpace($SnapshotPath) -and (Test-Path -LiteralPath $SnapshotPath -PathType Leaf)) {
+    # 2. Selected candidate from real cubism-installations.json using Read-CubismInstallationState
+    $stateFile = Join-Path $TurboismHome "cubism-installations.json"
+    if (Test-Path -LiteralPath $stateFile -PathType Leaf) {
         try {
-            $json = Get-Content -LiteralPath $SnapshotPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($null -ne $json.candidates) {
-                foreach ($c in $json.candidates) {
-                    if (-not [string]::IsNullOrWhiteSpace($c.Java)) { [void]$candidates.Add($c.Java) }
-                    elseif (-not [string]::IsNullOrWhiteSpace($c.Root)) {
-                        [void]$candidates.Add((Join-Path $c.Root "app\jre\bin\java.exe"))
+            $state = Read-CubismInstallationState -StatePath $stateFile
+            if ($state.Valid -and $null -ne $state.Candidates) {
+                foreach ($c in @($state.Candidates | Where-Object { $_.Selected })) {
+                    if (-not [string]::IsNullOrWhiteSpace($c.Java) -and (Test-Jdk17Runnable $c.Java)) {
+                        return $c.Java
                     }
                 }
             }
         } catch { }
     }
 
-    # 3. State-configured Cubism installation JRE
-    $statePath = Join-Path $TurboismHome "state\runtime\cubism-selection.json"
-    if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+    # 3. Verified installer discovery snapshot using Read-CubismInstallerSnapshot
+    if (-not [string]::IsNullOrWhiteSpace($SnapshotPath) -and -not [string]::IsNullOrWhiteSpace($SnapshotSha256)) {
         try {
-            $state = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($null -ne $state.candidates) {
-                foreach ($c in $state.candidates) {
-                    if ($c.Selected -and -not [string]::IsNullOrWhiteSpace($c.Java)) {
-                        [void]$candidates.Add($c.Java)
-                    } elseif ($c.Selected -and -not [string]::IsNullOrWhiteSpace($c.Root)) {
-                        [void]$candidates.Add((Join-Path $c.Root "app\jre\bin\java.exe"))
-                    }
+            $snapshotCandidates = @(Read-CubismInstallerSnapshot -TurboismHome $TurboismHome -SnapshotPath $SnapshotPath -ExpectedSha256 $SnapshotSha256)
+            foreach ($c in $snapshotCandidates) {
+                if (-not [string]::IsNullOrWhiteSpace($c.Java) -and (Test-Jdk17Runnable $c.Java)) {
+                    return $c.Java
                 }
             }
         } catch { }
     }
 
     # 4. Managed GraalVM runtime in Turboism home
-    [void]$candidates.Add((Join-Path $TurboismHome "graal\runtime\bin\java.exe"))
-    [void]$candidates.Add((Join-Path $TurboismHome "graalvm\bin\java.exe"))
+    foreach ($graalRel in @("graal\runtime\bin\java.exe", "graalvm\bin\java.exe")) {
+        $graalJava = Join-Path $TurboismHome $graalRel
+        if (Test-Jdk17Runnable $graalJava) {
+            return $graalJava
+        }
+    }
 
     # 5. Environment overrides
-    if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_GRAALVM_HOME)) {
-        [void]$candidates.Add((Join-Path $env:TURBOISM_GRAALVM_HOME "bin\java.exe"))
-    }
-    if (-not [string]::IsNullOrWhiteSpace($env:GRAALVM_HOME)) {
-        [void]$candidates.Add((Join-Path $env:GRAALVM_HOME "bin\java.exe"))
-    }
-    if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
-        [void]$candidates.Add((Join-Path (Join-Path $env:JAVA_HOME "bin") "java.exe"))
-        [void]$candidates.Add((Join-Path (Join-Path $env:JAVA_HOME "bin") "java"))
+    foreach ($envVar in @($env:TURBOISM_GRAALVM_HOME, $env:GRAALVM_HOME, $env:JAVA_HOME)) {
+        if (-not [string]::IsNullOrWhiteSpace($envVar)) {
+            foreach ($exe in @("bin\java.exe", "bin\java")) {
+                $candidate = Join-Path $envVar $exe
+                if (Test-Jdk17Runnable $candidate) {
+                    return $candidate
+                }
+            }
+        }
     }
 
     # 6. Standard system PATH
     $pathCmd = Get-Command java.exe -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($null -ne $pathCmd -and -not [string]::IsNullOrWhiteSpace($pathCmd.Source)) {
-        [void]$candidates.Add($pathCmd.Source)
+        if (Test-Jdk17Runnable $pathCmd.Source) { return $pathCmd.Source }
     }
     $pathCmdLinux = Get-Command java -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($null -ne $pathCmdLinux -and -not [string]::IsNullOrWhiteSpace($pathCmdLinux.Source)) {
-        [void]$candidates.Add($pathCmdLinux.Source)
+        if (Test-Jdk17Runnable $pathCmdLinux.Source) { return $pathCmdLinux.Source }
     }
 
-    foreach ($candidate in $candidates) {
-        if (Test-Jdk17Runnable $candidate) {
-            return $candidate
-        }
-    }
     return $null
 }
 
@@ -146,9 +142,9 @@ function Find-BootstrapDocuments {
     if (-not [string]::IsNullOrWhiteSpace($ExplicitStage)) {
         [void]$searchDirs.Add($ExplicitStage)
     }
+    [void]$searchDirs.Add((Join-Path $TurboismHome "bootstrap"))
     [void]$searchDirs.Add((Join-Path $TurboismHome "state\runtime\update\bootstrap"))
     [void]$searchDirs.Add((Join-Path $TurboismHome "state\runtime\update\stage"))
-    [void]$searchDirs.Add((Join-Path $TurboismHome "bootstrap"))
     [void]$searchDirs.Add($TurboismHome)
 
     foreach ($dir in $searchDirs) {
@@ -181,6 +177,54 @@ function Find-BootstrapDocuments {
     return $null
 }
 
+function Initialize-PrivateStateNamespace {
+    param([string]$TurboismHome)
+
+    # FrameworkUpdateReceipt requires that the receipt state directories
+    # (root/state, root/state/runtime, root/state/runtime/update) have owner-only
+    # access (plus SYSTEM and Administrators on Windows).
+    $stateRoot = Join-Path $TurboismHome "state"
+    $runtimeDir = Join-Path $stateRoot "runtime"
+    $updateDir = Join-Path $runtimeDir "update"
+
+    foreach ($dir in @($stateRoot, $runtimeDir, $updateDir)) {
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+            [void][System.IO.Directory]::CreateDirectory($dir)
+        }
+        if ($env:OS -eq "Windows_NT") {
+            try {
+                $dirInfo = New-Object System.IO.DirectoryInfo($dir)
+                $sections = [System.Security.AccessControl.AccessControlSections]::Access -bor [System.Security.AccessControl.AccessControlSections]::Owner
+                $acl = $dirInfo.GetAccessControl($sections)
+                $acl.SetAccessRuleProtection($true, $false)
+                $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
+                $ownerRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                    $owner,
+                    [System.Security.AccessControl.FileSystemRights]::FullControl,
+                    [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit",
+                    [System.Security.AccessControl.PropagationFlags]::None,
+                    [System.Security.AccessControl.AccessControlType]::Allow
+                )
+                $acl.ResetAccessRule($ownerRule)
+                foreach ($sidStr in @("S-1-5-18", "S-1-5-32-544")) {
+                    try {
+                        $sid = New-Object System.Security.Principal.SecurityIdentifier($sidStr)
+                        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                            $sid,
+                            [System.Security.AccessControl.FileSystemRights]::FullControl,
+                            [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit",
+                            [System.Security.AccessControl.PropagationFlags]::None,
+                            [System.Security.AccessControl.AccessControlType]::Allow
+                        )
+                        $acl.AddAccessRule($rule)
+                    } catch { }
+                }
+                $dirInfo.SetAccessControl($acl)
+            } catch { }
+        }
+    }
+}
+
 # 1. Resolve and validate Turboism Home
 if (-not [string]::IsNullOrWhiteSpace($HomePath)) {
     $turboismHome = [System.IO.Path]::GetFullPath($HomePath.TrimEnd('\', '/'))
@@ -194,7 +238,28 @@ if (-not [System.IO.Directory]::Exists($turboismHome)) {
     throw "Turboism home directory does not exist: $turboismHome"
 }
 
-# 2. Check for bootstrap documents
+# 2. In non-strict (auto/first-launch) mode, check if a receipt already exists.
+# An upgraded installation must not re-run stale bootstrap documents from a previous release.
+$receiptFile = Join-Path $turboismHome "state\runtime\update\installed-receipt.json"
+if (-not $Strict -and (Test-Path -LiteralPath $receiptFile -PathType Leaf)) {
+    try {
+        $receiptItem = Get-Item -LiteralPath $receiptFile
+        if ($receiptItem.Length -gt 0) {
+            Write-Host "[bootstrap-receipt] Existing installation receipt detected; skipping bootstrap receipt initialization."
+            if ($PassThru) {
+                return [pscustomobject]@{
+                    Success = $true
+                    Status = "ALREADY_INITIALIZED"
+                    ExitCode = 0
+                    ReceiptPath = $receiptFile
+                }
+            }
+            exit 0
+        }
+    } catch { }
+}
+
+# 3. Check for bootstrap documents
 $docs = Find-BootstrapDocuments -ExplicitStage $StagePath -TurboismHome $turboismHome
 if ($null -eq $docs) {
     if ($Strict) {
@@ -212,8 +277,8 @@ if ($null -eq $docs) {
     exit 0
 }
 
-# 3. Resolve runnable JDK 17+
-$java = Find-RunnableJava -ExplicitJava $JavaPath -TurboismHome $turboismHome -SnapshotPath $DiscoverySnapshot
+# 4. Resolve runnable JDK 17+
+$java = Find-RunnableJava -ExplicitJava $JavaPath -TurboismHome $turboismHome -SnapshotPath $DiscoverySnapshot -SnapshotSha256 $DiscoverySnapshotSha256
 if ($null -eq $java) {
     if ($Strict) {
         throw "No runnable JDK 17+ or Cubism JRE found to initialize self-update receipt."
@@ -230,7 +295,7 @@ if ($null -eq $java) {
     exit 0
 }
 
-# 4. Resolve classpath and work directory
+# 5. Resolve classpath and work directory
 $cp = if (-not [string]::IsNullOrWhiteSpace($Classpath)) {
     $Classpath
 } else {
@@ -243,7 +308,10 @@ $workDir = if (-not [string]::IsNullOrWhiteSpace($WorkPath)) {
     Join-Path $turboismHome "state\runtime\update\helper"
 }
 
-# 5. Prepare normalized staging directory with exact manifest.json & manifest.json.sig
+# 6. Ensure state namespace directories have owner-restricted ACL before helper checks requirePrivate
+Initialize-PrivateStateNamespace -TurboismHome $turboismHome
+
+# 7. Prepare normalized staging directory with exact manifest.json & manifest.json.sig
 $tempStage = $null
 $effectiveStage = ""
 try {
@@ -260,11 +328,12 @@ try {
         $effectiveStage = $tempStage
     }
 
-    # 6. Invoke FrameworkUpdateHelper --initialize-receipt
+    # 8. Invoke FrameworkUpdateHelper --initialize-receipt
     Write-Host "[bootstrap-receipt] Initializing framework receipt using $java ..."
     $helperArgs = @(
         "-cp", $cp,
-        $HelperClass,
+        $HelperClass
+    ) + $HelperPrefixArgs + @(
         "--initialize-receipt",
         "--root", $turboismHome,
         "--stage", $effectiveStage,
@@ -284,7 +353,6 @@ try {
     # Exit code 10 (EXIT_NOTHING) or 0 indicates successful receipt initialization
     if ($exitCode -eq 10 -or $exitCode -eq 0) {
         Write-Host "[bootstrap-receipt] Framework update receipt initialized successfully."
-        $receiptFile = Join-Path $turboismHome "state\runtime\update\installed-receipt.json"
         if ($PassThru) {
             return [pscustomobject]@{
                 Success = $true
