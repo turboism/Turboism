@@ -30,6 +30,7 @@ public record UpdateManifestEntry(String relativePath, long bytes, String sha256
             "README.ko.txt",
             "README.txt",
             "README.zh.txt",
+            "bootstrap-receipt.ps1",
             "configure_turboism.ps1",
             "cubism-launch-common.ps1",
             "install-jar-payload.ps1",

@@ -681,16 +681,40 @@ for p in plugins:
     print(f"  {p['id']} | {p['name']} | {p['version']}")
 PYEOF
 
+# ---------- 3.5 校验与规范化 Bootstrap Receipt 输入（ZIP 与 NSIS 共享） ----------
+bootstrap_bundle_dir=""
+if [[ -n "$BOOTSTRAP_RECEIPT_DIR" ]]; then
+  if [[ ! -d "$BOOTSTRAP_RECEIPT_DIR" ]]; then
+    echo "error: specified bootstrap receipt directory does not exist: $BOOTSTRAP_RECEIPT_DIR" >&2
+    exit 1
+  fi
+  bootstrap_stage="$generated/bootstrap-receipt"
+  mkdir -p "$bootstrap_stage"
+  if [[ -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" ]]; then
+    cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json" "$bootstrap_stage/manifest.json"
+    cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
+  elif [[ -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" ]]; then
+    cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" "$bootstrap_stage/manifest.json"
+    cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
+  else
+    echo "error: bootstrap receipt directory must contain manifest.json and manifest.json.sig (or turboism-$VER-manifest.json and .sig): $BOOTSTRAP_RECEIPT_DIR" >&2
+    exit 1
+  fi
+  bootstrap_bundle_dir="$bootstrap_stage"
+  echo "[assemble] validated bootstrap receipt documents at $bootstrap_bundle_dir"
+fi
+
 # ---------- 4. ZIP + sha256 ----------
 # 使用 python3 zipfile（避免依赖 zip CLI）。
 # 标准 ZIP 携带获批插件及完整 GraalJS 离线依赖。config.json 由共享 payload 的 config.template.json 生成；
 # Java 安装器专属文件（config.template.json、README.java-installer.txt、
 # uninstall.command）不进入 Windows zip。
 zip_dir() {
-  local src="$1" out="$2"
-  python3 - "$src" "$out" "$VER" <<'PYEOF'
+  local src="$1" out="$2" bdir="${3:-}"
+  python3 - "$src" "$out" "$VER" "$bdir" <<'PYEOF'
 import hashlib, json, os, stat, sys, zipfile
 src, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+bootstrap_dir = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else ""
 EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command"}
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 def write_bytes(archive, name, data, mode):
@@ -717,10 +741,16 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     # Keep the installed variant compatible with existing update clients.
     installed_build = json.dumps({"schemaVersion": 1, "variant": "full", "version": ver}) + "\n"
     write_bytes(z, "installed-build.json", installed_build.encode("utf-8"), 0o644)
+    if bootstrap_dir and os.path.isdir(bootstrap_dir):
+        m_file = os.path.join(bootstrap_dir, "manifest.json")
+        s_file = os.path.join(bootstrap_dir, "manifest.json.sig")
+        if os.path.isfile(m_file) and os.path.isfile(s_file):
+            write_bytes(z, "bootstrap/manifest.json", open(m_file, "rb").read(), 0o644)
+            write_bytes(z, "bootstrap/manifest.json.sig", open(s_file, "rb").read(), 0o644)
 PYEOF
 }
 
-zip_dir "$stage" "$dist/turboism-$VER.zip"
+zip_dir "$stage" "$dist/turboism-$VER.zip" "$bootstrap_bundle_dir"
 
 # ---------- 4.5 SDK 与注解处理器开发构件 ----------
 # 独立的插件开发构件：sdk jar 与发行载荷内 graal/lib 同源同字节，
@@ -789,28 +819,9 @@ else
     nsis_args+=(-DVER_NUMERIC="$ver_numeric")
     echo "[assemble] VIProductVersion: $ver_numeric"
   fi
-  if [[ -n "$BOOTSTRAP_RECEIPT_DIR" && -d "$BOOTSTRAP_RECEIPT_DIR" ]]; then
-    bootstrap_stage="$generated/bootstrap-receipt"
-    mkdir -p "$bootstrap_stage"
-    if [[ -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" ]]; then
-      cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json" "$bootstrap_stage/manifest.json"
-      cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
-    elif [[ -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" ]]; then
-      cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" "$bootstrap_stage/manifest.json"
-      cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
-    else
-      echo "error: bootstrap receipt directory must contain manifest.json and manifest.json.sig (or turboism-$VER-manifest.json and .sig)" >&2
-      exit 1
-    fi
-    nsis_args+=(-DBOOTSTRAP_RECEIPT_DIR="$bootstrap_stage")
-    cp "$bootstrap_stage/manifest.json" "$dist/turboism-$VER-manifest.json"
-    cp "$bootstrap_stage/manifest.json.sig" "$dist/turboism-$VER-manifest.json.sig"
-    (
-      cd "$dist"
-      sha256sum "turboism-$VER-manifest.json" > "turboism-$VER-manifest.json.sha256"
-      sha256sum "turboism-$VER-manifest.json.sig" > "turboism-$VER-manifest.json.sig.sha256"
-    )
-    echo "[assemble] bootstrap receipt bundled: $bootstrap_stage"
+  if [[ -n "$bootstrap_bundle_dir" ]]; then
+    nsis_args+=(-DBOOTSTRAP_RECEIPT_DIR="$bootstrap_bundle_dir")
+    echo "[assemble] bootstrap receipt bundled: $bootstrap_bundle_dir"
   fi
   makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
   (

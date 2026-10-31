@@ -52,7 +52,28 @@ try {
         & $bootstrapScript -HomePath $legacyHome -Strict
     } 'missing documents with -Strict fails closed'
 
-    # 4. Compile a synthetic helper Java class to verify the exact helper invocation contract
+    # 4. Upgraded receipt + stale bootstrap documents regression (Issue #50 review point 4):
+    # Default auto-bootstrap mode must detect the existing upgraded receipt and NOT re-run stale bootstrap
+    $staleHome = Join-Path $fixture 'stale-bootstrap-home'
+    $staleState = Join-Path $staleHome 'state\runtime\update'
+    [void][System.IO.Directory]::CreateDirectory($staleState)
+    [System.IO.File]::WriteAllText((Join-Path $staleHome 'turboism-agent.jar'), 'agent-bytes')
+    $staleBootstrap = Join-Path $staleHome 'bootstrap'
+    [void][System.IO.Directory]::CreateDirectory($staleBootstrap)
+    [System.IO.File]::WriteAllText((Join-Path $staleBootstrap 'manifest.json'), '{"version":"1.0.0"}')
+    [System.IO.File]::WriteAllText((Join-Path $staleBootstrap 'manifest.json.sig'), 'sig-1.0.0')
+    $upgradedReceipt = Join-Path $staleState 'installed-receipt.json'
+    [System.IO.File]::WriteAllText($upgradedReceipt, '{"schemaVersion":1,"version":"1.1.0","upgraded":true}')
+    $upgradedBytes = [System.IO.File]::ReadAllBytes($upgradedReceipt)
+
+    $staleRes = & $bootstrapScript -HomePath $staleHome -PassThru
+    Assert-ReceiptRegression ($staleRes.Success -eq $true) 'existing receipt skips stale bootstrap in default mode'
+    Assert-ReceiptRegression ($staleRes.Status -eq 'ALREADY_INITIALIZED') 'status is ALREADY_INITIALIZED'
+    Assert-ReceiptRegression ($staleRes.ExitCode -eq 0) 'exit code is 0 on already initialized'
+    $currentBytes = [System.IO.File]::ReadAllBytes($upgradedReceipt)
+    Assert-ReceiptRegression ([System.Linq.Enumerable]::SequenceEqual([byte[]]$upgradedBytes, [byte[]]$currentBytes)) 'upgraded receipt was NOT overwritten by stale bootstrap'
+
+    # 5. Compile a synthetic helper Java class for unit test validation
     $javaSource = @'
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -120,7 +141,7 @@ public class TestReceiptHelper {
         $compileOut = & javac -d $fixture $srcFile 2>&1
         Assert-ReceiptRegression ($LASTEXITCODE -eq 0) "compiled test helper: $compileOut"
 
-        # 5. Successful receipt initialization with test helper
+        # 6. Successful receipt initialization with test helper
         $appHome = Join-Path $fixture 'app-home'
         [void][System.IO.Directory]::CreateDirectory($appHome)
         [System.IO.File]::WriteAllText((Join-Path $appHome 'turboism-agent.jar'), 'agent-bytes')
@@ -138,12 +159,22 @@ public class TestReceiptHelper {
         $publishedManifest = Join-Path $appHome 'state\runtime\update\receipts\doc-sha256\manifest.json'
         Assert-ReceiptRegression (Test-Path -LiteralPath $publishedManifest -PathType Leaf) 'published manifest exists'
 
-        # 6. Idempotency: re-running with identical inputs succeeds
+        # 7. Idempotency: re-running with identical inputs succeeds in non-strict mode
         $idemRes = & $bootstrapScript -HomePath $appHome -StagePath $stageDir -Classpath $fixture -HelperClass 'TestReceiptHelper' -PassThru
         Assert-ReceiptRegression ($idemRes.Success -eq $true) 'idempotent receipt initialization succeeds'
-        Assert-ReceiptRegression ($idemRes.Status -eq 'INITIALIZED') 'idempotent status is INITIALIZED'
+        Assert-ReceiptRegression ($idemRes.Status -eq 'ALREADY_INITIALIZED') 'idempotent status reports ALREADY_INITIALIZED'
 
-        # 7. Tampered payload fails closed (helper exit 74)
+        # 8. Strict mode with different receipt fails closed (helper exit 74)
+        $diffStrictHome = Join-Path $fixture 'diff-strict-home'
+        $diffStrictState = Join-Path $diffStrictHome 'state\runtime\update'
+        [void][System.IO.Directory]::CreateDirectory($diffStrictState)
+        [System.IO.File]::WriteAllText((Join-Path $diffStrictHome 'turboism-agent.jar'), 'agent-bytes')
+        [System.IO.File]::WriteAllText((Join-Path $diffStrictState 'installed-receipt.json'), '{"version":"0.9.0","flag":"DIFFERENT_RECEIPT"}')
+        $diffStrictRes = & $bootstrapScript -HomePath $diffStrictHome -StagePath $stageDir -Classpath $fixture -HelperClass 'TestReceiptHelper' -Strict -PassThru
+        Assert-ReceiptRegression ($diffStrictRes.Success -eq $false) 'strict mode with different receipt fails closed'
+        Assert-ReceiptRegression ($diffStrictRes.HelperExitCode -eq 74) 'helper exit code is 74'
+
+        # 9. Tampered payload fails closed (helper exit 74)
         $tamperStage = Join-Path $fixture 'tamper-stage'
         [void][System.IO.Directory]::CreateDirectory($tamperStage)
         [System.IO.File]::WriteAllText((Join-Path $tamperStage 'manifest.json'), '{"version":"1.0.0","tag":"TAMPER_FAIL"}')
@@ -157,30 +188,37 @@ public class TestReceiptHelper {
         Assert-ReceiptRegression ($tamperRes.HelperExitCode -eq 74) 'tampered payload helper exit code is 74'
         Assert-ReceiptRegression (-not (Test-Path -LiteralPath (Join-Path $tamperHome 'state\runtime\update\installed-receipt.json'))) 'no receipt created on tamper failure'
 
-        # 8. Different existing receipt fails closed without being silently replaced
-        $diffHome = Join-Path $fixture 'diff-home'
-        $diffState = Join-Path $diffHome 'state\runtime\update'
-        [void][System.IO.Directory]::CreateDirectory($diffState)
-        [System.IO.File]::WriteAllText((Join-Path $diffHome 'turboism-agent.jar'), 'agent-bytes')
-        $diffReceiptFile = Join-Path $diffState 'installed-receipt.json'
-        [System.IO.File]::WriteAllText($diffReceiptFile, '{"format":"turboism.installed-receipt","version":"0.9.0","flag":"DIFFERENT_RECEIPT"}')
-        $beforeReceiptBytes = [System.IO.File]::ReadAllBytes($diffReceiptFile)
-
-        $diffRes = & $bootstrapScript -HomePath $diffHome -StagePath $stageDir -Classpath $fixture -HelperClass 'TestReceiptHelper' -PassThru
-        Assert-ReceiptRegression ($diffRes.Success -eq $false) 'different existing receipt rejected'
-        Assert-ReceiptRegression ($diffRes.HelperExitCode -eq 74) 'different receipt exit code is 74'
-        $afterReceiptBytes = [System.IO.File]::ReadAllBytes($diffReceiptFile)
-        Assert-ReceiptRegression ([System.Linq.Enumerable]::SequenceEqual([byte[]]$beforeReceiptBytes, [byte[]]$afterReceiptBytes)) 'different receipt is NOT silently replaced'
-
-        # 9. Configurator -InitializeReceipt forwards to bootstrap-receipt.ps1
+        # 10. Configurator -InitializeReceipt forwards to bootstrap-receipt.ps1
         $configuratorScript = Join-Path $scriptDir 'configure_turboism.ps1'
         $configHome = Join-Path $fixture 'config-home'
         [void][System.IO.Directory]::CreateDirectory($configHome)
         [System.IO.File]::WriteAllText((Join-Path $configHome 'turboism-agent.jar'), 'agent-bytes')
-        # Copy bootstrap-receipt.ps1 into configHome to test the collocated path
         Copy-Item -LiteralPath $bootstrapScript -Destination (Join-Path $configHome 'bootstrap-receipt.ps1')
         $cfgRes = & $configuratorScript -Home $configHome -InitializeReceipt -ReceiptStage $legacyHome
         Assert-ReceiptRegression ($LASTEXITCODE -eq 0) 'configurator -InitializeReceipt on legacy stage exits 0'
+
+        # 11. Configurator -InitializeSelection propagates bootstrap-receipt failure
+        $cfgFailHome = Join-Path $fixture 'config-fail-home'
+        [void][System.IO.Directory]::CreateDirectory($cfgFailHome)
+        [System.IO.File]::WriteAllText((Join-Path $cfgFailHome 'turboism-agent.jar'), 'agent-bytes')
+        $cfgFailBootstrap = Join-Path $cfgFailHome 'bootstrap'
+        [void][System.IO.Directory]::CreateDirectory($cfgFailBootstrap)
+        [System.IO.File]::WriteAllText((Join-Path $cfgFailBootstrap 'manifest.json'), '{"version":"1.0.0","tag":"TAMPER_FAIL"}')
+        [System.IO.File]::WriteAllText((Join-Path $cfgFailBootstrap 'manifest.json.sig'), 'envelope-sig')
+        # Provide minimal valid cubism-installations.json so state loading succeeds
+        $cfgFailState = Join-Path $cfgFailHome 'cubism-installations.json'
+        [System.IO.File]::WriteAllText($cfgFailState, '{"schemaVersion":1,"candidates":[]}')
+        Copy-Item -LiteralPath $bootstrapScript -Destination (Join-Path $cfgFailHome 'bootstrap-receipt.ps1')
+
+        $prevEap = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            & $configuratorScript -Home $cfgFailHome -InitializeSelection 2>&1 | Out-Null
+            $cfgFailExit = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        Assert-ReceiptRegression ($cfgFailExit -ne 0) 'configurator -InitializeSelection propagates bootstrap failure'
     } else {
         Write-Warning 'javac not found; Java-dependent mock tests skipped in this run'
     }
