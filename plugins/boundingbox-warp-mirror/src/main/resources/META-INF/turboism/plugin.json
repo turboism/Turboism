@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.boundingbox-warp-mirror",
   "name": "BoundingBox Warp Mirror",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Adds a BoundingBox overlay button that opens a mirror-direction dialog and applies a one-shot whole-object Warp Deformer mirror, optionally preserving descendant geometry.",
   "entrypoints": [
     "dev.turboism.plugin.boundingboxwarpmirror.BoundingBoxWarpMirrorPlugin"

@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.texture-atlas-folders",
   "name": "Folder Atlas Layout",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Arrange texture pages by Part folder hierarchy using registered packing algorithms.",
   "entrypoints": [
     "dev.turboism.plugin.atlasfolders.FolderAtlasPlugin"

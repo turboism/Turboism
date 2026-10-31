@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.geometric-mesh-layout",
   "name": "Geometric Mesh Layout",
-  "version": "0.1.0",
+  "version": "0.68.1",
   "description": "Generates circular or equilateral-triangle mesh vertices and edges around a canvas anchor in mesh edit mode.",
   "entrypoints": [
     "dev.turboism.plugin.geometricmeshlayout.GeometricMeshLayoutPlugin"

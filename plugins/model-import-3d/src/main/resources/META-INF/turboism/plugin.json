@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.model-import-3d",
   "name": "3D Model Import",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Imports GLB, glTF, OBJ/MTL and ZIP models as native Cubism meshes with material textures, XYZ rotation, bundled shape presets and an interactive import preview.",
   "entrypoints": [
     "dev.turboism.validation.modelimport3d.host.ModelImportPlugin"

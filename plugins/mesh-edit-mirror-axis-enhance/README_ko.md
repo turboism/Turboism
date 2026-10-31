@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mesh-edit-mirror-axis-enhance
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -110,6 +110,10 @@ interface: embedded
 | 角度変更が拒否される | 対応する -180° から 180° の範囲を確認し、プラグインログでホストサービスの可用性を確認します。 |
 
 ## 변경 이력
+
+### 0.68.0
+
+- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

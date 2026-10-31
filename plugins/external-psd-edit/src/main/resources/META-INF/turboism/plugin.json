@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.external-psd-edit",
   "name": "External PSD Edit Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "ArtMesh context-menu entry that exports the complete raw PSD, opens it in a configured or system default application, and applies Cubism native explicit-target replacement on save.",
   "entrypoints": [
     "dev.turboism.plugin.externalpsdedit.ExternalPsdEditPlugin"

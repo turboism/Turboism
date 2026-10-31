@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-folders
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -70,6 +70,10 @@ Preview. Current-page-only algorithms are listed but disabled for complete-atlas
 If no algorithm is available, enable a compatible algorithm plugin. If no atlas is open, create or open one for the active model. Use Undo to restore the previous layout.
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

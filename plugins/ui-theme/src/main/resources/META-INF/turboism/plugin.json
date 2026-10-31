@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.uitheme",
   "name": "UI Theme Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application.",
   "entrypoints": [
     "dev.turboism.plugin.uitheme.UiThemePlugin"

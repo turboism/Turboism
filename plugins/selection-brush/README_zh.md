@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.selection-brush
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -88,6 +88,10 @@ Turboism 官方插件，在普通建模模式和网格编辑模式提供选区�
 | 半径没有立即改变 | 半径在笔画开始时锁定，新值用于下一笔。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

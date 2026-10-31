@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.palette-label-style
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -116,6 +116,10 @@ interface: embedded
 | カスタムカラーが拒否される | 提供されるダイアログで、有効な 6 桁の RGB カラーを入力します。 |
 
 ## 変更履歴
+
+### 0.68.0
+
+- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

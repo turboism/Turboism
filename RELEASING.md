@@ -262,7 +262,11 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 - Trust model: GitHub Release `.sha256` sidecars, the plugin-template `setup.sh` sidecar check and a plugin's `packageHash` are same-origin integrity checks (they catch corruption, not tampering). Independent anchors are the Ed25519-signed plugin catalog, pinned Gradle verification metadata / wrapper `distributionSha256Sum` / the ManagedGraal archive pin, and R2 write verification.
 - Same-version different bytes fail with a version-not-bumped error. Assets are never overwritten.
 - Partial publication is resumable by uploading only absent immutable objects.
-- Plugin versions are descriptor-owned and independent of the framework version.
+- Plugin versions are descriptor-owned and independent of the framework version. The build never rewrites
+  `plugin.json`; installer payloads and market jars carry the version committed in source. Staging reuses a
+  cataloged release when the jar content is unchanged and otherwise publishes the next patch above the highest
+  cataloged version (or the committed version when that is higher). Bump the committed version and add a
+  matching README changelog entry when a plugin changes.
 - Plugin publication uses immutable GitHub Releases and a verified Ed25519-signed catalog v2.
 - Combined releases publish and publicly verify plugins first, then framework GitHub assets, then R2 immutable files. Mutable channel pointers are updated last.
 - v0.42.0 is an immutable baseline and must not be edited or backfilled with fabricated historical counts.

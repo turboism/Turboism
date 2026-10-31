@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -122,6 +122,10 @@ Plugin metadata names and descriptions have five language catalogs; the import d
 If the menu is missing, confirm that this development JAR is installed and enabled. If import is rejected, check the canvas size, file size and supported geometry/material limits above. Open the intended target model and start again after switching documents. At 0 / 0, adjust both angle parameters to see the side faces. File-picker cancellation makes no model changes.
 
 ## Changelog
+
+### 0.68.0
+
+- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

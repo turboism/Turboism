@@ -430,7 +430,7 @@ def load_release_manifest(path):
 _STRICT_VERSION_RE = re.compile(r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
 
 
-def load_plugin_metadata(manifest_path, modules, plugin_version=None):
+def load_plugin_metadata(manifest_path, modules):
     """Reads committed plugin.json descriptors for the given modules — the
     regression oracle for payload identity. The canonical
     packaging/release-plugins.txt path anchors the repository root; each
@@ -439,12 +439,8 @@ def load_plugin_metadata(manifest_path, modules, plugin_version=None):
     (no scans, no id/name inference). Fail-closed on manifest path shape,
     missing or non-regular descriptor, non-object JSON, blank/non-string
     id/name/version, and duplicate module or id. Returns
-    {module: {"id": id, "name": name, "version": version}}. For bundled
-    plugins, plugin_version is the framework API version stamped by Gradle
-    processResources, replacing the source descriptor placeholder."""
-    if plugin_version is not None:
-        check("built plugin version is strict MAJOR.MINOR.PATCH",
-              bool(_STRICT_VERSION_RE.fullmatch(plugin_version)), plugin_version)
+    {module: {"id": id, "name": name, "version": version}}; each plugin keeps
+    its own descriptor version, independent of the framework version."""
     canonical = os.path.normpath(manifest_path)
     check("release manifest path has canonical packaging shape",
           os.path.basename(canonical) == "release-plugins.txt"
@@ -480,7 +476,7 @@ def load_plugin_metadata(manifest_path, modules, plugin_version=None):
         metadata[module] = {
             "id": pid.strip(),
             "name": pname.strip(),
-            "version": plugin_version if plugin_version is not None else pversion.strip(),
+            "version": pversion.strip(),
         }
     return metadata
 
@@ -1667,8 +1663,6 @@ def main():
                         help="path to the config-merge regression jar")
     parser.add_argument("--manifest", required=True,
                         help="path to packaging/release-plugins.txt")
-    parser.add_argument("--plugin-version", required=True,
-                        help="framework API version stamped into bundled plugin descriptors")
     parser.add_argument("--installer-xml", required=True,
                         help="path to the generated IzPack installer.xml")
     args = parser.parse_args()
@@ -1689,8 +1683,7 @@ def main():
     # ids; every included payload module's id/name is compared exactly to its
     # committed plugin.json descriptor (see assert_plugin_identity).
     manifest_modules = load_release_manifest(args.manifest)
-    included_metadata = load_plugin_metadata(
-        args.manifest, manifest_modules, plugin_version=args.plugin_version)
+    included_metadata = load_plugin_metadata(args.manifest, manifest_modules)
     excluded_metadata = load_plugin_metadata(args.manifest,
                                              list(EXCLUDED_PUBLIC_MODULES))
     shared_ids = ({m["id"] for m in included_metadata.values()}

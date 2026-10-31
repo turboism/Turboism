@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: integration
 tags: mcp, automation, external-tools
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,7 +36,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.68.0,1.0.0)`。
 - **Cubism：** Turboism 当前仅接受经过审查的精确 Editor 构件 `5.0.00` 至 `5.3.04`。面向宿主的资源在其公开 SDK 能力不可用时会以关闭状态失败；它绝不会伪造空的成功结果。
 - **传输：** 使用协议 `2025-11-25` 的 MCP Streamable HTTP，并为受支持的较早协议版本进行兼容性协商。
 - **接口模式：** `swing`，提供本地 MCP 连接信息窗口。
@@ -344,6 +344,10 @@ url = "http://127.0.0.1:43123/mcp"
 | 资源返回权限被拒绝 | 检查插件描述符授权以及上文命名的特定运行时权限。 |
 
 ## 更新日志
+
+### 0.68.1
+
+- 将最低 Turboism API 提升到 0.68.0，与插件实际使用的 SDK 成员一致。
 
 ### 0.1.0
 

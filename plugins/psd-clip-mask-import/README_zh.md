@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.psd-clip-mask-import
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -118,6 +118,10 @@ interface: embedded
 | 导入安全失败 | 检查本地化状态摘要和插件日志，并确认所需 PSD、剪贴蒙版、对话框、写入/Undo 与状态服务可用。 |
 
 ## 更新日志
+
+### 0.68.0
+
+- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 
