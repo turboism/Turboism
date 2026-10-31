@@ -213,7 +213,7 @@ test('publishCandidate successfully admits, verifies, and advertises release.inc
  const projected=await withIncremental(x.release,x.env);
  assert.deepEqual(projected.release.incremental,{source:{origin:'https://api.turboism.dev',redirects:'reject'},descriptor:x.candidate});
 });
-test('retry of candidate re-activates advertising after preflight succeeds',async()=>{
+test('retry of candidate re-activates advertising only with explicit reactivate after preflight succeeds',async()=>{
  const x=setup();
  const fetcher=async(url,init={})=>{
   const parsed=new URL(url);
@@ -226,7 +226,77 @@ test('retry of candidate re-activates advertising after preflight succeeds',asyn
  await assert.rejects(()=>publishCandidate({candidate:x.candidate,expected:badExpected,keyId:'offline-test',initialize:true,token:'t',fetcher}));
  assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined);
 
- const ok=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,token:'t',fetcher});
+ const unreactivated=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,token:'t',fetcher});
+ assert.equal(unreactivated.status,'published');
+ assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined,'retry without reactivate retains withdrawn status');
+
+ const ok=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,reactivate:true,token:'t',fetcher});
  assert.equal(ok.status,'published');
  assert.deepEqual((await withIncremental(x.release,x.env)).release.incremental,{source:{origin:'https://api.turboism.dev',redirects:'reject'},descriptor:x.candidate});
+});
+test('manual withdrawal is preserved across ordinary admission retry and only restored with explicit reactivate',async()=>{
+ const x=setup();
+ const {id}=await (await x.admit()).json();
+ assert.ok((await withIncremental(x.release,x.env)).release.incremental);
+
+ const withdrawn=await x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/withdraw',{method:'POST',body:JSON.stringify({id})}));
+ assert.equal((await withdrawn.json()).matched,true);
+ assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined);
+
+ const normalRetry=await x.admit({initialize:false});
+ assert.equal(normalRetry.status,200);
+ assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined,'ordinary admit retry does not un-withdraw');
+
+ const reactivated=await x.admit({initialize:false,reactivate:true});
+ assert.equal(reactivated.status,200);
+ assert.ok((await withIncremental(x.release,x.env)).release.incremental,'explicit reactivate restores release.incremental');
+});
+test('publishCandidate rejects non-JSON or mismatched admission receipt without running preflight or withdrawing',async()=>{
+ const x=setup();
+ let preflightCalled=false,withdrawCalled=false;
+ const dummyVerifier=async()=>{preflightCalled=true;};
+
+ await assert.rejects(
+  ()=>publishCandidate({
+   candidate:x.candidate,
+   expected:new Map(x.source),
+   keyId:'offline-test',
+   token:'t',
+   fetcher:async()=>new Response('<!DOCTYPE html><html>Server Error</html>',{status:200}),
+   verifier:dummyVerifier
+  }),
+  /Invalid admission receipt/
+ );
+ assert.equal(preflightCalled,false);
+
+ await assert.rejects(
+  ()=>publishCandidate({
+   candidate:x.candidate,
+   expected:new Map(x.source),
+   keyId:'offline-test',
+   token:'t',
+   fetcher:async(url)=>{
+    const parsed=new URL(url);
+    if(parsed.pathname==='/v1/framework/withdraw')withdrawCalled=true;
+    return new Response(JSON.stringify({status:'admitted',id:'f'.repeat(64),identity:x.candidate.identity}),{status:200});
+   },
+   verifier:dummyVerifier
+  }),
+  /Invalid admission receipt/
+ );
+ assert.equal(preflightCalled,false);
+ assert.equal(withdrawCalled,false,'must not withdraw on invalid receipt');
+
+ await assert.rejects(
+  ()=>publishCandidate({
+   candidate:x.candidate,
+   expected:new Map(x.source),
+   keyId:'offline-test',
+   token:'t',
+   fetcher:async()=>new Response(JSON.stringify({status:'admitted',id:x.candidate.manifest.sha256,identity:{...x.candidate.identity,buildNumber:999999}}),{status:200}),
+   verifier:dummyVerifier
+  }),
+  /Invalid admission receipt/
+ );
+ assert.equal(preflightCalled,false);
 });

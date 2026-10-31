@@ -107,13 +107,13 @@ export class FrameworkAuthority {
   try{
    demand(text.length<=ADMIT_LIMIT,'Admission request is too large');
    const body=JSON.parse(text);
-   demand(body&&typeof body==='object'&&Object.keys(body).every(k=>['candidate','expected','initialize'].includes(k)),'Admission fields');
+   demand(body&&typeof body==='object'&&Object.keys(body).every(k=>['candidate','expected','initialize','reactivate'].includes(k)),'Admission fields');
    const channel=body.candidate?.identity?.channel;demand(CHANNELS.includes(channel),'Unknown channel');
    const pending={authority:this,resources:new Map(),record:null},{store,objects,source}=r2Adapters(this.env.DOWNLOADS,pending);
    // The authority supplies the snapshot; the CAS inside admission is what resolves races.
    const previous=this.readChannel(channel);
    const record=await admitIncremental(body.candidate,body.expected,keys,source,store,{previous,initialize:previous===null&&body.initialize===true,objects,signal:AbortSignal.timeout(600000)});
-   this.ctx.storage.sql.exec('UPDATE framework_releases SET withdrawn=0 WHERE id=?',record.id);
+   if(body.reactivate===true)this.ctx.storage.sql.exec('UPDATE framework_releases SET withdrawn=0 WHERE id=?',record.id);
    return json({status:'admitted',id:record.id,identity:record.candidate.identity});
   }catch(error){
    console.error('Framework admission rejected:',error.message);
