@@ -3,12 +3,12 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.command-palette",
   "name": "Command Palette",
-  "version": "0.68.0",
+  "version": "0.68.1",
   "description": "Ctrl+K launcher over Cubism Editor menu commands and registered plugin actions, searchable by id or localized name.",
   "entrypoints": [
     "dev.turboism.plugin.commandpalette.CommandPalettePlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.1,1.0.0)",
   "authors": [
     {
       "name": "Turboism Contributors"
