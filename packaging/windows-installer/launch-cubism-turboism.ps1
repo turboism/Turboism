@@ -188,6 +188,32 @@ else {
     }
 }
 Write-Host ($M.Jvm -f $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { $cubism.Java }))
+# Recovery executes from the retained helper copy, never from a possibly broken/locked new agent.
+# ProbeOnly remains read-only. The PowerShell launcher stays alive while Invoke-CubismOfficialBat waits.
+if (!$ProbeOnly) {
+    $updateWork = Join-Path $turboismHome 'state\runtime\update\helper'
+    $updateJournal = Join-Path $updateWork 'journal.json'
+    if (Test-Path -LiteralPath $updateJournal) {
+        # A launcher may have died while its Cubism child survived. Never restore loaded bytes in that case.
+        $activeAgentUsers = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" -ErrorAction Stop |
+            Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($agent, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+            Where-Object { !(Get-Process -Id $_.ProcessId -ErrorAction Stop).HasExited })
+        if ($activeAgentUsers.Count -gt 0) {
+            throw 'Cubism is still using this Turboism installation; close it before startup recovery.'
+        }
+        $updateRunner = Join-Path $turboismHome 'state\runtime\update\helper-runner.jar'
+        if (!(Test-Path -LiteralPath $updateRunner -PathType Leaf)) {
+            throw 'Update recovery helper is missing; installation was not launched. Use the full package to recover.'
+        }
+        $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
+        & $updateJava '-cp' $updateRunner 'dev.turboism.update.FrameworkUpdateHelper' `
+            '--root' $turboismHome '--work' $updateWork '--prepare-launch' "$PID"
+        if ($LASTEXITCODE -notin @(0, 10, 30)) {
+            throw "Update startup preparation failed (exit $LASTEXITCODE); no Cubism process was started."
+        }
+    }
+}
+
 $graalHost = Resolve-TurboismGraalHost `
     -TurboismHome $turboismHome `
     -PreferredJava $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { "" })

@@ -648,6 +648,8 @@ public final class PreviewRuntime implements AutoCloseable {
             runtime.publishStartupBanner(verifiedHostClassLoader);
             publishNativeStartupNotice(verifiedHostClassLoader, log);
             startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
+            dev.turboism.update.FrameworkUpdateHealth.startupSucceeded(
+                    home, message -> log.info("updates", message));
             return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
