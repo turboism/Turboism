@@ -18,6 +18,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -124,6 +125,89 @@ public final class PendingPluginOperations {
             if (!alreadyReferenced) deleteQuietly(stagedJar);
             return new StagedInstall(false, "PLUGIN_PENDING_WRITE_FAILED", null);
         }
+    }
+
+    public record StagedBatchResult(boolean accepted, String code, List<PreparedPluginJar> staged) {}
+
+    public synchronized StagedBatchResult stageBatch(final List<PreparedPluginJar> batch) {
+        return stageBatch(batch, null);
+    }
+
+    synchronized StagedBatchResult stageBatch(final List<PreparedPluginJar> batch, final List<Operation> expected) {
+        Objects.requireNonNull(batch, "batch");
+        if (expected != null && !expected.equals(readOperations())) {
+            return new StagedBatchResult(false, "PLUGIN_PLAN_CHANGED", List.of());
+        }
+        if (batch.isEmpty()) {
+            return new StagedBatchResult(true, "PLUGIN_BATCH_EMPTY", List.of());
+        }
+        final Set<String> batchIds = new HashSet<>();
+        for (final PreparedPluginJar prepared : batch) {
+            if (prepared == null) {
+                return new StagedBatchResult(false, "PLUGIN_STAGE_REJECTED", List.of());
+            }
+            if (!batchIds.add(prepared.descriptor().id())) {
+                return new StagedBatchResult(false, "PLUGIN_BATCH_DUPLICATE_ID", List.of());
+            }
+            final Path stagedJar;
+            try {
+                stagedJar = files.confined(prepared.stagedJar());
+                if (!stagedJar.startsWith(packages) || Files.isSymbolicLink(stagedJar)) {
+                    return new StagedBatchResult(false, "PLUGIN_STAGE_REJECTED", List.of());
+                }
+                files.rejectLinks(stagedJar);
+            } catch (Exception failure) {
+                return new StagedBatchResult(false, "PLUGIN_STAGE_REJECTED", List.of());
+            }
+            if (CORE_ID.equals(prepared.descriptor().id())) {
+                return new StagedBatchResult(false, "PLUGIN_RESERVED_ID", List.of());
+            }
+            if (!PluginJarPreflight.matches(
+                    stagedJar,
+                    prepared.descriptor().id(),
+                    prepared.descriptor().version(),
+                    prepared.descriptorSha256(),
+                    prepared.jarSha256(),
+                    prepared.jarSize())) {
+                return new StagedBatchResult(false, "PLUGIN_TAMPERED", List.of());
+            }
+        }
+
+        final List<Operation> previous;
+        try {
+            previous = readOperations();
+        } catch (PendingJournalInvalidException failure) {
+            return new StagedBatchResult(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", List.of());
+        } catch (RuntimeException failure) {
+            return new StagedBatchResult(false, "PLUGIN_PENDING_WRITE_FAILED", List.of());
+        }
+
+        final List<Operation> operations = previous.stream()
+                .filter(op -> !batchIds.contains(op.pluginId))
+                .collect(Collectors.toCollection(ArrayList::new));
+        for (final PreparedPluginJar prepared : batch) {
+            operations.add(Operation.install(prepared));
+        }
+
+        try {
+            writeOperations(operations);
+        } catch (PendingJournalInvalidException failure) {
+            return new StagedBatchResult(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", List.of());
+        } catch (RuntimeException failure) {
+            return new StagedBatchResult(false, "PLUGIN_PENDING_WRITE_FAILED", List.of());
+        }
+
+        final Set<Path> activeStaged = operations.stream()
+                .filter(op -> op.type.equals("INSTALL"))
+                .map(op -> Path.of(op.stagedJar).toAbsolutePath().normalize())
+                .collect(Collectors.toSet());
+        previous.stream()
+                .filter(op -> batchIds.contains(op.pluginId) && op.type.equals("INSTALL"))
+                .map(op -> Path.of(op.stagedJar).toAbsolutePath().normalize())
+                .filter(path -> !activeStaged.contains(path))
+                .forEach(PendingPluginOperations::deleteQuietly);
+
+        return new StagedBatchResult(true, "PLUGIN_BATCH_STAGED", List.copyOf(batch));
     }
 
     /** Keeps packages referenced by the journal, including when the journal cannot safely be read. */

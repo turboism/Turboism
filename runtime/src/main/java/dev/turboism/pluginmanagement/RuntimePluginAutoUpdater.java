@@ -77,6 +77,9 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     /** Interval between recurring background plugin update checks within a session. */
     public static final Duration AUTOMATIC_INTERVAL = Duration.ofHours(24);
 
+    static volatile Runnable testBeforeStageHook;
+    static volatile Runnable testBetweenStageAndHotApplyHook;
+
     private static final String DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json";
     private static final String CUBISM_VERSIONS_ENTRY = "META-INF/turboism/cubism-versions.json";
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
@@ -389,6 +392,10 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     }
 
     private Outcome executeUpdateCycle(final long operationGeneration, final CompletableFuture<Snapshot> future) {
+        if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
+            report("PLUGIN_UPDATE_GATE_LOCKED");
+            return Outcome.unavailable("PLUGIN_UPDATE_GATE_LOCKED");
+        }
         if (pending.recoveryRequired()) {
             report("PLUGIN_PENDING_RECOVERY_REQUIRED");
             return Outcome.unavailable("PLUGIN_PENDING_RECOVERY_REQUIRED");
@@ -471,6 +478,10 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 excludedReleaseKeys.add(next.releaseKey());
                 continue;
             }
+            if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
+                report("PLUGIN_UPDATE_GATE_LOCKED");
+                break;
+            }
             final StageAttempt attempt = downloadVerifyAndStage(next, activeCubism);
             if (attempt == StageAttempt.FALLBACK_RELEASE) {
                 excludedReleaseKeys.add(next.releaseKey());
@@ -504,56 +515,70 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 report("PLUGIN_UPDATE_JAR_REJECTED");
                 return StageAttempt.FAILED;
             }
-            final PendingPluginOperations.StagedInstall staged = pending.stage(tempJar);
-            if (!staged.accepted() || staged.prepared() == null) {
-                report(staged.code());
-                return StageAttempt.FAILED;
+            final Runnable hook = testBeforeStageHook;
+            if (hook != null) {
+                hook.run();
             }
-            final byte[] expectedDescHash = java.util.HexFormat.of().parseHex(artifact.descriptorSha256());
-            final byte[] actualDescHash =
-                    java.util.HexFormat.of().parseHex(staged.prepared().descriptorSha256());
-            if (!MessageDigest.isEqual(expectedDescHash, actualDescHash)) {
-                report("PLUGIN_UPDATE_DESCRIPTOR_HASH_MISMATCH");
-                return StageAttempt.FAILED;
-            }
-            if (update.release().hotReload()
-                    && hotReloadCoordinator != null
-                    && pending.canHotApply(update.pluginId())) {
-                final Path target = pluginsDirectory.resolve(update.pluginId() + ".jar");
-                if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
-                        && hotReloadCoordinator.isHotReloadSafe(
-                                staged.prepared().stagedJar())) {
-                    final Path stagingDir = home.resolve("state/runtime/plugin-management/packages");
-                    final Path backup = stagingDir.resolve(
-                            ".backup-" + update.pluginId() + "-" + java.util.UUID.randomUUID() + ".jar");
-                    boolean replaced = false;
-                    boolean applied = false;
-                    try {
-                        Files.copy(target, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        UpdateFileSupport.copyAtomic(staged.prepared().stagedJar(), target);
-                        replaced = true;
-                        final var reloadRes = hotReloadCoordinator.hotReload(update.pluginId(), target, backup);
-                        if (reloadRes.succeeded()) {
-                            Files.deleteIfExists(staged.prepared().stagedJar());
-                            applied = true;
-                            return StageAttempt.HOT_APPLIED;
-                        }
-                    } catch (IOException | RuntimeException failure) {
-                        // Keep staged in the pending journal for restart, including Windows file locks.
-                    } finally {
+            synchronized (PluginUpdateGate.rootLock(home)) {
+                if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
+                    report("PLUGIN_UPDATE_GATE_LOCKED");
+                    return StageAttempt.FAILED;
+                }
+                final PendingPluginOperations.StagedInstall staged = pending.stage(tempJar);
+                if (!staged.accepted() || staged.prepared() == null) {
+                    report(staged.code());
+                    return StageAttempt.FAILED;
+                }
+                final byte[] expectedDescHash = java.util.HexFormat.of().parseHex(artifact.descriptorSha256());
+                final byte[] actualDescHash =
+                        java.util.HexFormat.of().parseHex(staged.prepared().descriptorSha256());
+                if (!MessageDigest.isEqual(expectedDescHash, actualDescHash)) {
+                    report("PLUGIN_UPDATE_DESCRIPTOR_HASH_MISMATCH");
+                    return StageAttempt.FAILED;
+                }
+                final Runnable betweenHook = testBetweenStageAndHotApplyHook;
+                if (betweenHook != null) {
+                    betweenHook.run();
+                }
+                if (update.release().hotReload()
+                        && hotReloadCoordinator != null
+                        && pending.canHotApply(update.pluginId())) {
+                    final Path target = pluginsDirectory.resolve(update.pluginId() + ".jar");
+                    if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
+                            && hotReloadCoordinator.isHotReloadSafe(
+                                    staged.prepared().stagedJar())) {
+                        final Path stagingDir = home.resolve("state/runtime/plugin-management/packages");
+                        final Path backup = stagingDir.resolve(
+                                ".backup-" + update.pluginId() + "-" + java.util.UUID.randomUUID() + ".jar");
+                        boolean replaced = false;
+                        boolean applied = false;
                         try {
-                            if (replaced && !applied) {
-                                UpdateFileSupport.copyAtomic(backup, target);
+                            Files.copy(target, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            UpdateFileSupport.copyAtomic(staged.prepared().stagedJar(), target);
+                            replaced = true;
+                            final var reloadRes = hotReloadCoordinator.hotReload(update.pluginId(), target, backup);
+                            if (reloadRes.succeeded()) {
+                                Files.deleteIfExists(staged.prepared().stagedJar());
+                                applied = true;
+                                return StageAttempt.HOT_APPLIED;
                             }
-                            Files.deleteIfExists(backup);
                         } catch (IOException | RuntimeException failure) {
-                            // Retain the backup if restoration failed.
-                            report("PLUGIN_UPDATE_BACKUP_CLEANUP_FAILED");
+                            // Keep staged in the pending journal for restart, including Windows file locks.
+                        } finally {
+                            try {
+                                if (replaced && !applied) {
+                                    UpdateFileSupport.copyAtomic(backup, target);
+                                }
+                                Files.deleteIfExists(backup);
+                            } catch (IOException | RuntimeException failure) {
+                                // Retain the backup if restoration failed.
+                                report("PLUGIN_UPDATE_BACKUP_CLEANUP_FAILED");
+                            }
                         }
                     }
                 }
+                return StageAttempt.STAGED;
             }
-            return StageAttempt.STAGED;
         } catch (IOException | RuntimeException failure) {
             report("PLUGIN_UPDATE_DOWNLOAD_FAILED");
             return StageAttempt.FAILED;
@@ -568,7 +593,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         }
     }
 
-    private static JarCheckResult inspectDownloadedJar(
+    static JarCheckResult inspectDownloadedJar(
             final PlannedUpdate update, final Path tempJar, final Optional<String> activeCubism) {
         final CatalogRelease release = update.release();
         final CatalogArtifact artifact = release.artifact();
@@ -876,7 +901,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         FAILED
     }
 
-    private enum JarCheckResult {
+    enum JarCheckResult {
         VALID,
         CUBISM_SIDECAR_INCOMPATIBLE,
         INVALID

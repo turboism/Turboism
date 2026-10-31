@@ -41,10 +41,11 @@ public final class PluginAutoUpdatePlanner {
     private final FrameworkBuildInfo.Channel channel;
     private final Optional<String> cubismVersion;
     private final PluginVersion turboismApiVersion;
+    private final Optional<PluginVersion> targetApiVersion;
 
     /** Creates a planner for the given framework channel and optional exact host Cubism version. */
     public PluginAutoUpdatePlanner(final FrameworkBuildInfo.Channel channel, final Optional<String> cubismVersion) {
-        this(channel, cubismVersion, DEFAULT_TURBOISM_API_VERSION);
+        this(channel, cubismVersion, DEFAULT_TURBOISM_API_VERSION, Optional.empty());
     }
 
     /** Creates a planner with an explicit runtime Turboism API version for focused testing. */
@@ -52,11 +53,21 @@ public final class PluginAutoUpdatePlanner {
             final FrameworkBuildInfo.Channel channel,
             final Optional<String> cubismVersion,
             final PluginVersion turboismApiVersion) {
+        this(channel, cubismVersion, turboismApiVersion, Optional.empty());
+    }
+
+    /** Creates a planner with dual API versions (current runtime and prospective target). */
+    public PluginAutoUpdatePlanner(
+            final FrameworkBuildInfo.Channel channel,
+            final Optional<String> cubismVersion,
+            final PluginVersion turboismApiVersion,
+            final Optional<PluginVersion> targetApiVersion) {
         this.channel = Objects.requireNonNull(channel, "channel");
         this.cubismVersion = Objects.requireNonNull(cubismVersion, "cubismVersion")
                 .map(String::trim)
                 .filter(value -> !value.isEmpty());
         this.turboismApiVersion = Objects.requireNonNull(turboismApiVersion, "turboismApiVersion");
+        this.targetApiVersion = Objects.requireNonNull(targetApiVersion, "targetApiVersion");
     }
 
     /** Returns whether {@code pluginId} is an eligible first-party official plugin identifier. */
@@ -218,10 +229,41 @@ public final class PluginAutoUpdatePlanner {
 
     private boolean turboismApiAccepted(final CatalogRelease release) {
         try {
-            return VersionRange.parse(release.turboismApi()).contains(turboismApiVersion);
+            final VersionRange range = VersionRange.parse(release.turboismApi());
+            if (!range.contains(turboismApiVersion)) {
+                return false;
+            }
+            if (targetApiVersion.isPresent() && !range.contains(targetApiVersion.get())) {
+                return false;
+            }
+            return true;
         } catch (IllegalArgumentException invalid) {
             return false;
         }
+    }
+
+    /** Returns whether {@code release} requires the target API but is incompatible with the current API (rollback unsafe). */
+    public boolean isFutureOnly(final CatalogRelease release) {
+        if (targetApiVersion.isEmpty()) return false;
+        try {
+            final VersionRange range = VersionRange.parse(release.turboismApi());
+            return range.contains(targetApiVersion.get()) && !range.contains(turboismApiVersion);
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    /** Returns whether {@code release} is dual-compatible with both current and target API. */
+    public boolean isDualCompatible(final CatalogRelease release) {
+        return turboismApiAccepted(release);
+    }
+
+    public Optional<PluginVersion> targetApiVersion() {
+        return targetApiVersion;
+    }
+
+    public PluginVersion turboismApiVersion() {
+        return turboismApiVersion;
     }
 
     private static boolean dependenciesSatisfied(

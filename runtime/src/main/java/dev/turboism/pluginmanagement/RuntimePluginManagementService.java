@@ -50,6 +50,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         Locale get();
     }
 
+    private final Path home;
     private final Path pluginsDirectory;
     private final Supplier<Optional<Path>> synchronousPackageChooser;
     private final PackageChooser packageChooser;
@@ -174,6 +175,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             final Consumer<String> diagnostics,
             final ExecutorService installExecutor) {
         final Path normalized = home.toAbsolutePath().normalize();
+        this.home = normalized;
         pluginsDirectory = normalized.resolve("plugins");
         this.synchronousPackageChooser =
                 java.util.Objects.requireNonNull(synchronousPackageChooser, "synchronousPackageChooser");
@@ -212,6 +214,21 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     /** Binds the host Cubism version provider. */
     public void bindCubismVersion(final Supplier<Optional<String>> versionSupplier) {
         this.cubismVersion = Objects.requireNonNull(versionSupplier, "versionSupplier");
+    }
+
+    /** Returns the installation home directory path. */
+    public Path homeDirectory() {
+        return home;
+    }
+
+    /** Returns the pending operations journal for startup staging. */
+    public PendingPluginOperations pendingOperations() {
+        return pending;
+    }
+
+    /** Returns the supplier of the current host Cubism version. */
+    public Supplier<Optional<String>> cubismVersionSupplier() {
+        return cubismVersion;
     }
 
     /** Returns the market service for in-app catalog browsing and installs. */
