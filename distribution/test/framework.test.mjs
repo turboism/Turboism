@@ -226,8 +226,10 @@ test('retry of candidate re-activates advertising only with explicit reactivate 
  await assert.rejects(()=>publishCandidate({candidate:x.candidate,expected:badExpected,keyId:'offline-test',initialize:true,token:'t',fetcher}));
  assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined);
 
- const unreactivated=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,token:'t',fetcher});
- assert.equal(unreactivated.status,'published');
+ await assert.rejects(
+  ()=>publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,token:'t',fetcher}),
+  /Admission failed \(HTTP 409\): .*REACTIVATION_REQUIRED/
+ );
  assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined,'retry without reactivate retains withdrawn status');
 
  const ok=await publishCandidate({candidate:x.candidate,expected:new Map(x.source),keyId:'offline-test',initialize:true,reactivate:true,token:'t',fetcher});
@@ -244,7 +246,8 @@ test('manual withdrawal is preserved across ordinary admission retry and only re
  assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined);
 
  const normalRetry=await x.admit({initialize:false});
- assert.equal(normalRetry.status,200);
+ assert.equal(normalRetry.status,409);
+ assert.equal((await normalRetry.json()).error.code,'REACTIVATION_REQUIRED');
  assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined,'ordinary admit retry does not un-withdraw');
 
  const reactivated=await x.admit({initialize:false,reactivate:true});
