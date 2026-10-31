@@ -27,6 +27,9 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
     private CompletableFuture<Snapshot> pending;
     private long generation;
     private boolean closed;
+    private java.util.function.BooleanSupplier capability = () -> true;
+    private Registration discoverySubscription = () -> {};
+    private Runnable ownedShutdown = () -> {};
 
     public RuntimeFrameworkUpdates(final RuntimeUpdateService discovery,
             final FrameworkInstallationReceiptLoader receipt, final FrameworkUpdateDownloader downloader,
@@ -35,6 +38,8 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
             final var request = discovery.incrementalRequest(receipt);
             return () -> request.downloadWith(coordinator, downloader);
         });
+        capability = () -> discovery.incrementalCandidate().isPresent();
+        discoverySubscription = discovery.subscribe(s -> publish(state));
     }
 
     RuntimeFrameworkUpdates(final FrameworkUpdateCoordinator coordinator, final Executor io, final Admission admission) {
@@ -44,14 +49,73 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
         unsubscribe = coordinator.subscribe(s -> publish(convert(s)));
     }
 
-    @Override public Snapshot snapshot() { return state; }
+    @Override public Snapshot snapshot() {
+        final Snapshot current = state;
+        return current.phase() == Phase.IDLE && !capability.getAsBoolean()
+                ? new Snapshot(Phase.UNAVAILABLE, "", 0, 0, "") : current;
+    }
+
+    /** Production startup seam: absence of release activation or dedicated keys leaves installation unavailable. */
+    public static CoreFrameworkUpdates createConfigured(final java.nio.file.Path home,
+            final RuntimeUpdateService discovery, final Consumer<String> diagnostic) {
+        java.util.concurrent.ExecutorService worker = null;
+        java.util.concurrent.ScheduledExecutorService timer = null;
+        try {
+            final var policy = FrameworkUpdateClientPolicy.bundled();
+            if (!policy.enabled()) return CoreFrameworkUpdates.unavailable();
+            final var keys = FrameworkUpdateTrust.bundled().activeKeys();
+            if (keys.isEmpty()) throw new java.io.IOException("Framework signing authority is not provisioned");
+            final var info = dev.turboism.core.FrameworkBuildInfo.current();
+            final java.nio.file.Path root = home.toAbsolutePath().normalize();
+            final java.nio.file.Path agent = FrameworkRuntimeArtifact.resolve();
+            if (!root.resolve("turboism-agent.jar").equals(agent) || info.dirty()
+                    || !info.buildKind().equals("ci") || info.buildNumber().isEmpty()) {
+                throw new java.io.IOException("Numbered source-bound standard installation required");
+            }
+            final java.nio.file.Path area = java.nio.file.Path.of(System.getProperty("user.home"),
+                    ".cache", "turboism", "self-update").toAbsolutePath().normalize();
+            if (area.startsWith(root) || root.startsWith(area)) {
+                throw new java.io.IOException("Update cache must be outside the installation");
+            }
+            java.nio.file.Files.createDirectories(area);
+            worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                final Thread thread = new Thread(r, "turboism-framework-update");
+                thread.setDaemon(true);
+                return thread;
+            });
+            timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                final Thread thread = new Thread(r, "turboism-framework-update-timeout");
+                thread.setDaemon(true);
+                return thread;
+            });
+            final var verifier = new UpdateManifestVerifier(keys);
+            final var downloader = new FrameworkUpdateDownloader(area.resolve("resources"), policy.source(),
+                    verifier, worker, timer);
+            final var coordinator = new FrameworkUpdateCoordinator(root, area.resolve("stages"),
+                    FrameworkUpdateHealth.workDirectory(root), agent,
+                    java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java"), worker,
+                    FrameworkUpdateCoordinator.defaultLauncher(), () -> ProcessHandle.current().pid());
+            final var result = new RuntimeFrameworkUpdates(discovery,
+                    new FrameworkInstallationReceiptLoader(root, verifier), downloader, coordinator, worker);
+            final var ownedWorker = worker;
+            final var ownedTimer = timer;
+            result.ownedShutdown = () -> { ownedWorker.shutdownNow(); ownedTimer.shutdownNow(); };
+            return result;
+        } catch (Exception unavailable) {
+            if (worker != null) worker.shutdownNow();
+            if (timer != null) timer.shutdownNow();
+            diagnostic.accept("FRAMEWORK_INSTALL_UNAVAILABLE: " + unavailable.getClass().getSimpleName());
+            return CoreFrameworkUpdates.unavailable();
+        }
+    }
 
     @Override public CompletableFuture<Snapshot> download() {
         final long token;
         final CompletableFuture<Snapshot> result;
         synchronized (gate) {
-            if (closed || state.phase() == Phase.APPLY_PENDING || state.phase() == Phase.STAGED) {
-                return CompletableFuture.completedFuture(state);
+            if (closed || state.phase() == Phase.APPLY_PENDING || state.phase() == Phase.STAGED
+                    || !capability.getAsBoolean()) {
+                return CompletableFuture.completedFuture(snapshot());
             }
             if (pending != null && !pending.isDone()) return pending;
             token = ++generation;
@@ -111,14 +175,14 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
 
     @Override public Registration subscribe(final Consumer<Snapshot> listener) {
         listeners.add(Objects.requireNonNull(listener, "listener"));
-        listener.accept(state);
+        listener.accept(snapshot());
         return () -> listeners.remove(listener);
     }
 
     private void publish(final Snapshot next) {
         state = next;
         for (final Consumer<Snapshot> listener : listeners) {
-            try { listener.accept(next); } catch (RuntimeException ignored) { /* UI must not break the transfer. */ }
+            try { listener.accept(snapshot()); } catch (RuntimeException ignored) { /* UI must not break the transfer. */ }
         }
     }
 
@@ -131,7 +195,8 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
         cancel();
         synchronized (gate) { closed = true; ++generation; }
         unsubscribe.run();
-        coordinator.close();
+        discoverySubscription.close();
+        try { coordinator.close(); } finally { ownedShutdown.run(); }
         listeners.clear();
     }
 }

@@ -1,0 +1,52 @@
+Issue #50 receipt/client integration checkpoint — native Windows, JDK 17
+
+Selected Java regressions:
+  ./gradlew :core-contract:test :runtime:test
+    --tests dev.turboism.update.*
+    --tests dev.turboism.shell.CoreShellTest
+    --tests dev.turboism.preview.PreviewPluginContextFactoryCompositionTest --console=plain
+  BUILD SUCCESSFUL
+  runtime: 367 tests, 0 failures, 0 errors, 6 skipped
+  core-contract: 31 tests, 0 failures, 0 errors, 0 skipped
+
+Python source/release regressions:
+  python -m unittest scripts.test.test_release_tooling scripts.test.test_windows_update_native
+  56 tests, OK, 1 skipped (FIFO unavailable on Windows)
+  UTF-8 was made explicit for repository source reads in the release tests; Windows GBK defaults previously failed.
+
+Distribution regressions:
+  node --test distribution/test/*.test.mjs
+  63 passed, 0 failed/skipped
+
+Packaging:
+  ./gradlew :bootstrap:jar --console=plain
+  BUILD SUCCESSFUL, including checkBootstrapJarLicenses
+  Independent copy of packaged agent invoked as FrameworkUpdateHelper --prepare-launch against a fresh test home:
+    NOTHING: no journal
+    exit 10 (expected)
+  This does not activate production signing keys or endpoints.
+
+New coverage:
+- Two consecutive authenticated signed-fixture updates, including full re-reading of each new receipt.
+- Exact signed manifest/envelope storage, a root-bound index and rollback of index together with old payload.
+- Removal only of old receipt-owned, hash-matching SDK/Graal-host paths; unrelated additions/config/plugins preserved.
+- Refusal to overwrite a newly conflicting user file or a changed old managed file.
+- Injected failure and simulated crash immediately after receipt index advancement; old receipt/files recovered.
+- Cold helper uses old signed identity, not a forged installed-build.json claiming version 99/build 99999.
+- No old signed receipt: valid new signature is insufficient to authorize an upgrade.
+- First-install receipt initialization is exact, verified, idempotent and refuses different existing receipt indexes.
+- Real live-peer JVM process test on Windows. Initial ProcessHandle scan missed it; bounded CIM query now detects it.
+- Independent classpath resources cannot activate the updater or supply framework signing authority.
+- Bootstrap-loaded runtime JAR resources remain readable even with a null CodeSource.
+- Pinned-origin activation policy rejects alternate origins, HTTP, ports, credentials, redirects and malformed schemas.
+
+Scope boundaries:
+- Consecutive upgrade tests use ephemeral keys and synthetic signed file fixtures, not real published releases.
+- No new actual Cubism host-upgrade run was performed for this checkpoint; prior host health evidence is separate.
+- No production deployment, public key provisioning, release-asset contract migration, full installer bootstrap
+  wiring, atomic launch/apply lease or durable long-session install intent is claimed.
+- Windows hard-link/TOCTOU and power-loss durability qualification remain release blockers.
+- The previously observed unrelated broader shell layout-test failure is not covered by this selected green suite.
+
+Raw local logs: build/native/issue50-validation/{java-regression,python-regression,node-regression,agent-build,
+standalone-helper}.log (ignored build outputs; retained locally).

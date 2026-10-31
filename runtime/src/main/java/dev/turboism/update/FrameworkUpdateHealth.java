@@ -29,6 +29,12 @@ public final class FrameworkUpdateHealth {
                     java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
             try (var transaction = FrameworkUpdateLock.acquire(work)) {
                 final var applier = new FrameworkUpdateApplier(home, work);
+                if (applier.hasTrackedReceipt()) {
+                    final var keys = FrameworkUpdateTrust.bundled().activeKeys();
+                    if (keys.isEmpty()) throw new java.io.IOException("Framework signing keys unavailable");
+                    // Confirm the whole newly installed signed layout, not only that an agent happened to start.
+                    new FrameworkInstallationReceiptLoader(home, new UpdateManifestVerifier(keys)).load();
+                }
                 if (applier.confirmHealthy(FrameworkBuildInfo.current().version(), artifact)) {
                     diagnostic.accept("UPDATE_STARTUP_CONFIRMED");
                 }
