@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -122,10 +122,6 @@ Cubism's host log with the plugin ID attached.
 | Hint does not appear | Check that the canvas-hint permission is granted and the host exposes the native hint surface. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

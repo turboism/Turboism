@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.webdav
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -109,10 +109,6 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Two WebDAV entries after an upgrade | The plugin was renamed to `plugins/webdav-backup.jar`; a managed upgrade deletes the stale pre-rename `backup.jar` by its embedded plugin id, and the old id `dev.turboism.plugin.backup` is refused by the runtime. Delete a leftover `backup.jar` manually only if the installer could not remove a locked file. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

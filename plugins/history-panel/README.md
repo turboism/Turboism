@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.historypanel
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -120,10 +120,6 @@ The plugin logs lifecycle, refresh, polling, and safe-failure diagnostics. Plugi
 | Pane does not close cleanly | Check the plugin log for host floating-frame teardown diagnostics. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

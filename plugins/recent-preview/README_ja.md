@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -103,10 +103,6 @@ interface: swing
 | キャッシュが増大する | Turboism のストレージ管理でこのプラグインのキャッシュを消去するか、Turboism を停止中にプラグインキャッシュを削除してください。 |
 
 ## 変更履歴
-
-### 0.68.0
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

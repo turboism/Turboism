@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.scene-palette-enhancer
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -102,10 +102,6 @@ interface: none
 | 新行出现在末尾 | 当存储的手动顺序与新创建的场景项目合并时，这是预期行为。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

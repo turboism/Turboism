@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-nesting
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -57,10 +57,6 @@ Java 17+、Turboism API [0.67.4,1.0.0)、自動生成一覧にある Cubism 5.0�
 一覧に表示されない場合は有効状態、宿主バージョン、ログを確認してください。固定倍率で入らない部品は現在ページのオーバーフロー契約に従います。`./gradlew :plugins:atlas-bitmask-nesting:test` で幾何回帰、`:plugins:atlas-bitmask-nesting:nestingBenchmark` で合成入力の計算時間を測定できます。宿主 UI 全体の時間とは異なります。
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

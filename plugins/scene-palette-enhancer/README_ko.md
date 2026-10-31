@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.scene-palette-enhancer
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -103,10 +103,6 @@ Cubism の Scene パレットに自然順ソートと、永続化される手動
 | 新しい行が末尾に表示される | 保存された手動順が新規作成されたシーン項目と統合される場合、これは想定された動作です。 |
 
 ## 변경 이력
-
-### 0.68.0
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 
