@@ -686,7 +686,7 @@ class FrameworkUpdateToolTest(unittest.TestCase):
 
     def test_actual_zip_builder_and_staging_source_agree_with_inventory(self):
         # Derive root payloads from real staging source, NOT from update layout policy.
-        staging = (ROOT / "packaging/java-installer/installer.gradle.kts").read_text()
+        staging = (ROOT / "packaging/java-installer/installer.gradle.kts").read_text(encoding="utf-8")
         staging = staging.split("val stageInstallerPayload by tasks.registering {", 1)[1].split("// Opt-in source-bound", 1)[0]
         roots = {}
         for source in re.findall(r'from\("([^"$]+)"\)', staging):
@@ -697,18 +697,18 @@ class FrameworkUpdateToolTest(unittest.TestCase):
         roots["turboism-agent.jar"] = self.agent()
         # Installer-only files are deliberately stripped by the real ZIP builder.
         roots["config.template.json"] = (ROOT / "packaging/windows-installer/config.template.json").read_bytes()
-        roster = (ROOT / "packaging/release-plugins.txt").read_text().splitlines()
+        roster = (ROOT / "packaging/release-plugins.txt").read_text(encoding="utf-8").splitlines()
         self.excluded = {**self.excluded, **{"plugins/" + n.split(":")[-1] + ".jar": b"catalog-only" for n in roster}}
         self.payloads["graal/lib/graal-host-0.68.0-feat-issue-50.jar"] = self.payloads.pop("graal/lib/graal-host-0.68.0.jar")
         self.assertIn("archiveClassifier.set(resolvedWorktreeId)",
-                      (ROOT / "buildSrc/src/main/kotlin/turboism.java-conventions.gradle.kts").read_text())
+                      (ROOT / "buildSrc/src/main/kotlin/turboism.java-conventions.gradle.kts").read_text(encoding="utf-8"))
         stage = self.home / "stage"
         for name, data in {**roots, **{n: d for n, d in self.payloads.items() if n.startswith("graal/lib/")},
                            **{n: d for n, d in self.excluded.items() if n.startswith("plugins/")}}.items():
             path = stage / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-        source = (ROOT / "packaging/windows-installer/assemble-release.sh").read_text()
+        source = (ROOT / "packaging/windows-installer/assemble-release.sh").read_text(encoding="utf-8")
         block = source.split("zip_dir() {", 1)[1].split("<<'PYEOF'\n", 1)[1].split("\nPYEOF", 1)[0]
         subprocess.run([sys.executable, "-", str(stage), str(self.archive), self.identity["version"]],
                        input=block, text=True, check=True, capture_output=True)
@@ -725,11 +725,11 @@ class FrameworkUpdateToolTest(unittest.TestCase):
         self.bind_archive()
         self.generate()
         # Roster is independent catalog inventory, not an update ownership allowlist.
-        roster = (ROOT / "packaging/release-plugins.txt").read_text().splitlines()
+        roster = (ROOT / "packaging/release-plugins.txt").read_text(encoding="utf-8").splitlines()
         self.assertTrue(all(re.fullmatch(r":plugins:[a-z0-9-]+", n) for n in roster))
         self.assertIn('pluginModuleNames.map { "plugins/$it.jar" }',
-                      (ROOT / "packaging/java-installer/installer.gradle.kts").read_text())
-        self.assertIn('implementation(project(":sdk"))', (ROOT / "graal-host/build.gradle.kts").read_text())
+                      (ROOT / "packaging/java-installer/installer.gradle.kts").read_text(encoding="utf-8"))
+        self.assertIn('implementation(project(":sdk"))', (ROOT / "graal-host/build.gradle.kts").read_text(encoding="utf-8"))
 
     def test_protocol_rejects_java_incompatible_path_and_numeric_boundaries(self):
         for name in ("graal/lib/foo..bar.jar", "graal/lib/NUL.jar", "graal/lib/" + "a" * 230 + ".jar"):
