@@ -1,4 +1,4 @@
-/** Offline-only v1 admission protocol. Not imported by worker/mirror or deployed.
+/** v1 admission protocol, driven by the framework authority (framework.mjs).
  * The protected caller supplies verified source/build identity and pinned public keys.
  * Storage adapters must provide immutable create/read and linearizable channel CAS;
  * R2 metadata, ETags and unsigned inventories never authorize publication.
@@ -47,7 +47,9 @@ async function checkedRead(read,key,size,hash,signal){
 export async function verifyIncremental(candidate,expected,trustedKeys,read,signal){
  return verifySnapshot(structuredClone(candidate),structuredClone(expected),structuredClone(trustedKeys),read,signal);
 }
-async function verifySnapshot(candidate,expected,trustedKeys,read,signal){
+// `objectCheck(sha256, bytes, signal)` optionally replaces whole-buffer payload reads so a
+// constrained runtime can hash large files as streams. Documents are always read in full.
+async function verifySnapshot(candidate,expected,trustedKeys,read,signal,objectCheck){
  demand(keys(candidate,['format','schemaVersion','repository','identity','manifest','envelope','objectsSha256'])&&candidate.format==='turboism.incremental-candidate'&&candidate.schemaVersion===1&&candidate.repository==='turboism/Turboism','Incremental v1 required');
  identity(candidate.identity);identity(expected.identity);
  demand(canonical(candidate.identity)===canonical(expected.identity),'Expected identity mismatch');
@@ -81,17 +83,20 @@ async function verifySnapshot(candidate,expected,trustedKeys,read,signal){
  demand(layout.frameworkRootFiles.every(n=>names.has(n.toLowerCase()))&&names.has(`graal/lib/sdk-${manifest.version}.jar`)&&[...names].filter(n=>new RegExp('^graal/lib/graal-host-'+manifest.version.replaceAll('.', '\\.')+'(?:-[A-Za-z0-9._-]+)?\\.jar$').test(n)).length===1,'Incomplete framework payload');
  const closure=[...objects].sort(([a],[b])=>a.localeCompare(b)).map(([sha256,bytes])=>({sha256,bytes}));
  demand(await digest(encoder.encode(canonical(closure)))===candidate.objectsSha256,'Closure mismatch');
- for(const object of closure)await checkedRead(read,`objects/${object.sha256}/payload`,object.bytes,object.sha256,signal);
+ for(const object of closure){
+  if(objectCheck){active(signal);await objectCheck(object.sha256,object.bytes,signal);}
+  else await checkedRead(read,`objects/${object.sha256}/payload`,object.bytes,object.sha256,signal);
+ }
  active(signal);return {manifestBytes,envelopeBytes,closure};
 }
 /** Adapter callbacks receive only verified bytes. Channel CAS is the sole visibility step.
  * A failed/interrupted run may leave immutable orphans, but never deletes or replaces objects.
  * This is NOT a ready-to-use R2 adapter: read bounds and linearizable CAS are adapter obligations.
  */
-export async function admitIncremental(candidate,expected,trustedKeys,source,store,{previous=null,initialize=false,signal}={}){
+export async function admitIncremental(candidate,expected,trustedKeys,source,store,{previous=null,initialize=false,signal,objects}={}){
  // Snapshot all untrusted inputs before async callbacks, preventing caller mutation.
  candidate=structuredClone(candidate);expected=structuredClone(expected);trustedKeys=structuredClone(trustedKeys);
- const verified=await verifySnapshot(candidate,expected,trustedKeys,source,signal);
+ const verified=await verifySnapshot(candidate,expected,trustedKeys,source,signal,objects?.verifySource);
  const id=candidate.manifest.sha256;
  const record={format:'turboism.incremental-release',schemaVersion:1,id,candidate};
  const recordBytes=encoder.encode(canonical(record));
@@ -110,7 +115,7 @@ export async function admitIncremental(candidate,expected,trustedKeys,source,sto
   demand(keys(old,['format','schemaVersion','id','candidate'])&&old.format==='turboism.incremental-release'&&old.schemaVersion===1&&old.id===current&&old.candidate?.manifest?.sha256===current,'Current release binding');
   const oldEnvelope=await checkedRead((k,max)=>store.read(k,max),`documents/${old.candidate.envelope?.sha256}`,old.candidate.envelope?.bytes,old.candidate.envelope?.sha256,signal);
   const keyId=document(oldEnvelope,16384).keyId;
-  await verifySnapshot(old.candidate,{identity:old.candidate.identity,keyId},trustedKeys,(k,max)=>store.read(k,max),signal);
+  await verifySnapshot(old.candidate,{identity:old.candidate.identity,keyId},trustedKeys,(k,max)=>store.read(k,max),signal,objects?.verifyStored);
   demand(old.candidate.identity.channel===candidate.identity.channel,'Current channel identity');
   const oldHash=await digest(oldBytes);
   for(const index of [`versions/${old.candidate.identity.version}`,`builds/${old.candidate.identity.buildNumber}`])await checkedRead((k,max)=>store.read(k,max),index,oldBytes.length,oldHash,signal);
@@ -126,12 +131,19 @@ export async function admitIncremental(candidate,expected,trustedKeys,source,sto
   await store.createImmutable(key,new Uint8Array(bytes));active(signal);
   await checkedRead((k,max)=>store.read(k,max),key,size,hash,signal);
  }
+ // With `objects`, the adapter streams each payload from source into storage (digest-checked
+ // by the storage layer) and independently re-verifies the stored copy.
  for(const o of verified.closure){
+  active(signal);
+  if(objects){await objects.copy(o.sha256,o.bytes,signal);continue;}
   const key=`objects/${o.sha256}/payload`;
   const bytes=await checkedRead(source,key,o.bytes,o.sha256,signal);await install(key,bytes);
  }
  // Independently read back every object before registering either signed document.
- for(const o of verified.closure)await checkedRead((k,max)=>store.read(k,max),`objects/${o.sha256}/payload`,o.bytes,o.sha256,signal);
+ for(const o of verified.closure){
+  if(objects){active(signal);await objects.verifyStored(o.sha256,o.bytes,signal);}
+  else await checkedRead((k,max)=>store.read(k,max),`objects/${o.sha256}/payload`,o.bytes,o.sha256,signal);
+ }
  await install(`documents/${candidate.manifest.sha256}`,verified.manifestBytes);
  await install(`documents/${candidate.envelope.sha256}`,verified.envelopeBytes);
  // Globally allocated builds and product versions are immutable identities too.
