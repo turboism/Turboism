@@ -94,7 +94,11 @@ exec bash "$runner" \
   --result-file 'state/atlas-polygon-validation-result.properties' \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
+  --result-fail-line 'status=BLOCKED' \
+  --result-fail-line 'status=SKIPPED' \
   --failure-marker 'ATLAS_POLYGON_PROBE_RESULT status=FAIL' \
+  --failure-marker 'ATLAS_POLYGON_PROBE_RESULT status=BLOCKED' \
+  --failure-marker 'ATLAS_POLYGON_PROBE_RESULT status=SKIPPED' \
   --failure-marker 'ATLAS_POLYGON_PROBE_FLAG_TIMEOUT' \
   --ready-timeout 300 \
   --result-timeout 900 \
