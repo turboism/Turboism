@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.geometric-mesh-layout
-version: 0.68.1
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -66,10 +66,6 @@ Turboism 공식 배포 패키지에 포함되어 있으며 플러그인 관리�
 도구 버튼이 보이지 않으면 단일 아트메시로 메시 편집 모드에 들어갔는지 확인하십시오.
 
 ## 변경 이력
-
-### 0.68.1
-
-- 게시된 플러그인 디렉터리 릴리스와 동일한 내용입니다.
 
 ### 0.1.0
 

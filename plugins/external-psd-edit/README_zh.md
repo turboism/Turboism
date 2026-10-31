@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.external-psd-edit
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -124,10 +124,6 @@ interface: embedded
 | 确认后未打开文件 | 当权限被撤销或原生导出报告原图不可用时，导出会安全中止。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.cubism-tab-filter
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -97,10 +97,6 @@ interface: none
 | 行未发生变化 | 清空后重新输入关键字，然后检查日志中是否有调色板筛选器附加警告。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -121,10 +121,6 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 - **セッションを読み込めない**：保存された永続セッションが古い可能性があります。プラグインは自動で新規セッションへフォールバックします。
 
 ## 変更履歴
-
-### 0.68.0
-
-- 公開済みのプラグインディレクトリ版と同じ内容です。
 
 ### 0.1.0
 

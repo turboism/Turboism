@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.scene-palette-enhancer
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -102,10 +102,6 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | New rows appear at the end | This is expected when a stored manual order is merged with newly created scene items. |
 
 ## Changelog
-
-### 0.68.0
-
-- Same content as the published Plugin Directory release.
 
 ### 0.1.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -103,10 +103,6 @@ interface: swing
 | 缓存增大 | 通过 Turboism 的存储管理清除此插件的缓存，或在 Turboism 停止时删除插件缓存。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 

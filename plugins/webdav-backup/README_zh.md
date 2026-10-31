@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.webdav
-version: 0.68.0
+version: 0.1.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -109,10 +109,6 @@ interface: swing
 | 升级后出现两个 WebDAV 条目 | 插件已改名为 `plugins/webdav-backup.jar`；托管升级会按内嵌插件 id 删除改名前的 `backup.jar`，旧 id `dev.turboism.plugin.backup` 会被运行时拒绝。只有在安装器无法删除被占用的文件时才需要手动删除残留的 `backup.jar`。 |
 
 ## 更新日志
-
-### 0.68.0
-
-- 内容与已发布的插件目录版本一致。
 
 ### 0.1.0
 
