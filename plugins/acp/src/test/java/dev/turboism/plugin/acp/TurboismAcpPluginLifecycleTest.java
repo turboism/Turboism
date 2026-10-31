@@ -96,7 +96,9 @@ final class TurboismAcpPluginLifecycleTest {
         plugin.enable();
         final java.lang.reflect.Method showWindow = plugin.getClass()
                 .getDeclaredMethod(
-                        "showWindow", Class.forName("dev.turboism.plugin.acp.TurboismAcpPlugin$WindowTarget"));
+                        "showWindow",
+                        Class.forName("dev.turboism.plugin.acp.TurboismAcpPlugin$WindowTarget"),
+                        long.class);
         showWindow.setAccessible(true);
         final Object agentTarget = java.util.Arrays.stream(showWindow.getParameterTypes()[0].getEnumConstants())
                 .filter(value -> "AGENT".equals(value.toString()))
@@ -106,7 +108,7 @@ final class TurboismAcpPluginLifecycleTest {
         final Thread opener = new Thread(
                 () -> {
                     try {
-                        showWindow.invoke(plugin, agentTarget);
+                        showWindow.invoke(plugin, agentTarget, 0L);
                     } catch (Throwable thrown) {
                         failure.set(thrown);
                     }
@@ -241,6 +243,117 @@ final class TurboismAcpPluginLifecycleTest {
         assertEquals(0, config.activeWriteScopes());
     }
 
+    @Test
+    void queuedSettingsOpenAndDeferredCleanupStayInTheirOwnGeneration() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless());
+        final var scheduler = new TestUiScheduler();
+        scheduler.queueOpens = true;
+        final var scope = new DisposableScope();
+        final var base =
+                context(new ScopeAwareConfig(), scope, new AtomicInteger(), new AtomicInteger(), new AtomicInteger());
+        final var plugin = new TurboismAcpPlugin();
+        plugin.init(withScheduler(base, scheduler));
+        plugin.enable();
+        final var open = TurboismAcpPlugin.class.getDeclaredMethod("openSettingsWindow");
+        open.setAccessible(true);
+        open.invoke(plugin);
+        assertEquals(1, scheduler.opens.size());
+        plugin.disable();
+        plugin.enable();
+        onEdt(scheduler.opens.remove(0));
+        assertEquals(null, field(plugin, "window"), "old open must not cross re-enable");
+        open.invoke(plugin);
+        onEdt(scheduler.opens.remove(0));
+        final var old = (java.awt.Window) field(field(plugin, "window"), "settingsFrame");
+        scheduler.fenced = true;
+        scheduler.deferTeardown = true;
+        plugin.disable();
+        assertTrue(old.isDisplayable());
+        assertEquals(1, scheduler.teardowns);
+        scheduler.fenced = false;
+        plugin.enable();
+        open.invoke(plugin);
+        onEdt(scheduler.opens.remove(0));
+        final var fresh = (java.awt.Window) field(field(plugin, "window"), "settingsFrame");
+        try {
+            onEdt(scheduler.cleanups.get(0));
+            onEdt(scheduler.cleanups.get(0));
+            assertEquals(false, old.isDisplayable());
+            assertTrue(fresh.isDisplayable());
+        } finally {
+            scheduler.deferTeardown = false;
+            onEdt(plugin::shutdown);
+            plugin.disable();
+            scope.close();
+        }
+        assertEquals(false, fresh.isDisplayable());
+        assertEquals(2, scheduler.teardowns);
+    }
+
+    private static final class TestUiScheduler implements dev.turboism.sdk.ui.UiScheduler {
+        boolean fenced;
+        boolean deferTeardown;
+        boolean queueOpens;
+        int teardowns;
+        final java.util.List<Runnable> opens = new java.util.ArrayList<>();
+        final java.util.List<Runnable> cleanups = new java.util.ArrayList<>();
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
+            if (!fenced) {
+                if (queueOpens) opens.add(work);
+                else javax.swing.SwingUtilities.invokeLater(work);
+            }
+            return () -> {};
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
+                final Runnable work, final java.time.Duration delay) {
+            return runOnUiThread(work);
+        }
+
+        @Override
+        public boolean runUiTeardown(final Runnable cleanup, final java.time.Duration timeout) {
+            teardowns++;
+            if (deferTeardown) {
+                cleanups.add(cleanup);
+                return false;
+            }
+            onEdt(cleanup);
+            return true;
+        }
+    }
+
+    private static void onEdt(final Runnable work) {
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) work.run();
+        else {
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(work);
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
+        }
+    }
+
+    private static PluginContext withScheduler(final PluginContext base, final TestUiScheduler scheduler) {
+        return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
+                PluginContext.class.getClassLoader(), new Class<?>[] {PluginContext.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("uiScheduler")) return scheduler;
+                    try {
+                        return method.invoke(base, args);
+                    } catch (java.lang.reflect.InvocationTargetException failure) {
+                        throw failure.getCause();
+                    }
+                });
+    }
+
+    private static Object field(final Object target, final String name) throws Exception {
+        final var field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
     private static PluginContext context(
             final ScopeAwareConfig config,
             final DisposableScope scope,
@@ -322,6 +435,7 @@ final class TurboismAcpPluginLifecycleTest {
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, arguments) -> switch (method.getName()) {
+                    case "uiScheduler" -> new dev.turboism.test.ui.FakeDirectUiScheduler();
                     case "logger" -> logger;
                     case "localization" -> localization;
                     case "config" -> config;

@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: integration
 tags: automation, acp, agent
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -42,7 +42,7 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 
 ## 要件と互換性
 
-- Turboism SDK API 範囲 `[0.67.0,1.0.0)`。
+- Turboism SDK API 範囲 `[0.68.1,1.0.0)`。
 - ユーザーがインストールした ACP v1 対応エージェント実行ファイル。PATH 上にあるか、**Agent を管理…** でカスタムコマンドとして設定します。
 - MCP ツールを使う場合は、同梱の `dev.turboism.plugin.mcp` プラグインが Turboism MCP サーバーを提供します。
 - インストール済みの Cubism Editor ホストが必要です。スタンドアロンプレビュー内では動作しません。
@@ -121,6 +121,10 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 - **セッションを読み込めない**：保存された永続セッションが古い可能性があります。プラグインは自動で新規セッションへフォールバックします。
 
 ## 変更履歴
+
+### 0.1.1
+
+- フレームワークのスケジューラーでウィンドウを破棄し、無効化や再有効化後の古い表示タスクを拒否します。
 
 ### 0.1.0
 

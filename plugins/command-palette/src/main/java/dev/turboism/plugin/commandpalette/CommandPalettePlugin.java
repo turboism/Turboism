@@ -8,10 +8,10 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.awt.GraphicsEnvironment;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import javax.swing.SwingUtilities;
 
 /**
  * Command Palette plugin: a Ctrl+K launcher over the host's supported Editor commands.
@@ -37,6 +37,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
     private PluginLocalization localization;
     private boolean initialized;
     private boolean enabled;
+    private long generation;
 
     public CommandPalettePlugin() {}
 
@@ -72,53 +73,51 @@ public final class CommandPalettePlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
-        synchronized (lifecycleLock) {
-            enabled = false;
-        }
         disposePalette();
     }
 
     @Override
     public void shutdown() {
-        synchronized (lifecycleLock) {
-            enabled = false;
-        }
         disposePalette();
     }
 
     /** Handles Ctrl+K / menu activation: toggles the palette on the EDT. */
     private void onOpen() {
+        final long openGeneration;
         synchronized (lifecycleLock) {
-            if (!enabled) {
-                return;
-            }
+            if (!enabled) return;
+            openGeneration = generation;
         }
         if (GraphicsEnvironment.isHeadless()) {
             logger.warn("Command Palette cannot open because the JVM is headless");
             return;
         }
-        SwingUtilities.invokeLater(this::togglePalette);
+        context.uiScheduler().runOnUiThread(() -> togglePalette(openGeneration));
     }
 
-    private void togglePalette() {
-        CommandPaletteDialog dialog = palette.get();
-        if (dialog == null) {
-            dialog = new CommandPaletteDialog(
-                    context, () -> localization.text("palette.hint", "Search commands, Enter to run"));
-            if (!palette.compareAndSet(null, dialog)) {
-                dialog.dispose();
-                dialog = palette.get();
+    private void togglePalette(final long openGeneration) {
+        synchronized (lifecycleLock) {
+            if (!enabled || generation != openGeneration) return;
+            CommandPaletteDialog dialog = palette.get();
+            if (dialog == null) {
+                dialog = new CommandPaletteDialog(
+                        context, () -> localization.text("palette.hint", "Search commands, Enter to run"));
+                palette.set(dialog);
             }
-        }
-        if (dialog != null) {
             dialog.toggle();
         }
     }
 
     private void disposePalette() {
-        final CommandPaletteDialog dialog = palette.getAndSet(null);
-        if (dialog != null) {
-            SwingUtilities.invokeLater(dialog::dispose);
+        final CommandPaletteDialog dialog;
+        synchronized (lifecycleLock) {
+            enabled = false;
+            generation++;
+            dialog = palette.getAndSet(null);
+        }
+        // Capture the old dialog before waiting: a deferred cleanup must not touch a new enable.
+        if (dialog != null && !context.uiScheduler().runUiTeardown(dialog::dispose, Duration.ofSeconds(2))) {
+            logger.warn("Command Palette window disposal deferred");
         }
     }
 

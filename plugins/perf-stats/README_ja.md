@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: performance
 tags: metrics, diagnostics, fps
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,7 +36,7 @@ Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.68.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、レビュー済みの正確な Editor アーティファクト `5.0.00` から `5.3.04` を受け入れます。本プラグインは、宣言されたサービスと機能が利用できる場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。
@@ -105,6 +105,10 @@ Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計�
 | CPU ラベルが消える | ステータス通知の可用性、およびプラグインが無効化または再読み込みされていないかを確認します。 |
 
 ## 変更履歴
+
+### 0.1.1
+
+- フレームワークのスケジューラーでウィンドウを破棄し、無効化や再有効化後の古い表示タスクを拒否します。
 
 ### 0.1.0
 

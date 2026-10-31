@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: performance
 tags: metrics, diagnostics, fps
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,7 +36,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.68.1,1.0.0)`。
 - **Cubism：** 需要 Cubism。Turboism 当前仅接受经过审查的精确 Editor 构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和能力可用时公开每项面向宿主的功能。
 - **接口模式：** `swing`。
 - **插件依赖项：** 未声明。
@@ -105,6 +105,10 @@ interface: swing
 | CPU 标签消失 | 检查状态通知可用性，以及插件是否已被禁用或重新加载。 |
 
 ## 更新日志
+
+### 0.1.1
+
+- 使用框架调度器清理窗口，阻止停用或重新启用后的旧打开任务重建窗口。
 
 ### 0.1.0
 

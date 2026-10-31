@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: integration
 tags: automation, acp, agent
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -37,7 +37,7 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 
 ## Requirements and compatibility
 
-- Turboism SDK API range `[0.67.0,1.0.0)`.
+- Turboism SDK API range `[0.68.1,1.0.0)`.
 - A user-installed ACP v1 compatible agent executable, reachable from PATH or configured as a custom command in **Manage agents…**.
 - The bundled `dev.turboism.plugin.mcp` plugin provides the Turboism MCP server when MCP tool access is wanted.
 - Requires an installed Cubism Editor host; the plugin does not run inside the standalone preview.
@@ -122,6 +122,10 @@ OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` an
 - **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
 
 ## Changelog
+
+### 0.1.1
+
+- Bound UI teardown through the framework scheduler; reject stale queued window opens after disable or re-enable.
 
 ### 0.1.0
 

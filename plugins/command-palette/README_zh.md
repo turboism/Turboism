@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -40,7 +40,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.68.1,1.0.0)`。
 - **Cubism：** 需要 Cubism。支持经精确审核的 Editor 版本（如 `5.2.03`、`5.3.02` 与 `5.3.03`）；仅当声明的服务与能力可用时暴露对应宿主功能。
 - **界面模式：** `swing`。
 - **插件依赖：** 无。
@@ -116,6 +116,10 @@ interface: swing
 | 按 Enter 后命令或操作未执行 | 查看宿主日志；当执行被拒绝或失败时会记录结果状态。 |
 
 ## 更新日志
+
+### 0.1.1
+
+- 使用框架调度器清理窗口，阻止停用或重新启用后的旧打开任务重建窗口。
 
 ### 0.1.0
 

@@ -440,6 +440,104 @@ class PerfStatsPluginLifecycleTest {
         assertEquals(2, PerfStatsWindow.TEXT_BAND_GAP, "the plot gap must mirror runtime ChartComponent.TEXT_BAND_GAP");
     }
 
+    @Test
+    void oldOpensSamplesAndDeferredCleanupCannotAffectNewGeneration() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
+        final var fixture = new Fixture();
+        fixture.scheduler.queueOpens = true;
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+        final var oldSampler = fixture.consumer.get();
+        fixture.action.get().handler().accept(new ActionRegistry.ActionContext() {});
+        assertEquals(1, fixture.scheduler.opens.size());
+        fixture.plugin.disable();
+        fixture.plugin.enable();
+        onEdt(fixture.scheduler.opens.remove(0));
+        assertNull(fixture.window());
+        final int published = fixture.statusNotifications.get();
+        oldSampler.accept(new PerformanceSnapshot(9L, 55.5, 1L, 1L, 30.0, 60L, 0L, 0L, 1L, 10L));
+        assertEquals(published, fixture.statusNotifications.get());
+        assertTrue(fixture.store().values(ChartStore.KEY_CPU).isEmpty());
+        fixture.action.get().handler().accept(new ActionRegistry.ActionContext() {});
+        onEdt(fixture.scheduler.opens.remove(0));
+        final var old = frame(fixture.window());
+        fixture.scheduler.fenced = true;
+        fixture.scheduler.deferTeardown = true;
+        fixture.plugin.disable();
+        assertTrue(old.isDisplayable());
+        assertEquals(1, fixture.scheduler.teardowns);
+        fixture.scheduler.fenced = false;
+        fixture.plugin.enable();
+        fixture.action.get().handler().accept(new ActionRegistry.ActionContext() {});
+        onEdt(fixture.scheduler.opens.remove(0));
+        final var fresh = frame(fixture.window());
+        try {
+            onEdt(fixture.scheduler.cleanups.get(0));
+            onEdt(fixture.scheduler.cleanups.get(0));
+            assertFalse(old.isDisplayable());
+            assertTrue(fresh.isDisplayable());
+        } finally {
+            fixture.scheduler.deferTeardown = false;
+            onEdt(fixture.plugin::shutdown);
+            fixture.plugin.disable();
+            fixture.scope.close();
+        }
+        assertFalse(fresh.isDisplayable());
+        assertEquals(2, fixture.scheduler.teardowns);
+    }
+
+    private static java.awt.Window frame(final PerfStatsWindow window) throws Exception {
+        final var field = PerfStatsWindow.class.getDeclaredField("frame");
+        field.setAccessible(true);
+        return (java.awt.Window) field.get(window);
+    }
+
+    private static final class TestUiScheduler implements dev.turboism.sdk.ui.UiScheduler {
+        boolean fenced;
+        boolean deferTeardown;
+        boolean queueOpens;
+        int teardowns;
+        final java.util.List<Runnable> opens = new java.util.ArrayList<>();
+        final java.util.List<Runnable> cleanups = new java.util.ArrayList<>();
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
+            if (!fenced) {
+                if (queueOpens) opens.add(work);
+                else javax.swing.SwingUtilities.invokeLater(work);
+            }
+            return () -> {};
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
+                final Runnable work, final java.time.Duration delay) {
+            return runOnUiThread(work);
+        }
+
+        @Override
+        public boolean runUiTeardown(final Runnable cleanup, final java.time.Duration timeout) {
+            teardowns++;
+            if (deferTeardown) {
+                cleanups.add(cleanup);
+                return false;
+            }
+            onEdt(cleanup);
+            return true;
+        }
+    }
+
+    private static void onEdt(final Runnable work) {
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) work.run();
+        else {
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(work);
+            } catch (Exception failure) {
+                throw new AssertionError(failure);
+            }
+        }
+    }
+
     private static PluginLocalization prefixingLocalization() {
         return new PluginLocalization() {
             @Override
@@ -524,6 +622,7 @@ class PerfStatsPluginLifecycleTest {
     }
 
     private static final class Fixture {
+        final TestUiScheduler scheduler = new TestUiScheduler();
         final PerfStatsPlugin plugin = new PerfStatsPlugin();
         final PluginLocalization localization;
         boolean localizationThrows;
@@ -626,6 +725,9 @@ class PerfStatsPluginLifecycleTest {
                     PluginContext.class.getClassLoader(),
                     new Class<?>[] {PluginContext.class},
                     (proxy, method, args) -> {
+                        if (method.getName().equals("uiScheduler")) {
+                            return scheduler;
+                        }
                         if (method.getName().equals("performanceStats")) {
                             return stats;
                         }
