@@ -1280,6 +1280,45 @@ final class FrameworkUpdateDownloaderTest {
         }
     }
 
+    @Test
+    void frameworkUiAdapterDownloadsWithoutTouchingInstallation() throws Exception {
+        try (Fixture f = new Fixture();
+                var c = coordinator(f, command -> null);
+                var ui = new RuntimeFrameworkUpdates(c, f.io,
+                        () -> () -> c.download(f.downloader(), f.candidate, f.context))) {
+            final var result = ui.download().get(20, TimeUnit.SECONDS);
+            assertEquals(dev.turboism.internal.core.CoreFrameworkUpdates.Phase.STAGED, result.phase());
+            assertEquals("2.0.0", result.version());
+            assertTrue(result.totalBytes() > 0);
+            assertEquals(result.totalBytes(), result.verifiedBytes());
+            assertFalse(Files.exists(f.install.resolve("turboism-agent.jar")));
+        }
+    }
+
+    @Test
+    void frameworkUiCancelDuringReceiptAdmissionDoesNotBlockOrStartNetworkLater() throws Exception {
+        try (Fixture f = new Fixture(); var c = coordinator(f, command -> null)) {
+            final var entered = new java.util.concurrent.CountDownLatch(1);
+            final var release = new java.util.concurrent.CountDownLatch(1);
+            try (var ui = new RuntimeFrameworkUpdates(c, f.io, () -> {
+                entered.countDown();
+                if (!release.await(10, TimeUnit.SECONDS)) throw new IOException("admission timeout");
+                return () -> c.download(f.downloader(), f.candidate, f.context);
+            })) {
+                final var task = ui.download();
+                assertSame(task, ui.download());
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                ui.cancel();
+                assertEquals(dev.turboism.internal.core.CoreFrameworkUpdates.Phase.CANCELLED,
+                        task.get(1, TimeUnit.SECONDS).phase());
+                release.countDown();
+                f.io.submit(() -> {}).get(5, TimeUnit.SECONDS);
+                assertEquals(0, f.documentRequests.get());
+                assertEquals(0, f.objectRequests.get());
+            } finally { release.countDown(); }
+        }
+    }
+
     private final class Fixture implements AutoCloseable {
         final Path cache;
         final Path install;
