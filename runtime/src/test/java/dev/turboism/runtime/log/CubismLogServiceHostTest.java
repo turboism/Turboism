@@ -93,14 +93,16 @@ class CubismLogServiceHostTest {
         final CountDownLatch releaseTimer = new CountDownLatch(1);
         try {
             // Hold the shared timer until all entries are queued, regardless of publisher pauses.
-            assertTrue(scheduler.schedule(Duration.ZERO, () -> {
-                timerStarted.countDown();
-                try {
-                    releaseTimer.await();
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                }
-            }).accepted());
+            assertTrue(scheduler
+                    .schedule(Duration.ZERO, () -> {
+                        timerStarted.countDown();
+                        try {
+                            releaseTimer.await();
+                        } catch (InterruptedException exception) {
+                            Thread.currentThread().interrupt();
+                        }
+                    })
+                    .accepted());
             assertTrue(timerStarted.await(5, TimeUnit.SECONDS));
             host.attachEventBroker(broker, scheduler);
             try {
