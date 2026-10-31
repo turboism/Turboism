@@ -4,10 +4,10 @@
 commands. It does not implement a scheduler, launch Editor, start a worker, alter
 queue state directly, or override any admission lock. Normal performance task
 resources are retained unchanged. The two task-only functional entries reuse the
-shared Runner and exact-version host slots. UI lifecycle tasks also request
-`performance-host` to keep their bounded shutdown deadlines uncontended; that
-exclusive resource selects the existing desktop and makes no timing claim.
-Other functional tasks receive a private Xvfb.
+shared Runner and exact-version host slots. Both functional entries also request
+`performance-host` to keep bounded lifecycle deadlines and native A/B layout
+uncontended; that exclusive resource selects the existing desktop and makes no
+timing claim.
 
 Build the combined product and probes, complete offline gates, verify the host
 inputs and containment, and start or use an independently managed queue worker

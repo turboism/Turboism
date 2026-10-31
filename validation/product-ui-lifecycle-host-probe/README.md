@@ -43,8 +43,17 @@ identity. It does not add product APIs or change distributed artifacts. The
 separate model-update and incremental-update probes remain necessary for #55.
 
 Window screenshots use the showing product window's `printAll` on the actual
-host EDT, at its live dimensions, and reject a capture with eight or fewer
+host EDT, at its live dimensions, and reject a capture with two or fewer
 distinct colors. These images prove native Swing window content, not physical
 desktop presentation. Separate `*-desktop.png` Robot captures are retained as
 diagnostics; Wine may return a black desktop image, which is never accepted as
 visual proof. Lifecycle assertions and safe cleanup remain independently required.
+
+The command palette is captured with a read-only `settings` catalogue filter;
+no matched command is executed. Low-color product UI is valid; every native
+paint is saved before the blank-image check so a rejected capture is inspectable.
+
+The Runner also rejects stable lifecycle failure markers for disable, shutdown,
+scope cleanup, retained classloaders and close timeouts, even if a window assertion
+were to pass. A normal bounded teardown's deferred-disposal warning is distinct
+from those failures.
