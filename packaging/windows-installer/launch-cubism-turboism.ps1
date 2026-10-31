@@ -188,27 +188,32 @@ else {
     }
 }
 Write-Host ($M.Jvm -f $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { $cubism.Java }))
-# Recovery executes from the retained helper copy, never from a possibly broken/locked new agent.
+# Update and recovery execute from the retained helper copy, never from a possibly broken/locked new agent.
 # ProbeOnly remains read-only. The PowerShell launcher stays alive while Invoke-CubismOfficialBat waits.
 if (!$ProbeOnly) {
     $updateWork = Join-Path $turboismHome 'state\runtime\update\helper'
     $updateJournal = Join-Path $updateWork 'journal.json'
-    if (Test-Path -LiteralPath $updateJournal) {
+    $updatePending = Join-Path $updateWork 'pending.json'
+    if ((Test-Path -LiteralPath $updateJournal) -or (Test-Path -LiteralPath $updatePending)) {
         # A launcher may have died while its Cubism child survived. Never restore loaded bytes in that case.
         $activeAgentUsers = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" -ErrorAction Stop |
             Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($agent, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
             Where-Object { !(Get-Process -Id $_.ProcessId -ErrorAction Stop).HasExited })
         if ($activeAgentUsers.Count -gt 0) {
-            throw 'Cubism is still using this Turboism installation; close it before startup recovery.'
+            throw 'Cubism is still using this Turboism installation; close it before startup update or recovery.'
         }
         $updateRunner = Join-Path $turboismHome 'state\runtime\update\helper-runner.jar'
         if (!(Test-Path -LiteralPath $updateRunner -PathType Leaf)) {
-            throw 'Update recovery helper is missing; installation was not launched. Use the full package to recover.'
+            if (!(Test-Path -LiteralPath $updateJournal) -and (Test-Path -LiteralPath $agent -PathType Leaf)) {
+                Copy-Item -LiteralPath $agent -Destination $updateRunner -Force
+            } else {
+                throw 'Update recovery helper is missing; installation was not launched. Use the full package to recover.'
+            }
         }
         $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
         & $updateJava '-cp' $updateRunner 'dev.turboism.update.FrameworkUpdateHelper' `
             '--root' $turboismHome '--work' $updateWork '--prepare-launch' "$PID"
-        if ($LASTEXITCODE -notin @(0, 10, 30)) {
+        if ($LASTEXITCODE -notin @(0, 10, 20, 30)) {
             throw "Update startup preparation failed (exit $LASTEXITCODE); no Cubism process was started."
         }
     }
