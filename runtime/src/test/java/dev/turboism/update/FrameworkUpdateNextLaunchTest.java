@@ -99,6 +99,20 @@ final class FrameworkUpdateNextLaunchTest {
     }
 
     @Test
+    void recoverWithNoJournalDoesNotDeleteValidPendingTask() throws Exception {
+        final Fixture f = new Fixture("1.0.0", "1.1.0");
+        f.persistPending("1.1.0");
+        assertTrue(FrameworkUpdatePendingTask.read(f.work).isPresent());
+
+        // Calling recover() when no journal exists must not delete the valid pending task
+        final var applier = new FrameworkUpdateApplier(f.root, f.work);
+        final var result = applier.recover();
+        assertEquals(FrameworkUpdateApplier.Outcome.NOTHING, result.outcome());
+        assertTrue(FrameworkUpdatePendingTask.read(f.work).isPresent(),
+                "recover with no journal must not delete valid pending task");
+    }
+
+    @Test
     void nextLaunchAppliesPersistedPendingTaskWithoutNeedingOldHelperAlive() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         f.persistPending("1.1.0");
@@ -130,7 +144,6 @@ final class FrameworkUpdateNextLaunchTest {
     @Test
     void unconfirmedLaunchCrashRollsBackAndDiscardsPendingTaskWithoutInfiniteRetry() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
-        // An update was applied, but the previous launcher exited without confirming health
         final var applier = new FrameworkUpdateApplier(f.root, f.work);
         final var manifest = new UpdateManifestVerifier(f.trusted())
                 .authenticate(Files.readAllBytes(f.stage.resolve("manifest.json")),
@@ -187,52 +200,83 @@ final class FrameworkUpdateNextLaunchTest {
     }
 
     @Test
-    void tamperedPendingTaskIsRejectedAndDiscardedWithoutTouchingInstallation() throws Exception {
+    void prepareLaunchDiscardsTaskWhenManifestMissingAndAllowsOldCubismLaunch() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         f.persistPending("1.1.0");
+        Files.delete(f.stage.resolve("manifest.json"));
 
-        // Tamper manifest signature
+        final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
+        // Does not throw or fail: discards bad task and allows old Cubism to launch
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
+        assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
+        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent(), "bad pending task must be discarded");
+        assertTrue(out.toString().contains("UPDATE_DISCARDED"));
+    }
+
+    @Test
+    void prepareLaunchDiscardsTaskWhenSignatureMissingAndAllowsOldCubismLaunch() throws Exception {
+        final Fixture f = new Fixture("1.0.0", "1.1.0");
+        f.persistPending("1.1.0");
+        Files.delete(f.stage.resolve("manifest.json.sig"));
+
+        final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
+        assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
+        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent());
+        assertTrue(out.toString().contains("UPDATE_DISCARDED"));
+    }
+
+    @Test
+    void prepareLaunchDiscardsTaskWhenSignatureCorruptedAndAllowsOldCubismLaunch() throws Exception {
+        final Fixture f = new Fixture("1.0.0", "1.1.0");
+        f.persistPending("1.1.0");
         final byte[] sig = Files.readAllBytes(f.stage.resolve("manifest.json.sig"));
         sig[sig.length - 10] ^= 1;
         Files.write(f.stage.resolve("manifest.json.sig"), sig);
 
         final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
-        assertEquals(FrameworkUpdateHelper.EXIT_REJECTED, code);
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
         assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
-        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent(),
-                "rejected pending task must be discarded");
-
-        // Second launch attempts normal start with no pending task
-        err.reset();
-        out.reset();
-        final int secondCode = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
-        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, secondCode);
-        assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
+        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent());
+        assertTrue(out.toString().contains("UPDATE_DISCARDED"));
     }
 
     @Test
-    void mismatchedInstallationRootInPendingTaskIsRejectedAndDiscarded() throws Exception {
+    void prepareLaunchDiscardsTaskWhenStagedFileMissingAndAllowsOldCubismLaunch() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
-        final Path differentRoot = temporary.resolve("other-install");
-        FrameworkUpdatePendingTask.write(f.work, differentRoot, f.stage, "1.1.0");
+        f.persistPending("1.1.0");
+        Files.delete(f.stage.resolve("files/turboism-agent.jar"));
 
         final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
-        assertEquals(FrameworkUpdateHelper.EXIT_REJECTED, code);
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
         assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
         assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent());
+        assertTrue(out.toString().contains("UPDATE_DISCARDED"));
     }
 
     @Test
-    void rebootRecoveryAppliesUpdateOnNextLaunch() throws Exception {
+    void prepareLaunchDiscardsTaskWhenPendingJsonMalformedAndAllowsOldCubismLaunch() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
-        // Simulate a power cut or system reboot after scheduling update:
-        // pending.json and staged files exist on disk, but no background helper process is running.
-        f.persistPending("1.1.0");
+        Files.createDirectories(f.work);
+        Files.writeString(f.work.resolve(FrameworkUpdatePendingTask.FILE_NAME), "not-valid-json{{{");
 
-        final int code = f.runPrepare(ProcessHandle.current().pid(), pid -> Optional.empty());
-        assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, code);
-        assertEquals("agent-new", Files.readString(f.root.resolve("turboism-agent.jar")));
-        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent());
-        assertTrue(Files.exists(f.work.resolve("journal.json")));
+        final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
+        assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
+        assertFalse(Files.exists(f.work.resolve(FrameworkUpdatePendingTask.FILE_NAME)));
+    }
+
+    @Test
+    void prepareLaunchDiscardsTaskWhenStagePathRelativeOrEscapingAndAllowsOldCubismLaunch() throws Exception {
+        final Fixture f = new Fixture("1.0.0", "1.1.0");
+        Files.createDirectories(f.work);
+        final String raw = "{\"format\":\"turboism-framework-pending-v1\",\"root\":\""
+                + f.root.toString().replace("\\", "\\\\") + "\",\"stage\":\"relative/stage\",\"version\":\"1.1.0\"}";
+        Files.writeString(f.work.resolve(FrameworkUpdatePendingTask.FILE_NAME), raw);
+
+        final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
+        assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
+        assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
+        assertFalse(Files.exists(f.work.resolve(FrameworkUpdatePendingTask.FILE_NAME)));
     }
 }
