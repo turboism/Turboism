@@ -100,9 +100,18 @@ Final state and regression
   its root-dedupe assertion: its two supposedly distinct installations actually used the same
   fixture path. That fixture now uses a separate parent. Its D3D stub also lacked the admitted
   BAT structure and now derives it from the normal fixture instead of weakening production checks.
-  The suite then reaches a child-process Graal override test and rejects its placeholder application
-  JAR (no coherent release identity); the full suite is still NOT claimed green. Parser-only mode
-  passes. The broader shell suite's earlier long-control assertion is also not claimed green.
+  Child processes could not inherit the parent's probe mock and could not run four-byte fake Java
+  binaries. A test-only executable now models probe transport and argument echo in those fixtures;
+  it does NOT verify JARs or represent genuine GraalVM execution, and refuses JVM -version so the
+  separate parser regression must use actual Java 17. The contradictory Other-VM/Graal metadata,
+  old wrapper-name expectation, missing BAT probe registration and CRLF regexes were also corrected.
+  Full managed-launch suite: 188 assertions PASS on two consecutive final runs; parser-only passes.
+  One concurrent run encountered a Windows sharing violation during atomic shortcut replacement;
+  its cause is not established or fixed. It is retained as a stability observation, not hidden.
+- Broader shell suite: 123 tests, 1 failure, 1 skip. The long-control assertion at line 553 also
+  fails in a clean detached origin/main baseline (9767e2b61), using the same actual Java 17.
+  No baseline source was modified; this failure does not depend on the Issue #50 changes.
+  See shell-baseline-validation.txt. The broad shell suite is still NOT claimed green.
 
 Still NOT established
 - Production framework endpoints, publisher, dedicated release keys and activation remain unconfigured.
