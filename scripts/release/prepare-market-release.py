@@ -66,7 +66,6 @@ from pathlib import Path
 _SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from turboism_dev.versions import framework_version
 
 from plugin_event_metadata import (
     EventMetadataError,
@@ -79,11 +78,6 @@ DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json"
 SIDECAR_NAME = "market-release.json"
 MAX_JAR_BYTES = 16 * 1024 * 1024  # 16 MiB contract ceiling
 STRICT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
-FRAMEWORK_VERSION_RE = re.compile(
-    r"^((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))"
-    r"(?:-(?:(?:alpha|beta|rc)\.(?:0|[1-9][0-9]*|local)|0\.nightly\.(?:[1-9][0-9]*|local)))?"
-    r"(?:-SNAPSHOT)?$"
-)
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")
 REQUIRED_LOCALES = ("en", "ja", "ko", "zh-Hans", "zh-Hant")
 REQUIRED_KEYS = ("plugin.name", "plugin.description")
@@ -622,59 +616,28 @@ def validate_published_dependencies(descriptors: dict[str, dict]) -> None:
                 )
 
 
-def base_framework_version(raw_version: str) -> str:
-    """Extract the strict MAJOR.MINOR.PATCH base from a framework version."""
-    if not isinstance(raw_version, str):
-        raise MarketError(f"invalid framework version {raw_version!r}")
-    match = FRAMEWORK_VERSION_RE.match(raw_version.strip())
-    if match is None:
-        raise MarketError(f"framework version {raw_version!r} does not have a valid MAJOR.MINOR.PATCH base")
-    return match.group(1)
-
-
-def read_repo_framework_version(repo_root: Path) -> str:
-    """Read turboismFrameworkVersion from gradle/common-java.gradle.kts, falling back to 0.1.0."""
-    try:
-        ver = framework_version(repo_root)
-        return base_framework_version(ver)
-    except Exception as failure:
-        common_gradle = repo_root / "gradle/common-java.gradle.kts"
-        if not common_gradle.is_file():
-            return "0.1.0"
-        raise MarketError(f"{common_gradle}: cannot read framework version: {failure}") from failure
-
-
 def resolve_next_plugin_version(
-    framework_version: str,
     catalog_releases: list[dict],
-    tracked_version: str = "0.1.0",
+    tracked_version: str,
 ) -> str:
     """Compute the next MAJOR.MINOR.PATCH version for a changed plugin.
 
-    - First publish (no cataloged releases): uses max(framework X.Y.Z, tracked_version).
-    - Subsequent publish when cataloged releases exist:
-      - Within current framework MAJOR.MINOR: max(cataloged patch in MAJOR.MINOR) + 1.
-      - Advancing to a newer framework MAJOR.MINOR: uses framework X.Y.Z.
-      - If catalog already contains a higher MAJOR.MINOR: max(cataloged) + 1.
+    Plugin versions are independent of the framework version: the tracked
+    plugin.json version is the floor, and a changed plugin advances from the
+    highest cataloged release by one patch.
     """
-    f_ver = parse_strict_version(base_framework_version(framework_version))
-    t_ver = parse_strict_version(tracked_version)
-    base_ver = max(f_ver, t_ver)
+    tracked = parse_strict_version(tracked_version)
     if not catalog_releases:
-        return f"{base_ver[0]}.{base_ver[1]}.{base_ver[2]}"
+        return ".".join(map(str, tracked))
     catalog_versions = []
     for release in catalog_releases:
         if not isinstance(release, dict) or not isinstance(release.get("version"), str):
             raise MarketError("catalog release entry is missing a valid version string")
         catalog_versions.append(parse_strict_version(release["version"]))
-    max_cat = max(catalog_versions)
-    same_minor = [ver for ver in catalog_versions if (ver[0], ver[1]) == (base_ver[0], base_ver[1])]
-    if same_minor and (base_ver[0], base_ver[1]) >= (max_cat[0], max_cat[1]):
-        next_patch = max(ver[2] for ver in same_minor) + 1
-        return f"{base_ver[0]}.{base_ver[1]}.{next_patch}"
-    if (base_ver[0], base_ver[1]) > (max_cat[0], max_cat[1]):
-        return f"{base_ver[0]}.{base_ver[1]}.{base_ver[2]}"
-    return f"{max_cat[0]}.{max_cat[1]}.{max_cat[2] + 1}"
+    highest = max(catalog_versions)
+    if tracked > highest:
+        return ".".join(map(str, tracked))
+    return f"{highest[0]}.{highest[1]}.{highest[2] + 1}"
 
 
 def rewrite_descriptor_version(tracked_raw: bytes, new_version: str) -> bytes:
@@ -711,15 +674,10 @@ def verify_descriptor_against_tracked(
     embedded_raw: bytes,
     tracked_raw: bytes,
     jar_label: str,
-    allowed_version: str | None = None,
 ) -> None:
-    """Verify embedded plugin.json matches tracked source plugin.json (allowing an injected target version)."""
+    """Verify embedded plugin.json is byte-identical to the tracked source plugin.json."""
     if embedded_raw == tracked_raw:
         return
-    if allowed_version is not None:
-        expected_raw = rewrite_descriptor_version(tracked_raw, allowed_version)
-        if embedded_raw == expected_raw:
-            return
     raise MarketError(
         f"{jar_label}: embedded descriptor does not match tracked descriptor "
         f"({sha256(tracked_raw)[:12]} != {sha256(embedded_raw)[:12]})"
@@ -969,8 +927,7 @@ def load_catalog(catalog_source: str, sig_source: str | None = None) -> tuple[di
 
 
 def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
-                 base_name: str, locales: list,
-                 allowed_version: str | None = None) -> tuple:
+                 base_name: str, locales: list) -> tuple:
     """Verify one built JAR; return (jar path, descriptor sha256, localizations)."""
     jar = find_jar(build_root, module)
     raw_bytes = jar.read_bytes()
@@ -981,9 +938,7 @@ def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
                 embedded = archive.read(DESCRIPTOR_ENTRY)
             except KeyError as failure:
                 raise MarketError(f"{jar}: missing {DESCRIPTOR_ENTRY}") from failure
-            verify_descriptor_against_tracked(
-                embedded, tracked_raw, str(jar), allowed_version=allowed_version
-            )
+            verify_descriptor_against_tracked(embedded, tracked_raw, str(jar))
 
             if json.loads(embedded.decode("utf-8")).get("lifecycle", {}).get("hotReload") or json.loads(tracked_raw.decode("utf-8")).get("lifecycle", {}).get("hotReload"):
                 names = set(archive.namelist())
@@ -1098,7 +1053,6 @@ def _normalize_release_channel(release_channel: str | None) -> str | None:
 def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
           revision: str, *, catalog: str | None = None,
           catalog_sig: str | None = None,
-          framework_version: str | None = None,
           release_channel: str | None = None) -> int:
     channel = _normalize_release_channel(release_channel)
     if channel == "nightly":
@@ -1114,12 +1068,7 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
         raise MarketError("--output is required when the selection is non-empty")
     catalog_by_id: dict[str, dict] = {}
     artifact_loader = None
-    auto_bump = catalog is not None or framework_version is not None
-    effective_framework_version = (
-        base_framework_version(framework_version)
-        if framework_version is not None
-        else read_repo_framework_version(repo_root)
-    )
+    auto_bump = catalog is not None
     if catalog is not None:
         catalog_doc, artifact_loader = load_catalog(catalog, catalog_sig)
         for plugin in catalog_doc.get("plugins", []):
@@ -1146,7 +1095,6 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
             jar, descriptor_sha256, localizations = jar_artifact(
                 build_root, module, tracked_raw,
                 descriptor["i18n"]["baseName"], descriptor["i18n"]["locales"],
-                allowed_version=effective_framework_version if auto_bump else None,
             )
             data = jar.read_bytes()
             if len(data) > MAX_JAR_BYTES:
@@ -1170,7 +1118,6 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
                         published_descriptors[descriptor["id"]] = descriptor
                         continue
                 target_version = resolve_next_plugin_version(
-                    effective_framework_version,
                     releases,
                     descriptor["version"],
                 )
@@ -1245,9 +1192,6 @@ def parse_args(argv):
                              "auto-bump and unchanged-plugin skipping")
     parser.add_argument("--catalog-sig",
                         help="optional detached catalog signature path or HTTPS URL")
-    parser.add_argument("--framework-version",
-                        help="optional framework version (e.g. 0.67.0 or 0.67.0-beta.1) for "
-                             "first-publish base and MAJOR.MINOR auto-bump")
     parser.add_argument("--release-channel",
                         help="optional release channel (stable, beta, preview, nightly); "
                              "beta maps to catalog channel preview and nightly is skipped")
@@ -1267,7 +1211,6 @@ def main(argv=None) -> int:
             count = stage(args.repo_root, manifest, args.build_root, args.output,
                           args.source_revision, catalog=args.catalog,
                           catalog_sig=args.catalog_sig,
-                          framework_version=args.framework_version,
                           release_channel=args.release_channel)
     except (MarketError, OSError) as failure:
         print(f"error: {failure}", file=sys.stderr)

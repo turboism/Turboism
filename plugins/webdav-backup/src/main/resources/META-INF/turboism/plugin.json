@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.webdav",
   "name": "WebDAV Auto-Backup Sync Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only).",
   "entrypoints": [
     "dev.turboism.plugin.webdavbackup.BackupPlugin"

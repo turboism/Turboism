@@ -846,6 +846,37 @@ val checkPluginApiRanges by tasks.registering(Exec::class) {
     VerificationStamps.apply(this)
 }
 
+val checkPluginApiFloorsSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Tests SDK first-release tracking and plugin API floor evaluation."
+    inputs.files("scripts/sdk_api_since.py", "scripts/test/test_sdk_api_since.py")
+    commandLine("python3", "-m", "unittest", "scripts.test.test_sdk_api_since")
+    VerificationStamps.apply(this)
+}
+
+val checkPluginApiFloors by tasks.registering(Exec::class) {
+    dependsOn(checkPluginApiFloorsSelfTest)
+    group = "verification"
+    description = "Fails when a plugin's turboismApi lower bound is older than the newest SDK member it links."
+    val pluginProjects = subprojects.filter { it.path.startsWith(":plugins:") }
+    val sdkClasses = project(":sdk").extensions.getByType<SourceSetContainer>().named("main").map { it.output.classesDirs }
+    dependsOn(":sdk:classes", pluginProjects.map { "${it.path}:classes" })
+    inputs.files("scripts/sdk_api_since.py", "scripts/SdkApiRefs.java", "compatibility/sdk-api-since.json")
+    inputs.files(sdkClasses)
+    inputs.files(fileTree("plugins") { include("*/src/main/resources/META-INF/turboism/plugin.json") })
+    pluginProjects.forEach { inputs.files(it.extensions.getByType<SourceSetContainer>().named("main").map { set -> set.output.classesDirs }) }
+    doFirst {
+        val args = mutableListOf("python3", "scripts/sdk_api_since.py", "--check", "--sdk-classes", sdkClasses.get().singleFile.absolutePath)
+        pluginProjects.forEach {
+            val dirs = it.extensions.getByType<SourceSetContainer>().named("main").get().output.classesDirs
+            args += listOf("--plugin", "${it.name}=${dirs.singleFile.absolutePath}")
+        }
+        commandLine(args)
+    }
+    environment("JAVA_HOME", System.getProperty("java.home"))
+    VerificationStamps.apply(this)
+}
+
 val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     group = "verification"
     description = "Verifies every first-party plugin has a README matching its descriptor and delivery role."
@@ -1111,6 +1142,7 @@ val devCheck by tasks.registering {
         checkSdkCubismEditorAnnotations,
         "validatePluginMeta",
         checkPluginApiRanges,
+        checkPluginApiFloors,
         ":runtime:checkHeadlessRuntimeClasspath",
         ":runtime:admissionPreflightTest",
         ":runtime:admissionUnitTests",
@@ -1711,6 +1743,7 @@ val checkCompletedCommit by tasks.registering {
         "checkOfficialPluginI18nCompleteness",
         checkOfficialPluginReadmes,
         checkPluginApiRanges,
+        checkPluginApiFloors,
         checkDraftPackMetadata,
         checkReviewedReleases,
         generateClassPinsSelfTest,

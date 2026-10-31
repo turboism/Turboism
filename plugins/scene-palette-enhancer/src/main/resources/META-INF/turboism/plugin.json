@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.scene-palette-enhancer",
   "name": "Scene Palette Enhancer",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Sorts and manually reorders items in the Cubism Scene palette.",
   "entrypoints": [
     "dev.turboism.plugin.scenepalette.ScenePaletteEnhancerPlugin"

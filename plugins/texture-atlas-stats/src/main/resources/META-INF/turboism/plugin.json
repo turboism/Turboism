@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.texture-atlas-stats",
   "name": "Texture Atlas Statistics",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Shows the total and current-texture model-image counts in the native texture-atlas editor window.",
   "entrypoints": [
     "dev.turboism.plugin.textureatlasstats.TextureAtlasStatisticsPlugin"

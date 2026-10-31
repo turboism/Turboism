@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.mesh-edit-mirror-axis-enhance",
   "name": "Mesh Edit Mirror Axis Enhance",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Enhances Cubism mesh editing with mirror-axis rotation and exact-host mirror-tool parity.",
   "entrypoints": [
     "dev.turboism.plugin.mesheditmirroraxisenhance.MeshEditMirrorAxisEnhancePlugin"

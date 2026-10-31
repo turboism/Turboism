@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.artmesh-mirror
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing, symmetry
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,7 @@ Independent mirror editing for ArtMesh vertices in ordinary modeling mode. The a
 
 ## Requirements and compatibility
 
-Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
@@ -63,6 +63,10 @@ Preview. Matching searches within approximately 20 screen pixels of the reflecti
 If the axis is absent, enable the plugin and its canvas button, select an ArtMesh in ordinary modeling mode, and check runtime hook availability. If no counterpart moves, check that a corresponding vertex exists near the reflected position.
 
 ## Changelog
+
+### 0.68.1
+
+- Raised the minimum Turboism API to 0.68.0, matching the SDK members this plugin uses.
 
 ### 0.1.0
 
