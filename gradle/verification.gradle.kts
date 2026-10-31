@@ -1009,8 +1009,9 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
 
 /*
  * shellcheck runs at error severity only: warnings stay advisory so the gate only
- * blocks on real error-class findings. The script self-skips when shellcheck is
- * absent; CI installs it via apt (see .github/workflows/ci.yml).
+ * blocks on real error-class findings. A missing shellcheck binary fails the gate
+ * instead of silently skipping it; CI installs it via apt (see .github/workflows/ci.yml)
+ * and CONTRIBUTING.md lists it as a local build requirement.
  */
 tasks.register<Exec>("checkShellLint") {
     group = "verification"
@@ -1035,8 +1036,117 @@ tasks.register<Exec>("checkShellLint") {
     inputs.property("shellcheckPath", shellcheckBinPath.map { it.ifEmpty { "absent" } })
     inputs.files(shellcheckBinPath.map { path -> if (path.isNotEmpty()) listOf(file(path)) else emptyList<File>() })
 
-    VerificationStamps.apply(this) { shellcheckBinPath.get().isNotEmpty() }
+    VerificationStamps.apply(this) {
+        // Absence of the binary now fails the gate, so a successful run always stamps.
+        shellcheckBinPath.get().isNotEmpty()
+    }
     commandLine("bash", "scripts/check_shell_lint.sh")
+}
+
+/*
+ * Negative self-tests for the cleanup and gate-hardening lane. Each one drives a
+ * temporary fixture through the real script and asserts the refusal, exit status,
+ * or wiring that the fix introduced; a regression here means a gate silently
+ * stopped proving its subject.
+ */
+val checkShellLintRequiresShellcheck by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the shell lint gate fails closed when shellcheck is unavailable or reports findings."
+    workingDir(rootDir)
+    inputs.files("scripts/check_shell_lint.sh", "scripts/dev/selftest-shell-lint.sh")
+    VerificationStamps.apply(this)
+    commandLine("bash", "scripts/dev/selftest-shell-lint.sh")
+}
+
+val checkCleanWorktreeSafety by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves clean-worktree.sh refuses dirty worktrees and unmerged branches without --force."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/dev/clean-worktree.sh",
+        "scripts/dev/worktree-id-lib.sh",
+        "scripts/dev/selftest-clean-worktree.sh"
+    )
+    VerificationStamps.apply(this)
+    commandLine("bash", "scripts/dev/selftest-clean-worktree.sh")
+}
+
+val checkCleanupFailurePropagation by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the Paseo teardown hook returns non-zero when host artifact cleanup fails."
+    workingDir(rootDir)
+    inputs.files("scripts/dev/paseo-worktree-teardown.sh", "scripts/dev/selftest-paseo-teardown.sh")
+    VerificationStamps.apply(this)
+    commandLine("bash", "scripts/dev/selftest-paseo-teardown.sh")
+}
+
+val checkHostCleanupEnvMerge by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves host artifact cleanup merges .env with the process environment and process wins."
+    workingDir(rootDir)
+    inputs.files("scripts/dev/cleanup_host_artifacts.py", "scripts/dev/selftest-host-cleanup-env.py")
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/dev/selftest-host-cleanup-env.py")
+}
+
+val checkGateWiringSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the rewired gates are aggregated by devCheck/checkIntegration instead of orphaned."
+    workingDir(rootDir)
+    inputs.files(
+        "gradle/verification.gradle.kts",
+        "gradle/asm-admission.gradle.kts",
+        "buildSrc/src/main/kotlin/dev/turboism/gradle/TurboismPluginExtension.kt",
+        "testing/integration-tests/build.gradle.kts",
+        "scripts/check_shell_lint.sh",
+        "CONTRIBUTING.md",
+        "scripts/dev/selftest-gate-wiring.py"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/dev/selftest-gate-wiring.py")
+}
+
+/*
+ * The tracked plugin-sections.nsh is generated for the Windows installer and was
+ * never compared with a regeneration. The gate rebuilds the sections from the
+ * repository plugin metadata through the production generator block and compares
+ * bytes; see packaging/windows-installer/check_plugin_sections.py.
+ */
+val checkInstallerPluginSections by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Byte-compares packaging/windows-installer/plugin-sections.nsh with a fresh regeneration."
+    workingDir(rootDir)
+    inputs.files(
+        "packaging/windows-installer/check_plugin_sections.py",
+        "packaging/windows-installer/assemble-release.sh",
+        "packaging/windows-installer/plugin-sections.nsh",
+        "packaging/release-plugins.txt",
+        "packaging/windows-installer/script-engine.json",
+        "gradle/common-java.gradle.kts"
+    )
+    inputs.files(
+        fileTree("plugins") {
+            include("*/src/main/resources/META-INF/turboism/plugin.json")
+            include("*/src/main/resources/META-INF/turboism/i18n/messages_*.properties")
+            include("README.md", "README_zh.md", "README_ja.md", "README_ko.md")
+        }
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "packaging/windows-installer/check_plugin_sections.py")
+}
+
+val checkInstallerPluginSectionsGateSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the installer plugin-sections comparison rejects stale and pruned artifacts."
+    workingDir(rootDir)
+    inputs.files(
+        "packaging/windows-installer/check_plugin_sections.py",
+        "packaging/windows-installer/selftest-plugin-sections.py",
+        "packaging/windows-installer/plugin-sections.nsh",
+        "packaging/windows-installer/assemble-release.sh"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "packaging/windows-installer/selftest-plugin-sections.py")
 }
 
 val checkPluginTemplateSetup by tasks.registering(Exec::class) {
@@ -1091,6 +1201,9 @@ val devCheck by tasks.registering {
     dependsOn("checkPluginBoundaries", "checkPluginPermissionAudit")
     group = "verification"
     description = "Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice."
+    // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the
+    // live collection keeps devCheck wired without a hardcoded plugin list.
+    dependsOn(tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" })
     dependsOn(
         productionClasses,
         checkDuplicateJavaImports,
@@ -1102,6 +1215,17 @@ val devCheck by tasks.registering {
         "checkPythonLint",
         "checkCompatibilityMatrix",
         "checkShellLint",
+        // ASM admission used to run only in checkRelease, so a plugin or SDK dependency
+        // could carry an unadmitted bytecode library through the daily gate unnoticed.
+        "checkAsmDependencyModel",
+        "checkResolvedBytecodeDependencyGraph",
+        "checkInstallerPluginSections",
+        checkInstallerPluginSectionsGateSelfTest,
+        "checkCleanWorktreeSafety",
+        "checkShellLintRequiresShellcheck",
+        "checkHostCleanupEnvMerge",
+        "checkCleanupFailurePropagation",
+        checkGateWiringSelfTest,
         checkPluginTemplateSetup,
         checkRepositoryHygiene,
         checkTestCorpusSelfTest,
@@ -1652,6 +1776,10 @@ tasks.register("checkIntegration") {
         "checkHistoryValidationProbePackaging",
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
+        // Registered in :testing:integration-tests; the locale wrapper contract is
+        // offline and part of the packaged preview-agent surface, so the aggregated
+        // integration gate must execute it instead of leaving it orphaned.
+        ":testing:integration-tests:hostValidationScriptContractTest",
         ":bootstrap:checkBootstrapJarDependencyIsolation",
         "contractParentAgentTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
