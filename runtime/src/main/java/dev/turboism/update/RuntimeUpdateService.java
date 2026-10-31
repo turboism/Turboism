@@ -54,6 +54,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     private UpdatePreferencesStoreState preferences;
     private UpdateStateStore.State state;
     private Snapshot snapshot;
+    private volatile dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates =
+            dev.turboism.internal.core.CoreFrameworkUpdates.unavailable();
     private RuntimeTimerHandle automaticTimer;
     private CompletionStage<UpdateTransport.Response> transportStage;
     private CompletableFuture<Snapshot> inFlight;
@@ -133,6 +135,16 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         }
     }
 
+    @Override
+    public dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates() {
+        return frameworkUpdates;
+    }
+
+    /** Product-owned binding only; never construct authority from a feed or a local status marker. */
+    public void bindFrameworkUpdates(final dev.turboism.internal.core.CoreFrameworkUpdates updates) {
+        frameworkUpdates = Objects.requireNonNull(updates, "updates");
+    }
+
     /**
      * Returns complete metadata from the last successful check only while an update is available.
      * This is not signature authentication, installation evidence or permission to apply files.
@@ -205,6 +217,11 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             this.candidate = candidate;
             this.installation = installation;
             this.context = context;
+        }
+
+        CompletableFuture<FrameworkUpdateCoordinator.Status> downloadWith(
+                final FrameworkUpdateCoordinator coordinator, final FrameworkUpdateDownloader downloader) {
+            return coordinator.download(downloader, candidate, context);
         }
 
         public CompletableFuture<FrameworkUpdateDownloader.Downloaded> stage(
