@@ -7,7 +7,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 
 /** Internal UI boundary for installing framework updates. No filesystem or network work on the UI thread. */
-public interface CoreFrameworkUpdates {
+public interface CoreFrameworkUpdates extends AutoCloseable {
     enum Phase { UNAVAILABLE, IDLE, DOWNLOADING, STAGED, APPLY_PENDING, CANCELLED, FAILED }
 
     record Snapshot(Phase phase, String version, long verifiedBytes, long totalBytes, String detail) {
@@ -27,6 +27,8 @@ public interface CoreFrameworkUpdates {
     /** Schedules application after a user-controlled exit. Must never close Cubism or discard unsaved work. */
     CompletionStage<Snapshot> installOnExit();
     Registration subscribe(Consumer<Snapshot> listener);
+
+    @Override default void close() {}
 
     static CoreFrameworkUpdates unavailable() { return Unavailable.INSTANCE; }
 

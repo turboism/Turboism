@@ -60,12 +60,14 @@ public final class FrameworkUpdateHelper {
         System.exit(run(args, System.out, System.err, trustedKeys(), ProcessHandle::of, Instant::now));
     }
 
-    /** Keys compiled into the helper: the bundled production allowlist, never anything read from the stage. */
+    /** Framework-specific bundled authority; never reuse plugin-catalog keys or accept keys from the stage. */
     private static Map<String, PublicKey> trustedKeys() {
-        final var keys = dev.turboism.pluginmanagement.PluginCatalogVerifier.loadBundledTrustedKeys();
-        final var result = new java.util.HashMap<String, PublicKey>();
-        keys.forEach((id, key) -> result.put(id, key.publicKey()));
-        return result;
+        try {
+            return FrameworkUpdateTrust.bundled().activeKeys();
+        } catch (IOException invalid) {
+            System.err.println("Framework update trust configuration is invalid; installation disabled");
+            return Map.of();
+        }
     }
 
     @FunctionalInterface
@@ -108,6 +110,10 @@ public final class FrameworkUpdateHelper {
             if (invocation.recoverOnly()) {
                 out.println(recovered.outcome() + ": " + recovered.detail());
                 return recovered.outcome() == FrameworkUpdateApplier.Outcome.RECOVERED ? EXIT_RECOVERED : EXIT_NOTHING;
+            }
+            if (keys.isEmpty()) {
+                err.println("Rejected update: no active framework-update signing keys are provisioned");
+                return EXIT_REJECTED;
             }
             final byte[] manifestBytes = readBounded(invocation.stage().resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
             final byte[] envelopeBytes = readBounded(

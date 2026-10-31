@@ -142,7 +142,14 @@ public final class RuntimeUpdateService implements CoreUpdateService {
 
     /** Product-owned binding only; never construct authority from a feed or a local status marker. */
     public void bindFrameworkUpdates(final dev.turboism.internal.core.CoreFrameworkUpdates updates) {
-        frameworkUpdates = Objects.requireNonNull(updates, "updates");
+        Objects.requireNonNull(updates, "updates");
+        synchronized (lock) {
+            if (closed) throw new IllegalStateException("Update service is closed");
+            if (frameworkUpdates != dev.turboism.internal.core.CoreFrameworkUpdates.unavailable()) {
+                throw new IllegalStateException("Framework installer is already bound");
+            }
+            frameworkUpdates = updates;
+        }
     }
 
     /**
@@ -342,7 +349,11 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             snapshot = closedSnapshot();
             listeners.clear();
         }
-        executor.shutdownNow();
+        try {
+            frameworkUpdates.close();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private CompletionStage<Snapshot> request(final boolean manual) {
