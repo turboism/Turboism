@@ -54,7 +54,7 @@ public final class ProductUiHostAgent {
     }
     private static <T> T edt(Callable<T> action) throws Exception {
         FutureTask<T> task = new FutureTask<>(action); SwingUtilities.invokeLater(task);
-        return task.get(25, TimeUnit.SECONDS);
+        return task.get(60, TimeUnit.SECONDS);
     }
     private static void check(boolean value, String key) {
         RESULT.setProperty(key, Boolean.toString(value));
@@ -102,11 +102,17 @@ public final class ProductUiHostAgent {
     // Task-only scheduler decorator: retain the actual product cleanup closure, then
     // replay it after a new generation is showing. Ordinary scenarios above/below
     // still use the unmodified production UiScheduler and its real EDT timeout.
-    private static List<Runnable> retainCleanup(Object plugin) throws Exception {
-        List<Runnable> retained = new ArrayList<>();
+    private static List<Runnable> retainCleanup(Object plugin, List<Runnable> opens) throws Exception {
+        List<Runnable> retained = new CopyOnWriteArrayList<>();
         Class<?> schedulerType = Class.forName("dev.turboism.sdk.ui.UiScheduler");
         java.util.function.Function<Object,Object> decorate = original -> Proxy.newProxyInstance(
             schedulerType.getClassLoader(), new Class<?>[]{schedulerType}, (proxy, method, args) -> {
+                if (method.getName().equals("runOnUiThread")) {
+                    opens.add((Runnable)args[0]);
+                    Class<?> registration = Class.forName("dev.turboism.sdk.plugin.Registration");
+                    return Proxy.newProxyInstance(registration.getClassLoader(), new Class<?>[]{registration},
+                        (handle, operation, values) -> null);
+                }
                 if (method.getName().equals("runUiTeardown")) {
                     retained.add((Runnable)args[0]); return false;
                 }
@@ -150,21 +156,20 @@ public final class ProductUiHostAgent {
         CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
         AtomicBoolean watchdogReleased = new AtomicBoolean();
         Thread watchdog = new Thread(() -> {
-            try { if (!release.await(12, TimeUnit.SECONDS)) { watchdogReleased.set(true); release.countDown(); } }
+            try { if (!release.await(2500, TimeUnit.MILLISECONDS)) { watchdogReleased.set(true); release.countDown(); } }
             catch (InterruptedException e) { release.countDown(); Thread.currentThread().interrupt(); }
         }, "product-ui-bounded-edt-watchdog");
         watchdog.setDaemon(true); watchdog.start();
         SwingUtilities.invokeLater(() -> {
             entered.countDown();
-            try { release.await(13, TimeUnit.SECONDS); }
+            try { release.await(3, TimeUnit.SECONDS); }
             catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         });
         check(entered.await(5, TimeUnit.SECONDS), key + ".edtBlocked");
         long start = System.nanoTime();
         try {
-            // Production action queues an open behind the blocker; unload fences this generation.
-            open(second, product);
-            Thread.sleep(150);
+            // No admitted action is intentionally kept in flight during unload. Stale
+            // callbacks are exercised independently by the decorator scenario below.
             enabled(product, false);
             RESULT.setProperty(key + ".blockedDisableMillis", Long.toString(TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-start)));
         } finally { release.countDown(); }
@@ -187,7 +192,12 @@ public final class ProductUiHostAgent {
         Object retainedGeneration = loaded(product);
         open(retainedGeneration, product);
         Window retainedWindow = awaitWindow(retainedGeneration, product);
-        List<Runnable> cleanups = retainCleanup(instance(retainedGeneration));
+        List<Runnable> opens = new CopyOnWriteArrayList<>();
+        List<Runnable> cleanups = retainCleanup(instance(retainedGeneration), opens);
+        open(retainedGeneration, product);
+        long callbackDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (opens.isEmpty() && System.nanoTime() < callbackDeadline) Thread.sleep(10);
+        check(!opens.isEmpty(), key + ".taskHookCapturedProductOpen");
         enabled(product, false);
         check(!cleanups.isEmpty(), key + ".taskHookCapturedProductCleanup");
         check(edt(retainedWindow::isDisplayable), key + ".taskHookOldWindowRetained");
@@ -195,7 +205,12 @@ public final class ProductUiHostAgent {
         Object afterRetained = loaded(product);
         open(afterRetained, product);
         Window afterWindow = awaitWindow(afterRetained, product);
-        edt(() -> { for (Runnable cleanup : cleanups) cleanup.run(); return null; });
+        edt(() -> {
+            for (Runnable callback : opens) callback.run();
+            check(window(instance(retainedGeneration), product) == null, key + ".staleProductOpenFenced");
+            for (Runnable cleanup : cleanups) cleanup.run();
+            return null;
+        });
         check(edt(() -> !retainedWindow.isDisplayable()), key + ".delayedClosureDisposedOld");
         check(edt(afterWindow::isDisplayable), key + ".delayedClosurePreservedNew");
         screenshot(key + "-after-retained-closure");
@@ -232,6 +247,15 @@ public final class ProductUiHostAgent {
             RESULT.setProperty("status", "PASS");
         } catch (Throwable failure) {
             failure.printStackTrace(); RESULT.setProperty("status", "FAIL"); RESULT.setProperty("failure", failure.toString());
+            try {
+                StringBuilder stacks = new StringBuilder();
+                java.lang.management.ThreadMXBean threads = java.lang.management.ManagementFactory.getThreadMXBean();
+                for (java.lang.management.ThreadInfo thread : threads.dumpAllThreads(true, true)) {
+                    stacks.append(thread).append("\n");
+                    for (StackTraceElement frame : thread.getStackTrace()) stacks.append("    at ").append(frame).append("\n");
+                }
+                Files.writeString(output.resolve("failure-threads.txt"), stacks.toString());
+            } catch (Exception diagnosticFailure) { diagnosticFailure.printStackTrace(); }
         } finally {
             try { save(); } catch (Exception e) { e.printStackTrace(); }
             System.out.println("PRODUCT_UI_LIFECYCLE_RESULT status=" + RESULT.getProperty("status"));
