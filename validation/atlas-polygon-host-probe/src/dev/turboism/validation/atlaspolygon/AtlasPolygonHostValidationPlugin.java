@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.validation.shared.verdict.ProbeAssertions;
 
 import javax.swing.AbstractButton;
 import javax.swing.JComboBox;
@@ -96,7 +97,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
     private PluginContext context;
     private PluginLogger logger;
     private Path stateDir;
-    private final List<String> assertions = new ArrayList<>();
+    private final ProbeAssertions assertions = new ProbeAssertions();
     private final AtomicReference<Object> dialogObservation = new AtomicReference<>();
     private int invocationCount;
 
@@ -1095,20 +1096,13 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         final String actual,
         final String status
     ) {
-        assertions.add("assertion." + name + ".expected=" + oneLine(expected));
-        assertions.add("assertion." + name + ".actual=" + oneLine(actual));
-        assertions.add("assertion." + name + ".status=" + status);
+        assertions.record(name, expected, actual, status);
         logger.info("ATLAS_POLYGON_ASSERT " + name + " status=" + status
             + " actual=" + oneLine(actual));
     }
 
     private void writeResult(final String phase, final long startedNanos) {
-        String terminal = "PASS";
-        for (final String line : assertions) {
-            if (line.endsWith(".status=FAIL")) {
-                terminal = "FAIL";
-            }
-        }
+        final String terminal = assertions.terminal().name();
         final StringBuilder report = new StringBuilder();
         report.append("status=").append(terminal).append('\n');
         report.append("phase=").append(phase).append('\n');
@@ -1116,9 +1110,8 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
             .append(System.getProperty("turboism.validation.hostVersion", "unknown")).append('\n');
         report.append("durationMillis=")
             .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-        for (final String line : assertions) {
-            report.append(line).append('\n');
-        }
+        assertions.appendCounters(report);
+        assertions.appendNamed(report);
         try {
             final Path result = Path.of(System.getProperty("turboism.home"),
                 "state", "atlas-polygon-validation-result.properties");
@@ -1129,7 +1122,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
             logger.error("ATLAS_POLYGON_RESULT_WRITE_FAILED " + failure, failure);
         }
         logger.info("ATLAS_POLYGON_PROBE_RESULT status=" + terminal
-            + " phase=" + phase + " assertions=" + assertions.size());
+            + " phase=" + phase + " " + assertions.counts());
     }
 
     private static String sha(final String canonical) {

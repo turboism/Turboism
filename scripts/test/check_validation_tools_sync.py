@@ -41,7 +41,42 @@ CANONICAL = {
     "CodeSourceUrl.java": (
         "validation/shared/src/dev/turboism/validation/shared/fixture/CodeSourceUrl.java",
     ),
+    "ProbeTerminal.java": (
+        "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeTerminal.java",
+    ),
+    "ProbeAssertions.java": (
+        "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeAssertions.java",
+    ),
 }
+
+# Host probes that publish a terminal verdict. They must call the shared recorder and
+# terminal rule; a local copy would let a run report PASS for blocked, skipped or empty
+# evidence again (see specs/066-review-remediation).
+PROBE_TERMINAL_SOURCES = {
+    "validation/animation-timeline-host-probe/src/dev/turboism/validation/animationtimeline/AnimationTimelineHostValidationPlugin.java": (
+        "validation/animation-timeline-host-probe/build.sh",
+    ),
+    "validation/atlas-polygon-host-probe/src/dev/turboism/validation/atlaspolygon/AtlasPolygonHostValidationPlugin.java": (
+        "validation/atlas-polygon-host-probe/build.sh",
+    ),
+    "validation/clipmask-viewer-host-probe/src/dev/turboism/validation/clipmaskviewer/ClipMaskViewerHostValidationPlugin.java": (
+        "validation/clipmask-viewer-host-probe/build.sh",
+    ),
+    "validation/parameter-batch-transfer-host-probe/src/dev/turboism/validation/parameterbatchtransfer/ParameterBatchTransferHostValidationPlugin.java": (
+        "validation/parameter-batch-transfer-host-probe/build.sh",
+    ),
+}
+
+SHARED_EVIDENCE_SOURCES = (
+    "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeTerminal.java",
+    "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeAssertions.java",
+)
+
+# A local terminal rule: a method computing the verdict, or a PASS default that stands
+# when no assertion ran at all.
+LOCAL_TERMINAL_RE = re.compile(
+    r"\bcomputeTerminal\s*\(|\bString\s+terminal\s*=\s*\"PASS\""
+)
 
 # Files allowed to declare a same-named class because theirs is a different
 # mechanism by design (private byte-array loaders inside offline harnesses).
@@ -53,7 +88,9 @@ DECLARED_EXCEPTIONS = {
 }
 
 # A copy renamed to a different basename would still declare the same class.
-CLASS_RE = re.compile(r"\b(?:final\s+)?class\s+(RelocateJar|FixtureLoader|CodeSourceUrl)\b")
+CLASS_RE = re.compile(
+    r"\b(?:final\s+)?class\s+(RelocateJar|FixtureLoader|CodeSourceUrl|ProbeTerminal|ProbeAssertions)\b"
+)
 
 
 def findings(root: Path):
@@ -91,6 +128,32 @@ def findings(root: Path):
                     f"{relative}: declares class {match.group(1)} outside the allowed set; "
                     f"the single source lives at {CANONICAL[declared][0]}"
                 )
+
+    for relative, build_scripts in sorted(PROBE_TERMINAL_SOURCES.items()):
+        source = root / relative
+        if not source.is_file():
+            violations.append(f"{relative}: probe source is missing")
+            continue
+        text = source.read_text(encoding="utf-8")
+        if "dev.turboism.validation.shared.verdict.ProbeAssertions" not in text:
+            violations.append(
+                f"{relative}: does not record assertions through the shared "
+                "dev.turboism.validation.shared.verdict.ProbeAssertions"
+            )
+        local = LOCAL_TERMINAL_RE.search(text)
+        if local:
+            violations.append(
+                f"{relative}: computes a local terminal verdict ({local.group(0)}); "
+                "call ProbeAssertions.terminal() instead"
+            )
+        for build in build_scripts:
+            build_path = root / build
+            build_text = build_path.read_text(encoding="utf-8") if build_path.is_file() else ""
+            for shared in SHARED_EVIDENCE_SOURCES:
+                if shared not in build_text:
+                    violations.append(
+                        f"{build}: does not compile the shared evidence source {shared}"
+                    )
     return violations
 
 
