@@ -58,7 +58,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
 2. Provision and review the dedicated framework signing keyring. The helper now reads only framework-specific
    bundled authority, supports revocation, and rejects installation when no active key exists. It no longer borrows
    plugin-catalog keys. No production key has been provisioned; no private production key belongs in the client.
-3. Publish signed manifests/payload objects through a deliberately migrated asset contract and release gate.
+3. Deploy and qualify the reviewed framework API and protected publisher with owner approval. The implementation
+   preserves the eight public release assets and serves independent signed documents/payloads from R2. Production
+   endpoints, actual Cloudflare streaming behavior and incoming-object lifecycle remain unverified.
 4. Wire signed bootstrap documents and receipt initialization into full installer/ZIP delivery, and qualify migration
    of existing private state/ownership. Transactional receipt advancement and two-upgrade fixture tests are now present;
    this does not yet establish bootstrap ownership for current publicly installed versions.
@@ -70,9 +72,10 @@ This is an in-progress branch, **not a production-ready self-updater**.
 7. Qualify process-exit identity and detached helper lifecycle, including sessions longer than the current one-hour
    helper wait, durable install-next-launch intent, atomic launch/apply interlocking and broken-launcher recovery.
    Additional Windows peer-process checks exist, but do not prove those lifecycle properties.
-8. Finish native-window host acceptance, opt-in, retry/recovery diagnostics, and safe plugin hot updates through
-   the existing coordinator. The UI exposes background download, cancellation and install-on-user-exit, never forced
-   restart. Never replace loaded framework/Graal/SDK bytes in process.
+8. Finish native-window host acceptance, opt-in and retry/recovery diagnostics. The current framework window has
+   no selected-plugin batch controls: the existing signed-catalog plugin updater is a separate workflow. Connect only
+   user-selected compatible plugin updates to the restart plan without claiming partial success as complete success.
+   Never replace loaded framework/Graal/SDK bytes in process or force Cubism to close.
 9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
    beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
    A broader shell test currently fails DeclarativeSettingsRendererTest's long-control layout assertion; no baseline
@@ -80,3 +83,21 @@ This is an in-progress branch, **not a production-ready self-updater**.
 
 Earlier offline protocol documentation (`distribution/INCREMENTAL.md`, `native/update-files/README.md`) describes
 pre-existing gates. Passing local tests or building this branch does not activate production endpoints or keys.
+
+## Delegated review checkpoint
+
+- **API approved/integrated:** merge `a1b55d996` includes website base `c6728c562` and reviewed publisher fixes
+  through `4f2f5d0e`. Independent Node execution passes **78 tests**, both in the submitted worktree and after merge.
+  Failed public preflight withdraws the candidate; ordinary retry of a withdrawn candidate returns 409
+  `REACTIVATION_REQUIRED`. Only explicit protected reactivation may advertise it again. Admission precedes preflight;
+  compensation is not atomic preflight-before-advertising. Nothing was deployed or activated.
+- **Next-launch submission `65e9491cf` not approved:** source review found pending-task deletion at the start of
+  no-op recovery, before an application journal exists, and early malformed/missing-stage failures that can leave
+  a task blocking subsequent launches. Returned for lifecycle, bounded parsing and failure-path corrections.
+- **Bootstrap revision `af27624e` not approved:** independent Python execution passes **10 tests**, including real
+  Ed25519 receipt initialization and payload-tamper rejection on this Windows host. Review nevertheless found use
+  of nonexistent installation-state fields, incomplete explicit-ACL cleanup/junction guards, and developer-worktree
+  and cache paths hardcoded in its integration test. Returned for correction and real different-receipt collision
+  coverage. ZIP embedding now has a real ZIP fixture; no actual NSIS compilation has been performed.
+- **Selected-plugin linkage remains absent:** a separate read-only audit is preparing a minimal design reusing the
+  existing plugin planner, verified catalog and pending operations. This is not implementation or acceptance evidence.
