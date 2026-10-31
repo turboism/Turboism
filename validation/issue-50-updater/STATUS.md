@@ -93,6 +93,9 @@ This is an in-progress branch, **not a production-ready self-updater**.
 8. Finish native-window host acceptance, opt-in and retry/recovery diagnostics for the now-wired selected-plugin
    workflow. Downloads and explicit installation consent are separate; plugin and framework journals are not a global
    atomic transaction. Qualify plugin-apply failures together with framework startup health/rollback on the host.
+   Actual two-plugin failure restored all 29 old JARs and prevented health confirmation; the next controlled launch
+   recovered the README component. However, corrupt plugin intent then blocked the extension runtime until manual
+   fixture repair. Native diagnostics/retry/degraded-startup policy remains a blocker; see `failure-host-acceptance.txt`.
    Never replace loaded framework/Graal/SDK bytes in process or force Cubism to close.
 9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
    beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
@@ -145,5 +148,12 @@ pre-existing gates. Passing local tests or building this branch does not activat
   executable, not genuine Java/Graal execution; the separate option parser uses actual Java 17. One concurrent run
   saw an atomic-shortcut sharing violation; cause/stability remain unqualified. No complete official framework
   update or native Update-button acceptance is claimed.
+- **Follow-up failure acceptance:** `e72137dec` fixes incomplete plugin-backup preparation restoring over live JARs.
+  Both new fault tests reproduced byte loss before the fix; selected regression now **485 tests, zero failures/errors,
+  6 skips**. Real Windows ReadData denial against the new production backend preserved both seeded JARs/journal.
+  New LOCAL (not CI) agent host startup and subsequent same-byte manual plugin reinstall: p40752,
+  **29 plugins, zero failures**, unchanged JAR hashes. Post-fix Python: **71 tests, 1 skip**. Actual capture revealed
+  the vendor trial notice still blocks an interactive editor session; startup banners precede it. Manual click on
+  Continue Using is needed before further GUI acceptance. See `failure-host-acceptance.txt`; production stays disabled.
 - **NSIS tooling attempt:** the official SourceForge download timed out on this machine. No real EXE compilation
   or installation is claimed. Production keys, activation and deployment remain unchanged.

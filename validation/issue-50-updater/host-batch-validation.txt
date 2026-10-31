@@ -1,4 +1,5 @@
 Issue #50 Windows/Cubism host validation (2026-10-31)
+Historical checkpoint; later failure testing/new build and GUI boundaries: failure-host-acceptance.txt.
 
 Environment and boundaries
 - Live2D Cubism 5.3.04, bundled OpenJDK 17.0.3.1, Windows.
@@ -86,7 +87,8 @@ Environment and boundaries
   authenticated framework upgrade through the native Update window.
 
 Final state and regression
-- Last observed healthy lab Cubism PID: 25632 (launcher 9932).
+- At this checkpoint, runtime-initialized lab Cubism PID: 25632 (launcher 9932).
+  Subsequent capture showed startup banners precede the vendor trial notice; interactive editor use was not established.
 - No framework pending task, recovery journal, plugin pending journal or installed receipt remains.
 - Temporary loopback server PID 37940 was stopped. Plugin/component signing keys stayed in lab JVM memory;
   the bootstrap-only temporary PEM was deleted before startup. No fixture key remains in the lab client.
