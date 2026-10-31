@@ -174,7 +174,7 @@ final class CoreWindows implements AutoCloseable {
     void showUpdates(final CoreUpdateService updates) {
         CoreDialogs.onEdt(() -> {
             if (closed.get()) return;
-            if (updatesWindow == null) updatesWindow = new FrameworkUpdatesWindow(i18n, updates);
+            if (updatesWindow == null) updatesWindow = new FrameworkUpdatesWindow(i18n, updates, plugins);
             updatesWindow.show();
         });
     }
