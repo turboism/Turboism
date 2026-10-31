@@ -162,6 +162,7 @@ try {
     $extAcl = $extDirInfo.GetAccessControl()
     $extAcl.AddAccessRule($everyoneRule)
     $extDirInfo.SetAccessControl($extAcl)
+    $extSddlBefore = (Get-Acl -LiteralPath $externalTarget).Sddl
 
     # Create junction: juncHome\state -> externalTarget
     $juncState = Join-Path $juncHome 'state'
@@ -173,12 +174,8 @@ try {
 
         # Verify external file and ACL were not modified
         Assert-ReceiptRegression (([System.IO.File]::ReadAllText($externalFile, [System.Text.Encoding]::UTF8)) -eq 'do-not-touch') 'external file bytes through junction unchanged'
-        $extAclAfter = (New-Object System.IO.DirectoryInfo($externalTarget)).GetAccessControl()
-        $extStillHasEveryone = $false
-        foreach ($rule in $extAclAfter.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {
-            if ($rule.IdentityReference.Value -eq 'S-1-1-0') { $extStillHasEveryone = $true }
-        }
-        Assert-ReceiptRegression ($extStillHasEveryone) 'external directory ACL was NOT modified through junction'
+        $extSddlAfter = (Get-Acl -LiteralPath $externalTarget).Sddl
+        Assert-ReceiptRegression ($extSddlAfter -eq $extSddlBefore) 'external directory SDDL exactly unchanged through junction'
         cmd /c rmdir "$juncState" | Out-Null
     }
 
@@ -298,10 +295,15 @@ public class TestReceiptHelper {
         $diffStrictState = Join-Path $diffStrictHome 'state\runtime\update'
         [void][System.IO.Directory]::CreateDirectory($diffStrictState)
         [System.IO.File]::WriteAllText((Join-Path $diffStrictHome 'turboism-agent.jar'), 'agent-bytes')
-        [System.IO.File]::WriteAllText((Join-Path $diffStrictState 'installed-receipt.json'), '{"version":"0.9.0","flag":"DIFFERENT_RECEIPT"}')
+        $diffIndexFile = Join-Path $diffStrictState 'installed-receipt.json'
+        [System.IO.File]::WriteAllText($diffIndexFile, '{"version":"0.9.0","flag":"DIFFERENT_RECEIPT"}')
+        $diffIndexBytesBefore = [System.IO.File]::ReadAllBytes($diffIndexFile)
+
         $diffStrictRes = & $bootstrapScript -HomePath $diffStrictHome -StagePath $stageDir -Classpath $fixture -HelperClass 'TestReceiptHelper' -Strict -PassThru
         Assert-ReceiptRegression ($diffStrictRes.Success -eq $false) 'strict mode with different receipt fails closed'
         Assert-ReceiptRegression ($diffStrictRes.HelperExitCode -eq 74) 'helper exit code is 74'
+        $diffIndexBytesAfter = [System.IO.File]::ReadAllBytes($diffIndexFile)
+        Assert-ReceiptRegression ([System.Linq.Enumerable]::SequenceEqual([byte[]]$diffIndexBytesBefore, [byte[]]$diffIndexBytesAfter)) 'existing receipt index not replaced on strict failure'
 
         # 12. Tampered payload fails closed (helper exit 74)
         $tamperStage = Join-Path $fixture 'tamper-stage'

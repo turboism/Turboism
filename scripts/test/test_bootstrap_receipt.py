@@ -8,6 +8,7 @@ upgraded receipt collision safety, and configurator propagation.
 from __future__ import annotations
 
 import base64
+import functools
 import hashlib
 import json
 import os
@@ -31,28 +32,20 @@ def resolve_worktree_id() -> str:
     return res.stdout.strip()
 
 
-def find_cached_jar(group: str, artifact: str) -> Path:
-    gradle_user_home = Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle"))
-    cache_root = gradle_user_home / "caches/modules-2/files-2.1"
-    matches = [p for p in cache_root.glob(f"{group}/{artifact}/**/*.jar")
-               if not p.name.endswith("-sources.jar") and not p.name.endswith("-javadoc.jar")]
-    if not matches:
-        raise FileNotFoundError(f"Dependency {group}:{artifact} not found in Gradle cache")
-    return matches[0]
-
-
-def ensure_runtime_test_classes(wt_id: str) -> tuple[Path, Path]:
-    test_classes = ROOT / f"build/worktree/{wt_id}/runtime/classes/java/test"
-    main_classes = ROOT / f"build/worktree/{wt_id}/runtime/classes/java/main"
-    helper_class = test_classes / "dev/turboism/update/TestKeyHelperMain.class"
-    if not helper_class.is_file():
-        gradlew = "gradlew.bat" if os.name == "nt" else "./gradlew"
-        cmd = ["cmd", "/c", gradlew] if os.name == "nt" else [gradlew]
-        cmd += [":runtime:compileTestJava", "--console=plain"]
-        subprocess.run(cmd, cwd=ROOT, check=True)
-    if not helper_class.is_file():
-        raise FileNotFoundError(f"TestKeyHelperMain.class could not be built at {helper_class}")
-    return test_classes, main_classes
+@functools.lru_cache(maxsize=1)
+def resolve_bootstrap_receipt_test_classpath() -> str:
+    """Invokes Gradle verification task to export the exact test runtime classpath."""
+    gradlew = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
+    cmd = [gradlew, ":runtime:writeBootstrapReceiptTestClasspath", "--console=plain"]
+    subprocess.run(cmd, cwd=ROOT, check=True)
+    wt_id = resolve_worktree_id()
+    expected = ROOT / f"build/worktree/{wt_id}/runtime/update-test/bootstrap-receipt-test-classpath.txt"
+    if expected.is_file():
+        return expected.read_text(encoding="utf-8").strip()
+    candidates = list((ROOT / "build").glob("**/runtime/update-test/bootstrap-receipt-test-classpath.txt"))
+    if candidates and candidates[0].is_file():
+        return candidates[0].read_text(encoding="utf-8").strip()
+    raise RuntimeError("Failed to resolve test classpath from Gradle task output")
 
 
 class BootstrapReceiptStaticContractTest(unittest.TestCase):
@@ -131,9 +124,40 @@ class BootstrapReceiptStaticContractTest(unittest.TestCase):
         self.assertIn("DiscoverySnapshotSha256", configurator)
         self.assertIn("Bootstrap receipt initialization failed with exit code", configurator)
 
+    def test_zip_builder_embeds_bootstrap_receipt_when_provided(self):
+        """Point 1 & 4 (Cross-platform): ZIP builder includes bootstrap/manifest.json and .sig when directory is passed."""
+        assemble_text = (ROOT / "packaging/windows-installer/assemble-release.sh").read_text(encoding="utf-8")
+        block = assemble_text.split("zip_dir() {", 1)[1].split("<<'PYEOF'\n", 1)[1].split("\nPYEOF", 1)[0]
+
+        with tempfile.TemporaryDirectory(prefix="turboism-zip-test-") as temp:
+            fixture = Path(temp)
+            stage = fixture / "zip-stage"
+            stage.mkdir()
+            (stage / "turboism-agent.jar").write_bytes(b"agent")
+            (stage / "plugins").mkdir()
+            (stage / "plugins/acp.jar").write_bytes(b"plugin")
+            (stage / "config.template.json").write_text("{}", encoding="utf-8")
+
+            bdir = fixture / "zip-bootstrap"
+            bdir.mkdir()
+            (bdir / "manifest.json").write_text('{"version":"1.0.0"}', encoding="utf-8")
+            (bdir / "manifest.json.sig").write_text("test-sig", encoding="utf-8")
+
+            out_zip = fixture / "test-package.zip"
+            res = subprocess.run([sys.executable, "-", str(stage), str(out_zip), "1.0.0", str(bdir)],
+                                 input=block, text=True, capture_output=True, check=True)
+            self.assertEqual(res.returncode, 0)
+
+            with zipfile.ZipFile(out_zip) as z:
+                names = set(z.namelist())
+                self.assertIn("bootstrap/manifest.json", names, "bootstrap/manifest.json must be in standard ZIP")
+                self.assertIn("bootstrap/manifest.json.sig", names, "bootstrap/manifest.json.sig must be in standard ZIP")
+                self.assertEqual(z.read("bootstrap/manifest.json"), b'{"version":"1.0.0"}')
+                self.assertEqual(z.read("bootstrap/manifest.json.sig"), b"test-sig")
+
 
 class BootstrapReceiptExecutionTest(unittest.TestCase):
-    """Behavioral and integration tests executing bootstrap-receipt.ps1 in isolated environments."""
+    """Behavioral and integration tests executing bootstrap-receipt.ps1 in isolated Windows environments."""
 
     def setUp(self):
         if os.name != "nt":
@@ -228,7 +252,7 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         subprocess.run(["cmd", "/c", "rmdir", str(fake_jre)], check=True)
 
     def test_private_acl_purges_everyone_and_rejects_junctions(self):
-        """Point 2: Private ACL setup purges explicit Everyone, preserves sentinel, and throws on junction."""
+        """Point 2: Private ACL setup purges explicit Everyone, preserves sentinel, and verifies external SDDL unchanged."""
         home = self.fixture / "acl-home"
         home.mkdir()
         state_dir = home / "state"
@@ -276,13 +300,23 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
                              capture_output=True, text=True, check=True)
         self.assertEqual(res.stdout.strip().lower(), "false", "Explicit Everyone Allow must be purged")
 
-        # Junction test: state junction to external dir must throw and not modify external dir
+        # Junction test: state junction to external dir must throw and not modify external SDDL or content
         ext_home = self.fixture / "junc-home"
         ext_home.mkdir()
         ext_target = self.fixture / "external-target"
         ext_target.mkdir()
         ext_file = ext_target / "ext.txt"
         ext_file.write_text("untouched", encoding="utf-8")
+
+        # Capture SDDL of externalTarget before junction attempt
+        get_sddl = self.fixture / "get-sddl.ps1"
+        get_sddl.write_text(
+            f'$sddl = (Get-Acl -LiteralPath "{ext_target}").Sddl\n'
+            f'[Console]::Out.WriteLine($sddl)\n',
+            encoding="utf-8"
+        )
+        sddl_before = subprocess.run(["powershell", "-NoProfile", "-File", str(get_sddl)],
+                                     capture_output=True, text=True, check=True).stdout.strip()
 
         junc_state = ext_home / "state"
         subprocess.run(["cmd", "/c", "mklink", "/J", str(junc_state), str(ext_target)], check=True)
@@ -297,6 +331,11 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
                                   capture_output=True, text=True, errors="replace")
         self.assertNotEqual(junc_res.returncode, 0, "Initialize-PrivateStateNamespace must throw on junction")
         self.assertEqual(ext_file.read_text(encoding="utf-8"), "untouched")
+
+        sddl_after = subprocess.run(["powershell", "-NoProfile", "-File", str(get_sddl)],
+                                    capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(sddl_after, sddl_before, "External target SDDL must be completely unmodified through junction")
+
         subprocess.run(["cmd", "/c", "rmdir", str(junc_state)], check=True)
 
     def test_upgraded_receipt_with_stale_bootstrap_documents_regression(self):
@@ -332,9 +371,8 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         self.assertEqual(upgraded_receipt.read_bytes(), expected_bytes, "Upgraded receipt must not be replaced")
 
     def test_real_framework_receipt_initialization_and_tamper_protection(self):
-        """Point 6: Integration test calling REAL FrameworkUpdateReceipt/Helper with real Ed25519 signing and ACLs."""
-        wt_id = resolve_worktree_id()
-        test_classes, main_classes = ensure_runtime_test_classes(wt_id)
+        """Point 1 & 6: Integration test calling REAL FrameworkUpdateReceipt/Helper with real Ed25519 signing and ACLs."""
+        classpath = resolve_bootstrap_receipt_test_classpath()
 
         # Generate genuine Ed25519 test keypair
         key_pem = self.fixture / "test-key.pem"
@@ -384,19 +422,6 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         (stage / "manifest.json").write_bytes(manifest_bytes)
         (stage / "manifest.json.sig").write_bytes(sig_bytes)
 
-        # Assemble full test runtime classpath dynamically (Point 3)
-        cp_elements = [
-            str(test_classes),
-            str(main_classes),
-            str(ROOT / f"build/worktree/{wt_id}/runtime/resources/main"),
-            str(ROOT / f"build/worktree/{wt_id}/sdk/classes/java/main"),
-            str(ROOT / f"build/worktree/{wt_id}/core-contract/classes/java/main"),
-            str(find_cached_jar("com.fasterxml.jackson.core", "jackson-core")),
-            str(find_cached_jar("com.fasterxml.jackson.core", "jackson-databind")),
-            str(find_cached_jar("com.fasterxml.jackson.core", "jackson-annotations")),
-        ]
-        classpath = ";".join(cp_elements)
-
         # Execute bootstrap-receipt.ps1 with the real TestKeyHelperMain
         init_res = self._run_ps([
             "-HomePath", str(home),
@@ -440,11 +465,10 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         self.assertFalse((tamper_home / "state/runtime/update/installed-receipt.json").exists())
 
     def test_real_different_receipt_collision_protection(self):
-        """Point 4: First initialize manifest v1, then attempt initialization with manifest v2.
-        -Strict must fail closed with exit code 74 and NOT replace original index or documents.
-        Non-strict must detect existing receipt, report SKIPPED_EXISTING_RECEIPT, and preserve index."""
-        wt_id = resolve_worktree_id()
-        test_classes, main_classes = ensure_runtime_test_classes(wt_id)
+        """Point 3 & 4: Initialize v1, then attempt v2.
+        -Strict must fail closed with exit 74 and NOT replace original index or published documents.
+        Non-strict must detect existing receipt, report SKIPPED_EXISTING_RECEIPT, and preserve index and documents."""
+        classpath = resolve_bootstrap_receipt_test_classpath()
 
         key_pem = self.fixture / "diff-key.pem"
         framework_update.openssl(["genpkey", "-algorithm", "Ed25519", "-out", str(key_pem)])
@@ -487,25 +511,24 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         (stage_v1 / "manifest.json").write_bytes(bytes_v1)
         (stage_v1 / "manifest.json.sig").write_bytes(sig_v1)
 
-        cp = ";".join([
-            str(test_classes), str(main_classes),
-            str(ROOT / f"build/worktree/{wt_id}/runtime/resources/main"),
-            str(ROOT / f"build/worktree/{wt_id}/sdk/classes/java/main"),
-            str(ROOT / f"build/worktree/{wt_id}/core-contract/classes/java/main"),
-            str(find_cached_jar("com.fasterxml.jackson.core", "jackson-core")),
-            str(find_cached_jar("com.fasterxml.jackson.core", "jackson-databind")),
-            str(find_cached_jar("com.fasterxml.jackson.core", "jackson-annotations")),
-        ])
-
         # Initialize v1
         res_v1 = self._run_ps([
-            "-HomePath", str(home), "-StagePath", str(stage_v1), "-Classpath", cp,
+            "-HomePath", str(home), "-StagePath", str(stage_v1), "-Classpath", classpath,
             "-HelperClass", "dev.turboism.update.TestKeyHelperMain", "-HelperPrefixArgs", str(pub_file)
         ])
         self.assertEqual(res_v1.returncode, 0, res_v1.stderr)
         installed_receipt = home / "state/runtime/update/installed-receipt.json"
         self.assertTrue(installed_receipt.is_file())
         receipt_bytes_v1 = installed_receipt.read_bytes()
+
+        # Point 3: Snapshot published manifest and signature bytes for v1
+        digest_v1 = hashlib.sha256(bytes_v1).hexdigest()
+        published_v1_manifest = home / f"state/runtime/update/receipts/{digest_v1}/manifest.json"
+        published_v1_sig = home / f"state/runtime/update/receipts/{digest_v1}/manifest.json.sig"
+        self.assertTrue(published_v1_manifest.is_file())
+        self.assertTrue(published_v1_sig.is_file())
+        pub_manifest_v1_bytes = published_v1_manifest.read_bytes()
+        pub_sig_v1_bytes = published_v1_sig.read_bytes()
 
         # Generate genuine signed manifest v2 (version 2.0.0) with matching layout for v2.0.0
         for lib in ("sdk-2.0.0.jar", "graal-host-2.0.0.jar"):
@@ -538,52 +561,28 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
 
         # 1. Non-strict mode: detects existing receipt, skips re-bootstrap cleanly
         res_auto = self._run_ps([
-            "-HomePath", str(home), "-StagePath", str(stage_v2), "-Classpath", cp,
+            "-HomePath", str(home), "-StagePath", str(stage_v2), "-Classpath", classpath,
             "-HelperClass", "dev.turboism.update.TestKeyHelperMain", "-HelperPrefixArgs", str(pub_file),
             "-PassThru"
         ])
         self.assertEqual(res_auto.returncode, 0)
         self.assertIn("SKIPPED_EXISTING_RECEIPT", res_auto.stdout)
-        self.assertEqual(installed_receipt.read_bytes(), receipt_bytes_v1, "Non-strict mode must not replace existing receipt")
+        self.assertEqual(installed_receipt.read_bytes(), receipt_bytes_v1, "Non-strict mode must not replace existing receipt index")
+        self.assertEqual(published_v1_manifest.read_bytes(), pub_manifest_v1_bytes, "Published v1 manifest must remain untouched")
+        self.assertEqual(published_v1_sig.read_bytes(), pub_sig_v1_bytes, "Published v1 sig must remain untouched")
 
         # 2. Strict mode: invokes helper, helper strictly rejects collision with different receipt (exit 74)
         res_strict = self._run_ps([
-            "-HomePath", str(home), "-StagePath", str(stage_v2), "-Classpath", cp,
+            "-HomePath", str(home), "-StagePath", str(stage_v2), "-Classpath", classpath,
             "-HelperClass", "dev.turboism.update.TestKeyHelperMain", "-HelperPrefixArgs", str(pub_file),
             "-Strict"
         ])
         self.assertEqual(res_strict.returncode, 74, f"Real helper must reject different receipt with exit code 74 (err: {res_strict.stderr})")
         self.assertIn("An existing different receipt must not be silently replaced", res_strict.stderr)
-        self.assertEqual(installed_receipt.read_bytes(), receipt_bytes_v1, "Strict mode must NOT replace existing receipt")
-
-    def test_zip_builder_embeds_bootstrap_receipt_when_provided(self):
-        """Point 1: ZIP builder includes bootstrap/manifest.json and .sig when directory is passed."""
-        assemble_text = (ROOT / "packaging/windows-installer/assemble-release.sh").read_text(encoding="utf-8")
-        block = assemble_text.split("zip_dir() {", 1)[1].split("<<'PYEOF'\n", 1)[1].split("\nPYEOF", 1)[0]
-
-        stage = self.fixture / "zip-stage"
-        stage.mkdir()
-        (stage / "turboism-agent.jar").write_bytes(b"agent")
-        (stage / "plugins").mkdir()
-        (stage / "plugins/acp.jar").write_bytes(b"plugin")
-        (stage / "config.template.json").write_text("{}", encoding="utf-8")
-
-        bdir = self.fixture / "zip-bootstrap"
-        bdir.mkdir()
-        (bdir / "manifest.json").write_text('{"version":"1.0.0"}', encoding="utf-8")
-        (bdir / "manifest.json.sig").write_text("test-sig", encoding="utf-8")
-
-        out_zip = self.fixture / "test-package.zip"
-        res = subprocess.run([sys.executable, "-", str(stage), str(out_zip), "1.0.0", str(bdir)],
-                             input=block, text=True, capture_output=True, check=True)
-        self.assertEqual(res.returncode, 0)
-
-        with zipfile.ZipFile(out_zip) as z:
-            names = set(z.namelist())
-            self.assertIn("bootstrap/manifest.json", names, "bootstrap/manifest.json must be in standard ZIP")
-            self.assertIn("bootstrap/manifest.json.sig", names, "bootstrap/manifest.json.sig must be in standard ZIP")
-            self.assertEqual(z.read("bootstrap/manifest.json"), b'{"version":"1.0.0"}')
-            self.assertEqual(z.read("bootstrap/manifest.json.sig"), b"test-sig")
+        # Point 3: Verify index AND published documents are 100% byte-identical
+        self.assertEqual(installed_receipt.read_bytes(), receipt_bytes_v1, "Strict mode must NOT replace existing receipt index")
+        self.assertEqual(published_v1_manifest.read_bytes(), pub_manifest_v1_bytes, "Published v1 manifest must not be replaced on strict failure")
+        self.assertEqual(published_v1_sig.read_bytes(), pub_sig_v1_bytes, "Published v1 sig must not be replaced on strict failure")
 
 
 if __name__ == "__main__":

@@ -33,9 +33,6 @@ $scriptDir = Split-Path -Parent $scriptPath
 
 # Dot-source common launcher utilities if available
 $commonScript = Join-Path $scriptDir "cubism-launch-common.ps1"
-if (-not (Test-Path -LiteralPath $commonScript -PathType Leaf)) {
-    $commonScript = Join-Path $turboismHome "cubism-launch-common.ps1"
-}
 if (Test-Path -LiteralPath $commonScript -PathType Leaf) {
     . $commonScript
 }
