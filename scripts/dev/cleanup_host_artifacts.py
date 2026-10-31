@@ -11,7 +11,7 @@ Safely scans, reports, and removes disposable host validation temporary files:
 
 Strict safety rules:
   - NEVER removes or traverses the Golden Proton prefix.
-  - NEVER modifies or removes immutable source fixtures (.env specified).
+  - NEVER modifies or removes immutable source fixtures (`.env` and process environment).
   - NEVER modifies or removes Git-tracked source code.
   - NEVER terminates or removes active, running Cubism/Proton sessions.
   - Symlinks are unlinked directly and never traversed into target trees.
@@ -60,6 +60,19 @@ def parse_local_env(env_path: Path) -> dict[str, str]:
             val = val[1:-1]
         values[key] = val
     return values
+
+
+def resolve_env(env_path: Path, environ: dict[str, str] | None = None) -> dict[str, str]:
+    """Merge repository `.env` with the process environment.
+
+    The process environment wins for every key it defines. Red-line variables
+    (golden prefix, host root, fixture sources) therefore stay effective no
+    matter whether the operator exported them or wrote them to `.env`; a
+    process-level export can only make the guard stricter, never looser.
+    """
+    merged = parse_local_env(env_path)
+    merged.update(os.environ if environ is None else environ)
+    return merged
 
 
 @dataclasses.dataclass(frozen=True)
@@ -507,11 +520,12 @@ def run_cleanup(
     dry_run: bool = False,
     repo_root: Path | None = None,
     env_file: Path | None = None,
+    environ: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute cleanup inspection or removal according to arguments."""
     repo = repo_root or find_repo_root()
     env_path = env_file or repo / ".env"
-    env = parse_local_env(env_path)
+    env = resolve_env(env_path, environ)
     context = SafetyContext.create(repo, env)
 
     all_items: list[ArtifactItem] = []
