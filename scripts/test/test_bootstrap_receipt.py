@@ -250,6 +250,36 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
 
         subprocess.run(["cmd", "/c", "rmdir", str(fake_jre)], check=True)
 
+    def test_owned_modify_only_directory_does_not_require_write_owner(self):
+        """DACL preparation must not try to re-set ownership on ordinary owned data-drive directories."""
+        home = self.fixture / "modify-only-home"
+        state = home / "state"
+        state.mkdir(parents=True)
+        sentinel = state / "user-sentinel.txt"
+        sentinel.write_bytes(b"preserved")
+        runner = self.fixture / "modify-only.ps1"
+        runner.write_text(
+            '$ErrorActionPreference="Stop"\n'
+            f'. "{self.bootstrap_script}"\n'
+            f'$dir = New-Object IO.DirectoryInfo("{state}")\n'
+            '$acl = $dir.GetAccessControl()\n'
+            '$ownerBefore = $acl.GetOwner([Security.Principal.SecurityIdentifier])\n'
+            '$acl.SetAccessRuleProtection($true,$false)\n'
+            'foreach($r in @($acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]))) { [void]$acl.RemoveAccessRuleSpecific($r) }\n'
+            '$user = [Security.Principal.WindowsIdentity]::GetCurrent().User\n'
+            '$allow = New-Object Security.AccessControl.FileSystemAccessRule($user,"Modify","ContainerInherit,ObjectInherit","None","Allow")\n'
+            '$deny = New-Object Security.AccessControl.FileSystemAccessRule($user,"TakeOwnership","None","None","Deny")\n'
+            '$acl.AddAccessRule($allow); $acl.AddAccessRule($deny); $dir.SetAccessControl($acl)\n'
+            f'Initialize-PrivateStateNamespace -TurboismHome "{home}"\n'
+            '$ownerAfter = $dir.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier])\n'
+            'if (!$ownerBefore.Equals($ownerAfter)) { throw "Owner changed" }\n'
+            'Write-Output "DACL_ONLY_PASS"\n', encoding="utf-8")
+        result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-File", str(runner)],
+                                capture_output=True, text=True, errors="replace")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("DACL_ONLY_PASS", result.stdout)
+        self.assertEqual(sentinel.read_bytes(), b"preserved")
+
     def test_private_acl_purges_everyone_and_rejects_junctions(self):
         """Point 2: Private ACL setup purges explicit Everyone, preserves sentinel, and verifies external SDDL unchanged."""
         home = self.fixture / "acl-home"

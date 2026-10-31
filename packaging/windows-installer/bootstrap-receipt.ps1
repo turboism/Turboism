@@ -225,12 +225,20 @@ function Initialize-PrivateStateNamespace {
         } else {
             [void][System.IO.Directory]::CreateDirectory($dir)
             $dirInfo = New-Object System.IO.DirectoryInfo($dir)
+            $newOwner = $dirInfo.GetAccessControl([System.Security.AccessControl.AccessControlSections]::Owner).GetOwner([System.Security.Principal.SecurityIdentifier])
+            if (-not $newOwner.Equals($rootOwner)) {
+                throw "New state directory owner does not match root owner: $dir"
+            }
         }
 
-        # Build complete allowlist DACL: owner, SYSTEM, Administrators FullControl, no other ACEs
-        $newAcl = New-Object System.Security.AccessControl.DirectorySecurity
+        # Change the DACL only. Re-setting even the same owner requires WRITE_OWNER,
+        # which an owned directory on a normal data drive may not grant its owner.
+        # Ownership was checked above; retain it (and the group/audit descriptor) unchanged.
+        $newAcl = $dirInfo.GetAccessControl([System.Security.AccessControl.AccessControlSections]::Access)
         $newAcl.SetAccessRuleProtection($true, $false)
-        $newAcl.SetOwner($rootOwner)
+        foreach ($existingRule in @($newAcl.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]))) {
+            [void]$newAcl.RemoveAccessRuleSpecific($existingRule)
+        }
         $allowed = @($rootOwner)
         foreach ($sidStr in @("S-1-5-18", "S-1-5-32-544")) {
             try { $allowed += New-Object System.Security.Principal.SecurityIdentifier($sidStr) } catch { }
