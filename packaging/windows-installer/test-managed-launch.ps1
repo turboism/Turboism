@@ -286,12 +286,9 @@ function New-SyntheticCubism {
     [System.IO.File]::WriteAllBytes((Join-Path $root "app\jre\bin\java.exe"), [byte[]](1, 2, 3, 4))
     [System.IO.File]::WriteAllBytes((Join-Path $root "app\lib\Live2D_Cubism.jar"), [byte[]](5, 6, 7, 8))
     if ($D3D) {
-        Set-Content -LiteralPath (Join-Path $root "CubismEditor5_D3D.bat") -Encoding ASCII -Value @(
-            "@echo off",
-            '>>"%TURBOISM_TEST_OUTPUT%" echo D3D=1',
-            '>>"%TURBOISM_TEST_OUTPUT%" echo JDK=%JDK_JAVA_OPTIONS%',
-            'exit /b 23'
-        )
+        # D3D follows the same admitted BAT structure as the real official entry.
+        $d3dText = [System.IO.File]::ReadAllText((Join-Path $root "CubismEditor5.bat"))
+        Set-Content -LiteralPath (Join-Path $root "CubismEditor5_D3D.bat") -Encoding ASCII -Value $d3dText.Replace('echo NORMAL=1', 'echo D3D=1')
     }
     return $root
 }
@@ -312,7 +309,8 @@ try {
     )
     $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2.03"
     $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -D3D $true
-    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
+    # Same version, deliberately different root: otherwise the dedupe fixture aliases $root53 itself.
+    $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -Parent (Join-Path $fixtureBase "second-install")
     $hyphenD3DRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3.03" -D3D $true
     Move-Item -LiteralPath (Join-Path $hyphenD3DRoot "CubismEditor5_D3D.bat") `
         -Destination (Join-Path $hyphenD3DRoot "CubismEditor5-D3D.bat")

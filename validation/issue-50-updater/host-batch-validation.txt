@@ -1,0 +1,122 @@
+Issue #50 Windows/Cubism host validation (2026-10-31)
+
+Environment and boundaries
+- Live2D Cubism 5.3.04, bundled OpenJDK 17.0.3.1, Windows.
+- Separate lab home: D:\turboism-test\issue50-host-fe110e4.
+- Runtime built from fe110e4658c8ed045cfef054ebd1752cd16b2373:
+  version=0.68.1, channel=stable, buildKind=local, buildNumber empty, dirty=false.
+  It is NOT a numbered CI release. No CI identity, production key or activation was fabricated.
+- Built using stageInstallerPayload -PinstallerVersion=0.68.1 -PturboismRelease=true.
+  That switch selects package formatting; embedded provenance remained local as verified above.
+- Profile settings were copied into the lab, with automatic checks disabled in the lab only.
+  No project/model was opened or edited. Five protected configuration/sentinel files were hashed.
+- Original Cubism BAT was never edited. Test instances were closed by the test operator,
+  not by updater code. The original D:\turboism-test\home files were not upgraded.
+
+1. Current local full-payload smoke
+- Genuine locally built agent, SDK/Graal closure and all 32 built plugins started in Cubism.
+- Log p40412: Plugin load complete: loaded=32, failed=0.
+- Five protected configuration/sentinel hashes remained unchanged.
+
+2. Real startup defects found and corrected
+- NoDefaultCurrentDirectoryInExePath=1 caused the official bare ProxyConfig.bat call to fail,
+  even though the file existed. A staged BAT also gave %~dp0 the wrong DLL-directory meaning.
+  The ephemeral copy now anchors dp0 and the proxy call to the selected official root; the
+  security environment setting and original BAT remain untouched.
+- Ordinary D: directories granted Modify but not WRITE_OWNER. Re-setting the same owner in
+  bootstrap-receipt.ps1 failed with UnauthorizedAccessException. Initialization now changes
+  only the DACL, preserves ownership and checks ownership of newly created directories.
+- Isolated proxy regression failed before the fix and passes after it. A Python regression
+  explicitly denies TakeOwnership and proves DACL preparation succeeds without changing owner.
+- With deliberately invalid bootstrap documents and no framework authority, initialization
+  reports exit 70, creates no installed receipt and allows normal Cubism startup (29 plugins,
+  zero failures). This is refusal/fallback evidence, not successful signed bootstrap activation.
+
+3. Two selected-plugin batches, while actual Cubism was running
+- Baseline used 29 real published 0.67.4 plugin JARs with the current local runtime/SDK.
+- A standalone lab-only driver used the production CoordinatedPluginUpdateService,
+  PluginCatalogClient, verifier and preparer against real compiled 0.68.1 plugin JARs.
+- Catalog signatures were real temporary Ed25519 signatures explicitly trusted only by the
+  lab driver. A connection factory transported catalog/signature/JAR data over loopback HTTP.
+  This was NOT the production catalog, production HTTPS transport, native Update button or
+  framework release admission. No keys were injected into the actual Cubism agent.
+- Download-only operation left the pending journal empty and all 29 live JAR hashes unchanged.
+- First commit selected BoundingBox Warp Mirror only; Clip Mask Viewer received no artifact GET.
+  On next managed launch, p39728 loaded BoundingBox Warp Mirror 0.68.1, while Clip Mask Viewer
+  stayed 0.67.4. All 28 other plugin hashes and five protected files remained unchanged.
+- A same-length corrupt artifact was then rejected with PLUGIN_DOWNLOAD_FAILED: no pending
+  operation was added and every live plugin hash remained unchanged.
+- Second commit selected Clip Mask Viewer only. On next managed launch, p40780 loaded it at
+  0.68.1 and kept the first updated plugin byte-identical. All 28 other plugin hashes and all
+  five protected files remained unchanged. Both managed starts loaded 29 plugins, zero failures.
+- Plugin pending journals were consumed/removed after the actual managed startups.
+
+4. Managed-launch guard and damaged intent
+- A secondary managed launch with a pending task while p39728 was alive exited 1:
+  "Cubism is still using this Turboism installation; close it before startup update or recovery."
+  The existing Cubism JVM remained alive; no updater-initiated termination occurred.
+- After operator-controlled close, an intentionally malformed pending.json was discarded by
+  the retained production helper. Managed startup continued: p32376 loaded 29 plugins, zero
+  failures. No permanent bad-task startup loop remained.
+
+5. Unconfirmed-startup recovery COMPONENT test
+- A lab-only driver authenticated an ephemeral signed component manifest, reused the actual
+  agent unchanged and applied a README-only probe through FrameworkUpdateApplier.
+- This deliberately bypassed full-release admission and full-inventory ownership qualification;
+  it was NOT a framework version upgrade. No installed receipt or fake CI metadata was created.
+- The real retained helper --prepare-launch recorded STARTING_HEALTH for a short-lived launcher
+  that deliberately exited without starting Cubism. Backup retention was observed.
+- The next genuine managed launch emitted:
+  RECOVERED: rolled back interrupted update from state STARTING_HEALTH
+- Original README hash was restored; agent hash remained unchanged; journal and backup were
+  removed. p33768 then started Cubism with 29 plugins and zero failures.
+
+6. Full-layout bootstrap on the actual data-drive installation (LOCAL FIXTURE)
+- A temporary framework public key was bundled only into a lab copy of the genuine local agent.
+  Its version/source/local provenance were preserved; no client activation resource was added.
+- A genuine Ed25519 signature covered all 36 actual framework root/library files. The manifest
+  counter 1 was a fixture protocol field, not a protected CI build number or release claim.
+- The managed launcher automatically initialized the real receipt; its manifest digest matched,
+  then p37424 started Cubism with 29 plugins and zero failures. This exercises real D: ACLs,
+  defining-JAR key loading, complete file hashing and receipt publication together.
+- The private key was deleted before startup. After this test the operator closed the lab JVM,
+  restored the original agent, and removed only the verified fixture receipt/documents/key resource.
+  The normal key-free local build then started again: p25632, 29 plugins, zero failures.
+- This is successful bootstrap component evidence, NOT production release eligibility or a full
+  authenticated framework upgrade through the native Update window.
+
+Final state and regression
+- Last observed healthy lab Cubism PID: 25632 (launcher 9932).
+- No framework pending task, recovery journal, plugin pending journal or installed receipt remains.
+- Temporary loopback server PID 37940 was stopped. Plugin/component signing keys stayed in lab JVM memory;
+  the bootstrap-only temporary PEM was deleted before startup. No fixture key remains in the lab client.
+- Protected configuration/sentinel hashes and the original Cubism BAT hash remain unchanged.
+- Runtime update/plugin-management/window selection: 483 tests, 0 failures/errors, 6 skips.
+  Core-contract's 31-test green result retained; bootstrap JAR and license checks pass.
+- Python bootstrap/release/native: 71 tests, 0 failures, 1 skip. Bootstrap subset: 15 tests.
+  Isolated proxy BAT test passes; PowerShell bootstrap: 33 assertions pass. Packaging/config checks pass.
+  Node publisher/API tests: 78 pass, zero failures.
+- The broad legacy test-managed-launch.ps1 initially stopped BEFORE the production fixes at
+  its root-dedupe assertion: its two supposedly distinct installations actually used the same
+  fixture path. That fixture now uses a separate parent. Its D3D stub also lacked the admitted
+  BAT structure and now derives it from the normal fixture instead of weakening production checks.
+  The suite then reaches a child-process Graal override test and rejects its placeholder application
+  JAR (no coherent release identity); the full suite is still NOT claimed green. Parser-only mode
+  passes. The broader shell suite's earlier long-control assertion is also not claimed green.
+
+Still NOT established
+- Production framework endpoints, publisher, dedicated release keys and activation remain unconfigured.
+- The actual runtime is local/un-numbered and intentionally remains ineligible for production self-update.
+- No full authenticated framework download/selected-plugin/native-window/repeated-framework-upgrade
+  acceptance is claimed. Two real plugin batches are not two official framework release upgrades.
+- No physical power-loss test, atomic launch/apply lease, NSIS EXE compilation or Linux/Proton test.
+- Component README recovery does not qualify a signed full-layout/framework-bytecode rollback, or
+  simultaneous plugin-apply failure with framework health confirmation.
+
+Local reproducibility artifacts (ignored build output, not production tooling)
+  build/native/issue50-host/{prepare_host.py,start.ps1,close.ps1,HostPluginBatchFixture.java,
+    run_plugin_fixture.py,HostRollbackFixture.java,mark-unconfirmed.ps1,server.py}
+  Signed-bootstrap fixture helper: build/native/issue50-host/prepare_signed_bootstrap.py
+  Runtime logs: <lab home>/logs/runtime/2026-10-31/.
+  Hash reports: build/native/issue50-host/{plugin-host-result.json,second-plugin-host-result.json,
+    component-rollback-result.json,phase-b-baseline.json}.
