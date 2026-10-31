@@ -33,10 +33,9 @@ def manifest(output: Path) -> Path:
             arguments.extend(["--jvm-option", "-Dturboism.validation.nativeStartupFreeOnly=true"])
     for name, wrapper in (("product-ui-lifecycle", "product-ui-lifecycle"),
                           ("incremental-undo", "incremental-undo")):
-        resources = {"host-slot": 1, "display-input": 1}
-        if name == "product-ui-lifecycle":
-            # Lifecycle deadlines need an uncontended host, without a timing claim.
-            resources["performance-host"] = 1
+        # Lifecycle deadlines and native A/B layout need an uncontended host.
+        # Reuse the existing exclusive resource without making a timing claim.
+        resources = {"host-slot": 1, "display-input": 1, "performance-host": 1}
         data["tasks"][name] = {
             "description": "Task-only functional acceptance; no timing claim.",
             "command": f"scripts/preview/run-{wrapper}-host-validation.sh",
