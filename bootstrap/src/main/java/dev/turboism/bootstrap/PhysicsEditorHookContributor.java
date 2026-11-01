@@ -17,6 +17,11 @@ final class PhysicsEditorHookContributor implements HookContributor {
     }
 
     @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("physics-editor");
+    }
+
+    @Override
     public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }

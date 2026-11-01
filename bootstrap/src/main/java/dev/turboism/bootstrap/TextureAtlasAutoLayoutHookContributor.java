@@ -26,6 +26,11 @@ final class TextureAtlasAutoLayoutHookContributor implements HookContributor {
     }
 
     @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("texture-atlas");
+    }
+
+    @Override
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
@@ -39,8 +44,15 @@ final class TextureAtlasAutoLayoutHookContributor implements HookContributor {
                         runtime.hostAccess().textureAtlasEditorUi(),
                         runtime.hostAccess().textureAtlasAlgorithms(),
                         runtime.effectiveLocale());
-        installer.install();
-        runtime.info("bootstrap", id() + " installation=COMPLETE");
+        // The status names what this installation actually rewrote: a registered transformer alone
+        // leaves the host bytes untouched until the automatic-layout class loads.
+        final VerifiedTextureAtlasAutoLayoutHookInstaller.Installation installation = installer.install();
+        runtime.info(
+                "bootstrap",
+                id()
+                        + (installation == VerifiedTextureAtlasAutoLayoutHookInstaller.Installation.RETRANSFORMED
+                                ? " installation=COMPLETE"
+                                : " installation=ARMED_NOT_LOADED"));
         return installer;
     }
 }
