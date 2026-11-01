@@ -430,6 +430,11 @@ final class FrameworkUpdateDownloaderTest {
                 } finally {
                     release.countDown();
                 }
+                f.handler = exchange -> send(exchange, 200, f.payload);
+                final var retried = f.download(ignored -> {}).get(5, TimeUnit.SECONDS);
+                assertArrayEquals(
+                        f.payload, Files.readAllBytes(retried.objects().get(f.hash)));
+                assertTrue(future.isCompletedExceptionally());
             }
         }
     }
