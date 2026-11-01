@@ -424,6 +424,7 @@ final class FrameworkUpdateDownloaderTest {
                 if (timeout) assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS));
                 else assertTrue(future.cancel(true));
                 try {
+                    f.timer.submit(() -> {}).get(1, TimeUnit.SECONDS);
                     f.io.submit(() -> {}).get(7, TimeUnit.SECONDS);
                     assertFalse(Files.exists(f.cache.resolve("object-" + f.hash + ".verified")));
                     assertTrue(future.isCompletedExceptionally());
