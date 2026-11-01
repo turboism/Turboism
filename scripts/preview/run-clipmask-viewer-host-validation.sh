@@ -64,6 +64,7 @@ exec bash "$runner" \
   --result-fail-line 'status=FAIL' \
   --result-fail-line 'status=BLOCKED' \
   --result-fail-line 'status=SKIPPED' \
+  --require-assertions \
   --failure-marker 'CLIPMASK_VIEWER_MATRIX_RESULT status=FAIL' \
   --failure-marker 'CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED' \
   --failure-marker 'CLIPMASK_VIEWER_MATRIX_RESULT status=SKIPPED' \

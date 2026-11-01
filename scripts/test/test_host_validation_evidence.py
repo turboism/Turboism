@@ -153,6 +153,44 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(3, terminal["assertionCount"])
         self.assertEqual([], terminal["blockingStatusRecords"])
 
+    def test_assertion_result_without_verdict_count_is_not_pass(self):
+        # An assertion-style result that publishes no count cannot say how many assertions
+        # decided the run, so it is invalid evidence rather than a pass.
+        self.result.write_bytes(b"status=PASS\nassertion.alpha.status=PASS\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertTrue(terminal["passSeen"])
+        self.assertIsNone(terminal["assertionCount"])
+        self.assertTrue(terminal["missingAssertionCount"])
+        self.assertFalse(terminal["passed"])
+        self.assertTrue(self.paths["prefix"].exists())
+
+    def test_info_only_total_does_not_mask_a_zero_verdict_count(self):
+        self.result.write_bytes(
+            b"status=PASS\nassertions=3\nassertions.verdict=0\n"
+            b"assertion.diag.status=INFO\nassertion.diag2.status=INFO\nassertion.diag3.status=INFO\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertEqual("assertions.verdict", terminal["assertionCountKey"])
+        self.assertEqual(0, terminal["assertionCount"])
+        self.assertTrue(terminal["emptyRun"])
+        self.assertFalse(terminal["passed"])
+
+    def test_verdict_count_is_the_basis_over_the_total(self):
+        self.result.write_bytes(
+            b"status=PASS\nassertions=5\nassertions.verdict=2\n"
+            b"assertion.a.status=PASS\nassertion.b.status=PASS\n"
+            b"assertion.c.status=INFO\nassertion.d.status=INFO\nassertion.e.status=INFO\n")
+        result = self.finish()
+        self.assertEqual("succeeded", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertEqual("assertions.verdict", terminal["assertionCountKey"])
+        self.assertEqual(2, terminal["assertionCount"])
+        self.assertFalse(terminal["missingAssertionCount"])
+        self.assertFalse(terminal["emptyRun"])
+
     def test_late_failure_marker_overrides_terminal_pass(self):
         self.descriptor["argv"] += ["--failure-marker", "ASSERTION_FAILED"]
         log = self.paths["task"] / "turboism-home/logs/runtime/day/runtime.log"

@@ -1104,7 +1104,6 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
     private void writeResult(final String phase, final long startedNanos) {
         final String terminal = assertions.terminal().name();
         final StringBuilder report = new StringBuilder();
-        report.append("status=").append(terminal).append('\n');
         report.append("phase=").append(phase).append('\n');
         report.append("hostVersion=")
             .append(System.getProperty("turboism.validation.hostVersion", "unknown")).append('\n');
@@ -1112,6 +1111,9 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
             .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
         assertions.appendCounters(report);
         assertions.appendNamed(report);
+        // The terminal verdict goes last: the Runner requires a positive verdict count
+        // as soon as it observes the pass line.
+        report.append("status=").append(terminal).append('\n');
         try {
             final Path result = Path.of(System.getProperty("turboism.home"),
                 "state", "atlas-polygon-validation-result.properties");

@@ -881,11 +881,13 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 .append("hostVersion=")
                 .append(System.getProperty("turboism.validation.hostVersion", "unknown"))
                 .append('\n')
-                .append("terminal=").append(assertions.terminal().name()).append('\n')
                 .append("durationMillis=")
                 .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
             assertions.appendCounters(report);
             assertions.appendIndexed(report, true);
+            // The terminal verdict goes last: the Runner requires a positive verdict count
+            // as soon as it observes the pass line.
+            report.append("terminal=").append(assertions.terminal().name()).append('\n');
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception failure) {
