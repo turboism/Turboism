@@ -199,7 +199,7 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
                 selected.extend(t.strip('"') for t in body[index + 2:end] if t.startswith('"'))
     assert opt_in_commands == OPT_IN_TESTS, 'missing or changed opt-in execution command'
     runner = root / 'scripts/test/run_host_tooling_selftest.py'
-    assert str(runner.relative_to(root)) in selected, 'host tooling runner must execute'
+    assert runner.relative_to(root).as_posix() in selected, 'host tooling runner must execute'
     selected.extend(re.findall(r'"(test_[^"\n]+\.(?:py|sh))"', runner.read_text()))
     # Existing manual/evidence tests are an explicit inventory, never a wildcard:
     # adding a new source requires routing it or deliberately reviewing an exemption.

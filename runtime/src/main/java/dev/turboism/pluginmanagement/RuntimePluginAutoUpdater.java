@@ -76,6 +76,9 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     /** Interval between recurring background plugin update checks within a session. */
     public static final Duration AUTOMATIC_INTERVAL = Duration.ofHours(24);
 
+    static volatile Runnable testBeforeStageHook;
+    static volatile Runnable testBetweenStageAndHotApplyHook;
+
     private static final String DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json";
     private static final String CUBISM_VERSIONS_ENTRY = "META-INF/turboism/cubism-versions.json";
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
@@ -388,6 +391,10 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     }
 
     private Outcome executeUpdateCycle(final long operationGeneration, final CompletableFuture<Snapshot> future) {
+        if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
+            report("PLUGIN_UPDATE_GATE_LOCKED");
+            return Outcome.unavailable("PLUGIN_UPDATE_GATE_LOCKED");
+        }
         if (pending.recoveryRequired()) {
             report("PLUGIN_PENDING_RECOVERY_REQUIRED");
             return Outcome.unavailable("PLUGIN_PENDING_RECOVERY_REQUIRED");
@@ -470,6 +477,10 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 excludedReleaseKeys.add(next.releaseKey());
                 continue;
             }
+            if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
+                report("PLUGIN_UPDATE_GATE_LOCKED");
+                break;
+            }
             final StageAttempt attempt = downloadVerifyAndStage(next, activeCubism);
             if (attempt == StageAttempt.FALLBACK_RELEASE) {
                 excludedReleaseKeys.add(next.releaseKey());
@@ -503,39 +514,63 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 report("PLUGIN_UPDATE_JAR_REJECTED");
                 return StageAttempt.FAILED;
             }
-            final PendingPluginOperations.StagedInstall staged = pending.stage(tempJar);
-            if (!staged.accepted() || staged.prepared() == null) {
-                report(staged.code());
-                return StageAttempt.FAILED;
+            final Runnable hook = testBeforeStageHook;
+            if (hook != null) {
+                hook.run();
             }
-            final byte[] expectedDescHash = java.util.HexFormat.of().parseHex(artifact.descriptorSha256());
-            final byte[] actualDescHash =
-                    java.util.HexFormat.of().parseHex(staged.prepared().descriptorSha256());
-            if (!MessageDigest.isEqual(expectedDescHash, actualDescHash)) {
-                report("PLUGIN_UPDATE_DESCRIPTOR_HASH_MISMATCH");
-                return StageAttempt.FAILED;
-            }
-            if (update.release().hotReload()
-                    && hotReloadCoordinator != null
-                    && pending.canHotApply(update.pluginId())) {
-                final Path target = pluginsDirectory.resolve(update.pluginId() + ".jar");
-                if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
-                        && hotReloadCoordinator.isHotReloadSafe(
-                                staged.prepared().stagedJar())) {
-                    final var reloadRes = hotReloadCoordinator.hotReplace(
-                            update.pluginId(), staged.prepared().stagedJar(), target);
-                    if (reloadRes.succeeded()) {
-                        pending.completeHotApply(staged.prepared());
-                        return StageAttempt.HOT_APPLIED;
-                    }
-                    if (reloadRes.rolledBack() && "HOT_RELOAD_FAILED".equals(reloadRes.code())) {
-                        pending.completeHotApply(staged.prepared());
-                        report("PLUGIN_UPDATE_HOT_ROLLED_BACK");
-                        return StageAttempt.FAILED;
+            // Staging, journaling and the optional hot apply share the root lock: a framework task holding
+            // PluginUpdateGate must be honoured before anything is staged (the cycle-level check can race),
+            // and a manual installer must not interleave between the stage and the hot apply.
+            synchronized (PluginUpdateGate.rootLock(home)) {
+                if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
+                    report("PLUGIN_UPDATE_GATE_LOCKED");
+                    return StageAttempt.FAILED;
+                }
+                final PendingPluginOperations.StagedInstall staged = pending.stage(tempJar);
+                if (!staged.accepted() || staged.prepared() == null) {
+                    report(staged.code());
+                    return StageAttempt.FAILED;
+                }
+                final byte[] expectedDescHash = java.util.HexFormat.of().parseHex(artifact.descriptorSha256());
+                final byte[] actualDescHash =
+                        java.util.HexFormat.of().parseHex(staged.prepared().descriptorSha256());
+                if (!MessageDigest.isEqual(expectedDescHash, actualDescHash)) {
+                    report("PLUGIN_UPDATE_DESCRIPTOR_HASH_MISMATCH");
+                    return StageAttempt.FAILED;
+                }
+                final Runnable betweenHook = testBetweenStageAndHotApplyHook;
+                if (betweenHook != null) {
+                    betweenHook.run();
+                }
+                if (update.release().hotReload()
+                        && hotReloadCoordinator != null
+                        && pending.canHotApply(update.pluginId())) {
+                    final Path target = pluginsDirectory.resolve(update.pluginId() + ".jar");
+                    if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
+                            && hotReloadCoordinator.isHotReloadSafe(
+                                    staged.prepared().stagedJar())) {
+                        // The coordinator owns close-old-JAR -> atomic replace -> reload and restores the
+                        // installed generation on failure (including Windows file locks), so this path keeps
+                        // no backup/copy logic of its own.
+                        final var reloadRes = hotReloadCoordinator.hotReplace(
+                                update.pluginId(), staged.prepared().stagedJar(), target);
+                        if (reloadRes.succeeded()) {
+                            // Consume exactly this staged intent: a successful hot apply must not leave a
+                            // pending journal entry or the staged artifact behind.
+                            pending.completeHotApply(staged.prepared());
+                            return StageAttempt.HOT_APPLIED;
+                        }
+                        if (reloadRes.rolledBack() && "HOT_RELOAD_FAILED".equals(reloadRes.code())) {
+                            // Installed bytes are restored: consume the staged intent (a rollback must not
+                            // leave pending work that retries forever) and report the failed attempt.
+                            pending.completeHotApply(staged.prepared());
+                            report("PLUGIN_UPDATE_HOT_ROLLED_BACK");
+                            return StageAttempt.FAILED;
+                        }
                     }
                 }
+                return StageAttempt.STAGED;
             }
-            return StageAttempt.STAGED;
         } catch (IOException | RuntimeException failure) {
             report("PLUGIN_UPDATE_DOWNLOAD_FAILED");
             return StageAttempt.FAILED;
@@ -550,7 +585,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         }
     }
 
-    private static JarCheckResult inspectDownloadedJar(
+    static JarCheckResult inspectDownloadedJar(
             final PlannedUpdate update, final Path tempJar, final Optional<String> activeCubism) {
         final CatalogRelease release = update.release();
         final CatalogArtifact artifact = release.artifact();
@@ -858,7 +893,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         FAILED
     }
 
-    private enum JarCheckResult {
+    enum JarCheckResult {
         VALID,
         CUBISM_SIDECAR_INCOMPATIBLE,
         INVALID

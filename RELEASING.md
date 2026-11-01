@@ -257,6 +257,7 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 
 - A framework version has exactly eight GitHub Release assets: the standard Windows installer (`TurboismInstaller-<version>.exe`), portable package (`turboism-<version>.zip`), and their SHA-256 sidecars, plus the SDK and event-processor JARs and their sidecars. Both standard packages contain all bundled plugins and the complete, pinned GraalJS offline engine closure. A compatible GraalVM runtime is installed separately through the configurator. The public download API accepts only this standard EXE/ZIP layout. The standalone SDK JAR is byte-identical to the SDK JAR in the staged payload.
 - The SDK and event-processor pairs are GitHub-only developer artifacts: they never enter the Updates `release.json` media contract, the distribution API's two public downloads, or the R2 mirror. The candidate binds them under `framework.developerArtifacts` separately from the four product files and checksums.
+- Framework self-update documents and payload objects are not GitHub Release assets and do not change this count or the EXE/ZIP whitelist; they are admitted into R2 through the authenticated path in `distribution/INCREMENTAL.md` ("Production service"), before the release is published.
 - The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never a ninth GitHub Release asset.
 - Existing assets and versioned R2 objects are reused only after exact name, size, and SHA-256 equality.
 - Trust model: GitHub Release `.sha256` sidecars, the plugin-template `setup.sh` sidecar check and a plugin's `packageHash` are same-origin integrity checks (they catch corruption, not tampering). Independent anchors are the Ed25519-signed plugin catalog, pinned Gradle verification metadata / wrapper `distributionSha256Sum` / the ManagedGraal archive pin, and R2 write verification.
@@ -302,7 +303,10 @@ Release notes are always extracted from the exact version section of `CHANGELOG.
 
 Core release behavior belongs in tracked scripts, tests, and workflows. Do not place release decisions or credentials in `AGENTS.md`, `.claude/`, local specifications, or operator prompts. Optional user-level automation may only invoke this CLI.
 
-The framework workflow never receives the Plugin Directory signing key or Cloudflare credentials. The signing key remains in the Plugin Directory signing environment; Cloudflare credentials remain in the Updates service environment.
+The candidate build never receives signing keys or Cloudflare credentials. Its separate framework signing job uses
+the dedicated key in `framework-release-signing`; the protected `release-github-only.yml` publisher uses R2
+credentials from `production-release`. Both environments are limited to main. The Plugin Directory signing key
+remains in the Plugin Directory's own signing environment and is not framework signing authority.
 
 ## Global build ledger
 
@@ -335,3 +339,75 @@ the template repository (on a daily schedule and via `workflow_dispatch`):
 3. Replaces the template repository working tree (preserving `.git`), updates
    `turboismSdkVersion` in `gradle.properties`, commits if changed, and tags
    `sdk-<version>` using the template repository's own `GITHUB_TOKEN`.
+
+### Framework update signing and publication
+
+When `FRAMEWORK_UPDATE_SIGNING_ENABLED=true`, Stable/Beta candidates bundle the reviewed public keyring and client
+policy before the agent is assembled. The protected signing job signs the exact numbered payload, packages the
+initial installation receipt in both the ZIP and EXE, and rechecks the final bytes. Nightly keeps the existing
+full-package path. The minimum updater version is the first compatible enabled release and must remain supported
+by earlier installed clients as subsequent targets advance.
+
+Promotion with `framework_publish=initialize` registers the first candidate of a channel; later releases use
+`admit`. The publisher uploads immutable objects, obtains a real GitHub OIDC identity, and verifies public
+reachability before completing the GitHub release. `framework_publish=none` publishes only the full packages.
+The setup and package contract are documented in
+[BOOTSTRAP_RECEIPT.md](packaging/windows-installer/BOOTSTRAP_RECEIPT.md).
+
+`writeFrameworkPayloadInventory` is an explicit, unsigned build-inventory task for
+numbered, clean CI builds. It depends on `stageInstallerPayload` and writes
+`build/windows-installer/generated/framework-payload-inventory.json` from the
+explicit Windows package roots and the resolved Graal build output. It does not
+sign, upload, or change the ordinary release asset contract. Its inventory is a
+trusted build input, **not** a receipt proving ownership of a user's installation.
+
+The offline producer accepts the existing release candidate and allocated build
+identity receipt from that same protected build, its standard Windows ZIP, and
+that inventory:
+
+```sh
+python3 scripts/release/build-framework-update.py \
+  --candidate CANDIDATE_JSON --receipt BUILD_IDENTITY_JSON \
+  --inventory FRAMEWORK_PAYLOAD_INVENTORY_JSON --archive STANDARD_ZIP \
+  --version VERSION --channel CHANNEL --build-number BUILD_NUMBER \
+  --source-revision SOURCE_SHA --minimum-updater UPDATER_VERSION \
+  --key-id KEY_ID --trusted-keys PUBLIC_KEYRING_JSON \
+  --private-key PRIVATE_PEM_FILE --output LOCAL_OUTPUT_DIRECTORY
+```
+
+The local public keyring maps approved key IDs to base64 X.509 DER Ed25519 public
+keys. The supplied private PEM must match the selected public key and be private
+to its owner on POSIX. Missing, unknown, encrypted, or mismatched signing material
+fails closed; no key material is emitted in the output or error diagnostics.
+Tests generate disposable keys and require the existing OpenSSL command-line
+provider; this introduces no Python cryptography dependency.
+
+The output is a versioned manifest, its detached v1 signature envelope, an object
+inventory, a v1 incremental-candidate descriptor, and `objects/<sha256>/payload`. Existing exact objects are rechecked and
+reused without overwriting. These are local paths, not promises of public download
+URLs. The producer checks candidate archive hashes, build/source identities,
+embedded Agent/runtime metadata, and the complete inventory before signing.
+Configuration, installed state and independent plugins are explicitly excluded;
+unknown files or unsafe archive aliases fail closed. The supported layout is the
+standard Windows ZIP; it does not describe installed private GraalVM downloads or
+historical NSIS path differences. No installer receipt persistence, downloader,
+apply helper or production admission is supplied by this command.
+
+Focused verification:
+
+```sh
+./gradlew checkFrameworkUpdateTooling
+./gradlew :runtime:test --tests 'dev.turboism.update.*'
+```
+
+Ordinary `checkCompletedCommit` reaches the offline tool tests and the Java test
+that consumes real producer output. `checkReleaseTooling` also retains the
+existing release tests. Signing and publication remain separate operations.
+
+The offline [incremental admission contract](distribution/INCREMENTAL.md) consumes
+the descriptor, authenticates the exact manifest, recomputes its object closure,
+and verifies actual bytes before immutable registration and a final channel CAS.
+Its storage interface is exercised with an in-memory adapter by
+`node --test distribution/test/*.test.mjs`. The production Worker uses R2 with a Durable Object registration and
+channel authority, and serves only admitted resources. Historical full-package releases remain valid without an
+incremental descriptor; adding signing configuration does not retroactively make them self-update capable.

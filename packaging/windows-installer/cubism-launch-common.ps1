@@ -2444,6 +2444,40 @@ function Resolve-TurboismGraalHost {
     }
 }
 
+function Get-CubismStagedBatEncoding {
+    # cmd.exe parses a batch file with the *active console output code page*, not with the system ANSI
+    # code page and not with the console input code page. Proven by a control experiment: the same
+    # one-argument BAT written as cp936 versus UTF-8 flips argv correctness together with
+    # GetConsoleOutputCP, while GetConsoleCP stays at the ANSI value.
+    # Consequence: a staged managed BAT written as ANSI 936 is misread on a UTF-8 console, and the
+    # child receives replacement characters instead of the Chinese home path, corrupting
+    # -Dturboism.home / -javaagent. Write the staged copy in exactly the code page cmd will use, and
+    # decode inline cmd output (markers) with the same one.
+    # [Console]::OutputEncoding is cached from process start and can be stale after a chcp, so the
+    # fresh value is read from the native API. 65001 must be emitted without a BOM: a BOM would
+    # become part of the first batch line. Without any usable value the ANSI default is kept.
+    $codePage = 0
+    try {
+        if (-not ('Turboism.ConsoleCodePage' -as [type])) {
+            Add-Type -Namespace Turboism -Name ConsoleCodePage -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
+'@ -ErrorAction Stop
+        }
+        $codePage = [int][Turboism.ConsoleCodePage]::GetConsoleOutputCP()
+    }
+    catch { $codePage = 0 }
+    if ($codePage -le 0) {
+        # No console or no compiler: fall back to the (possibly cached) managed view, then ANSI.
+        try { $codePage = [int][Console]::OutputEncoding.CodePage } catch { $codePage = 0 }
+    }
+    try {
+        if ($codePage -eq 65001) { return New-Object System.Text.UTF8Encoding($false) }
+        if ($codePage -gt 0) { return [System.Text.Encoding]::GetEncoding($codePage) }
+    }
+    catch { }
+    return [System.Text.Encoding]::Default
+}
+
 function Get-CubismLaunchStageDirectory {
     param([string]$TurboismHome)
     if (-not (Test-CubismNormalDirectory $TurboismHome)) { throw "Turboism home is not a normal directory" }
@@ -2481,8 +2515,10 @@ function New-CubismJavaOverrideBat {
     $directory = Get-CubismLaunchStageDirectory -TurboismHome $TurboismHome
     $name = ".turboism-java-$PID-$([guid]::NewGuid().ToString('N')).bat"
     $temporary = Join-Path $directory $name
+    # Read the ANSI-authored official BAT as before, but stage the copy in the code page cmd parses with.
     $encoding = [System.Text.Encoding]::Default
     $text = [System.IO.File]::ReadAllText($official, $encoding)
+    $stagedEncoding = Get-CubismStagedBatEncoding
     $rootPattern = '(?im)^cd\s+/d\s+"%~dp0"\s*(?:\r?\n)'
     $rootMatches = [regex]::Matches($text, $rootPattern)
     if ($rootMatches.Count -ne 1) { throw "official Cubism BAT must contain exactly one root-relative working-directory assignment" }
@@ -2493,8 +2529,14 @@ function New-CubismJavaOverrideBat {
     $replacement = 'set "JAVA_EXE=' + $java + '"' + "`r`n"
     $staged = [regex]::Replace($text, $rootPattern, { param($match) $workingDirectory }, 1)
     $staged = [regex]::Replace($staged, $javaPattern, { param($match) $replacement }, 1)
+    # The official BAT launches through the unquoted %JAVA_EXE% variable. The override points at an
+    # absolute path that may contain spaces (a Turboism home, a GraalVM directory, or a Chinese path),
+    # and cmd would split it and fail with "command not found" (9009). Quote the invocation sites;
+    # the `set JAVA_EXE=` assignment carries no percent signs and is left untouched.
+    $javaUsePattern = '(?im)^([ 	]*)(?!"%JAVA_EXE%")%JAVA_EXE%'
+    $staged = [regex]::Replace($staged, $javaUsePattern, { param($match) $match.Groups[1].Value + '"%JAVA_EXE%"' })
     try {
-        [System.IO.File]::WriteAllText($temporary, $staged, $encoding)
+        [System.IO.File]::WriteAllText($temporary, $staged, $stagedEncoding)
         if (-not (Test-CubismNormalFile $temporary)) { throw "Cubism JVM override BAT was not created" }
         return $temporary
     }
@@ -2527,7 +2569,9 @@ function New-CubismManagedOptionsBat {
         [string]$CubismRoot,
         [string]$TurboismHome,
         [string]$Agent,
-        [object]$GraalHost = $null
+        [string]$LaunchToken = "",
+        [object]$GraalHost = $null,
+        [System.Text.Encoding]$SourceEncoding = $null
     )
     $root = ConvertTo-CubismCanonicalRoot $CubismRoot
     $source = [System.IO.Path]::GetFullPath($OfficialBat)
@@ -2536,10 +2580,14 @@ function New-CubismManagedOptionsBat {
         -not (Test-CubismNormalFile $source) -or -not (Test-CubismNormalFile $Agent)) {
         throw "managed Cubism launch input is invalid"
     }
+    $agentOptions = "home=$canonicalHome;timeoutSeconds=120"
+    if (-not [string]::IsNullOrWhiteSpace($LaunchToken)) {
+        $agentOptions += ";launchToken=$LaunchToken"
+    }
     $managedOptions = @(
         "-Duser.dir=$root",
         "-Dturboism.home=$canonicalHome",
-        "-javaagent:$Agent=home=$canonicalHome;timeoutSeconds=120"
+        "-javaagent:$Agent=$agentOptions"
     )
     if ($null -ne $GraalHost) {
         $managedOptions += @(
@@ -2556,10 +2604,30 @@ function New-CubismManagedOptionsBat {
 
     $directory = Get-CubismLaunchStageDirectory -TurboismHome $canonicalHome
     $temporary = Join-Path $directory (".turboism-options-$PID-$([guid]::NewGuid().ToString('N')).bat")
-    $encoding = [System.Text.Encoding]::Default
+    # Two different sources exist and must not share one encoding assumption:
+    #   * the official Cubism BAT (ANSI-authored, read as ANSI exactly as before);
+    #   * our own intermediate staged BAT (for example the GraalVM Java override), which we wrote
+    #     with the active console code page and therefore must read back with that same code page.
+    # The caller passes the encoding explicitly (Invoke-CubismOfficialBat derives it from the already
+    # admitted entry kind); guessing from the file name is deliberately not used here.
+    # The staged copy itself is always written in the code page cmd parses with, otherwise a UTF-8
+    # console corrupts non-ASCII managed arguments.
+    $encoding = if ($null -eq $SourceEncoding) { [System.Text.Encoding]::Default } else { $SourceEncoding }
+    $stagedEncoding = Get-CubismStagedBatEncoding
     $text = [System.IO.File]::ReadAllText($source, $encoding)
     $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
     $text = [regex]::Replace($text, $legacy, '')
+
+    # The copy lives under Turboism, but dp0 must retain the official BAT's directory
+    # (including the PATH entry for dependent DLLs), not the managed staging directory.
+    $officialRootPrefix = $root.TrimEnd('\', '/') + '\'
+    $text = [regex]::Replace($text, '(?i)%~dp0', { param($match) $officialRootPrefix })
+    # Preserve the official proxy setup even when NoDefaultCurrentDirectoryInExePath
+    # disables bare-name lookup. Do not weaken that environment security setting.
+    $proxyPath = Join-Path $root 'ProxyConfig.bat'
+    $proxyPattern = '(?im)^if[ \t]+exist[ \t]+ProxyConfig\.bat[ \t]+call[ \t]+ProxyConfig\.bat[ \t]*(?:\r?\n|$)'
+    $proxyCall = 'if exist "' + $proxyPath + '" call "' + $proxyPath + '"' + "`r`n"
+    $text = [regex]::Replace($text, $proxyPattern, { param($match) $proxyCall })
 
     if (Test-CubismBatExplicitHeapLimit -Text $text) {
         # The BAT already carries an explicit heap limit; keep it authoritative
@@ -2589,7 +2657,7 @@ function New-CubismManagedOptionsBat {
         1
     )
     try {
-        [System.IO.File]::WriteAllText($temporary, $text, $encoding)
+        [System.IO.File]::WriteAllText($temporary, $text, $stagedEncoding)
         if (-not (Test-CubismNormalFile $temporary)) { throw "managed Cubism launch BAT was not created" }
         return $temporary
     }
@@ -2607,6 +2675,7 @@ function Invoke-CubismOfficialBat {
         [string]$CubismRoot,
         [string]$TurboismHome,
         [string]$Agent,
+        [string]$LaunchToken = "",
         [object]$GraalHost = $null,
         [string[]]$Arguments = @()
     )
@@ -2650,23 +2719,37 @@ function Invoke-CubismOfficialBat {
     }
     $managedBat = ""
     $exitCode = 1
+    $script:CubismManagedLaunchChildStarted = $false
     try {
         # Pass Turboism options as quoted arguments in an ephemeral copy of the
         # reviewed Cubism BAT. Java environment option variables are deliberately
         # cleared for this child so neither a prior Turboism BAT integration nor
         # cmd.exe can reinterpret path-bearing options as standalone commands.
+        # An admitted official BAT is ANSI-authored; an admitted staged intermediate (the GraalVM Java
+        # override we just wrote) is in the active console code page. Passing this explicitly keeps the
+        # two-stage chain byte-correct without guessing from path spelling.
+        $sourceEncoding = if ($stagedEntry) { Get-CubismStagedBatEncoding } else { [System.Text.Encoding]::Default }
         $managedBat = New-CubismManagedOptionsBat `
             -OfficialBat $official `
             -CubismRoot $root `
             -TurboismHome $canonicalHome `
             -Agent $Agent `
-            -GraalHost $GraalHost
+            -LaunchToken $LaunchToken `
+            -GraalHost $GraalHost `
+            -SourceEncoding $sourceEncoding
         foreach ($name in $savedEnvironment.Keys) {
             [Environment]::SetEnvironmentVariable($name, $null, "Process")
         }
         Push-Location -LiteralPath $root
         try {
-            & $managedBat @Arguments
+            $script:CubismManagedLaunchChildStarted = $true
+            # Stream the child's stdout to the host immediately and keep only its exit verdict.
+            # Buffering an editor-lifetime log inside the launcher would hide live diagnostics and
+            # retain output for the whole session, so the pipeline is drained line by line here.
+            # stderr is deliberately not merged: under $ErrorActionPreference='Stop' a merged native
+            # stderr record would abort the launch after the child already started. Native stderr
+            # already streams straight to the console on its own.
+            & $managedBat @Arguments | ForEach-Object { Write-Host ([string]$_) }
             $exitCode = $LASTEXITCODE
         }
         finally { Pop-Location }
@@ -2678,6 +2761,234 @@ function Invoke-CubismOfficialBat {
         if (-not [string]::IsNullOrWhiteSpace($managedBat) -and
             (Test-Path -LiteralPath $managedBat -PathType Leaf)) {
             Remove-Item -LiteralPath $managedBat -Force -ErrorAction SilentlyContinue
+        }
+    }
+    return $exitCode
+}
+
+function Invoke-TurboismBootstrapReceiptInitialization {
+    param(
+        [string]$TurboismHome,
+        [string]$UpdateJournal,
+        [string]$UpdateJava
+    )
+    # First conventional full-install / standard-ZIP launch: initialize the immutable update receipt
+    # only from the package's dedicated signed documents that ship beside the launcher.
+    # Every guard fails closed without touching framework bytes; receipt loading keeps self-update
+    # unavailable rather than breaking Cubism:
+    #   * a pending recovery journal owns the update state, so it must not be re-bootstrapped;
+    #   * an existing installation receipt means this is an upgrade, never a first launch;
+    #   * missing/incomplete package documents mean a legacy or thin package.
+    # Returns $true when the bootstrap script ran, $false when a guard skipped it.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { throw 'Turboism home is required for receipt initialization' }
+    $receiptIndex = Join-Path $TurboismHome 'state\runtime\update\installed-receipt.json'
+    $bootstrapScript = Join-Path $TurboismHome 'bootstrap-receipt.ps1'
+    $bootstrapDocuments = Join-Path $TurboismHome 'bootstrap'
+    if ((Test-Path -LiteralPath $UpdateJournal) -or (Test-Path -LiteralPath $receiptIndex) -or
+        -not (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) -or
+        -not (Test-Path -LiteralPath (Join-Path $bootstrapDocuments 'manifest.json') -PathType Leaf) -or
+        -not (Test-Path -LiteralPath (Join-Path $bootstrapDocuments 'manifest.json.sig') -PathType Leaf)) {
+        return $false
+    }
+    try {
+        # Only the last object the bootstrap script emits is its verdict; any diagnostic output must
+        # not turn that verdict into an array.
+        $receiptOutput = @(& $bootstrapScript -HomePath $TurboismHome -StagePath $bootstrapDocuments `
+            -JavaPath $UpdateJava -PassThru)
+        $receiptResult = if ($receiptOutput.Count -eq 0) { $null } else { $receiptOutput[$receiptOutput.Count - 1] }
+        $successProperty = if ($null -eq $receiptResult) { $null } else { $receiptResult.PSObject.Properties['Success'] }
+        if ($null -eq $successProperty -or $successProperty.Value -ne $true) {
+            $exitText = ''
+            $exitProperty = if ($null -eq $receiptResult) { $null } else { $receiptResult.PSObject.Properties['ExitCode'] }
+            if ($null -ne $exitProperty -and $null -ne $exitProperty.Value) { $exitText = " (exit $($exitProperty.Value))" }
+            Write-Warning "Framework receipt initialization failed$exitText; self-update remains unavailable."
+        }
+    }
+    catch {
+        Write-Warning "Framework receipt initialization was skipped: $($_.Exception.Message)"
+    }
+    return $true
+}
+
+function New-TurboismLaunchToken {
+    # 256-bit random launch-lease token as 64 lowercase hex characters.
+    $bytes = New-Object byte[] 32
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) }
+    finally { $rng.Dispose() }
+    return -join ($bytes | ForEach-Object { $_.ToString('x2') })
+}
+
+function Resolve-TurboismLaunchHelper {
+    param(
+        [string]$TurboismHome,
+        [string]$Agent,
+        [string]$UpdateJournal,
+        [string]$UpdatePending
+    )
+    # Recovery/apply (journal or pending present) must run from the trusted retained helper, never
+    # from the installed agent that a rollback/apply may replace. A missing retained helper is fatal;
+    # there is no silent legacy fallback. An old retained helper without --launch-token support will
+    # exit with a usage/reject code and the launcher fails closed (no automatic migration is claimed).
+    if ((Test-Path -LiteralPath $UpdateJournal -PathType Leaf) -or
+        (Test-Path -LiteralPath $UpdatePending -PathType Leaf)) {
+        $retained = Join-Path $TurboismHome 'state\runtime\update\helper-runner.jar'
+        if (-not (Test-CubismNormalFile $retained)) {
+            throw 'Update recovery helper is missing; installation was not launched. Use the full package to recover.'
+        }
+        return [pscustomobject]@{ Jar = $retained; Temporary = $false }
+    }
+    # Ordinary launch: an independent, uniquely-named copy of the installed agent. Never reuse or
+    # overwrite helper-runner.jar so a concurrently running helper is never copied over.
+    if (-not (Test-CubismNormalFile $Agent)) {
+        throw 'Turboism agent is missing; cannot prepare the launch.'
+    }
+    $directory = Get-CubismLaunchStageDirectory -TurboismHome $TurboismHome
+    $copy = Join-Path $directory (".turboism-helper-$PID-$([guid]::NewGuid().ToString('N')).jar")
+    Copy-Item -LiteralPath $Agent -Destination $copy -Force
+    if (-not (Test-CubismNormalFile $copy)) { throw 'Temporary launch helper copy was not created.' }
+    return [pscustomobject]@{ Jar = $copy; Temporary = $true }
+}
+
+function Invoke-TurboismLaunchHelperVerb {
+    param(
+        [string]$Java,
+        [string]$Jar,
+        [string]$TurboismHome,
+        [string]$UpdateWork,
+        [string]$Verb,
+        [string]$LaunchToken
+    )
+    # The helper prints diagnostics (for example NOTHING: ... / LAUNCH_RELEASED) on its own stdout.
+    # Every byte of that output is routed to the host stream here, so the function returns exactly one
+    # integer: a diagnostic line must never turn the launch/exit code into an array.
+    $helperOutput = @()
+    $exitCode = $null
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        # Fail closed: a native helper that never actually starts (missing or unexecutable java) must
+        # not inherit a previous launch's allowed exit code such as 10 from $LASTEXITCODE.
+        $global:LASTEXITCODE = $null
+        $helperOutput = & $Java '-cp' $Jar 'dev.turboism.update.FrameworkUpdateHelper' `
+            '--root' $TurboismHome '--work' $UpdateWork $Verb "$PID" '--launch-token' $LaunchToken 2>&1
+        $exitCode = $global:LASTEXITCODE
+    }
+    catch {
+        # The helper process never started at all: report it and use a non-launchable code.
+        $helperOutput = @('helper launch failed: ' + $_.Exception.Message)
+        $exitCode = 127
+    }
+    finally { $ErrorActionPreference = $previousErrorPreference }
+    foreach ($line in @($helperOutput)) {
+        if ($null -ne $line) { Write-Host ("[turboism-helper] " + [string]$line) }
+    }
+    # No native exit code means the helper never reported a verdict: fail closed instead of
+    # letting a null value collapse into the accepted code 0.
+    if ($null -eq $exitCode) { $exitCode = 1 }
+    try { $exitCode = [int]$exitCode } catch { $exitCode = 1 }
+    $global:LASTEXITCODE = $exitCode
+    return $exitCode
+}
+
+function Invoke-TurboismLaunchPrepare {
+    param(
+        [string]$Java,
+        [string]$Agent,
+        [string]$TurboismHome,
+        [string]$UpdateWork,
+        [string]$UpdateJournal,
+        [string]$UpdatePending,
+        [string]$LaunchToken
+    )
+    $helper = Resolve-TurboismLaunchHelper `
+        -TurboismHome $TurboismHome -Agent $Agent -UpdateJournal $UpdateJournal -UpdatePending $UpdatePending
+    try {
+        return Invoke-TurboismLaunchHelperVerb `
+            -Java $Java -Jar $helper.Jar -TurboismHome $TurboismHome -UpdateWork $UpdateWork `
+            -Verb '--prepare-launch' -LaunchToken $LaunchToken
+    }
+    finally {
+        # Only the per-launch temporary copy is removed never a retained helper that may still be running.
+        if ($helper.Temporary -and (Test-CubismNormalFile $helper.Jar)) {
+            Remove-Item -LiteralPath $helper.Jar -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Invoke-TurboismLaunchRelease {
+    param(
+        [string]$Java,
+        [string]$Agent,
+        [string]$TurboismHome,
+        [string]$UpdateWork,
+        [string]$UpdateJournal,
+        [string]$UpdatePending,
+        [string]$LaunchToken
+    )
+    # Release uses its own independent helper copy (retained when recovery is still pending); it never
+    # overwrites a running helper-runner.
+    $helper = Resolve-TurboismLaunchHelper `
+        -TurboismHome $TurboismHome -Agent $Agent -UpdateJournal $UpdateJournal -UpdatePending $UpdatePending
+    try {
+        return Invoke-TurboismLaunchHelperVerb `
+            -Java $Java -Jar $helper.Jar -TurboismHome $TurboismHome -UpdateWork $UpdateWork `
+            -Verb '--release-launch' -LaunchToken $LaunchToken
+    }
+    finally {
+        if ($helper.Temporary -and (Test-CubismNormalFile $helper.Jar)) {
+            Remove-Item -LiteralPath $helper.Jar -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Invoke-TurboismManagedLaunch {
+    param(
+        [string]$Java,
+        [string]$Agent,
+        [string]$TurboismHome,
+        [string]$UpdateWork,
+        [string]$UpdateJournal,
+        [string]$UpdatePending,
+        [bool]$LaunchPrepared,
+        [string]$LaunchToken,
+        [scriptblock]$LaunchAction
+    )
+    # Shared launch/release orchestration so tests can drive the real control flow with mock callbacks.
+    # The LaunchAction performs Graal resolution, ProbeOnly exit, and the real BAT invocation; the
+    # child-started flag is reset here for THIS launch (never a stale value from a prior invocation).
+    if ($null -eq $LaunchAction) { throw 'Invoke-TurboismManagedLaunch requires -LaunchAction' }
+    # Reset for THIS launch before the action can resolve Graal or touch a BAT, so a stale value from a
+    # previous launch can never be misread as "a child of this launch may still be alive".
+    $script:CubismManagedLaunchChildStarted = $false
+    $childMayBeAlive = $false
+    $exitCode = 1
+    try {
+        $actionOutput = @(& $LaunchAction)
+        # Only the action's exit verdict matters; any stray pipeline output must not corrupt it.
+        $exitCode = if ($actionOutput.Count -eq 0) { 0 } else { [int]$actionOutput[$actionOutput.Count - 1] }
+    }
+    catch {
+        # Keep our LAUNCHING lease when a child may still be alive; release only when we provably never started one.
+        $childMayBeAlive = $script:CubismManagedLaunchChildStarted
+        throw
+    }
+    finally {
+        if ($LaunchPrepared -and -not $childMayBeAlive) {
+            # A failed release must never replace the caller's original exception/exit verdict; the entry
+            # then stays LAUNCHING and recovery handles it conservatively.
+            try {
+                $releaseExit = Invoke-TurboismLaunchRelease `
+                    -Java $Java -Agent $Agent -TurboismHome $TurboismHome -UpdateWork $UpdateWork `
+                    -UpdateJournal $UpdateJournal -UpdatePending $UpdatePending -LaunchToken $LaunchToken
+                if ($releaseExit -ne 10 -and $releaseExit -ne 0) {
+                    Write-Warning "Launch lease release was not completed (exit $releaseExit); the entry will be recovered conservatively."
+                }
+            }
+            catch {
+                Write-Warning ("Launch lease release failed: " + $_.Exception.Message +
+                    ". The entry will be recovered conservatively.")
+            }
         }
     }
     return $exitCode

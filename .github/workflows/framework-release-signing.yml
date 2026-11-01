@@ -1,0 +1,237 @@
+# Protected signing handoff for the framework self-update documents (Stable and Beta only).
+#
+# Called from the product candidate workflow after its verified candidate payload exists. This workflow
+# owns the only step that ever sees the framework signing key: the key arrives as one step environment
+# value, the CLI writes it to an owner-only temporary file, signs, and deletes it. It is never written
+# to the workspace, an artifact, a Gradle invocation or a log line.
+#
+# Ordering (the offline producer rejects archives it does not fully own, so signing precedes packaging):
+#   1. sign the audited payload ZIP (candidate evidence + ledger receipt + build inventory)
+#   2. re-package ZIP/installer with the signed bootstrap documents (--skip-gradle)
+#   3. prove the final payload still equals the signed manifest, entry by entry, and that the embedded
+#      documents are exactly the signed bytes
+#   4. refresh only the artifact digests of the audited candidate evidence
+#   5. upload the candidate artifact the promotion workflow already expects (no rebuild there)
+#
+# Nightly is deliberately not signed: the feed admission accepts only workflow_dispatch/release events
+# from release-github-only.yml, so the nightly schedule cannot own framework self-update authority.
+
+name: Sign framework update package
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact candidate source commit
+        required: true
+        type: string
+      channel:
+        description: Candidate channel (stable or beta)
+        required: true
+        type: string
+      version:
+        description: Candidate framework version
+        required: true
+        type: string
+      payload_artifact:
+        description: Artifact name carrying the verified payload of the same run
+        required: true
+        type: string
+    secrets:
+      FRAMEWORK_UPDATE_SIGNING_KEY_B64:
+        description: Base64 Ed25519 PKCS#8 private key, provisioned on the protected signing environment
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sign:
+    environment: framework-release-signing
+    # Defence in depth for every future caller: only this repository's main run may sign, only for the
+    # very commit it is running on, and only for the two admitted channels. The step below additionally
+    # binds the allocated ledger receipt to this exact run id/attempt.
+    if: >-
+      github.repository == 'turboism/Turboism' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.source_sha == github.sha &&
+      (inputs.channel == 'stable' || inputs.channel == 'beta')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact candidate source
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+
+      - name: Download the verified payload of this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ inputs.payload_artifact }}
+          path: build/signing-input
+
+      - name: Restore the verified payload layout
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ inputs.source_sha }}"
+          test -d build/signing-input/windows-installer/dist
+          test -d build/signing-input/windows-installer/staging
+          test -f build/signing-input/windows-installer/generated/framework-payload-inventory.json
+          test -f build/signing-input/release-orchestrator/build-identity.json
+          mkdir -p build/windows-installer build/release-orchestrator
+          cp -a build/signing-input/windows-installer/. build/windows-installer/
+          for name in build-identity.json candidate.json prerelease-candidate.json \
+                      framework-artifacts.json release-notes.md; do
+            if [ -f "build/signing-input/release-orchestrator/$name" ]; then
+              cp -a "build/signing-input/release-orchestrator/$name" "build/release-orchestrator/$name"
+            fi
+          done
+          # The first packaging pass must have shipped the complete 8-asset roster already.
+          ( cd build/windows-installer/dist && sha256sum -c *.sha256 )
+
+      - name: Verify the signing bindings of this run
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          # The workflow inputs must agree with the run itself, not only with the receipt.
+          test "$SOURCE_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          case "$CHANNEL" in stable|beta) ;; *)
+            echo '::error::Only Stable and Beta candidates are signed; Nightly incremental is unsupported.'
+            exit 1 ;;
+          esac
+          python3 - "$SOURCE_SHA" "$VERSION" "$CHANNEL" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" <<'PY'
+          import json, sys
+          from pathlib import Path
+          source, version, channel, run_id, attempt = sys.argv[1:6]
+          receipt = json.loads(
+              Path("build/release-orchestrator/build-identity.json").read_text(encoding="utf-8"))
+          expected = {
+              "version": version,
+              "channel": channel,
+              "sourceRevision": source,
+              "runId": run_id,
+              "runAttempt": int(attempt),
+          }
+          for key, value in expected.items():
+              if receipt.get(key) != value:
+                  raise SystemExit(f"the allocated build receipt does not match this run for {key}")
+          PY
+
+      - name: Install NSIS
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends nsis
+
+      - name: Resolve the reviewed signing identity
+        id: identity
+        env:
+          KEY_ID: ${{ vars.FRAMEWORK_UPDATE_SIGNING_KEY_ID }}
+          MINIMUM_UPDATER: ${{ vars.FRAMEWORK_UPDATE_MINIMUM_UPDATER }}
+        run: |
+          set -euo pipefail
+          [[ "$KEY_ID" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+            echo '::error::Set the repository variable FRAMEWORK_UPDATE_SIGNING_KEY_ID to the provisioned client key id.'
+            exit 1
+          }
+          # Never derive the updater floor from the target version: release B must stay applicable to
+          # an installation running the older A. The baseline is an operator decision (the first release
+          # that actually speaks this protocol), so an unset variable fails instead of inventing one.
+          [[ -n "$MINIMUM_UPDATER" ]] || {
+            echo '::error::Set the repository variable FRAMEWORK_UPDATE_MINIMUM_UPDATER to the compatible updater baseline.'
+            exit 1
+          }
+          [[ "$MINIMUM_UPDATER" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo '::error::FRAMEWORK_UPDATE_MINIMUM_UPDATER must be a plain release version such as 0.68.1.'
+            exit 1
+          }
+          echo "key_id=$KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "minimum_updater=$MINIMUM_UPDATER" >> "$GITHUB_OUTPUT"
+
+      - name: Sign the audited payload with the short-lived release key
+        env:
+          FRAMEWORK_UPDATE_SIGNING_KEY_B64: ${{ secrets.FRAMEWORK_UPDATE_SIGNING_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$FRAMEWORK_UPDATE_SIGNING_KEY_B64" || {
+            echo '::error::The protected signing environment has no framework signing key.'
+            exit 1
+          }
+          CHANNEL="${{ inputs.channel }}"
+          EVIDENCE=()
+          if [ "$CHANNEL" = stable ]; then
+            EVIDENCE=(--evidence build/release-orchestrator/candidate.json)
+          else
+            EVIDENCE=(--prerelease-evidence build/release-orchestrator/prerelease-candidate.json)
+          fi
+          python3 scripts/release/prepare-framework-release.py sign \
+            --dist build/windows-installer/dist \
+            --identity build/release-orchestrator/build-identity.json \
+            --inventory build/windows-installer/generated/framework-payload-inventory.json \
+            "${EVIDENCE[@]}" \
+            --key-id "${{ steps.identity.outputs.key_id }}" \
+            --private-key-env FRAMEWORK_UPDATE_SIGNING_KEY_B64 \
+            --minimum-updater "${{ steps.identity.outputs.minimum_updater }}" \
+            --output build/release-orchestrator/framework-update
+
+      - name: Re-package the final package with the signed bootstrap documents
+        run: |
+          bash packaging/windows-installer/assemble-release.sh "${{ inputs.version }}" \
+            --skip-gradle \
+            --bootstrap-receipt-dir build/release-orchestrator/framework-update
+          ( cd build/windows-installer/dist && sha256sum -c *.sha256 )
+
+      - name: Prove the final payload matches the signature
+        run: |
+          python3 scripts/release/prepare-framework-release.py verify \
+            --dist build/windows-installer/dist \
+            --documents build/release-orchestrator/framework-update \
+            --inventory build/windows-installer/generated/framework-payload-inventory.json \
+            --identity build/release-orchestrator/build-identity.json \
+            --evidence-output build/release-orchestrator/framework-bootstrap-evidence.json
+          python3 scripts/release/verify-release.py \
+            --version "${{ inputs.version }}" \
+            --channel "${{ inputs.channel }}" \
+            --dist build/windows-installer/dist \
+            --release-plugins packaging/release-plugins.txt \
+            --windows-stage build/windows-installer/staging \
+            --manifest-output build/release-orchestrator/framework-artifacts.json
+
+      - name: Refresh only the candidate artifact digests
+        run: |
+          python3 scripts/release/prepare-framework-release.py refresh-evidence \
+            --source-root "$GITHUB_WORKSPACE" \
+            --dist build/windows-installer/dist \
+            --bundle build/release-orchestrator \
+            --version "${{ inputs.version }}" \
+            --channel "${{ inputs.channel }}"
+
+      - name: Upload the signed candidate payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-release-candidate-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/windows-installer/dist
+            build/windows-installer/staging
+            build/windows-installer/generated/framework-payload-inventory.json
+            build/release-orchestrator/prerelease-candidate.json
+            build/release-orchestrator/candidate.json
+            build/release-orchestrator/build-identity.json
+            build/release-orchestrator/framework-artifacts.json
+            build/release-orchestrator/release-notes.md
+            build/release-orchestrator/framework-update
+            build/release-orchestrator/framework-bootstrap-evidence.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Report the signed package identity
+        run: |
+          {
+            echo '## Framework update documents signed into the candidate package'
+            echo "Channel: ${{ inputs.channel }}; version: ${{ inputs.version }}; source: ${{ inputs.source_sha }}"
+            echo "Key id: ${{ steps.identity.outputs.key_id }}; minimum updater: ${{ steps.identity.outputs.minimum_updater }}"
+            echo 'The promotion workflow still performs no rebuild; the feed admission remains a separate explicit dispatch.'
+          } >> "$GITHUB_STEP_SUMMARY"

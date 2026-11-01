@@ -65,6 +65,34 @@ public interface CorePluginManagement extends AutoCloseable {
      */
     OperationResult setEnabled(String pluginId, boolean enabled);
 
+    /** Worker-thread snapshot for explicit review; contains no staging paths or executable authority. */
+    default PendingChanges pendingChanges() {
+        return new PendingChanges("", "PLUGIN_PENDING_UNAVAILABLE", List.of());
+    }
+
+    /** Cancels only the exact reviewed intent, never installed plugin bytes. Must run on a worker. */
+    default OperationResult discardPendingChanges(final String expectedSnapshot) {
+        return OperationResult.rejected("PLUGIN_PENDING_UNAVAILABLE", "Pending changes are unavailable.");
+    }
+
+    /**
+     * Display-only description of one journalled plugin change, without executable paths.
+     *
+     * @param pluginId plugin whose next-launch state would change
+     * @param operation pending operation name
+     * @param version version associated with the pending change, empty when no version is recorded
+     */
+    record PendingChange(String pluginId, String operation, String version) {}
+
+    /** Opaque, root-bound staleness witness; it is not a signature or authorization token. */
+    record PendingChanges(String snapshot, String code, List<PendingChange> changes) {
+        public PendingChanges {
+            snapshot = snapshot == null ? "" : snapshot;
+            code = java.util.Objects.requireNonNull(code, "code");
+            changes = List.copyOf(changes);
+        }
+    }
+
     @Override
     default void close() {}
 

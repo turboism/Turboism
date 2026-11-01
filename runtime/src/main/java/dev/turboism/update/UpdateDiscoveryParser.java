@@ -136,12 +136,42 @@ public final class UpdateDiscoveryParser {
         final String rawVersion = text(node, "version");
         final UpdateVersion version = parseReleaseVersion(rawVersion);
         final List<UpdateDiscovery.Asset> assets = parseAssets(node);
+        final Optional<String> sourceRevision;
+        final JsonNode source = node.get("sourceRevision");
+        if (source == null || source.isNull()) {
+            sourceRevision = Optional.empty();
+        } else {
+            if (!source.isTextual() || !source.textValue().matches("[0-9a-f]{40}")) {
+                throw invalid("invalid release sourceRevision");
+            }
+            sourceRevision = Optional.of(source.textValue());
+        }
+        final Optional<UpdateIncrementalDiscovery> incremental;
+        final JsonNode capability = node.get("incremental");
+        if (capability == null || capability.isNull()) {
+            incremental = Optional.empty();
+        } else {
+            final JsonNode feedSource = required(object, "source");
+            if (!feedSource.isObject()
+                    || !UpdateIncrementalDiscovery.REPOSITORY.equals(text((ObjectNode) feedSource, "repository"))
+                    || !HttpUpdateTransport.endpointForChannel(expectedChannel)
+                            .toString()
+                            .equals(text(object, "metadataUrl"))
+                    || !expectedChannel.equals(text(node, "channel"))) {
+                throw invalid("incremental discovery authority/channel mismatch");
+            }
+            final UpdateIncrementalDiscovery parsed = UpdateIncrementalDiscovery.parse(capability);
+            if (!expectedChannel.equals(parsed.channel())) throw invalid("incremental channel mismatch");
+            incremental = Optional.of(parsed);
+        }
         return new UpdateDiscovery.Candidate(
                 version,
                 rawVersion,
                 optionalPositiveLong(node, "buildNumber"),
                 optionalUtcInstant(node, "publishedAt"),
-                assets);
+                assets,
+                sourceRevision,
+                incremental);
     }
 
     private List<UpdateDiscovery.Asset> parseAssets(final ObjectNode node) {

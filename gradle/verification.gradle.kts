@@ -1706,6 +1706,7 @@ tasks.register("checkIntegration") {
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
         ":bootstrap:checkBootstrapJarDependencyIsolation",
+        ":bootstrap:checkBootstrapLaunchLeasePremain",
         "contractParentAgentTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
@@ -1785,6 +1786,36 @@ val checkCompletedCommit by tasks.registering {
     )
 }
 
+// The offline signing fixture is ordinary CI: temporary keys only, no publishing.
+val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Tests deterministic offline framework signing and build inventory boundaries."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/release/build-framework-update.py",
+        "scripts/release/prepare-framework-client.py",
+        "scripts/release/prepare-framework-release.py",
+        fileTree("scripts/release/turboism_release") { include("*.py") },
+        "scripts/test/test_release_tooling.py",
+        "scripts/test/test_framework_client.py",
+        "scripts/test/test_framework_release.py",
+        "bootstrap/build.gradle.kts",
+        ".github/workflows/release.yml",
+        ".github/workflows/release-github-only.yml",
+        ".github/workflows/framework-release-signing.yml",
+        fileTree("packaging") { include("**/*") },
+        "LICENSE",
+        "graal-host/build.gradle.kts",
+        "buildSrc/src/main/kotlin/turboism.java-conventions.gradle.kts"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "-v",
+        "scripts.test.test_release_tooling.FrameworkUpdateToolTest",
+        "scripts.test.test_framework_client",
+        "scripts.test.test_framework_release")
+}
+tasks.named("checkCompletedCommit") { dependsOn(checkFrameworkUpdateTooling) }
+
 val checkReleaseTooling by tasks.registering(Exec::class) {
     group = "release verification"
     description = "Verifies changelog extraction, release payloads, and deterministic release planning."
@@ -1794,6 +1825,8 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/release/verify-release.py",
         "scripts/release/audit-v0.42.0.py",
         "scripts/release/build-updates-manifests.py",
+        "scripts/release/build-framework-update.py",
+        "packaging/framework-update-layout.json",
         "scripts/release/turboism-release.py",
         "scripts/release/promote-github-release.py",
         "scripts/release/verify-github-assets.py",
@@ -1878,3 +1911,62 @@ recordsConsumers.forEach { taskName ->
         inputs.files(tasks.named("materializeVerificationRecords"))
     }
 }
+
+// Ordinary CI checks sources/pins/ABI without requiring MinGW or pretending native tests passed.
+val checkWindowsUpdateNativeSources by tasks.registering(Exec::class) {
+    group = "verification"
+    workingDir(rootDir)
+    inputs.files(fileTree("native/update-files"),
+        "scripts/dev/build_windows_update_files.py",
+        "scripts/dev/test-windows-receipt.ps1",
+        "scripts/test/test_windows_update_native.py",
+        "runtime/src/main/java/dev/turboism/update/WindowsInstallationFiles.java")
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_windows_update_native")
+}
+tasks.named("checkCompletedCommit") { dependsOn(checkWindowsUpdateNativeSources) }
+
+// Bootstrap receipt integration covers signed first-install initialization, cross-layer layout
+// consistency and collision safety. The gate exports the runtime test classpath once and hands its
+// file to the Python runner through a structured env var, so the test never starts a nested,
+// competing Gradle build inside this Exec; standalone runs still export the classpath themselves.
+val checkBootstrapReceipt by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies bootstrap receipt initialization, layout consistency and collision safety."
+    workingDir(rootDir)
+    dependsOn(":runtime:writeBootstrapReceiptTestClasspath")
+    inputs.files(
+        "scripts/test/test_bootstrap_receipt.py",
+        fileTree("scripts/release/turboism_release") { include("*.py") },
+        "packaging/framework-update-layout.json",
+        "packaging/windows-installer/bootstrap-receipt.ps1",
+        "packaging/windows-installer/assemble-release.sh",
+        "packaging/windows-installer/installer.nsi",
+        "packaging/windows-installer/configure_turboism.ps1",
+        "packaging/windows-installer/launch-cubism-turboism.ps1",
+        "runtime/src/main/java/dev/turboism/update/UpdateManifestEntry.java"
+    )
+    val classpathFile = project(":runtime").layout.buildDirectory
+        .file("update-test/bootstrap-receipt-test-classpath.txt")
+    inputs.file(classpathFile)
+    // Track the actual runtime test classpath bytes (main/test outputs plus dependency JARs), not only the
+    // exported classpath string: a recompiled class at an unchanged path must still invalidate this gate.
+    val runtimeTestClasspath = project(":runtime").extensions
+        .getByType<SourceSetContainer>()["test"].runtimeClasspath
+    inputs.files(runtimeTestClasspath)
+    VerificationStamps.apply(this)
+    doFirst {
+        environment(
+            "TURBOISM_BOOTSTRAP_RECEIPT_TEST_CLASSPATH_FILE",
+            classpathFile.get().asFile.absolutePath
+        )
+    }
+    commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_bootstrap_receipt")
+}
+tasks.named("checkCompletedCommit") { dependsOn(checkBootstrapReceipt) }
+
+// Real built-agent premain evidence for the framework launch lease (issue #50). The probe itself is a JavaExec in
+// :bootstrap (it owns the built JAR input, the test-classes dependency and the fork classpath); this file only links
+// it into the integration and completed-commit chains so a premain handshake regression fails the ordinary gate.
+// It validates whatever identity the built artifact really carries, so a numbered CI build stays valid.
+tasks.named("checkCompletedCommit") { dependsOn(":bootstrap:checkBootstrapLaunchLeasePremain") }
