@@ -74,10 +74,7 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
         meshRenderer = panel.getMethod("getMeshRenderer");
         material = rendererBase.getMethod("getMaterial");
         color = nativeColor.getConstructor(Color.class);
-        // Cubism 5.3 added the optional uniform array index; 5.0–5.2 use two arguments.
-        setColor = version.startsWith("5.3.")
-                ? nativeMaterial.getMethod("setColor", String.class, nativeColor, Integer.class)
-                : nativeMaterial.getMethod("setColor", String.class, nativeColor);
+        setColor = materialColorSetter(version, nativeMaterial, nativeColor);
         updateManager = pack.getMethod("getUpdateManager");
         repaintCanvas = updates.getMethod("repaintCanvas", boolean.class);
         if (backgroundPanel.getReturnType() != panel || meshRenderer.getReturnType() != renderer) {
@@ -106,6 +103,23 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException("Could not refresh the off-canvas background", exception);
         }
+    }
+
+    static Method materialColorSetter(final String version, final Class<?> material, final Class<?> color)
+            throws NoSuchMethodException {
+        final List<Method> matches = java.util.Arrays.stream(material.getMethods())
+                .filter(method -> method.getName().equals("setColor"))
+                .filter(method -> method.getReturnType() == void.class)
+                .filter(method -> !Modifier.isStatic(method.getModifiers()))
+                .filter(method -> java.util.Arrays.equals(
+                                method.getParameterTypes(), new Class<?>[] {String.class, color})
+                        || java.util.Arrays.equals(
+                                method.getParameterTypes(), new Class<?>[] {String.class, color, Integer.class}))
+                .toList();
+        if (matches.size() != 1) {
+            throw new NoSuchMethodException("Expected one off-canvas material setColor contract for " + version);
+        }
+        return matches.get(0);
     }
 
     // The material is a copy made by the appearance constructor, not a live reference to the Lazy.
