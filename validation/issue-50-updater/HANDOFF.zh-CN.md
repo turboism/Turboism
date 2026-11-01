@@ -1,5 +1,11 @@
 # Issue #50 自更新接手说明
 
+> **2026-11-01 当前 Windows 工作区已有更新验收**：见
+> [Windows 启动租约与原生恢复验收](windows-launch-lease-host-validation.md)。
+> 本机 Cubism 5.3.02 已完成真实坏包回滚、下次启动 README 恢复、原生默认保留/明确取消和有效包重试。
+> 下文 D 盘路径及 PID 属于上一台机器的历史检查点，不是本机当前进程。
+> 新增启动租约、ACL、脚本修复仍需结合当前 git status 阅读；不要只按 f173f64 推断工作树源码。
+
 ## 分支与边界
 
 - 仓库：`git@github.com:turboism/Turboism.git`。

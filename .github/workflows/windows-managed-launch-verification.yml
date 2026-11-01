@@ -117,6 +117,9 @@ jobs:
         env:
           TURBOISM_WORKTREE_ID: windows-managed-launch-ci
         run: .\gradlew.bat :runtime:test --tests dev.turboism.graal.ManagedGraalRuntimeServiceTest --tests dev.turboism.graal.ManagedGraalRuntimeCliTest --console=plain
+      - name: Run synthetic launch-lease gate (Windows PowerShell 5.1)
+        shell: powershell
+        run: .\packaging\windows-installer\test-launch-lease.ps1
       - name: Run synthetic managed-launch gate
         shell: powershell
         run: .\packaging\windows-installer\test-managed-launch.ps1

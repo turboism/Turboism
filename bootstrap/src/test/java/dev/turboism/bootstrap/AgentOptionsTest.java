@@ -39,4 +39,21 @@ class AgentOptionsTest {
                 IllegalArgumentException.class,
                 () -> AgentOptions.parse("timeoutSeconds=1;timeoutSeconds=2", temporaryDirectory));
     }
+
+    @Test
+    void parsesOptionalLaunchTokenAndLeavesItNullWhenAbsent() {
+        final String token = "ab".repeat(32);
+        final AgentOptions withToken = AgentOptions.parse("launchToken=" + token, temporaryDirectory);
+        assertEquals(token, withToken.launchToken());
+        assertEquals(null, AgentOptions.parse(null, temporaryDirectory).launchToken());
+    }
+
+    @Test
+    void rejectsMalformedLaunchToken() {
+        assertThrows(
+                IllegalArgumentException.class, () -> AgentOptions.parse("launchToken=not-hex", temporaryDirectory));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AgentOptions.parse("launchToken=" + "ab".repeat(31), temporaryDirectory));
+    }
 }

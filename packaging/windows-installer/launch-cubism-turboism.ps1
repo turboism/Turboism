@@ -37,6 +37,7 @@ $messages = @{
         Ready = "Managed Cubism launch: {0} ({1})"
         Jvm = "Cubism JVM: {0}"
         GraalFallback = "GraalVM is unavailable. This launch will use Cubism bundled Java instead. Install GraalVM from https://www.graalvm.org/downloads/ and select it again in Turboism Settings."
+        PrepareFailed = "Update startup preparation failed (exit {0}); no Cubism process was started. If an older Turboism install left a retained update helper behind, that helper predates the launch-lease protocol and is not migrated automatically: reinstall from the full package."
         Probe = "Managed launch probe passed."
     }
     zh = @{
@@ -54,6 +55,7 @@ $messages = @{
         Ready = "托管 Cubism 启动：{0}（{1}）"
         Jvm = "Cubism JVM：{0}"
         GraalFallback = "未检测到 GraalVM，本次启动将改用 Cubism 内置 Java。请从 https://www.graalvm.org/downloads/ 安装 GraalVM，然后在 Turboism 设置中重新选择。"
+        PrepareFailed = "启动前更新准备失败（退出码 {0}），本次没有启动任何 Cubism 进程。若安装目录中残留旧版 Turboism 的更新 helper，它不支持启动租约协议，当前不做自动迁移：请用完整安装包重新安装。"
         Probe = "托管启动探针通过。"
     }
     ja = @{
@@ -71,6 +73,7 @@ $messages = @{
         Ready = "管理対象 Cubism を起動：{0}（{1}）"
         Jvm = "Cubism JVM：{0}"
         GraalFallback = "GraalVM が見つからないため、今回は Cubism 同梱 Java を使用します。https://www.graalvm.org/downloads/ から GraalVM をインストールし、Turboism 設定で再度選択してください。"
+        PrepareFailed = "起動前の更新準備に失敗しました（終了コード {0}）。Cubism プロセスは起動していません。旧バージョンの Turboism が更新ヘルパーを残している場合、そのヘルパーは起動リース契約に対応しておらず、自動移行は行いません。完全なパッケージで再インストールしてください。"
         Probe = "管理起動プローブに成功しました。"
     }
 }
@@ -188,34 +191,24 @@ else {
     }
 }
 Write-Host ($M.Jvm -f $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { $cubism.Java }))
+# Launch-lease state; only non-Probe launches register a token and prepare.
+$launchToken = ""
+$launchPrepared = $false
 # Update and recovery execute from the retained helper copy, never from a possibly broken/locked new agent.
 # ProbeOnly remains read-only. The PowerShell launcher stays alive while Invoke-CubismOfficialBat waits.
+$updateWork = Join-Path $turboismHome 'state\runtime\update\helper'
+$updateJournal = Join-Path $updateWork 'journal.json'
+$updatePending = Join-Path $updateWork 'pending.json'
+$updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
 if (!$ProbeOnly) {
-    $updateWork = Join-Path $turboismHome 'state\runtime\update\helper'
-    $updateJournal = Join-Path $updateWork 'journal.json'
-    $updatePending = Join-Path $updateWork 'pending.json'
-    $updateJava = if ($javaOverride) { $javaOverride } else { $cubism.Java }
-    $receiptIndex = Join-Path $turboismHome 'state\runtime\update\installed-receipt.json'
-    $bootstrapScript = Join-Path $turboismHome 'bootstrap-receipt.ps1'
-    $bootstrapDocuments = Join-Path $turboismHome 'bootstrap'
-    # First standard-ZIP launch: initialize only from the package's dedicated signed documents.
-    # Never re-bootstrap an existing receipt or interfere with journal recovery. Failure leaves
-    # the full framework untouched; receipt loading keeps self-update unavailable, not Cubism.
-    if (!(Test-Path -LiteralPath $updateJournal) -and !(Test-Path -LiteralPath $receiptIndex) -and
-        (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) -and
-        (Test-Path -LiteralPath (Join-Path $bootstrapDocuments 'manifest.json') -PathType Leaf) -and
-        (Test-Path -LiteralPath (Join-Path $bootstrapDocuments 'manifest.json.sig') -PathType Leaf)) {
-        try {
-            $receiptResult = & $bootstrapScript -HomePath $turboismHome -StagePath $bootstrapDocuments `
-                -JavaPath $updateJava -PassThru
-            if (!$receiptResult.Success) {
-                Write-Warning "Framework receipt initialization failed (exit $($receiptResult.ExitCode)); self-update remains unavailable."
-            }
-        }
-        catch {
-            Write-Warning "Framework receipt initialization was skipped: $($_.Exception.Message)"
-        }
-    }
+    # First standard-ZIP launch: initialize the receipt only from the package's dedicated signed
+    # documents; the shared orchestration function owns every skip guard (pending recovery journal,
+    # existing receipt, legacy/thin package documents). Failure leaves the full framework untouched
+    # and keeps self-update unavailable without blocking Cubism itself.
+    Invoke-TurboismBootstrapReceiptInitialization `
+        -TurboismHome $turboismHome `
+        -UpdateJournal $updateJournal `
+        -UpdateJava $updateJava | Out-Null
     if ((Test-Path -LiteralPath $updateJournal) -or (Test-Path -LiteralPath $updatePending)) {
         # A launcher may have died while its Cubism child survived. Never restore loaded bytes in that case.
         $activeAgentUsers = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" -ErrorAction Stop |
@@ -224,53 +217,67 @@ if (!$ProbeOnly) {
         if ($activeAgentUsers.Count -gt 0) {
             throw 'Cubism is still using this Turboism installation; close it before startup update or recovery.'
         }
-        $updateRunner = Join-Path $turboismHome 'state\runtime\update\helper-runner.jar'
-        if (!(Test-Path -LiteralPath $updateRunner -PathType Leaf)) {
-            if (!(Test-Path -LiteralPath $updateJournal) -and (Test-Path -LiteralPath $agent -PathType Leaf)) {
-                Copy-Item -LiteralPath $agent -Destination $updateRunner -Force
-            } else {
-                throw 'Update recovery helper is missing; installation was not launched. Use the full package to recover.'
+    }
+    # Every non-Probe managed launch (including ordinary no-pending multi-instance launches) registers a
+    # fresh 256-bit token and prepares through an independent helper copy under the transaction lock.
+    $launchToken = New-TurboismLaunchToken
+    $prepareExit = Invoke-TurboismLaunchPrepare `
+        -Java $updateJava `
+        -Agent $agent `
+        -TurboismHome $turboismHome `
+        -UpdateWork $updateWork `
+        -UpdateJournal $updateJournal `
+        -UpdatePending $updatePending `
+        -LaunchToken $launchToken
+    if ($prepareExit -notin @(0, 10, 20, 30)) {
+        throw ($M.PrepareFailed -f $prepareExit)
+    }
+    $launchPrepared = $true
+}
+
+$exitCode = Invoke-TurboismManagedLaunch `
+    -Java $updateJava `
+    -Agent $agent `
+    -TurboismHome $turboismHome `
+    -UpdateWork $updateWork `
+    -UpdateJournal $updateJournal `
+    -UpdatePending $updatePending `
+    -LaunchPrepared $launchPrepared `
+    -LaunchToken $launchToken `
+    -LaunchAction {
+        $graalHost = Resolve-TurboismGraalHost `
+            -TurboismHome $turboismHome `
+            -PreferredJava $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { "" })
+
+        if ($ProbeOnly) {
+            Write-Host $M.Probe
+            exit 0
+        }
+
+        $launchBat = $officialBat
+        $temporaryBat = ""
+        try {
+            if ($cubismJvm -eq "graalvm") {
+                $temporaryBat = New-CubismJavaOverrideBat `
+                    -OfficialBat $officialBat `
+                    -CubismRoot $cubism.CanonicalRoot `
+                    -TurboismHome $turboismHome `
+                    -JavaExecutable $javaOverride
+                $launchBat = $temporaryBat
+            }
+            return Invoke-CubismOfficialBat `
+                -OfficialBat $launchBat `
+                -CubismRoot $cubism.CanonicalRoot `
+                -TurboismHome $turboismHome `
+                -Agent $agent `
+                -LaunchToken $launchToken `
+                -GraalHost $graalHost `
+                -Arguments $batArguments
+        }
+        finally {
+            if (-not [string]::IsNullOrWhiteSpace($temporaryBat) -and (Test-Path -LiteralPath $temporaryBat -PathType Leaf)) {
+                Remove-Item -LiteralPath $temporaryBat -Force -ErrorAction SilentlyContinue
             }
         }
-        & $updateJava '-cp' $updateRunner 'dev.turboism.update.FrameworkUpdateHelper' `
-            '--root' $turboismHome '--work' $updateWork '--prepare-launch' "$PID"
-        if ($LASTEXITCODE -notin @(0, 10, 20, 30)) {
-            throw "Update startup preparation failed (exit $LASTEXITCODE); no Cubism process was started."
-        }
     }
-}
-
-$graalHost = Resolve-TurboismGraalHost `
-    -TurboismHome $turboismHome `
-    -PreferredJava $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { "" })
-
-if ($ProbeOnly) {
-    Write-Host $M.Probe
-    exit 0
-}
-
-$launchBat = $officialBat
-$temporaryBat = ""
-try {
-    if ($cubismJvm -eq "graalvm") {
-        $temporaryBat = New-CubismJavaOverrideBat `
-            -OfficialBat $officialBat `
-            -CubismRoot $cubism.CanonicalRoot `
-            -TurboismHome $turboismHome `
-            -JavaExecutable $javaOverride
-        $launchBat = $temporaryBat
-    }
-    $exitCode = Invoke-CubismOfficialBat `
-        -OfficialBat $launchBat `
-        -CubismRoot $cubism.CanonicalRoot `
-        -TurboismHome $turboismHome `
-        -Agent $agent `
-        -GraalHost $graalHost `
-        -Arguments $batArguments
-}
-finally {
-    if (-not [string]::IsNullOrWhiteSpace($temporaryBat) -and (Test-Path -LiteralPath $temporaryBat -PathType Leaf)) {
-        Remove-Item -LiteralPath $temporaryBat -Force -ErrorAction SilentlyContinue
-    }
-}
 exit $exitCode

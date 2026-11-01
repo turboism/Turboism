@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -25,13 +26,134 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/release"))
 from turboism_release import framework_update
 
+# Every execution fixture lives in one uniquely named directory created below.
+TEMP_FIXTURE_PREFIX = "turboism-bootstrap-test-"
+
+# Generated PowerShell fixtures are written as UTF-8 **with BOM** because Windows PowerShell 5.1
+# parses BOM-less scripts with the ANSI codepage and would corrupt non-ASCII (for example Chinese)
+# fixture paths. The fixtures never change the console code page: [Console]::OutputEncoding is
+# process-global for the whole attached console, so setting it here would leak into the shared
+# console of the user and of other tests. Values that may be non-ASCII are written to explicit
+# UTF-8 files instead of stdout.
+
+
+def oem_codepage_encoding() -> str:
+    """Console (OEM) codepage Windows PowerShell uses for host output the prologue never sees."""
+    if os.name != "nt":
+        return "utf-8"
+    import ctypes
+
+    return f"cp{int(ctypes.windll.kernel32.GetOEMCP())}"
+
+
+def decode_console_output(raw: bytes) -> str:
+    """Decode captured console bytes without ever replacing characters.
+
+    Test fixtures emit UTF-8 once their prologue has run. Parse/host errors reported by Windows
+    PowerShell itself can still arrive in the console OEM codepage, so that codepage is decoded
+    strictly as well. Using errors="replace" here would hide the real assertion context.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode(oem_codepage_encoding())
+
+
+def run_console_process(cmd: list[str], *, timeout: int = 120, cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """Run a console command and decode both streams strictly (never with errors="replace")."""
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, timeout=timeout)
+    return subprocess.CompletedProcess(
+        result.args,
+        result.returncode,
+        decode_console_output(result.stdout),
+        decode_console_output(result.stderr),
+    )
+
+
+def write_powershell_fixture(path: Path, body: str) -> None:
+    """Write a generated PowerShell script as UTF-8 with BOM (no console code page changes)."""
+    path.write_text(body, encoding="utf-8-sig")
+
+
+def remove_tree_without_following_junctions(root: Path) -> None:
+    """Delete this test's own fixture root, unlinking fixture junctions before the tree delete.
+
+    The root must be the absolute directory this test created with tempfile.mkdtemp; anything else
+    raises instead of deleting. Directory junctions are unlinked first so the intent stays explicit
+    and does not depend on the runtime's shutil.rmtree junction handling; only the junction link
+    itself is removed (os.rmdir on a junction never enumerates or deletes its target). A failed
+    lstat/rmdir raises rather than silently continuing into a recursive delete.
+    """
+    root = root.resolve()
+    expected_parent = Path(tempfile.gettempdir()).resolve()
+    if not root.is_absolute() or root.parent != expected_parent or not root.name.startswith(
+        TEMP_FIXTURE_PREFIX
+    ):
+        raise AssertionError(f"refusing to clean a path that is not this test's fixture root: {root}")
+    if not root.exists():
+        return
+    for current, dirnames, _filenames in os.walk(root, topdown=True):
+        for name in list(dirnames):
+            path = Path(current) / name
+            is_reparse_point = path.lstat().st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            if is_reparse_point:
+                os.rmdir(path)
+                dirnames.remove(name)
+    shutil.rmtree(root)
+
+
+def resolve_verified_jdk_home() -> Path:
+    """Resolve a JDK home that really contains bin/java(.exe).
+
+    C:\\Program Files\\Common Files\\Oracle\\Java\\javapath\\java.exe is a launcher shim whose
+    parents[1] is not a JDK home, so the shim path is never treated as one. Preference order:
+    a verified JAVA_HOME, the java.home the resolved java reports itself, then the executable's own
+    bin parent (which is correct for a real JDK java.exe).
+    """
+    java_binary = "java.exe" if os.name == "nt" else "java"
+    candidates: list[Path] = []
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        candidates.append(Path(java_home))
+    java_executable = shutil.which("java.exe") or shutil.which("java")
+    if java_executable:
+        try:
+            probe = run_console_process([java_executable, "-XshowSettings:properties", "-version"], timeout=120)
+            match = re.search(r"^\s*java\.home\s*=\s*(.+?)\s*$", probe.stdout + probe.stderr, re.MULTILINE)
+            if match:
+                candidates.append(Path(match.group(1)))
+        except (OSError, subprocess.SubprocessError):
+            pass
+        candidates.append(Path(java_executable).resolve().parent.parent)
+    tried: list[str] = []
+    for candidate in candidates:
+        tried.append(str(candidate))
+        if (candidate / "bin" / java_binary).is_file():
+            return candidate
+    raise AssertionError("No verified JDK home with bin/java found; tried: " + ", ".join(tried))
+
 
 @functools.lru_cache(maxsize=1)
 def resolve_bootstrap_receipt_test_classpath() -> str:
-    """Invokes Gradle verification task to export the exact test runtime classpath."""
+    """Returns the exact test runtime classpath.
+
+    When the gating Gradle task has already exported the classpath, it passes the export file via
+    TURBOISM_BOOTSTRAP_RECEIPT_TEST_CLASSPATH_FILE so this test never starts a nested, competing
+    Gradle build inside the gate. Independent runs fall back to invoking the export task below.
+    """
+    exported_file = os.environ.get("TURBOISM_BOOTSTRAP_RECEIPT_TEST_CLASSPATH_FILE")
+    if exported_file:
+        path = Path(exported_file)
+        if not path.is_absolute() or not path.is_file():
+            raise RuntimeError(f"Bootstrap receipt classpath export is missing: {path}")
+        classpath = path.read_text(encoding="utf-8").strip()
+        if not classpath:
+            raise RuntimeError(f"Bootstrap receipt classpath export is empty: {path}")
+        return classpath
+
     gradlew = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
     cmd = [gradlew, ":runtime:writeBootstrapReceiptTestClasspath", "--console=plain"]
-    result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, errors="replace")
+    result = run_console_process(cmd, cwd=ROOT, timeout=900)
     if result.returncode:
         raise RuntimeError(f"Gradle classpath export failed:\n{result.stdout}\n{result.stderr}")
     prefix = "BOOTSTRAP_RECEIPT_TEST_CLASSPATH: "
@@ -161,17 +283,37 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
     def setUp(self):
         if os.name != "nt":
             self.skipTest("PowerShell bootstrap receipt execution tests require Windows NT")
-        self.temp_dir = tempfile.mkdtemp(prefix="turboism-bootstrap-test-")
+        self.temp_dir = tempfile.mkdtemp(prefix=TEMP_FIXTURE_PREFIX)
         self.fixture = Path(self.temp_dir)
         self.bootstrap_script = ROOT / "packaging/windows-installer/bootstrap-receipt.ps1"
 
     def tearDown(self):
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        # Junction fixtures point at real host JDKs; never let a recursive delete follow them.
+        remove_tree_without_following_junctions(Path(self.temp_dir))
 
     def _run_ps(self, args: list[str]) -> subprocess.CompletedProcess:
         cmd = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                "-File", str(self.bootstrap_script)] + args
-        return subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=60)
+        return run_console_process(cmd, timeout=120)
+
+    def _run_ps_fixture(self, name: str, body: str, *, timeout: int = 120) -> subprocess.CompletedProcess:
+        path = self.fixture / name
+        write_powershell_fixture(path, body)
+        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(path)]
+        return run_console_process(cmd, timeout=timeout)
+
+    def _create_junction(self, link: Path, target: Path) -> None:
+        result = run_console_process(["cmd", "/c", "mklink", "/J", str(link), str(target)])
+        self.assertEqual(result.returncode, 0,
+                         f"mklink /J failed: stdout={result.stdout!r} stderr={result.stderr!r}")
+
+    def _remove_junction(self, link: Path) -> None:
+        # os.rmdir removes the reparse point itself and never touches the junction target.
+        if link.exists() or link.is_symlink():
+            try:
+                os.rmdir(link)
+            except OSError as exc:
+                raise AssertionError(f"could not remove junction fixture {link}: {exc}") from exc
 
     def test_legacy_install_without_bootstrap_docs_skips_cleanly(self):
         home = self.fixture / "legacy-home"
@@ -194,9 +336,11 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
 
     def test_clean_environment_finds_java_from_cubism_installations(self):
         """Point 1: Cleared PATH/JAVA_HOME/GRAAL finds Java strictly from cubism-installations.json."""
-        current_java = shutil.which("java.exe") or shutil.which("java")
-        self.assertIsNotNone(current_java, "java.exe must be installed for behavior test")
-        real_jdk = Path(current_java).resolve().parents[1]
+        # A PATH java.exe is often a launcher shim (Oracle javapath), whose parents[1] is not a JDK.
+        # Resolve a verified JDK home whose bin/java really exists before building the fixture.
+        jdk_home = resolve_verified_jdk_home()
+        self.assertTrue((jdk_home / "bin" / "java.exe").is_file(),
+                        f"fixture JDK home must contain bin/java.exe: {jdk_home}")
 
         home = self.fixture / "cubism-env-home"
         home.mkdir()
@@ -206,49 +350,59 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         fake_app = fake_cubism / "app"
         fake_app.mkdir(parents=True)
         fake_jre = fake_app / "jre"
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(fake_jre), str(real_jdk)], check=True)
-        fake_lib = fake_app / "lib"
-        fake_lib.mkdir()
-        (fake_cubism / "CubismEditor5.bat").write_text("@rem dummy", encoding="utf-8")
-        (fake_lib / "Live2D_Cubism.jar").write_bytes(b"dummy")
+        self._create_junction(fake_jre, jdk_home)
+        try:
+            self.assertTrue((fake_jre / "bin" / "java.exe").is_file(),
+                            f"fixture JRE junction must expose a real java.exe (jdk home: {jdk_home})")
+            fake_lib = fake_app / "lib"
+            fake_lib.mkdir()
+            (fake_cubism / "CubismEditor5.bat").write_text("@rem dummy", encoding="utf-8")
+            (fake_lib / "Live2D_Cubism.jar").write_bytes(b"dummy")
 
-        cubism_state_doc = {
-            "format": "turboism.cubism.installation-state",
-            "schemaVersion": 1,
-            "installations": [
-                {
-                    "root": str(fake_cubism),
-                    "version": "5.1.00",
-                    "selected": True
-                }
-            ],
-            "managedShortcuts": []
-        }
-        (home / "cubism-installations.json").write_text(json.dumps(cubism_state_doc), encoding="utf-8")
+            cubism_state_doc = {
+                "format": "turboism.cubism.installation-state",
+                "schemaVersion": 1,
+                "installations": [
+                    {
+                        "root": str(fake_cubism),
+                        "version": "5.1.00",
+                        "selected": True
+                    }
+                ],
+                "managedShortcuts": []
+            }
+            (home / "cubism-installations.json").write_text(json.dumps(cubism_state_doc), encoding="utf-8")
 
-        # Place bootstrap docs so Find-RunnableJava is invoked
-        b_dir = home / "bootstrap"
-        b_dir.mkdir()
-        (b_dir / "manifest.json").write_text("{}", encoding="utf-8")
-        (b_dir / "manifest.json.sig").write_text("sig", encoding="utf-8")
+            # Place bootstrap docs so Find-RunnableJava is invoked
+            b_dir = home / "bootstrap"
+            b_dir.mkdir()
+            (b_dir / "manifest.json").write_text("{}", encoding="utf-8")
+            (b_dir / "manifest.json.sig").write_text("sig", encoding="utf-8")
 
-        runner = self.fixture / "run-clean-env.ps1"
-        runner.write_text(
-            f'[Environment]::SetEnvironmentVariable("JAVA_HOME", $null, "Process")\n'
-            f'[Environment]::SetEnvironmentVariable("GRAALVM_HOME", $null, "Process")\n'
-            f'[Environment]::SetEnvironmentVariable("TURBOISM_GRAALVM_HOME", $null, "Process")\n'
-            f'[Environment]::SetEnvironmentVariable("PATH", "C:\\Windows\\System32", "Process")\n'
-            f'. "{self.bootstrap_script}"\n'
-            f'$found = Find-RunnableJava -TurboismHome "{home}"\n'
-            f'[Console]::Out.WriteLine($found)\n',
-            encoding="utf-8"
-        )
-
-        res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                              "-File", str(runner)], capture_output=True, text=True, errors="replace", check=True)
-        self.assertIn(str(fake_cubism).lower(), res.stdout.lower())
-
-        subprocess.run(["cmd", "/c", "rmdir", str(fake_jre)], check=True)
+            found_file = self.fixture / "found-java.txt"
+            res = self._run_ps_fixture(
+                "run-clean-env.ps1",
+                '[Environment]::SetEnvironmentVariable("JAVA_HOME", $null, "Process")\n'
+                '[Environment]::SetEnvironmentVariable("GRAALVM_HOME", $null, "Process")\n'
+                '[Environment]::SetEnvironmentVariable("TURBOISM_GRAALVM_HOME", $null, "Process")\n'
+                '[Environment]::SetEnvironmentVariable("PATH", "C:\\Windows\\System32", "Process")\n'
+                f'. "{self.bootstrap_script}"\n'
+                f'$found = Find-RunnableJava -TurboismHome "{home}"\n'
+                # The resolved path may contain non-ASCII characters; carry it through an explicit
+                # UTF-8 file instead of the console (whose code page is shared process-globally).
+                f'[System.IO.File]::WriteAllText("{found_file}", [string]$found, (New-Object System.Text.UTF8Encoding($false)))\n',
+            )
+            self.assertEqual(res.returncode, 0,
+                             f"Find-RunnableJava runner failed.\nstdout:\n{res.stdout}\nstderr:\n{res.stderr}")
+            found = found_file.read_text(encoding="utf-8") if found_file.is_file() else ""
+            self.assertIn(str(fake_cubism).lower(), found.lower(),
+                          f"Find-RunnableJava must select the state-selected Cubism JRE "
+                          f"(fixture JDK home: {jdk_home}, resolved: {found!r}).\n"
+                          f"stdout:\n{res.stdout}\nstderr:\n{res.stderr}")
+        finally:
+            # Remove the junction before the fixture tree is deleted so no recursive delete can
+            # ever follow it into the real JDK installation.
+            self._remove_junction(fake_jre)
 
     def test_owned_modify_only_directory_does_not_require_write_owner(self):
         """DACL preparation must not try to re-set ownership on ordinary owned data-drive directories."""
@@ -257,8 +411,8 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         state.mkdir(parents=True)
         sentinel = state / "user-sentinel.txt"
         sentinel.write_bytes(b"preserved")
-        runner = self.fixture / "modify-only.ps1"
-        runner.write_text(
+        result = self._run_ps_fixture(
+            "modify-only.ps1",
             '$ErrorActionPreference="Stop"\n'
             f'. "{self.bootstrap_script}"\n'
             f'$dir = New-Object IO.DirectoryInfo("{state}")\n'
@@ -273,9 +427,8 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
             f'Initialize-PrivateStateNamespace -TurboismHome "{home}"\n'
             '$ownerAfter = $dir.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier])\n'
             'if (!$ownerBefore.Equals($ownerAfter)) { throw "Owner changed" }\n'
-            'Write-Output "DACL_ONLY_PASS"\n', encoding="utf-8")
-        result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-File", str(runner)],
-                                capture_output=True, text=True, errors="replace")
+            'Write-Output "DACL_ONLY_PASS"\n',
+        )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("DACL_ONLY_PASS", result.stdout)
         self.assertEqual(sentinel.read_bytes(), b"preserved")
@@ -290,43 +443,41 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         sentinel.write_text("user-preserved-data", encoding="utf-8")
 
         # Add explicit Everyone Allow to home/state
-        everyone_script = self.fixture / "add-everyone.ps1"
-        everyone_script.write_text(
+        everyone = self._run_ps_fixture(
+            "add-everyone.ps1",
             f'$d = New-Object System.IO.DirectoryInfo("{state_dir}")\n'
-            f'$acl = $d.GetAccessControl()\n'
-            f'$sid = New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0")\n'
-            f'$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")\n'
-            f'$acl.AddAccessRule($rule)\n'
-            f'$d.SetAccessControl($acl)\n',
-            encoding="utf-8"
+            '$acl = $d.GetAccessControl()\n'
+            '$sid = New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0")\n'
+            '$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")\n'
+            '$acl.AddAccessRule($rule)\n'
+            '$d.SetAccessControl($acl)\n',
         )
-        subprocess.run(["powershell", "-NoProfile", "-File", str(everyone_script)], check=True)
+        self.assertEqual(everyone.returncode, 0,
+                         f"stdout:\n{everyone.stdout}\nstderr:\n{everyone.stderr}")
 
         # Run Initialize-PrivateStateNamespace via dot-source
-        init_script = self.fixture / "run-init-acl.ps1"
-        init_script.write_text(
+        init_res = self._run_ps_fixture(
+            "run-init-acl.ps1",
             f'. "{self.bootstrap_script}"\n'
             f'Initialize-PrivateStateNamespace -TurboismHome "{home}"\n',
-            encoding="utf-8"
         )
-        subprocess.run(["powershell", "-NoProfile", "-File", str(init_script)], check=True)
+        self.assertEqual(init_res.returncode, 0,
+                         f"stdout:\n{init_res.stdout}\nstderr:\n{init_res.stderr}")
 
         # Verify sentinel is intact
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "user-preserved-data")
 
         # Verify Everyone Allow was purged
-        check_script = self.fixture / "check-acl.ps1"
-        check_script.write_text(
+        res = self._run_ps_fixture(
+            "check-acl.ps1",
             f'$d = New-Object System.IO.DirectoryInfo("{state_dir}")\n'
-            f'$hasEveryone = $false\n'
-            f'foreach ($r in $d.GetAccessControl().GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {{\n'
-            f'  if ($r.IdentityReference.Value -eq "S-1-1-0") {{ $hasEveryone = $true }}\n'
-            f'}}\n'
-            f'[Console]::Out.WriteLine($hasEveryone)\n',
-            encoding="utf-8"
+            '$hasEveryone = $false\n'
+            'foreach ($r in $d.GetAccessControl().GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {\n'
+            '  if ($r.IdentityReference.Value -eq "S-1-1-0") { $hasEveryone = $true }\n'
+            '}\n'
+            '[Console]::Out.WriteLine($hasEveryone)\n',
         )
-        res = subprocess.run(["powershell", "-NoProfile", "-File", str(check_script)],
-                             capture_output=True, text=True, check=True)
+        self.assertEqual(res.returncode, 0, f"stdout:\n{res.stdout}\nstderr:\n{res.stderr}")
         self.assertEqual(res.stdout.strip().lower(), "false", "Explicit Everyone Allow must be purged")
 
         # Junction test: state junction to external dir must throw and not modify external SDDL or content
@@ -338,41 +489,54 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         ext_file.write_text("untouched", encoding="utf-8")
 
         # Capture SDDL of externalTarget before junction attempt
-        get_sddl = self.fixture / "get-sddl.ps1"
-        get_sddl.write_text(
+        get_sddl_body = (
             f'$sddl = (Get-Acl -LiteralPath "{ext_target}").Sddl\n'
-            f'[Console]::Out.WriteLine($sddl)\n',
-            encoding="utf-8"
+            '[Console]::Out.WriteLine($sddl)\n'
         )
-        sddl_before = subprocess.run(["powershell", "-NoProfile", "-File", str(get_sddl)],
-                                     capture_output=True, text=True, check=True).stdout.strip()
+        sddl_before = self._run_ps_fixture("get-sddl.ps1", get_sddl_body)
+        self.assertEqual(sddl_before.returncode, 0, sddl_before.stderr)
+        sddl_before_value = sddl_before.stdout.strip()
 
         junc_state = ext_home / "state"
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(junc_state), str(ext_target)], check=True)
+        self._create_junction(junc_state, ext_target)
+        try:
+            junc_res = self._run_ps_fixture(
+                "run-junc.ps1",
+                f'. "{self.bootstrap_script}"\n'
+                f'Initialize-PrivateStateNamespace -TurboismHome "{ext_home}"\n',
+            )
+            self.assertNotEqual(junc_res.returncode, 0, "Initialize-PrivateStateNamespace must throw on junction")
+            self.assertEqual(ext_file.read_text(encoding="utf-8"), "untouched")
 
-        junc_runner = self.fixture / "run-junc.ps1"
-        junc_runner.write_text(
-            f'. "{self.bootstrap_script}"\n'
-            f'Initialize-PrivateStateNamespace -TurboismHome "{ext_home}"\n',
-            encoding="utf-8"
-        )
-        junc_res = subprocess.run(["powershell", "-NoProfile", "-File", str(junc_runner)],
-                                  capture_output=True, text=True, errors="replace")
-        self.assertNotEqual(junc_res.returncode, 0, "Initialize-PrivateStateNamespace must throw on junction")
-        self.assertEqual(ext_file.read_text(encoding="utf-8"), "untouched")
-
-        sddl_after = subprocess.run(["powershell", "-NoProfile", "-File", str(get_sddl)],
-                                    capture_output=True, text=True, check=True).stdout.strip()
-        self.assertEqual(sddl_after, sddl_before, "External target SDDL must be completely unmodified through junction")
-
-        subprocess.run(["cmd", "/c", "rmdir", str(junc_state)], check=True)
+            sddl_after = self._run_ps_fixture("get-sddl.ps1", get_sddl_body)
+            self.assertEqual(sddl_after.returncode, 0, sddl_after.stderr)
+            self.assertEqual(sddl_after.stdout.strip(), sddl_before_value,
+                             "External target SDDL must be completely unmodified through junction")
+        finally:
+            self._remove_junction(junc_state)
 
     def test_managed_zip_launch_bootstrap_wiring_and_skip_guards(self):
-        """Execute the launcher's bootstrap block in isolation, not a real Cubism launch."""
+        """Execute the REAL launcher bootstrap orchestration, not a copied block of its source.
+
+        The launcher calls Invoke-TurboismBootstrapReceiptInitialization in
+        cubism-launch-common.ps1; this test dot-sources that real function so the skip guards are
+        exercised as production code. ProbeOnly gating lives in the launcher itself and is proven
+        behaviorally by packaging/windows-installer/test-launch-lease.ps1, which runs the real
+        launcher against an isolated home and asserts the bootstrap script is only invoked for
+        non-Probe launches.
+        """
         launcher = (ROOT / "packaging/windows-installer/launch-cubism-turboism.ps1").read_text(encoding="utf-8")
-        block = launcher.split("# Update and recovery execute", 1)[1]
-        block = block[block.index("if (!$ProbeOnly) {"):]
-        block = block.split("    if ((Test-Path -LiteralPath $updateJournal)", 1)[0] + "}\n"
+        common = ROOT / "packaging/windows-installer/cubism-launch-common.ps1"
+        self.assertIn("Invoke-TurboismBootstrapReceiptInitialization", launcher,
+                      "the launcher must call the shared bootstrap orchestration function")
+        self.assertLess(
+            launcher.index("if (!$ProbeOnly) {"),
+            launcher.index("Invoke-TurboismBootstrapReceiptInitialization"),
+            "bootstrap receipt initialization must stay inside the non-Probe launch branch",
+        )
+        self.assertIn("function Invoke-TurboismBootstrapReceiptInitialization",
+                      common.read_text(encoding="utf-8"))
+
         home = self.fixture / "launcher-home"
         home.mkdir()
         docs = home / "bootstrap"
@@ -386,38 +550,37 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
             '[pscustomobject]@{Success=$false; ExitCode=70}\n', encoding="utf-8")
         journal = home / "state/runtime/update/helper/journal.json"
         receipt = home / "state/runtime/update/installed-receipt.json"
-        runner = self.fixture / "launcher-bootstrap-block.ps1"
 
-        def run(probe=False):
-            runner.write_text(
-                '$ErrorActionPreference = "Stop"\n'
-                f"$turboismHome = '{home}'\n"
-                '$javaOverride = "selected-java"\n'
-                '$cubism = [pscustomobject]@{Java="bundled-java"}\n'
-                f'$ProbeOnly = ${str(probe).lower()}\n' + block +
-                'Write-Output "CONTINUED"\n', encoding="utf-8")
-            result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-File", str(runner)],
-                                    capture_output=True, text=True, errors="replace", check=True)
-            self.assertIn("CONTINUED", result.stdout)
+        def run():
+            result = self._run_ps_fixture(
+                "launcher-bootstrap-wiring.ps1",
+                f'. "{common}"\n'
+                f"$invoked = Invoke-TurboismBootstrapReceiptInitialization -TurboismHome '{home}' "
+                f"-UpdateJournal '{journal}' -UpdateJava 'selected-java' 3>$null\n"
+                'Write-Output ("INVOKED=" + $invoked)\n',
+            )
+            self.assertEqual(result.returncode, 0,
+                             f"real bootstrap orchestration failed.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+            self.assertIn("INVOKED=", result.stdout, result.stdout + result.stderr)
+            return "INVOKED=True" in result.stdout
 
-        run()
+        self.assertTrue(run(), "the first standard-ZIP launch must invoke the package bootstrap documents")
         self.assertEqual(marker.read_text().strip(), "selected-java")
+
         marker.unlink()
-        run(probe=True)
-        self.assertFalse(marker.exists(), "ProbeOnly must not initialize a receipt")
         receipt.parent.mkdir(parents=True)
         receipt.write_bytes(b"existing receipt must remain untouched")
-        run()
+        self.assertFalse(run(), "an existing installation receipt must skip re-bootstrapping")
         self.assertFalse(marker.exists(), "Existing receipts must not be reinitialized")
         self.assertEqual(receipt.read_bytes(), b"existing receipt must remain untouched")
         receipt.unlink()
         journal.parent.mkdir(parents=True)
         journal.write_bytes(b"recovery takes precedence")
-        run()
+        self.assertFalse(run(), "a pending recovery journal must take precedence over bootstrapping")
         self.assertFalse(marker.exists(), "Recovery must not bootstrap a missing receipt")
         journal.unlink()
         (docs / "manifest.json.sig").unlink()
-        run()
+        self.assertFalse(run(), "incomplete package documents must not trigger discovery elsewhere")
         self.assertFalse(marker.exists(), "Missing package documents must not trigger discovery elsewhere")
 
     def test_upgraded_receipt_with_stale_bootstrap_documents_regression(self):

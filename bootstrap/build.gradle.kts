@@ -5,6 +5,7 @@ plugins {
 
 import java.util.jar.JarFile
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import dev.turboism.gradle.internal.VerificationStamps
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 
 dependencies {
@@ -229,4 +230,30 @@ val checkBootstrapJarDependencyIsolation by tasks.registering(JavaExec::class) {
             writeText("ok\n")
         }
     }
+}
+
+// Real built-agent premain evidence for the framework launch lease (issue #50): a child JVM started with
+// -javaagent:<turboism-agent.jar> runs the production premain handshake against a real helper JVM. The probe drives
+// prepare -> LAUNCHING -> premain USING -> refusal while the JVM lives -> reap after it really exits, plus the
+// fail-closed rejects (missing LAUNCHING, foreign token). It uses the local worktree JAR (local/dirty, unnumbered)
+// and never starts Cubism, an installed home or a signed update.
+val checkBootstrapLaunchLeasePremain by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Runs the built agent through a real -javaagent launch-lease cycle in bounded child JVMs."
+    dependsOn(tasks.jar, tasks.named("testClasses"))
+    classpath(sourceSets.test.get().runtimeClasspath)
+    mainClass.set("dev.turboism.bootstrap.FrameworkLaunchLeasePremainMain")
+    // The agent JAR and the fixture bytecode reach the children through system properties, so both are declared
+    // inputs: a rebuilt agent must re-run the probe instead of being swallowed as UP-TO-DATE.
+    inputs.file(tasks.jar.flatMap { it.archiveFile })
+    inputs.files(sourceSets.test.get().output)
+    doFirst {
+        systemProperty("turboism.test.builtAgentJar", tasks.jar.get().archiveFile.get().asFile.absolutePath)
+        systemProperty("turboism.test.premainFixtureClasspath", sourceSets.test.get().output.classesDirs.asPath)
+        systemProperty(
+            "turboism.test.premainScratch",
+            layout.buildDirectory.dir("launch-lease-premain").get().asFile.absolutePath
+        )
+    }
+    VerificationStamps.apply(this)
 }
