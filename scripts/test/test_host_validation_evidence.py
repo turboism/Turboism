@@ -153,9 +153,10 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(3, terminal["assertionCount"])
         self.assertEqual([], terminal["blockingStatusRecords"])
 
-    def test_assertion_result_without_verdict_count_is_not_pass(self):
-        # An assertion-style result that publishes no count cannot say how many assertions
-        # decided the run, so it is invalid evidence rather than a pass.
+    def test_required_assertions_result_without_verdict_count_is_not_pass(self):
+        # A task that asked for --require-assertions (the four shared-recorder probes) must
+        # publish a count; assertion rows alone cannot say how many decided the run.
+        self.descriptor["argv"].append("--require-assertions")
         self.result.write_bytes(b"status=PASS\nassertion.alpha.status=PASS\n")
         result = self.finish()
         self.assertEqual("failed", result["terminalState"])
@@ -165,6 +166,47 @@ class EvidenceTest(unittest.TestCase):
         self.assertTrue(terminal["missingAssertionCount"])
         self.assertFalse(terminal["passed"])
         self.assertTrue(self.paths["prefix"].exists())
+
+    def test_required_assertions_result_without_any_record_is_not_pass(self):
+        # Fail closed also when the probe wrote neither counts nor assertion rows.
+        self.descriptor["argv"].append("--require-assertions")
+        self.result.write_bytes(b"status=PASS\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        self.assertTrue(result["details"]["postContainmentChecks"]["terminalResult"]["missingAssertionCount"])
+
+    def test_required_assertions_result_with_count_passes(self):
+        self.descriptor["argv"].append("--require-assertions")
+        self.result.write_bytes(
+            b"status=PASS\nassertions=2\nassertions.verdict=2\n"
+            b"assertion.a.status=PASS\nassertion.b.status=PASS\n")
+        self.assertEqual("succeeded", self.finish()["terminalState"])
+
+    def test_probe_without_required_assertions_keeps_the_runner_first_screen_rule(self):
+        # ACP, protocol-edit and FPS write assertion.* rows and a pass line but never counts.
+        # Their Runner calls do not pass --require-assertions, so the Runner accepts the
+        # result; the evidence gate must accept it too instead of failing a good run.
+        self.result.write_bytes(b"status=PASS\nassertion.alpha.status=PASS\nassertion.beta.status=PASS\n")
+        result = self.finish()
+        self.assertEqual("succeeded", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertIsNone(terminal["assertionCount"])
+        self.assertFalse(terminal["missingAssertionCount"])
+        self.assertTrue(terminal["passed"])
+
+    def test_probe_without_required_assertions_still_fails_on_published_zero_or_blocking_status(self):
+        # The relaxation covers a missing count only; every other fail closed rule stays.
+        for contents in (
+            b"status=PASS\nassertions=0\n",
+            b"status=PASS\nassertions.verdict=0\nassertions=3\n",
+            b"status=PASS\nassertions=many\n",
+            b"status=PASS\nassertion.alpha.status=PASS\nassertion.beta.status=BLOCKED\n",
+            b"status=PASS\nassertion.alpha.status=SKIPPED\n",
+            b"status=PASS\nassertion.alpha.status=FAIL\n",
+        ):
+            with self.subTest(contents=contents):
+                self.result.write_bytes(contents)
+                self.assertEqual("failed", self.finish()["terminalState"])
 
     def test_info_only_total_does_not_mask_a_zero_verdict_count(self):
         self.result.write_bytes(
