@@ -2,6 +2,13 @@
 
 ## Current result: official Beta framework updates accepted (2026-11-01)
 
+**Latest release: 0.68.1-beta.9 / Build 83.** PR #63 fixed the client catalog-reason limit and added localized
+release notes, decimal MB and elapsed time to the update window. All PR/main checks, official candidate signing,
+protected publication and public API/signature/36-object HEAD/Range checks passed. No service deployment was
+needed. Native coordinated upgrade acceptance is deferred at the user's explicit request while gaming; the new
+Beta.8 lab successfully started with 30 enabled plugins and zero failures, then exited normally. See the
+[update-window follow-up](update-window-followup.md) for the release evidence and exact resume point.
+
 Production deployment, signing, client activation and publication are complete. Two consecutive native Windows
 Cubism 5.3.02 upgrades passed: **0.68.1-beta.2 / Build 76 → beta.5 / Build 79 → beta.7 / Build 81**.
 Both upgrades used official signed releases, the public API, native download/consent and the managed restart.
@@ -10,11 +17,12 @@ Each verified all 36 framework files, preserved 32 plugin JARs and user settings
 
 See [production Beta acceptance](production-beta-acceptance.md) and its
 [machine-readable evidence](production-beta-evidence.json) for exact identities, release runs and limitations.
-Server configuration is complete. Product PRs #59–#62 have merged; the local branch remains
+Server configuration is complete. Product PRs #59–#63 have merged; the local branch remains
 `local/w2-validation-fixes`, tracking `test/issue-50-windows-validation-fixes`.
 
-The optional selected-plugin update remains blocked by an overlong permission reason in the public plugin
-catalog; uncheck that option for framework updates. Older installations without the updater and signed receipt
+Beta.7's selected-plugin update is blocked by its outdated permission-reason limit; Beta.9 aligns the client with
+the signed directory's 2,000-code-point contract. Uncheck that option for the first Beta.7 → Beta.9 upgrade;
+the corrected validator and new window take effect after restart. Older installations without the updater and signed receipt
 need a new full package once. Stable migration, full signed-framework failure recovery, the NSIS installation
 process, physical power loss and Linux/Proton have not been qualified by these successful Beta upgrades.
 

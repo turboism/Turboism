@@ -3,7 +3,9 @@
 Production signing, publishing and client activation are enabled with user authorization. Official Windows
 Cubism upgrades beta.2 → beta.5 → beta.7 passed native download, consent, managed application and health
 confirmation; see [production Beta acceptance](production-beta-acceptance.md). Older installations need the new
-full package once; optional selected-plugin updates currently require a catalog correction.
+full package once. Beta.9 fixes the client-side catalog limit and adds release notes, MB and elapsed time;
+native coordinated upgrade acceptance is deferred while the user is gaming. Beta.7 users should uncheck plugin
+coordination for their first upgrade to Beta.9. See the [follow-up release record](update-window-followup.md).
 The [rollout record](activation-release-validation.md) preserves the earlier disabled and preparation stages.
 
 The normal runtime now constructs the installer adapter, but it remains UNAVAILABLE unless a reviewed release
