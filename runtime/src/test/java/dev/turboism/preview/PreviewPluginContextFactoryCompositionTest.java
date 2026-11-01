@@ -651,6 +651,75 @@ class PreviewPluginContextFactoryCompositionTest {
         assertSame(shared, shellView, "the shell keeps the writable instance");
     }
 
+    /**
+     * Wiring check for {@code PreviewPluginContextFactory.create}: the history service a plugin
+     * context exposes must be the read-only view, not the shared writable instance. The static
+     * helper test above cannot see a call site that stops using it.
+     */
+    @Test
+    void createdPluginContextExposesTheReadOnlyFileChooserHistory() throws Exception {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final HostSession session = HostSessionTestSupport.connectedSession(
+                () -> Optional.ofNullable(current.get()),
+                ignored -> adapters("history-project"),
+                ignored -> exportSettingsResolver());
+        final RuntimeScheduler scheduler = PreviewRuntimeTestSupport.rejectedScheduler();
+        final Path home = tempDir.resolve("home-history");
+        final List<Path> written = new java.util.ArrayList<>();
+        final dev.turboism.filechooser.RuntimeFileChooserHistoryService shared =
+                new dev.turboism.filechooser.RuntimeFileChooserHistoryService(() -> false);
+        shared.registerProvider(new FileChooserHistoryService.Provider() {
+            @Override
+            public Optional<Path> loadProjectDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> loadExportDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void saveProjectDirectory(final Path dir) {
+                written.add(dir);
+            }
+
+            @Override
+            public void saveExportDirectory(final Path dir) {
+                written.add(dir);
+            }
+        });
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
+            final PreviewPluginContextFactory factory = new PreviewPluginContextFactory(
+                    home, scheduler, session.adapterAccess(), lane, log, new RuntimeFailureCollector(), shared);
+            final DisposableScope scope = new DisposableScope();
+            try {
+                final CorePluginContext context = factory.create(
+                                descriptor(), PreviewPluginContextFactoryCompositionTest.class.getClassLoader(), scope)
+                        .context();
+                current.set(HostSessionTestSupport.descriptor("history-project"));
+                assertEquals(HostSession.State.ACTIVE, session.refresh());
+
+                final FileChooserHistoryService history =
+                        context.services().find(FileChooserHistoryService.class).orElseThrow();
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> history.setProjectRecentDirectory(Path.of("/tmp/plugin-chosen")));
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> history.setExportRecentDirectory(Path.of("/tmp/plugin-chosen")));
+                assertEquals(List.of(), written, "a plugin context must never reach the shared writer");
+            } finally {
+                scope.close();
+                lane.close();
+            }
+        } finally {
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
     @Test
     void createPreservesDeclaredIOExceptionIdentityWhenStorageInitializationFails() throws Exception {
         final HostSession session = HostSessionTestSupport.connectedSession(
