@@ -61,6 +61,12 @@ class StatusScanTest(unittest.TestCase):
         self.assertTrue(check('recordAssertion("a", "x", "y", computeStatus());'))
         self.assertTrue(check('recordAssertion("a", "x", "y", unassigned);'))
 
+    def test_comments_between_arguments_do_not_shift_the_status(self):
+        source = ('recordAssertion("a", "x", "y",\n  // note, with, commas "NOTE"\n'
+                  '  /* and "NOTE", */ ok ? "PASS" : "FAIL");')
+        self.assertEqual([], check(source))
+        self.assertEqual(1, len(check(source.replace('"FAIL"', '"NOTE"'))))
+
     def test_recorder_wrapper_declaration_is_not_a_call(self):
         source = 'private void recordAssertion(\n final String name, final Object expected, final Object actual, final String status\n) {}'
         self.assertEqual([], check(source))
@@ -84,6 +90,58 @@ class ProbeSourcesTest(unittest.TestCase):
 
     def test_sync_check_reports_zero_findings(self):
         self.assertEqual([], sync.findings(ROOT))
+
+
+PBT_SOURCE = ROOT / (
+    "validation/parameter-batch-transfer-host-probe/src/dev/turboism/validation/"
+    "parameterbatchtransfer/ParameterBatchTransferHostValidationPlugin.java")
+# Assertions that may record SKIPPED because they are contract rows the standard run owes:
+# the non-morph transferClamped source and the clamped/inverted/duplicate rows. Everything
+# else that a fixture may lack is optional and records INFO. Adding a name here needs a
+# written reason, because one SKIPPED turns a whole host run into SKIPPED.
+PBT_OWED_SKIPPED = {
+    "apply.source": "the transferClamped matrix needs a non-morph bound source",
+    "row.clamped.plain": "clamp mapping row; distinct contract from the unclamped rows",
+    "row.invert": "inverted mapping row when no range-contained target ran it",
+    "row.clamped.duplicate": "duplicate mapping must fail before mutation",
+}
+# Optional or fixture-dependent steps. They must never be able to record SKIPPED.
+PBT_OPTIONAL = (
+    "setup.fallback.source.parameter",  # existing-form fast path, scaffold setup follows
+    "setup.fallback.source",           # existing-form fast path, scaffold setup follows
+    "apply.destination",               # locator step; the clamped rows carry the verdict
+    "classify.morph.filter",           # nothing to filter without a morph parameter
+    "classify.combined.filter",        # nothing to filter without a combined parameter
+    "classify.normal.filter",          # nothing to filter without a normal parameter
+)
+
+
+def statuses_by_assertion(text: str) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    for _, args in sync.record_calls(text):
+        name = args[0].strip('"')
+        if len(args) == 4 and args[0].startswith('"'):
+            result.setdefault(name, set()).update(sync.STATUS_BRANCH_RE.findall(args[3]))
+    return result
+
+
+class ParameterBatchTransferSkipTest(unittest.TestCase):
+    def setUp(self):
+        self.statuses = statuses_by_assertion(PBT_SOURCE.read_text(encoding="utf-8"))
+
+    def test_optional_paths_cannot_record_skipped(self):
+        for name in PBT_OPTIONAL:
+            with self.subTest(assertion=name):
+                self.assertIn(name, self.statuses)
+                self.assertNotIn("SKIPPED", self.statuses[name])
+
+    def test_optional_fast_path_records_info_so_the_run_is_not_skipped(self):
+        for name in ("setup.fallback.source.parameter", "setup.fallback.source"):
+            self.assertIn("INFO", self.statuses[name])
+
+    def test_only_owed_rows_can_record_skipped(self):
+        skipping = {name for name, found in self.statuses.items() if "SKIPPED" in found}
+        self.assertEqual(set(PBT_OWED_SKIPPED), skipping)
 
 
 if __name__ == "__main__":

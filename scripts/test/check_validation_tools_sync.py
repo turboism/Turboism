@@ -96,12 +96,39 @@ def accepted_statuses(root: Path):
     return tokens
 
 
-def record_status_arguments(text: str):
-    """Yield (line, status argument text) for each recordAssertion(...) call.
+def strip_comments(text: str) -> str:
+    """Blank out // and /* */ comments, keeping string literals and line numbers intact."""
+    out, index, length = [], 0, len(text)
+    while index < length:
+        char = text[index]
+        if char == '"':
+            end = index + 1
+            while end < length and text[end] != '"':
+                end += 2 if text[end] == "\\" else 1
+            out.append(text[index:end + 1])
+            index = end + 1
+        elif text.startswith("//", index):
+            end = text.find("\n", index)
+            index = length if end < 0 else end
+        elif text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            end = length if end < 0 else end + 2
+            out.append("\n" * text.count("\n", index, end))
+            index = end
+        else:
+            out.append(char)
+            index += 1
+    return "".join(out)
+
+
+def record_calls(text: str):
+    """Yield (line, argument texts) for each recordAssertion(...) call.
 
     Walks the balanced argument list so ternaries, nested calls and string literals
-    holding commas or parentheses do not split the arguments early.
+    holding commas or parentheses do not split the arguments early. Comments are blanked
+    first so a comma in a comment between arguments cannot shift them.
     """
+    text = strip_comments(text)
     for match in RECORD_CALL_RE.finditer(text):
         depth, in_string, escaped = 1, False, False
         args, current = [], []
@@ -130,7 +157,13 @@ def record_status_arguments(text: str):
             current.append(char)
         args.append("".join(current))
         line = text.count("\n", 0, match.start()) + 1
-        yield line, " ".join(args[-1].split()), len(args)
+        yield line, [" ".join(arg.split()) for arg in args]
+
+
+def record_status_arguments(text: str):
+    """Yield (line, status argument text, argument count) for each recordAssertion call."""
+    for line, args in record_calls(text):
+        yield line, args[-1], len(args)
 
 
 def status_findings(relative: str, text: str, accepted) -> list[str]:
