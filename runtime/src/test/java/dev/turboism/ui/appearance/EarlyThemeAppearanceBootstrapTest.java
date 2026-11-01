@@ -5,9 +5,31 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
+import dev.turboism.sdk.config.ConfigCodecs;
+import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.permission.PermissionIds;
+import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.test.concurrent.Await;
 import java.awt.Color;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,8 +48,17 @@ import org.junit.jupiter.api.io.TempDir;
  * Focused tests for the early-theme startup EDT correction: UIManager access
  * in early-theme readiness polling and native off-canvas capture is dispatched
  * to the EDT, while polling sleeps stay on the daemon/background thread.
+ *
+ * <p>The persisted-selection cases bind the startup reader to the private
+ * {@code ui-theme} schema: a document the runtime typed-config writer produced
+ * must be read, and any other shape must fail with one bounded diagnostic
+ * instead of silently loading the wrong theme.</p>
  */
 class EarlyThemeAppearanceBootstrapTest {
+
+    private static final String THEME_PLUGIN_ID = "dev.turboism.plugin.uitheme";
+    private static final String SELECTION_PATH = "ui-theme/selection.cfg";
+    private static final String SELECTED_THEME_KEY = "selected-theme";
 
     private final ExecutorService workers = Executors.newCachedThreadPool(r -> {
         final Thread thread = new Thread(r, "early-theme-test-worker");
@@ -37,6 +68,7 @@ class EarlyThemeAppearanceBootstrapTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        RuntimeDiagnostics.clear();
         UIManager.getDefaults().remove("CubismCommon.gl.viewArea.background");
         UIManager.getDefaults().remove("Turboism.native.CubismCommon.gl.viewArea.background");
         SwingUtilities.invokeAndWait(() -> {
@@ -103,6 +135,216 @@ class EarlyThemeAppearanceBootstrapTest {
         final java.lang.reflect.Method run = EarlyThemeAppearanceBootstrap.class.getDeclaredMethod("run");
         run.setAccessible(true);
         run.invoke(bootstrap);
+    }
+
+    @Test
+    void readsSelectionWrittenByTheRuntimeTypedConfigWriter(@TempDir Path home) throws Exception {
+        writeSelectionThroughTypedConfigRegistry(home, List.of("turboism.nord"));
+
+        assertEquals(
+                Optional.of("turboism.nord"),
+                readSelectionThemeId(new EarlyThemeAppearanceBootstrap(
+                        home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {})));
+    }
+
+    @Test
+    void treatsTheNativeSentinelAsNoSelection(@TempDir Path home) throws Exception {
+        writeSelectionThroughTypedConfigRegistry(home, List.of("__native__"));
+
+        assertEquals(
+                Optional.empty(),
+                readSelectionThemeId(new EarlyThemeAppearanceBootstrap(
+                        home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {})));
+    }
+
+    @Test
+    void treatsAnEmptyPersistedListAsNoSelection(@TempDir Path home) throws Exception {
+        // clearSelectedThemeId() persists an empty bounded list; it is a valid state, not a
+        // malformed document, so it must not produce a diagnostic.
+        writeSelectionThroughTypedConfigRegistry(home, List.of());
+
+        final List<String> diagnostics = captureDiagnostics();
+        assertEquals(
+                Optional.empty(),
+                readSelectionThemeId(new EarlyThemeAppearanceBootstrap(
+                        home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {})));
+        assertEquals(List.of(), diagnostics);
+    }
+
+    @Test
+    void rejectsUnsupportedSchemaVersionWithOneBoundedDiagnostic(@TempDir Path home) throws Exception {
+        writeRawSelectionDocument(home, document("2", 0, "selected-theme", "[\"turboism.nord\"]"));
+
+        final List<String> diagnostics = captureDiagnostics();
+        final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
+
+        assertEquals(Optional.empty(), readSelectionThemeId(bootstrap));
+        assertEquals(1, diagnostics.size(), diagnostics.toString());
+        assertTrue(
+                diagnostics.get(0).contains("EARLY_THEME_SELECTION_SCHEMA_UNSUPPORTED"),
+                diagnostics.get(0));
+    }
+
+    @Test
+    void rejectsANonTypedConfigDocumentWithOneBoundedDiagnostic(@TempDir Path home) throws Exception {
+        writeRawSelectionDocument(home, SELECTED_THEME_KEY + "=[\"turboism.nord\"]\n");
+
+        final List<String> diagnostics = captureDiagnostics();
+        final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
+
+        assertEquals(Optional.empty(), readSelectionThemeId(bootstrap));
+        assertEquals(1, diagnostics.size(), diagnostics.toString());
+        assertTrue(diagnostics.get(0).contains("EARLY_THEME_SELECTION_DOCUMENT_INVALID"), diagnostics.get(0));
+    }
+
+    @Test
+    void rejectsANonCanonicalEntryCountWithOneBoundedDiagnostic(@TempDir Path home) throws Exception {
+        // count=2 but only one entry line: a truncated or hand-edited document must not
+        // be half-read into a theme id.
+        final String body = entry("selected-theme", "[\"turboism.nord\"]");
+        writeRawSelectionDocument(
+                home,
+                "turboism-typed-config-v1\nschemaVersion=1\nrevision=1\ncount=2\n" + body);
+
+        final List<String> diagnostics = captureDiagnostics();
+        final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
+
+        assertEquals(Optional.empty(), readSelectionThemeId(bootstrap));
+        assertEquals(1, diagnostics.size(), diagnostics.toString());
+        assertTrue(diagnostics.get(0).contains("EARLY_THEME_SELECTION_DOCUMENT_INVALID"), diagnostics.get(0));
+    }
+
+    /**
+     * Drift gate: the startup reader hard-codes one private {@code ui-theme} schema. This
+     * asserts the plugin side still declares exactly that path, selector key, schema
+     * version and native sentinel, so a plugin-side change fails here instead of silently
+     * dropping the early theme at startup.
+     */
+    @Test
+    void pluginThemeSchemaStaysBoundToTheEarlyThemeReader() throws Exception {
+        final Path pluginSource = repositoryRoot()
+                .resolve("plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java");
+        assertTrue(Files.isRegularFile(pluginSource), "plugin schema source is missing: " + pluginSource);
+        final String source = Files.readString(pluginSource, StandardCharsets.UTF_8);
+
+        assertTrue(
+                source.contains("CONFIG_PATH = \"" + SELECTION_PATH + "\""),
+                "ui-theme selection path changed; EarlyThemeAppearanceBootstrap reads " + SELECTION_PATH);
+        assertTrue(
+                source.contains("new ConfigKey<>(CONFIG_ID, \"" + SELECTED_THEME_KEY + "\""),
+                "ui-theme selector key changed; EarlyThemeAppearanceBootstrap reads " + SELECTED_THEME_KEY);
+        assertTrue(
+                source.contains("new ConfigSchema(CONFIG_ID, CONFIG_PATH, "
+                        + EarlyThemeAppearanceBootstrap.SUPPORTED_SCHEMA_VERSION + ","),
+                "ui-theme schema version changed; EarlyThemeAppearanceBootstrap supports "
+                        + EarlyThemeAppearanceBootstrap.SUPPORTED_SCHEMA_VERSION);
+        assertTrue(
+                source.contains("NATIVE_ID = \"" + EarlyThemeAppearanceBootstrap.NATIVE_THEME_ID + "\""),
+                "ui-theme native sentinel changed; EarlyThemeAppearanceBootstrap skips "
+                        + EarlyThemeAppearanceBootstrap.NATIVE_THEME_ID);
+    }
+
+    private static Optional<String> readSelectionThemeId(final EarlyThemeAppearanceBootstrap bootstrap)
+            throws Exception {
+        final java.lang.reflect.Method read =
+                EarlyThemeAppearanceBootstrap.class.getDeclaredMethod("readSelectionThemeId");
+        read.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        final Optional<String> value = (Optional<String>) read.invoke(bootstrap);
+        return value;
+    }
+
+    private static List<String> captureDiagnostics() {
+        final List<String> diagnostics = new CopyOnWriteArrayList<>();
+        RuntimeDiagnostics.install((level, component, message, failure) ->
+                diagnostics.add(level + " " + component + " " + message));
+        return diagnostics;
+    }
+
+    private static void writeSelectionThroughTypedConfigRegistry(final Path home, final List<String> selection)
+            throws Exception {
+        final Path configRoot = home.resolve("config").resolve(THEME_PLUGIN_ID);
+        // The anchored typed-config root requires its parent to exist before registration.
+        Files.createDirectories(configRoot.getParent());
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
+        final DisposableScope scope = new DisposableScope();
+        try {
+            final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler("early-theme-test", scheduler, scope);
+            final ConfigKey<List<String>> key = new ConfigKey<>(
+                    "ui-theme.selection", SELECTED_THEME_KEY, List.of(), ConfigCodecs.boundedStringList(1, 128));
+            final ConfigSchema schema = new ConfigSchema("ui-theme.selection", SELECTION_PATH, 1, List.of(key));
+            try (var registry = new dev.turboism.config.RuntimeTypedPluginConfigRegistry(
+                    new NoopLegacyConfigRegistry(),
+                    THEME_PLUGIN_ID,
+                    configRoot,
+                    Set.of(PermissionIds.TURBOISM_CONFIG_PLUGIN_READ, PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE),
+                    tasks,
+                    scope)) {
+                registry.registerSchema(schema, List.of()).toCompletableFuture().join();
+                final var result = registry.write(key, selection, 0L).toCompletableFuture().join();
+                assertTrue(result.written(), "typed config write must succeed: " + result);
+            }
+        } finally {
+            scope.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static void writeRawSelectionDocument(final Path home, final String document) throws Exception {
+        final Path file = home.resolve("config").resolve(THEME_PLUGIN_ID).resolve(SELECTION_PATH);
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, document, StandardCharsets.UTF_8);
+    }
+
+    private static String document(
+            final String schemaVersion, final long revision, final String key, final String value) {
+        return "turboism-typed-config-v1\nschemaVersion=" + schemaVersion + "\nrevision=" + revision
+                + "\ncount=2\n" + entry("unrelated-setting", "\"kept\"") + entry(key, value);
+    }
+
+    private static String entry(final String key, final String value) {
+        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        return encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)) + ":"
+                + encoder.encodeToString(value.getBytes(StandardCharsets.UTF_8)) + "\n";
+    }
+
+    private static Path repositoryRoot() {
+        Path candidate = Path.of("").toAbsolutePath();
+        while (candidate != null) {
+            if (Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+                return candidate;
+            }
+            candidate = candidate.getParent();
+        }
+        throw new IllegalStateException("repository root with settings.gradle.kts was not found");
+    }
+
+    /** Legacy registry slot the typed facade only delegates unused property calls to. */
+    private static final class NoopLegacyConfigRegistry implements PluginConfigRegistry {
+        @Override
+        public Registration readScope(final String relativePath) {
+            return () -> {};
+        }
+
+        @Override
+        public Registration writeScope(final String relativePath) {
+            return () -> {};
+        }
+
+        @Override
+        public Optional<String> readString(final String relativePath, final String key) {
+            return Optional.empty();
+        }
+
+        @Override
+        public void writeString(final String relativePath, final String key, final String value) {}
     }
 
     @Test
