@@ -91,13 +91,15 @@ class FrameworkUpdatesWindowTest {
     }
 
     private final class Fixture implements AutoCloseable {
+        final AtomicLong nanos = new AtomicLong();
         final FakeFramework framework = new FakeFramework();
         final FakeDiscovery discovery = new FakeDiscovery(framework);
         final StubPlugins service = new StubPlugins();
         final FrameworkUpdatesWindow window;
 
         Fixture(Function<String, List<PluginUpdateRow>> planner) throws Exception {
-            window = edt(() -> new FrameworkUpdatesWindow(I18N, discovery, new EmptyPlugins(), service, planner));
+            window = edt(() ->
+                    new FrameworkUpdatesWindow(I18N, discovery, new EmptyPlugins(), service, planner, nanos::get));
             edt(() -> {
                 window.show();
                 return null;
@@ -118,6 +120,74 @@ class FrameworkUpdatesWindowTest {
                 return null;
             });
             await(() -> !PluginUpdateGate.isHeld(home));
+        }
+    }
+
+    @Test
+    void showsReleaseNotesAndDoesNotInterpretEmbeddedHtml() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of())) {
+            f.planned();
+            f.discovery.notes = java.util.Map.of(
+                    "en", "### Fixed\n\n- Plugin updates\n\n<img src=\"https://example.invalid/tracker\">");
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            final String html = edt(() -> f.window.releaseNotesPane().getText());
+            assertTrue(html.contains("Fixed"));
+            assertTrue(html.contains("Plugin updates"));
+            assertFalse(html.contains("<img"));
+            f.discovery.notes = java.util.Map.of();
+            f.discovery.target = "0.45.0";
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.releaseNotesPane().getText()).contains("updates.install.notes.empty"));
+        }
+    }
+
+    @Test
+    void showsMegabytesAndFreezesElapsedTimeOnCancelAndSuccessThenResetsOnRetry() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of())) {
+            f.planned();
+            f.framework.pendingDownload = new CompletableFuture<>();
+            final var cancelled = edt(f.window::triggerDownload);
+            await(() -> f.framework.snapshot().phase() == CoreFrameworkUpdates.Phase.DOWNLOADING);
+            f.nanos.set(TimeUnit.SECONDS.toNanos(7));
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.progressBar().getString()).contains("1.25, 10.00"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:07"));
+            edt(() -> {
+                f.window.triggerCancel();
+                return null;
+            });
+            cancelled.get(10, TimeUnit.SECONDS);
+            f.nanos.set(TimeUnit.SECONDS.toNanos(70));
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:07"));
+            final var pending = new CompletableFuture<CoreFrameworkUpdates.Snapshot>();
+            f.framework.pendingDownload = pending;
+            final var retried = edt(f.window::triggerDownload);
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:00"));
+            await(() -> f.framework.downloads.get() == 2);
+            f.nanos.set(TimeUnit.SECONDS.toNanos(73));
+            f.framework.state = new CoreFrameworkUpdates.Snapshot(
+                    CoreFrameworkUpdates.Phase.STAGED, "0.44.0", 10_000_000, 10_000_000, "");
+            pending.complete(f.framework.state);
+            assertEquals(FrameworkUpdatesWindow.BatchState.PREPARED, retried.get(10, TimeUnit.SECONDS));
+            f.nanos.set(TimeUnit.SECONDS.toNanos(100));
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:03"));
         }
     }
 
@@ -280,8 +350,15 @@ class FrameworkUpdatesWindowTest {
     void downloadFailureIsVisibleAndRetryable() throws Exception {
         try (Fixture f = new Fixture(target -> List.of(ROW))) {
             f.planned();
+            f.service.downloadHook = control -> f.nanos.addAndGet(TimeUnit.SECONDS.toNanos(1));
             f.service.failDownload = true;
             f.download();
+            f.nanos.addAndGet(TimeUnit.SECONDS.toNanos(100));
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:01"));
             assertTrue(edt(f.window::currentDetailText).contains("Hash mismatch"));
             assertTrue(edt(() -> f.window.downloadButton().isEnabled()));
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
@@ -489,6 +566,7 @@ class FrameworkUpdatesWindowTest {
     private static final class FakeDiscovery implements CoreUpdateService {
         final CoreFrameworkUpdates framework;
         volatile String target = "0.44.0";
+        volatile java.util.Map<String, String> notes = java.util.Map.of();
 
         FakeDiscovery(CoreFrameworkUpdates f) {
             framework = f;
@@ -496,7 +574,15 @@ class FrameworkUpdatesWindowTest {
 
         public Snapshot snapshot() {
             return new Snapshot(
-                    Status.UPDATE_AVAILABLE, "0.43.10", Optional.of(target), OptionalLong.of(1), false, false);
+                    Status.UPDATE_AVAILABLE,
+                    "0.43.10",
+                    Optional.of(target),
+                    OptionalLong.of(1),
+                    false,
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
+                    notes);
         }
 
         public boolean available() {
@@ -533,6 +619,7 @@ class FrameworkUpdatesWindowTest {
         volatile Snapshot state = new Snapshot(Phase.IDLE, "", 0, 0, "");
         final AtomicInteger downloads = new AtomicInteger();
         volatile boolean failQueue;
+        volatile CompletableFuture<Snapshot> pendingDownload;
 
         public Snapshot snapshot() {
             return state;
@@ -540,12 +627,17 @@ class FrameworkUpdatesWindowTest {
 
         public CompletionStage<Snapshot> download() {
             downloads.incrementAndGet();
+            if (pendingDownload != null) {
+                state = new Snapshot(Phase.DOWNLOADING, "0.44.0", 1_250_000, 10_000_000, "");
+                return pendingDownload;
+            }
             state = new Snapshot(Phase.STAGED, "0.44.0", 100, 100, "");
             return CompletableFuture.completedFuture(state);
         }
 
         public void cancel() {
             if (state.phase() == Phase.DOWNLOADING) state = new Snapshot(Phase.CANCELLED, "0.44.0", 0, 0, "");
+            if (pendingDownload != null) pendingDownload.cancel(false);
         }
 
         public CompletionStage<Snapshot> installOnExit() {

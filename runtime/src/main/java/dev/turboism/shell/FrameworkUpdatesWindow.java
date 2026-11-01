@@ -22,15 +22,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
+import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
+import javax.swing.Timer;
 import javax.swing.table.AbstractTableModel;
 
 /** Modeless UI. Mutable view state is EDT-owned; disk/network/leases belong to the serial worker. */
@@ -65,6 +68,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final List<Registration> subscriptions = new ArrayList<>();
     private final JLabel version = new JLabel();
     private final JLabel phase = new JLabel();
+    private final JLabel elapsed = new JLabel();
+    private final JEditorPane releaseNotes = new JEditorPane();
     private final JTextArea detail = new JTextArea();
     private final JProgressBar progress = new JProgressBar(0, 100);
     private final JButton download;
@@ -84,6 +89,12 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private String plannedVersion = "";
     private String persistentDetailMessage = "";
     private DownloadJob activeJob;
+    private final LongSupplier nanoTime;
+    private final Timer elapsedTimer = new Timer(250, event -> renderElapsed());
+    private long downloadStartedNanos;
+    private long elapsedNanos;
+    private boolean timing;
+    private String displayedNotes;
 
     /** Worker-owned resources, published to EDT only after preparation completes. Never reused by another batch. */
     private static final class DownloadJob {
@@ -120,7 +131,18 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             final CorePluginManagement plugins,
             final CoordinatedPluginUpdateService coordinator,
             final Function<String, List<PluginUpdateRow>> customPlanner) {
+        this(i18n, discovery, plugins, coordinator, customPlanner, System::nanoTime);
+    }
+
+    FrameworkUpdatesWindow(
+            final PluginLocalization i18n,
+            final CoreUpdateService discovery,
+            final CorePluginManagement plugins,
+            final CoordinatedPluginUpdateService coordinator,
+            final Function<String, List<PluginUpdateRow>> customPlanner,
+            final LongSupplier nanoTime) {
         this.i18n = i18n;
+        this.nanoTime = nanoTime;
         this.discovery = discovery;
         this.updates = discovery.frameworkUpdates();
         this.plugins = plugins;
@@ -170,10 +192,14 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         detail.setEditable(false);
         detail.setLineWrap(true);
         detail.setWrapStyleWord(true);
+        detail.setRows(3);
+        releaseNotes.setContentType("text/html");
+        releaseNotes.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
+        releaseNotes.setEditable(false);
         progress.setStringPainted(true);
         pluginTable.getColumnModel().getColumn(0).setMaxWidth(60);
         final JScrollPane tableScroll = new JScrollPane(pluginTable);
-        tableScroll.setPreferredSize(new Dimension(540, 130));
+        tableScroll.setPreferredSize(new Dimension(540, 100));
         pluginPanel.add(new JLabel(text("updates.plugins.header")), BorderLayout.NORTH);
         pluginPanel.add(tableScroll, BorderLayout.CENTER);
         pluginPanel.setVisible(false);
@@ -200,7 +226,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             subscriptions.add(updates.subscribe(s -> CoreDialogs.onEdt(this::render)));
         }
         if (dialog == null) {
-            dialog = CoreDialogs.create(text("updates.install.title"), 580, 520);
+            dialog = CoreDialogs.create(text("updates.install.title"), 720, 680);
             if (dialog != null) {
                 final JPanel content = new JPanel(new BorderLayout(8, 8));
                 content.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 12, 12));
@@ -208,11 +234,16 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 heading.add(version);
                 heading.add(phase);
                 heading.add(progress);
+                heading.add(elapsed);
                 heading.add(includePlugins);
                 content.add(heading, BorderLayout.NORTH);
                 final JPanel center = new JPanel(new BorderLayout(8, 8));
                 center.add(pluginPanel, BorderLayout.NORTH);
-                center.add(new JScrollPane(detail), BorderLayout.CENTER);
+                final JPanel notesPanel = new JPanel(new BorderLayout(4, 4));
+                notesPanel.add(new JLabel(text("updates.install.notes")), BorderLayout.NORTH);
+                notesPanel.add(new JScrollPane(releaseNotes), BorderLayout.CENTER);
+                center.add(notesPanel, BorderLayout.CENTER);
+                center.add(new JScrollPane(detail), BorderLayout.SOUTH);
                 content.add(center, BorderLayout.CENTER);
                 final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.TRAILING));
                 for (JButton button : List.of(check, download, cancel, install)) buttons.add(button);
@@ -245,11 +276,25 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 ? state.version()
                 : offered.availableVersion().orElse("");
         version.setText(offered.localVersion() + (displayTarget.isEmpty() ? "" : " → " + displayTarget));
-        phase.setText(text("updates.install.state." + state.phase().name().toLowerCase(java.util.Locale.ROOT)));
+        final String phaseName = planState == PlanState.PLAN_FAILED || batchState == BatchState.DOWNLOAD_FAILED
+                ? "failed"
+                : batchState == BatchState.CANCELLED
+                        ? "cancelled"
+                        : busy ? "downloading" : state.phase().name().toLowerCase(java.util.Locale.ROOT);
+        phase.setText(text("updates.install.state." + phaseName));
         progress.setIndeterminate(busy && state.phase() != CoreFrameworkUpdates.Phase.DOWNLOADING);
         progress.setValue(
                 state.totalBytes() == 0 ? 0 : (int) Math.min(100, 100.0 * state.verifiedBytes() / state.totalBytes()));
-        progress.setString(state.verifiedBytes() + " / " + state.totalBytes() + " B");
+        progress.setString(
+                text("updates.install.progress", megabytes(state.verifiedBytes()), megabytes(state.totalBytes())));
+        renderElapsed();
+        final String notes = offered.notesFor(i18n.locale());
+        final String shownNotes = notes.isBlank() ? text("updates.install.notes.empty") : notes;
+        if (!shownNotes.equals(displayedNotes)) {
+            displayedNotes = shownNotes;
+            releaseNotes.setText(PluginReadmeRenderer.render(shownNotes));
+            releaseNotes.setCaretPosition(0);
+        }
         download.setEnabled(planned
                 && !busy
                 && !committing
@@ -332,6 +377,10 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         final int selected = pluginTableModel.selectedCount();
         final CompletableFuture<BatchState> future = new CompletableFuture<>();
         batchState = BatchState.DOWNLOADING;
+        elapsedNanos = 0;
+        downloadStartedNanos = nanoTime.getAsLong();
+        timing = true;
+        elapsedTimer.start();
         persistentDetailMessage = "";
         render();
         worker.execute(() -> {
@@ -364,6 +413,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     future.complete(BatchState.CANCELLED);
                     return; // Invalidating this job already scheduled its worker cleanup.
                 }
+                stopTiming();
                 if (job.control.isCancelled()) {
                     batchState = BatchState.CANCELLED;
                     persistentDetailMessage = text("updates.install.state.cancelled");
@@ -463,6 +513,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     }
 
     private void invalidateBatch() {
+        stopTiming();
         if (batchState == BatchState.DOWNLOADING) updates.cancel();
         if (activeJob != null) {
             final DownloadJob old = activeJob;
@@ -471,6 +522,39 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             worker.execute(() -> cleanup(old));
         }
         batchState = BatchState.IDLE;
+    }
+
+    private String megabytes(final long bytes) {
+        return String.format(i18n.locale(), "%.2f", bytes / 1_000_000.0);
+    }
+
+    private void renderElapsed() {
+        final long nanos = timing ? Math.max(0, nanoTime.getAsLong() - downloadStartedNanos) : elapsedNanos;
+        final long seconds = java.util.concurrent.TimeUnit.NANOSECONDS.toSeconds(nanos);
+        final String duration = seconds < 3600
+                ? String.format(java.util.Locale.ROOT, "%02d:%02d", seconds / 60, seconds % 60)
+                : String.format(
+                        java.util.Locale.ROOT, "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60);
+        elapsed.setText(text("updates.install.elapsed", duration));
+    }
+
+    private void stopTiming() {
+        if (timing) elapsedNanos = Math.max(0, nanoTime.getAsLong() - downloadStartedNanos);
+        timing = false;
+        elapsedTimer.stop();
+        renderElapsed();
+    }
+
+    JProgressBar progressBar() {
+        return progress;
+    }
+
+    JLabel elapsedLabel() {
+        return elapsed;
+    }
+
+    JEditorPane releaseNotesPane() {
+        return releaseNotes;
     }
 
     JButton downloadButton() {
@@ -541,6 +625,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     public void close() {
         if (closed) return;
         closed = true;
+        stopTiming();
         ++planGeneration;
         if (batchState != BatchState.COMMITTING) {
             invalidateBatch();

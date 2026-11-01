@@ -1,6 +1,27 @@
 # Issue #50 — implementation / evidence status
 
-This is an in-progress branch, **not a production-ready self-updater**.
+## Current result: official Beta framework updates accepted (2026-11-01)
+
+Production deployment, signing, client activation and publication are complete. Two consecutive native Windows
+Cubism 5.3.02 upgrades passed: **0.68.1-beta.2 / Build 76 → beta.5 / Build 79 → beta.7 / Build 81**.
+Both upgrades used official signed releases, the public API, native download/consent and the managed restart.
+Each verified all 36 framework files, preserved 32 plugin JARs and user settings, confirmed healthy startup
+(30 enabled plugins, zero failures; MCP/ACP explicitly disabled in the lab), and cleared pending transactions.
+
+See [production Beta acceptance](production-beta-acceptance.md) and its
+[machine-readable evidence](production-beta-evidence.json) for exact identities, release runs and limitations.
+Server configuration is complete. Product PRs #59–#62 have merged; the local branch remains
+`local/w2-validation-fixes`, tracking `test/issue-50-windows-validation-fixes`.
+
+The optional selected-plugin update remains blocked by an overlong permission reason in the public plugin
+catalog; uncheck that option for framework updates. Older installations without the updater and signed receipt
+need a new full package once. Stable migration, full signed-framework failure recovery, the NSIS installation
+process, physical power loss and Linux/Proton have not been qualified by these successful Beta upgrades.
+
+## Historical local checkpoint (before production activation)
+
+The sections below retain earlier implementation and test evidence. Their absent-key, unpublished-release and
+release-blocker statements describe that checkpoint, not the current production status above.
 
 **Current evidence:** [Windows launch-lease/native recovery acceptance](windows-launch-lease-host-validation.md)
 (2026-11-01, current worktree). This checkpoint extends `f173f64e2` with lease/ACL/launcher changes tested on the
@@ -75,7 +96,7 @@ transaction and suspended intent are retained.
   Framework client activation stayed disabled for this unnumbered local build.
 - No Linux/Proton execution evidence has been collected in this Windows session.
 
-## Remaining release blockers
+## Pre-activation release blockers (historical)
 
 1. Provision/review release activation for the now-wired product lifecycle. The native Updates window, asynchronous
    adapter and configured receipt/downloader/coordinator construction are connected; actual published activation and

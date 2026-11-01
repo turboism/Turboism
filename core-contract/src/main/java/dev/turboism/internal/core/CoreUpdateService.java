@@ -1,6 +1,8 @@
 package dev.turboism.internal.core;
 
 import dev.turboism.sdk.plugin.Registration;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -48,7 +50,30 @@ public interface CoreUpdateService extends AutoCloseable {
             boolean userInitiated,
             boolean reminder,
             Optional<String> downloadUrl,
-            Optional<String> assetName) {
+            Optional<String> assetName,
+            Map<String, String> releaseNotes) {
+        /** Creates a discovery snapshot without optional release notes, for legacy callers. */
+        public Snapshot(
+                final Status status,
+                final String localVersion,
+                final Optional<String> availableVersion,
+                final OptionalLong availableBuildNumber,
+                final boolean userInitiated,
+                final boolean reminder,
+                final Optional<String> downloadUrl,
+                final Optional<String> assetName) {
+            this(
+                    status,
+                    localVersion,
+                    availableVersion,
+                    availableBuildNumber,
+                    userInitiated,
+                    reminder,
+                    downloadUrl,
+                    assetName,
+                    Map.of());
+        }
+
         public Snapshot(
                 final Status status,
                 final String localVersion,
@@ -74,6 +99,7 @@ public interface CoreUpdateService extends AutoCloseable {
             availableBuildNumber = Objects.requireNonNull(availableBuildNumber, "availableBuildNumber");
             downloadUrl = Objects.requireNonNull(downloadUrl, "downloadUrl");
             assetName = Objects.requireNonNull(assetName, "assetName");
+            releaseNotes = Map.copyOf(Objects.requireNonNull(releaseNotes, "releaseNotes"));
             if (availableVersion.isPresent() && availableVersion.orElseThrow().isBlank()) {
                 throw new IllegalArgumentException("availableVersion must not be blank");
             }
@@ -107,6 +133,12 @@ public interface CoreUpdateService extends AutoCloseable {
             if (availableVersion.isEmpty()) return Optional.empty();
             if (availableBuildNumber.isEmpty()) return availableVersion;
             return Optional.of(availableVersion.orElseThrow() + " (Build " + availableBuildNumber.getAsLong() + ")");
+        }
+
+        /** Returns notes in the UI language, falling back to English or an empty string when absent. */
+        public String notesFor(final Locale locale) {
+            return releaseNotes.getOrDefault(
+                    Objects.requireNonNull(locale, "locale").getLanguage(), releaseNotes.getOrDefault("en", ""));
         }
     }
 
