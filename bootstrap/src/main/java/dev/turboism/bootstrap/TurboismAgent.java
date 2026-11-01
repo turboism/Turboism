@@ -45,6 +45,7 @@ public final class TurboismAgent {
      * still see them.
      */
     public static void premain(final String options, final Instrumentation instrumentation) {
+        if (!handshakeBeforeStart(options)) return;
         requestStart(
                 StartupSuppressionInstaller.AttachmentMode.PREMAIN,
                 options,
@@ -58,11 +59,38 @@ public final class TurboismAgent {
      * the runtime with a reduced set of hooks.
      */
     public static void agentmain(final String options, final Instrumentation instrumentation) {
+        // A dynamic attach carries no managed-launch token; it registers an independent USING claim before
+        // runtime/plugin initialization, with its pre-handshake window recorded as the legacy boundary.
+        if (!handshakeBeforeStart(options)) return;
         requestStart(
                 StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
                 options,
                 instrumentation,
                 JVM_SHUTDOWN_HOOK_REGISTRAR);
+    }
+
+    /**
+     * Launch-lease handshake executed by both production entry points before runtime/plugin initialization.
+     * The handshake class itself ships in the agent JAR, so this does not claim to run before every framework
+     * byte; it runs before {@link #requestStart} begins installing hooks or starting the runtime. On failure the
+     * framework is not started (fail closed) rather than loading files a concurrent helper may be replacing.
+     *
+     * @return true when startup/attach may proceed; false when it was rejected and must stop here
+     */
+    private static boolean handshakeBeforeStart(final String options) {
+        try {
+            final AgentOptions parsed = AgentOptions.parse(options, AgentOptions.defaultHome());
+            dev.turboism.update.FrameworkUpdateHealth.confirmRuntimeUsing(parsed.home(), parsed.launchToken());
+            return true;
+        } catch (RuntimeException optionsFailure) {
+            System.out.println("Turboism agent options rejected: " + optionsFailure.getMessage());
+            return false;
+        } catch (Throwable handshakeFailure) {
+            FatalErrors.rethrowIfFatal(handshakeFailure);
+            System.err.println(
+                    "Turboism agent launch lease rejected; framework not started: " + handshakeFailure.getMessage());
+            return false;
+        }
     }
 
     static void requestStartForTesting(

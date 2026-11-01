@@ -145,18 +145,26 @@ final class FrameworkUpdateApplier {
     }
 
     /** Production application requires independently reloaded old ownership and exact signed new receipts. */
-    Result applyAuthenticated(final FrameworkUpdateReceipt.Prepared receipt,
-            final FrameworkInstallationReceiptLoader.Evidence previous, final Path staged,
-            final byte[] installedBuildJson) throws IOException, InterruptedException {
+    Result applyAuthenticated(
+            final FrameworkUpdateReceipt.Prepared receipt,
+            final FrameworkInstallationReceiptLoader.Evidence previous,
+            final Path staged,
+            final byte[] installedBuildJson)
+            throws IOException, InterruptedException {
         if (!root.equals(receipt.root()) || !root.equals(previous.root())) {
             throw new IOException("Receipt installation binding differs from apply root");
         }
         return apply(receipt.manifest(), staged, installedBuildJson, true, receipt, previous.hashes());
     }
 
-    private Result apply(final UpdateManifest manifest, final Path staged, final byte[] installedBuildJson,
-            final boolean requireHealth, final FrameworkUpdateReceipt.Prepared receipt,
-            final Map<String, String> previousHashes) throws IOException, InterruptedException {
+    private Result apply(
+            final UpdateManifest manifest,
+            final Path staged,
+            final byte[] installedBuildJson,
+            final boolean requireHealth,
+            final FrameworkUpdateReceipt.Prepared receipt,
+            final Map<String, String> previousHashes)
+            throws IOException, InterruptedException {
         Objects.requireNonNull(manifest, "manifest");
         Objects.requireNonNull(staged, "staged");
         Objects.requireNonNull(installedBuildJson, "installedBuildJson");
@@ -177,21 +185,28 @@ final class FrameworkUpdateApplier {
         if (requireHealth) {
             final UpdateManifestEntry agent = manifest.entries().stream()
                     .filter(e -> e.relativePath().equals("turboism-agent.jar"))
-                    .findFirst().orElseThrow(() -> new IOException("Health check requires an agent entry"));
+                    .findFirst()
+                    .orElseThrow(() -> new IOException("Health check requires an agent entry"));
             journal.put("agentSha256", agent.sha256());
             journal.put("agentBytes", agent.bytes());
         }
         final Path identity = root.resolve(InstalledBuild.METADATA_FILE_NAME);
         final BasicFileAttributes identityAttributes = FrameworkUpdateCache.attributes(identity);
-        if (identityAttributes != null && (!identityAttributes.isRegularFile() || identityAttributes.isSymbolicLink()
-                || identityAttributes.isOther() || identityAttributes.size() > 16384)) {
+        if (identityAttributes != null
+                && (!identityAttributes.isRegularFile()
+                        || identityAttributes.isSymbolicLink()
+                        || identityAttributes.isOther()
+                        || identityAttributes.size() > 16384)) {
             throw new IOException("installed-build.json is not a plain file");
         }
         journal.put("identityExisted", identityAttributes != null);
         if (receipt != null) {
             final var oldIndex = FrameworkUpdateCache.attributes(receipt.indexPath());
-            if (oldIndex == null || !oldIndex.isRegularFile() || oldIndex.isSymbolicLink()
-                    || oldIndex.isOther() || oldIndex.size() > 4096) {
+            if (oldIndex == null
+                    || !oldIndex.isRegularFile()
+                    || oldIndex.isSymbolicLink()
+                    || oldIndex.isOther()
+                    || oldIndex.size() > 4096) {
                 throw new IOException("Previously authenticated receipt index is missing or unsafe");
             }
             journal.put("receiptTracked", true);
@@ -210,7 +225,8 @@ final class FrameworkUpdateApplier {
         }
         final var store = Files.getFileStore(root);
         if (!store.equals(Files.getFileStore(work)) || store.getUsableSpace() < required) {
-            throw new IOException("Atomic apply needs a same-filesystem work directory and space for payload plus backups");
+            throw new IOException(
+                    "Atomic apply needs a same-filesystem work directory and space for payload plus backups");
         }
         writeJournal(journal);
         try {
@@ -219,9 +235,7 @@ final class FrameworkUpdateApplier {
             Files.createDirectories(backupDir);
             if (receipt != null) {
                 final Path receiptBackup = backupDir.resolve("receipt-index.json");
-                Files.copy(receipt.indexPath(), receiptBackup, StandardCopyOption.REPLACE_EXISTING,
-                        LinkOption.NOFOLLOW_LINKS);
-                force(receiptBackup);
+                writePrivateAtomic(receiptBackup, readReceiptState(receipt.indexPath()));
             }
             if (identityAttributes != null) {
                 final Path identityBackup = backupDir.resolve(InstalledBuild.METADATA_FILE_NAME);
@@ -237,8 +251,9 @@ final class FrameworkUpdateApplier {
                 verifyPrevious(step);
                 Files.copy(step.target, backup, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
                 force(backup);
-                if (step.previousHash != null && !FrameworkUpdateCache.hash(backup, Files.size(backup))
-                        .equals(step.previousHash)) throw new IOException("Old payload changed during backup");
+                if (step.previousHash != null
+                        && !FrameworkUpdateCache.hash(backup, Files.size(backup))
+                                .equals(step.previousHash)) throw new IOException("Old payload changed during backup");
             }
             setState(journal, "APPLYING");
             for (final Step step : steps) {
@@ -249,7 +264,7 @@ final class FrameworkUpdateApplier {
             }
             if (receipt != null) {
                 faults.hit("before-receipt-index");
-                writeAtomic(receipt.indexPath(), receipt.index());
+                writePrivateAtomic(receipt.indexPath(), receipt.index());
                 faults.hit("after-receipt-index");
             }
             faults.hit("before-installed-build");
@@ -294,12 +309,15 @@ final class FrameworkUpdateApplier {
                 .contains(journal.path("state").asText())) return false;
         if (!root.toString().equals(journal.path("root").asText())
                 || !loadedVersion.equals(journal.path("version").asText())
-                || !root.resolve("turboism-agent.jar").equals(loadedAgent.toAbsolutePath().normalize())) {
+                || !root.resolve("turboism-agent.jar")
+                        .equals(loadedAgent.toAbsolutePath().normalize())) {
             throw new IOException("Health confirmation identity mismatch");
         }
         final long bytes = journal.path("agentBytes").asLong(-1);
-        if (bytes <= 0 || bytes > UpdateManifest.MAX_FILE_BYTES
-                || !FrameworkUpdateCache.hash(loadedAgent, bytes).equals(journal.path("agentSha256").asText())) {
+        if (bytes <= 0
+                || bytes > UpdateManifest.MAX_FILE_BYTES
+                || !FrameworkUpdateCache.hash(loadedAgent, bytes)
+                        .equals(journal.path("agentSha256").asText())) {
             throw new IOException("Health confirmation agent hash mismatch");
         }
         setState(journal, "COMMITTED");
@@ -316,9 +334,11 @@ final class FrameworkUpdateApplier {
             throw new IOException("Startup journal belongs to another installation");
         }
         if ("AWAITING_HEALTH".equals(journal.path("state").asText())) {
-            final var launcher = ProcessHandle.of(launcherPid).filter(ProcessHandle::isAlive)
+            final var launcher = ProcessHandle.of(launcherPid)
+                    .filter(ProcessHandle::isAlive)
                     .orElseThrow(() -> new IOException("Launcher process is not running"));
-            final var started = launcher.info().startInstant()
+            final var started = launcher.info()
+                    .startInstant()
                     .orElseThrow(() -> new IOException("Launcher process identity unavailable"));
             journal.put("launcherPid", launcherPid);
             journal.put("launcherStarted", started.toString());
@@ -329,7 +349,10 @@ final class FrameworkUpdateApplier {
             final var previous = ProcessHandle.of(journal.path("launcherPid").asLong(-1));
             if (previous.isPresent() && previous.get().isAlive()) {
                 final var started = previous.get().info().startInstant();
-                if (started.isEmpty() || started.get().toString().equals(journal.path("launcherStarted").asText())) {
+                if (started.isEmpty()
+                        || started.get()
+                                .toString()
+                                .equals(journal.path("launcherStarted").asText())) {
                     throw new IOException("Previous launch still running; recovery must wait for exit");
                 }
             }
@@ -339,10 +362,17 @@ final class FrameworkUpdateApplier {
 
     // ---------------------------------------------------------------- preparation
 
-    private record Step(String relative, UpdateManifestEntry entry, Path target, Path source, boolean existed,
-            String previousHash, boolean retired) {}
+    private record Step(
+            String relative,
+            UpdateManifestEntry entry,
+            Path target,
+            Path source,
+            boolean existed,
+            String previousHash,
+            boolean retired) {}
 
-    private List<Step> prepare(final UpdateManifest manifest, final Path staged, final Map<String, String> previousHashes)
+    private List<Step> prepare(
+            final UpdateManifest manifest, final Path staged, final Map<String, String> previousHashes)
             throws IOException, InterruptedException {
         final Map<String, Step> byLowerPath = new LinkedHashMap<>();
         final java.util.Set<String> targetPaths = new java.util.HashSet<>();
@@ -382,7 +412,8 @@ final class FrameworkUpdateApplier {
             if (!FrameworkUpdateCache.hash(source, entry.bytes()).equals(entry.sha256())) {
                 throw new IOException("Staged bytes do not match signed manifest: " + relative);
             }
-            byLowerPath.put(relative.toLowerCase(java.util.Locale.ROOT),
+            byLowerPath.put(
+                    relative.toLowerCase(java.util.Locale.ROOT),
                     new Step(relative, entry, target, source, existing != null, previousHash, false));
         }
         if (previousHashes != null) {
@@ -390,9 +421,10 @@ final class FrameworkUpdateApplier {
                 if (targetPaths.contains(old.getKey().toLowerCase(java.util.Locale.ROOT))) continue;
                 final Path target = root.resolve(old.getKey()).normalize();
                 requirePlainDirectories(target.getParent());
-                final var oldEntry = new UpdateManifestEntry(old.getKey(), Files.size(target), old.getValue(),
-                        "sha256:" + old.getValue());
-                byLowerPath.put(old.getKey().toLowerCase(java.util.Locale.ROOT),
+                final var oldEntry = new UpdateManifestEntry(
+                        old.getKey(), Files.size(target), old.getValue(), "sha256:" + old.getValue());
+                byLowerPath.put(
+                        old.getKey().toLowerCase(java.util.Locale.ROOT),
                         new Step(old.getKey(), oldEntry, target, null, true, old.getValue(), true));
             }
         }
@@ -436,7 +468,10 @@ final class FrameworkUpdateApplier {
     private void verifyPrevious(final Path path, final String expected) throws IOException, InterruptedException {
         requirePlainDirectories(path.getParent());
         final var attributes = FrameworkUpdateCache.attributes(path);
-        if (attributes == null || !attributes.isRegularFile() || attributes.isSymbolicLink() || attributes.isOther()
+        if (attributes == null
+                || !attributes.isRegularFile()
+                || attributes.isSymbolicLink()
+                || attributes.isOther()
                 || attributes.size() > UpdateManifest.MAX_FILE_BYTES
                 || !FrameworkUpdateCache.hash(path, attributes.size()).equals(expected)) {
             throw new IOException("Installed file differs from authenticated old receipt: " + path.getFileName());
@@ -513,8 +548,9 @@ final class FrameworkUpdateApplier {
         }
         if (journal.path("receiptTracked").asBoolean(false)) {
             try {
-                final Path index = root.resolve(FrameworkInstallationReceiptLoader.STATE).resolve("installed-receipt.json");
-                restoreFile(journal, backupDir.resolve("receipt-index.json"), index, "installed-receipt.json");
+                final Path index =
+                        root.resolve(FrameworkInstallationReceiptLoader.STATE).resolve("installed-receipt.json");
+                restoreReceiptIndex(backupDir.resolve("receipt-index.json"), index);
             } catch (IOException failure) {
                 failures.add(new IOException("Could not restore installed receipt index", failure));
             }
@@ -542,7 +578,8 @@ final class FrameworkUpdateApplier {
         final BasicFileAttributes current = FrameworkUpdateCache.attributes(target);
         if (current != null && current.isRegularFile() && current.size() == Files.size(backup)) {
             try {
-                if (FrameworkUpdateCache.hash(target, current.size()).equals(FrameworkUpdateCache.hash(backup, current.size()))) {
+                if (FrameworkUpdateCache.hash(target, current.size())
+                        .equals(FrameworkUpdateCache.hash(backup, current.size()))) {
                     return;
                 }
             } catch (InterruptedException interrupted) {
@@ -564,7 +601,8 @@ final class FrameworkUpdateApplier {
     private static void deleteTree(final Path directory) throws IOException {
         if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) return;
         try (var stream = Files.walk(directory)) {
-            final List<Path> paths = stream.sorted(java.util.Comparator.reverseOrder()).toList();
+            final List<Path> paths =
+                    stream.sorted(java.util.Comparator.reverseOrder()).toList();
             for (final Path path : paths) Files.deleteIfExists(path);
         }
     }
@@ -576,14 +614,16 @@ final class FrameworkUpdateApplier {
         final BasicFileAttributes a = FrameworkUpdateCache.attributes(path);
         if (a == null || !a.isRegularFile() || a.size() > 1024 * 1024) throw new IOException("Invalid journal");
         final var parsed = UpdateFileSupport.JSON.readTree(Files.readAllBytes(path));
-        if (!(parsed instanceof ObjectNode object) || !JOURNAL_FORMAT.equals(object.path("format").asText())) {
+        if (!(parsed instanceof ObjectNode object)
+                || !JOURNAL_FORMAT.equals(object.path("format").asText())) {
             throw new IOException("Unrecognized update journal");
         }
         if (!java.util.Set.of("PREPARED", "APPLYING", "AWAITING_HEALTH", "STARTING_HEALTH", "COMMITTED")
-                .contains(object.path("state").asText())
+                        .contains(object.path("state").asText())
                 || !object.path("files").isArray()
                 || object.path("files").size() > 2 * UpdateManifest.MAX_ENTRIES
-                || object.has("receiptTracked") && !object.path("receiptTracked").isBoolean()) {
+                || object.has("receiptTracked")
+                        && !object.path("receiptTracked").isBoolean()) {
             throw new IOException("Invalid journal state or file inventory");
         }
         final var paths = new java.util.HashSet<String>();
@@ -595,8 +635,7 @@ final class FrameworkUpdateApplier {
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Journal names a non-framework path", invalid);
             }
-            if (!entry.path("existed").isBoolean()
-                    || !paths.add(relative.toLowerCase(java.util.Locale.ROOT))) {
+            if (!entry.path("existed").isBoolean() || !paths.add(relative.toLowerCase(java.util.Locale.ROOT))) {
                 throw new IOException("Invalid or duplicate journal entry");
             }
         }
@@ -623,6 +662,49 @@ final class FrameworkUpdateApplier {
             throw new IOException("Atomic replacement unavailable", unsupported);
         } finally {
             Files.deleteIfExists(temporary);
+        }
+    }
+
+    /** Receipt index state (live index, its rollback backup, or its restore) is private: on Windows an inherited
+     * temp-directory DACL would otherwise survive an atomic rename, so an explicit owner/SYSTEM/Administrators ACL
+     * is applied to the temp file before it is published. Never used for the non-private journal. */
+    private static void writePrivateAtomic(final Path target, final byte[] bytes) throws IOException {
+        final Path temporary = Files.createTempFile(target.getParent(), ".receipt-index-", ".writing");
+        try {
+            restrictAclIfWindows(temporary);
+            Files.write(temporary, bytes, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+            force(temporary);
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            throw new IOException("Atomic replacement unavailable", unsupported);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    /** Restores the previous receipt index from its rollback backup via a private atomic publication, so a wide ACL
+     * inherited from the work directory can never be exposed on the live index, even if publication later fails. */
+    private void restoreReceiptIndex(final Path backup, final Path index) throws IOException {
+        FrameworkUpdateCache.installationAncestors(backup.getParent());
+        requirePlainDirectories(index.getParent());
+        if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Backup missing during rollback: installed-receipt.json");
+        }
+        writePrivateAtomic(index, readReceiptState(backup));
+    }
+
+    private static byte[] readReceiptState(final Path path) throws IOException {
+        try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+            final byte[] bytes = input.readNBytes(4097);
+            if (bytes.length > 4096) throw new IOException("Oversized receipt index state");
+            return bytes;
+        }
+    }
+
+    /** POSIX keeps private state via owner-only mode bits; Windows needs an explicit restrictive DACL instead. */
+    private static void restrictAclIfWindows(final Path path) throws IOException {
+        if (!Files.getFileStore(path).supportsFileAttributeView("posix")) {
+            FrameworkUpdateCache.restrictAcl(path);
         }
     }
 

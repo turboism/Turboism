@@ -162,7 +162,9 @@ final class FrameworkInstallationReceiptLoaderTest {
         // limitation is documented in FrameworkInstallationFiles.Local rather than silently claimed.
         final boolean posix = Files.getFileStore(temporary).supportsFileAttributeView("posix");
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                posix || !java.util.List.of("hardlink-file", "hardlink-index", "permissions-file").contains(mode),
+                posix
+                        || !java.util.List.of("hardlink-file", "hardlink-index", "permissions-file")
+                                .contains(mode),
                 "needs POSIX link count / permission bits; bytes are still verified by hash");
         final Fixture f = new Fixture();
         final Path agent = f.root.resolve("turboism-agent.jar");
@@ -216,12 +218,9 @@ final class FrameworkInstallationReceiptLoaderTest {
                 Files.move(lib, saved);
                 Files.createSymbolicLink(lib, saved);
             }
-            case "permissions-file" ->
-                Support.groupWritable(agent);
-            case "permissions-index" ->
-                Support.worldReadable(f.index);
-            case "permissions-state" ->
-                Support.worldReadable(f.index.getParent());
+            case "permissions-file" -> Support.groupWritable(agent);
+            case "permissions-index" -> Support.worldReadable(f.index);
+            case "permissions-state" -> Support.worldReadable(f.index.getParent());
             default -> throw new AssertionError(mode);
         }
         if (mode.equals("bad-signature")) {
@@ -498,7 +497,8 @@ final class FrameworkInstallationReceiptLoaderTest {
 
     private record Upgrade(FrameworkUpdateReceipt.Prepared receipt, Path staged, FrameworkBuildInfo identity) {}
 
-    private Upgrade upgrade(final Fixture f, final String version, final long build, final char revision) throws Exception {
+    private Upgrade upgrade(final Fixture f, final String version, final long build, final char revision)
+            throws Exception {
         final Path stage = Files.createTempDirectory(temporary, "signed-upgrade-");
         final List<String> paths = new ArrayList<>(UpdateManifestEntry.FRAMEWORK_ROOT_FILES);
         paths.add("graal/lib/sdk-" + version + ".jar");
@@ -517,12 +517,15 @@ final class FrameworkInstallationReceiptLoaderTest {
             }
         }
         final String source = String.valueOf(revision).repeat(40);
-        final var manifest = new UpdateManifest(1, "fixture", version, "stable", build, source,
-                "0.1.0", "windows-x64", entries);
+        final var manifest =
+                new UpdateManifest(1, "fixture", version, "stable", build, source, "0.1.0", "windows-x64", entries);
         final byte[] bytes = manifest.toCanonicalBytes();
         final var receipt = FrameworkUpdateReceipt.prepare(f.root, bytes, f.sign(bytes), f.verifier);
-        return new Upgrade(receipt, stage, new FrameworkBuildInfo(version, FrameworkBuildInfo.Channel.STABLE,
-                OptionalLong.of(build), source, "ci", false));
+        return new Upgrade(
+                receipt,
+                stage,
+                new FrameworkBuildInfo(
+                        version, FrameworkBuildInfo.Channel.STABLE, OptionalLong.of(build), source, "ci", false));
     }
 
     @Test
@@ -536,9 +539,15 @@ final class FrameworkInstallationReceiptLoaderTest {
             final String version = "1." + i + ".0";
             final var old = f.loader().load();
             final var target = upgrade(f, version, 49 + i, (char) ('b' + i));
-            assertEquals(FrameworkUpdateApplier.Outcome.AWAITING_HEALTH,
-                    applier.applyAuthenticated(target.receipt(), old, target.staged(),
-                            ("{\"version\":\"" + version + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8)).outcome());
+            assertEquals(
+                    FrameworkUpdateApplier.Outcome.AWAITING_HEALTH,
+                    applier.applyAuthenticated(
+                                    target.receipt(),
+                                    old,
+                                    target.staged(),
+                                    ("{\"version\":\"" + version + "\"}")
+                                            .getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                            .outcome());
             f.info = target.identity();
             final var installed = f.loader().load();
             assertEquals(version, installed.loaded().version());
@@ -562,8 +571,10 @@ final class FrameworkInstallationReceiptLoaderTest {
         final var applier = new FrameworkUpdateApplier(f.root, temporary.resolve("apply-work"), point -> {
             if (point.equals("after-receipt-index")) throw new IOException("injected index failure");
         });
-        assertEquals(FrameworkUpdateApplier.Outcome.ROLLED_BACK,
-                applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'}).outcome());
+        assertEquals(
+                FrameworkUpdateApplier.Outcome.ROLLED_BACK,
+                applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'})
+                        .outcome());
         assertArrayEquals(index, Files.readAllBytes(f.index));
         assertEquals(old.hashes(), f.loader().load().hashes());
         assertTrue(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
@@ -581,11 +592,68 @@ final class FrameworkInstallationReceiptLoaderTest {
         final var applier = new FrameworkUpdateApplier(f.root, work, point -> {
             if (point.equals("after-receipt-index")) throw new Crash();
         });
-        assertThrows(Crash.class,
+        assertThrows(
+                Crash.class,
                 () -> applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'}));
-        assertEquals(FrameworkUpdateApplier.Outcome.RECOVERED,
+        assertEquals(
+                FrameworkUpdateApplier.Outcome.RECOVERED,
                 new FrameworkUpdateApplier(f.root, work).recover().outcome());
         assertArrayEquals(index, Files.readAllBytes(f.index));
+        assertEquals(old.hashes(), f.loader().load().hashes());
+    }
+
+    @Test
+    void appliedReceiptIndexAndRollbackBackupStayPrivateUnderWideInheritedAcl() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                Files.getFileStore(temporary).supportsFileAttributeView("posix"),
+                "POSIX enforces receipt privacy via owner-only mode bits");
+        final Fixture f = new Fixture();
+        final Path work = temporary.resolve("apply-work");
+        Files.createDirectories(work);
+        Support.wideInheritableAcl(work); // simulate a host whose %TEMP% propagates untrusted principals
+        final var old = f.loader().load();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final var applier = new FrameworkUpdateApplier(f.root, work, point -> {
+            if (point.equals("before-receipt-index")) Support.wideInheritableAcl(f.index.getParent());
+        });
+        assertEquals(
+                FrameworkUpdateApplier.Outcome.AWAITING_HEALTH,
+                applier.applyAuthenticated(
+                                target.receipt(),
+                                old,
+                                target.staged(),
+                                ("{\"version\":\"1.1.0\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        .outcome());
+        Support.makePrivate(f.index.getParent()); // judge only the index file, not the widened state directory
+        assertTrue(Support.aclPrivate(f.index), "applied receipt index must not inherit the wide state ACL");
+        assertTrue(
+                Support.aclPrivate(work.resolve("backup/receipt-index.json")),
+                "receipt index backup must be written private, not copied with the wide work ACL");
+        f.info = target.identity();
+        assertEquals("1.1.0", f.loader().load().loaded().version());
+    }
+
+    @Test
+    void receiptIndexRestorePublishesPrivateStateInsteadOfWideCopiedBackup() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                Files.getFileStore(temporary).supportsFileAttributeView("posix"),
+                "POSIX enforces receipt privacy via owner-only mode bits");
+        final Fixture f = new Fixture();
+        final byte[] original = Files.readAllBytes(f.index);
+        final Path work = temporary.resolve("apply-work");
+        Files.createDirectories(work);
+        Support.wideInheritableAcl(work); // a wide backup must never be copied onto the live index
+        final var old = f.loader().load();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final var applier = new FrameworkUpdateApplier(f.root, work, point -> {
+            if (point.equals("after-receipt-index")) throw new IOException("injected index failure");
+        });
+        assertEquals(
+                FrameworkUpdateApplier.Outcome.ROLLED_BACK,
+                applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'})
+                        .outcome());
+        assertTrue(Support.aclPrivate(f.index), "restored receipt index must be private, not a wide-ACL copy");
+        assertArrayEquals(original, Files.readAllBytes(f.index));
         assertEquals(old.hashes(), f.loader().load().hashes());
     }
 
@@ -598,7 +666,8 @@ final class FrameworkInstallationReceiptLoaderTest {
             final Path conflict = f.root.resolve(modifiedOld ? "graal/lib/sdk-1.0.0.jar" : "graal/lib/sdk-1.1.0.jar");
             Files.writeString(conflict, "user changes");
             final var applier = new FrameworkUpdateApplier(f.root, Files.createTempDirectory(temporary, "work-"));
-            assertThrows(IOException.class,
+            assertThrows(
+                    IOException.class,
                     () -> applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'}));
             assertEquals("user changes", Files.readString(conflict));
             assertArrayEquals(f.manifest, Files.readAllBytes(f.documents.resolve("manifest.json")));
@@ -615,10 +684,20 @@ final class FrameworkInstallationReceiptLoaderTest {
     }
 
     private int runInstalledHelper(final Fixture f, final Path stage) {
-        return FrameworkUpdateHelper.runInstalled(new String[] {
-                    "--root", f.root.toString(), "--stage", stage.toString(),
-                    "--work", FrameworkUpdateHealth.workDirectory(f.root).toString()
-                }, System.out, System.err, Map.of("fixture", f.keys.getPublic()), ProcessHandle::of, java.time.Instant::now);
+        return FrameworkUpdateHelper.runInstalled(
+                new String[] {
+                    "--root",
+                    f.root.toString(),
+                    "--stage",
+                    stage.toString(),
+                    "--work",
+                    FrameworkUpdateHealth.workDirectory(f.root).toString()
+                },
+                System.out,
+                System.err,
+                Map.of("fixture", f.keys.getPublic()),
+                ProcessHandle::of,
+                java.time.Instant::now);
     }
 
     @Test
@@ -643,11 +722,17 @@ final class FrameworkInstallationReceiptLoaderTest {
         FrameworkUpdatePendingTask.write(work, f.root, stage, "1.1.0");
         assertTrue(FrameworkUpdatePendingTask.read(work).isPresent());
 
-        final int status = FrameworkUpdateHelper.runInstalled(new String[] {
+        final int status = FrameworkUpdateHelper.runInstalled(
+                new String[] {
                     "--root", f.root.toString(),
                     "--work", work.toString(),
                     "--prepare-launch", Long.toString(ProcessHandle.current().pid())
-                }, System.out, System.err, Map.of("fixture", f.keys.getPublic()), ProcessHandle::of, java.time.Instant::now);
+                },
+                System.out,
+                System.err,
+                Map.of("fixture", f.keys.getPublic()),
+                ProcessHandle::of,
+                java.time.Instant::now);
         assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, status);
         assertFalse(FrameworkUpdatePendingTask.read(work).isPresent(), "pending task must be consumed");
         f.info = target.identity();
@@ -667,7 +752,8 @@ final class FrameworkInstallationReceiptLoaderTest {
      * crash evidence.
      */
     @Test
-    void realChildProcessNextLaunchAppliesVerifiedPendingTaskUsingInstalledAuthorityNonPowerLossEvidence() throws Exception {
+    void realChildProcessNextLaunchAppliesVerifiedPendingTaskUsingInstalledAuthorityNonPowerLossEvidence()
+            throws Exception {
         final Fixture f = new Fixture();
         final var target = upgrade(f, "1.1.0", 50, 'c');
         final Path stage = helperStage(f, target);
@@ -677,7 +763,8 @@ final class FrameworkInstallationReceiptLoaderTest {
 
         // Test-only entry point: pass the fixture public key file to the child process
         final Path keyFile = Files.createTempFile(temporary, "fixture-key-", ".b64");
-        Files.writeString(keyFile, Base64.getEncoder().encodeToString(f.keys.getPublic().getEncoded()));
+        Files.writeString(
+                keyFile, Base64.getEncoder().encodeToString(f.keys.getPublic().getEncoded()));
 
         final long launcherPid = ProcessHandle.current().pid();
         final Process child = new ProcessBuilder(
@@ -687,16 +774,21 @@ final class FrameworkInstallationReceiptLoaderTest {
                         "dev.turboism.update.TestKeyHelperMain",
                         keyFile.toString(),
                         "--installed",
-                        "--root", f.root.toString(),
-                        "--work", work.toString(),
-                        "--prepare-launch", Long.toString(launcherPid))
+                        "--root",
+                        f.root.toString(),
+                        "--work",
+                        work.toString(),
+                        "--prepare-launch",
+                        Long.toString(launcherPid))
                 .redirectErrorStream(true)
                 .start();
-        final String output = new String(child.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        final String output =
+                new String(child.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(child.waitFor(60, TimeUnit.SECONDS), "child helper process must terminate");
         assertEquals(0, child.exitValue(), output);
 
-        assertFalse(FrameworkUpdatePendingTask.read(work).isPresent(), "pending task must be consumed by child process");
+        assertFalse(
+                FrameworkUpdatePendingTask.read(work).isPresent(), "pending task must be consumed by child process");
         f.info = target.identity();
         assertEquals("1.1.0", f.loader().load().loaded().version());
         assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")), "old versioned library must be retired");
@@ -736,16 +828,17 @@ final class FrameworkInstallationReceiptLoaderTest {
     void initializerCannotAdoptModifiedPayloadOrReplaceAnotherReceipt() throws Exception {
         final Fixture f = new Fixture();
         final byte[] index = Files.readAllBytes(f.index);
-        final var other = new UpdateManifest(1, "fixture", "1.0.0", "stable", 50, "c".repeat(40),
-                "0.1.0", "windows-x64", f.old.entries());
+        final var other = new UpdateManifest(
+                1, "fixture", "1.0.0", "stable", 50, "c".repeat(40), "0.1.0", "windows-x64", f.old.entries());
         final byte[] document = other.toCanonicalBytes();
-        assertThrows(IOException.class,
+        assertThrows(
+                IOException.class,
                 () -> FrameworkUpdateReceipt.initialize(f.root, document, f.sign(document), f.verifier));
         assertArrayEquals(index, Files.readAllBytes(f.index));
         Files.delete(f.index);
         Files.writeString(f.root.resolve("turboism-agent.jar"), "user bytes");
-        assertThrows(IOException.class,
-                () -> FrameworkUpdateReceipt.initialize(f.root, f.manifest, f.envelope, f.verifier));
+        assertThrows(
+                IOException.class, () -> FrameworkUpdateReceipt.initialize(f.root, f.manifest, f.envelope, f.verifier));
         assertFalse(Files.exists(f.index));
         assertEquals("user bytes", Files.readString(f.root.resolve("turboism-agent.jar")));
     }
@@ -757,10 +850,21 @@ final class FrameworkInstallationReceiptLoaderTest {
         final Path stage = Files.createTempDirectory(temporary, "bootstrap-documents-");
         Files.write(stage.resolve("manifest.json"), f.manifest);
         Files.write(stage.resolve("manifest.json.sig"), f.envelope);
-        final int status = FrameworkUpdateHelper.runInstalled(new String[] {
-                "--initialize-receipt", "--root", f.root.toString(), "--stage", stage.toString(),
-                "--work", FrameworkUpdateHealth.workDirectory(f.root).toString()
-        }, System.out, System.err, Map.of("fixture", f.keys.getPublic()), ProcessHandle::of, java.time.Instant::now);
+        final int status = FrameworkUpdateHelper.runInstalled(
+                new String[] {
+                    "--initialize-receipt",
+                    "--root",
+                    f.root.toString(),
+                    "--stage",
+                    stage.toString(),
+                    "--work",
+                    FrameworkUpdateHealth.workDirectory(f.root).toString()
+                },
+                System.out,
+                System.err,
+                Map.of("fixture", f.keys.getPublic()),
+                ProcessHandle::of,
+                java.time.Instant::now);
         assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, status);
         assertEquals("1.0.0", f.loader().load().loaded().version());
         assertFalse(Files.exists(f.root.resolve("installed-build.json")));
@@ -772,10 +876,15 @@ final class FrameworkInstallationReceiptLoaderTest {
         final var target = upgrade(f, "1.1.0", 50, 'c');
         final Path stage = helperStage(f, target);
         final Process live = new ProcessBuilder(
-                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-cp", f.root.resolve("turboism-agent.jar") + java.io.File.pathSeparator + System.getProperty("java.class.path"),
-                FrameworkUpdateHelperTest.Sleep.class.getName())
-                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-cp",
+                        f.root.resolve("turboism-agent.jar")
+                                + java.io.File.pathSeparator
+                                + System.getProperty("java.class.path"),
+                        FrameworkUpdateHelperTest.Sleep.class.getName())
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .start();
         try {
             assertTrue(live.isAlive());
             assertEquals(FrameworkUpdateHelper.EXIT_BUSY, runInstalledHelper(f, stage));
@@ -846,8 +955,7 @@ final class FrameworkInstallationReceiptLoaderTest {
             final String hash = FrameworkUpdateTaskStore.hash(manifest);
             documents = index.getParent().resolve("receipts").resolve(hash);
             Files.createDirectories(documents);
-            for (Path p = documents; !p.equals(root); p = p.getParent())
-                Support.makePrivate(p);
+            for (Path p = documents; !p.equals(root); p = p.getParent()) Support.makePrivate(p);
             writePrivate(documents.resolve("manifest.json"), manifest);
             writePrivate(documents.resolve("manifest.json.sig"), envelope);
             final var record = UpdateFileSupport.JSON
@@ -898,18 +1006,21 @@ final class FrameworkInstallationReceiptLoaderTest {
         static void makePrivate(final Path path) throws IOException {
             if (posix(path)) {
                 final boolean directory = Files.isDirectory(path);
-                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------"));
+                Files.setPosixFilePermissions(
+                        path, PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------"));
                 return;
             }
             final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
             final var owner = Files.getOwner(path);
-            view.setAcl(java.util.List.of(allow(owner, java.util.EnumSet.allOf(java.nio.file.attribute.AclEntryPermission.class))));
+            view.setAcl(java.util.List.of(
+                    allow(owner, java.util.EnumSet.allOf(java.nio.file.attribute.AclEntryPermission.class))));
         }
 
         static void worldReadable(final Path path) throws IOException {
             if (posix(path)) {
                 final boolean directory = Files.isDirectory(path);
-                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(directory ? "rwxr-xr-x" : "rw-r--r--"));
+                Files.setPosixFilePermissions(
+                        path, PosixFilePermissions.fromString(directory ? "rwxr-xr-x" : "rw-r--r--"));
                 return;
             }
             addEveryone(path, java.nio.file.attribute.AclEntryPermission.READ_DATA);
@@ -930,18 +1041,62 @@ final class FrameworkInstallationReceiptLoaderTest {
             }
             final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
             final var acl = new java.util.ArrayList<>(view.getAcl());
-            acl.add(0, java.nio.file.attribute.AclEntry.newBuilder()
-                    .setType(java.nio.file.attribute.AclEntryType.DENY)
-                    .setPrincipal(Files.getOwner(path))
-                    .setPermissions(java.nio.file.attribute.AclEntryPermission.READ_DATA)
+            acl.add(
+                    0,
+                    java.nio.file.attribute.AclEntry.newBuilder()
+                            .setType(java.nio.file.attribute.AclEntryType.DENY)
+                            .setPrincipal(Files.getOwner(path))
+                            .setPermissions(java.nio.file.attribute.AclEntryPermission.READ_DATA)
+                            .build());
+            view.setAcl(acl);
+        }
+
+        /** Adds an untrusted, inheritable ALLOW ACE so newly created children inherit a non-private DACL,
+         * deterministically reproducing a host whose %TEMP% propagates extra principals to new files. */
+        static void wideInheritableAcl(final Path directory) throws IOException {
+            if (posix(directory)) return;
+            final var view = Files.getFileAttributeView(directory, java.nio.file.attribute.AclFileAttributeView.class);
+            final var everyone =
+                    directory.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
+            final var acl = new java.util.ArrayList<>(view.getAcl());
+            acl.add(java.nio.file.attribute.AclEntry.newBuilder()
+                    .setType(java.nio.file.attribute.AclEntryType.ALLOW)
+                    .setPrincipal(everyone)
+                    .setPermissions(java.util.EnumSet.allOf(java.nio.file.attribute.AclEntryPermission.class))
+                    .setFlags(java.util.EnumSet.of(
+                            java.nio.file.attribute.AclEntryFlag.FILE_INHERIT,
+                            java.nio.file.attribute.AclEntryFlag.DIRECTORY_INHERIT))
                     .build());
             view.setAcl(acl);
+        }
+
+        /** True when the path is private on this platform: owner-only POSIX bits, or an ACL limited to the owner,
+         * SYSTEM and Administrators (matching the production reader's trusted-principal rule). */
+        static boolean aclPrivate(final Path path) throws IOException {
+            if (posix(path)) {
+                return Files.getPosixFilePermissions(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                        .equals(PosixFilePermissions.fromString(Files.isDirectory(path) ? "rwx------" : "rw-------"));
+            }
+            final var view = Files.getFileAttributeView(
+                    path, java.nio.file.attribute.AclFileAttributeView.class, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            final var owner = Files.getOwner(path, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            for (final var entry : view.getAcl()) {
+                final String name = entry.principal().getName().toUpperCase(java.util.Locale.ROOT);
+                if (entry.type() == java.nio.file.attribute.AclEntryType.ALLOW
+                        && !entry.principal().equals(owner)
+                        && !name.endsWith("\\SYSTEM")
+                        && !name.endsWith("\\ADMINISTRATORS")) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static void addEveryone(final Path path, final java.nio.file.attribute.AclEntryPermission permission)
                 throws IOException {
             final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
-            final var everyone = path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
+            final var everyone =
+                    path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
             final var acl = new java.util.ArrayList<>(view.getAcl());
             acl.add(allow(everyone, java.util.EnumSet.of(permission)));
             view.setAcl(acl);
