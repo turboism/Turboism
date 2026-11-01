@@ -25,7 +25,6 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 /** First localization + runtime-owned async host-read reference consumer. */
@@ -87,7 +86,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             context.logger().warn("Project Inspector cannot open because the JVM is headless");
             return;
         }
-        ui.invokeLater(() -> showWindow(enableGeneration));
+        dispatchToUiThread(() -> showWindow(enableGeneration));
     }
 
     @Override
@@ -154,7 +153,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             context.logger()
                     .warn("Project Inspector refresh rejected safely: "
                             + error.code().name());
-            ui.invokeLater(() -> applyFailure(requestGeneration, error));
+            dispatchToUiThread(() -> applyFailure(requestGeneration, error));
             return;
         }
         final AsyncHostReadHandle handle = submission.handle().orElseThrow();
@@ -166,7 +165,20 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             currentRead.set(handle);
         }
         handle.completion()
-                .thenAccept(result -> ui.invokeLater(() -> applyResult(requestGeneration, view, handle, result)));
+                .thenAccept(result -> dispatchToUiThread(() -> applyResult(requestGeneration, view, handle, result)));
+    }
+
+    private void dispatchToUiThread(final Runnable work) {
+        final UiScheduler scheduler = uiScheduler;
+        if (scheduler == null) {
+            context.logger().warn("Project Inspector UI dispatch skipped: no UI scheduler");
+            return;
+        }
+        try {
+            ui.invokeLater(scheduler, work);
+        } catch (IllegalStateException fenced) {
+            context.logger().warn("Project Inspector UI dispatch skipped: plugin generation is closed");
+        }
     }
 
     private void applyResult(
@@ -257,7 +269,28 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
     interface UiAccess {
         boolean isHeadless();
 
-        void invokeLater(Runnable action);
+        /**
+         * Legacy scheduling seam retained for test doubles that do not inject a scheduler.
+         *
+         * @param action the UI work to run; must not be null
+         * @deprecated use {@link #invokeLater(UiScheduler, Runnable)} so work stays fenced by the
+         *     framework scheduler
+         */
+        @Deprecated
+        default void invokeLater(final Runnable action) {
+            throw new UnsupportedOperationException("UI dispatch requires the plugin scheduler");
+        }
+
+        /**
+         * Schedules {@code action} on the UI event thread through {@code scheduler} and returns
+         * immediately.
+         *
+         * @param scheduler the plugin's UI scheduler, captured while the plugin was live
+         * @param action the UI work to run; must not be null
+         */
+        default void invokeLater(final UiScheduler scheduler, final Runnable action) {
+            invokeLater(action);
+        }
 
         /**
          * Runs idempotent teardown {@code action} on the UI thread and waits for it, bounded; a hung
@@ -289,8 +322,8 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void invokeLater(final Runnable action) {
-            SwingUtilities.invokeLater(action);
+        public void invokeLater(final UiScheduler scheduler, final Runnable action) {
+            scheduler.runOnUiThread(action);
         }
 
         @Override
