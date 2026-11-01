@@ -15,7 +15,9 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -171,7 +173,29 @@ public final class UpdateDiscoveryParser {
                 optionalUtcInstant(node, "publishedAt"),
                 assets,
                 sourceRevision,
-                incremental);
+                incremental,
+                parseReleaseNotes(node));
+    }
+
+    private static Map<String, String> parseReleaseNotes(final ObjectNode node) {
+        final Map<String, String> notes = new LinkedHashMap<>();
+        final String fallback = displayNote(node.get("notes"));
+        if (!fallback.isBlank()) notes.put("en", fallback);
+        final JsonNode localized = node.get("notesByLanguage");
+        if (localized != null && localized.isObject()) {
+            for (String language : List.of("en", "zh", "ja", "ko")) {
+                final String value = displayNote(localized.get(language));
+                if (!value.isBlank()) notes.put(language, value);
+            }
+        }
+        return Map.copyOf(notes);
+    }
+
+    // Optional presentation metadata must not make an otherwise valid update unavailable.
+    private static String displayNote(final JsonNode value) {
+        return value != null && value.isTextual() && value.textValue().length() <= 24_000
+                ? value.textValue().strip()
+                : "";
     }
 
     private List<UpdateDiscovery.Asset> parseAssets(final ObjectNode node) {
