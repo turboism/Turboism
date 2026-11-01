@@ -16,6 +16,23 @@ dependencies {
     implementation(project(":core-contract"))
 }
 
+// Generated framework self-update activation resources. Unconfigured (the default) means unactivated: no policy
+// and no keyring are bundled, and any previously copied activation resource is purged by processResources.
+val frameworkUpdateResourceNames = listOf(
+    "framework-update-client.json",
+    "framework-update-trusted-keys.json"
+)
+
+// A relative path is resolved against the repository root, not this project directory, so the value handed to
+// Gradle matches what scripts/release/prepare-framework-client.py --output-dir receives from a repo-root shell.
+val frameworkUpdateResourcesDir =
+    providers.gradleProperty("turboism.frameworkUpdateResources")
+        .orElse(providers.environmentVariable("TURBOISM_FRAMEWORK_UPDATE_RESOURCES"))
+        .orNull
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { rootProject.file(it) }
+
 tasks.named<Test>("test") {
     // Forward optional real-host evidence to the forked test JVM.
     providers.systemProperty("turboism.test.cubismEditorJar").orNull?.let {
@@ -31,6 +48,43 @@ tasks.processResources {
     dependsOn(":checkReviewedReleases")
     from(rootProject.tasks.named("materializeVerificationRecords")) {
         into("META-INF/turboism/verification")
+    }
+
+    // Framework self-update activation (issue #50). The two bundled documents decide whether the updater may run
+    // at all, so they are generated outside the tracked tree (scripts/release/prepare-framework-client.py) and
+    // enter the agent JAR only through this generated directory. The environment variable name is part of the
+    // release contract; the Gradle property is an equivalent explicit override.
+    val activationResources = frameworkUpdateResourcesDir
+    inputs.property("frameworkUpdateResources", activationResources?.absolutePath ?: "<unconfigured>")
+    if (activationResources != null) {
+        inputs.dir(activationResources)
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+            .withPropertyName("frameworkUpdateResourcesContent")
+        from(activationResources) {
+            include(*frameworkUpdateResourceNames.toTypedArray())
+            into("META-INF/turboism")
+        }
+    }
+    doFirst {
+        val configured = frameworkUpdateResourcesDir
+        if (configured != null) {
+            if (!configured.isDirectory) {
+                throw GradleException(
+                    "TURBOISM_FRAMEWORK_UPDATE_RESOURCES is not a directory: ${configured.absolutePath}"
+                )
+            }
+            val missing = frameworkUpdateResourceNames.filterNot { configured.resolve(it).isFile }
+            if (missing.isNotEmpty()) {
+                throw GradleException(
+                    "TURBOISM_FRAMEWORK_UPDATE_RESOURCES is missing generated activation resources $missing; " +
+                        "run scripts/release/prepare-framework-client.py first"
+                )
+            }
+        }
+        // Never ship a stale activation resource: purge previous copies before the copy action runs, so switching
+        // back to an unconfigured build (or to another generated directory) cannot leave old policy/keys in the
+        // agent JAR. Only these two generated entries are ever removed; tracked resources are untouched.
+        frameworkUpdateResourceNames.forEach { delete(destinationDir.resolve("META-INF/turboism/$it")) }
     }
 }
 

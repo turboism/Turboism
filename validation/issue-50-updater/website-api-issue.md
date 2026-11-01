@@ -2,6 +2,8 @@
 
 关联：#50（In-Cubism incremental updater）
 
+> 本文保留早期任务草案。2026-11-01 核对：`distribution/worker.mjs` 已接入增量准入、撤回、资源读取和 `release.incremental`，服务端本地 78 项测试通过；Stable/Beta 的发布 CI、签名与初始安装收据接线已补齐。下文未勾选项不代表代码仍未实现。当前剩余工作是部署服务、配置正式签名与激活，并完成真实编号 CI 的连续升级验收。当前服务契约见 [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev)，部署方案见 [service-deployment-proposal.md](service-deployment-proposal.md)。
+
 ## 用户目标
 
 用户在 Cubism 内点击“更新”，后台下载发生变化的框架文件，继续建模；下次启动使用新框架。如果勾选更新插件，同时下载所选插件的兼容版本。
@@ -10,9 +12,9 @@
 
 这需要网站后端/分发服务提供资源，但不需要重做下载网页、建立用户登录系统，或提供远程“安装/重启 Cubism”接口。
 
-## 当前缺口
+## 原始缺口（历史记录）
 
-当前发布链路仍以完整 EXE/ZIP 为公开下载契约。仓库已有离线增量清单生成、签名验证、准入协议和客户端下载实现，但 `distribution/worker.mjs` 尚未接入增量发布/资源接口。
+提出本草案时，发布链路仍以完整 EXE/ZIP 为公开下载契约，`distribution/worker.mjs` 尚未接入增量发布/资源接口。该接口现已实现；GitHub Release 仍保留八个资产，增量资源通过独立 R2 路径交付。
 
 不能仅在下载页面增加一个按钮：必须先发布签名清单及对应的不可变文件载荷，再在版本查询结果里声明该版本支持内部增量更新。
 
