@@ -283,6 +283,16 @@ turboism.host.unsafe
 
 Permission ids are declared at the granularity a reviewer must approve and the runtime must be able to revoke. Surfaces that attach a plugin to shared host UI therefore carry their own contribution permissions — `turboism.ui.menu.contribute`, `turboism.ui.toolbar.main.contribute`, `turboism.ui.panel.contribute`, `turboism.ui.context-menu.contribute`, `turboism.ui.dialog.contribute`, `turboism.ui.canvas.hint`, and so on — rather than riding on a blanket UI grant. First-party manifests declare them exactly the way third-party plugins do; the fine granularity exists so each contribution can be audited and revoked independently.
 
+Rewriting host UI through a runtime service is governed by that service's own capability and
+permission contract. It is not a `ui.*` contribution and neither requires nor implies one, and
+it is not a blanket UI grant. Two shipped instances: `physics-editor` rewrites the native
+Physics Settings surface through `PhysicsEditorService` holding only
+`turboism.cubism.model.write`, and `protected-export` drives the native Export Settings dialog
+through `ExportSettingsContributionService` holding only `turboism.cubism.model.read`. Each such
+service owns the admission, host-identity, generation, lifecycle and audit rules for the surface
+it rewrites, and a plugin that attaches its own host UI still declares the matching `ui.*`
+contribution permission.
+
 Ownership, namespace, quota, lifecycle, and cleanup then bound what a granted plugin may do at runtime; they complement a declared permission rather than replace it. Plugin-private facilities that cannot cross a risk boundary — localization, the plugin logger and paths, bounded task scheduling, the disposable scope — carry no dedicated permission id.
 
 The terms are independent:
