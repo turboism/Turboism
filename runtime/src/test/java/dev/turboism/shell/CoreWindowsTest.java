@@ -481,6 +481,52 @@ class CoreWindowsTest {
         }
     }
 
+    /**
+     * Closing must stop the log refresh timer on the calling thread. The dialog disposal is
+     * posted to the host event queue, and that task never runs while the queue is wedged, exiting,
+     * or absent — so a timer stopped only inside it keeps polling the log for the rest of the
+     * session.
+     */
+    @Test
+    void closeStopsTheLogRefreshTimerWhileTheHostEventQueueIsBusy() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "showing the log window requires a display");
+        final CoreWindows windows = new CoreWindows(
+                I18N,
+                RuntimeSettingsService.unavailable(),
+                java.util.List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        try {
+            javax.swing.SwingUtilities.invokeAndWait(windows::showLogs);
+            javax.swing.SwingUtilities.invokeAndWait(() -> {});
+            assertTrue(windows.refreshTimerRunning(), "showing the logs window schedules the one-second refresh");
+
+            final java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                held.countDown();
+                try {
+                    release.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            assertTrue(held.await(10, java.util.concurrent.TimeUnit.SECONDS), "the host event queue stayed idle");
+
+            windows.close();
+
+            assertFalse(
+                    windows.refreshTimerRunning(),
+                    "close must stop the log refresh timer without waiting for the queued disposal");
+            assertTrue(windows.released(), "close must release the window set on the calling thread");
+        } finally {
+            release.countDown();
+            windows.close();
+            javax.swing.SwingUtilities.invokeAndWait(() -> {});
+        }
+    }
+
     @Test
     void detailsShowExactSupportedFullAndPartialVersionsWithoutInventingMissingDeclarations() throws Exception {
         Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
