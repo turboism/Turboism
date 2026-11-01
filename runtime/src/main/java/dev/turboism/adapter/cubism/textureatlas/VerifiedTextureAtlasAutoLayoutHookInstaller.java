@@ -21,6 +21,17 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     static final String STATISTICS_VIEW_INIT_ALIAS = "cubism.texture-atlas.statistics.view-init";
     static final String STATISTICS_INGRESS_KEY = "dev.turboism.texture-atlas.statistics.ingress";
 
+    /** Lifecycle outcome of one {@link #install()} call. */
+    public enum Installation {
+        /** The automatic-layout target class was already loaded and was rewritten during this call. */
+        RETRANSFORMED,
+        /**
+         * The transformer is registered, but the target class was not loaded yet. The host class is
+         * rewritten when it loads; nothing has been rewritten at this point.
+         */
+        ARMED_NOT_LOADED
+    }
+
     private final Instrumentation instrumentation;
     private final String targetClassName;
     private final ClassLoader hostClassLoader;
@@ -236,9 +247,10 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      *                               case the installer stays uninstalled
      * @throws Exception if retransforming the automatic-layout class fails; the installer is
      *                   closed first
+     * @return whether the target class was rewritten now or is only armed for a later class load
      */
-    public void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) return;
+    public Installation install() throws Exception {
+        if (!installed.compareAndSet(false, true)) return currentInstallation();
         if (!instrumentation.isRetransformClassesSupported()) {
             installed.set(false);
             throw new IllegalStateException("Class retransformation is unavailable.");
@@ -286,7 +298,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         }
         try {
             if (statisticsTransformer == null) {
-                return;
+                return currentInstallation();
             }
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(statisticsTransformerOwnerName())
@@ -302,6 +314,20 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "texture-atlas", "Texture-atlas statistics contribution retransformation failed safely", failure);
         }
+        return currentInstallation();
+    }
+
+    /**
+     * Reports what this installation actually rewrote.
+     *
+     * <p>{@link Installation#RETRANSFORMED} requires an already loaded automatic-layout class that
+     * this call retransformed. A registered transformer alone proves nothing about the host bytes,
+     * so an unloaded target reports {@link Installation#ARMED_NOT_LOADED} instead.</p>
+     *
+     * @return the installation outcome for the current call
+     */
+    private Installation currentInstallation() {
+        return transformedClass == null ? Installation.ARMED_NOT_LOADED : Installation.RETRANSFORMED;
     }
 
     private String statisticsTransformerOwnerName() {
