@@ -2,6 +2,7 @@ package dev.turboism.core.plugin.context;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -11,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,8 +31,42 @@ class SdkCarrierTraversalTest {
 
     interface TargetSdkInterface {}
 
+    enum SampleEnum {
+        ONLY
+    }
+
+    record SampleRecord(String value) {}
+
+    static final class FinalStage<T> extends CompletableFuture<T> {}
+
     interface Samples {
+        void voidValue();
+
+        int intValue();
+
+        long longValue();
+
+        boolean booleanValue();
+
+        float floatValue();
+
+        char charValue();
+
+        String stringValue();
+
+        Integer boxedValue();
+
+        SampleEnum enumValue();
+
+        SampleRecord recordValue();
+
+        TargetSdkInterface interfaceValue();
+
+        FinalStage<TargetSdkInterface> finalStage();
+
         Optional<TargetSdkInterface> optional();
+
+        Collection<TargetSdkInterface> collection();
 
         List<TargetSdkInterface> list();
 
@@ -53,6 +89,156 @@ class SdkCarrierTraversalTest {
 
     private static Type returnType(final String methodName) throws NoSuchMethodException {
         return Samples.class.getMethod(methodName).getGenericReturnType();
+    }
+
+    private static Object methodReturnValue(
+            final String methodName, final Object value, final SdkCarrierTraversal.InterfaceWrapper wrapper)
+            throws NoSuchMethodException {
+        return SdkCarrierTraversal.wrapMethodReturnValue(Samples.class.getMethod(methodName), value, wrapper);
+    }
+
+    @Test
+    void methodReturnFastPathLeavesScalarFinalEnumAndVoidValuesUntouched() throws Exception {
+        final SdkCarrierTraversal.InterfaceWrapper rejecting = (v, t) -> {
+            throw new AssertionError("leaf return values must not be traversed: " + t);
+        };
+
+        assertNull(methodReturnValue("voidValue", null, rejecting));
+        assertSame("ignored", methodReturnValue("voidValue", "ignored", rejecting));
+        assertEquals(7, methodReturnValue("intValue", 7, rejecting));
+        assertEquals(8L, methodReturnValue("longValue", 8L, rejecting));
+        assertEquals(true, methodReturnValue("booleanValue", true, rejecting));
+        assertEquals(1.5f, methodReturnValue("floatValue", 1.5f, rejecting));
+        assertEquals('c', methodReturnValue("charValue", 'c', rejecting));
+
+        final String string = new String("text");
+        assertSame(string, methodReturnValue("stringValue", string, rejecting));
+        final Integer boxed = Integer.valueOf(42);
+        assertSame(boxed, methodReturnValue("boxedValue", boxed, rejecting));
+        final SampleEnum enumValue = SampleEnum.ONLY;
+        assertSame(enumValue, methodReturnValue("enumValue", enumValue, rejecting));
+        final SampleRecord record = new SampleRecord("id");
+        assertSame(record, methodReturnValue("recordValue", record, rejecting));
+
+        assertNull(methodReturnValue("optional", null, rejecting));
+    }
+
+    @Test
+    void returnWrappingClassificationCoversFinalCarriersAndArrays() {
+        assertFalse(SdkCarrierTraversal.requiresReturnWrapping(void.class));
+        assertFalse(SdkCarrierTraversal.requiresReturnWrapping(int.class));
+        assertFalse(SdkCarrierTraversal.requiresReturnWrapping(Integer.class));
+        assertFalse(SdkCarrierTraversal.requiresReturnWrapping(String.class));
+        assertFalse(SdkCarrierTraversal.requiresReturnWrapping(SampleEnum.class));
+        assertFalse(SdkCarrierTraversal.requiresReturnWrapping(SampleRecord.class));
+
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(Optional.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(Collection.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(List.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(Set.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(Map.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(CompletionStage.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(TargetSdkInterface.class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(byte[].class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(String[].class));
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(Object.class));
+        // A final custom CompletionStage subtype is still a carrier for wrapValue.
+        assertTrue(SdkCarrierTraversal.requiresReturnWrapping(FinalStage.class));
+    }
+
+    @Test
+    void methodReturnValueTraversesFinalCompletionStageSubtype() throws Exception {
+        final TargetSdkInterface raw = new TargetSdkInterface() {};
+        final TargetSdkInterface wrapped = new TargetSdkInterface() {};
+        final FinalStage<TargetSdkInterface> stage = new FinalStage<>();
+
+        @SuppressWarnings("unchecked")
+        final CompletionStage<TargetSdkInterface> mapped = (CompletionStage<TargetSdkInterface>)
+                methodReturnValue("finalStage", stage, (value, type) -> value == raw ? wrapped : value);
+        stage.complete(raw);
+
+        assertSame(wrapped, mapped.toCompletableFuture().join());
+    }
+
+    @Test
+    void methodReturnValueTraversesEveryCarrierLikeWrapValue() throws Exception {
+        final TargetSdkInterface raw = new TargetSdkInterface() {};
+        final TargetSdkInterface wrapped = new TargetSdkInterface() {};
+        final SdkCarrierTraversal.InterfaceWrapper wrapper = (v, t) -> v == raw ? wrapped : v;
+
+        assertSame(wrapped, methodReturnValue("interfaceValue", raw, wrapper));
+
+        final Optional<TargetSdkInterface> optional = Optional.of(raw);
+        final Optional<TargetSdkInterface> mappedOptional =
+                (Optional<TargetSdkInterface>) methodReturnValue("optional", optional, wrapper);
+        assertNotSame(optional, mappedOptional);
+        assertSame(wrapped, mappedOptional.orElseThrow());
+
+        final Collection<TargetSdkInterface> collection = List.of(raw);
+        final Collection<TargetSdkInterface> mappedCollection =
+                (Collection<TargetSdkInterface>) methodReturnValue("collection", collection, wrapper);
+        assertNotSame(collection, mappedCollection);
+        assertSame(wrapped, mappedCollection.iterator().next());
+        assertThrows(UnsupportedOperationException.class, () -> mappedCollection.add(wrapped));
+
+        final List<TargetSdkInterface> list = Arrays.asList(raw, null);
+        final List<TargetSdkInterface> mappedList = (List<TargetSdkInterface>) methodReturnValue("list", list, wrapper);
+        assertNotSame(list, mappedList);
+        assertSame(wrapped, mappedList.get(0));
+        assertNull(mappedList.get(1));
+        assertThrows(UnsupportedOperationException.class, () -> mappedList.add(wrapped));
+
+        final Set<TargetSdkInterface> set = new LinkedHashSet<>(Arrays.asList(raw, null));
+        final Set<TargetSdkInterface> mappedSet = (Set<TargetSdkInterface>) methodReturnValue("set", set, wrapper);
+        assertNotSame(set, mappedSet);
+        final List<TargetSdkInterface> setElements = new ArrayList<>(mappedSet);
+        assertSame(wrapped, setElements.get(0));
+        assertNull(setElements.get(1));
+        assertThrows(UnsupportedOperationException.class, () -> mappedSet.add(wrapped));
+
+        final Map<String, TargetSdkInterface> map = Map.of("key", raw);
+        final Map<String, TargetSdkInterface> mappedMap =
+                (Map<String, TargetSdkInterface>) methodReturnValue("map", map, wrapper);
+        assertNotSame(map, mappedMap);
+        assertSame(wrapped, mappedMap.get("key"));
+        assertThrows(UnsupportedOperationException.class, () -> mappedMap.put("new", wrapped));
+
+        final CompletionStage<TargetSdkInterface> stage = (CompletionStage<TargetSdkInterface>)
+                methodReturnValue("stage", CompletableFuture.completedFuture(raw), wrapper);
+        assertSame(wrapped, stage.toCompletableFuture().join());
+
+        final TargetSdkInterface[] array = new TargetSdkInterface[] {raw, null};
+        final TargetSdkInterface[] mappedArray = (TargetSdkInterface[]) methodReturnValue("array", array, wrapper);
+        assertNotSame(array, mappedArray);
+        assertSame(wrapped, mappedArray[0]);
+        assertNull(mappedArray[1]);
+
+        final byte[] bytes = new byte[] {1, 2, 3};
+        final byte[] mappedBytes = (byte[]) methodReturnValue("byteArray", bytes, wrapper);
+        assertNotSame(bytes, mappedBytes);
+        assertArrayEquals(bytes, mappedBytes);
+
+        final byte[][] matrix = new byte[][] {{1, 2}, null};
+        final byte[][] mappedMatrix = (byte[][]) methodReturnValue("byteMatrix", matrix, wrapper);
+        assertNotSame(matrix, mappedMatrix);
+        assertNotSame(matrix[0], mappedMatrix[0]);
+        assertArrayEquals(matrix[0], mappedMatrix[0]);
+        assertNull(mappedMatrix[1]);
+
+        final String[] strings = new String[] {"x", null};
+        final String[] mappedStrings = (String[]) methodReturnValue("stringArray", strings, wrapper);
+        assertNotSame(strings, mappedStrings);
+        assertArrayEquals(strings, mappedStrings);
+
+        @SuppressWarnings("unchecked")
+        final List<String>[] generic = (List<String>[]) new List<?>[] {List.of("hello")};
+        @SuppressWarnings("unchecked")
+        final List<String>[] mappedGeneric = (List<String>[]) methodReturnValue("genericArray", generic, wrapper);
+        assertNotSame(generic, mappedGeneric);
+        assertSame(generic[0], mappedGeneric[0]);
+
+        final List<TargetSdkInterface> unchangedList = List.of(raw);
+        assertSame(unchangedList, methodReturnValue("list", unchangedList, (value, type) -> value));
     }
 
     @Test

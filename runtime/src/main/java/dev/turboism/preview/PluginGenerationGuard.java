@@ -11,7 +11,6 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -19,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 /**
  * Per-generation admission gate wrapped around the {@link PluginContext} handed to entrypoints.
@@ -72,6 +72,15 @@ final class PluginGenerationGuard {
     // name, so no other method can ride on it.
     private static final String UI_TEARDOWN_OPERATION = "runUiTeardown";
 
+    // Package and interface shape are immutable for a loaded class; avoid repeating the
+    // package lookup for every carrier element traversed on a hot SDK call.
+    private static final ClassValue<Boolean> GATABLE_SDK_INTERFACE = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(final Class<?> type) {
+            return computeGatableSdkInterface(type);
+        }
+    };
+
     private final String pluginId;
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final AtomicInteger inFlight = new AtomicInteger();
@@ -79,6 +88,8 @@ final class PluginGenerationGuard {
     // and a strong map would retain every SDK handle ever returned for the plugin's lifetime.
     private final ReferenceQueue<Object> collectedDelegates = new ReferenceQueue<>();
     private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies = new LinkedHashMap<>();
+    private final SdkCarrierTraversal.InterfaceWrapper interfaceWrapper = this::wrapInterface;
+    private final Function<Object, Object> ownedProxyUnwrapper = this::unwrapOwnedProxy;
 
     PluginGenerationGuard(final String pluginId) {
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
@@ -200,12 +211,12 @@ final class PluginGenerationGuard {
         }
     }
 
-    private Object wrapValue(final Object value, final Type declaredType) {
-        return SdkCarrierTraversal.wrapValue(value, declaredType, this::wrapInterface);
+    private Object wrapMethodReturnValue(final Method method, final Object result) {
+        return SdkCarrierTraversal.wrapMethodReturnValue(method, result, interfaceWrapper);
     }
 
     private Object[] unwrapArguments(final Object[] arguments) {
-        return SdkCarrierTraversal.unwrapArguments(arguments, this::unwrapOwnedProxy);
+        return SdkCarrierTraversal.unwrapArguments(arguments, ownedProxyUnwrapper);
     }
 
     private Object unwrapOwnedProxy(final Object value) {
@@ -218,6 +229,10 @@ final class PluginGenerationGuard {
     }
 
     private static boolean isGatableSdkInterface(final Class<?> type) {
+        return GATABLE_SDK_INTERFACE.get(type);
+    }
+
+    private static boolean computeGatableSdkInterface(final Class<?> type) {
         if (!type.isInterface()) {
             return false;
         }
@@ -293,7 +308,7 @@ final class PluginGenerationGuard {
                     return wrapInterface(result, serviceType);
                 }
             }
-            return wrapValue(result, method.getGenericReturnType());
+            return wrapMethodReturnValue(method, result);
         }
     }
 }

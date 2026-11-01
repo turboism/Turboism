@@ -10,7 +10,6 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -18,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** Applies exact Cubism Editor availability policy to one plugin's SDK object graph. */
@@ -28,6 +28,8 @@ final class CubismEditorApiAvailabilityInterceptor {
     // Both sides must be weak: a strongly cached proxy retains its delegate through Handler.
     private final ReferenceQueue<Object> collectedDelegates = new ReferenceQueue<>();
     private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies = new LinkedHashMap<>();
+    private final SdkCarrierTraversal.InterfaceWrapper interfaceWrapper = this::wrapInterface;
+    private final Function<Object, Object> ownedProxyUnwrapper = this::unwrapOwnedProxy;
 
     /**
      * Capability ids that must be admitted for each intercepted SDK surface.
@@ -38,6 +40,15 @@ final class CubismEditorApiAvailabilityInterceptor {
      * surface) still fails closed here.
      */
     private static final Map<Class<?>, Set<String>> REQUIRED_CAPABILITIES = requiredCapabilities();
+
+    // Interface shape and annotations never change for a loaded class; cache the recursive
+    // hierarchy and method scan performed for every wrapped carrier element.
+    private static final ClassValue<Boolean> INTERCEPTABLE_SDK_INTERFACE = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(final Class<?> type) {
+            return computeInterceptableSdkInterface(type);
+        }
+    };
 
     private static Map<Class<?>, Set<String>> requiredCapabilities() {
         final Map<Class<?>, Set<String>> required = new LinkedHashMap<>();
@@ -241,7 +252,7 @@ final class CubismEditorApiAvailabilityInterceptor {
                     return wrapInterface(result, serviceType);
                 }
             }
-            return wrapValue(result, method.getGenericReturnType());
+            return wrapMethodReturnValue(method, result);
         }
 
         private Object objectMethod(final Object proxy, final Method method, final Object[] arguments) {
@@ -289,12 +300,12 @@ final class CubismEditorApiAvailabilityInterceptor {
         };
     }
 
-    private Object wrapValue(final Object value, final Type declaredType) {
-        return SdkCarrierTraversal.wrapValue(value, declaredType, this::wrapInterface);
+    private Object wrapMethodReturnValue(final Method method, final Object result) {
+        return SdkCarrierTraversal.wrapMethodReturnValue(method, result, interfaceWrapper);
     }
 
     private Object[] unwrapArguments(final Object[] arguments) {
-        return SdkCarrierTraversal.unwrapArguments(arguments, this::unwrapOwnedProxy);
+        return SdkCarrierTraversal.unwrapArguments(arguments, ownedProxyUnwrapper);
     }
 
     private Object unwrapOwnedProxy(final Object value) {
@@ -307,6 +318,10 @@ final class CubismEditorApiAvailabilityInterceptor {
     }
 
     private static boolean isInterceptableSdkInterface(final Class<?> type) {
+        return INTERCEPTABLE_SDK_INTERFACE.get(type);
+    }
+
+    private static boolean computeInterceptableSdkInterface(final Class<?> type) {
         if (!type.isInterface()) return false;
         final Package typePackage = type.getPackage();
         // Every SDK interface is part of the plugin object graph.  Unannotated
