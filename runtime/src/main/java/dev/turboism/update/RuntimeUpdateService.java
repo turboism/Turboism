@@ -572,13 +572,19 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         }
         final UpdateDiscovery.Candidate candidate = discovery.candidate().orElseThrow();
         if (!isNewer(candidate)) {
+            final boolean installedCandidate =
+                    installed.version().filter(candidate.version()::equals).isPresent()
+                            && installed.buildNumber().equals(candidate.buildNumber());
             return new Snapshot(
                     Status.UP_TO_DATE,
                     installed.versionText(),
                     Optional.empty(),
                     OptionalLong.empty(),
                     userInitiated,
-                    false);
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
+                    installedCandidate ? candidate.releaseNotes() : java.util.Map.of());
         }
         final String identity = candidate.identity();
         final boolean reminder = !identity.equals(lastRemindedIdentity);
@@ -592,7 +598,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 userInitiated,
                 reminder,
                 matchedAsset.map(UpdateDiscovery.Asset::url),
-                matchedAsset.map(UpdateDiscovery.Asset::name));
+                matchedAsset.map(UpdateDiscovery.Asset::name),
+                candidate.releaseNotes());
     }
 
     /**

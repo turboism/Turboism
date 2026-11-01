@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -88,6 +89,10 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
                 node.put("buildNumber", value.buildNumber().getAsLong());
             }
             value.publishedAt().ifPresent(instant -> node.put("publishedAt", instant.toString()));
+            if (!value.releaseNotes().isEmpty()) {
+                final ObjectNode notes = node.putObject("notesByLanguage");
+                value.releaseNotes().forEach(notes::put);
+            }
             if (!value.assets().isEmpty()) {
                 final ArrayNode array = node.putArray("assets");
                 for (final Asset asset : value.assets()) {
@@ -135,7 +140,20 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
             Optional<Instant> publishedAt,
             List<Asset> assets,
             Optional<String> sourceRevision,
-            Optional<UpdateIncrementalDiscovery> incremental) {
+            Optional<UpdateIncrementalDiscovery> incremental,
+            Map<String, String> releaseNotes) {
+        /** Creates a candidate without optional display notes, preserving earlier callers. */
+        public Candidate(
+                final UpdateVersion version,
+                final String versionText,
+                final OptionalLong buildNumber,
+                final Optional<Instant> publishedAt,
+                final List<Asset> assets,
+                final Optional<String> sourceRevision,
+                final Optional<UpdateIncrementalDiscovery> incremental) {
+            this(version, versionText, buildNumber, publishedAt, assets, sourceRevision, incremental, Map.of());
+        }
+
         /** Legacy full-update candidate without incremental discovery evidence. */
         public Candidate(
                 final UpdateVersion version,
@@ -170,6 +188,7 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
             assets = List.copyOf(Objects.requireNonNull(assets, "assets"));
             sourceRevision = Objects.requireNonNull(sourceRevision, "sourceRevision");
             incremental = Objects.requireNonNull(incremental, "incremental");
+            releaseNotes = Map.copyOf(Objects.requireNonNull(releaseNotes, "releaseNotes"));
             if (sourceRevision.isPresent() && !sourceRevision.orElseThrow().matches("[0-9a-f]{40}")) {
                 throw new IllegalArgumentException("invalid candidate source revision");
             }
