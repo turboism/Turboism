@@ -282,8 +282,10 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
      *
      * <p>Records the SDK-reported type/combined/markers for every parameter and
      * asserts that a morph (or combined) source row is offered only same-category
-     * targets. When the model has no morph/combined parameter the related
-     * assertions are recorded as SKIPPED with the scan evidence.</p>
+     * targets. A source kind the model does not contain leaves nothing to filter:
+     * the related assertion is recorded as INFO with the scan evidence, so a model
+     * without that kind of parameter does not turn the run into SKIPPED. The morph
+     * transfer itself is exercised by the apply matrix on a synthesized fixture.</p>
      */
     private void runClassificationMatrix(
         final List<BoundSnapshot> candidates,
@@ -330,8 +332,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (morphSource == null) {
             recordAssertion("classify.morph.filter",
                 "morph source row offers only morph targets",
-                "skipped: no morph parameter in model (morphCount=" + morphCount + ")",
-                "SKIPPED");
+                "not applicable: no morph parameter in model (morphCount=" + morphCount + ")",
+                "INFO");
         } else {
             final List<BoundSnapshot> morphTargets = targetCandidates(candidates, bound, morphSource);
             final boolean onlyMorph = morphTargets.stream().allMatch(BoundSnapshot::morph);
@@ -347,8 +349,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (combinedSource == null) {
             recordAssertion("classify.combined.filter",
                 "combined source row offers no morph targets",
-                "skipped: no combined parameter in model (combinedCount=" + combinedCount + ")",
-                "SKIPPED");
+                "not applicable: no combined parameter in model (combinedCount=" + combinedCount + ")",
+                "INFO");
         } else {
             final List<BoundSnapshot> combinedTargets = targetCandidates(candidates, bound, combinedSource);
             final boolean noMorph = combinedTargets.stream().noneMatch(BoundSnapshot::morph);
@@ -364,8 +366,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (normalSource == null) {
             recordAssertion("classify.normal.filter",
                 "normal source row offers no morph targets",
-                "skipped: no normal parameter in model",
-                "SKIPPED");
+                "not applicable: no normal parameter in model",
+                "INFO");
         } else {
             final List<BoundSnapshot> normalTargets = targetCandidates(candidates, bound, normalSource);
             final boolean noMorph = normalTargets.stream().noneMatch(BoundSnapshot::morph);
@@ -470,13 +472,15 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 true, "row.invert", robot
             );
         } else {
+            // With candidates left, the clamped rows below carry the verdict; this step only
+            // reports that they replace the unclamped plain/invert rows.
             recordAssertion(
                 "apply.destination",
                 "a same-category range-contained target besides source",
                 rangeCandidates.isEmpty()
                     ? "none available"
                     : "none contains source and inverted points without collision",
-                rangeCandidates.isEmpty() ? "BLOCKED" : "SKIPPED"
+                rangeCandidates.isEmpty() ? "BLOCKED" : "INFO"
             );
         }
 
@@ -1752,8 +1756,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             recordAssertion(
                 "setup.fallback.source.parameter",
                 "optional existing-form fast path: existing global BLEND_SHAPE parameter",
-                "none",
-                "SKIPPED"
+                "none; the scaffold fixture setup runs instead",
+                "INFO"
             );
             return null;
         }
@@ -1854,7 +1858,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "optional existing-form fast path: existing global BLEND_SHAPE parameter + Drawable with >=3 distinct existing ACForms",
             "none; blendShapeParameters=" + sourceParameters.stream().map(ParameterId::value).toList()
                 + " rejects=" + rejectEvidence(rejects),
-            "SKIPPED"
+            "INFO"
         );
         return null;
     }
