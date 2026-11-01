@@ -69,10 +69,23 @@ def resolve_env(env_path: Path, environ: dict[str, str] | None = None) -> dict[s
     (golden prefix, host root, fixture sources) therefore stay effective no
     matter whether the operator exported them or wrote them to `.env`; a
     process-level export can only make the guard stricter, never looser.
+
+    Blank values are ignored: an exported empty string must not erase the
+    `.env` value, because an empty golden prefix disables the red line.
     """
     merged = parse_local_env(env_path)
-    merged.update(os.environ if environ is None else environ)
+    process_env = os.environ if environ is None else environ
+    merged.update({key: val for key, val in process_env.items() if val and val.strip()})
     return merged
+
+
+def first_nonblank(env: dict[str, str], *keys: str) -> str | None:
+    """Return the first non-blank value for `keys`, or None."""
+    for key in keys:
+        val = env.get(key)
+        if val and val.strip():
+            return val
+    return None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -89,13 +102,14 @@ class SafetyContext:
         user_home = Path.home().resolve()
 
         golden_raw = env.get("TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX")
-        golden_prefix = Path(golden_raw).resolve() if golden_raw else None
+        golden_prefix = Path(golden_raw).resolve() if golden_raw and golden_raw.strip() else None
 
         default_host_root = str(user_home / "TurboismValidation")
-        host_root_raw = env.get(
+        host_root_raw = first_nonblank(
+            env,
             "TURBOISM_HOST_VALIDATION_HOST_ROOT",
-            env.get("TURBOISM_HOST_VALIDATION_REMOTE_ROOT", default_host_root)
-        )
+            "TURBOISM_HOST_VALIDATION_REMOTE_ROOT",
+        ) or default_host_root
         host_root = Path(host_root_raw).resolve()
 
         # Collect all configured fixture sources
@@ -103,6 +117,8 @@ class SafetyContext:
         fixture_inodes = []
         for key, val in env.items():
             if key.startswith("TURBOISM_HOST_VALIDATION_FIXTURE_") and not key.endswith(("_SHA256", "_NAME")):
+                if not val or not val.strip():
+                    continue
                 p = Path(val).resolve()
                 fixture_paths.append(p)
                 try:
