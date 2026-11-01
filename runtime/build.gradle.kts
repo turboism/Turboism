@@ -304,45 +304,18 @@ val admissionPreflightTest by tasks.registering(Test::class) {
 }
 
 // Test classes or individual methods requiring separately staged licensed Cubism evidence; they
-// live in legacyCubismEvidenceTest and never run in the offline suites.
-val legacyEvidenceTests = listOf(
-    "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest",
-    "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest",
-    "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest",
-    "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorEditSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest",
-    "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorStructureSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest",
-    "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
-    "dev.turboism.mapping.verification.CorePublicApiAdmissionTest",
-    "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest",
-    "dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisionArtifactTest",
-    "dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteArtifactTest",
-    "dev.turboism.adapter.cubism.performance.PerformanceProbeImageArtifactTest",
-    "dev.turboism.adapter.cubism.shader.ShaderUniformCompositionArtifactTest",
-    "dev.turboism.mapping.verification.CubismHostCompatibilityRealSampleTest",
-    // Mixed suites retain their synthetic behavior tests in the offline gates.
-    "dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformerTest.realJarBytesMatchPinnedDigestsAndTransformOnEveryReviewedVersion",
-    "dev.turboism.adapter.cubism.mesh.PopupMeshUndoContractTest.popupSnapshotRestoresRealNativeMeshAndInvalidatesPositionsOnUndoRedo",
-    "dev.turboism.adapter.ui.OffCanvasBackgroundHostAccessTest.refreshesExistingAndFutureBackgroundMaterialsAcrossReviewedHosts",
-    "dev.turboism.mapping.verification.ReviewedHostArtifactsTest.localExactArtifactsMatchTheReviewedIdentitiesWhenPresent",
-    "dev.turboism.ui.table.SceneTableCompatibilityTest.realMembersBindAfterRepackingAndDeclarationChangeButRejectOtherSources"
-)
+// live in legacyCubismEvidenceTest and never run in the offline suites. The exclusions are a shared
+// fixture under src/test/resources so LegacyCubismEvidenceExclusionsTest can assert them offline
+// (no Cubism JAR): a stale entry fails there instead of excluding nothing and passing silently.
+val legacyEvidenceTests: List<String> = file(
+    "src/test/resources/dev/turboism/mapping/verification/legacy-cubism-evidence-exclusions.txt"
+).readLines()
+    .map(String::trim)
+    .filter { it.isNotEmpty() && !it.startsWith("#") }
+
+require(legacyEvidenceTests.isNotEmpty()) {
+    "legacy-cubism-evidence-exclusions.txt must keep the licensed-evidence exclusions"
+}
 
 val legacyCubismEvidenceTest by tasks.registering(Test::class) {
     group = "host verification"

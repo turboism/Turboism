@@ -68,5 +68,8 @@ jobs:
       - name: Verify the CI coverage contract
         run: python3 scripts/test/test_ci_coverage.py
 
+      - name: Run buildSrc unit tests
+        run: ./gradlew --no-daemon :buildSrc:test --console=plain
+
       - name: Run development and completed-commit gates
         run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon devCheck checkCompletedCommit --console=plain
