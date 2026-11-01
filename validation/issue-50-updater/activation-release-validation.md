@@ -26,6 +26,10 @@ PR [#59](https://github.com/turboism/Turboism/pull/59) 首轮完整 CI 发现两
 
 修复后的 Windows Java 17 锁、健康确认、启动租约与跨进程恢复测试共 53 项通过。Linux OpenJDK 21 的原始两项失败及新增四项回归均通过；扩展到下载器及真实跨 JVM 恢复后，共 125 项通过、无跳过。真实 GitHub Java 17 完整 CI 尚待重跑。本机 Windows 下载器的两项符号链接测试缺少系统权限，不能计为通过，相关断言已在 Linux 验证中通过。
 
+随后完整主 CI [41280948148](https://github.com/turboism/Turboism/actions/runs/41280948148) 已通过；Windows 托管启动器 196 条行为断言也通过。三通道打包发现旧检查仍只接受无启动 token 的 agent 参数，已将检查对齐到实际 token 协议，没有改变启动器或放宽行为验收。该修正后的主 CI [41281917243](https://github.com/turboism/Turboism/actions/runs/41281917243) 同样通过。
+
+Nightly 打包另发现取消下载后的工作线程退出超时。Linux 原测试重复到第 27 次复现；仅在失败后抓栈的复查在第 23 次再次复现，确认下载线程等待 JDK `Keep-Alive-SocketCleaner` 持有的流锁。清理线程继续读取已取消的响应，导致退出超过原有 7 秒上限。下载器本来就逐请求断开连接，现在明确发送 `Connection: close`，避免该后台连接复用清理竞争；原超时断言保留，并追加取消/超时后立即重试成功、旧 future 保持失败的验证。Windows Java 17 的修复后定向测试已通过；Linux 完整下载器、重复取消及新的完整 CI 仍在执行。
+
 准备从 `0.68.1-beta.2` 的正式签名完整包开始验收，现有 Stable 保持原发布。当前尚无该完整包或可下载的正式增量更新，不能宣称已经可用。还需完成源码 CI、main 合入、Worker 发布授权部署、真实编号的签名候选发布，以及 Windows Cubism 内连续两次框架升级。
 
 旧客户端必须先通过包含签名安装收据的新完整包升级一次；启用服务器和仓库变量不会改变已经安装或加载中的旧客户端。
