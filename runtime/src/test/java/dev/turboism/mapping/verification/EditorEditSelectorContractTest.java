@@ -244,16 +244,11 @@ final class EditorEditSelectorContractTest {
             assertBound(aliases, EditorEditPartObjectSelectorContract.KEYFORM_CONDITION_ALIASES);
         }
 
-        // MoveObjectOnPartsPalette reparent via remove-child lands only on 5.3.03.
-        assertUnbound(
-                aliases5203,
-                EditorEditPartObjectSelectorContract.MOVE_OBJECT_REMOVE_CHILD_ALIASES,
-                "cubism.editor-model.part-source.remove-child");
-        assertUnbound(
-                aliases5302,
-                EditorEditPartObjectSelectorContract.MOVE_OBJECT_REMOVE_CHILD_ALIASES,
-                "cubism.editor-model.part-source.remove-child");
-        assertBound(aliases5303, EditorEditPartObjectSelectorContract.MOVE_OBJECT_REMOVE_CHILD_ALIASES);
+        // MoveObjectOnPartsPalette reparent via remove-child is bound on every supported host
+        // after the 5.3.02 alias backfill.
+        for (Set<String> aliases : List.of(aliases5203, aliases5302, aliases5303)) {
+            assertBound(aliases, EditorEditPartObjectSelectorContract.MOVE_OBJECT_REMOVE_CHILD_ALIASES);
+        }
 
         // 5.3-only Part read fields for GetObject: the 5.2.03 host lacks the offscreen/clip/
         // blend part readers, the part-form visual reads, and the alpha-composition carrier.

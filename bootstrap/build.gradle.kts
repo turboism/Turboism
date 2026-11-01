@@ -41,6 +41,9 @@ tasks.named<Test>("test") {
     providers.systemProperty("turboism.test.cubismEditorJar").orNull?.let {
         systemProperty("turboism.test.cubismEditorJar", it)
     }
+    providers.systemProperty("turboism.cubismRefRoot").orNull?.let {
+        systemProperty("turboism.cubismRefRoot", it)
+    }
     configure<JacocoTaskExtension> {
         // Reference host classes must retain their original bytecode without instrumentation so offline verification mirrors the raw host jar.
         excludes = (excludes ?: emptyList()) + listOf("com.live2d.*")
