@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.warp-deformer-alt-symmetry",
   "name": "Warp Deformer Alt Symmetry",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Button-controlled mirror editing for Warp Deformer control points.",
   "entrypoints": [
     "dev.turboism.plugin.warpdeformeraltsymmetry.WarpDeformerAltSymmetryPlugin"

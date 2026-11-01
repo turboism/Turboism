@@ -50,14 +50,18 @@ final class FrameworkUpdateStage {
         try {
             copyDocument(downloaded.manifest(), building.resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
             copyDocument(
-                    downloaded.envelope(), building.resolve("manifest.json.sig"), UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
-            for (final FrameworkDeltaPlanner.Decision decision : downloaded.plan().decisions()) {
+                    downloaded.envelope(),
+                    building.resolve("manifest.json.sig"),
+                    UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
+            for (final FrameworkDeltaPlanner.Decision decision :
+                    downloaded.plan().decisions()) {
                 if (decision.action() != FrameworkDeltaPlanner.Action.DOWNLOAD) continue;
                 if (Thread.currentThread().isInterrupted()) throw new InterruptedException("Staging cancelled");
                 final UpdateManifestEntry entry = decision.entry();
                 final Path object = downloaded.objects().get(entry.sha256());
                 if (object == null) throw new IOException("Downloaded object missing for " + entry.relativePath());
-                final Path file = building.resolve("files").resolve(entry.relativePath()).normalize();
+                final Path file =
+                        building.resolve("files").resolve(entry.relativePath()).normalize();
                 if (!file.startsWith(building.resolve("files"))) throw new IOException("Path escapes stage");
                 Files.createDirectories(file.getParent());
                 Files.copy(object, file);

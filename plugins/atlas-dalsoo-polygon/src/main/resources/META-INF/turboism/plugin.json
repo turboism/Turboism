@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.texture-atlas-dalsoo",
   "name": "Dalsoo Polygon Packing Algorithm",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Irregular-polygon texture-atlas packing (Dalsoo kernel port; concave outlines, free rotation, per-item locks).",
   "entrypoints": [
     "dev.turboism.plugin.atlasdalsoo.TextureAtlasDalsooPlugin"

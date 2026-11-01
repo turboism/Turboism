@@ -71,7 +71,8 @@ final class FrameworkUpdateApplierTest {
         }
 
         void assertOld() throws IOException {
-            for (var e : oldFiles.entrySet()) assertArrayEquals(e.getValue(), Files.readAllBytes(root.resolve(e.getKey())), e.getKey());
+            for (var e : oldFiles.entrySet())
+                assertArrayEquals(e.getValue(), Files.readAllBytes(root.resolve(e.getKey())), e.getKey());
             assertFalse(Files.exists(root.resolve("graal/lib/added.jar")), "added file removed");
             assertArrayEquals(oldIdentity, Files.readAllBytes(root.resolve("installed-build.json")));
             assertUserStateUntouched();
@@ -79,8 +80,11 @@ final class FrameworkUpdateApplierTest {
         }
 
         void assertNew() throws IOException {
-            for (var e : newFiles.entrySet()) assertArrayEquals(e.getValue(), Files.readAllBytes(root.resolve(e.getKey())), e.getKey());
-            assertArrayEquals("same".getBytes(StandardCharsets.UTF_8), Files.readAllBytes(root.resolve("graal/lib/unchanged.jar")));
+            for (var e : newFiles.entrySet())
+                assertArrayEquals(e.getValue(), Files.readAllBytes(root.resolve(e.getKey())), e.getKey());
+            assertArrayEquals(
+                    "same".getBytes(StandardCharsets.UTF_8),
+                    Files.readAllBytes(root.resolve("graal/lib/unchanged.jar")));
             assertArrayEquals(newIdentity, Files.readAllBytes(root.resolve("installed-build.json")));
             assertUserStateUntouched();
             assertClean();
@@ -96,7 +100,9 @@ final class FrameworkUpdateApplierTest {
             assertFalse(Files.exists(work.resolve("journal.json")), "journal removed");
             assertFalse(Files.exists(work.resolve("backup")), "backup removed");
             try (var stream = Files.walk(root)) {
-                assertTrue(stream.noneMatch(p -> p.getFileName().toString().endsWith(".turboism-new")), "no temp leftovers");
+                assertTrue(
+                        stream.noneMatch(p -> p.getFileName().toString().endsWith(".turboism-new")),
+                        "no temp leftovers");
             }
         }
     }
@@ -162,7 +168,10 @@ final class FrameworkUpdateApplierTest {
         final var recovered = f.applier(p -> {}).recover();
         assertEquals(FrameworkUpdateApplier.Outcome.RECOVERED, recovered.outcome());
         f.assertOld();
-        assertEquals(FrameworkUpdateApplier.Outcome.NOTHING, f.applier(p -> {}).recover().outcome(), "idempotent");
+        assertEquals(
+                FrameworkUpdateApplier.Outcome.NOTHING,
+                f.applier(p -> {}).recover().outcome(),
+                "idempotent");
     }
 
     @Test
@@ -259,9 +268,7 @@ final class FrameworkUpdateApplierTest {
     @Test
     void workDirectoryInsideFrameworkFilesIsRejected() throws Exception {
         final Fixture f = new Fixture();
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new FrameworkUpdateApplier(f.root, f.root.resolve("graal")));
+        assertThrows(IllegalArgumentException.class, () -> new FrameworkUpdateApplier(f.root, f.root.resolve("graal")));
     }
 
     /**
@@ -274,7 +281,8 @@ final class FrameworkUpdateApplierTest {
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 System.getProperty("os.name").startsWith("Windows"), "Windows sharing-violation semantics");
         final Fixture f = new Fixture();
-        try (var held = new java.io.RandomAccessFile(f.root.resolve("turboism-agent.jar").toFile(), "r")) {
+        try (var held = new java.io.RandomAccessFile(
+                f.root.resolve("turboism-agent.jar").toFile(), "r")) {
             final var result = f.applier(p -> {}).apply(f.manifest(), f.staged, f.newIdentity);
             assertEquals(FrameworkUpdateApplier.Outcome.ROLLED_BACK, result.outcome());
             assertNotNull(held);

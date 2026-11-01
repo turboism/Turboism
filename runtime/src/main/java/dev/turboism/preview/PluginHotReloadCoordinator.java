@@ -216,6 +216,88 @@ public final class PluginHotReloadCoordinator {
     }
 
     /**
+     * Replaces an installed artifact only after its active generation has released the JAR.
+     * On failure, restores the installed bytes before loading the old generation, so rollback
+     * never holds the backup JAR open (in particular on Windows).
+     *
+     * @param pluginId plugin being updated
+     * @param stagedJar verified replacement artifact, distinct from the installed path
+     * @param installedJar installed artifact to replace
+     * @return immediate application or recovery outcome
+     */
+    public synchronized HotReloadResult hotReplace(
+            final String pluginId, final Path stagedJar, final Path installedJar) {
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+        final PreviewPluginCandidate candidate = discovery.readCandidate(stagedJar, failures);
+        if (candidate == null
+                || !pluginId.equals(candidate.descriptor().id())
+                || !isHotReloadSafe(candidate.descriptor(), stagedJar)) {
+            return HotReloadResult.rejected("HOT_RELOAD_UNSAFE", "Replacement plugin is not admitted.");
+        }
+        final LocalPluginRuntime.LoadedPlugin live = findLoaded(pluginId).orElse(null);
+        if (live != null
+                && (!isHotReloadSafe(live.runtime().descriptor(), live.jar())
+                        || !live.jar()
+                                .toAbsolutePath()
+                                .normalize()
+                                .equals(installedJar.toAbsolutePath().normalize()))) {
+            return HotReloadResult.rejected("ACTIVE_GENERATION_UNSAFE", "Active generation cannot be replaced.");
+        }
+        if (hasActiveDependents(pluginId) || !dependenciesSatisfied(candidate.descriptor())) {
+            return HotReloadResult.rejected("DEPENDENCIES_UNSATISFIED", "Active dependencies prevent replacement.");
+        }
+        Path backup = null;
+        try {
+            backup = Files.createTempFile(stagedJar.toAbsolutePath().getParent(), ".backup-", ".jar");
+            Files.copy(installedJar, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException failure) {
+            deleteBackup(backup);
+            return HotReloadResult.failed("BACKUP_FAILED", "Could not preserve the installed plugin.");
+        }
+        if (live != null) {
+            final HotReloadResult unloaded = hotUnload(pluginId);
+            if (!unloaded.succeeded()) {
+                // Disposal is unproven: keep both files, and never start an overlapping generation.
+                return unloaded;
+            }
+        }
+        boolean replaced = false;
+        try {
+            dev.turboism.update.UpdateFileSupport.copyAtomic(stagedJar, installedJar);
+            replaced = true;
+            final HotReloadResult applied = hotLoad(installedJar);
+            if (applied.succeeded()) {
+                deleteBackup(backup);
+                return applied;
+            }
+        } catch (IOException | RuntimeException failure) {
+            log.warn(pluginId, "Plugin replacement failed; restoring installed generation");
+        }
+        try {
+            if (replaced) dev.turboism.update.UpdateFileSupport.copyAtomic(backup, installedJar);
+            final HotReloadResult restored = live == null ? HotReloadResult.success() : hotLoad(installedJar);
+            if (restored.succeeded()) {
+                deleteBackup(backup);
+                return HotReloadResult.rolledBack(
+                        replaced ? "HOT_RELOAD_FAILED" : "REPLACEMENT_FAILED",
+                        "Previous installed generation restored.");
+            }
+        } catch (IOException | RuntimeException failure) {
+            log.warn(pluginId, "Plugin rollback failed; backup retained at " + backup);
+        }
+        return HotReloadResult.failed("ROLLBACK_FAILED", "Recovery backup retained at " + backup);
+    }
+
+    private void deleteBackup(final Path backup) {
+        if (backup == null) return;
+        try {
+            Files.deleteIfExists(backup);
+        } catch (IOException failure) {
+            log.warn("plugin-updates", "Plugin backup cleanup failed: " + backup);
+        }
+    }
+
+    /**
      * Checks whether a plugin with the given ID is currently loaded in the runtime.
      *
      * @param pluginId unique plugin identifier

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.host.HostSession;
 import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -17,6 +18,8 @@ import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.pluginmanagement.PluginCatalogClient.CatalogFetchResult;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.TrustedKey;
+import dev.turboism.preview.LocalPluginRuntime;
+import dev.turboism.preview.PreviewLog;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.update.UpdatePreferencesStore;
@@ -46,8 +49,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.jar.JarEntry;
+import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -653,6 +660,239 @@ final class RuntimePluginAutoUpdaterTest {
         }
     }
 
+    @Test
+    void hotAppliedUpdateCompletesThePendingJournalAndKeepsNoStagedArtifact() throws Exception {
+        final String pluginId = "dev.turboism.plugin.hotcycle";
+        final Path installedJar = home.resolve("plugins/" + pluginId + ".jar");
+        final byte[] original = compiledPlugin(pluginId, "0.1.0", false);
+        Files.createDirectories(installedJar.getParent());
+        Files.write(installedJar, original);
+
+        final byte[] replacement = compiledPlugin(pluginId, "0.2.0", false);
+        final BuiltArtifact artifact = artifactFor(pluginId, "hotcycle", "0.2.0", replacement);
+
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimePluginAutoUpdater updater = updaterFor(artifact, "0.2.0", true, diagnostics, scheduler);
+        try (LocalPluginRuntime runtime = previewRuntime(home)) {
+            updater.bindHotReloadCoordinator(runtime.hotReloadCoordinator());
+            final PluginAutoUpdateControl.Snapshot snapshot =
+                    updater.checkForPluginUpdates().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            assertEquals(PluginAutoUpdateControl.Status.UP_TO_DATE, snapshot.status());
+            assertArrayEquals(replacement, Files.readAllBytes(installedJar), "hot apply must install the new bytes");
+            assertTrue(
+                    new PendingPluginOperations(home).operations().isEmpty(),
+                    "a successful hot apply must complete its own pending journal entry");
+            assertTrue(stagedPackages(home).isEmpty(), "hot apply must release the staged artifact");
+            assertFalse(
+                    diagnostics.contains("PLUGIN_UPDATE_HOT_ROLLED_BACK"),
+                    "a successful hot apply must not report a rollback: " + diagnostics);
+            assertEquals(
+                    "0.2.0",
+                    runtime.loadedPlugins().stream()
+                            .filter(plugin -> pluginId.equals(plugin.id()))
+                            .findFirst()
+                            .orElseThrow()
+                            .version(),
+                    "the coordinator must have loaded the replacement generation");
+        } finally {
+            updater.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void hotApplyRollbackRestoresInstalledBytesAndConsumesTheStagedIntent() throws Exception {
+        final String pluginId = "dev.turboism.plugin.hotcycle";
+        final Path installedJar = home.resolve("plugins/" + pluginId + ".jar");
+        final byte[] original = compiledPlugin(pluginId, "0.1.0", false);
+        Files.createDirectories(installedJar.getParent());
+        Files.write(installedJar, original);
+
+        // The replacement loads but its entrypoint fails, so the coordinator restores the old generation.
+        final byte[] broken = compiledPlugin(pluginId, "0.2.0", true);
+        final BuiltArtifact artifact = artifactFor(pluginId, "hotcycle", "0.2.0", broken);
+
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimePluginAutoUpdater updater = updaterFor(artifact, "0.2.0", true, diagnostics, scheduler);
+        try (LocalPluginRuntime runtime = previewRuntime(home)) {
+            updater.bindHotReloadCoordinator(runtime.hotReloadCoordinator());
+            final PluginAutoUpdateControl.Snapshot snapshot =
+                    updater.checkForPluginUpdates().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            assertEquals(PluginAutoUpdateControl.Status.UP_TO_DATE, snapshot.status());
+            assertTrue(
+                    diagnostics.contains("PLUGIN_UPDATE_HOT_ROLLED_BACK"),
+                    "a coordinator rollback must be reported: " + diagnostics);
+            assertArrayEquals(original, Files.readAllBytes(installedJar), "rollback must restore installed bytes");
+            assertTrue(
+                    new PendingPluginOperations(home).operations().isEmpty(),
+                    "a confirmed rollback must consume the staged intent instead of retrying it forever");
+            assertTrue(stagedPackages(home).isEmpty(), "rollback must release the staged artifact");
+            assertTrue(
+                    runtime.loadedPlugins().stream()
+                            .noneMatch(plugin -> pluginId.equals(plugin.id()) && "0.2.0".equals(plugin.version())),
+                    "the rolled back generation must not stay loaded");
+        } finally {
+            updater.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private RuntimePluginAutoUpdater updaterFor(
+            final BuiltArtifact artifact,
+            final String targetVersion,
+            final boolean hotReload,
+            final List<String> diagnostics,
+            final RuntimeScheduler scheduler)
+            throws Exception {
+        final String pluginId = "dev.turboism.plugin.hotcycle";
+        final KeyPair keyPair = generateEd25519KeyPair();
+        final byte[] catalogBytes = catalogWithReleases(
+                1L,
+                pluginId,
+                "hotcycle",
+                "official",
+                List.of(releaseJson(
+                        targetVersion,
+                        "stable",
+                        "active",
+                        "[0.67.0,1.0.0)",
+                        false,
+                        List.of(),
+                        List.of(),
+                        artifact,
+                        hotReload)));
+        final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
+        return new RuntimePluginAutoUpdater(
+                home,
+                scheduler,
+                settings(false),
+                stubClient(catalogBytes, sigBytes, Map.of(URI.create(artifact.url()), artifact.bytes())),
+                testVerifier(keyPair),
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                FrameworkBuildInfo.Channel.STABLE,
+                Optional::empty,
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                Duration.ofDays(1),
+                Duration.ofDays(1),
+                diagnostics::add);
+    }
+
+    private static LocalPluginRuntime previewRuntime(final Path home) throws IOException {
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
+        final HostSession host = new HostSession(Optional::empty);
+        return new LocalPluginRuntime(
+                home,
+                scheduler,
+                host.adapterAccess(),
+                new PreviewLog(home.resolve("logs/turboism.log")),
+                (dev.turboism.internal.core.ShellAdmission) null);
+    }
+
+    private static List<Path> stagedPackages(final Path home) throws IOException {
+        final Path packages = home.resolve("state/runtime/plugin-management/packages");
+        if (!Files.isDirectory(packages)) {
+            return List.of();
+        }
+        try (var files = Files.list(packages)) {
+            return files.filter(Files::isRegularFile).toList();
+        }
+    }
+
+    private byte[] compiledPlugin(final String pluginId, final String version, final boolean failOnInit)
+            throws Exception {
+        final String packageName = "dev/example/" + pluginId.substring(pluginId.lastIndexOf('.') + 1);
+        final String entrypoint =
+                "dev.example." + pluginId.substring(pluginId.lastIndexOf('.') + 1) + ".TestEntrypoint";
+        final String body = failOnInit
+                ? "public void init(PluginContext context) { throw new IllegalStateException(\"broken update\"); }"
+                : "public void init(PluginContext context) { }";
+        final String source = """
+                package dev.example.%s;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {
+                    %s
+                }
+                """.formatted(pluginId.substring(pluginId.lastIndexOf('.') + 1), body);
+
+        final Path sourceFile = home.resolve("compile/" + version + "/" + packageName + "/TestEntrypoint.java");
+        final Path classesDir = home.resolve("compile/" + version + "/classes");
+        Files.createDirectories(sourceFile.getParent());
+        Files.writeString(sourceFile, source, StandardCharsets.UTF_8);
+        Files.createDirectories(classesDir);
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        final ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        assertEquals(
+                0,
+                compiler.run(
+                        null,
+                        null,
+                        errors,
+                        "-classpath",
+                        System.getProperty("java.class.path"),
+                        "-d",
+                        classesDir.toString(),
+                        sourceFile.toString()),
+                "compilation failed: " + errors.toString(StandardCharsets.UTF_8));
+
+        final String descriptor = """
+                {"format":"turboism.plugin.meta","schemaVersion":3,"id":"%s","name":"Example","version":"%s",
+                "description":"Example","entrypoints":["%s"],"turboismApi":"[0.67.0,1.0.0)",
+                "authors":[{"name":"Turboism"}],"license":"Project License","website":"https://turboism.dev",
+                "resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
+                "dependencies":[],"permissions":[],"capabilities":[],
+                "environment":{"requiresCubism":false,"ui":"none"},
+                "lifecycle":{"hotReload":true},"category":"integration","tags":["official"]}
+                """.formatted(pluginId, version, entrypoint);
+
+        final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(out)) {
+            putEntry(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            putEntry(
+                    jar,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "plugin.name=Example\nplugin.description=Example\n".getBytes(StandardCharsets.UTF_8));
+            try (var compiled = Files.walk(classesDir)) {
+                for (Path file : compiled.filter(Files::isRegularFile).sorted().toList()) {
+                    putEntry(jar, classesDir.relativize(file).toString().replace('\\', '/'), Files.readAllBytes(file));
+                }
+            }
+        }
+        return out.toByteArray();
+    }
+
+    private static BuiltArtifact artifactFor(
+            final String pluginId, final String slug, final String version, final byte[] jarBytes) throws Exception {
+        final byte[] descriptorBytes;
+        try (JarInputStream jar = new JarInputStream(new ByteArrayInputStream(jarBytes))) {
+            JarEntry entry = jar.getNextJarEntry();
+            byte[] descriptor = null;
+            while (entry != null) {
+                if ("META-INF/turboism/plugin.json".equals(entry.getName())) {
+                    descriptor = jar.readAllBytes();
+                    break;
+                }
+                entry = jar.getNextJarEntry();
+            }
+            if (descriptor == null) {
+                throw new IllegalStateException("compiled plugin jar has no descriptor");
+            }
+            descriptorBytes = descriptor;
+        }
+        final String fileName = slug + "-" + version + ".jar";
+        final String url = "https://github.com/turboism/turboism-plugin-directory/releases/download/plugin-" + slug
+                + "-v" + version + "/" + fileName;
+        return new BuiltArtifact(
+                fileName, url, jarBytes, sha256Hex(jarBytes), sha256Hex(descriptorBytes), jarBytes.length);
+    }
+
     private static KeyPair generateEd25519KeyPair() throws Exception {
         return KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
     }
@@ -707,6 +947,28 @@ final class RuntimePluginAutoUpdaterTest {
             final List<String> cubismVersions,
             final List<String> dependenciesJson,
             final BuiltArtifact artifact) {
+        return releaseJson(
+                version,
+                channel,
+                status,
+                turboismApi,
+                requiresCubism,
+                cubismVersions,
+                dependenciesJson,
+                artifact,
+                false);
+    }
+
+    private static String releaseJson(
+            final String version,
+            final String channel,
+            final String status,
+            final String turboismApi,
+            final boolean requiresCubism,
+            final List<String> cubismVersions,
+            final List<String> dependenciesJson,
+            final BuiltArtifact artifact,
+            final boolean hotReload) {
         final String cubismList = cubismVersions.stream()
                 .map(v -> "\"" + v + "\"")
                 .reduce((a, b) -> a + "," + b)
@@ -720,6 +982,7 @@ final class RuntimePluginAutoUpdaterTest {
                 + "\"tags\":[\"official\"],"
                 + "\"turboismApi\":\"" + turboismApi + "\","
                 + "\"requiresCubism\":" + requiresCubism + ","
+                + "\"hotReload\":" + hotReload + ","
                 + "\"cubismVersions\":[" + cubismList + "],"
                 + "\"platforms\":[\"windows-x64\"],"
                 + "\"dependencies\":[" + String.join(",", dependenciesJson) + "],"

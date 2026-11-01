@@ -4,6 +4,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.awt.GraphicsEnvironment;
 import java.time.Duration;
 import java.util.Locale;
@@ -18,7 +20,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import javax.swing.SwingUtilities;
 
 /**
  * Performance Statistics plugin: live CPU / FPS / JVM memory charts in an
@@ -70,24 +71,26 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private final AtomicReference<PerfStatsWindow> window = new AtomicReference<>();
     private final ChartStore store = new ChartStore(WINDOW_POINTS * 2);
     private PluginContext context;
+    private UiScheduler uiScheduler;
     private Registration sampling;
     private Registration cpuStatus;
     private boolean initialized;
     private boolean enabled;
+    private long generation;
 
     public PerfStatsPlugin() {}
 
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
+        this.uiScheduler = context.uiScheduler();
         synchronized (lifecycleLock) {
             initialized = true;
         }
         final Registration panel =
                 context.services().require(UiHostCapabilityService.class).contributeEmbeddedPanel(embeddedPanel());
         context.disposableScope().register(panel);
-        context.disposableScope().register(this::stopSampling);
-        context.disposableScope().register(this::disposeWindow);
+        context.disposableScope().register(this::deactivate);
         context.logger().info("Performance Statistics initialized");
     }
 
@@ -176,15 +179,38 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             }
         }
         final PerformanceProbeService stats = context.services().require(PerformanceProbeService.class);
-        sampling = stats.sample(SAMPLE_INTERVAL, this::onSnapshot);
+        final long sampleGeneration;
         synchronized (lifecycleLock) {
             enabled = true;
+            sampleGeneration = generation;
+        }
+        final Registration nextSampling;
+        try {
+            nextSampling = stats.sample(SAMPLE_INTERVAL, snapshot -> onSnapshot(snapshot, sampleGeneration));
+        } catch (RuntimeException | Error failure) {
+            // @containment-exempt: restore lifecycle state and immediately rethrow the same failure
+            synchronized (lifecycleLock) {
+                if (generation == sampleGeneration) {
+                    enabled = false;
+                    generation++;
+                }
+            }
+            throw failure;
+        }
+        final boolean canceled;
+        synchronized (lifecycleLock) {
+            canceled = !enabled || generation != sampleGeneration;
+            if (!canceled) sampling = nextSampling;
+        }
+        if (canceled) {
+            nextSampling.close();
+            return;
         }
         // Publish the initial placeholder before the first real sample arrives;
         // the runtime routes COMPACT_METRIC through the verified status adapter
         // (reviewed exact 5.2.03 or 5.3.02) when available and degrades to
         // transient state otherwise.
-        publishCpuStatus(cpuStatusMessage(CPU_STATUS_PLACEHOLDER));
+        publishCpuStatus(cpuStatusMessage(CPU_STATUS_PLACEHOLDER), sampleGeneration);
         final Registration action = context.actions().register(WINDOW_ACTION_ID, windowAction());
         context.disposableScope().register(action);
         final Registration menu = context.menus().contribute(windowMenuContribution());
@@ -203,14 +229,22 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     }
 
     private void deactivate() {
+        final PerfStatsWindow active;
         synchronized (lifecycleLock) {
-            if (!initialized) {
-                return;
-            }
+            if (!initialized) return;
             enabled = false;
+            generation++;
+            active = window.getAndSet(null);
         }
-        stopSampling();
-        disposeWindow();
+        // Always attempt window cleanup even when sampling restoration fails.
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(() -> disposeWindow(active));
+            cleanup.register(this::stopSampling);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("Performance Statistics disposal failed", failure);
+        }
     }
 
     /**
@@ -238,16 +272,19 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         }
     }
 
-    private void disposeWindow() {
-        final PerfStatsWindow active = window.getAndSet(null);
-        if (active != null) {
-            SwingUtilities.invokeLater(active::dispose);
+    private void disposeWindow(final PerfStatsWindow active) {
+        if (active != null && !uiScheduler.runUiTeardown(active::dispose, Duration.ofSeconds(2))) {
+            context.logger().warn("Performance Statistics window disposal deferred");
         }
     }
 
-    private void onSnapshot(final PerformanceSnapshot snapshot) {
-        store.append(snapshot);
-        publishCpuStatus(cpuStatusMessage(String.format(Locale.ROOT, "%.1f%%", snapshot.cpuPercent())));
+    private void onSnapshot(final PerformanceSnapshot snapshot, final long sampleGeneration) {
+        synchronized (lifecycleLock) {
+            if (!enabled || generation != sampleGeneration) return;
+            store.append(snapshot);
+        }
+        publishCpuStatus(
+                cpuStatusMessage(String.format(Locale.ROOT, "%.1f%%", snapshot.cpuPercent())), sampleGeneration);
     }
 
     /**
@@ -262,11 +299,9 @@ public final class PerfStatsPlugin implements TurboismPlugin {
      * registration never removes a newer widget and the plugin DisposableScope
      * stays bounded instead of growing with every one-second sample.
      */
-    private void publishCpuStatus(final String message) {
+    private void publishCpuStatus(final String message, final long sampleGeneration) {
         synchronized (lifecycleLock) {
-            if (!enabled) {
-                return;
-            }
+            if (!enabled || generation != sampleGeneration) return;
         }
         final Registration next = context.services()
                 .require(UiHostCapabilityService.class)
@@ -275,7 +310,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         final Registration previous;
         final boolean canceled;
         synchronized (lifecycleLock) {
-            if (enabled) {
+            if (enabled && generation == sampleGeneration) {
                 previous = cpuStatus;
                 cpuStatus = next;
                 canceled = false;
@@ -283,7 +318,6 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 // Disabled while the notification was in flight: drop the fresh
                 // registration instead of installing a label that outlives disable.
                 previous = null;
-                cpuStatus = null;
                 canceled = true;
             }
         }
@@ -300,26 +334,23 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         return context.localization().text(CPU_STATUS_KEY, CPU_STATUS_FALLBACK) + " " + value;
     }
 
-    private void openWindow() {
-        if (!enabled) {
-            return;
-        }
-        final PerfStatsWindow existing = window.get();
-        if (existing != null) {
-            existing.showAndFront();
-            return;
-        }
-        final PerfStatsWindow created = new PerfStatsWindow(
-                context.localization().text("window.title", WINDOW_TITLE),
-                chartTitles(),
-                context.localization().text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
-                context.localization().text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
-                store);
-        if (window.compareAndSet(null, created)) {
+    private void openWindow(final long openGeneration) {
+        synchronized (lifecycleLock) {
+            if (!enabled || generation != openGeneration) return;
+            final PerfStatsWindow existing = window.get();
+            if (existing != null) {
+                existing.showAndFront();
+                return;
+            }
+            final PerfStatsWindow created = new PerfStatsWindow(
+                    context.localization().text("window.title", WINDOW_TITLE),
+                    chartTitles(),
+                    context.localization().text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
+                    context.localization().text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
+                    store);
+            window.set(created);
             created.start();
             created.showAndFront();
-        } else {
-            created.dispose();
         }
     }
 
@@ -362,11 +393,16 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     }
 
     private void showWindow() {
+        final long openGeneration;
+        synchronized (lifecycleLock) {
+            if (!enabled) return;
+            openGeneration = generation;
+        }
         if (isHeadless()) {
             context.logger().warn("Performance Statistics window cannot open because the JVM is headless");
             return;
         }
-        SwingUtilities.invokeLater(this::openWindow);
+        uiScheduler.runOnUiThread(() -> openWindow(openGeneration));
     }
 
     private static boolean isHeadless() {

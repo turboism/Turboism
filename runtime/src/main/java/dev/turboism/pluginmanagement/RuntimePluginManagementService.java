@@ -545,9 +545,11 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         }
         try (PluginUpdateGate.Lease owned = lease.orElseThrow()) {
             synchronized (PluginUpdateGate.rootLock(home)) {
-                if (!active.get()) return OperationResult.rejected("PLUGIN_PENDING_UNAVAILABLE", "Plugin management is closed.");
+                if (!active.get())
+                    return OperationResult.rejected("PLUGIN_PENDING_UNAVAILABLE", "Plugin management is closed.");
                 if (frameworkRecoveryPending()) {
-                    return OperationResult.rejected("PLUGIN_FRAMEWORK_RECOVERY_PENDING",
+                    return OperationResult.rejected(
+                            "PLUGIN_FRAMEWORK_RECOVERY_PENDING",
                             "Restart through the managed launcher to finish framework recovery before cancelling plugin intent.");
                 }
                 return pending.discardPendingChanges(expectedSnapshot);
@@ -559,7 +561,9 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final Path work = dev.turboism.update.FrameworkUpdateHealth.workDirectory(home);
         for (String name : List.of("pending.json", "journal.json")) {
             try {
-                Files.readAttributes(work.resolve(name), java.nio.file.attribute.BasicFileAttributes.class,
+                Files.readAttributes(
+                        work.resolve(name),
+                        java.nio.file.attribute.BasicFileAttributes.class,
                         LinkOption.NOFOLLOW_LINKS);
                 return true;
             } catch (java.nio.file.NoSuchFileException absent) {

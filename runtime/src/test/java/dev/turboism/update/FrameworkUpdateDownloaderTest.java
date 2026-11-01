@@ -1130,14 +1130,17 @@ final class FrameworkUpdateDownloaderTest {
                 assertEquals(FrameworkUpdateCoordinator.State.IDLE, c.status().state());
                 assertNull(launched.get(), "nothing launches before the user asks");
 
-                final var staged = c.download(f.downloader(), f.candidate, f.context).get(10, TimeUnit.SECONDS);
+                final var staged =
+                        c.download(f.downloader(), f.candidate, f.context).get(10, TimeUnit.SECONDS);
                 assertEquals(FrameworkUpdateCoordinator.State.STAGED, staged.state(), String.valueOf(staged.message()));
                 assertNull(launched.get(), "downloaded is not applied: helper must not start yet");
                 assertEquals("2.0.0", staged.version());
 
                 final var pending = c.applyOnExit().get(10, TimeUnit.SECONDS);
                 assertEquals(
-                        FrameworkUpdateCoordinator.State.APPLY_PENDING, pending.state(), String.valueOf(pending.message()));
+                        FrameworkUpdateCoordinator.State.APPLY_PENDING,
+                        pending.state(),
+                        String.valueOf(pending.message()));
                 final List<String> command = launched.get();
                 assertEquals("dev.turboism.update.FrameworkUpdateHelper", command.get(command.indexOf("-cp") + 2));
                 assertEquals("4242", command.get(command.indexOf("--wait-pid") + 1), "waits for OUR pid");
@@ -1171,10 +1174,13 @@ final class FrameworkUpdateDownloaderTest {
             try (var c = coordinator(f, command -> {
                 throw new AssertionError("must not launch after a failed download");
             })) {
-                final var failed = c.download(f.downloader(), f.candidate, f.context).get(20, TimeUnit.SECONDS);
+                final var failed =
+                        c.download(f.downloader(), f.candidate, f.context).get(20, TimeUnit.SECONDS);
                 assertEquals(FrameworkUpdateCoordinator.State.FAILED, failed.state());
                 assertTrue(failed.message().isPresent());
-                assertEquals(FrameworkUpdateCoordinator.State.FAILED, c.applyOnExit().get(5, TimeUnit.SECONDS).state());
+                assertEquals(
+                        FrameworkUpdateCoordinator.State.FAILED,
+                        c.applyOnExit().get(5, TimeUnit.SECONDS).state());
                 assertEquals(FrameworkUpdateCoordinator.State.IDLE, c.reset().state());
                 f.handler = exchange -> {
                     exchange.getResponseHeaders().set("ETag", "\"v1\"");
@@ -1182,7 +1188,9 @@ final class FrameworkUpdateDownloaderTest {
                 };
                 assertEquals(
                         FrameworkUpdateCoordinator.State.STAGED,
-                        c.download(f.downloader(), f.candidate, f.context).get(20, TimeUnit.SECONDS).state());
+                        c.download(f.downloader(), f.candidate, f.context)
+                                .get(20, TimeUnit.SECONDS)
+                                .state());
             }
         }
     }
@@ -1205,13 +1213,15 @@ final class FrameworkUpdateDownloaderTest {
             })) {
                 final var future = c.download(f.downloader(), f.candidate, f.context);
                 assertTrue(started.await(10, TimeUnit.SECONDS));
-                assertEquals(FrameworkUpdateCoordinator.State.DOWNLOADING, c.status().state());
+                assertEquals(
+                        FrameworkUpdateCoordinator.State.DOWNLOADING, c.status().state());
                 c.cancel();
                 final var done = future.get(15, TimeUnit.SECONDS);
                 assertEquals(FrameworkUpdateCoordinator.State.CANCELLED, done.state());
                 assertFalse(Files.exists(f.install.resolve("turboism-agent.jar")));
                 assertEquals(
-                        FrameworkUpdateCoordinator.State.CANCELLED, c.applyOnExit().get(5, TimeUnit.SECONDS).state());
+                        FrameworkUpdateCoordinator.State.CANCELLED,
+                        c.applyOnExit().get(5, TimeUnit.SECONDS).state());
             }
         }
     }
@@ -1221,7 +1231,9 @@ final class FrameworkUpdateDownloaderTest {
         try (Fixture f = new Fixture()) {
             try (var c = coordinator(f, command -> {
                 final Process dead = new ProcessBuilder(
-                                Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-version")
+                                Path.of(System.getProperty("java.home"), "bin", "java")
+                                        .toString(),
+                                "-version")
                         .redirectErrorStream(true)
                         .start();
                 dead.getInputStream().readAllBytes();
@@ -1235,7 +1247,9 @@ final class FrameworkUpdateDownloaderTest {
             })) {
                 assertEquals(
                         FrameworkUpdateCoordinator.State.STAGED,
-                        c.download(f.downloader(), f.candidate, f.context).get(20, TimeUnit.SECONDS).state());
+                        c.download(f.downloader(), f.candidate, f.context)
+                                .get(20, TimeUnit.SECONDS)
+                                .state());
                 final var result = c.applyOnExit().get(10, TimeUnit.SECONDS);
                 assertEquals(
                         FrameworkUpdateCoordinator.State.APPLY_PENDING,
@@ -1280,7 +1294,9 @@ final class FrameworkUpdateDownloaderTest {
                 final var second = c.download(f.downloader(), f.candidate, f.context);
                 assertSame(first, second, "same in-flight download is joined");
                 gate.countDown();
-                assertEquals(FrameworkUpdateCoordinator.State.STAGED, first.get(20, TimeUnit.SECONDS).state());
+                assertEquals(
+                        FrameworkUpdateCoordinator.State.STAGED,
+                        first.get(20, TimeUnit.SECONDS).state());
                 assertEquals(1, requests.get(), "one object request, not two");
             }
         }
@@ -1290,8 +1306,8 @@ final class FrameworkUpdateDownloaderTest {
     void frameworkUiAdapterDownloadsWithoutTouchingInstallation() throws Exception {
         try (Fixture f = new Fixture();
                 var c = coordinator(f, command -> null);
-                var ui = new RuntimeFrameworkUpdates(c, f.io,
-                        () -> () -> c.download(f.downloader(), f.candidate, f.context))) {
+                var ui = new RuntimeFrameworkUpdates(
+                        c, f.io, () -> () -> c.download(f.downloader(), f.candidate, f.context))) {
             final var result = ui.download().get(20, TimeUnit.SECONDS);
             assertEquals(dev.turboism.internal.core.CoreFrameworkUpdates.Phase.STAGED, result.phase());
             assertEquals("2.0.0", result.version());
@@ -1303,7 +1319,8 @@ final class FrameworkUpdateDownloaderTest {
 
     @Test
     void frameworkUiCancelDuringReceiptAdmissionDoesNotBlockOrStartNetworkLater() throws Exception {
-        try (Fixture f = new Fixture(); var c = coordinator(f, command -> null)) {
+        try (Fixture f = new Fixture();
+                var c = coordinator(f, command -> null)) {
             final var entered = new java.util.concurrent.CountDownLatch(1);
             final var release = new java.util.concurrent.CountDownLatch(1);
             try (var ui = new RuntimeFrameworkUpdates(c, f.io, () -> {
@@ -1315,13 +1332,16 @@ final class FrameworkUpdateDownloaderTest {
                 assertSame(task, ui.download());
                 assertTrue(entered.await(5, TimeUnit.SECONDS));
                 ui.cancel();
-                assertEquals(dev.turboism.internal.core.CoreFrameworkUpdates.Phase.CANCELLED,
+                assertEquals(
+                        dev.turboism.internal.core.CoreFrameworkUpdates.Phase.CANCELLED,
                         task.get(1, TimeUnit.SECONDS).phase());
                 release.countDown();
                 f.io.submit(() -> {}).get(5, TimeUnit.SECONDS);
                 assertEquals(0, f.documentRequests.get());
                 assertEquals(0, f.objectRequests.get());
-            } finally { release.countDown(); }
+            } finally {
+                release.countDown();
+            }
         }
     }
 
@@ -1496,12 +1516,12 @@ final class FrameworkUpdateDownloaderTest {
 
     private static void makeReadableByOthers(final Path path) throws IOException {
         if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
-            Files.setPosixFilePermissions(
-                    path, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+            Files.setPosixFilePermissions(path, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
             return;
         }
         final var view = Files.getFileAttributeView(path, java.nio.file.attribute.AclFileAttributeView.class);
-        final var everyone = path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
+        final var everyone =
+                path.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName("Everyone");
         final var acl = new java.util.ArrayList<>(view.getAcl());
         acl.add(java.nio.file.attribute.AclEntry.newBuilder()
                 .setType(java.nio.file.attribute.AclEntryType.ALLOW)

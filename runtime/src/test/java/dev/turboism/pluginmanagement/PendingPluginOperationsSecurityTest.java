@@ -17,6 +17,37 @@ final class PendingPluginOperationsSecurityTest {
     Path home;
 
     @Test
+    void hotApplyClearsOnlyTheAppliedInstallAndPreservesOtherPendingWork() throws Exception {
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        final Path source = home.resolve("source.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
+        final var applied = pending.stage(source).prepared();
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("other.plugin", "1.0.0"));
+        final var other = pending.stage(source).prepared();
+        pending.completeHotApply(applied);
+        assertEquals(1, pending.operations().size());
+        assertEquals("other.plugin", pending.operations().get(0).pluginId());
+        assertFalse(Files.exists(applied.stagedJar()));
+        assertTrue(Files.exists(other.stagedJar()));
+    }
+
+    @Test
+    void completingOlderHotApplyCannotRemoveANewerPendingInstall() throws Exception {
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        final Path source = home.resolve("source.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
+        final var older = pending.stage(source).prepared();
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "3.0.0"));
+        final var newer = pending.stage(source).prepared();
+        pending.completeHotApply(older);
+        assertEquals(1, pending.operations().size());
+        assertEquals(
+                newer.stagedJar().toAbsolutePath().normalize(),
+                Path.of(pending.operations().get(0).stagedJar()));
+        assertTrue(Files.exists(newer.stagedJar()));
+    }
+
+    @Test
     void failedApplyRestoresPreviousArtifactAndKeepsOperationPending() throws Exception {
         final Path plugins = home.resolve("plugins");
         Files.createDirectories(plugins);
