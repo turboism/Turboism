@@ -20,6 +20,9 @@ No software is built or published by the synchronization service.
 - HTTP 503 `unavailable` means the latest release could not be verified. It does
   not mean the client is up to date. Retry-After is 60 seconds; errors are not cached.
 - Successful reads support HEAD, ETag/If-None-Match, CORS and JSON content types.
+- A ready release may carry optional `release.incremental` (see `INCREMENTAL.md`); its
+  absence means only the full installer is offered. Signed manifests and payloads are
+  served at `/v1/framework/documents/<sha256>` and `/v1/framework/objects/<sha256>/payload`.
 - `GET /health` reports synchronization and mirror configuration separately.
 - `GET /files/<sha256>/<filename>` serves only known, nonwithdrawn product files
   from the new R2 binding. No arbitrary URL or transparent GitHub proxy exists.
@@ -36,12 +39,17 @@ API. Drafts and plugin tags are excluded; prerelease flags must match tags.
 ## Synchronization and security
 
 A SQLite-backed Durable Object persists snapshots and coalesces refreshes.
-Cloudflare Cron refreshes every 15 minutes. First use initializes the registry.
+Cloudflare Cron checks for stale data every 15 minutes. First use initializes the registry.
 GitHub's `notify-release-api.yml` requests an immediate refresh after release
 publication/changes or after the protected publisher finishes. The notification
 uses verified GitHub OIDC (repository ID, audience, workflow, ref, expiry and RSA
-signature), so no shared API secret is needed. The public cannot invoke refresh
-without authentication. No candidate artifact is executed by this service.
+signature), so no shared API secret is needed. The notifier also runs every ten
+minutes and lends its short-lived, `contents: read` job token to that refresh's
+fixed GitHub API requests. The token is never persisted, included in mirror
+downloads or forwarded through redirects. This avoids relying on anonymous
+Cloudflare egress quotas; anonymous refresh remains a fallback. The public cannot invoke refresh
+without authentication. A degraded or stale result fails the notification job
+after bounded retries. No candidate artifact is executed by this service.
 
 Remote lists are bounded and paginated; failure does not masquerade as absence.
 File identities are validated from GitHub's SHA-256 asset digests. The exact tag

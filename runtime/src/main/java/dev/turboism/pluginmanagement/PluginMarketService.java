@@ -22,7 +22,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -31,7 +30,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -515,110 +513,33 @@ public final class PluginMarketService implements AutoCloseable {
         if (hotSafe) {
             final Path targetJar = pluginsDirectory.resolve(plugin.id() + ".jar");
             final boolean wasInstalled = Files.isRegularFile(targetJar, LinkOption.NOFOLLOW_LINKS);
-            final Path backupJar = wasInstalled
-                    ? stagingPackages.resolve(".backup-" + plugin.id() + "-" + UUID.randomUUID() + ".jar")
-                    : null;
-
             try {
                 Files.createDirectories(pluginsDirectory);
-                if (wasInstalled && backupJar != null) {
-                    Files.copy(targetJar, backupJar, StandardCopyOption.REPLACE_EXISTING);
-                }
-
-                // Attempt file replacement
-                try {
-                    UpdateFileSupport.copyAtomic(prepared.stagedJar(), targetJar);
-                } catch (IOException lockException) {
-                    // Windows file lock or permission error: fall back to staging!
-                    logSink.accept("File replacement failed (likely locked); falling back to staging: "
-                            + lockException.getMessage());
-                    if (backupJar != null) {
-                        Files.deleteIfExists(backupJar);
-                    }
-                    return stageForRestart(prepared);
-                }
-
+                final PluginHotReloadCoordinator.HotReloadResult result;
                 if (wasInstalled) {
-                    return finishHotReload(
-                            hotReloadCoordinator.hotReload(plugin.id(), targetJar, backupJar),
-                            plugin.id(),
-                            targetJar,
-                            backupJar,
-                            prepared);
+                    result = hotReloadCoordinator.hotReplace(plugin.id(), prepared.stagedJar(), targetJar);
                 } else {
-                    final var loadResult = hotReloadCoordinator.hotLoad(targetJar);
-                    if (loadResult.succeeded()) {
-                        pending.discardIfUnreferenced(prepared.stagedJar());
-                        return OperationResult.accepted(
-                                "PLUGIN_HOT_APPLIED", "Plugin installed and applied immediately.");
-                    } else {
-                        Files.deleteIfExists(targetJar);
-                        return stageForRestart(prepared);
-                    }
+                    UpdateFileSupport.copyAtomic(prepared.stagedJar(), targetJar);
+                    result = hotReloadCoordinator.hotLoad(targetJar);
+                    if (!result.succeeded()) Files.deleteIfExists(targetJar);
                 }
-            } catch (Exception e) {
-                logSink.accept("Hot lifecycle operation failed; falling back to staging: " + e.getMessage());
-                // Restoring the old JAR can itself fail. Keep any remaining backup for recovery
-                // instead of deleting the only old copy in this exceptional fallback.
-                return stageForRestart(prepared);
+                if (result.succeeded()) {
+                    pending.completeHotApply(prepared);
+                    return OperationResult.accepted("PLUGIN_HOT_APPLIED", "Plugin installed and applied immediately.");
+                }
+                if (result.rolledBack() && "HOT_RELOAD_FAILED".equals(result.code())) {
+                    pending.completeHotApply(prepared);
+                    return OperationResult.rejected(
+                            "PLUGIN_HOT_UPDATE_ROLLED_BACK",
+                            "Plugin update failed to start; previous version restored.");
+                }
+                logSink.accept("Hot lifecycle operation deferred: " + result.code() + ": " + result.message());
+            } catch (IOException | RuntimeException failure) {
+                logSink.accept("Hot lifecycle operation failed; falling back to staging: " + failure.getMessage());
             }
+            return stageForRestart(prepared);
         } else {
             return stageForRestart(prepared);
-        }
-    }
-
-    /**
-     * Settles the files and the user-visible result after a hot reload attempt. The backup JAR is
-     * the only copy of the previous version once {@code targetJar} holds the replacement, so it is
-     * deleted only when the replacement is running or the previous version is no longer needed.
-     */
-    OperationResult finishHotReload(
-            final PluginHotReloadCoordinator.HotReloadResult reloadResult,
-            final String pluginId,
-            final Path targetJar,
-            final Path backupJar,
-            final PreparedPluginJar prepared)
-            throws IOException {
-        if (reloadResult.succeeded()) {
-            if (backupJar != null) {
-                Files.deleteIfExists(backupJar);
-            }
-            pending.discardIfUnreferenced(prepared.stagedJar());
-            return OperationResult.accepted("PLUGIN_HOT_APPLIED", "Plugin updated and applied immediately.");
-        }
-        if (reloadResult.rolledBack()) {
-            // Rollback restored the previous generation; put its JAR back on disk.
-            restoreBackup(backupJar, targetJar);
-            return stageForRestart(prepared);
-        }
-        if ("ROLLBACK_FAILED".equals(reloadResult.code())) {
-            // The replacement failed to start and the previous generation did not come back, so the
-            // plugin is stopped. Restore the previous version and retain its recovery backup.
-            if (backupJar != null) {
-                UpdateFileSupport.copyAtomic(backupJar, targetJar);
-            }
-            logSink.accept("Plugin " + pluginId + " hot update failed and the previous version could not be"
-                    + " restarted; the plugin is stopped. The previous JAR was restored on disk.");
-            final var staged = pending.stage(prepared);
-            if (staged.accepted()) {
-                return OperationResult.accepted(
-                        staged.code(),
-                        "Plugin update could not start and the previous version could not be restored while"
-                                + " running; the plugin is stopped until Cubism restarts. The previous version stays"
-                                + " installed and the update is pending.");
-            }
-            return OperationResult.rejected(staged.code(), "Failed to stage plugin package");
-        }
-        if (backupJar != null) {
-            Files.deleteIfExists(backupJar);
-        }
-        return stageForRestart(prepared);
-    }
-
-    private static void restoreBackup(final Path backupJar, final Path targetJar) throws IOException {
-        if (backupJar != null) {
-            UpdateFileSupport.copyAtomic(backupJar, targetJar);
-            Files.deleteIfExists(backupJar);
         }
     }
 

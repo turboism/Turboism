@@ -89,6 +89,9 @@ public final class PluginCatalogVerifier {
     /** Maximum number of permissions per release. */
     public static final int MAX_PERMISSIONS = 100;
 
+    /** Directory v2 limit for dependency and permission reasons, measured in Unicode code points. */
+    public static final int MAX_REASON_CODE_POINTS = 2000;
+
     /** Maximum number of Cubism versions per release. */
     public static final int MAX_CUBISM_VERSIONS = 100;
 
@@ -775,7 +778,7 @@ public final class PluginCatalogVerifier {
             throw reject("PLUGIN_CATALOG_SCHEMA_INVALID", path + ".ordering is invalid: " + ordering);
         }
         final Optional<String> reason = node.has("reason")
-                ? Optional.of(requireString(node, "reason", 1, 500, "PLUGIN_CATALOG_SCHEMA_INVALID"))
+                ? Optional.of(requireString(node, "reason", 1, MAX_REASON_CODE_POINTS, "PLUGIN_CATALOG_SCHEMA_INVALID"))
                 : Optional.empty();
         return new CatalogDependency(id, version, type, ordering, reason);
     }
@@ -794,7 +797,7 @@ public final class PluginCatalogVerifier {
         if (!PERMISSION_SCOPES.contains(scope)) {
             throw reject("PLUGIN_CATALOG_SCHEMA_INVALID", path + ".scope is invalid: " + scope);
         }
-        final String reason = requireString(node, "reason", 1, 500, "PLUGIN_CATALOG_SCHEMA_INVALID");
+        final String reason = requireString(node, "reason", 1, MAX_REASON_CODE_POINTS, "PLUGIN_CATALOG_SCHEMA_INVALID");
         return new CatalogPermission(id, scope, reason);
     }
 

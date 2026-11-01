@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.palette-label-style",
   "name": "Palette Label Style Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus.",
   "entrypoints": [
     "dev.turboism.plugin.palettelabelstyle.PaletteLabelStylePlugin"

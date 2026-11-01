@@ -1,0 +1,29 @@
+--- a/.github/workflows/deploy-release-api.yml
++++ b/.github/workflows/deploy-release-api.yml
+@@ -10,7 +10,7 @@
+   group: turboism-release-api-production
+   cancel-in-progress: false
+ env:
+-  RELEASE_API_SOURCE: 03491cca190522c3c9f85f446f1ffd36e146ffec
++  RELEASE_API_SOURCE: 743a6b3882c74f0e7273b09006b932e766153d6a
+   WRANGLER_SEND_METRICS: 'false'
+ jobs:
+   deploy:
+@@ -44,9 +44,15 @@
+           import {readFileSync} from 'node:fs';
+           const config=JSON.parse(readFileSync('distribution/wrangler.json','utf8'));
+           assert.equal(config.name,'turboism-release-api');
+-          assert.deepEqual(config.vars,{EDGE_DOWNLOADS_ENABLED:'true'},'Only enable explicit CDN starts after canary validates');
++          // Framework authority stays disabled in this deployment; the exact object is asserted so an
++          // unexpected variable cannot silently grant publish/attest authority.
++          const expectedVars={EDGE_DOWNLOADS_ENABLED:'true',FRAMEWORK_PUBLISHER_WORKFLOW:'',FRAMEWORK_PUBLISHER_ENVIRONMENT:'',FRAMEWORK_TRUSTED_KEYS:'{}'};
++          assert.deepEqual(config.vars,expectedVars,'Framework authority must stay disabled');
+           assert.deepEqual(config.routes,[{pattern:'api.turboism.dev',custom_domain:true}]);
+-          console.log('Verified release API service and single custom domain');
++          // Pin the two existing Durable Object declarations and the v1/v2 migrations they belong to.
++          assert.deepEqual(config.durable_objects.bindings,[{name:'REGISTRY',class_name:'ReleaseRegistry'},{name:'FRAMEWORK',class_name:'FrameworkAuthority'}]);
++          assert.deepEqual(config.migrations,[{tag:'v1',new_sqlite_classes:['ReleaseRegistry']},{tag:'v2',new_sqlite_classes:['FrameworkAuthority']}]);
++          console.log('Verified release API service, single custom domain, disabled framework authority and Durable Object declarations');
+           JS
+           npx --yes wrangler@4.127.0 deploy --config distribution/wrangler.json
+       - name: Verify the existing dedicated Custom Domain without changing another service

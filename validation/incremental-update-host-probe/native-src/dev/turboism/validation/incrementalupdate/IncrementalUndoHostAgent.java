@@ -27,6 +27,7 @@ public final class IncrementalUndoHostAgent {
     private static CModelingDocument doc;
     private static CModel model;
     private static Component canvas;
+    private static Rectangle stableCanvasBounds;
     private static CWarpDeformerSource warp;
     private static Path output;
 
@@ -109,12 +110,19 @@ public final class IncrementalUndoHostAgent {
     }
 
     private static void awaitContext() throws Exception {
+        Field runtimeField = Class.forName("dev.turboism.bootstrap.TurboismAgent").getDeclaredField("RUNTIME");
+        runtimeField.setAccessible(true);
+        var runtimeRef = (java.util.concurrent.atomic.AtomicReference<?>) runtimeField.get(null);
         long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(4);
         int attempts = 0;
         while (System.nanoTime() < deadline) {
             try {
                 boolean ready = edt(() -> {
                     serviceStartup();
+                    // The modeling view can exist before the framework shell adds its
+                    // toolbar and changes the canvas layout. Never start A/B in that gap.
+                    if (runtimeRef.get() == null) return false;
+                    RESULT.setProperty("frameworkRuntimeReady", "true");
                     app = Class.forName("com.live2d.cubism.CEAppCtrl").getMethod("access$get_instance$cp").invoke(null);
                     if (app == null) return false;
                     view = call(app, "getCurrentViewContext");
@@ -130,7 +138,20 @@ public final class IncrementalUndoHostAgent {
                     canvas = canvases.get(0);
                     return canvas.getWidth() > 100 && canvas.getHeight() > 100;
                 });
-                if (ready) { Thread.sleep(2000); return; }
+                if (ready) {
+                    Rectangle previous = null;
+                    long stableSince = System.nanoTime();
+                    while (System.nanoTime() < deadline) {
+                        Rectangle bounds = edt(() -> canvas.getBounds());
+                        if (!bounds.equals(previous)) { previous = bounds; stableSince = System.nanoTime(); }
+                        if (System.nanoTime() - stableSince >= TimeUnit.SECONDS.toNanos(3)) {
+                            stableCanvasBounds = bounds;
+                            RESULT.setProperty("stableCanvasBounds", bounds.toString());
+                            return;
+                        }
+                        Thread.sleep(100);
+                    }
+                }
             } catch (Exception notReady) {
                 RESULT.setProperty("context.lastError", notReady.toString());
             }
@@ -229,6 +250,7 @@ public final class IncrementalUndoHostAgent {
 
     @SuppressWarnings("unchecked")
     private static Map<String, int[]>[] runLeg(boolean enabled, String leg) throws Exception {
+        require(edt(() -> canvas.getBounds().equals(stableCanvasBounds)), leg + " canvas layout changed before leg");
         System.setProperty(ENABLE, Boolean.toString(enabled));
         edt(() -> {
             // Match the point-selection and hover overlays before both A/B legs.
@@ -246,7 +268,7 @@ public final class IncrementalUndoHostAgent {
         Map<String, int[]> before = snapshot();
         recordSnapshot(leg + "-before", before);
         capture(leg + "-before");
-        edt(() -> { drag(); return null; });
+        edt(() -> { drag(leg); return null; });
         frames(3);
         Map<String, int[]> dragged = snapshot();
         recordSnapshot(leg + "-dragged", dragged);
@@ -255,7 +277,7 @@ public final class IncrementalUndoHostAgent {
         capture(leg + "-dragged");
         long modifiedBeforeUndo = edt(() -> ((Number) call(doc, "getLastModifiedTime")).longValue());
         edt(() -> { call(app, "command_undo", doc); return null; });
-        frames(3);
+        stableFrames(leg, "undo", enabled, 3);
         long modifiedAfterUndo = edt(() -> ((Number) call(doc, "getLastModifiedTime")).longValue());
         RESULT.setProperty(leg + ".undoDocumentTimestampChanged", Boolean.toString(modifiedBeforeUndo != modifiedAfterUndo));
         Map<String, int[]> undone = snapshot();
@@ -263,13 +285,13 @@ public final class IncrementalUndoHostAgent {
         same(before, undone, leg + " Undo");
         capture(leg + "-undo");
         edt(() -> { call(app, "command_redo", doc); return null; });
-        frames(3);
+        stableFrames(leg, "redo", enabled, 3);
         Map<String, int[]> redone = snapshot();
         recordSnapshot(leg + "-redo", redone);
         same(dragged, redone, leg + " Redo");
         capture(leg + "-redo");
         edt(() -> { call(app, "command_undo", doc); return null; });
-        frames(4);
+        stableFrames(leg, "finalUndo", enabled, 4);
         same(before, snapshot(), leg + " final Undo");
         long skipDelta = stat("meshSkipped") - skipped;
         RESULT.setProperty(leg + ".meshSkippedDelta", Long.toString(skipDelta));
@@ -279,6 +301,18 @@ public final class IncrementalUndoHostAgent {
         if (enabled) require(skipDelta > 0, "incremental reuse was never exercised");
         RESULT.setProperty(leg + ".status", "PASS");
         return new Map[] {before, dragged, undone, redone};
+    }
+
+    private static void stableFrames(String leg, String phase, boolean enabled, int count) throws Exception {
+        long skippedBefore = stat("meshSkipped"), failuresBefore = stat("failures");
+        frames(count);
+        long skippedDelta = stat("meshSkipped") - skippedBefore;
+        long failuresDelta = stat("failures") - failuresBefore;
+        RESULT.setProperty(leg + "." + phase + ".stableMeshSkippedDelta", Long.toString(skippedDelta));
+        RESULT.setProperty(leg + "." + phase + ".failuresDelta", Long.toString(failuresDelta));
+        require(failuresDelta == 0, leg + " " + phase + " bridge failures occurred");
+        require(enabled ? skippedDelta > 0 : skippedDelta == 0,
+                leg + " " + phase + " stable-frame reuse did not match enable state");
     }
 
     private static void recordSnapshot(String name, Map<String, int[]> snapshot) throws Exception {
@@ -291,6 +325,8 @@ public final class IncrementalUndoHostAgent {
 
     private static void capture(String name) throws Exception {
         java.awt.image.BufferedImage image = edt(() -> {
+            require(canvas.getBounds().equals(stableCanvasBounds), name + " canvas layout changed at capture");
+            RESULT.setProperty(name + ".canvasBounds", canvas.getBounds().toString());
             var captured = new java.awt.image.BufferedImage(canvas.getWidth(), canvas.getHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
             Graphics2D graphics = captured.createGraphics();
             try { canvas.paintAll(graphics); } finally { graphics.dispose(); }
@@ -322,7 +358,7 @@ public final class IncrementalUndoHostAgent {
 
     private static void require(boolean ok, String reason) { if (!ok) throw new AssertionError(reason); }
 
-    private static void drag() throws Exception {
+    private static void drag(String leg) throws Exception {
         CWarpDeformer live = model.getWarpDeformer(warp.getGuid());
         float[] positions = live.getCalculatedForm().getPositions();
         GCameraManager camera = (GCameraManager) call(view, "getCameraManager");
@@ -340,6 +376,10 @@ public final class IncrementalUndoHostAgent {
         require(chosen >= 0, "no visible Warp control point");
         RESULT.setProperty("drag.point", Integer.toString(chosen));
         RESULT.setProperty("drag.component", x + "," + y);
+        RESULT.setProperty(leg + ".drag.point", Integer.toString(chosen));
+        RESULT.setProperty(leg + ".drag.component", x + "," + y);
+        GVector2 mapped = camera.documentToComponent(new GVector2(positions[chosen * 2], positions[chosen * 2 + 1]));
+        RESULT.setProperty(leg + ".drag.projectedBits", Float.floatToRawIntBits(mapped.getX()) + "," + Float.floatToRawIntBits(mapped.getY()));
         Class<?> mouse = Class.forName("com.live2d.ui.event.m"), gesture = Class.forName("com.live2d.ui.event.l");
         Object hover = mouse.getConstructor(MouseEvent.class).newInstance(new MouseEvent(canvas, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(), 0, x, y, 0, false, 0));
         call(view, "onInputEvent", hover);

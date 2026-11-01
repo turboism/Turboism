@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 env:
-  PLUGIN_DIRECTORY_REVISION: 8545f9d1d5b36fdc8501a681bd2667a5eb0e8aa1
+  PLUGIN_DIRECTORY_REVISION: 9383820303b9e474b59a2b6826e34747119c3eef
 
 concurrency:
   group: product-release-candidate-${{ github.ref }}
@@ -82,6 +82,8 @@ jobs:
     if: needs.preflight.outputs.should_build == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out immutable candidate revision
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -170,7 +172,26 @@ jobs:
           sudo apt-get install --yes --no-install-recommends nsis xvfb
 
       - name: Install the pinned scripts lint tool
-        run: python3 -m pip install 'ruff==0.16.9'
+        run: python3 -m pip install 'ruff==0.16.9' 'PyYAML==6.0.3'
+
+      - name: Prepare framework self-update activation resources
+        # Public material only: the activation policy and the framework signing *public* keyring. The repository
+        # variable is the single switch, and only Stable/Beta are activated; Nightly keeps the ordinary full-package
+        # path. When disabled the command only removes its own two generated files and no resource directory is
+        # exported, so every agent build below stays unactivated.
+        env:
+          FRAMEWORK_UPDATE_TRUSTED_KEYS: ${{ vars.FRAMEWORK_UPDATE_TRUSTED_KEYS }}
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+        run: |
+          set -euo pipefail
+          resource_dir="$GITHUB_WORKSPACE/build/framework-update-client"
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ] && [ "$RELEASE_CHANNEL" != nightly ]; then
+            FRAMEWORK_UPDATES_ENABLED=true python3 scripts/release/prepare-framework-client.py --output-dir "$resource_dir"
+            printf 'TURBOISM_FRAMEWORK_UPDATE_RESOURCES=%s\n' "$resource_dir" >> "$GITHUB_ENV"
+          else
+            FRAMEWORK_UPDATES_ENABLED=false python3 scripts/release/prepare-framework-client.py --output-dir "$resource_dir"
+          fi
 
       - name: Validate store eligibility policy
         if: needs.preflight.outputs.channel != 'nightly'
@@ -201,7 +222,6 @@ jobs:
             --output build/market-release \
             --source-revision "${{ github.sha }}" \
             --catalog https://plugin.turboism.dev/api/v2/catalog.json \
-            --framework-version "${{ steps.version.outputs.version }}" \
             --release-channel "${{ needs.preflight.outputs.channel }}")"
           printf '%s\n' "$OUTPUT"
           STAGED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
@@ -216,6 +236,19 @@ jobs:
 
       - name: Assemble release archives and Windows installer
         run: bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}"
+
+      - name: Write the framework payload inventory for offline signing
+        # Runs after the first complete package (NSIS included) with the same version and clean CI build identity as
+        # checkRelease, so the protected signing job binds the exact installed bytes. Unconfigured and Nightly builds
+        # never write this file and keep the ordinary full-package path.
+        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED == 'true' && needs.preflight.outputs.channel != 'nightly'
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon writeFrameworkPayloadInventory \
+            -PinstallerVersion="${{ steps.version.outputs.version }}" \
+            -PturboismRelease=true \
+            --console=plain
+          test -f build/windows-installer/generated/framework-payload-inventory.json
 
       - name: Verify checksums and release metadata
         run: |
@@ -286,12 +319,34 @@ jobs:
           rm -r build/release-orchestrator/dist
 
       - name: Upload verified candidate payload
+        # With framework update signing enabled the protected signing job uploads this exact artifact name
+        # after it re-packages the documents into the ZIP/installer, so the promotion workflow keeps
+        # downloading one unchanged name and still never rebuilds. Nightly is never signed.
+        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED != 'true' || needs.preflight.outputs.channel == 'nightly'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: turboism-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/windows-installer/dist
             build/windows-installer/staging
+            build/windows-installer/generated/framework-payload-inventory.json
+            build/release-orchestrator/prerelease-candidate.json
+            build/release-orchestrator/candidate.json
+            build/release-orchestrator/build-identity.json
+            build/release-orchestrator/framework-artifacts.json
+            build/release-orchestrator/release-notes.md
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload the signable payload for the protected signing job
+        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED == 'true' && needs.preflight.outputs.channel != 'nightly'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-release-payload-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/windows-installer/dist
+            build/windows-installer/staging
+            build/windows-installer/generated/framework-payload-inventory.json
             build/release-orchestrator/prerelease-candidate.json
             build/release-orchestrator/candidate.json
             build/release-orchestrator/build-identity.json
@@ -322,6 +377,27 @@ jobs:
             fi
             echo "Channel: $TURBOISM_BUILD_CHANNEL; version: $TURBOISM_BUILD_VERSION; Build: $TURBOISM_BUILD_NUMBER"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  sign-framework-update:
+    needs: [preflight, allocate-build, build]
+    # Off by default: without the repository variable the candidate build is byte-identical to today.
+    # Only Stable and Beta are signed; Nightly keeps the full-package path because the feed admission
+    # only accepts workflow_dispatch/release identities from release-github-only.yml.
+    if: >-
+      needs.preflight.outputs.should_build == 'true' &&
+      needs.build.result == 'success' &&
+      needs.preflight.outputs.channel != 'nightly' &&
+      vars.FRAMEWORK_UPDATE_SIGNING_ENABLED == 'true'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/framework-release-signing.yml
+    secrets: inherit
+    with:
+      source_sha: ${{ github.sha }}
+      channel: ${{ needs.preflight.outputs.channel }}
+      version: ${{ needs.build.outputs.version }}
+      payload_artifact: turboism-release-payload-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   publish-nightly:
     needs: [preflight, allocate-build, build]

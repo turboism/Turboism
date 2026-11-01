@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-31",
+  "host": "Live2D Cubism Editor 5.3.02",
+  "hostSha256": "988EF6A8B5FEDE84BD43C6DC3A9A045D9A6A974986C3F49FB6F567CCF8C84F21",
+  "agentSha256": "8D9DFBE38723996C78936613FB6232B3483BA7F912D087D80E5A07A7F814340C",
+  "hostPid": 2044,
+  "evidenceDirectory": "build/host-validation/plugin-hot-reload/fixed-final",
+  "automatedTests": {
+    "skipped": 1,
+    "total": 42,
+    "passed": 41,
+    "failed": 0
+  },
+  "results": [
+    "PASS real Cubism runtime started pid=2044",
+    "PASS fixture loaded by real host",
+    "PASS market update immediately applied: OperationResult[accepted=true, code=PLUGIN_HOT_APPLIED, message=Plugin installed and applied immediately.]",
+    "PASS new generation executed",
+    "PASS classloader replaced",
+    "PASS old context fenced",
+    "PASS disable immediately applied",
+    "PASS disabled generation unloaded",
+    "PASS enable immediately applied",
+    "PASS enabled generation active",
+    "automatic download/verify/stage result=HOT_APPLIED",
+    "PASS automatic updater hot applied",
+    "PASS automatic update generation executed",
+    "PASS automatic update cleared pending journal",
+    "broken update result=OperationResult[accepted=false, code=PLUGIN_HOT_UPDATE_ROLLED_BACK, message=Plugin update failed to start; previous version restored.]",
+    "PASS broken update rejected after rollback",
+    "PASS broken update restored active generation",
+    "PASS broken update restored installed artifact",
+    "PASS broken update not scheduled again at restart",
+    "status=PASS"
+  ]
+}

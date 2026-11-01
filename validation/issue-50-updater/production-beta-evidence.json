@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "host": "Windows / Cubism 5.3.02",
+  "channel": "beta",
+  "initialVersion": "0.68.1-beta.2",
+  "initialBuild": 76,
+  "upgrades": [
+    {
+      "identity": {
+        "version": "0.68.1-beta.5",
+        "buildNumber": 79,
+        "channel": "beta",
+        "sourceRevision": "206b8ed33f38eb9fc5f12e0bf961e29edb4d961f"
+      },
+      "receiptManifestSha256": "b42c198a657420a86fd18eb6bc4735eaded95e41e8ba66449f65cbe3e8134e55",
+      "verifiedInstalledFrameworkFiles": 36,
+      "unchangedPlugins": 32,
+      "configAndPreferencesUnchanged": true,
+      "officialBatUnchanged": true,
+      "pendingAndJournalCleared": true,
+      "health": "2026-11-01T09:59:41.930807600Z [INFO] [updates] UPDATE_STARTUP_CONFIRMED",
+      "startup": "2026-11-01T09:59:41.933143200Z [INFO] [bootstrap] Turboism Developer Preview started: host=ACTIVE, plugins=30, failures=0",
+      "runtimePid": 17732,
+      "pluginsUpdated": false
+    },
+    {
+      "identity": {
+        "version": "0.68.1-beta.7",
+        "buildNumber": 81,
+        "channel": "beta",
+        "sourceRevision": "9a450f4b361cbb73f6c81610efb2baaa29da1ec4"
+      },
+      "receiptManifestSha256": "15d93fc1403bb9df78159c4064975a83575881726f84d23fccc5b2a2365e4d1a",
+      "verifiedInstalledFrameworkFiles": 36,
+      "unchangedPlugins": 32,
+      "configAndPreferencesUnchanged": true,
+      "officialBatUnchanged": true,
+      "pendingAndJournalCleared": true,
+      "health": "2026-11-01T10:22:31.106627300Z [INFO] [updates] UPDATE_STARTUP_CONFIRMED",
+      "startup": "2026-11-01T10:22:31.109438100Z [INFO] [bootstrap] Turboism Developer Preview started: host=ACTIVE, plugins=30, failures=0",
+      "runtimePid": 33276,
+      "pluginsUpdated": false
+    }
+  ],
+  "production": {
+    "checkedAt": "2026-11-01T10:22:43.2447541Z",
+    "health": {
+      "service": "turboism-release-api",
+      "status": "ready",
+      "synchronizedAt": "2026-11-01T10:16:30.24Z",
+      "mirrorConfigured": true,
+      "channels": [
+        {
+          "channel": "stable",
+          "status": "ready"
+        },
+        {
+          "channel": "beta",
+          "status": "ready"
+        },
+        {
+          "channel": "nightly",
+          "status": "ready"
+        }
+      ]
+    },
+    "betaStatus": "ready",
+    "betaVersion": "0.68.1-beta.7",
+    "betaBuild": 81,
+    "betaSource": "9a450f4b361cbb73f6c81610efb2baaa29da1ec4",
+    "frameworkDescriptorPresent": true
+  },
+  "retiredOwnedFilesAbsent": [
+    "graal/lib/graal-host-0.68.1-beta.2-turboism.jar",
+    "graal/lib/graal-host-0.68.1-beta.5-turboism.jar",
+    "graal/lib/sdk-0.68.1-beta.2.jar",
+    "graal/lib/sdk-0.68.1-beta.5.jar"
+  ],
+  "labClosedNormally": true,
+  "finalLaunchLeasesAfterNoOpRecovery": 0,
+  "selectedPluginUpdatesAccepted": false
+}

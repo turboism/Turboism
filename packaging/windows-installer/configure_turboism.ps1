@@ -12,6 +12,9 @@ param(
     [switch]$InitializeSelection,
     [switch]$MigrateConfig,
     [switch]$ApplyInstallerSelection,
+    [switch]$InitializeReceipt,
+    [string]$ReceiptStage = "",
+    [string]$ReceiptJava = "",
     [string]$BundledPluginIds = "",
     [string]$DisabledPluginIds = "",
     [string]$Variant = "full",
@@ -994,13 +997,13 @@ function Get-ConfiguratorCandidates {
 $hasInstallerSnapshot = -not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)
 $hasInstallerSnapshotHash = -not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)
 if ($hasInstallerSnapshot -ne $hasInstallerSnapshotHash -or
-    ($hasInstallerSnapshot -and -not ($InitializeSelection -or $IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts))) {
+    ($hasInstallerSnapshot -and -not ($InitializeSelection -or $IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts -or $InitializeReceipt))) {
     throw "installer discovery snapshot and digest require an initialization or launch-configuration operation"
 }
 
 if (@(@(
     $Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts,
-    $DisableShortcuts, $InitializeSelection, $MigrateConfig, $ApplyInstallerSelection
+    $DisableShortcuts, $InitializeSelection, $MigrateConfig, $ApplyInstallerSelection, $InitializeReceipt
 ) | Where-Object { $_ }).Count -gt 1) {
     Write-Error "Configurator operation switches are mutually exclusive"
     exit 1
@@ -1066,6 +1069,34 @@ if ($RetirePlugins) {
         exit 1
     }
 }
+if ($InitializeReceipt) {
+    try {
+        $bootstrapScript = Join-Path $scriptDir "bootstrap-receipt.ps1"
+        if (-not (Test-Path -LiteralPath $bootstrapScript -PathType Leaf)) {
+            $bootstrapScript = Join-Path $turboismHome "bootstrap-receipt.ps1"
+        }
+        if (-not (Test-Path -LiteralPath $bootstrapScript -PathType Leaf)) {
+            throw "bootstrap-receipt.ps1 not found in $scriptDir or $turboismHome"
+        }
+        $bArgs = @{
+            HomePath = $turboismHome
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ReceiptStage)) { $bArgs["StagePath"] = $ReceiptStage }
+        if (-not [string]::IsNullOrWhiteSpace($ReceiptJava)) { $bArgs["JavaPath"] = $ReceiptJava }
+        if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
+            $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
+        }
+        if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
+            $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
+        }
+        & $bootstrapScript @bArgs
+        exit $LASTEXITCODE
+    }
+    catch {
+        Write-ConfiguratorFailure $_
+        exit 1
+    }
+}
 if ($InitializeSelection) {
     try {
         $state = Read-CubismInstallationState -StatePath $statePath
@@ -1073,6 +1104,28 @@ if ($InitializeSelection) {
         $candidates = @(Get-ConfiguratorCandidates -State $state -DiscoverIfMissing)
         Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $state.BatIntegrations -LaunchMode $state.LaunchMode
         Write-Host "TURBOISM_CUBISM_SELECTION selected=$(@($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count)"
+
+        # Initialize receipt if bootstrap documents are present
+        $bootstrapScript = Join-Path $scriptDir "bootstrap-receipt.ps1"
+        if (-not (Test-Path -LiteralPath $bootstrapScript -PathType Leaf)) {
+            $bootstrapScript = Join-Path $turboismHome "bootstrap-receipt.ps1"
+        }
+        if (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) {
+            $bArgs = @{
+                HomePath = $turboismHome
+            }
+            if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
+                $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
+            }
+            if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
+                $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
+            }
+            & $bootstrapScript @bArgs
+            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 10) {
+                Write-Error "Bootstrap receipt initialization failed with exit code $LASTEXITCODE"
+                exit $LASTEXITCODE
+            }
+        }
         exit 0
     }
     catch {

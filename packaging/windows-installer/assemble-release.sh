@@ -16,16 +16,53 @@
 #   4. makensis 构建 TurboismInstaller-<ver>.exe + .sha256（--skip-nsis 跳过）
 #
 # 产物目录: build/windows-installer/<ver>/  (staging/ 与 dist/)
+#
+# 签名流程（Stable/Beta 的可选自更新发布）：受保护的签名 job 已拿到上一次完整打包的
+# staging/dist 与签名后的 bootstrap 文档，只重跑打包而不跑 Gradle：
+#   assemble-release.sh <ver> --skip-gradle --bootstrap-receipt-dir <已签名文档目录>
+# 此时已发布的开发者构件（event-processor）从现有 dist 复制保留，SDK JAR 取自 staging，
+# 因此候选的 8 个 GitHub 资产契约与 SDK/事件构件字节都不变，只更新 ZIP/EXE（含 docs）。
 
 set -euo pipefail
 
-VER="${1:-}"
+VER=""
 SKIP_NSIS=0
-if [[ "${2:-}" == "--skip-nsis" ]]; then
-  SKIP_NSIS=1
-fi
+SKIP_GRADLE=0
+BOOTSTRAP_RECEIPT_DIR="${TURBOISM_BOOTSTRAP_RECEIPT_DIR:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-nsis)
+      SKIP_NSIS=1
+      shift
+      ;;
+    --skip-gradle)
+      # 仅在受保护签名 job 内使用：复用已上传的 staging/dist，不跑 Gradle。
+      SKIP_GRADLE=1
+      shift
+      ;;
+    --bootstrap-receipt-dir)
+      BOOTSTRAP_RECEIPT_DIR="${2:-}"
+      shift 2
+      ;;
+    -*)
+      echo "error: unknown option: $1" >&2
+      exit 2
+      ;;
+    *)
+      if [[ -z "$VER" ]]; then
+        VER="$1"
+      else
+        echo "error: unexpected argument: $1" >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+
 if [[ -z "$VER" ]]; then
-  echo "usage: assemble-release.sh <version> [--skip-nsis]" >&2
+  echo "usage: assemble-release.sh <version> [--skip-nsis] [--skip-gradle] [--bootstrap-receipt-dir <path>]" >&2
   exit 2
 fi
 
@@ -39,19 +76,31 @@ dist="$repo_root/build/windows-installer/dist"
 generated="$repo_root/build/windows-installer/generated"
 
 # ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
-echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
-gradle_ver_args=(-PinstallerVersion="$VER" -PturboismRelease=true)
-if [[ -z "${TURBOISM_BUILD_VERSION:-}" ]]; then
-  gradle_ver_args+=(-PturboismVersion="$VER")
+if [[ "$SKIP_GRADLE" == "1" ]]; then
+  echo "[assemble] --skip-gradle: 复用现有 staging/dist，不调用 Gradle"
+else
+  echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
+  gradle_ver_args=(-PinstallerVersion="$VER" -PturboismRelease=true)
+  if [[ -z "${TURBOISM_BUILD_VERSION:-}" ]]; then
+    gradle_ver_args+=(-PturboismVersion="$VER")
+  fi
+  ./gradlew stageInstallerPayload :event-processor:jar \
+    "${gradle_ver_args[@]}" \
+    --console=plain
 fi
-./gradlew stageInstallerPayload :event-processor:jar \
-  "${gradle_ver_args[@]}" \
-  --console=plain
 if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
   echo "error: staged payload incomplete at $stage" >&2
   exit 1
 fi
 mkdir -p "$dist" "$generated"
+# 签名重打包时不再有 Gradle 构建目录：只复用已通过校验的上一步候选 dist 里的开发者构件。
+# 普通构建绝不回退到旧 dist，否则本应先失败的“构件缺失”会被掩盖。
+preserved_event_processor=""
+if [[ "$SKIP_GRADLE" == "1" && -f "$dist/turboism-event-processor-$VER.jar" && ! -L "$dist/turboism-event-processor-$VER.jar" ]]; then
+  mkdir -p "$generated/previous"
+  cp -p "$dist/turboism-event-processor-$VER.jar" "$generated/previous/event-processor.jar"
+  preserved_event_processor="$generated/previous/event-processor.jar"
+fi
 # Reassembly must not leak obsolete full/thin assets into the new exact roster.
 find "$dist" -maxdepth 1 -type f -delete
 
@@ -407,6 +456,7 @@ core_payload.extend(
     for path in sorted((stage / "graal" / "lib").glob("*.jar"))
 )
 core_payload.extend([
+    ("bootstrap-receipt.ps1", stage / "bootstrap-receipt.ps1"),
     ("install-jar-payload.ps1", stage / "install-jar-payload.ps1"),
     ("launch-cubism-turboism.bat", stage / "launch-cubism-turboism.bat"),
     ("launch-cubism-turboism.ps1", stage / "launch-cubism-turboism.ps1"),
@@ -655,16 +705,40 @@ for p in plugins:
     print(f"  {p['id']} | {p['name']} | {p['version']}")
 PYEOF
 
+# ---------- 3.5 校验与规范化 Bootstrap Receipt 输入（ZIP 与 NSIS 共享） ----------
+bootstrap_bundle_dir=""
+if [[ -n "$BOOTSTRAP_RECEIPT_DIR" ]]; then
+  if [[ ! -d "$BOOTSTRAP_RECEIPT_DIR" ]]; then
+    echo "error: specified bootstrap receipt directory does not exist: $BOOTSTRAP_RECEIPT_DIR" >&2
+    exit 1
+  fi
+  bootstrap_stage="$generated/bootstrap-receipt"
+  mkdir -p "$bootstrap_stage"
+  if [[ -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" ]]; then
+    cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json" "$bootstrap_stage/manifest.json"
+    cp "$BOOTSTRAP_RECEIPT_DIR/manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
+  elif [[ -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" && -f "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" ]]; then
+    cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json" "$bootstrap_stage/manifest.json"
+    cp "$BOOTSTRAP_RECEIPT_DIR/turboism-$VER-manifest.json.sig" "$bootstrap_stage/manifest.json.sig"
+  else
+    echo "error: bootstrap receipt directory must contain manifest.json and manifest.json.sig (or turboism-$VER-manifest.json and .sig): $BOOTSTRAP_RECEIPT_DIR" >&2
+    exit 1
+  fi
+  bootstrap_bundle_dir="$bootstrap_stage"
+  echo "[assemble] validated bootstrap receipt documents at $bootstrap_bundle_dir"
+fi
+
 # ---------- 4. ZIP + sha256 ----------
 # 使用 python3 zipfile（避免依赖 zip CLI）。
 # 标准 ZIP 携带获批插件及完整 GraalJS 离线依赖。config.json 由共享 payload 的 config.template.json 生成；
 # Java 安装器专属文件（config.template.json、README.java-installer.txt、
 # uninstall.command）不进入 Windows zip。
 zip_dir() {
-  local src="$1" out="$2"
-  python3 - "$src" "$out" "$VER" <<'PYEOF'
+  local src="$1" out="$2" bdir="${3:-}"
+  python3 - "$src" "$out" "$VER" "$bdir" <<'PYEOF'
 import hashlib, json, os, stat, sys, zipfile
 src, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+bootstrap_dir = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else ""
 EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command"}
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 def write_bytes(archive, name, data, mode):
@@ -691,10 +765,16 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     # Keep the installed variant compatible with existing update clients.
     installed_build = json.dumps({"schemaVersion": 1, "variant": "full", "version": ver}) + "\n"
     write_bytes(z, "installed-build.json", installed_build.encode("utf-8"), 0o644)
+    if bootstrap_dir and os.path.isdir(bootstrap_dir):
+        m_file = os.path.join(bootstrap_dir, "manifest.json")
+        s_file = os.path.join(bootstrap_dir, "manifest.json.sig")
+        if os.path.isfile(m_file) and os.path.isfile(s_file):
+            write_bytes(z, "bootstrap/manifest.json", open(m_file, "rb").read(), 0o644)
+            write_bytes(z, "bootstrap/manifest.json.sig", open(s_file, "rb").read(), 0o644)
 PYEOF
 }
 
-zip_dir "$stage" "$dist/turboism-$VER.zip"
+zip_dir "$stage" "$dist/turboism-$VER.zip" "$bootstrap_bundle_dir"
 
 # ---------- 4.5 SDK 与注解处理器开发构件 ----------
 # 独立的插件开发构件：sdk jar 与发行载荷内 graal/lib 同源同字节，
@@ -706,13 +786,22 @@ if [[ ${#sdk_jars[@]} -ne 1 || "$(basename "${sdk_jars[0]}")" != "sdk-$VER.jar" 
 fi
 cp "${sdk_jars[0]}" "$dist/turboism-sdk-$VER.jar"
 
-wt_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
-event_processor_jar="$repo_root/build/worktree/$wt_id/event-processor/libs/event-processor-$VER.jar"
-if [[ ! -f "$event_processor_jar" || -L "$event_processor_jar" ]]; then
-  echo "error: expected built event-processor JAR named event-processor-$VER.jar at $event_processor_jar" >&2
-  exit 1
+if [[ "$SKIP_GRADLE" == "1" ]]; then
+  # 只接受上一步候选 dist 里的同一字节，即使本地存在另一份同版本 build/worktree 构件也不用。
+  if [[ -z "$preserved_event_processor" || ! -f "$preserved_event_processor" ]]; then
+    echo "error: --skip-gradle requires the verified event-processor JAR already published in $dist" >&2
+    exit 1
+  fi
+  cp -p "$preserved_event_processor" "$dist/turboism-event-processor-$VER.jar"
+else
+  wt_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
+  event_processor_jar="$repo_root/build/worktree/$wt_id/event-processor/libs/event-processor-$VER.jar"
+  if [[ ! -f "$event_processor_jar" || -L "$event_processor_jar" ]]; then
+    echo "error: expected built event-processor JAR named event-processor-$VER.jar at $event_processor_jar" >&2
+    exit 1
+  fi
+  cp "$event_processor_jar" "$dist/turboism-event-processor-$VER.jar"
 fi
-cp "$event_processor_jar" "$dist/turboism-event-processor-$VER.jar"
 
 # sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (
@@ -762,6 +851,10 @@ else
   if [[ -n "$ver_numeric" ]]; then
     nsis_args+=(-DVER_NUMERIC="$ver_numeric")
     echo "[assemble] VIProductVersion: $ver_numeric"
+  fi
+  if [[ -n "$bootstrap_bundle_dir" ]]; then
+    nsis_args+=(-DBOOTSTRAP_RECEIPT_DIR="$bootstrap_bundle_dir")
+    echo "[assemble] bootstrap receipt bundled: $bootstrap_bundle_dir"
   fi
   makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
   (
