@@ -206,6 +206,38 @@ class ClipMaskViewerPluginTest {
         assertTrue(fixture.logger.warns.stream().anyMatch(message -> message.contains("headless")));
     }
 
+    @Test
+    void fencedSchedulerDropsOpenWithoutCrashing() {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context);
+        fixture.plugin.enable();
+        fixture.ui.schedulerFenced = true;
+
+        fixture.actions
+                .byId(ClipMaskViewerPlugin.OPEN_VIEWER_ACTION_ID)
+                .handler()
+                .accept(new ActionRegistry.ActionContext() {});
+
+        assertEquals(0, fixture.ui.createCount);
+        assertTrue(fixture.logger.warns.stream().anyMatch(message -> message.contains("generation is closed")));
+    }
+
+    @Test
+    void queuedOpenAfterDisableDoesNotCreateWindow() {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context);
+        fixture.plugin.enable();
+        fixture.actions
+                .byId(ClipMaskViewerPlugin.OPEN_VIEWER_ACTION_ID)
+                .handler()
+                .accept(new ActionRegistry.ActionContext() {});
+
+        fixture.plugin.disable();
+        fixture.ui.runNext();
+
+        assertEquals(0, fixture.ui.createCount);
+    }
+
     private static final class Fixture {
         private final FakeUi ui = new FakeUi();
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
@@ -216,17 +248,7 @@ class ClipMaskViewerPluginTest {
         private final FakeClipMasks clipMasks = new FakeClipMasks();
         private final DisposableScope scope = new DisposableScope();
         private final PluginLocalization localization = new FakeLocalization();
-        private final UiScheduler uiScheduler = new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                throw new UnsupportedOperationException();
-            }
-        };
+        private final UiScheduler uiScheduler = ui.scheduler();
         private final PluginContext context = (PluginContext) Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
@@ -264,8 +286,24 @@ class ClipMaskViewerPluginTest {
 
     private static final class FakeUi implements ClipMaskViewerPlugin.UiAccess {
         private final Queue<Runnable> queued = new ArrayDeque<>();
+        private final UiScheduler scheduler = new UiScheduler() {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
+                if (schedulerFenced) {
+                    throw new IllegalStateException("plugin generation is closed");
+                }
+                queued.add(work);
+                return () -> {};
+            }
+
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+                return runOnUiThread(work);
+            }
+        };
         private FakeWindowView view = new FakeWindowView();
         private boolean headless;
+        private boolean schedulerFenced;
         private int createCount;
         private int teardownCount;
         private UiScheduler teardownScheduler;
@@ -278,8 +316,8 @@ class ClipMaskViewerPluginTest {
         }
 
         @Override
-        public void invokeLater(final Runnable action) {
-            queued.add(action);
+        public void invokeLater(final UiScheduler scheduler, final Runnable action) {
+            scheduler.runOnUiThread(action);
         }
 
         @Override
@@ -313,6 +351,10 @@ class ClipMaskViewerPluginTest {
             if (action != null) {
                 action.run();
             }
+        }
+
+        private UiScheduler scheduler() {
+            return scheduler;
         }
 
         private FakeWindowView firstView() {
