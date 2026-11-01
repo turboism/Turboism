@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import java.io.BufferedWriter;
@@ -35,7 +36,7 @@ import java.util.stream.Stream;
  * performed asynchronously on a single background worker thread, while the in-memory recent lines
  * ring buffer remains immediately visible and bounded on calling threads.</p>
  */
-public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
+public final class PreviewLog implements AutoCloseable, RuntimeLogReader, RuntimeDiagnostics.Sink {
 
     private static final int RECENT_LINE_LIMIT = 5_000;
     private static final long RECENT_BYTES_LIMIT = 2 * 1024 * 1024L;
@@ -193,6 +194,32 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      */
     public void setMinimumLevel(final String level) {
         minimumLevel = Level.valueOf(Objects.requireNonNull(level, "level"));
+    }
+
+    /** Reports the live threshold before a framework caller prepares a diagnostic. */
+    @Override
+    public boolean isEnabled(final RuntimeDiagnostics.Level level) {
+        return diagnosticLevel(level).ordinal() >= minimumLevel.ordinal();
+    }
+
+    /** Routes framework diagnostics through the same filter, buffer and writer as other records. */
+    @Override
+    public void write(
+            final RuntimeDiagnostics.Level level,
+            final String component,
+            final String message,
+            final Throwable failure) {
+        write(diagnosticLevel(level), component, message, failure);
+    }
+
+    private static Level diagnosticLevel(final RuntimeDiagnostics.Level level) {
+        return switch (level) {
+            case TRACE -> Level.TRACE;
+            case DEBUG -> Level.DEBUG;
+            case INFO -> Level.INFO;
+            case WARN -> Level.WARN;
+            case ERROR -> Level.ERROR;
+        };
     }
 
     /**
