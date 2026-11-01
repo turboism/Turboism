@@ -17,6 +17,15 @@ function Assert-ManagedLaunch {
     Write-Host "ok: $Message"
 }
 
+function Get-ManagedLaunchMarkerText {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return "" }
+    # cmd writes the marker with the active console output code page, which is exactly the code page
+    # Get-CubismStagedBatEncoding models for the staged BAT. Decoding with the ANSI default instead
+    # would report a phantom failure on a UTF-8 console (and hide one on an ANSI console).
+    return [System.IO.File]::ReadAllText($Path, (Get-CubismStagedBatEncoding))
+}
+
 function Test-CubismJdk17Runnable {
     param([string]$Java)
     if ([string]::IsNullOrWhiteSpace($Java)) { return $false }
@@ -233,6 +242,8 @@ $fixtureShortcutRoot = ""
 $fixtureShortcutRootOwned = $false
 $fixtureManagedShortcutDir = ""
 $fixtureManagedShortcutDirOwned = $false
+$fixtureShortcutDirectoryStubInstalled = $false
+$savedShortcutDirectoryResolver = $null
 New-Item -ItemType Directory -Path $turboismHome, $fixtureBase -Force | Out-Null
 
 function New-TestPluginJar {
@@ -323,6 +334,18 @@ public static class SyntheticCubismProbe {
             if (!File.Exists(result)) return 2;
             Console.Write(File.ReadAllText(result));
             return 0;
+        }
+        if (Array.IndexOf(args, "dev.turboism.update.FrameworkUpdateHelper") >= 0) {
+            // Synthetic launch-lease helper: echo its arguments and return a configurable exit code.
+            // This is a mock, not a real Java helper, and it never loads placeholder JARs.
+            string marker = Environment.GetEnvironmentVariable("TURBOISM_TEST_OUTPUT");
+            if (String.IsNullOrEmpty(marker)) return 64;
+            File.AppendAllText(marker, "HELPER_ARGS=" + String.Join(" ", args) + Environment.NewLine,
+                System.Text.Encoding.Default);
+            string exitEnv = Environment.GetEnvironmentVariable("TURBOISM_TEST_HELPER_EXIT");
+            int exitCode = 10;
+            if (!String.IsNullOrEmpty(exitEnv)) int.TryParse(exitEnv, out exitCode);
+            return exitCode;
         }
         if (Array.IndexOf(args, "com.live2d.cubism.CECubismEditorApp") >= 0) {
             string marker = Environment.GetEnvironmentVariable("TURBOISM_TEST_OUTPUT");
@@ -840,8 +863,8 @@ public static class SyntheticCubismProbe {
             -GraalHost $graalHostFixture `
             -Arguments @("fixture argument")
         Assert-ManagedLaunch ($exitCode -eq 23) "official normal BAT exit code is propagated"
-        Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'NORMAL=1') "normal launch invokes the official BAT"
-        $markerText = Get-Content -LiteralPath $marker -Raw
+        Assert-ManagedLaunch ((Get-ManagedLaunchMarkerText $marker) -match 'NORMAL=1') "normal launch invokes the official BAT"
+        $markerText = Get-ManagedLaunchMarkerText $marker
         Assert-ManagedLaunch ($markerText -match '(?m)^JDK=\s*$') "official BAT receives no inherited JDK_JAVA_OPTIONS"
         Assert-ManagedLaunch ($markerText -match '(?m)^TOOL=\s*$') "official BAT receives no inherited JAVA_TOOL_OPTIONS"
         Assert-ManagedLaunch ($markerText -match '(?m)^LEGACY=\s*$') "official BAT receives no inherited _JAVA_OPTIONS"
@@ -857,7 +880,7 @@ public static class SyntheticCubismProbe {
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.java=')).Count -eq 1) "packaged Graal child Java replaces stale inherited values"
         Assert-ManagedLaunch ($markerText -match [regex]::Escape("-Dturboism.home=$turboismHome")) "space-containing Turboism home remains one direct JVM argument"
         Assert-ManagedLaunch ($markerText -match [regex]::Escape("-Duser.dir=$(ConvertTo-CubismCanonicalRoot $root53)")) "Cubism user.dir is pinned to the selected installation root"
-        Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
+        Assert-ManagedLaunch ((Get-ManagedLaunchMarkerText $marker) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
         $env:JAVA_TOOL_OPTIONS = '-Xmx1 "unmatched'
         $malformedExit = Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent
         Assert-ManagedLaunch ($malformedExit -eq 23) "malformed inherited JVM options cannot break the managed child"
@@ -898,7 +921,7 @@ public static class SyntheticCubismProbe {
             -Agent $agent `
             -GraalHost $graalHostFixture
         Assert-ManagedLaunch ($overrideExit -eq 23) "staged GraalVM override propagates the official BAT exit code"
-        $overrideMarker = Get-Content -LiteralPath $marker -Raw
+        $overrideMarker = Get-ManagedLaunchMarkerText $marker
         Assert-ManagedLaunch ($overrideMarker -match 'NORMAL=1') "staged GraalVM override preserves official BAT behavior"
         Assert-ManagedLaunch ($overrideMarker -match ('JAVA=' + [regex]::Escape($javaOverride))) "staged GraalVM override replaces only the Cubism Java executable"
         Assert-ManagedLaunch ($overrideMarker -match ('CWD=' + [regex]::Escape((ConvertTo-CubismCanonicalRoot $root53)))) "staged GraalVM override preserves the Cubism working directory"
@@ -990,8 +1013,26 @@ public static class SyntheticCubismProbe {
     $launchArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismRoot "{2}" -Variant d3d' -f $launcher, $turboismHome, $root53
     $process = Start-Process -FilePath $ps -ArgumentList $launchArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($process.ExitCode -eq 23) "launcher selects and invokes the explicit D3D BAT"
-    Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'D3D=1') "D3D launcher entry is distinct"
+    Assert-ManagedLaunch ((Get-ManagedLaunchMarkerText $marker) -match 'D3D=1') "D3D launcher entry is distinct"
+    $leaseMarkerText = Get-ManagedLaunchMarkerText $marker
+    $firstHelperToken = $null
+    if ($leaseMarkerText -match '(?m)^HELPER_ARGS=.*--launch-token ([0-9a-f]{64})') { $firstHelperToken = $Matches[1] }
+    Assert-ManagedLaunch ($leaseMarkerText -match '(?m)^HELPER_ARGS=.*--prepare-launch ') "every non-Probe launch prepares the helper (no pending required)"
+    Assert-ManagedLaunch ($null -ne $firstHelperToken) "launcher passes a 64-hex launch token to the helper"
+    Assert-ManagedLaunch ($leaseMarkerText -match [regex]::Escape('launchToken=' + $firstHelperToken)) "the same launch token reaches the javaagent option"
+    Assert-ManagedLaunch (([regex]::Matches($leaseMarkerText, [regex]::Escape('launchToken=' + $firstHelperToken))).Count -eq 1) "the javaagent carries exactly one launch token"
     Write-CubismInstallationState -StatePath $statePath -Candidates $initial
+    # Ordinary multi-instance: a second non-Probe launch issues a distinct token and prepares again.
+    $secondLaunchArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismRoot "{2}"' -f $launcher, $turboismHome, $root53
+    $secondProcess = Start-Process -FilePath $ps -ArgumentList $secondLaunchArgs -Wait -PassThru -NoNewWindow
+    Assert-ManagedLaunch ($secondProcess.ExitCode -eq 23) "a second ordinary launch also invokes the official BAT"
+    $secondLeaseMarker = Get-ManagedLaunchMarkerText $marker
+    $secondHelperToken = $null
+    if ($secondLeaseMarker -match '(?ms)HELPER_ARGS=.*--launch-token ([0-9a-f]{64})(?![\s\S]*HELPER_ARGS=)' -or
+        (($secondLeaseMarker -split "`r?`n" | Where-Object { $_ -like 'HELPER_ARGS=*' } | Select-Object -Last 1) -match '--launch-token ([0-9a-f]{64})')) {
+        $secondHelperToken = $Matches[1]
+    }
+    Assert-ManagedLaunch ($null -ne $secondHelperToken -and $secondHelperToken -ne $firstHelperToken) "each ordinary launch issues a distinct launch token"
 
     $genericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f $launcher, $turboismHome
     $genericInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -1102,15 +1143,30 @@ public static class SyntheticCubismProbe {
         }
         $userRoots = @(Get-CubismCurrentUserShortcutRoots)
         Assert-ManagedLaunch ($userRoots.Count -gt 0) "current-user Desktop or Start Menu root is available"
-        # The production managed shortcut boundary is exercised: resolve the
-        # ordinary managed shortcut directory and fail closed before any
-        # dual-mode invocation if it already exists, so a preexisting
-        # directory is never modified or deleted by this fixture.
-        $fixtureManagedShortcutDir = Get-CubismShortcutDirectory
+        # The real production default managed-shortcut directory (Programs\Turboism) is asserted against
+        # the untouched resolver at the top of this suite. This fixture must never create, modify or
+        # delete a pre-existing user directory, so within this process only the no-Override decision of
+        # Get-CubismShortcutDirectory is rebound to a managed directory inside this run's temp root.
+        # Explicit -Override calls still delegate to the production implementation, and the real
+        # filename regex, directory-prefix and reparse checks are unchanged: only the boundary root
+        # moves to the isolated fixture root. Nothing in this block starts a subprocess that reads the
+        # state file, so an in-process binding cannot be lost. The production resolver is reinstated at
+        # the end of this block and again as a safety net in the outer finally.
+        $fixtureManagedShortcutDir = Join-Path $temp "isolated managed shortcuts\Turboism"
+        $savedShortcutDirectoryResolver = (Get-Item -LiteralPath Function:Get-CubismShortcutDirectory).ScriptBlock
+        $isolatedShortcutDirectoryResolver = {
+            param([string]$Override = "")
+            if (-not [string]::IsNullOrWhiteSpace($Override)) {
+                return (& $savedShortcutDirectoryResolver -Override $Override)
+            }
+            return $fixtureManagedShortcutDir
+        }.GetNewClosure()
+        Set-Item -Path Function:Get-CubismShortcutDirectory -Value $isolatedShortcutDirectoryResolver
+        $fixtureShortcutDirectoryStubInstalled = $true
         if (Test-Path -LiteralPath $fixtureManagedShortcutDir) {
-            throw "managed shortcut directory already exists; fixture refuses to use it: $fixtureManagedShortcutDir"
+            throw "isolated managed shortcut directory unexpectedly exists: $fixtureManagedShortcutDir"
         }
-        New-Item -ItemType Directory -Path $fixtureManagedShortcutDir | Out-Null
+        New-Item -ItemType Directory -Path $fixtureManagedShortcutDir -Force | Out-Null
         $fixtureManagedShortcutDirOwned = $true
         $fixtureShortcutRoot = Join-Path $userRoots[0] ("Turboism dual-mode fixture " + [guid]::NewGuid().ToString("N"))
         New-Item -ItemType Directory -Path $fixtureShortcutRoot | Out-Null
@@ -1253,6 +1309,14 @@ public static class SyntheticCubismProbe {
         }
         Assert-ManagedLaunch ((Get-Item Function:Publish-CubismStagedShortcut).ScriptBlock.ToString() -eq $r12SavedPublish.ToString()) "production publication helper is restored"
         Assert-ManagedLaunch ((-not (Test-Path -LiteralPath $r12ShortcutRoot)) -and (-not (Test-Path -LiteralPath $r12Home))) "R12 fixture and override cleanup is deterministic"
+
+        # Reinstate the production resolver and prove it resolves the real default again.
+        Set-Item -Path Function:Get-CubismShortcutDirectory -Value $savedShortcutDirectoryResolver
+        $fixtureShortcutDirectoryStubInstalled = $false
+        Assert-ManagedLaunch ((Get-Item Function:Get-CubismShortcutDirectory).ScriptBlock.ToString() -eq $savedShortcutDirectoryResolver.ToString()) "production shortcut directory resolver is restored"
+        if (-not [string]::IsNullOrWhiteSpace($programsDirectory)) {
+            Assert-ManagedLaunch ((Get-CubismShortcutDirectory) -eq [System.IO.Path]::GetFullPath((Join-Path $programsDirectory "Turboism")).TrimEnd('\', '/')) "restored resolver maps the real current-user Programs\Turboism again"
+        }
     }
 
     # Official-BAT integration: exact backup, owned marker, idempotent update,
@@ -1305,6 +1369,10 @@ public static class SyntheticCubismProbe {
     Write-Host "MANAGED_LAUNCH_TEST=PASS"
 }
 finally {
+    if ($fixtureShortcutDirectoryStubInstalled -and $null -ne $savedShortcutDirectoryResolver) {
+        Set-Item -Path Function:Get-CubismShortcutDirectory -Value $savedShortcutDirectoryResolver
+        $fixtureShortcutDirectoryStubInstalled = $false
+    }
     if ($fixtureShortcutRootOwned -and -not [string]::IsNullOrWhiteSpace($fixtureShortcutRoot) -and (Test-Path -LiteralPath $fixtureShortcutRoot)) {
         Remove-Item -LiteralPath $fixtureShortcutRoot -Recurse -Force -ErrorAction SilentlyContinue
     }

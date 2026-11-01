@@ -2,9 +2,12 @@
 
 This is an in-progress branch, **not a production-ready self-updater**.
 
-**Current handoff:** [HANDOFF.zh-CN.md](HANDOFF.zh-CN.md). Latest implementation `f173f64e2`.
-Primary user Cubism p40752 is left running on the older e72137 local agent. The separate f173 recovery
-instance was stopped; its STARTING_HEALTH component transaction and suspended intent are retained.
+**Current evidence:** [Windows launch-lease/native recovery acceptance](windows-launch-lease-host-validation.md)
+(2026-11-01, current worktree). This checkpoint extends `f173f64e2` with lease/ACL/launcher changes tested on the
+working tree based on `bae2f3486`. The [older handoff](HANDOFF.zh-CN.md) retains prior-host history.
+Primary user Cubism p40752 is left running on the older e72137 local agent (a historical prior-host record,
+not the current worktree host). The separate f173 recovery instance was stopped; its STARTING_HEALTH component
+transaction and suspended intent are retained.
 
 ## Latest implementation
 
@@ -91,16 +94,18 @@ instance was stopped; its STARTING_HEALTH component transaction and suspended in
    Do not assert that content hashes alone provide anti-hardlink-write safety or power-loss durability.
 6. Harden recovery against hostile journal/backup/path mutation; allowlist validation and shared cross-process
    helper/health locking are present but are not a complete handle-based TOCTOU defense.
-7. Qualify the durable install-next-launch workflow on the actual supported Windows host, including interrupted
-   scheduling, atomic launch/apply interlocking and broken-launcher recovery. The reviewed production path no longer
-   depends on a one-hour helper lifetime. Peer-process checks do not establish an atomic launch/apply lease.
+7. Qualify the durable install-next-launch workflow with actual signed releases, interrupted scheduling and
+   broken-launcher recovery. The managed LAUNCHING-to-USING lease now has child-JVM/premain and local Cubism evidence;
+   peer-process checks remain an additional guard. Legacy/direct entry before premain and older retained-helper
+   migration remain unqualified. The production path no longer depends on a one-hour helper lifetime.
 8. Finish native-window host acceptance, opt-in and retry/recovery diagnostics for the now-wired selected-plugin
    workflow. Downloads and explicit installation consent are separate; plugin and framework journals are not a global
    atomic transaction. Qualify plugin-apply failures together with framework startup health/rollback on the host.
    Actual two-plugin failure restored all 29 old JARs and prevented health confirmation; the next controlled launch
    recovered the README component. The earlier corrupt-intent startup trap (`failure-host-acceptance.txt`) is now
    addressed in `f173f64e2`: complete rollback suspends original intent, permits installed plugins, and defers health.
-   Native review/cancellation and full controlled recovery still require host qualification; see the handoff.
+   Native review/cancellation and README component recovery now have current-host evidence; full signed framework
+   recovery and the native download-to-upgrade chain still require qualification; see the current evidence record.
    Never replace loaded framework/Graal/SDK bytes in process or force Cubism to close.
 9. Complete supported-Windows acceptance of the native UI and authenticated download-to-next-upgrade chain,
    beyond the now-observed rebuilt-agent startup health/recovery. Retain reports; label any Linux/Proton evidence.
@@ -156,8 +161,8 @@ pre-existing gates. Passing local tests or building this branch does not activat
 - **Follow-up failure acceptance:** `e72137dec` fixes incomplete plugin-backup preparation restoring over live JARs.
   Both new fault tests reproduced byte loss before the fix; selected regression now **485 tests, zero failures/errors,
   6 skips**. Real Windows ReadData denial against the new production backend preserved both seeded JARs/journal.
-  New LOCAL (not CI) agent host startup and subsequent same-byte manual plugin reinstall: p40752,
-  **29 plugins, zero failures**, unchanged JAR hashes. Post-fix Python: **71 tests, 1 skip**. Actual capture revealed
+  New LOCAL (not CI) agent host startup and subsequent same-byte manual plugin reinstall (historical prior-host
+  record): p40752, **29 plugins, zero failures**, unchanged JAR hashes. Post-fix Python: **71 tests, 1 skip**. Actual capture revealed
   the vendor trial notice still blocks an interactive editor session; startup banners precede it. Manual click on
   Continue Using is needed before further GUI acceptance. See `failure-host-acceptance.txt`; production stays disabled.
 - **Suspended-intent/native recovery implementation:** `f173f64e2` adds inactive failed intent, graceful old-plugin
@@ -172,3 +177,39 @@ pre-existing gates. Passing local tests or building this branch does not activat
   Do not call this 32-plugin green acceptance. Exact continuation and lab fixture sources are in the handoff.
 - **NSIS tooling attempt:** the official SourceForge download timed out on this machine. No real EXE compilation
   or installation is claimed. Production keys, activation and deployment remain unchanged.
+
+## Current worktree-host checkpoint
+
+- **Windows receipt ACL fix (verified):** `FrameworkUpdateApplier` writes, backs up and restores the installed
+  receipt index through a private temp file given an explicit owner/SYSTEM/Administrators ACL before an atomic
+  rename, so a host whose temp directory propagates untrusted inherited SIDs cannot make the index fail the
+  `Receipt state is not private` check. Two new deterministic ACL regressions plus the six previously failing
+  receipt tests pass on this Windows host: **8 tests, 0 failures/errors/skips**. The five symlink cases remain
+  unexercised on this host for lack of symlink privilege and are not claimed green.
+- **Coverage wiring:** `test_ci_coverage.py` compares the host-tooling runner path with `.as_posix()`, and the
+  previously ungated `test_bootstrap_receipt.py` is now wired into `checkCompletedCommit` through a
+  `checkBootstrapReceipt` Exec gate that receives the exported runtime test classpath via a structured env var
+  (no nested Gradle build inside the gate). The coverage guard passes.
+- **W2 native (partial evidence, not full acceptance):** a real Windows W2 run reached **22 PASS, 3 NOT_RUN,
+  0 FAIL**; the NOT_RUN cases are the file/directory-symlink cases needing privilege and a foreign-owner case
+  that cannot be assigned. Full manifest digest
+  `59a2e7596b07640c587129db5199907b80f07b2fb1fd6e7c8d61c66cff7f9af6`. Exit remains INCOMPLETE_OR_FAILED, so
+  this is not a complete W2 acceptance pass.
+- **Current local host recovery passed with bounded scope:** Cubism 5.3.02, a local dirty 0.68.1 agent, 32 installed
+  JARs and 30 enabled plugins (MCP/ACP explicitly disabled). Actual startup restored all 32 hashes after a corrupt
+  two-plugin batch and suspended the intent without confirming framework health. After a normal lab-only exit, the
+  next managed startup recovered the README component and cleared its journal. Real native Plugin Management
+  review/default-keep/explicit-cancel passed via targeted Windows keyboard events, preserving plugin/config bytes;
+  subsequent valid same-version restaging applied on another real startup. Each startup loaded 30 plugins with zero
+  failures. These are component/manual-package acceptance results, not an admitted full-release update/download.
+- **Lease and launcher evidence:** latest lease unit class 31/31; child-process class 8/8; built-agent premain and
+  dependency-isolation probes passed. Windows PowerShell 5.1 lease gate 101 assertions and managed-launch gate
+  196 assertions passed, including exact Chinese/space argv through the two-stage BAT chain. Bootstrap receipt
+  Python 15/15 passed. Two real Cubism JVMs also coexisted with distinct USING leases; mutation was refused while
+  they lived, and stale leases were reaped after both exited. Simultaneous exit produced one conservative release
+  lock-contention warning (74), documented in the evidence. All four lab JVMs are stopped. Official BAT/JRE hashes
+  were unchanged.
+- **Integration remains partial:** runtime 564 tests / 5 failures / 10 skips (all five failures require unavailable
+  symlink privilege); bootstrap 251 tests / zero failures / 30 skips. Core-contract 33/33 is an UP-TO-DATE prior result.
+  Runtime spotless still reports 39 historical files; no whole-suite green claim. Production activation, signing
+  keys and deployment are unchanged. See the linked evidence for paths, commands and remaining release blockers.

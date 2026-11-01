@@ -88,10 +88,13 @@ java -cp <trusted-agent-or-helper-copy.jar> dev.turboism.update.FrameworkUpdateH
 Windows JDK 17 does not reliably provide ProcessHandle command lines. The helper therefore uses a bounded Windows
 PowerShell 5.1 CIM query, with a Base64 path value, explicit UTF-8/text output and no user path interpolated as code.
 It terminates only its own query subprocess on timeout. Query failure blocks apply/recovery rather than treating
-missing data as "not running". This is an additional guard, not an atomic launch/apply lease; concurrent launch
-serialization and long-session/full-release qualification remain acceptance blockers; durable next-launch intent
-is implemented. Authorized local host checks cover live-instance refusal and malformed-intent recovery, not an
-atomic launch/apply lease.
+missing data as "not running". This process scan is an additional guard. The current branch also publishes a
+root/token/PID/start-bound LAUNCHING lease under the transaction lock before a managed spawn; the real agent premain
+turns it into USING before runtime/plugin initialization. USING remains until the process has exited, including
+after startup health. Child-JVM and built-agent premain probes plus local Cubism recovery/native-consent acceptance
+are recorded in [the current Windows evidence](windows-launch-lease-host-validation.md). Legacy/direct launches
+still have a pre-premain window, and old retained helpers without the token protocol fail closed rather than
+migrating. Long-session, broken-new-launcher and full signed-release qualification remain blockers.
 
 ## Required before enabling
 

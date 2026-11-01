@@ -1653,6 +1653,7 @@ tasks.register("checkIntegration") {
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
         ":bootstrap:checkBootstrapJarDependencyIsolation",
+        ":bootstrap:checkBootstrapLaunchLeasePremain",
         "contractParentAgentTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
@@ -1860,3 +1861,48 @@ val checkWindowsUpdateNativeSources by tasks.registering(Exec::class) {
     commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_windows_update_native")
 }
 tasks.named("checkCompletedCommit") { dependsOn(checkWindowsUpdateNativeSources) }
+
+// Bootstrap receipt integration covers signed first-install initialization, cross-layer layout
+// consistency and collision safety. The gate exports the runtime test classpath once and hands its
+// file to the Python runner through a structured env var, so the test never starts a nested,
+// competing Gradle build inside this Exec; standalone runs still export the classpath themselves.
+val checkBootstrapReceipt by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies bootstrap receipt initialization, layout consistency and collision safety."
+    workingDir(rootDir)
+    dependsOn(":runtime:writeBootstrapReceiptTestClasspath")
+    inputs.files(
+        "scripts/test/test_bootstrap_receipt.py",
+        fileTree("scripts/release/turboism_release") { include("*.py") },
+        "packaging/framework-update-layout.json",
+        "packaging/windows-installer/bootstrap-receipt.ps1",
+        "packaging/windows-installer/assemble-release.sh",
+        "packaging/windows-installer/installer.nsi",
+        "packaging/windows-installer/configure_turboism.ps1",
+        "packaging/windows-installer/launch-cubism-turboism.ps1",
+        "runtime/src/main/java/dev/turboism/update/UpdateManifestEntry.java"
+    )
+    val classpathFile = project(":runtime").layout.buildDirectory
+        .file("update-test/bootstrap-receipt-test-classpath.txt")
+    inputs.file(classpathFile)
+    // Track the actual runtime test classpath bytes (main/test outputs plus dependency JARs), not only the
+    // exported classpath string: a recompiled class at an unchanged path must still invalidate this gate.
+    val runtimeTestClasspath = project(":runtime").extensions
+        .getByType<SourceSetContainer>()["test"].runtimeClasspath
+    inputs.files(runtimeTestClasspath)
+    VerificationStamps.apply(this)
+    doFirst {
+        environment(
+            "TURBOISM_BOOTSTRAP_RECEIPT_TEST_CLASSPATH_FILE",
+            classpathFile.get().asFile.absolutePath
+        )
+    }
+    commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_bootstrap_receipt")
+}
+tasks.named("checkCompletedCommit") { dependsOn(checkBootstrapReceipt) }
+
+// Real built-agent premain evidence for the framework launch lease (issue #50). The probe itself is a JavaExec in
+// :bootstrap (it owns the built JAR input, the test-classes dependency and the fork classpath); this file only links
+// it into the integration and completed-commit chains so a premain handshake regression fails the ordinary gate.
+// It validates whatever identity the built artifact really carries, so a numbered CI build stays valid.
+tasks.named("checkCompletedCommit") { dependsOn(":bootstrap:checkBootstrapLaunchLeasePremain") }
