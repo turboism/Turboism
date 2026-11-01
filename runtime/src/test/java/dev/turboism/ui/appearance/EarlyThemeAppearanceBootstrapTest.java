@@ -162,6 +162,9 @@ class EarlyThemeAppearanceBootstrapTest {
         // clearSelectedThemeId() persists an empty bounded list; it is a valid state, not a
         // malformed document, so it must not produce a diagnostic.
         writeSelectionThroughTypedConfigRegistry(home, List.of());
+        // install() replays process-wide buffered records. Other components are not theme diagnostics.
+        RuntimeDiagnostics.clear();
+        RuntimeDiagnostics.warn("host-session", "unrelated buffered diagnostic");
 
         final List<String> diagnostics = captureDiagnostics();
         assertEquals(
@@ -254,8 +257,11 @@ class EarlyThemeAppearanceBootstrapTest {
 
     private static List<String> captureDiagnostics() {
         final List<String> diagnostics = new CopyOnWriteArrayList<>();
-        RuntimeDiagnostics.install((level, component, message, failure) ->
-                diagnostics.add(level + " " + component + " " + message));
+        RuntimeDiagnostics.install((level, component, message, failure) -> {
+            if ("appearance".equals(component)) {
+                diagnostics.add(level + " " + component + " " + message);
+            }
+        });
         return diagnostics;
     }
 
