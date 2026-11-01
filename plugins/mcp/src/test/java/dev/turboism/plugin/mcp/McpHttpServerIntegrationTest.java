@@ -2376,7 +2376,8 @@ final class McpHttpServerIntegrationTest {
                                 "tools/call",
                                 "params",
                                 Map.of(
-                                        "name", McpParameterDomain.PARAMETERS_APPLY,
+                                        "name",
+                                        McpParameterDomain.PARAMETERS_APPLY,
                                         "arguments",
                                         Map.of(
                                                 "operations",

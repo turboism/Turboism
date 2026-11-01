@@ -214,8 +214,7 @@ class RuntimeFileChooserHistoryServiceTest {
                 FileChooserHistoryAdmission.forCaller("dev.turboism.plugin.someone", service);
 
         final UnsupportedOperationException refusal = assertThrows(
-                UnsupportedOperationException.class,
-                () -> pluginView.registerProvider(new RecordingProvider()));
+                UnsupportedOperationException.class, () -> pluginView.registerProvider(new RecordingProvider()));
         assertTrue(refusal.getMessage().contains(FileChooserHistoryAdmission.WRITER_IDENTITY), refusal.getMessage());
         assertFalse(service.isAvailable(), "the refused registration must not install a provider");
     }

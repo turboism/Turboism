@@ -795,10 +795,8 @@ class RuntimeEventBrokerTest {
                 event -> ((TestTransformEvent) event).value,
                 ignored -> true);
         final float second = broker.publishRuntimeTransform(
-                TestTransformEvent.class,
-                (float) first,
-                value -> new TestTransformCallback(value.intValue()),
-                event -> (float) ((TestTransformEvent) event).value);
+                TestTransformEvent.class, (float) first, value -> new TestTransformCallback(value.intValue()), event ->
+                        (float) ((TestTransformEvent) event).value);
 
         // Then: the slow subscriber never changes delivery semantics...
         assertEquals(2, slowTransformations.get());

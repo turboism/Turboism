@@ -177,8 +177,7 @@ final class AcpMessageRendererTest {
         private long inserted;
 
         @Override
-        public void insertString(
-                final int offset, final String text, final javax.swing.text.AttributeSet attributes)
+        public void insertString(final int offset, final String text, final javax.swing.text.AttributeSet attributes)
                 throws javax.swing.text.BadLocationException {
             inserted += text.length();
             super.insertString(offset, text, attributes);

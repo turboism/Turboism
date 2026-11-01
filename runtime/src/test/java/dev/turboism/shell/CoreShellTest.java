@@ -323,8 +323,8 @@ class CoreShellTest {
                 ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                    home, scheduler, host.adapterAccess(), log, services -> {
+            final LocalPluginRuntime runtime =
+                    new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, services -> {
                         final CoreShell shell = new CoreShell(services);
                         admitted.set(shell);
                         return shell;
@@ -340,8 +340,7 @@ class CoreShellTest {
                 runtime.close();
             }
             assertTrue(
-                    admitted.get().coreWindows().released(),
-                    "the runtime close path must release the shell windows");
+                    admitted.get().coreWindows().released(), "the runtime close path must release the shell windows");
         } finally {
             host.close();
             scheduler.shutdown();
