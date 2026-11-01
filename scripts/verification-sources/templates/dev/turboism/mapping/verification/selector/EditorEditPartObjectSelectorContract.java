@@ -277,7 +277,7 @@ public final class EditorEditPartObjectSelectorContract {
 
     /**
      * Extended set for {@code MoveObjectOnPartsPalette} reparenting through
-     * {@code part-source.remove-child}, which the 5.2.03 and 5.3.02 records do not carry.
+     * {@code part-source.remove-child}; admission requires that alias in the selected record.
      */
     public static final Set<String> MOVE_OBJECT_REMOVE_CHILD_ALIASES = unionAll(
         MOVE_OBJECT_ON_PARTS_PALETTE_REQUIRED_ALIASES,
