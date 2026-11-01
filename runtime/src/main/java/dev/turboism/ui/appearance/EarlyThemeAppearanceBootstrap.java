@@ -1,6 +1,7 @@
 package dev.turboism.ui.appearance;
 
 import java.awt.Color;
+import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.swing.UIManager;
@@ -96,28 +99,59 @@ public final class EarlyThemeAppearanceBootstrap {
         }
     }
 
+    /**
+     * Waits for the host to install a FlatLaf look-and-feel. The property-change listener wakes
+     * this wait as soon as {@link UIManager#setLookAndFeel} publishes its change, while the bounded
+     * latch wait still polls for hosts that install the look-and-feel without firing that event.
+     */
     boolean waitForFlatLaf() {
-        final long deadline = System.currentTimeMillis() + LOOK_AND_FEEL_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                if (SwingFlatLafHostOperations.onEdt(() -> {
-                    final Object lookAndFeel = UIManager.getLookAndFeel();
-                    return lookAndFeel != null
-                            && isFlatLaf(lookAndFeel.getClass().getName());
-                })) {
-                    return true;
+        final CountDownLatch flatLafInstalled = new CountDownLatch(1);
+        final PropertyChangeListener listener = event -> {
+            if (!"lookAndFeel".equals(event.getPropertyName())) {
+                return;
+            }
+            final Object newValue = event.getNewValue();
+            if (isFlatLafValue(newValue) || isFlatLafValue(UIManager.getLookAndFeel())) {
+                flatLafInstalled.countDown();
+            }
+        };
+        UIManager.addPropertyChangeListener(listener);
+        try {
+            final long deadline = System.currentTimeMillis() + LOOK_AND_FEEL_TIMEOUT_MILLIS;
+            while (System.currentTimeMillis() < deadline) {
+                try {
+                    if (SwingFlatLafHostOperations.onEdt(() -> {
+                        final Object lookAndFeel = UIManager.getLookAndFeel();
+                        return lookAndFeel != null
+                                && isFlatLaf(lookAndFeel.getClass().getName());
+                    })) {
+                        return true;
+                    }
+                } catch (RuntimeException ignored) {
+                    // UIManager may not be ready while the host boots.
                 }
-            } catch (RuntimeException ignored) {
-                // UIManager may not be ready while the host boots.
+                final long remainingMillis = deadline - System.currentTimeMillis();
+                if (remainingMillis <= 0L) {
+                    return false;
+                }
+                try {
+                    if (flatLafInstalled.await(
+                            Math.min(LOOK_AND_FEEL_POLL_MILLIS, remainingMillis), TimeUnit.MILLISECONDS)) {
+                        return true;
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
             }
-            try {
-                Thread.sleep(LOOK_AND_FEEL_POLL_MILLIS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
+            return false;
+        } finally {
+            UIManager.removePropertyChangeListener(listener);
         }
-        return false;
+    }
+
+    private static boolean isFlatLafValue(final Object lookAndFeel) {
+        return lookAndFeel != null && isFlatLaf(lookAndFeel.getClass().getName());
     }
 
     private static boolean isFlatLaf(final String className) {
