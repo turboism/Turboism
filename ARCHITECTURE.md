@@ -120,6 +120,14 @@ SDK APIs use Turboism-owned types only. They must not expose:
 - runtime implementation types;
 - mutable arrays whose ownership belongs to Cubism.
 
+Sole documented exception to the no-native-handle surface rule: `OwnedMoc.nativeHandle()`
+and `OwnedModel.nativeHandle()` return the opaque Cubism Core handle of the owned instance
+as a `long`. The value is Core identity used for diagnostics and for telling owned instances
+apart; Java code cannot dereference it, no Turboism API accepts it back as a host object, and
+it authorizes no Core or Editor operation. The exception is closed, not a precedent: no other
+SDK type may expose a native handle, neither method may gain overloads or companion accessors,
+and the shape stays frozen in the published API baselines.
+
 Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs. The full version-adaptation contract — coverage targets, evidence requirements, derivation tooling, and the `devCheck` gates that enforce it — lives in `CONTRIBUTING.md` under "Cubism version adaptation".
 
 Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
