@@ -84,7 +84,6 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final JEditorPane releaseNotes = new JEditorPane();
     private final JTextArea detail = new JTextArea();
     private final JProgressBar progress = new JProgressBar(0, 100);
-    private final JButton download;
     private final JButton cancel;
     private final JButton install;
     private final JButton check;
@@ -113,6 +112,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private boolean plannedFrameworkAvailable;
     private boolean pluginQueued;
     private long notesGeneration;
+    private long completedPluginBytes;
+    private long completedPluginTotalBytes;
 
     /** Worker-owned resources, published to EDT only after preparation completes. Never reused by another batch. */
     private static final class DownloadJob {
@@ -219,9 +220,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     if (coordinatedService != null) throw new IllegalStateException("Plugin catalog unavailable");
                     return List.of();
                 };
-        download = new JButton(text("updates.install.download"));
         cancel = new JButton(text("updates.install.cancel"));
-        install = new JButton(text("updates.install.on-exit"));
+        install = new JButton(text("updates.install.start"));
         check = new JButton(text("updates.check"));
         includePlugins = new JCheckBox(text("updates.plugins.include"), true);
         includePlugins.setVisible(coordinatedService != null);
@@ -277,9 +277,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             discovery.checkManual().whenComplete((result, failure) -> CoreDialogs.onEdt(this::render));
             render();
         });
-        download.addActionListener(e -> startCoordinatedDownload());
         cancel.addActionListener(e -> cancelCoordinatedDownload());
-        install.addActionListener(e -> commitCoordinatedInstall());
+        install.addActionListener(e -> startCoordinatedInstall());
         render();
     }
 
@@ -307,7 +306,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 center.add(new JScrollPane(detail), BorderLayout.SOUTH);
                 content.add(center, BorderLayout.CENTER);
                 final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.TRAILING));
-                for (JButton button : List.of(check, download, cancel, install)) buttons.add(button);
+                for (JButton button : List.of(check, cancel, install)) buttons.add(button);
                 content.add(buttons, BorderLayout.SOUTH);
                 dialog.setContentPane(content);
                 dialog.setMinimumSize(new Dimension(900, 520));
@@ -348,24 +347,28 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         version.setText(offered.localVersion() + (displayTarget.isEmpty() ? "" : " → " + displayTarget));
         final String phaseName = queued
                 ? "apply_pending"
-                : planState == PlanState.PLAN_FAILED || batchState == BatchState.DOWNLOAD_FAILED
-                        ? "failed"
-                        : batchState == BatchState.CANCELLED
-                                ? "cancelled"
-                                : busy
-                                        ? "downloading"
-                                        : batchState == BatchState.PREPARED
-                                                ? "staged"
-                                                : !frameworkAvailable && coordinatedService != null
-                                                        ? "idle"
-                                                        : state.phase().name().toLowerCase(java.util.Locale.ROOT);
+                : committing
+                        ? "committing"
+                        : planState == PlanState.PLAN_FAILED || batchState == BatchState.DOWNLOAD_FAILED
+                                ? "failed"
+                                : batchState == BatchState.CANCELLED
+                                        ? "cancelled"
+                                        : busy
+                                                ? "downloading"
+                                                : batchState == BatchState.PREPARED
+                                                        ? "staged"
+                                                        : !frameworkAvailable && coordinatedService != null
+                                                                ? "idle"
+                                                                : state.phase()
+                                                                        .name()
+                                                                        .toLowerCase(java.util.Locale.ROOT);
         phase.setText(text("updates.install.state." + phaseName));
         final boolean frameworkProgress =
                 activeJob == null ? pluginTableModel.frameworkSelected() : activeJob.framework;
-        final long totalBytes =
-                (frameworkProgress ? state.totalBytes() : 0) + (activeJob == null ? 0 : activeJob.pluginTotalBytes);
-        final long receivedBytes =
-                (frameworkProgress ? state.verifiedBytes() : 0) + (activeJob == null ? 0 : activeJob.pluginBytes);
+        final long totalBytes = (frameworkProgress ? state.totalBytes() : 0)
+                + (activeJob == null ? completedPluginTotalBytes : activeJob.pluginTotalBytes);
+        final long receivedBytes = (frameworkProgress ? state.verifiedBytes() : 0)
+                + (activeJob == null ? completedPluginBytes : activeJob.pluginBytes);
         progress.setIndeterminate(busy && totalBytes == 0);
         progress.setValue(totalBytes == 0 ? 0 : (int) Math.min(100, 100.0 * receivedBytes / totalBytes));
         progress.setString(text("updates.install.progress", megabytes(receivedBytes), megabytes(totalBytes)));
@@ -379,31 +382,13 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                                 : "");
         final boolean selectedFramework = pluginTableModel.frameworkSelected();
         final int selected = pluginTableModel.selectedCount();
-        download.setEnabled(planned
-                && !busy
-                && !committing
-                && !queued
-                && (selectedFramework || selected > 0)
-                && batchState != BatchState.PREPARED);
+        install.setEnabled(planned && !busy && !committing && !queued && (selectedFramework || selected > 0));
         cancel.setEnabled(busy);
         check.setEnabled(!busy
                 && !committing
                 && !queued
                 && planState != PlanState.PLANNING
                 && offered.status() != CoreUpdateService.Status.CHECKING);
-        final boolean verified = selected == 0
-                || (batchState == BatchState.PREPARED
-                        && activeJob != null
-                        && (!activeJob.framework || activeJob.version.equals(state.version()))
-                        && activeJob.prepared.size() == selected);
-        install.setEnabled(planned
-                && !busy
-                && !committing
-                && !queued
-                && (selectedFramework
-                        ? state.phase() == CoreFrameworkUpdates.Phase.STAGED && plannedVersion.equals(state.version())
-                        : selected > 0 && batchState == BatchState.PREPARED)
-                && verified);
         detail.setText(
                 !persistentDetailMessage.isBlank()
                         ? persistentDetailMessage
@@ -482,9 +467,36 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         releaseNotes.setCaretPosition(0);
     }
 
+    private CompletableFuture<Void> startCoordinatedInstall() {
+        if (closed || !install.isEnabled()) return CompletableFuture.completedFuture(null);
+        if (canCommitPrepared()) return commitCoordinatedInstall();
+        return startCoordinatedDownload()
+                .thenCompose(result -> result == BatchState.PREPARED
+                        ? commitCoordinatedInstall()
+                        : CompletableFuture.completedFuture(null));
+    }
+
+    private boolean canCommitPrepared() {
+        final var state = updates.snapshot();
+        final int selected = pluginTableModel.selectedCount();
+        final boolean verified = selected == 0
+                || (batchState == BatchState.PREPARED
+                        && activeJob != null
+                        && (!activeJob.framework || activeJob.version.equals(state.version()))
+                        && activeJob.prepared.size() == selected);
+        return planState == PlanState.PLANNED
+                && batchState != BatchState.DOWNLOADING
+                && batchState != BatchState.COMMITTING
+                && !pluginQueued
+                && (pluginTableModel.frameworkSelected()
+                        ? state.phase() == CoreFrameworkUpdates.Phase.STAGED && plannedVersion.equals(state.version())
+                        : selected > 0 && batchState == BatchState.PREPARED)
+                && verified;
+    }
+
     CompletableFuture<BatchState> startCoordinatedDownload() {
         if (closed
-                || !download.isEnabled()
+                || !install.isEnabled()
                 || planState != PlanState.PLANNED
                 || batchState == BatchState.COMMITTING
                 || batchState == BatchState.DOWNLOADING) return CompletableFuture.completedFuture(batchState);
@@ -561,7 +573,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     }
 
     void cancelCoordinatedDownload() {
-        if (closed || batchState == BatchState.COMMITTING) return;
+        if (closed || !cancel.isEnabled()) return;
         invalidateBatch();
         updates.cancel();
         batchState = BatchState.CANCELLED;
@@ -570,7 +582,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     }
 
     CompletableFuture<Void> commitCoordinatedInstall() {
-        if (closed || !install.isEnabled()) return CompletableFuture.completedFuture(null);
+        if (closed || !canCommitPrepared()) return CompletableFuture.completedFuture(null);
         final boolean frameworkSelected = pluginTableModel.frameworkSelected();
         final String certifiedVersion = frameworkSelected ? updates.snapshot().version() : currentApiVersion();
         final DownloadJob job = activeJob != null ? activeJob : new DownloadJob(certifiedVersion, frameworkSelected);
@@ -621,6 +633,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             final boolean pluginsOnlyCommitted = pluginCommitSucceeded && !job.framework;
             CoreDialogs.onEdt(() -> {
                 pluginQueued = pluginsOnlyCommitted;
+                completedPluginBytes = job.pluginBytes;
+                completedPluginTotalBytes = job.pluginTotalBytes;
                 activeJob = null;
                 batchState = BatchState.IDLE;
                 persistentDetailMessage = resultMessage;
@@ -652,6 +666,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
     private void invalidateBatch() {
         stopTiming();
+        completedPluginBytes = 0;
+        completedPluginTotalBytes = 0;
         if (batchState == BatchState.DOWNLOADING) updates.cancel();
         if (activeJob != null) {
             final DownloadJob old = activeJob;
@@ -697,10 +713,6 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
     JEditorPane releaseNotesPane() {
         return releaseNotes;
-    }
-
-    JButton downloadButton() {
-        return download;
     }
 
     JButton cancelButton() {
@@ -752,7 +764,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     }
 
     CompletableFuture<Void> triggerInstall() {
-        return commitCoordinatedInstall();
+        return startCoordinatedInstall();
     }
 
     private String text(final String key, final Object... args) {
