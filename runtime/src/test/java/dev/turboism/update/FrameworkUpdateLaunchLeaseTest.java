@@ -743,7 +743,8 @@ final class FrameworkUpdateLaunchLeaseTest {
                 throw new IllegalStateException("the fixture JVM could not be started", ioFailure);
             }
         };
-        final var err = new PrintStream(new ByteArrayOutputStream());
+        final var errors = new ByteArrayOutputStream();
+        final var err = new PrintStream(errors, true, StandardCharsets.UTF_8);
         final int exit;
         try {
             exit = FrameworkUpdateHelper.run(
@@ -771,7 +772,7 @@ final class FrameworkUpdateLaunchLeaseTest {
                 assertFalse(process.isAlive(), "the fixture JVM must be gone before the test ends");
             }
         }
-        assertEquals(FrameworkUpdateHelper.EXIT_BUSY, exit, err.toString());
+        assertEquals(FrameworkUpdateHelper.EXIT_BUSY, exit, errors.toString(StandardCharsets.UTF_8));
         assertTrue(
                 FrameworkUpdateLaunchLease.readAll(work).isEmpty(),
                 "a late busy result must release this invocation's LAUNCHING entry");
