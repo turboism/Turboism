@@ -9,6 +9,12 @@
 #   4. --force on dirty+unmerged -> zero, both reclaimed
 #   5. invalid worktree id       -> non-zero, nothing removed
 #   6. --dry-run on a dirty tree -> zero, nothing removed
+#   7. detached HEAD with an unmerged commit -> non-zero without --force,
+#      zero with --force; a detached HEAD already in main is reclaimed
+#   8. symlinked worktree directory -> its target survives, with and without
+#      --force; a target outside the worktree parent is refused even with --force
+#   9. branch merged into main but not into HEAD -> reclaimed, no half-done state;
+#      a branch checked out in another worktree is refused before any side effect
 #
 # The real repository and the real worktree parent are never touched.
 set -uo pipefail
@@ -172,6 +178,110 @@ elif ! branch_exists "${root}" wt-dryrun; then
   fail "--dry-run: branch was deleted"
 else
   pass "--dry-run changed nothing"
+fi
+
+# ---------- 7. detached HEAD commits are not lost silently ----------
+TOTAL=$((TOTAL + 1))
+root="$(make_fixture detached)"
+git -C "${root}/repo" worktree add -q --detach "$(worktree_dir "${root}" wt-det)"
+(
+  cd "$(worktree_dir "${root}" wt-det)"
+  echo "detached work" >detached.txt
+  git add detached.txt
+  git commit -qm "detached work"
+)
+if run_gate "${root}" wt-det >"${WORK_ROOT}/detached.log" 2>&1; then
+  fail "detached HEAD: expected non-zero exit without --force"
+elif [ ! -d "$(worktree_dir "${root}" wt-det)" ]; then
+  fail "detached HEAD: directory was removed"
+elif ! grep -q "detached HEAD" "${WORK_ROOT}/detached.log"; then
+  fail "detached HEAD: refusal reason not reported"
+elif ! run_gate "${root}" wt-det --force >"${WORK_ROOT}/detached-force.log" 2>&1; then
+  fail "detached HEAD: --force expected zero exit, output: $(cat "${WORK_ROOT}/detached-force.log")"
+elif [ -d "$(worktree_dir "${root}" wt-det)" ]; then
+  fail "detached HEAD: --force left the directory"
+else
+  pass "detached HEAD with an unmerged commit refused, --force reclaims it"
+fi
+
+TOTAL=$((TOTAL + 1))
+root="$(make_fixture detached-merged)"
+git -C "${root}/repo" worktree add -q --detach "$(worktree_dir "${root}" wt-detm)"
+if ! run_gate "${root}" wt-detm >"${WORK_ROOT}/detached-merged.log" 2>&1; then
+  fail "detached merged: expected zero exit, output: $(cat "${WORK_ROOT}/detached-merged.log")"
+elif [ -d "$(worktree_dir "${root}" wt-detm)" ]; then
+  fail "detached merged: directory still present"
+else
+  pass "detached HEAD contained in a merge target reclaimed"
+fi
+
+# ---------- 8. symlinks are never followed ----------
+TOTAL=$((TOTAL + 1))
+root="$(make_fixture symlink)"
+mkdir -p "${root}/turboism-worktrees" "${root}/victim" "${root}/turboism-worktrees/real-dir"
+echo precious >"${root}/victim/precious.txt"
+echo precious >"${root}/turboism-worktrees/real-dir/precious.txt"
+ln -s ../victim "${root}/turboism-worktrees/wt-link"
+ln -s real-dir "${root}/turboism-worktrees/wt-inner"
+if run_gate "${root}" wt-link --force >"${WORK_ROOT}/symlink-out.log" 2>&1; then
+  fail "symlink outside parent: expected non-zero exit even with --force"
+elif [ ! -f "${root}/victim/precious.txt" ]; then
+  fail "symlink outside parent: target was deleted"
+elif ! grep -q "outside" "${WORK_ROOT}/symlink-out.log"; then
+  fail "symlink outside parent: refusal reason not reported"
+elif run_gate "${root}" wt-inner >"${WORK_ROOT}/symlink-in.log" 2>&1; then
+  fail "symlink inside parent: expected non-zero exit without --force"
+elif ! run_gate "${root}" wt-inner --force >"${WORK_ROOT}/symlink-in-force.log" 2>&1; then
+  fail "symlink inside parent: --force expected zero exit, output: $(cat "${WORK_ROOT}/symlink-in-force.log")"
+elif [ ! -f "${root}/turboism-worktrees/real-dir/precious.txt" ]; then
+  fail "symlink inside parent: --force deleted the link target"
+elif [ -L "${root}/turboism-worktrees/wt-inner" ]; then
+  fail "symlink inside parent: link itself not removed"
+else
+  pass "symlinked worktree directories keep their targets"
+fi
+
+# ---------- 9. branch deletion is proven before any side effect ----------
+TOTAL=$((TOTAL + 1))
+root="$(make_fixture branch-d)"
+add_worktree "${root}" "wt-aaa"
+git -C "${root}/repo" branch -m master main 2>/dev/null || true
+git -C "${root}/repo" checkout -q -b other
+(
+  cd "$(worktree_dir "${root}" wt-aaa)"
+  echo "merged work" >merged.txt
+  git add merged.txt
+  git commit -qm "merged work"
+)
+git -C "${root}/repo" checkout -q main
+git -C "${root}/repo" merge -q --ff-only "worktree/wt-aaa"
+git -C "${root}/repo" checkout -q other
+if ! run_gate "${root}" wt-aaa >"${WORK_ROOT}/branch-d.log" 2>&1; then
+  fail "branch merged into main only: expected zero exit, output: $(cat "${WORK_ROOT}/branch-d.log")"
+elif [ -d "$(worktree_dir "${root}" wt-aaa)" ]; then
+  fail "branch merged into main only: directory still present"
+elif branch_exists "${root}" wt-aaa; then
+  fail "branch merged into main only: branch still present"
+else
+  pass "branch merged into main but not HEAD reclaimed completely"
+fi
+
+TOTAL=$((TOTAL + 1))
+root="$(make_fixture branch-elsewhere)"
+add_worktree "${root}" "wt-bbb"
+# Free the branch from its own worktree, then check it out in a second one.
+git -C "$(worktree_dir "${root}" wt-bbb)" checkout -q --detach
+git -C "${root}/repo" worktree add -q "${root}/other-checkout" "worktree/wt-bbb"
+if run_gate "${root}" wt-bbb >"${WORK_ROOT}/branch-elsewhere.log" 2>&1; then
+  fail "branch elsewhere: expected non-zero exit"
+elif [ ! -d "$(worktree_dir "${root}" wt-bbb)" ]; then
+  fail "branch elsewhere: directory was removed before the failure"
+elif ! branch_exists "${root}" wt-bbb; then
+  fail "branch elsewhere: branch was deleted"
+elif ! grep -q "checked out in another worktree" "${WORK_ROOT}/branch-elsewhere.log"; then
+  fail "branch elsewhere: refusal reason not reported"
+else
+  pass "branch checked out elsewhere refused with zero side effects"
 fi
 
 echo "clean-worktree safety self-test: $((TOTAL - FAILED))/${TOTAL} cases passed"

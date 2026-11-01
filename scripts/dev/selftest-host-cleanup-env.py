@@ -8,10 +8,12 @@ self-test pins the merged precedence and proves the guards stay effective:
 
   1. `.env`-only variable reaches the safety context
   2. process-environment-only variable reaches the safety context
-  3. a key defined in both resolves to the process value
+  3. a non-red-line key defined in both resolves to the process value
   4. a blank process value never erases a non-blank `.env` value
   5. the golden prefix exported only in the process environment is refused
   6. a fixture exported only in the process environment is refused
+  7. golden prefix and fixtures set in both places are protected in both places
+  8. a process host-root alias outranks a `.env` host-root alias
 
 Every fixture is a temporary directory; no host artifact is scanned or deleted.
 """
@@ -53,14 +55,14 @@ class CleanupEnvMergeTest(unittest.TestCase):
         golden.mkdir()
         self.write_env(f"{GOLDEN_KEY}={golden}\n")
         env = cleanup.resolve_env(self.env_file, {})
-        self.assertEqual(Path(golden).resolve(), SafetyContext.create(self.repo, env).golden_prefix)
+        self.assertEqual((Path(golden).resolve(),), SafetyContext.create(self.repo, env).golden_prefixes)
 
     def test_process_environment_only_value_is_used(self) -> None:
         golden = self.root / "process-golden"
         golden.mkdir()
         self.write_env("")
         env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: str(golden)})
-        self.assertEqual(Path(golden).resolve(), SafetyContext.create(self.repo, env).golden_prefix)
+        self.assertEqual((Path(golden).resolve(),), SafetyContext.create(self.repo, env).golden_prefixes)
 
     def test_process_environment_wins_for_shared_keys(self) -> None:
         from_env = self.root / "from-dotenv"
@@ -92,8 +94,8 @@ class CleanupEnvMergeTest(unittest.TestCase):
         self.write_env(f"{GOLDEN_KEY}={golden}\n")
         env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: ""})
         self.assertEqual(
-            Path(golden).resolve(),
-            SafetyContext.create(self.repo, env).golden_prefix,
+            (Path(golden).resolve(),),
+            SafetyContext.create(self.repo, env).golden_prefixes,
             "an empty TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX must not disable the red line",
         )
 
@@ -103,7 +105,7 @@ class CleanupEnvMergeTest(unittest.TestCase):
         self.write_env(f"{GOLDEN_KEY}={golden}\n")
         env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: "   ", HOST_ROOT_KEY: "\t"})
         context = SafetyContext.create(self.repo, env)
-        self.assertEqual(Path(golden).resolve(), context.golden_prefix)
+        self.assertEqual((Path(golden).resolve(),), context.golden_prefixes)
         self.assertEqual((Path.home() / "TurboismValidation").resolve(), context.host_root)
 
     def test_missing_process_value_keeps_dotenv_value(self) -> None:
@@ -112,16 +114,40 @@ class CleanupEnvMergeTest(unittest.TestCase):
         host_root = self.root / "dotenv-host-root"
         self.write_env(f"{GOLDEN_KEY}={golden}\n{HOST_ROOT_KEY}={host_root}\n")
         context = SafetyContext.create(self.repo, cleanup.resolve_env(self.env_file, {}))
-        self.assertEqual(Path(golden).resolve(), context.golden_prefix)
+        self.assertEqual((Path(golden).resolve(),), context.golden_prefixes)
         self.assertEqual(Path(host_root).resolve(), context.host_root)
 
-    def test_non_blank_process_value_replaces_dotenv_value(self) -> None:
-        """A real export still wins, so an operator can point the guard somewhere else."""
-        from_env = self.root / "dotenv-golden-nonblank"
-        from_process = self.root / "process-golden-nonblank"
+    def test_golden_prefix_in_both_sources_is_protected_in_both(self) -> None:
+        """A differing process export must not unprotect the `.env` golden prefix."""
+        from_env = self.root / "dotenv-golden-both"
+        from_process = self.root / "process-golden-both"
+        for golden in (from_env, from_process):
+            (golden / "pfx").mkdir(parents=True)
         self.write_env(f"{GOLDEN_KEY}={from_env}\n")
         env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: str(from_process)})
-        self.assertEqual(Path(from_process).resolve(), SafetyContext.create(self.repo, env).golden_prefix)
+        context = SafetyContext.create(self.repo, env)
+        self.assertEqual({from_env.resolve(), from_process.resolve()}, set(context.golden_prefixes))
+        for candidate in (from_env, from_env / "pfx", from_process, from_process / "pfx"):
+            with self.assertRaises(SecurityError, msg=str(candidate)):
+                context.assert_safe_to_delete(candidate)
+
+    def test_blank_process_golden_prefix_does_not_remove_dotenv_protection(self) -> None:
+        golden = self.root / "dotenv-golden-blank-export"
+        (golden / "pfx").mkdir(parents=True)
+        self.write_env(f"{GOLDEN_KEY}={golden}\n")
+        for blank in ("", "  "):
+            context = SafetyContext.create(self.repo, cleanup.resolve_env(self.env_file, {GOLDEN_KEY: blank}))
+            with self.assertRaises(SecurityError, msg=repr(blank)):
+                context.assert_safe_to_delete(golden / "pfx")
+
+    def test_host_root_process_alias_outranks_dotenv_alias(self) -> None:
+        from_env = self.root / "dotenv-host-root-alias"
+        from_process = self.root / "process-remote-root-alias"
+        self.write_env(f"{HOST_ROOT_KEY}={from_env}\n")
+        env = cleanup.resolve_env(
+            self.env_file, {"TURBOISM_HOST_VALIDATION_REMOTE_ROOT": str(from_process)}
+        )
+        self.assertEqual(from_process.resolve(), SafetyContext.create(self.repo, env).host_root)
 
     def test_fixture_from_process_environment_stays_protected(self) -> None:
         fixture = self.root / "source-model.cmo3"
@@ -131,6 +157,18 @@ class CleanupEnvMergeTest(unittest.TestCase):
         context = SafetyContext.create(self.repo, env)
         with self.assertRaises(SecurityError):
             context.assert_safe_to_delete(fixture)
+
+    def test_fixture_in_both_sources_is_protected_in_both(self) -> None:
+        from_env = self.root / "dotenv-model.cmo3"
+        from_process = self.root / "process-model.cmo3"
+        for fixture in (from_env, from_process):
+            fixture.write_text("model-source", encoding="utf-8")
+        self.write_env(f"{FIXTURE_KEY}={from_env}\n")
+        env = cleanup.resolve_env(self.env_file, {FIXTURE_KEY: str(from_process)})
+        context = SafetyContext.create(self.repo, env)
+        for fixture in (from_env, from_process):
+            with self.assertRaises(SecurityError, msg=str(fixture)):
+                context.assert_safe_to_delete(fixture)
 
     def test_run_cleanup_accepts_explicit_environ(self) -> None:
         golden = self.root / "run-golden"
