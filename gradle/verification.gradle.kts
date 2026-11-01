@@ -1184,6 +1184,37 @@ val checkProbeTerminalSelftest by tasks.registering(Exec::class) {
     commandLine("bash", script)
 }
 
+// Execute the wrapper argv and producer/consumer contracts offline. Declaring the
+// scripts and shared/probe sources prevents stale stamps after a contract change.
+val checkHostProbeResultContract by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks probe status tokens, wrapper argv, result layout and Runner/evidence agreement offline."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_validation_tools_sync.py",
+        "scripts/test/test_host_validation_probe_statuses.py",
+        "scripts/test/test_host_validation_evidence.py",
+        "scripts/test/test_cubism_host_validation_result.py",
+        "scripts/test/test_host_validation_probe_wrappers.py",
+        "scripts/test/test_host_validation_probe_result_layout.py",
+        "scripts/dev/worktree-id.sh",
+        "scripts/dev/worktree-id-lib.sh",
+        "compatibility/cubism/reviewed-releases.json"
+    )
+    inputs.files(fileTree("scripts/preview") { include("**/*.py", "**/*.sh", "**/*.json") })
+    inputs.files(fileTree("validation/shared") { include("**/*") })
+    inputs.files(hostProbeDirectories.map { directory -> fileTree(directory) { include("**/*") } })
+    VerificationStamps.apply(this)
+    commandLine(
+        "python3", "-m", "unittest", "-v",
+        "scripts.test.test_host_validation_probe_statuses",
+        "scripts.test.test_host_validation_evidence",
+        "scripts.test.test_cubism_host_validation_result",
+        "scripts.test.test_host_validation_probe_wrappers",
+        "scripts.test.test_host_validation_probe_result_layout"
+    )
+}
+
 val checkPluginTemplateSetup by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs offline unit tests for the plugin template setup scripts."
@@ -1257,6 +1288,7 @@ val devCheck by tasks.registering {
         "checkInstallerPluginSections",
         checkInstallerPluginSectionsGateSelfTest,
         checkProbeTerminalSelftest,
+        checkHostProbeResultContract,
         "checkCleanWorktreeSafety",
         "checkShellLintRequiresShellcheck",
         "checkHostCleanupEnvMerge",

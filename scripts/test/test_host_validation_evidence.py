@@ -9,6 +9,8 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import test_cubism_host_validation_result as runner_tests
 import host_validation_evidence as evidence
 import reviewed_host_artifacts
 from host_validation_queue import QueueError, file_digest
@@ -18,6 +20,45 @@ class ReviewedHostsCoverageTest(unittest.TestCase):
     def test_every_reviewed_version_has_an_install_directory(self):
         reviewed = {reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()}
         self.assertEqual(reviewed, set(evidence.HOSTS))
+
+
+class AssertionContractParityTest(unittest.TestCase):
+    def test_count_contract_agrees_with_the_runner_for_required_and_legacy_probes(self):
+        # Exercise the actual shell poll helpers and final gate on identical bytes.
+        # Legacy ACP/edit-protocol/FPS omit counts. Shared-recorder probes require them.
+        cases = (
+            ("", False, True),
+            ("assertion.a.status=PASS\nassertion.b.status=PASS\n", False, True),
+            ("", True, False),
+            ("assertion.a.status=PASS\n", True, False),
+            ("assertions=0\n", False, False),
+            ("assertions=0\n", True, False),
+            ("assertions=many\n", False, False),
+            ("assertions=many\n", True, False),
+            ("assertions=3\nassertions.verdict=0\n", False, False),
+            ("assertions=3\nassertions.verdict=0\n", True, False),
+            ("assertions=3\nassertions.verdict=bad\n", False, False),
+            ("assertions=3\nassertions.verdict=bad\n", True, False),
+            ("assertions=1\n", False, True),
+            ("assertions=1\n", True, True),
+            ("assertions=3\nassertions.verdict=1\nassertion.a.status=PASS\n", True, True),
+        )
+        for rows, required, expected in cases:
+            with self.subTest(rows=rows, required=required), tempfile.TemporaryDirectory() as directory:
+                task = Path(directory)
+                result = task / "turboism-home/state/result.properties"
+                result.parent.mkdir(parents=True)
+                payload = rows + "status=PASS\n"
+                result.write_text(payload, encoding="utf-8")
+                options = {"--result-file": ["state/result.properties"],
+                           "--result-pass-line": ["status=PASS"], "--result-fail-line": ["status=FAIL"]}
+                if required:
+                    options["--require-assertions"] = ["true"]
+                terminal = evidence.terminal_result({"task": task, "options": options})
+                runner = runner_tests.TerminalPublicationRace().poll(
+                    payload, preexisting=True, require_assertions=required)
+                self.assertEqual(expected, runner.returncode == 0, runner.stderr)
+                self.assertEqual(expected, terminal["passed"], terminal)
 
 
 class EvidenceTest(unittest.TestCase):
@@ -153,9 +194,10 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(3, terminal["assertionCount"])
         self.assertEqual([], terminal["blockingStatusRecords"])
 
-    def test_assertion_result_without_verdict_count_is_not_pass(self):
-        # An assertion-style result that publishes no count cannot say how many assertions
-        # decided the run, so it is invalid evidence rather than a pass.
+    def test_required_assertions_result_without_verdict_count_is_not_pass(self):
+        # A task that asked for --require-assertions (the four shared-recorder probes) must
+        # publish a count; assertion rows alone cannot say how many decided the run.
+        self.descriptor["argv"].append("--require-assertions")
         self.result.write_bytes(b"status=PASS\nassertion.alpha.status=PASS\n")
         result = self.finish()
         self.assertEqual("failed", result["terminalState"])
@@ -165,6 +207,47 @@ class EvidenceTest(unittest.TestCase):
         self.assertTrue(terminal["missingAssertionCount"])
         self.assertFalse(terminal["passed"])
         self.assertTrue(self.paths["prefix"].exists())
+
+    def test_required_assertions_result_without_any_record_is_not_pass(self):
+        # Fail closed also when the probe wrote neither counts nor assertion rows.
+        self.descriptor["argv"].append("--require-assertions")
+        self.result.write_bytes(b"status=PASS\n")
+        result = self.finish()
+        self.assertEqual("failed", result["terminalState"])
+        self.assertTrue(result["details"]["postContainmentChecks"]["terminalResult"]["missingAssertionCount"])
+
+    def test_required_assertions_result_with_count_passes(self):
+        self.descriptor["argv"].append("--require-assertions")
+        self.result.write_bytes(
+            b"status=PASS\nassertions=2\nassertions.verdict=2\n"
+            b"assertion.a.status=PASS\nassertion.b.status=PASS\n")
+        self.assertEqual("succeeded", self.finish()["terminalState"])
+
+    def test_probe_without_required_assertions_keeps_the_runner_first_screen_rule(self):
+        # ACP, protocol-edit and FPS write assertion.* rows and a pass line but never counts.
+        # Their Runner calls do not pass --require-assertions, so the Runner accepts the
+        # result; the evidence gate must accept it too instead of failing a good run.
+        self.result.write_bytes(b"status=PASS\nassertion.alpha.status=PASS\nassertion.beta.status=PASS\n")
+        result = self.finish()
+        self.assertEqual("succeeded", result["terminalState"])
+        terminal = result["details"]["postContainmentChecks"]["terminalResult"]
+        self.assertIsNone(terminal["assertionCount"])
+        self.assertFalse(terminal["missingAssertionCount"])
+        self.assertTrue(terminal["passed"])
+
+    def test_probe_without_required_assertions_still_fails_on_published_zero_or_blocking_status(self):
+        # The relaxation covers a missing count only; every other fail closed rule stays.
+        for contents in (
+            b"status=PASS\nassertions=0\n",
+            b"status=PASS\nassertions.verdict=0\nassertions=3\n",
+            b"status=PASS\nassertions=many\n",
+            b"status=PASS\nassertion.alpha.status=PASS\nassertion.beta.status=BLOCKED\n",
+            b"status=PASS\nassertion.alpha.status=SKIPPED\n",
+            b"status=PASS\nassertion.alpha.status=FAIL\n",
+        ):
+            with self.subTest(contents=contents):
+                self.result.write_bytes(contents)
+                self.assertEqual("failed", self.finish()["terminalState"])
 
     def test_info_only_total_does_not_mask_a_zero_verdict_count(self):
         self.result.write_bytes(

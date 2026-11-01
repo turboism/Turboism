@@ -8,7 +8,6 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.validation.shared.verdict.ProbeAssertions;
-import dev.turboism.validation.shared.verdict.ProbeTerminal;
 
 import javax.swing.AbstractButton;
 import javax.swing.JComboBox;
@@ -530,7 +529,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         recordAssertion("editor.sdkReadback",
             "provider exposes current authoring state (informational)",
             "current()=" + (present ? "present" : "empty"),
-            present ? "PASS" : ProbeTerminal.EVIDENCE_ONLY);
+            present ? "PASS" : "INFO");
     }
 
     /** The atlas-creation dialog: a showing modal JDialog that is not the auto-layout dialog. */
