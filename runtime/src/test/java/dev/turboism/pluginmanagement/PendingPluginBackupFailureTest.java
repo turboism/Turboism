@@ -30,7 +30,9 @@ class PendingPluginBackupFailureTest {
         final AtomicInteger copied = new AtomicInteger();
         final PendingPluginOperations pending = new PendingPluginOperations(
                 home,
-                (source, target, parent) -> { throw new AssertionError("No install may start before backup completes"); },
+                (source, target, parent) -> {
+                    throw new AssertionError("No install may start before backup completes");
+                },
                 (source, target, parent) -> {
                     if (copied.incrementAndGet() == failAt) {
                         Files.write(target, new byte[] {0});

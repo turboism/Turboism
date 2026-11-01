@@ -16,8 +16,8 @@ import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.UserPrincipal;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -406,8 +406,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
 
     private void privatePermissions(final Path path, final boolean directory) throws IOException {
         if (!posix) {
-            final var view =
-                    Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            final var view = Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             final UserPrincipal owner = Files.getOwner(path, LinkOption.NOFOLLOW_LINKS);
             for (final AclEntry entry : view.getAcl()) {
                 // Any ALLOW for an untrusted principal (Everyone, Users, ...) makes the cache non-private.

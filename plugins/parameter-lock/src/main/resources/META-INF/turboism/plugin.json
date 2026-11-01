@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.parameter-lock",
   "name": "Parameter Lock Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Lock and protect Cubism parameter values from accidental editing, with cross-session persistence and native icon integration.",
   "entrypoints": [
     "dev.turboism.plugin.parameterlock.ParameterLockPlugin"

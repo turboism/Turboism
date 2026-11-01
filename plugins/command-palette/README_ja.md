@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -40,7 +40,7 @@ interface: swing
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.68.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。レビュー済みの Editor（`5.2.03`、`5.3.02`、`5.3.03` など）をサポートし、宣言されたサービスと機能が利用可能な場合にのみ各機能を提供します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** なし。
@@ -116,6 +116,10 @@ Turboism 公式リリースパッケージに同梱されています。イン�
 | Enter を押しても実行されない | ホストログを確認してください。拒否または失敗時には結果ステータスが記録されます。 |
 
 ## 変更履歴
+
+### 0.68.1
+
+- フレームワークのスケジューラーでウィンドウを破棄し、無効化や再有効化後の古い表示タスクを拒否します。
 
 ### 0.1.0
 

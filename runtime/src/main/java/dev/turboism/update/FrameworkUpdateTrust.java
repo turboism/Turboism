@@ -16,7 +16,11 @@ final class FrameworkUpdateTrust {
     private static final int LIMIT = 16384;
 
     record Policy(Map<String, PublicKey> keys, Set<String> revoked) {
-        Policy { keys = Map.copyOf(keys); revoked = Set.copyOf(revoked); }
+        Policy {
+            keys = Map.copyOf(keys);
+            revoked = Set.copyOf(revoked);
+        }
+
         Map<String, PublicKey> activeKeys() {
             final var active = new HashMap<>(keys);
             revoked.forEach(active::remove);
@@ -35,12 +39,16 @@ final class FrameworkUpdateTrust {
     static Policy parse(final byte[] bytes) throws IOException {
         if (bytes.length == 0 || bytes.length > LIMIT) throw new IOException("Invalid framework keyring size");
         final var root = UpdateFileSupport.JSON.readTree(UpdateManifest.strictUtf8(bytes));
-        if (root == null || !root.isObject() || root.size() != 3
+        if (root == null
+                || !root.isObject()
+                || root.size() != 3
                 || !root.path("schemaVersion").isIntegralNumber()
                 || !root.path("schemaVersion").canConvertToInt()
                 || root.path("schemaVersion").intValue() != 1
-                || !root.path("keys").isObject() || root.path("keys").size() > 8
-                || !root.path("revoked").isArray() || root.path("revoked").size() > 32) {
+                || !root.path("keys").isObject()
+                || root.path("keys").size() > 8
+                || !root.path("revoked").isArray()
+                || root.path("revoked").size() > 32) {
             throw new IOException("Invalid framework keyring schema");
         }
         final Map<String, PublicKey> keys = new HashMap<>();
@@ -51,7 +59,8 @@ final class FrameworkUpdateTrust {
                 throw new IOException("Invalid framework key entry");
             }
             try {
-                final byte[] encoded = Base64.getDecoder().decode(entry.getValue().textValue());
+                final byte[] encoded =
+                        Base64.getDecoder().decode(entry.getValue().textValue());
                 if (encoded.length != 44) throw new IllegalArgumentException("Expected Ed25519 SPKI");
                 final PublicKey key = KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(encoded));
                 keys.put(entry.getKey(), key);

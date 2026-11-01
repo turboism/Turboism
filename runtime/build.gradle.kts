@@ -67,6 +67,11 @@ val generateVerificationSources by tasks.registering(Exec::class) {
     description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
     inputs.files(
         rootProject.file("scripts/generate_verification_sources.py"),
+        rootProject.file("compatibility/cubism/reviewed-releases.json"),
+        rootProject.file("scripts/preview/reviewed_host_artifacts.py"),
+        rootProject.file("scripts/turboism_dev/json_io.py"),
+        rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json"),
+        rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json"),
         fileTree(rootProject.file("scripts/verification-sources")),
         fileTree(rootProject.file("build/generated/verification")) {
             include("*.json")

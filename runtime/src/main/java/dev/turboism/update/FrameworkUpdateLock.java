@@ -26,8 +26,8 @@ final class FrameworkUpdateLock implements AutoCloseable {
         Files.createDirectories(parent);
         FrameworkUpdateCache.installationAncestors(parent);
         final Path file = parent.resolve("helper-transaction.lock");
-        final var channel = FileChannel.open(file, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                LinkOption.NOFOLLOW_LINKS);
+        final var channel =
+                FileChannel.open(file, StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
         try {
             final FileLock lock = channel.tryLock();
             if (lock == null) throw new IOException("Another update operation is active");
@@ -38,7 +38,8 @@ final class FrameworkUpdateLock implements AutoCloseable {
         }
     }
 
-    @Override public void close() throws IOException {
+    @Override
+    public void close() throws IOException {
         try {
             lock.release();
         } finally {

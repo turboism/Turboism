@@ -39,8 +39,7 @@ final class FrameworkUpdatePendingTask {
 
     private FrameworkUpdatePendingTask() {}
 
-    static void write(final Path workDir, final Path root, final Path stage, final String version)
-            throws IOException {
+    static void write(final Path workDir, final Path root, final Path stage, final String version) throws IOException {
         Objects.requireNonNull(workDir, "workDir");
         Objects.requireNonNull(root, "root");
         Objects.requireNonNull(stage, "stage");
@@ -74,7 +73,9 @@ final class FrameworkUpdatePendingTask {
         node.put("version", version);
         node.put("created", Instant.now().toString());
 
-        final byte[] bytes = (UpdateFileSupport.JSON.writerWithDefaultPrettyPrinter().writeValueAsString(node) + "\n")
+        final byte[] bytes = (UpdateFileSupport.JSON
+                                .writerWithDefaultPrettyPrinter()
+                                .writeValueAsString(node) + "\n")
                 .getBytes(StandardCharsets.UTF_8);
         if (bytes.length <= 0 || bytes.length > MAX_PENDING_BYTES) {
             throw new IllegalArgumentException("Pending task record exceeds maximum allowed bytes: " + bytes.length);
@@ -104,8 +105,11 @@ final class FrameworkUpdatePendingTask {
                 return Optional.empty();
             }
             final var attrs = FrameworkUpdateCache.attributes(path);
-            if (attrs == null || attrs.size() <= 0 || attrs.size() > MAX_PENDING_BYTES
-                    || attrs.isSymbolicLink() || attrs.isOther()) {
+            if (attrs == null
+                    || attrs.size() <= 0
+                    || attrs.size() > MAX_PENDING_BYTES
+                    || attrs.isSymbolicLink()
+                    || attrs.isOther()) {
                 discard(workDir);
                 return Optional.empty();
             }
@@ -119,7 +123,8 @@ final class FrameworkUpdatePendingTask {
                 return Optional.empty();
             }
             final JsonNode rootNode = UpdateFileSupport.JSON.readTree(bytes);
-            if (!(rootNode instanceof ObjectNode obj) || !FORMAT.equals(obj.path("format").asText())) {
+            if (!(rootNode instanceof ObjectNode obj)
+                    || !FORMAT.equals(obj.path("format").asText())) {
                 discard(workDir);
                 return Optional.empty();
             }
@@ -167,6 +172,7 @@ final class FrameworkUpdatePendingTask {
             if (!workDir.isAbsolute()) return;
             final Path path = workDir.normalize().resolve(FILE_NAME);
             Files.deleteIfExists(path);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 }

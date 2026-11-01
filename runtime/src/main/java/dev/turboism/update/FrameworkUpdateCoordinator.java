@@ -78,6 +78,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
     private CompletableFuture<?> inFlight;
     /** The downloader's own future: cancelling THIS stops the transfer; {@link #inFlight} then completes normally. */
     private CompletableFuture<?> transfer;
+
     private FrameworkUpdateDownloader.Downloaded staged;
     private Path stageDirectory;
     private boolean closed;
@@ -176,7 +177,8 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                             } else {
                                 staged = downloaded;
                                 final long total = downloaded.plan().decisions().stream()
-                                        .mapToLong(d -> d.entry().bytes()).sum();
+                                        .mapToLong(d -> d.entry().bytes())
+                                        .sum();
                                 publish(new Status(
                                         State.STAGED,
                                         version,
@@ -204,8 +206,13 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             toCancel = status.state() == State.DOWNLOADING ? transfer : null;
             if (toCancel != null) {
                 ++generation;
-                publish(new Status(State.CANCELLED, status.version(), status.bytesToDownload(),
-                        status.bytesVerified(), status.bytesTotal(), Optional.empty()));
+                publish(new Status(
+                        State.CANCELLED,
+                        status.version(),
+                        status.bytesToDownload(),
+                        status.bytesVerified(),
+                        status.bytesTotal(),
+                        Optional.empty()));
             }
         }
         if (toCancel != null) toCancel.cancel(true);
@@ -287,7 +294,12 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             synchronized (lock) {
                 stageDirectory = directory;
                 return publish(new Status(
-                        State.APPLY_PENDING, version, status.bytesToDownload(), status.bytesVerified(), status.bytesTotal(), Optional.empty()));
+                        State.APPLY_PENDING,
+                        version,
+                        status.bytesToDownload(),
+                        status.bytesVerified(),
+                        status.bytesTotal(),
+                        Optional.empty()));
             }
         } catch (IOException | InterruptedException | RuntimeException failure) {
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();

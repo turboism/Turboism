@@ -1,0 +1,178 @@
+{
+  "format": "turboism.model-update-targets/v1",
+  "entryDescriptor": "(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/model/CModel;ZL${updateContext};ZL${contextParam};${conflictPolygonFlag})V",
+  "profiles": {
+    "p1": {
+      "updater": "com/live2d/cubism/view/aj",
+      "updateContext": "com/live2d/cubism/doc/model/au",
+      "contextParam": "com/live2d/cubism/view/context/bA",
+      "developSetting": "com.live2d.cubism.view.context.bG$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bG$a",
+      "conflictPolygonFlag": false,
+      "extendedUpdateContext": false,
+      "appearanceAuxSettings": false
+    },
+    "p2": {
+      "updater": "com/live2d/cubism/view/ak",
+      "updateContext": "com/live2d/cubism/doc/model/au",
+      "contextParam": "com/live2d/cubism/view/context/bA",
+      "developSetting": "com.live2d.cubism.view.context.bG$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bG$a",
+      "conflictPolygonFlag": false,
+      "extendedUpdateContext": false,
+      "appearanceAuxSettings": false
+    },
+    "p3": {
+      "updater": "com/live2d/cubism/view/al",
+      "updateContext": "com/live2d/cubism/doc/model/au",
+      "contextParam": "com/live2d/cubism/view/context/bA",
+      "developSetting": "com.live2d.cubism.view.context.bG$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bG$a",
+      "conflictPolygonFlag": false,
+      "extendedUpdateContext": false,
+      "appearanceAuxSettings": false
+    },
+    "p4": {
+      "updater": "com/live2d/cubism/view/ao",
+      "updateContext": "com/live2d/cubism/doc/model/ay",
+      "contextParam": "com/live2d/cubism/view/context/bD",
+      "developSetting": "com.live2d.cubism.view.context.bJ$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bJ$a",
+      "conflictPolygonFlag": false,
+      "extendedUpdateContext": false,
+      "appearanceAuxSettings": false
+    },
+    "p5": {
+      "updater": "com/live2d/cubism/view/at",
+      "updateContext": "com/live2d/cubism/doc/model/ay",
+      "contextParam": "com/live2d/cubism/view/context/bI",
+      "developSetting": "com.live2d.cubism.view.context.bO$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bO$a",
+      "conflictPolygonFlag": false,
+      "extendedUpdateContext": false,
+      "appearanceAuxSettings": false
+    },
+    "p6": {
+      "updater": "com/live2d/cubism/view/au",
+      "updateContext": "com/live2d/cubism/doc/model/ay",
+      "contextParam": "com/live2d/cubism/view/context/bL",
+      "developSetting": "com.live2d.cubism.view.context.bR$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bR$a",
+      "conflictPolygonFlag": false,
+      "extendedUpdateContext": false,
+      "appearanceAuxSettings": false
+    },
+    "p7": {
+      "updater": "com/live2d/cubism/view/ay",
+      "updateContext": "com/live2d/cubism/doc/model/ax",
+      "contextParam": "com/live2d/cubism/view/context/bK",
+      "developSetting": "com.live2d.cubism.view.context.bR$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bR$a",
+      "conflictPolygonFlag": true,
+      "extendedUpdateContext": true,
+      "appearanceAuxSettings": true
+    },
+    "p8": {
+      "updater": "com/live2d/cubism/view/ay",
+      "updateContext": "com/live2d/cubism/doc/model/ax",
+      "contextParam": "com/live2d/cubism/view/context/bL",
+      "developSetting": "com.live2d.cubism.view.context.bS$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bS$a",
+      "conflictPolygonFlag": true,
+      "extendedUpdateContext": true,
+      "appearanceAuxSettings": true
+    },
+    "p9": {
+      "updater": "com/live2d/cubism/view/ay",
+      "updateContext": "com/live2d/cubism/doc/model/az",
+      "contextParam": "com/live2d/cubism/view/context/bM",
+      "developSetting": "com.live2d.cubism.view.context.bT$b",
+      "appearanceSetting": "com.live2d.cubism.view.context.bT$a",
+      "conflictPolygonFlag": true,
+      "extendedUpdateContext": true,
+      "appearanceAuxSettings": true
+    }
+  },
+  "targets": [
+    {
+      "version": "5.0.00",
+      "profile": "p1"
+    },
+    {
+      "version": "5.0.01",
+      "profile": "p1"
+    },
+    {
+      "version": "5.0.02",
+      "profile": "p1"
+    },
+    {
+      "version": "5.0.03",
+      "profile": "p2"
+    },
+    {
+      "version": "5.0.04",
+      "profile": "p2"
+    },
+    {
+      "version": "5.0.05",
+      "profile": "p2"
+    },
+    {
+      "version": "5.0.06",
+      "profile": "p3"
+    },
+    {
+      "version": "5.1.00",
+      "profile": "p4"
+    },
+    {
+      "version": "5.1.01",
+      "profile": "p4"
+    },
+    {
+      "version": "5.1.02",
+      "profile": "p4"
+    },
+    {
+      "version": "5.1.03",
+      "profile": "p4"
+    },
+    {
+      "version": "5.2.00",
+      "profile": "p5"
+    },
+    {
+      "version": "5.2.01",
+      "profile": "p5"
+    },
+    {
+      "version": "5.2.02",
+      "profile": "p5"
+    },
+    {
+      "version": "5.2.03",
+      "profile": "p6"
+    },
+    {
+      "version": "5.3.00",
+      "profile": "p7"
+    },
+    {
+      "version": "5.3.01",
+      "profile": "p7"
+    },
+    {
+      "version": "5.3.02",
+      "profile": "p7"
+    },
+    {
+      "version": "5.3.03",
+      "profile": "p8"
+    },
+    {
+      "version": "5.3.04",
+      "profile": "p9"
+    }
+  ]
+}

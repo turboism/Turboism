@@ -209,6 +209,84 @@ final class UpdateManifestVerifierTest {
     }
 
     @Test
+    void plainNumericBaselineAdmitsTheFirstBetaClientAndLaterBetaTargets() throws Exception {
+        // First self-updating beta series: the operator floor is the plain 0.68.1 baseline while the
+        // client and the target are prereleases of the same numeric core (0.68.1-beta.2 -> beta.3).
+        // The client compares numeric cores, so the plain baseline admits both betas.
+        final String manifestJson = validManifestJson()
+                .replace("\"version\": \"0.68.0\"", "\"version\": \"0.68.1-beta.3\"")
+                .replace("\"channel\": \"stable\"", "\"channel\": \"beta\"")
+                .replace("\"buildNumber\": 50", "\"buildNumber\": 56")
+                .replace("\"minimumUpdaterVersion\": \"0.67.0\"", "\"minimumUpdaterVersion\": \"0.68.1\"");
+        final byte[] manifestBytes = manifestJson.getBytes(StandardCharsets.UTF_8);
+        final byte[] envelopeBytes = createEnvelope("test-key-v1", manifestBytes, testKeyPair);
+        final UpdateVerificationContext betaContext = new UpdateVerificationContext(
+                "0.68.1-beta.3",
+                "beta",
+                56L,
+                "0123456789abcdef0123456789abcdef01234567",
+                "0.68.1-beta.2",
+                "windows-x64",
+                InstalledBuild.of("0.68.1-beta.2", "beta", java.util.OptionalLong.of(55), "0.68.1-beta.2"),
+                Map.of());
+
+        final TrustedUpdateManifest trusted = verifier.verify(manifestBytes, envelopeBytes, betaContext, Instant.now());
+        assertEquals("0.68.1-beta.3", trusted.version());
+        assertEquals("beta", trusted.channel());
+    }
+
+    @Test
+    void betaClientBelowTheNumericBaselineIsRejected() throws Exception {
+        final String manifestJson = validManifestJson()
+                .replace("\"version\": \"0.68.0\"", "\"version\": \"0.68.2-beta.1\"")
+                .replace("\"channel\": \"stable\"", "\"channel\": \"beta\"")
+                .replace("\"buildNumber\": 50", "\"buildNumber\": 57")
+                .replace("\"minimumUpdaterVersion\": \"0.67.0\"", "\"minimumUpdaterVersion\": \"0.68.2\"");
+        final byte[] manifestBytes = manifestJson.getBytes(StandardCharsets.UTF_8);
+        final byte[] envelopeBytes = createEnvelope("test-key-v1", manifestBytes, testKeyPair);
+        final UpdateVerificationContext betaContext = new UpdateVerificationContext(
+                "0.68.2-beta.1",
+                "beta",
+                57L,
+                "0123456789abcdef0123456789abcdef01234567",
+                "0.68.1-beta.2",
+                "windows-x64",
+                InstalledBuild.of("0.68.1-beta.2", "beta", java.util.OptionalLong.of(55), "0.68.1-beta.2"),
+                Map.of());
+
+        final var ex = assertThrows(
+                UpdateManifestVerifier.UpdateManifestVerificationException.class,
+                () -> verifier.verify(manifestBytes, envelopeBytes, betaContext, Instant.now()));
+        assertEquals("UPDATER_VERSION_TOO_OLD", ex.errorCode());
+    }
+
+    @Test
+    void prereleaseMinimumIsComparedByNumericCoreOnly() throws Exception {
+        // Documented limitation of this client: UpdateVersion.parseInstalled drops the prerelease
+        // suffix, so a prerelease-exact floor cannot be expressed. The signing workflow therefore keeps
+        // the plain version form instead of advertising a sharper baseline it cannot enforce.
+        final String manifestJson = validManifestJson()
+                .replace("\"version\": \"0.68.0\"", "\"version\": \"0.68.1-beta.4\"")
+                .replace("\"channel\": \"stable\"", "\"channel\": \"beta\"")
+                .replace("\"buildNumber\": 50", "\"buildNumber\": 57")
+                .replace("\"minimumUpdaterVersion\": \"0.67.0\"", "\"minimumUpdaterVersion\": \"0.68.1-beta.9\"");
+        final byte[] manifestBytes = manifestJson.getBytes(StandardCharsets.UTF_8);
+        final byte[] envelopeBytes = createEnvelope("test-key-v1", manifestBytes, testKeyPair);
+        final UpdateVerificationContext betaContext = new UpdateVerificationContext(
+                "0.68.1-beta.4",
+                "beta",
+                57L,
+                "0123456789abcdef0123456789abcdef01234567",
+                "0.68.1-beta.1",
+                "windows-x64",
+                InstalledBuild.of("0.68.1-beta.1", "beta", java.util.OptionalLong.of(55), "0.68.1-beta.1"),
+                Map.of());
+
+        final TrustedUpdateManifest trusted = verifier.verify(manifestBytes, envelopeBytes, betaContext, Instant.now());
+        assertEquals("0.68.1-beta.4", trusted.version());
+    }
+
+    @Test
     void rejectsUnsupportedTargetPlatform() throws Exception {
         final String manifestJson = validManifestJson().replace("\"windows-x64\"", "\"all\"");
         final byte[] manifestBytes = manifestJson.getBytes(StandardCharsets.UTF_8);
