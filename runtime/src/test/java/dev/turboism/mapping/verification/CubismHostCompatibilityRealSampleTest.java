@@ -119,7 +119,7 @@ class CubismHostCompatibilityRealSampleTest {
     }
 
     @Test
-    void reviewedArtifactRejectsRecordWhoseBytesDifferFromCatalogPin() {
+    void reviewedArtifactAcceptsReserializedRecordAndBindsObservedDigest() throws Exception {
         final Path editorJar = reviewedEditorJar();
         final Function<String, byte[]> source = recordSource();
 
@@ -128,17 +128,31 @@ class CubismHostCompatibilityRealSampleTest {
             if (bytes == null || !name.endsWith("-editor-model.json")) {
                 return bytes;
             }
-            // Still valid JSON with identical fields, but no longer the reviewed record.
+            // Still valid JSON with identical fields, but no longer byte-identical to the catalog record.
             final byte[] changed = java.util.Arrays.copyOf(bytes, bytes.length + 1);
             changed[bytes.length] = '\n';
             return changed;
         });
 
-        assertFalse(resolution.slice("editor-model").admitted());
-        assertFalse(resolution.runtimeAdmitted());
+        assertTrue(resolution.slice("editor-model").admitted());
+        assertTrue(resolution.runtimeAdmitted());
         assertTrue(
                 resolution.slice("project-workspace").admitted(),
-                "a bad record must not invalidate unrelated verified records");
+                "a reserialized record must not invalidate unrelated verified records");
+
+        final SliceContract contract = resolution.contractFor("editor-model").orElseThrow();
+        final StaticVerificationRecordLoader loader = new StaticVerificationRecordLoader();
+        final byte[] catalogRecord = source.apply(contract.recordFileName());
+        final byte[] reserialized = java.util.Arrays.copyOf(catalogRecord, catalogRecord.length + 1);
+        reserialized[catalogRecord.length] = '\n';
+        assertNotEquals(
+                loader.load(catalogRecord, contract.recordFileName()).sha256(),
+                contract.recordSha256(),
+                "the contract must carry the bytes observed during probing");
+        assertEquals(
+                loader.load(reserialized, contract.recordFileName()).sha256(),
+                contract.recordSha256(),
+                "record admission binds observed bytes instead of treating the catalog self-hash as a trust anchor");
     }
 
     @Test

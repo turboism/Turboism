@@ -18,8 +18,8 @@ dev.turboism.sdk.ui.window.TurboismWindowFactoryTest.headlessFactoryFailsClosedW
 # reference artifact (-Dturboism.test.cubismEditorJar/cubismCoreJar/verificationDir).
 # Each test asserts on real reviewed bytecode, so an offline run skips by design.
 dev.turboism.bootstrap.RepackedHostHookAdmissionTest.* # exact reference artifact not supplied (assumption in the test)
-dev.turboism.bootstrap.ObjectContextMenuHostProfileTest.transformsRealHostBytecodeForEveryReviewedArtifact() # requires the local /opt/dev/projects/turboism/cubism-ref reviewed artifacts; offline runs skip by design.
-dev.turboism.bootstrap.ParameterPointContextMenuHostProfileTest.transformsRealHostBytecodeForEveryReviewedArtifact() # requires the local /opt/dev/projects/turboism/cubism-ref reviewed artifacts; offline runs skip by design.
+dev.turboism.bootstrap.ObjectContextMenuHostProfileTest.transformsRealHostBytecodeForEveryReviewedArtifact() # requires a reviewed Cubism reference root (turboism.cubismRefRoot / TURBOISM_CUBISM_REF_ROOT or the default local path); offline runs skip by design.
+dev.turboism.bootstrap.ParameterPointContextMenuHostProfileTest.transformsRealHostBytecodeForEveryReviewedArtifact() # requires a reviewed Cubism reference root (turboism.cubismRefRoot / TURBOISM_CUBISM_REF_ROOT or the default local path); offline runs skip by design.
 dev.turboism.bootstrap.VerifiedElisionInstallerRollbackTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedFloatArrayParseCacheInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedImageArchiveReuseInstallerTest.* # exact reference artifact not supplied

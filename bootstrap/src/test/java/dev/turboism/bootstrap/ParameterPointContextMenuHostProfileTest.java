@@ -61,14 +61,14 @@ class ParameterPointContextMenuHostProfileTest {
 
     @Test
     void transformsRealHostBytecodeForEveryReviewedArtifact() throws Exception {
-        final Path refRoot = Path.of("/opt/dev/projects/turboism/cubism-ref");
-        Assumptions.assumeTrue(Files.isDirectory(refRoot), "cubism-ref directory not present");
+        final Path refRoot = ReviewedCubismArtifactTestPaths.root();
+        Assumptions.assumeTrue(Files.isDirectory(refRoot), () -> "Cubism reference root not present: " + refRoot);
 
         for (final HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
             final String version =
                     ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow();
-            final Path jarPath = refRoot.resolve(version).resolve("Live2D_Cubism.jar");
-            Assumptions.assumeTrue(Files.isRegularFile(jarPath), "Missing jar for " + version);
+            final Path jarPath = ReviewedCubismArtifactTestPaths.jar(refRoot, version);
+            Assumptions.assumeTrue(jarPath != null, () -> "Missing jar for " + version + " under " + refRoot);
 
             try (final URLClassLoader loader = new URLClassLoader(
                             new URL[] {jarPath.toUri().toURL()},
