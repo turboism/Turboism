@@ -86,8 +86,9 @@ tasks.named<Test>("test") {
 // reason (gradle/test-skip-allowlist.txt). A suite that selects nothing, or an
 // environment that silently disables a suite, used to report success.
 val testSkipAllowlist = rootProject.file("gradle/test-skip-allowlist.txt")
+val testZeroExecutedAllowlist = rootProject.file("gradle/test-zero-executed-allowlist.txt")
 tasks.withType<Test>().configureEach {
-    dev.turboism.gradle.internal.TestExecutionGuard.apply(this, testSkipAllowlist)
+    dev.turboism.gradle.internal.TestExecutionGuard.apply(this, testSkipAllowlist, testZeroExecutedAllowlist)
 }
 
 dependencies {
