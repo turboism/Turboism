@@ -4,6 +4,7 @@ import { synchronize } from './github.mjs';
 import { serveFile } from './files.mjs';
 import { START_RE,beginEdgeDownload } from './edge-redirect.mjs';
 import { verifyGitHubIdentity } from './identity.mjs';
+import { FrameworkAuthority,RESOURCE_RE,forwardPublisher,serveFramework,withIncremental } from './framework.mjs';
 const registry=env=>env.REGISTRY.get(env.REGISTRY.idFromName('turboism'));
 export default {
  async fetch(request,env){
@@ -12,15 +13,24 @@ export default {
    try{await verifyGitHubIdentity(request.headers.get('Authorization')?.replace(/^Bearer /,''));}catch{return jsonResponse(request,{error:{code:'UNAUTHORIZED'}},401);}
    return registry(env).fetch(new Request('https://registry.internal/_refresh',{method:'POST'}));
   }
+  if((path==='/v1/framework/admit'||path==='/v1/framework/withdraw')&&request.method==='POST'){
+   // A dedicated protected workflow (and optionally environment), never the sync notifier.
+   const workflow=env.FRAMEWORK_PUBLISHER_WORKFLOW;
+   if(!/^[A-Za-z0-9._-]+\.yml$/.test(workflow??'')||workflow==='notify-release-api.yml')return jsonResponse(request,{error:{code:'FRAMEWORK_DISABLED'}},503);
+   try{await verifyGitHubIdentity(request.headers.get('Authorization')?.replace(/^Bearer /,''),fetch,{workflow,environment:env.FRAMEWORK_PUBLISHER_ENVIRONMENT||null});}catch{return jsonResponse(request,{error:{code:'UNAUTHORIZED'}},401);}
+   return forwardPublisher(request,env,path.slice('/v1/framework/'.length));
+  }
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'If-None-Match, Range, If-Range','Access-Control-Max-Age':'600'}});
   if(!['GET','HEAD'].includes(request.method))return jsonResponse(request,{error:{code:'METHOD_NOT_ALLOWED'}},405);
   if(path==='/')return jsonResponse(request,{service:'Turboism release API',schemaVersion:1,channels:CHANNELS.map(c=>`${ORIGIN}/v1/releases/${c}.json`),source:'https://github.com/turboism/Turboism/releases'});
+  if(RESOURCE_RE.test(path))return serveFramework(request,env);
   if(START_RE.test(path)||/^\/v1\/downloads\/[0-9A-Za-z.-]{1,96}\.json$/.test(path)||path==='/health'||/^\/v1\/releases\/(stable|beta|nightly)\.json$/.test(path)||/^\/files\/[a-f0-9]{64}\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path))return registry(env).fetch(request);
   return jsonResponse(request,{error:{code:'NOT_FOUND'}},404);
  },
  async scheduled(_event,env,ctx){ctx.waitUntil(registry(env).fetch(new Request('https://registry.internal/_refresh',{method:'POST'})));},
 };
 /** A single durable registry serializes snapshots, persists known hashes, and coalesces refreshes. */
+export { FrameworkAuthority };
 export class ReleaseRegistry {
  constructor(ctx,env){
   this.ctx=ctx;this.env=env;this.snapshot=null;this.refreshing=null;this.lastAttempt=0;
@@ -75,7 +85,7 @@ export class ReleaseRegistry {
    return response;
   }
   const match=/^\/v1\/releases\/(stable|beta|nightly)\.json$/.exec(path);
-  if(match){const value=documentFor(this.snapshot,match[1]);return jsonResponse(request,value,value.status==='unavailable'?503:200);}
+  if(match){const value=await withIncremental(documentFor(this.snapshot,match[1]),this.env);return jsonResponse(request,value,value.status==='unavailable'?503:200);}
   if(path.startsWith('/files/')){
    if(!snapshotUsable(this.snapshot))return jsonResponse(request,{error:{code:'SYNC_UNAVAILABLE'}},503);
    const key=path.slice(1);

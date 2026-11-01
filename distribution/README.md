@@ -20,6 +20,9 @@ No software is built or published by the synchronization service.
 - HTTP 503 `unavailable` means the latest release could not be verified. It does
   not mean the client is up to date. Retry-After is 60 seconds; errors are not cached.
 - Successful reads support HEAD, ETag/If-None-Match, CORS and JSON content types.
+- A ready release may carry optional `release.incremental` (see `INCREMENTAL.md`); its
+  absence means only the full installer is offered. Signed manifests and payloads are
+  served at `/v1/framework/documents/<sha256>` and `/v1/framework/objects/<sha256>/payload`.
 - `GET /health` reports synchronization and mirror configuration separately.
 - `GET /files/<sha256>/<filename>` serves only known, nonwithdrawn product files
   from the new R2 binding. No arbitrary URL or transparent GitHub proxy exists.

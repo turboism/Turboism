@@ -110,6 +110,11 @@ public interface CoreUpdateService extends AutoCloseable {
         }
     }
 
+    /** Optional in-application installation path. Legacy services remain read-only discovery. */
+    default CoreFrameworkUpdates frameworkUpdates() {
+        return CoreFrameworkUpdates.unavailable();
+    }
+
     /** The update preferences exposed to the shell: whether automatic checks may run. */
     record Preferences(boolean automaticChecksEnabled) {}
 

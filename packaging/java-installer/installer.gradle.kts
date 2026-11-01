@@ -159,6 +159,7 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/README.zh.txt.template",
     "packaging/windows-installer/README.ja.txt.template",
     "packaging/windows-installer/README.ko.txt.template",
+    "packaging/windows-installer/bootstrap-receipt.ps1",
     "packaging/windows-installer/launch-cubism-turboism.bat",
     "packaging/windows-installer/launch-cubism-turboism.ps1",
     "packaging/windows-installer/configure_turboism.ps1",
@@ -321,6 +322,7 @@ val stageInstallerPayload by tasks.registering {
         }
         // OS-appropriate launcher/configuration files
         copy {
+            from("packaging/windows-installer/bootstrap-receipt.ps1")
             from("packaging/windows-installer/launch-cubism-turboism.bat")
             from("packaging/windows-installer/launch-cubism-turboism.ps1")
             from("packaging/windows-installer/configure_turboism.ps1")
@@ -338,6 +340,66 @@ val stageInstallerPayload by tasks.registering {
             into(stage)
         }
         logger.lifecycle("staged payload: ${stage.absolutePath}")
+    }
+}
+
+// Opt-in source-bound build inventory for offline incremental signing. Not an installation receipt.
+val frameworkUpdateLayout = file("packaging/framework-update-layout.json")
+val frameworkPayloadInventory = layout.buildDirectory.file("windows-installer/generated/framework-payload-inventory.json")
+val writeFrameworkPayloadInventory by tasks.registering {
+    group = "distribution"
+    description = "Inventories explicit Windows build outputs for offline update signing; never signs or publishes."
+    dependsOn(stageInstallerPayload)
+    inputs.dir(payloadDir)
+    inputs.file(frameworkUpdateLayout)
+    inputs.file(releasePluginsFile)
+    inputs.property("buildMetadata", rootProject.extra["turboismBuildMetadata"])
+    outputs.file(frameworkPayloadInventory)
+    doLast {
+        val metadata = rootProject.extra["turboismBuildMetadata"] as Map<*, *>
+        val build = metadata["buildNumber"].toString().toLongOrNull()
+            ?: throw GradleException("Update inventory requires an allocated numbered CI build")
+        if (metadata["dirty"] != "false" || metadata["buildKind"] != "ci") {
+            throw GradleException("Update inventory requires clean CI build provenance")
+        }
+        val policy = JsonSlurper().parse(frameworkUpdateLayout) as Map<*, *>
+        val roots = (policy["frameworkRootFiles"] as List<*>).map { it.toString() }
+        val stage = payloadDir.get().asFile
+        val closure = project(":graal-host").layout.buildDirectory
+            .dir("windows-preview/graal-host/lib").get().asFile.listFiles()?.toList()
+            ?: throw GradleException("Missing resolved Graal closure")
+        if (closure.any { !it.isFile || java.nio.file.Files.isSymbolicLink(it.toPath()) || !it.name.endsWith(".jar") }) {
+            throw GradleException("Unsafe Graal build output")
+        }
+        val paths = roots + closure.map { "graal/lib/${it.name}" }
+        val entries = paths.sorted().map { relative ->
+            val source = stage.resolve(relative)
+            if (!source.isFile || java.nio.file.Files.isSymbolicLink(source.toPath())) {
+                throw GradleException("Missing or unsafe explicit framework build output")
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+            source.inputStream().use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            mapOf("relativePath" to relative, "bytes" to source.length(),
+                "sha256" to HexFormat.of().formatHex(digest.digest()))
+        }
+        val identity = mapOf("version" to metadata["version"], "channel" to metadata["channel"],
+            "buildNumber" to build, "sourceRevision" to metadata["sourceRevision"])
+        val excluded = (policy["excludedStateFiles"] as List<*>).map { it.toString() } +
+            pluginModuleNames.map { "plugins/$it.jar" }
+        val result = mapOf("format" to "turboism.framework-payload-inventory", "schemaVersion" to 1,
+            "layout" to policy["layout"], "identity" to identity, "files" to entries,
+            "excludedPaths" to excluded.sorted())
+        frameworkPayloadInventory.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(groovy.json.JsonOutput.toJson(result) + "\n", Charsets.UTF_8)
+        }
     }
 }
 

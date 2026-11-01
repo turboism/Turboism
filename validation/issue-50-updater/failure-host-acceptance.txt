@@ -1,0 +1,94 @@
+Issue #50 follow-up authorized Windows acceptance, 2026-10-31
+
+Scope
+- Existing isolated home D:\turboism-test\issue50-host-fe110e4; Cubism 5.3.04.
+- No production endpoint, release key, CI identity, activation or official BAT was changed.
+- No model/project was opened. Only test-operator controlled closes were used.
+- Local fixtures do not establish protected-release admission or native Update-button acceptance.
+
+A. Actual two-plugin apply failure + framework health recovery (original fe110e4 local agent)
+1. While Cubism p25632 was running, production CoordinatedPluginUpdateService downloaded and
+   explicitly staged Mesh Edit Mirror Axis Enhance and Parameter Batch Transfer (0.67.4 ->
+   locally built 0.68.1), using temporary signed catalog/loopback transport. Live bytes unchanged.
+2. After consent, deliberately corrupted the LAST staged package, preserving its size.
+3. Operator closed Cubism. Applied an authenticated README-only component probe with the actual
+   agent reused unchanged. This is not full-layout release admission or framework-bytecode upgrade.
+4. Actual managed launch p32092 entered STARTING_HEALTH. A filesystem watcher observed the first
+   new plugin installed, then removed; its original filename was restored after the second failed.
+   All 29 original plugin hashes were restored exactly; pending plugin intent remained intact.
+5. Framework initialization stopped at the plugin apply barrier: no fresh runtime session/banner
+   or false healthy confirmation. Framework backup/journal remained in STARTING_HEALTH.
+6. Another controlled launch p34036 emitted:
+     RECOVERED: rolled back interrupted update from state STARTING_HEALTH
+   README original hash returned, framework journal cleared, all 29 plugin hashes unchanged.
+   The still-corrupt plugin intent continued to block Turboism initialization. This was NOT
+   normal old-plugin startup or successful automatic recovery of the plugin batch.
+7. Operator repaired only the consented staged bytes via loopback redownload, verifying original
+   authenticated SHA256 and length. This is MANUAL FIXTURE REPAIR, not native retry UI evidence.
+8. Next actual managed launch p40412 consumed both installs, loaded 29 plugins, zero failures.
+   Only those two old JAR names changed; the other 27 hashes, five protected configuration/sentinel
+   hashes and the agent hash remained unchanged. README was original; both journals were cleared.
+
+Acceptance finding
+- Corrupt plugin application rolls back directory bytes and prevents mistaken framework health.
+- But a retained corrupt plugin journal blocks the entire extension runtime until repaired.
+  User-visible failure/retry/repair and degraded old-plugin startup policy remain qualification gaps.
+  No claim that the updater automatically repairs this condition, or that both journals are atomic.
+
+B. Backup preparation data-loss defect found and fixed (e72137dec)
+- Review of the exercised rollback path found that failure DURING backup creation still entered
+  restore(). A partial backup could replace otherwise good live JARs.
+- Added two fault-injection tests: fail first backup and fail second after one succeeds, leaving a
+  one-byte partial file. Before the phase fix, both failed: live JAR lengths 803/804 became 1 byte.
+  This is portable injected-IO evidence, not a physical full-disk/power-loss test.
+- Fix separates backup preparation from live mutation. Backup failure returns RECOVERY_REQUIRED /
+  PLUGIN_PENDING_BACKUP_FAILED without restoring over live files. Only this attempt's own created
+  backup directory is eligible for cleanup. Journal/consent stay unchanged; startup remains blocked.
+- Backup and restore use no-follow, complete-write-loop snapshots with force(true); failed restore
+  still reports recovery-required. No startup admission/safety guard was relaxed.
+- Selected update/plugin/window regression: 485 tests, zero failures/errors, 6 skips. Bootstrap JAR
+  and license checks pass; core-contract retains its 31-test green result.
+
+C. Real Windows filesystem fault using the new production JAR
+- Separate test-owned D:\turboism-test\issue50-backup-fault-e72137, seeded with two genuine plugin
+  JARs; manual same-version reinstall intent. This is not catalog/release/UI acceptance.
+- Standalone driver loaded production backend from actual new stageInstallerPayload agent JAR.
+- Temporarily denied current-user ReadData on one seeded JAR; verified ReadAllBytes really failed.
+- Backend returned PLUGIN_PENDING_BACKUP_FAILED. After restoring the exact original file DACL,
+  both real JAR hashes and consent journal were byte-identical to their originals.
+- No production directory or global security setting was changed. Test root is not indexed or active.
+
+D. Fresh rebuilt agent host smoke and current state
+- Built e72137dec747d675d6feec90f3dcc8de09603de1 with installerVersion=0.68.1,
+  turboismRelease=true. Embedded provenance verified: LOCAL, buildNumber empty, dirty=false.
+  It is not a CI release; no test framework keys/activation resource were bundled.
+- Operator closed test Cubism, copied the new agent and current launcher/bootstrap scripts into
+  the lab, then launched again. This is operator redeployment, NOT updater install-path evidence.
+- p40620 (launcher 40092): runtime host ACTIVE, 29 plugins loaded, zero failures.
+- Then explicitly staged a same-version, same-byte Clip Mask Viewer reinstall through production
+  PendingPluginOperations while that lab instance was running. Operator closed it and started again:
+  p40752 (launcher 40484) consumed the journal, exercised the NEW backend backup/apply success path,
+  and loaded 29 plugins with zero failures. All 29 JAR hashes remained byte-identical. This is a
+  manual reinstall fixture, NOT native updater consent or a framework/version upgrade.
+- Five protected hashes unchanged; no framework journal or plugin pending intent in the active home.
+- Post-fix Python bootstrap/release/native: 71 tests total, zero failures, 1 skip.
+- Temporary HTTP fixture server p38648 stopped. Watcher exited on its own bounded timer.
+
+Important GUI boundary discovered
+- Capturing only the lab process's main window shows Cubism's existing trial notice (35 days left),
+  with Buy Now / Continue Using. Earlier startup banners occur BEFORE dismissing this vendor notice.
+  Thus those logs establish real runtime/plugin initialization, NOT an interactive editor session.
+- Trial was not reset, registered or purchased. No model/UI editing acceptance is claimed.
+- Targeted background mouse messages did not activate the Swing button. A foreground-checked
+  visible click attempt aborted because Windows would not safely focus that lab window; no blind
+  physical click was sent. The notice is still open for the owner to click Continue Using.
+- This vendor notice is not the updater's browser/installer wizard. Native update selection,
+  download/consent and full authenticated repeated framework release acceptance remain outstanding.
+
+Local ignored artifacts
+  build/native/issue50-host/{apply-failure-baseline.json,apply-failure-watch.log,
+    plugin-failure-component-result.json,plugin-apply-recovery-result.json,e721-host-artifact.json,
+    HostBackupFaultFixture.java,test-backup-read-denial.ps1,lab-window.png}
+  /tmp/issue50-backup-failure-red.log
+  /tmp/issue50-backup-safety-green.log
+  /tmp/issue50-backup-safety-payload.log

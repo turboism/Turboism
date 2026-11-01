@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 record AgentOptions(
         Path home,
+        String launchToken,
         String hostClassName,
         Duration detectionTimeout,
         boolean performanceProbeInstall,
@@ -41,6 +42,7 @@ record AgentOptions(
                 final String key = token.substring(0, separator).trim();
                 final String value = token.substring(separator + 1).trim();
                 if (!key.equals("home")
+                        && !key.equals("launchToken")
                         && !key.equals("hostClass")
                         && !key.equals("timeoutSeconds")
                         && !key.equals("performanceProbeInstall")
@@ -64,6 +66,7 @@ record AgentOptions(
         final Path home = Path.of(values.getOrDefault("home", defaultHome.toString()))
                 .toAbsolutePath()
                 .normalize();
+        final String launchToken = parseLaunchToken(values);
         final String hostClass = values.getOrDefault("hostClass", DEFAULT_HOST_CLASS);
         if (hostClass.isBlank()) {
             throw new IllegalArgumentException("hostClass must not be blank");
@@ -80,6 +83,7 @@ record AgentOptions(
         }
         return new AgentOptions(
                 home,
+                launchToken,
                 hostClass,
                 Duration.ofSeconds(timeoutSeconds),
                 parseBoolean(values, "performanceProbeInstall"),
@@ -102,6 +106,16 @@ record AgentOptions(
     private static Path rollbackOutput(final Map<String, String> values) {
         final String configured = values.get("performanceProbeRollbackOutput");
         return configured == null ? null : Path.of(configured).toAbsolutePath().normalize();
+    }
+
+    /** Optional launch-lease token; null for legacy/direct launches that carry no managed-launch handoff. */
+    private static String parseLaunchToken(final Map<String, String> values) {
+        final String token = values.get("launchToken");
+        if (token == null) return null;
+        if (!SHA256_PATTERN.matcher(token).matches()) {
+            throw new IllegalArgumentException("launchToken must be a lowercase 64-character hex string");
+        }
+        return token;
     }
 
     private static boolean parseBoolean(final Map<String, String> values, final String key) {
