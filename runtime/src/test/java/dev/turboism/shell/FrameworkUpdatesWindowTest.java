@@ -280,20 +280,22 @@ class FrameworkUpdatesWindowTest {
             assertTrue(edt(f.window::currentDetailText).contains("only_staged_count"));
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
             assertFalse(edt(() -> f.window.cancelButton().isEnabled()));
-            assertTrue(edt(() -> f.window.progressBar().getString()).contains("0.15, 0.15"));
+            assertTrue(edt(() -> f.window.progressBar().getString()).contains("0.15 / 0.15 MB"));
         }
     }
 
     @Test
-    void deselectingFrameworkAllowsOnlyPluginsAndEmptyListClearsNotes() throws Exception {
+    void availableFrameworkStaysSelectedAndEmptyListClearsNotes() throws Exception {
         try (Fixture f = new Fixture(target -> List.of(ROW))) {
             f.planned();
+            assertFalse(edt(() -> f.window.tableModel().isCellEditable(0, 0)));
             edt(() -> {
                 f.window.tableModel().setValueAt(false, 0, 0);
                 return null;
             });
+            assertEquals(true, edt(() -> f.window.tableModel().getValueAt(0, 0)));
             edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
-            assertEquals(0, f.framework.downloads.get());
+            assertEquals(1, f.framework.downloads.get());
             assertEquals(1, f.service.lastCommitted.size());
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
         }
@@ -337,7 +339,7 @@ class FrameworkUpdatesWindowTest {
             f.service.reportedProgress = new PluginCatalogClient.DownloadProgress(1_250_000, 2_000_000);
             f.framework.pendingDownload = new CompletableFuture<>();
             final var pending = edt(f.window::triggerDownload);
-            await(() -> f.window.progressBar().getString().contains("2.50, 12.00"));
+            await(() -> f.window.progressBar().getString().contains("2.50 / 12.00 MB"));
             edt(() -> {
                 f.window.triggerCancel();
                 return null;
@@ -358,8 +360,8 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.progressBar().getString()).contains("1.25, 10.00"));
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:07"));
+            assertTrue(edt(() -> f.window.progressBar().getString()).contains("1.25 / 10.00 MB"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m07s"));
             edt(() -> {
                 f.window.triggerCancel();
                 return null;
@@ -370,11 +372,11 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:07"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m07s"));
             final var pending = new CompletableFuture<CoreFrameworkUpdates.Snapshot>();
             f.framework.pendingDownload = pending;
             final var retried = edt(f.window::triggerDownload);
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:00"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m00s"));
             await(() -> f.framework.downloads.get() == 2);
             f.nanos.set(TimeUnit.SECONDS.toNanos(73));
             f.framework.state = new CoreFrameworkUpdates.Snapshot(
@@ -386,7 +388,7 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:03"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m03s"));
         }
     }
 
@@ -416,21 +418,21 @@ class FrameworkUpdatesWindowTest {
     }
 
     @Test
-    void catalogFailureAllowsExplicitFrameworkOnlyChoiceWithoutRetryStorm() throws Exception {
+    void checkUpdatesRetriesCatalogAndCanPrepareFrameworkWithoutPluginUpdates() throws Exception {
         AtomicInteger attempts = new AtomicInteger();
         try (Fixture f = new Fixture(target -> {
-            attempts.incrementAndGet();
-            throw new IllegalStateException("Offline catalog");
+            if (attempts.incrementAndGet() == 1) throw new IllegalStateException("Offline catalog");
+            return List.of();
         })) {
             await(() -> f.window.currentPlanState() == FrameworkUpdatesWindow.PlanState.PLAN_FAILED);
             edt(() -> {
-                f.window.includePluginsCheckbox().doClick();
+                f.window.checkButton().doClick();
                 return null;
             });
             f.planned();
             f.download();
             edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
-            assertEquals(1, attempts.get());
+            assertEquals(2, attempts.get());
             assertEquals(0, f.service.lastCommitted.size());
             assertEquals(
                     CoreFrameworkUpdates.Phase.APPLY_PENDING,
@@ -563,7 +565,7 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:01"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m01s"));
             assertTrue(edt(f.window::currentDetailText).contains("Hash mismatch"));
             assertTrue(edt(() -> f.window.installButton().isEnabled()));
             assertEquals(0, f.service.commits.get());
@@ -627,7 +629,6 @@ class FrameworkUpdatesWindowTest {
             assertTrue(started.await(5, TimeUnit.SECONDS));
             assertFalse(edt(() -> f.window.tableModel().isCellEditable(1, 0)));
             assertFalse(edt(() -> f.window.checkButton().isEnabled()));
-            assertFalse(edt(() -> f.window.includePluginsCheckbox().isEnabled()));
             edt(() -> {
                 f.window.close();
                 return null;

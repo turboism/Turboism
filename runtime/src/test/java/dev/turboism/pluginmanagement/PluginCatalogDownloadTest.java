@@ -61,7 +61,7 @@ class PluginCatalogDownloadTest {
     }
 
     @Test
-    void repeatedReadTimeoutStopsAfterTwoAttemptsAndCleansPartialFile() throws Exception {
+    void repeatedReadTimeoutFallsBackThenStopsAfterTwoOriginAttempts() throws Exception {
         final AtomicInteger attempts = new AtomicInteger();
         final PluginCatalogClient client = client(uri -> {
             attempts.incrementAndGet();
@@ -81,7 +81,7 @@ class PluginCatalogDownloadTest {
         final var failure =
                 assertThrows(DownloadFailure.class, () -> client.downloadArtifact(ARTIFACT, 4, hash(), target));
         assertEquals("PLUGIN_DOWNLOAD_READ_TIMEOUT", failure.code());
-        assertEquals(2, attempts.get());
+        assertEquals(3, attempts.get());
         assertFalse(Files.exists(target));
     }
 
@@ -212,7 +212,179 @@ class PluginCatalogDownloadTest {
         });
         final IOException failure = assertThrows(
                 IOException.class, () -> client.downloadArtifact(ARTIFACT, 4, hash(), home.resolve("download.jar")));
-        assertTrue(failure.getMessage().contains("unapproved redirect host"));
+        assertTrue(failure.getMessage().contains("unapproved plugin CDN redirect"));
+    }
+
+    @Test
+    void downloadsThroughExactApiAndCdnContractWithoutContactingGithub() throws Exception {
+        final List<URI> requests = new ArrayList<>();
+        final Path target = home.resolve("accelerated.jar");
+        client(uri -> {
+                    requests.add(uri);
+                    return uri.getHost().equals("api.turboism.dev") ? redirect(cdnUri().toString()) : new Response();
+                })
+                .downloadArtifact(ARTIFACT, 4, hash(), target);
+        assertEquals(List.of(apiUri(), cdnUri()), requests);
+        assertArrayEquals(BYTES, Files.readAllBytes(target));
+    }
+
+    @Test
+    void missingOrUnavailableApiAutomaticallyUsesSignedGithubUrl() throws Exception {
+        for (int status : List.of(404, 503)) {
+            final List<URI> requests = new ArrayList<>();
+            client(uri -> {
+                        requests.add(uri);
+                        return uri.getHost().equals("api.turboism.dev") ? response(status) : new Response();
+                    })
+                    .downloadArtifact(ARTIFACT, 4, hash(), home.resolve("fallback-" + status + ".jar"));
+            assertEquals(List.of(apiUri(), ARTIFACT), requests);
+        }
+    }
+
+    @Test
+    void unavailableCdnFallsBackAndKeepsGithubReleaseRedirectSupport() throws Exception {
+        for (boolean timeout : List.of(false, true)) {
+            final List<URI> requests = new ArrayList<>();
+            final URI githubCdn = URI.create("https://release-assets.githubusercontent.com/assets/test.jar?token=test");
+            client(uri -> {
+                        requests.add(uri);
+                        if (uri.getHost().equals("api.turboism.dev")) return redirect(cdnUri().toString());
+                        if (uri.getHost().equals("dl.turboism.dev")) {
+                            if (!timeout) return response(503);
+                            return new Response() {
+                                @Override
+                                public int getResponseCode() throws IOException {
+                                    throw new SocketTimeoutException("CDN offline");
+                                }
+                            };
+                        }
+                        return uri.equals(ARTIFACT) ? redirect(githubCdn.toString()) : new Response();
+                    })
+                    .downloadArtifact(ARTIFACT, 4, hash(), home.resolve("cdn-fallback-" + timeout + ".jar"));
+            assertEquals(List.of(apiUri(), cdnUri(), ARTIFACT, githubCdn), requests);
+        }
+    }
+
+    @Test
+    void partialCdnNetworkFailureRestartsOriginalDownloadFromZero() throws Exception {
+        final List<URI> requests = new ArrayList<>();
+        final List<DownloadProgress> progress = new ArrayList<>();
+        final Path target = home.resolve("partial-fallback.jar");
+        client(uri -> {
+                    requests.add(uri);
+                    if (uri.getHost().equals("api.turboism.dev")) return redirect(cdnUri().toString());
+                    if (!uri.getHost().equals("dl.turboism.dev")) return new Response();
+                    return new Response() {
+                        @Override
+                        public InputStream getInputStream() {
+                            return new InputStream() {
+                                boolean sent;
+
+                                @Override
+                                public int read() throws IOException {
+                                    if (sent) throw new SocketTimeoutException("interrupted CDN body");
+                                    sent = true;
+                                    return BYTES[0];
+                                }
+                            };
+                        }
+                    };
+                })
+                .downloadArtifact(ARTIFACT, 4, hash(), target, new DownloadControl(), progress::add);
+        assertEquals(List.of(apiUri(), cdnUri(), ARTIFACT), requests);
+        assertArrayEquals(BYTES, Files.readAllBytes(target));
+        final int partial = progress.indexOf(new DownloadProgress(1, 4));
+        assertTrue(partial >= 0);
+        assertTrue(progress.subList(partial + 1, progress.size()).contains(new DownloadProgress(0, 4)));
+    }
+
+    @Test
+    void mirrorRedirectCannotChangeHashFilenameHostPortOrQuery() throws Exception {
+        final String expected = cdnUri().toString();
+        for (String location : List.of(
+                expected.replace(hash(), "0".repeat(64)), expected.replace("test.jar", "other.jar"),
+                expected.replace("dl.turboism.dev", "unapproved.example"), expected + "?url=other",
+                expected.replace("https:", "http:"), expected.replace("dl.turboism.dev", "dl.turboism.dev:444"))) {
+            final AtomicInteger requests = new AtomicInteger();
+            assertThrows(
+                    IOException.class,
+                    () -> client(uri -> {
+                                requests.incrementAndGet();
+                                return redirect(location);
+                            })
+                            .downloadArtifact(ARTIFACT, 4, hash(), home.resolve("redirect.jar")));
+            assertEquals(1, requests.get());
+        }
+    }
+
+    @Test
+    void corruptCdnBytesFailVerificationWithoutFallback() throws Exception {
+        final List<URI> requests = new ArrayList<>();
+        final Path target = home.resolve("corrupt-cdn.jar");
+        final var failure = assertThrows(
+                DownloadFailure.class,
+                () -> client(uri -> {
+                            requests.add(uri);
+                            if (uri.getHost().equals("api.turboism.dev")) return redirect(cdnUri().toString());
+                            return new Response() {
+                                @Override
+                                public InputStream getInputStream() {
+                                    return new ByteArrayInputStream(new byte[] {4, 3, 2, 1});
+                                }
+                            };
+                        })
+                        .downloadArtifact(ARTIFACT, 4, hash(), target));
+        assertEquals("PLUGIN_ARTIFACT_HASH_MISMATCH", failure.code());
+        assertEquals(List.of(apiUri(), cdnUri()), requests);
+        assertFalse(Files.exists(target));
+    }
+
+    @Test
+    void cancellationAtCdnDoesNotStartGithubFallback() throws Exception {
+        final List<URI> requests = new ArrayList<>();
+        final DownloadControl control = new DownloadControl();
+        final var failure = assertThrows(
+                DownloadFailure.class,
+                () -> client(uri -> {
+                            requests.add(uri);
+                            if (uri.getHost().equals("api.turboism.dev")) return redirect(cdnUri().toString());
+                            control.cancel();
+                            return new Response();
+                        })
+                        .downloadArtifact(ARTIFACT, 4, hash(), home.resolve("cancelled.jar"), control, ignored -> {}));
+        assertEquals("PLUGIN_DOWNLOAD_CANCELLED", failure.code());
+        assertEquals(List.of(apiUri(), cdnUri()), requests);
+    }
+
+    private static URI apiUri() throws IOException {
+        return URI.create("https://api.turboism.dev/v1/plugins/artifacts/" + hash() + "/test.jar");
+    }
+
+    private static URI cdnUri() throws IOException {
+        return URI.create("https://dl.turboism.dev/plugins/" + hash() + "/test.jar");
+    }
+
+    private static Response response(final int status) throws IOException {
+        return new Response() {
+            @Override
+            public int getResponseCode() {
+                return status;
+            }
+        };
+    }
+
+    private static Response redirect(final String location) throws IOException {
+        return new Response() {
+            @Override
+            public int getResponseCode() {
+                return 302;
+            }
+
+            @Override
+            public String getHeaderField(String name) {
+                return "Location".equals(name) ? location : null;
+            }
+        };
     }
 
     private static PluginCatalogClient client(PluginCatalogClient.ConnectionFactory factory) {
@@ -224,8 +396,12 @@ class PluginCatalogDownloadTest {
                 factory);
     }
 
-    private static String hash() throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(BYTES));
+    private static String hash() throws IOException {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(BYTES));
+        } catch (java.security.NoSuchAlgorithmException failure) {
+            throw new IOException(failure);
+        }
     }
 
     private static class Response extends HttpURLConnection {
