@@ -14,14 +14,10 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import java.util.jar.JarFile;
@@ -88,10 +84,16 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                 JarFile jogl = new JarFile(joglArtifact.toFile())) {
             verifyMutationInventory(jogl);
             Class<?> shader = Class.forName(UniformLocationCallSiteTransformer.OWNER.replace('/', '.'), false, loader);
-            attest(shader, loader, artifact);
-            byte[] before = capture(shader);
+            VerifiedHookInstallerSupport.attestClassSource(
+                    shader, loader, artifact, "uniform dependency loader/source mismatch: " + shader.getName());
+            byte[] before = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation,
+                    shader,
+                    "uniform target is not modifiable: " + shader.getName(),
+                    "uniform class capture absent: " + shader.getName());
             observed.put(shader, before);
-            byte[] shaderReference = reference(cubism, shader);
+            byte[] shaderReference = VerifiedHookInstallerSupport.readReferenceBytes(
+                    cubism, shader, "uniform reference class missing: " + shader.getName());
             final List<String> composedQuery = composedQueryShape(loader, shaderReference);
             seamComposed = composedQuery != null;
             verify(
@@ -110,24 +112,40 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         ShaderUniformTransformer.BRIDGE_LOOKUP,
                         ShaderUniformTransformer.BRIDGE_LOOKUP_DESCRIPTOR);
             }
-            targets.add(new Target(shader, query, sha256(before), query::matches, query::failure));
+            targets.add(new Target(
+                    shader, query, VerifiedHookInstallerSupport.sha256Hex(before), query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
                 Class<?> type =
                         Class.forName(role.ownerForVersion(editorVersion).replace('/', '.'), false, loader);
                 Path source = role.programMutations() ? joglArtifact : artifact;
                 ClassLoader ownerLoader = role.programMutations() ? type.getClassLoader() : loader;
-                attest(type, ownerLoader, source);
-                byte[] actual = capture(type);
+                VerifiedHookInstallerSupport.attestClassSource(
+                        type, ownerLoader, source, "uniform dependency loader/source mismatch: " + type.getName());
+                byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                        instrumentation,
+                        type,
+                        "uniform target is not modifiable: " + type.getName(),
+                        "uniform class capture absent: " + type.getName());
                 observed.put(type, actual);
                 JarFile jar = role.programMutations() ? jogl : cubism;
                 Map<String, List<String>> composed = composedShapes(jar, type, source, ownerLoader, role, editor);
                 for (var method : role.methods().entrySet())
                     verify(jar, type, actual, method.getKey(), method.getValue(), composed.get(method.getKey()));
                 UniformLocationLifecycleTransformer transformer = new UniformLocationLifecycleTransformer(
-                        ownerLoader, source, reference(jar, type), role, editorVersion);
+                        ownerLoader,
+                        source,
+                        VerifiedHookInstallerSupport.readReferenceBytes(
+                                jar, type, "uniform reference class missing: " + type.getName()),
+                        role,
+                        editorVersion);
                 composed.forEach(transformer::acceptComposedShape);
                 transformer.onRejection(bridge::retire);
-                targets.add(new Target(type, transformer, sha256(actual), transformer::matches, transformer::failure));
+                targets.add(new Target(
+                        type,
+                        transformer,
+                        VerifiedHookInstallerSupport.sha256Hex(actual),
+                        transformer::matches,
+                        transformer::failure));
             }
             verifyDependency(
                     cubism, artifact, loader, "com.live2d.graphics3d.a", "a", "()Lcom/jogamp/opengl/GL3;", observed);
@@ -195,27 +213,18 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             Map<Class<?>, byte[]> observed)
             throws Exception {
         Class<?> type = Class.forName(name, false, lookupLoader);
-        attest(type, type.getClassLoader(), source);
+        VerifiedHookInstallerSupport.attestClassSource(
+                type, type.getClassLoader(), source, "uniform dependency loader/source mismatch: " + type.getName());
         byte[] actual = observed.get(type);
         if (actual == null) {
-            actual = capture(type);
+            actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation,
+                    type,
+                    "uniform target is not modifiable: " + type.getName(),
+                    "uniform class capture absent: " + type.getName());
             observed.put(type, actual);
         }
         verify(jar, type, actual, method, descriptor, null);
-    }
-
-    private static void attest(Class<?> type, ClassLoader loader, Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || type.getProtectionDomain().getCodeSource() == null
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("uniform dependency loader/source mismatch: " + type.getName());
-        }
     }
     /**
      * Computes the exact method shapes the reviewed glGetError elision produces
@@ -253,7 +262,12 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                 continue;
             }
             List<String> shape = GlGetErrorElisionTransformer.composedShape(
-                    ownerLoader, source, reference(jar, type), elision.get(), type);
+                    ownerLoader,
+                    source,
+                    VerifiedHookInstallerSupport.readReferenceBytes(
+                            jar, type, "uniform reference class missing: " + type.getName()),
+                    elision.get(),
+                    type);
             if (shape != null) composed.put(method.getKey(), shape);
         }
         return composed;
@@ -263,50 +277,16 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             JarFile jar, Class<?> type, byte[] actual, String name, String descriptor, List<String> composed)
             throws Exception {
         String owner = type.getName().replace('.', '/');
-        List<String> expected = ReviewedMethodShape.read(reference(jar, type), owner, name, descriptor);
+        List<String> expected = ReviewedMethodShape.read(
+                VerifiedHookInstallerSupport.readReferenceBytes(
+                        jar, type, "uniform reference class missing: " + type.getName()),
+                owner,
+                name,
+                descriptor);
         List<String> observed = ReviewedMethodShape.read(actual, owner, name, descriptor);
         if (expected == null || (!expected.equals(observed) && (composed == null || !composed.equals(observed)))) {
             throw new IllegalStateException("uniform dependency body mismatch: " + owner + "." + name);
         }
-    }
-
-    private static byte[] reference(JarFile jar, Class<?> type) throws Exception {
-        var entry = jar.getJarEntry(type.getName().replace('.', '/') + ".class");
-        if (entry == null) throw new IllegalArgumentException("uniform reference class missing: " + type.getName());
-        try (var input = jar.getInputStream(entry)) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type))
-            throw new IllegalStateException("uniform target is not modifiable: " + type.getName());
-        AtomicReference<byte[]> captured = new AtomicReference<>();
-        ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    Module module,
-                    ClassLoader loader,
-                    String name,
-                    Class<?> redefined,
-                    ProtectionDomain domain,
-                    byte[] bytes) {
-                if (redefined == type) captured.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (captured.get() == null) throw new IllegalStateException("uniform class capture absent: " + type.getName());
-        return captured.get();
-    }
-
-    private static String sha256(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     synchronized void install() throws Exception {
@@ -357,7 +337,11 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         registered.clear();
         for (Target target : removing) {
             try {
-                String actual = sha256(capture(target.type()));
+                String actual = VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
+                        instrumentation,
+                        target.type(),
+                        "uniform target is not modifiable: " + target.type().getName(),
+                        "uniform class capture absent: " + target.type().getName()));
                 if (!actual.equals(target.before()))
                     throw new IllegalStateException("uniform class restoration mismatch: "
                             + target.type().getName());

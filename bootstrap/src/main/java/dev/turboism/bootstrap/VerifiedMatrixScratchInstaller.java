@@ -9,17 +9,14 @@ import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /** Exact-host, explicitly requested installation of invocation-local matrix scratch storage. */
@@ -83,8 +80,9 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             require(jar, source, loader, matrix, "<init>", "()V", captured);
             for (Method method : matrix.getDeclaredMethods()) require(jar, source, loader, method, captured);
             require(jar, source, loader, product.getMethod("a", matrix, matrix), captured);
-            transformer = new MatrixScratchTransformer(loader, source, reference(jar, target));
-            originalTargetSha = sha256(captured.get(target));
+            transformer = new MatrixScratchTransformer(
+                    loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
+            originalTargetSha = VerifiedHookInstallerSupport.sha256Hex(captured.get(target));
         }
         dependencyGuard = new ClassFileTransformer() {
             @Override
@@ -98,7 +96,11 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                 List<Body> bodies = dependencies.get(redefined);
                 if (bodies == null) return null;
                 try {
-                    attest(redefined, definingLoader, source);
+                    VerifiedHookInstallerSupport.attestClassSource(
+                            redefined,
+                            definingLoader,
+                            source,
+                            "matrix dependency loader/source mismatch: " + redefined.getName());
                     verifyBodies(redefined, bytes, bodies);
                 } catch (Exception | LinkageError rejected) {
                     dependencyRejected.set(true);
@@ -132,14 +134,24 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             String descriptor,
             Map<Class<?>, byte[]> captured)
             throws Exception {
-        attest(type, loader, source);
+        VerifiedHookInstallerSupport.attestClassSource(
+                type, loader, source, "matrix dependency loader/source mismatch: " + type.getName());
         byte[] actual = captured.get(type);
         if (actual == null) {
-            actual = capture(type);
+            actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation,
+                    type,
+                    "matrix dependency is not modifiable: " + type.getName(),
+                    "matrix class capture missing: " + type.getName(),
+                    "matrix inspection observer removal failed");
             captured.put(type, actual);
         }
-        List<String> expected =
-                ReviewedMethodShape.read(reference(jar, type), type.getName().replace('.', '/'), name, descriptor);
+        List<String> expected = ReviewedMethodShape.read(
+                VerifiedHookInstallerSupport.readReferenceBytes(
+                        jar, type, "matrix reference class missing: " + type.getName()),
+                type.getName().replace('.', '/'),
+                name,
+                descriptor);
         Body body = new Body(name, descriptor, expected);
         verifyBodies(type, actual, List.of(body));
         dependencies.computeIfAbsent(type, ignored -> new ArrayList<>()).add(body);
@@ -156,59 +168,6 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         }
     }
 
-    private static void attest(Class<?> type, ClassLoader loader, Path source) throws Exception {
-        if (type.getClassLoader() != loader
-                || type.getProtectionDomain().getCodeSource() == null
-                || !source.equals(Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize())) {
-            throw new IllegalArgumentException("matrix dependency loader/source mismatch: " + type.getName());
-        }
-    }
-
-    private static byte[] reference(JarFile jar, Class<?> type) throws Exception {
-        var entry = jar.getJarEntry(type.getName().replace('.', '/') + ".class");
-        if (entry == null) throw new IllegalArgumentException("matrix reference class missing: " + type.getName());
-        try (var input = jar.getInputStream(entry)) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type))
-            throw new IllegalStateException("matrix dependency is not modifiable: " + type.getName());
-        AtomicReference<byte[]> bytes = new AtomicReference<>();
-        ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    Module module,
-                    ClassLoader loader,
-                    String name,
-                    Class<?> redefined,
-                    ProtectionDomain domain,
-                    byte[] value) {
-                if (redefined == type && value != null) bytes.set(value.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            if (!instrumentation.removeTransformer(observer))
-                throw new IllegalStateException("matrix inspection observer removal failed");
-        }
-        if (bytes.get() == null) throw new IllegalStateException("matrix class capture missing: " + type.getName());
-        return bytes.get();
-    }
-
-    private static String sha256(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-    }
-
     synchronized void install() throws Exception {
         if (closed) throw new IllegalStateException("matrix installer is closed");
         if (installed) return;
@@ -222,7 +181,17 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         try {
             // Preparation can precede installation. Recheck all live dependencies at admission.
             for (var dependency : dependencies.entrySet())
-                verifyBodies(dependency.getKey(), capture(dependency.getKey()), dependency.getValue());
+                verifyBodies(
+                        dependency.getKey(),
+                        VerifiedHookInstallerSupport.captureLoadedBytes(
+                                instrumentation,
+                                dependency.getKey(),
+                                "matrix dependency is not modifiable: "
+                                        + dependency.getKey().getName(),
+                                "matrix class capture missing: "
+                                        + dependency.getKey().getName(),
+                                "matrix inspection observer removal failed"),
+                        dependency.getValue());
             instrumentation.addTransformer(dependencyGuard, true);
             registered.add(dependencyGuard);
             instrumentation.addTransformer(transformer, true);
@@ -288,7 +257,13 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         }
         if (registered.isEmpty()) {
             try {
-                if (!originalTargetSha.equals(sha256(capture(target))))
+                if (!originalTargetSha.equals(
+                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
+                                instrumentation,
+                                target,
+                                "matrix dependency is not modifiable: " + target.getName(),
+                                "matrix class capture missing: " + target.getName(),
+                                "matrix inspection observer removal failed"))))
                     throw new IllegalStateException("matrix original class restoration mismatch");
                 restored = failure == null;
             } catch (Exception problem) {

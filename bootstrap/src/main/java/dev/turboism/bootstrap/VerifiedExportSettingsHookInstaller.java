@@ -8,8 +8,6 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import java.lang.instrument.Instrumentation;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -233,10 +231,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
             }
             // Register next: an owner that loads during the scan must be transformed too.
             instrumentation.addTransformer(transformer, true);
-            for (Class<?> loaded : loadedTargets()) {
-                instrumentation.retransformClasses(loaded);
-                break;
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             try {
@@ -265,10 +260,7 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
             transformerRemoved = true;
         }
         try {
-            for (Class<?> loaded : loadedTargets()) {
-                instrumentation.retransformClasses(loaded);
-                break;
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             // Keep the installation live: callers must restore host bytes before removing bridge callbacks.
@@ -280,18 +272,6 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
             bridge = null;
         }
         installed.set(false);
-    }
-
-    private List<Class<?>> loadedTargets() {
-        final List<Class<?>> targets = new ArrayList<>();
-        for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (loaded.getName().equals(targetClassName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
-                targets.add(loaded);
-            }
-        }
-        return targets;
     }
 
     private static StaticSelector requireSelector(final VerifiedMemberResolver resolver, final String alias) {

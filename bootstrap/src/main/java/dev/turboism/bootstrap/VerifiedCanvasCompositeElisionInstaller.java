@@ -5,18 +5,13 @@ import dev.turboism.adapter.cubism.optimization.composite.CanvasCompositeElision
 import dev.turboism.adapter.cubism.optimization.composite.CanvasCompositeElisionTarget;
 import dev.turboism.adapter.cubism.optimization.composite.CanvasCompositeElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -65,9 +60,14 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
                     .readAllBytes();
         }
         paintClass = Class.forName(CanvasCompositeElisionTarget.PAINT_OWNER.replace('/', '.'), false, null);
-        attestJdk(paintClass);
+        VerifiedHookInstallerSupport.attestJdkClass(
+                paintClass, "canvas composite elision JDK target attestation failed: " + paintClass.getName());
         fillClass = Class.forName(CanvasCompositeElisionTarget.FILL_OWNER.replace('/', '.'), false, loader);
-        attest(fillClass, loader, flatlaf);
+        VerifiedHookInstallerSupport.attestClassSource(
+                fillClass,
+                loader,
+                flatlaf,
+                "canvas composite elision dependency loader/source mismatch: " + fillClass.getName());
         transformer = new CanvasCompositeElisionTransformer(loader, flatlaf, paintReference, fillReference);
         // The elision relies on the JDK's direct-paint fallback: verify the
         // caller's shape so a JDK without it is refused.
@@ -79,10 +79,15 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
                 CanvasCompositeElisionTarget.PAINT_CALLER_DESCRIPTOR);
         final Class<?> callerClass =
                 Class.forName(CanvasCompositeElisionTarget.PAINT_CALLER_OWNER.replace('/', '.'), false, null);
-        attestJdk(callerClass);
+        VerifiedHookInstallerSupport.attestJdkClass(
+                callerClass, "canvas composite elision JDK target attestation failed: " + callerClass.getName());
         if (expected == null
                 || !expected.equals(ReviewedMethodShape.read(
-                        capture(callerClass),
+                        VerifiedHookInstallerSupport.captureLoadedBytes(
+                                instrumentation,
+                                callerClass,
+                                "canvas composite elision class unmodifiable: " + callerClass.getName(),
+                                "canvas composite elision inspection absent: " + callerClass.getName()),
                         CanvasCompositeElisionTarget.PAINT_CALLER_OWNER,
                         CanvasCompositeElisionTarget.PAINT_CALLER_METHOD,
                         CanvasCompositeElisionTarget.PAINT_CALLER_DESCRIPTOR))) {
@@ -113,59 +118,6 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
 
     private static byte[] jrt(final String path) throws Exception {
         return Files.readAllBytes(FileSystems.getFileSystem(URI.create("jrt:/")).getPath(path));
-    }
-
-    private static void attestJdk(final Class<?> type) {
-        if ((type.getClassLoader() != null && type.getClassLoader() != ClassLoader.getPlatformClassLoader())
-                || (type.getProtectionDomain() != null
-                        && type.getProtectionDomain().getCodeSource() != null)) {
-            throw new IllegalArgumentException(
-                    "canvas composite elision JDK target attestation failed: " + type.getName());
-        }
-    }
-
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact)) {
-            throw new IllegalArgumentException(
-                    "canvas composite elision dependency loader/source mismatch: " + type.getName());
-        }
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException("canvas composite elision class unmodifiable: " + type.getName());
-        }
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("canvas composite elision inspection absent: " + type.getName());
-        }
-        return result.get();
     }
 
     synchronized void install() throws Exception {
@@ -226,8 +178,12 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
             final String before = transformer.beforeSha256(entry.getName().replace('.', '/'));
             if (before == null) continue;
             try {
-                final String hash = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(capture(entry)));
+                final String hash =
+                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
+                                instrumentation,
+                                entry,
+                                "canvas composite elision class unmodifiable: " + entry.getName(),
+                                "canvas composite elision inspection absent: " + entry.getName()));
                 if (!hash.equals(before)) {
                     throw new IllegalStateException(
                             "canvas composite elision restoration not proven: " + entry.getName());

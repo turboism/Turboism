@@ -83,14 +83,7 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
         NativeParameterLifecycleBridge.install(bridge);
         instrumentation.addTransformer(transformer, true);
         try {
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getName().equals(targetClassName)
-                        && loaded.getClassLoader() == hostClassLoader
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                    break;
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();

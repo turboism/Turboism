@@ -49,13 +49,8 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
             if (!instrumentation.isRetransformClassesSupported()) {
                 throw new IllegalStateException("Floating-tab close retransformation is unavailable");
             }
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getClassLoader() == hostClassLoader
-                        && loaded.getName().replace('.', '/').equals(operation.ownerInternalName())
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation, operation.ownerInternalName().replace('/', '.'), hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();

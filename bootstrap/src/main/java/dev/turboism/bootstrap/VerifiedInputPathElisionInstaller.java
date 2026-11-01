@@ -6,15 +6,10 @@ import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTarget
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -70,8 +65,13 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
         }
         try (JarFile jar = new JarFile(artifact.toFile())) {
             entry = Class.forName(InputPathElisionTarget.OWNER.replace('/', '.'), false, loader);
-            attest(entry, loader, artifact);
-            transformer = new InputPathElisionTransformer(loader, artifact, reference(jar, entry));
+            VerifiedHookInstallerSupport.attestClassSource(
+                    entry,
+                    loader,
+                    artifact,
+                    "input path elision dependency loader/source mismatch: " + entry.getName());
+            transformer = new InputPathElisionTransformer(
+                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, entry));
             verify(
                     jar,
                     loader,
@@ -90,20 +90,6 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
         bridge = new InputPathElisionBridge(loader);
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException(
-                    "input path elision dependency loader/source mismatch: " + type.getName());
-        }
-    }
-
     private void verify(
             final JarFile jar,
             final ClassLoader loader,
@@ -113,48 +99,18 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
             final String descriptor)
             throws Exception {
         final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-        attest(type, loader, artifact);
-        final byte[] actual = capture(type);
-        final List<String> expected = ReviewedMethodShape.read(reference(jar, type), owner, method, descriptor);
+        VerifiedHookInstallerSupport.attestClassSource(
+                type, loader, artifact, "input path elision dependency loader/source mismatch: " + type.getName());
+        final byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                instrumentation,
+                type,
+                "input path elision class unmodifiable: " + type.getName(),
+                "input path elision dependency inspection absent: " + type.getName());
+        final List<String> expected = ReviewedMethodShape.read(
+                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, method, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
             throw new IllegalStateException("input path elision dependency body mismatch: " + owner + "." + method);
         }
-    }
-
-    private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException("input path elision class unmodifiable: " + type.getName());
-        }
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("input path elision dependency inspection absent: " + type.getName());
-        }
-        return result.get();
     }
 
     synchronized void install() throws Exception {
@@ -216,9 +172,12 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
                         "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
                 return;
             }
-            final byte[] original = capture(entry);
-            final String hash = HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
+            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation,
+                    entry,
+                    "input path elision class unmodifiable: " + entry.getName(),
+                    "input path elision dependency inspection absent: " + entry.getName());
+            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
             if (!hash.equals(transformer.beforeSha256())) {
                 throw new IllegalStateException("input path elision restoration not proven: " + entry.getName());
             }

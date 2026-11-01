@@ -5,14 +5,9 @@ import dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisi
 import dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -60,27 +55,15 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
             throw new IllegalArgumentException("state elision bundled JOGL identity mismatch");
         }
         entry = Class.forName(RedundantStateElisionTarget.OWNER.replace('/', '.'), false, loader);
-        if (entry.getClassLoader() == null
-                || entry.getProtectionDomain() == null
-                || entry.getProtectionDomain().getCodeSource() == null
-                || !Path.of(entry.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(joglArtifact)) {
-            throw new IllegalArgumentException("state elision loader/source mismatch: " + entry.getName());
-        }
+        VerifiedHookInstallerSupport.attestClassSource(
+                entry,
+                entry.getClassLoader(),
+                joglArtifact,
+                "state elision loader/source mismatch: " + entry.getName());
         final byte[] reference;
         try (JarFile jar = new JarFile(joglArtifact.toFile())) {
-            var jarEntry = jar.getJarEntry(RedundantStateElisionTarget.OWNER + ".class");
-            if (jarEntry == null) {
-                throw new IllegalArgumentException("state elision reference class missing");
-            }
-            try (var input = jar.getInputStream(jarEntry)) {
-                reference = input.readAllBytes();
-            }
+            reference = VerifiedHookInstallerSupport.readReferenceBytes(
+                    jar, entry, "state elision reference class missing");
         }
         transformer = new RedundantStateElisionTransformer(entry.getClassLoader(), joglArtifact, reference);
         bridge = new RedundantStateElisionBridge();
@@ -144,9 +127,9 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
                         "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
                 return;
             }
-            final byte[] original = capture(entry);
-            final String hash = HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
+            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation, entry, null, "state elision class capture absent: " + entry.getName());
+            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
             if (!hash.equals(transformer.beforeSha256())) {
                 throw new IllegalStateException("state elision restoration not proven: " + entry.getName());
             }
@@ -167,33 +150,6 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
         final StringBuilder line = new StringBuilder();
         stats.forEach((key, value) -> line.append(key).append('=').append(value).append(' '));
         return line.toString().trim();
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("state elision class capture absent: " + type.getName());
-        }
-        return result.get();
     }
 
     boolean restored() {

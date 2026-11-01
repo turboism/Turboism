@@ -5,16 +5,11 @@ import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUpload
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTarget;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -85,10 +80,11 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         try (JarFile jar = new JarFile(artifact.toFile())) {
             for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
                 final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-                attest(type, loader, artifact);
+                VerifiedHookInstallerSupport.attestClassSource(
+                        type, loader, artifact, "upload elision dependency loader/source mismatch: " + type.getName());
                 entries.add(type);
-                transformers.add(
-                        new SkippedFrameUploadElisionTransformer(loader, artifact, reference(jar, type), owner));
+                transformers.add(new SkippedFrameUploadElisionTransformer(
+                        loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner));
             }
             verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER, "i", "()Ljava/nio/IntBuffer;");
             verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER, "k", "()Z");
@@ -100,19 +96,6 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
         bridge = new SkippedFrameUploadElisionBridge(loader, production, target.sizeOwner());
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("upload elision dependency loader/source mismatch: " + type.getName());
-        }
-    }
-
     private void verify(
             final JarFile jar,
             final ClassLoader loader,
@@ -122,48 +105,18 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             final String descriptor)
             throws Exception {
         final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-        attest(type, loader, artifact);
-        final byte[] actual = capture(type);
-        final List<String> expected = ReviewedMethodShape.read(reference(jar, type), owner, method, descriptor);
+        VerifiedHookInstallerSupport.attestClassSource(
+                type, loader, artifact, "upload elision dependency loader/source mismatch: " + type.getName());
+        final byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                instrumentation,
+                type,
+                "upload elision class unmodifiable: " + type.getName(),
+                "upload elision dependency inspection absent: " + type.getName());
+        final List<String> expected = ReviewedMethodShape.read(
+                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, method, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
             throw new IllegalStateException("upload elision dependency body mismatch: " + owner + "." + method);
         }
-    }
-
-    private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException("upload elision class unmodifiable: " + type.getName());
-        }
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("upload elision dependency inspection absent: " + type.getName());
-        }
-        return result.get();
     }
 
     synchronized void install() throws Exception {
@@ -231,8 +184,14 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             final String before = transformers.get(i).beforeSha256();
             if (before == null) continue;
             try {
-                final String hash = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(capture(entries.get(i))));
+                final String hash =
+                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
+                                instrumentation,
+                                entries.get(i),
+                                "upload elision class unmodifiable: "
+                                        + entries.get(i).getName(),
+                                "upload elision dependency inspection absent: "
+                                        + entries.get(i).getName()));
                 if (!hash.equals(before)) {
                     throw new IllegalStateException("upload elision restoration not proven: "
                             + entries.get(i).getName());
