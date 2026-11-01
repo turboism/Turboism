@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,7 @@ final class NativeWarpAltMirrorBridgeTest {
 
     @BeforeEach
     void pointRecognitionAtTheStub() {
+        RuntimeDiagnostics.clear();
         NativeWarpAltMirrorBridge.setBinderClassNameForTesting(StubWarpBinder.class.getName());
         NativeWarpAltMirrorBridge.install();
     }
@@ -26,6 +30,90 @@ final class NativeWarpAltMirrorBridgeTest {
     @AfterEach
     void tearDown() {
         NativeWarpAltMirrorBridge.uninstall();
+        RuntimeDiagnostics.clear();
+    }
+
+    @Test
+    void ordinaryInputDoesNotReadHostObjectsOrDispatchPerEventDiagnostics() throws Exception {
+        final AtomicInteger records = new AtomicInteger();
+        NativeWarpAltMirrorBridge.diagnostics(ignored -> records.incrementAndGet());
+        final DiagnosticHost host = new DiagnosticHost();
+        final CountingInput input = new CountingInput();
+
+        SwingUtilities.invokeAndWait(() -> {
+            for (int i = 0; i < 10_000; i++) {
+                NativeWarpAltMirrorBridge.diagSetAction(host, input);
+                NativeWarpAltMirrorBridge.diagMouseAction(host, input);
+                NativeWarpAltMirrorBridge.diagInputEvent(host, host);
+                NativeWarpAltMirrorBridge.diagPressHit(input);
+                NativeWarpAltMirrorBridge.diagDragDispatch(input);
+                NativeWarpAltMirrorBridge.diagMoveSelected(input);
+                NativeWarpAltMirrorBridge.diagRoute("MOVE", input);
+                NativeWarpAltMirrorBridge.diagPointMove(host);
+                NativeWarpAltMirrorBridge.diagStrip("LAYOUT");
+            }
+        });
+
+        assertEquals(0, records.get(), "normal input must not produce per-event log records");
+        assertEquals(0, host.reads, "disabled tracing must not inspect the host for diagnostics");
+        assertEquals(0, input.reads, "disabled tracing must not read event modifiers");
+    }
+
+    @Test
+    void explicitTracingReadsOneModifierSnapshotAndResetsInputRunsOnUninstall() {
+        final ArrayList<String> records = new ArrayList<>();
+        RuntimeDiagnostics.install((level, component, message, failure) -> records.add(level + ":" + message));
+        final DiagnosticHost host = new DiagnosticHost();
+        final CountingInput input = new CountingInput();
+
+        NativeWarpAltMirrorBridge.diagMoveSelected(input);
+        assertEquals(1, input.reads, "one modifier snapshot supplies Alt, Shift and Ctrl");
+        NativeWarpAltMirrorBridge.diagInputEvent(host, host);
+        NativeWarpAltMirrorBridge.diagInputEvent(host, host);
+        assertEquals(2, host.reads);
+        assertEquals(2, records.size(), "identical input kinds are coalesced");
+        assertTrue(records.stream().allMatch(record -> record.startsWith("TRACE:")));
+
+        NativeWarpAltMirrorBridge.uninstall();
+        NativeWarpAltMirrorBridge.diagInputEvent(host, host);
+        assertEquals(3, records.size(), "a new session must not inherit the previous input run");
+        assertTrue(records.get(2).contains("INPUT_EVENT kind=MOVE"));
+    }
+
+    /** Host-shaped accessors expose diagnostic reads without needing a licensed Editor. */
+    public static final class DiagnosticHost {
+        int reads;
+
+        public String e() {
+            reads++;
+            return "MOVE";
+        }
+
+        public int h() {
+            reads++;
+            return 0;
+        }
+
+        public float[] g() {
+            reads++;
+            return new float[] {1, 2};
+        }
+    }
+
+    private static final class CountingInput extends java.awt.event.MouseEvent {
+        int reads;
+
+        CountingInput() {
+            super(new java.awt.Canvas(), MOUSE_DRAGGED, 0, 0, 0, 0, 0, false);
+            // MouseEvent construction itself reads modifiers; count only hook work.
+            reads = 0;
+        }
+
+        @Override
+        public int getModifiersEx() {
+            reads++;
+            return super.getModifiersEx();
+        }
     }
 
     @Test
