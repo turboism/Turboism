@@ -1,6 +1,6 @@
 # 自更新服务部署提案
 
-该补丁已获用户批准，并于 2026-11-01 完成生产部署和完整下载验收。执行记录见 [production-service-validation.md](production-service-validation.md)。正式签名、公钥及增量更新激活尚未配置。下文保留部署前核实结果及已执行的补丁范围。
+该补丁已获用户批准，并于 2026-11-01 完成生产部署和完整下载验收。执行记录见 [production-service-validation.md](production-service-validation.md)。之后获准进行的正式密钥与公钥配置见 [signing-provisioning-validation.md](signing-provisioning-validation.md)，自更新仍关闭。下文保留首次部署前核实结果及已执行的补丁范围。
 
 ## 已核实的状态
 

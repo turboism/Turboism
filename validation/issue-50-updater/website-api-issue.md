@@ -2,7 +2,7 @@
 
 关联：#50（In-Cubism incremental updater）
 
-> 本文保留早期任务草案。2026-11-01 核对：`distribution/worker.mjs` 已接入增量准入、撤回、资源读取和 `release.incremental`，并已获准部署生产，真实部署工作流 78 项测试及完整下载验收通过；Stable/Beta 的发布 CI、签名与初始安装收据接线已补齐。下文未勾选项不代表代码仍未实现。当前剩余工作是配置正式签名与激活，并完成真实编号 CI 的连续升级验收。当前服务契约见 [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev)，实测状态见 [生产部署验收](production-service-validation.md)。
+> 本文保留早期任务草案。2026-11-01 核对：`distribution/worker.mjs` 已接入增量准入、撤回、资源读取和 `release.incremental`，并已获准部署生产，真实部署工作流 78 项测试及完整下载验收通过；Stable/Beta 的发布 CI、签名与初始安装收据接线已补齐。随后正式签名密钥及公钥已配置，服务器公钥已部署，签名与自更新开关仍关闭。下文未勾选项不代表代码仍未实现。当前剩余工作是确定首次发布版本和源码发布安排、配置发布权限及激活，并完成真实编号 CI 的连续升级验收。当前服务契约见 [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev)，实测状态见 [生产部署验收](production-service-validation.md) 和 [签名配置验收](signing-provisioning-validation.md)。
 
 ## 用户目标
 
@@ -59,7 +59,7 @@ GET /v1/framework/documents/{sha256}
 GET /v1/framework/objects/{sha256}/payload
 ```
 
-`/v1/framework/` 是待确认的建议路径，不代表已经部署。最终前缀须同步到客户端内置配置。相对路径的 `documents/...`、`objects/.../payload` 已由客户端实现约定。
+`/v1/framework/` 已作为生产路径部署，并与客户端资源生成器的固定前缀一致；资源发布仍关闭。相对路径的 `documents/...`、`objects/.../payload` 已由客户端实现约定。
 
 - [ ] `documents/{sha256}` 返回原始 manifest 或独立签名 envelope 的精确字节。
 - [ ] `objects/{sha256}/payload` 返回清单引用的单个文件内容。
@@ -122,7 +122,7 @@ GET /v1/framework/objects/{sha256}/payload
 ## 对接参考
 
 - `distribution/INCREMENTAL.md`：已有离线准入协议和发现结构。
-- `distribution/incremental.mjs`：已有离线校验/发布准入逻辑，尚未接到生产 Worker。
+- `distribution/incremental.mjs`：离线校验/发布准入逻辑，已接入生产 Worker，发布权限仍关闭。
 - `runtime/src/main/java/dev/turboism/update/UpdateIncrementalDiscovery.java`：客户端发现字段。
 - `runtime/src/main/java/dev/turboism/update/FrameworkUpdateSource.java`：固定源及相对资源路径。
 - `scripts/release/turboism_release/framework_update.py`：清单和签名生成工具。

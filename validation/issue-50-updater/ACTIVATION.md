@@ -33,6 +33,11 @@ publisher retains private keys. Plugin catalog authority is separate. Key rotati
 existing clients before using it. Revoked keys cannot authorize new installation or old receipt authentication;
 when trustworthy history is unavailable the updater refuses and requires reviewed full-install recovery.
 
+The official keyring and the main-only `framework-release-signing` environment were provisioned on 2026-11-01.
+The production API now trusts the same public key, while `FRAMEWORK_UPDATE_SIGNING_ENABLED=false` and both Worker
+publisher identity settings remain empty. No production candidate has bundled the activation resources or run the
+protected signing workflow; see the [signing provisioning validation](signing-provisioning-validation.md).
+
 Both files must be added BEFORE assembling/signing the agent and before generating its framework manifest. Client
 construction additionally requires a clean numbered CI identity and the actual standard-package agent location.
 Local synthetic version labels from earlier host tests do not meet this production gate.
@@ -99,8 +104,10 @@ migrating. Long-session, broken-new-launcher and full signed-release qualificati
 
 ## Required before enabling
 
-- Migrate the release asset/publication contract and deploy immutable resources plus an admitted channel authority.
-- Provision reviewed public keys and activation resources; never ship local test keys or invent release identity.
+- Configure the first release's updater baseline and publisher credentials, then publish immutable resources and
+  admit a real numbered release through the deployed API.
+- Bundle the provisioned public keyring and reviewed activation resources; never ship local test keys or invent
+  release identity. The main-only release workflows still require an agreed source release arrangement.
 - Qualify the wired full-package bootstrap and migration from existing supported installations. Host testing fixed
   DACL preparation on owned Modify-only directories: it must not require re-setting ownership/WRITE_OWNER.
 - Qualify the implemented durable next-launch handling and launcher/apply interlocking, including a broken new
@@ -110,5 +117,5 @@ migrating. Long-session, broken-new-launcher and full signed-release qualificati
 - Validate UI download/cancel/resume and at least two successive real signed updates inside supported Windows
   Cubism. Keep Linux/Proton evidence separate.
 
-Current production feeds still advertise only full packages. No service deployment or production activation was
-performed by these code changes.
+Current production feeds still advertise only full packages. The service and its public key configuration have
+been deployed and validated; publication and client activation remain disabled.

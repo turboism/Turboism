@@ -31,7 +31,7 @@ NSIS 实验使用独立临时目录、临时签名密钥和明确标记的合成
 
 发布接线阶段的现网只读检查：`/health` 为 ready；Stable 为 `0.67.4`、Build 56，无增量字段。彼时新资源路径返回旧实现的 `NOT_FOUND`。
 
-所需变更整理为 [服务部署提案](service-deployment-proposal.md) 和最小补丁后，用户批准了生产部署，新 API 已部署且完整下载验收通过；后续实测状态见 [生产部署验收](production-service-validation.md)。正式签名、公钥及自更新激活尚未配置。
+所需变更整理为 [服务部署提案](service-deployment-proposal.md) 和最小补丁后，用户批准了生产部署，新 API 已部署且完整下载验收通过；后续实测状态见 [生产部署验收](production-service-validation.md)。随后正式签名密钥和公钥已获准配置，服务器公钥部署验收通过，签名及自更新开关仍关闭，详见 [签名配置验收](signing-provisioning-validation.md)。
 
 ## 证据位置与范围
 

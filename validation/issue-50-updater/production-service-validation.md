@@ -1,6 +1,6 @@
 # 自更新 API 生产部署验收（2026-11-01）
 
-用户批准生产部署后，已将新版发布 API 部署到 `api.turboism.dev`。正式框架签名、公钥及客户端激活仍未配置，产品代码继续留在 `test/issue-50-windows-validation-fixes`。
+用户批准生产部署后，已将新版发布 API 部署到 `api.turboism.dev`。本记录对应首次保持发布关闭的部署；其后用户批准的正式密钥及公钥配置见 [签名配置验收](signing-provisioning-validation.md)。客户端自更新仍关闭，产品代码继续留在 `test/issue-50-windows-validation-fixes`。
 
 ## 部署身份
 
@@ -31,12 +31,12 @@
 
 服务随后按原有机制恢复刷新，快照更新为 `2026-11-01T03:37:40.254Z`。诊断窗口内两次健康读取及本机最终复验均为 `ready`，三通道版本和资产哈希仍与部署前一致。本轮没有修改刷新代码或增加上游凭据；没有捕获到异常消退前的具体错误，不将原因归结为已证实的限流或网络故障。
 
-最终 [只读诊断 41270435338](https://github.com/turboism/turboism-learn/actions/runs/41270435338) 成功：100 秒窗口捕获 4 条完整记录，没有匹配的刷新错误，两次健康响应均为 `ready`。诊断仅存在于部署仓库的 `ops/issue-50-release-api-refresh-diagnostic` 分支（`93dee8146e1df14d6ec60856ea934228df75878f`），不含部署动作，生产 main 仍为 `0579cfd`。首次诊断因工具未正确处理预期 timeout 124 提前结束，随后修正其 shell 退出码处理并重跑；该失败不是生产部署失败。
+最终 [只读诊断 41270435338](https://github.com/turboism/turboism-learn/actions/runs/41270435338) 成功：100 秒窗口捕获 4 条完整记录，没有匹配的刷新错误，两次健康响应均为 `ready`。诊断仅存在于部署仓库的 `ops/issue-50-release-api-refresh-diagnostic` 分支（`93dee8146e1df14d6ec60856ea934228df75878f`），不含部署动作，诊断时部署仓库 main 为 `0579cfd`。首次诊断因工具未正确处理预期 timeout 124 提前结束，随后修正其 shell 退出码处理并重跑；该失败不是生产部署失败。
 
 ## 后续发布准备
 
-只读核对发现：产品仓库尚无框架更新变量；`framework-release-signing` 环境尚不存在；现有 `production-release` 环境没有该流程所需的变量或 secrets，当前也没有环境保护规则。这些尚未改动。
+首次部署后的只读核对发现：当时产品仓库尚无框架更新变量，`framework-release-signing` 环境尚不存在。随后用户批准的签名环境、密钥及公钥配置已另行记录；`production-release` 发布环境配置仍待后续完成。
 
-仍需独立批准正式签名、公钥、发布权限及客户端激活。候选构建和签名流程限定产品 `main`，产品“不合入 main”的要求继续生效；首次真实 CI 完整安装及 A→B→C 升级需先明确源码发布安排。
+正式签名密钥及公钥配置已获批准；发布权限及客户端激活仍保持关闭。候选构建和签名流程限定产品 `main`，产品“不合入 main”的要求继续生效；首次真实 CI 完整安装及 A→B→C 升级需先明确源码发布安排。
 
-本机详细证据保存在忽略目录 `build/agent-tasks/`：`deployment-before.json`、`deployment-after.json`、`deployment-run-41268862380.log`、`deployment-run-41268862380/api-production.json`、`refresh-diagnostic-41270435338.log` 和 `refresh-diagnostic-41270435338/summary.json`。
+本机详细证据保存在忽略目录 `build/agent-tasks/`：`deployment-before.json`、`deployment-run-41268862380.log`、`deployment-run-41268862380/api-production.json`、`refresh-diagnostic-41270435338.log` 和 `refresh-diagnostic-41270435338/summary.json`。`deployment-after.json` 由复验脚本更新为最近一次结果；本次公钥部署的固定复验副本见 [签名配置验收](signing-provisioning-validation.md)。
