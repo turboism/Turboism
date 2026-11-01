@@ -2,7 +2,7 @@
 
 关联：#50（In-Cubism incremental updater）
 
-> 本文保留早期任务草案。2026-11-01 核对：`distribution/worker.mjs` 已接入增量准入、撤回、资源读取和 `release.incremental`，服务端本地 78 项测试通过；Stable/Beta 的发布 CI、签名与初始安装收据接线已补齐。下文未勾选项不代表代码仍未实现。当前剩余工作是部署服务、配置正式签名与激活，并完成真实编号 CI 的连续升级验收。当前服务契约见 [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev)，部署方案见 [service-deployment-proposal.md](service-deployment-proposal.md)。
+> 本文保留早期任务草案。2026-11-01 核对：`distribution/worker.mjs` 已接入增量准入、撤回、资源读取和 `release.incremental`，并已获准部署生产，真实部署工作流 78 项测试及完整下载验收通过；Stable/Beta 的发布 CI、签名与初始安装收据接线已补齐。下文未勾选项不代表代码仍未实现。当前剩余工作是配置正式签名与激活，并完成真实编号 CI 的连续升级验收。当前服务契约见 [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev)，实测状态见 [生产部署验收](production-service-validation.md)。
 
 ## 用户目标
 

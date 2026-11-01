@@ -14,8 +14,8 @@ activate the product path.
 ```
 
 The endpoint above is the implemented service prefix and the release resource generator's fixed endpoint. The
-current production deployment has not yet been upgraded to this implementation; see the
-[deployment proposal](service-deployment-proposal.md). It uses HTTPS on `api.turboism.dev`, without credentials,
+production deployment was upgraded to this implementation on 2026-11-01 with publication disabled; see the
+[deployment validation](production-service-validation.md). It uses HTTPS on `api.turboism.dev`, without credentials,
 port overrides, query, fragment or redirects. Its relative resources implement:
 
 - `documents/<sha256>` for the exact signed manifest and detached envelope;
