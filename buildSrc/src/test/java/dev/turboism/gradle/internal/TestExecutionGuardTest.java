@@ -129,6 +129,20 @@ class TestExecutionGuardTest {
                 () -> "unexpected message: " + failure.getMessage());
     }
 
+    @Test
+    void nestedClassSkipsMatchTheOuterClassPattern() throws IOException {
+        writeResults("dev.turboism.example.SkippedTest$Inner", 2, 2);
+        Path skipAllowlist = writeFile("skip-allowlist.txt", SKIP_ALLOWLIST);
+        Path zeroExecutedAllowlist =
+                writeFile("zero-executed-allowlist.txt", ":runtime:test # registered for this fixture\n");
+
+        TestExecutionGuard.Summary summary = TestExecutionGuard.inspect(
+                ":runtime:test", results, skipAllowlist, zeroExecutedAllowlist);
+
+        assertEquals(2, summary.skipped());
+        assertTrue(summary.sanctionedZeroExecution());
+    }
+
     private Path writeFile(String name, String content) throws IOException {
         Path path = root.resolve(name);
         Files.writeString(path, content, StandardCharsets.UTF_8);
