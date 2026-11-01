@@ -18,7 +18,14 @@ public interface OwnedMoc extends AutoCloseable {
     /** MOC byte consistency diagnosed from the loaded bytes. */
     MocConsistency consistency();
 
-    /** Core native handle of the owned {@code CubismMoc} instance. */
+    /**
+     * Core native handle of the owned {@code CubismMoc} instance.
+     *
+     * <p>Opaque identity only: it is a value, not a dereferenceable reference, and
+     * no Turboism API accepts it back as a host object. This is the documented
+     * exception in {@code ARCHITECTURE.md} section 3; no other SDK type exposes a
+     * native handle.</p>
+     */
     long nativeHandle();
 
     /**

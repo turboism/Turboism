@@ -628,6 +628,29 @@ class PreviewPluginContextFactoryCompositionTest {
         };
     }
 
+    /**
+     * The file-chooser history store is shell-owned: every plugin context must receive the
+     * read-only view, and only the reserved shell identity keeps the writable instance.
+     */
+    @Test
+    void pluginContextsReceiveTheReadOnlyFileChooserHistoryView() {
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService shared =
+                new dev.turboism.filechooser.RuntimeFileChooserHistoryService(() -> false);
+
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService pluginView =
+                PreviewPluginContextFactory.fileChooserHistoryFor(descriptor().id(), shared);
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService shellView =
+                PreviewPluginContextFactory.fileChooserHistoryFor(ShellManifest.ID, shared);
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> pluginView.setProjectRecentDirectory(Path.of("/tmp/plugin-chosen")));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> pluginView.setExportRecentDirectory(Path.of("/tmp/plugin-chosen")));
+        assertSame(shared, shellView, "the shell keeps the writable instance");
+    }
+
     @Test
     void createPreservesDeclaredIOExceptionIdentityWhenStorageInitializationFails() throws Exception {
         final HostSession session = HostSessionTestSupport.connectedSession(
