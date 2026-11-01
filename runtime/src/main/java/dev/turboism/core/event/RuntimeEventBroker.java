@@ -332,7 +332,9 @@ public final class RuntimeEventBroker {
      *
      * <p>Each callback receives an event created from the preceding valid candidate.
      * Ordinary callback failures and rejected candidates restore that checkpoint and
-     * do not prevent later subscribers. Fatal VM failures still propagate.</p>
+     * do not prevent later subscribers. Fatal VM failures still propagate. A callback
+     * that overruns the slow-delivery threshold is diagnosed once per owner and event
+     * type; it is never interrupted, so the transform result is unchanged.</p>
      *
      * @param eventType concrete transform event state to route
      * @param initialValue initial candidate before subscribers
@@ -357,6 +359,7 @@ public final class RuntimeEventBroker {
                     || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
+            final long startedNanos = System.nanoTime();
             try {
                 try (TransformCallback callback =
                         Objects.requireNonNull(eventFactory.apply(current), "eventFactory result")) {
@@ -380,6 +383,7 @@ public final class RuntimeEventBroker {
                 }
             } finally {
                 owner.deliveryFinished();
+                diagnoseSlowSynchronousDelivery(owner.key(), eventType, startedNanos);
             }
         }
         return current;
@@ -387,7 +391,9 @@ public final class RuntimeEventBroker {
 
     /**
      * Invokes Runtime-owned synchronous reference transforms with checkpoint semantics.
-     * Null or validator-rejected results restore the preceding valid candidate.
+     * Null or validator-rejected results restore the preceding valid candidate. A callback
+     * that overruns the slow-delivery threshold is diagnosed once per owner and event type;
+     * it is never interrupted, so the transform result is unchanged.
      */
     public <T> T publishRuntimeTransform(
             final Class<? extends EventBus.TurboismEvent> eventType,
@@ -409,6 +415,7 @@ public final class RuntimeEventBroker {
                     || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
+            final long startedNanos = System.nanoTime();
             try {
                 try (TransformCallback callback =
                         Objects.requireNonNull(eventFactory.apply(current), "eventFactory result")) {
@@ -432,6 +439,7 @@ public final class RuntimeEventBroker {
                 }
             } finally {
                 owner.deliveryFinished();
+                diagnoseSlowSynchronousDelivery(owner.key(), eventType, startedNanos);
             }
         }
         return current;
@@ -669,14 +677,8 @@ public final class RuntimeEventBroker {
                     owner.deliveryFinished();
                     // Delivery runs on the event lane with no wall-clock limiter: a slow
                     // subscriber is reported once per owner/type instead of interrupted.
-                    if (System.nanoTime() - startedNanos >= slowDeliveryThreshold.toNanos()
-                            && slowDeliveries.add(new DeniedRoute(
-                                    owner.key(), delivery.event().getClass()))) {
-                        diagnose(new DeliveryDiagnostic(
-                                owner.key(),
-                                delivery.event().getClass().getName(),
-                                DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
-                    }
+                    diagnoseSlowSynchronousDelivery(
+                            owner.key(), delivery.event().getClass(), startedNanos);
                 }
             }
         } finally {
@@ -717,6 +719,21 @@ public final class RuntimeEventBroker {
                     subscription.owner(), concreteType.getName(), DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED));
         }
         return false;
+    }
+
+    /**
+     * Reports one synchronous subscriber that ran past the slow-delivery threshold.
+     * The diagnostic is recorded at most once per owner and event type, and delivery is
+     * never interrupted: the caller still receives the subscriber's final candidate.
+     */
+    private void diagnoseSlowSynchronousDelivery(
+            final PluginEventOwnerKey owner, final Class<?> eventType, final long startedNanos) {
+        if (System.nanoTime() - startedNanos < slowDeliveryThreshold.toNanos()) {
+            return;
+        }
+        if (slowDeliveries.add(new DeniedRoute(owner, eventType))) {
+            diagnose(new DeliveryDiagnostic(owner, eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
+        }
     }
 
     private void diagnose(final DeliveryDiagnostic diagnostic) {

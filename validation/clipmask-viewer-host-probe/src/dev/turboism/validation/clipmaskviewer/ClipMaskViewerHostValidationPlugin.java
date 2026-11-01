@@ -16,6 +16,7 @@ import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.validation.shared.verdict.ProbeAssertions;
 
 import javax.swing.SwingUtilities;
 import java.awt.Dialog;
@@ -84,7 +85,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
-    private final List<Assertion> assertions = new ArrayList<>();
+    private final ProbeAssertions assertions = new ProbeAssertions();
     private final List<Registration> openRegistrations = new ArrayList<>();
 
     private String modelId = "unknown";
@@ -188,7 +189,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             logger.error("CLIPMASK_VIEWER_MATRIX_FAILED " + singleLine(failure), failure);
         }
 
-        final String terminal = computeTerminal();
+        final String terminal = assertions.terminal().name();
         writeResultFile(startedNanos);
         logger.info("CLIPMASK_VIEWER_MATRIX_RESULT status=" + terminal
             + " modelId=" + modelId
@@ -199,7 +200,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             + " referencedMasks=" + referencedMaskCount
             + " pureMasks=" + pureMaskCount
             + " reopenAttempts=" + reopenAttempts
-            + " assertions=" + assertions.size()
+            + " " + assertions.counts()
             + " durationMillis=" + ((System.nanoTime() - startedNanos) / 1_000_000L));
         try {
             Thread.sleep(3_000L);
@@ -754,7 +755,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     }
 
     private void recordAssertion(final String name, final Object expected, final Object actual, final String status) {
-        assertions.add(new Assertion(name, singleLine(expected), singleLine(actual), status));
+        assertions.record(name, expected, actual, status);
     }
 
     private static String singleLine(final Object value) {
@@ -763,19 +764,6 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         }
         final String text = value.toString().replace('\n', ' ').replace('\r', ' ');
         return text.length() > 4000 ? text.substring(0, 4000) : text;
-    }
-
-    private String computeTerminal() {
-        boolean anyFail = false;
-        boolean anyBlocked = false;
-        for (Assertion assertion : assertions) {
-            if ("FAIL".equals(assertion.status())) {
-                anyFail = true;
-            } else if ("BLOCKED".equals(assertion.status())) {
-                anyBlocked = true;
-            }
-        }
-        return anyFail ? "FAIL" : anyBlocked ? "BLOCKED" : "PASS";
     }
 
     private void writeResultFile(final long startedNanos) {
@@ -800,26 +788,19 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 report.append(sampleLine).append('\n');
             }
             report.append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-            for (Assertion assertion : assertions) {
-                report.append("assertion.").append(assertion.name()).append(".expected=")
-                    .append(assertion.expected()).append('\n')
-                    .append("assertion.").append(assertion.name()).append(".actual=")
-                    .append(assertion.actual()).append('\n')
-                    .append("assertion.").append(assertion.name()).append(".status=")
-                    .append(assertion.status()).append('\n');
-            }
-            report.append("status=").append(computeTerminal()).append('\n');
+            assertions.appendCounters(report);
+            assertions.appendNamed(report);
+            // The terminal verdict goes last: the Runner requires a positive verdict count
+            // as soon as it observes the pass line.
+            report.append("status=").append(assertions.terminal().name()).append('\n');
             Files.createDirectories(result.getParent());
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             logger.info("CLIPMASK_VIEWER_RESULT_WRITTEN result=" + result
-                + " status=" + computeTerminal() + " assertions=" + assertions.size());
+                + " status=" + assertions.terminal().name() + " " + assertions.counts());
         } catch (Exception failure) {
             logger.error("CLIPMASK_VIEWER_RESULT_WRITE_FAILED result=" + result
                 + " " + singleLine(failure), failure);
         }
-    }
-
-    private record Assertion(String name, String expected, String actual, String status) {
     }
 }

@@ -79,16 +79,13 @@ final class EditorPartOpacityAccess {
     }
 
     private boolean opacityAuthorized() {
-        if (isCubism52()) {
-            return resolver.authorizesFeature(
-                    EditorPartOpacityReadSelectorContract.ADAPTER_SLICE_ID,
-                    EditorPartOpacityReadSelectorContract.CAPABILITY_ID,
-                    EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES);
+        if (authoringOpacityGeneration()) {
+            return opacityWriteAuthorized();
         }
         return resolver.authorizesFeature(
-                EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID,
-                EditorPartOpacitySelectorContract.CAPABILITY_ID,
-                EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
+                EditorPartOpacityReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorPartOpacityReadSelectorContract.CAPABILITY_ID,
+                EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES);
     }
 
     private boolean opacityWriteAuthorized() {
@@ -98,8 +95,51 @@ final class EditorPartOpacityAccess {
                 EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
     }
 
-    private boolean isCubism52() {
-        return !resolver.admittedCubismVersion().startsWith("5.3.");
+    /**
+     * Returns whether this host's verified record declares a capability at all.
+     *
+     * <p>Generation-keyed contract selection reads the record instead of the admitted version
+     * string, so a successor reviewed generation keeps its own contract rather than falling back
+     * to the reduced one an earlier generation needed.</p>
+     *
+     * @param adapterSliceId the adapter slice that owns the capability
+     * @param capabilityId the capability whose presence decides the generation
+     * @return {@code true} when the verified record lists the capability
+     */
+    private boolean recordDeclaresCapability(final String adapterSliceId, final String capabilityId) {
+        return resolver.authorizesFeature(adapterSliceId, capabilityId, java.util.Set.of());
+    }
+
+    /**
+     * Returns whether this host's verified record carries the authoring-opacity generation.
+     *
+     * <p>The authoring generation adds {@code cubism.editor-model.part-opacity.write} and reads
+     * the value from the current keyform; the earlier generation exposes only the evaluation
+     * {@code parts-opacity} member. The generation is read from the record so a successor
+     * reviewed generation is not mistaken for the earlier one.</p>
+     *
+     * @return {@code true} when the verified record declares the authoring-opacity capability
+     */
+    private boolean authoringOpacityGeneration() {
+        return recordDeclaresCapability(
+                EditorPartOpacitySelectorContract.ADAPTER_SLICE_ID, EditorPartOpacitySelectorContract.CAPABILITY_ID);
+    }
+
+    /**
+     * Returns whether this host's verified record carries a Part Inspector member.
+     *
+     * <p>Part alpha composition and clipping-mask ids arrived with the newer Inspector family;
+     * earlier records carry only the id entry. Member presence is read from the record instead
+     * of the admitted version string.</p>
+     *
+     * @param alias the Part Inspector selector alias whose presence decides the generation
+     * @return {@code true} when the verified record carries the alias under the Inspector family
+     */
+    private boolean partInspectorCarries(final String alias) {
+        return resolver.authorizesFeature(
+                EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,
+                EditorPartInspectorSelectorContract.CAPABILITY_ID,
+                java.util.Set.of(alias));
     }
 
     private boolean nameAuthorized() {
@@ -185,9 +225,9 @@ final class EditorPartOpacityAccess {
 
     private float opacity(final Object part) {
         requireOpacityAuthorization();
-        final Object value = isCubism52()
-                ? resolver.invoke("cubism.editor-model.part.parts-opacity", part)
-                : resolver.invoke("cubism.editor-model.part-form.opacity", currentForm(part));
+        final Object value = authoringOpacityGeneration()
+                ? resolver.invoke("cubism.editor-model.part-form.opacity", currentForm(part))
+                : resolver.invoke("cubism.editor-model.part.parts-opacity", part);
         if (!(value instanceof Float opacity) || !Float.isFinite(opacity)) {
             throw unavailable("Editor Part authoring opacity is unavailable.");
         }
@@ -477,11 +517,6 @@ final class EditorPartOpacityAccess {
             final Object expectedPart,
             final List<ArtMeshId> masks) {
         final List<ArtMeshId> requested = List.copyOf(Objects.requireNonNull(masks, "masks"));
-        if (isCubism52()) {
-            throw new UnsupportedOperationException(
-                    "Part clipping masks are unavailable on Cubism 5.2 hosts (CPartSource clip-guid list introduced in"
-                            + " 5.3).");
-        }
         requirePartInspector5302Authorization();
         final PartBinding current = requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
         final List<Object> hostGuids = resolveArtMeshGuids(identity, source, model, requested);
@@ -524,9 +559,10 @@ final class EditorPartOpacityAccess {
         if (composition == AlphaComposition.UNKNOWN) {
             throw new IllegalArgumentException("alpha composition must be a concrete mode");
         }
-        if (isCubism52()) {
+        if (!partInspectorCarries("cubism.editor-model.part-source.alpha-composition")) {
             throw new UnsupportedOperationException(
-                    "Part alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in 5.3).");
+                    "Part alpha composition is unavailable on this Cubism host (its verified record carries no"
+                            + " Part alpha-composition member).");
         }
         requirePartInspector5302Authorization();
         final PartBinding current = requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
@@ -684,10 +720,10 @@ final class EditorPartOpacityAccess {
 
     List<ArtMeshId> maskIds(final String identity, final Object source, final Object model, final PartBinding binding) {
         modelGuard.requireCurrent(identity, model);
-        if (isCubism52()) {
+        if (!partInspectorCarries("cubism.editor-model.part-source.clip-guid-list")) {
             throw new UnsupportedOperationException(
-                    "Part clipping masks are unavailable on Cubism 5.2 hosts (CPartSource clip-guid list introduced in"
-                            + " 5.3).");
+                    "Part clipping masks are unavailable on this Cubism host (its verified record carries no Part"
+                            + " clip-guid list member).");
         }
         final Object clipList = resolver.invoke("cubism.editor-model.part-source.clip-guid-list", binding.source());
         if (!(clipList instanceof List<?> list)) {
@@ -715,9 +751,10 @@ final class EditorPartOpacityAccess {
     }
 
     AlphaComposition alphaComposition(final PartBinding binding) {
-        if (isCubism52()) {
+        if (!partInspectorCarries("cubism.editor-model.part-source.alpha-composition")) {
             throw new UnsupportedOperationException(
-                    "Part alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in 5.3).");
+                    "Part alpha composition is unavailable on this Cubism host (its verified record carries no Part"
+                            + " alpha-composition member).");
         }
         final Object host = resolver.invoke("cubism.editor-model.part-source.alpha-composition", binding.source());
         if (host == resolver.readStaticField("cubism.editor-model.alpha-composition.over")) {
@@ -749,15 +786,17 @@ final class EditorPartOpacityAccess {
     }
 
     private void requirePartInspectorAuthorization() {
-        final boolean authorized = !resolver.admittedCubismVersion().startsWith("5.3.")
+        final boolean authorized = recordDeclaresCapability(
+                        EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,
+                        EditorPartInspectorSelectorContract.CAPABILITY_ID)
                 ? resolver.authorizesFeature(
-                        EditorPartInspectorIdWriteSelectorContract.ADAPTER_SLICE_ID,
-                        EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID,
-                        EditorPartInspectorIdWriteSelectorContract.REQUIRED_ALIASES)
-                : resolver.authorizesFeature(
                         EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,
                         EditorPartInspectorSelectorContract.CAPABILITY_ID,
-                        EditorPartInspectorSelectorContract.REQUIRED_ALIASES);
+                        EditorPartInspectorSelectorContract.REQUIRED_ALIASES)
+                : resolver.authorizesFeature(
+                        EditorPartInspectorIdWriteSelectorContract.ADAPTER_SLICE_ID,
+                        EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID,
+                        EditorPartInspectorIdWriteSelectorContract.REQUIRED_ALIASES);
         if (!authorized) {
             throw new UnsupportedOperationException(
                     "Editor Part Inspector writes require exact verified host evidence.");

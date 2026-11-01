@@ -48,6 +48,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -2393,6 +2397,20 @@ final class McpHttpServerIntegrationTest {
         return HttpClient.newHttpClient().send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
     }
 
+    private static HttpResponse<byte[]> requestWithTimeout(
+            final URI endpoint, final String sessionId, final Duration timeout, final Map<String, Object> body)
+            throws Exception {
+        final HttpRequest request = HttpRequest.newBuilder(endpoint)
+                .timeout(timeout)
+                .header("Accept", "application/json, text/event-stream")
+                .header("Content-Type", "application/json")
+                .header("MCP-Protocol-Version", McpProtocol.VERSION)
+                .header("MCP-Session-Id", sessionId)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)))
+                .build();
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
+    }
+
     private static HttpResponse<byte[]> requestWithAuthorization(
             final URI endpoint, final String authorization, final String sessionId, final Map<String, Object> body)
             throws Exception {
@@ -2442,6 +2460,116 @@ final class McpHttpServerIntegrationTest {
         };
     }
 
+    @Test
+    void stalledHostWriteInTheSharedPoolDoesNotStarveLifecycleRequests() throws Exception {
+        // Given: four committed host writes that never reach the UI thread.
+        final StalledUi ui = new StalledUi();
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+                new CapturingLogger(), new MutableObjects(), new FakeReadServices(), temporaryDirectory, ui));
+        final ExecutorService callers = Executors.newFixedThreadPool(4, task -> {
+            final Thread thread = new Thread(task, "stalled-mcp-write");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            ensureSession(server.endpoint());
+            final List<Future<HttpResponse<byte[]>>> writes = new ArrayList<>();
+            for (int index = 0; index < 4; index++) {
+                final int id = 900 + index;
+                writes.add(callers.submit(() -> request(
+                        server.endpoint(),
+                        bearer(),
+                        null,
+                        McpProtocol.VERSION,
+                        SESSIONS.get(server.endpoint()),
+                        Map.of(
+                                "jsonrpc",
+                                "2.0",
+                                "id",
+                                id,
+                                "method",
+                                "tools/call",
+                                "params",
+                                Map.of(
+                                        "name",
+                                        McpParameterDomain.PARAMETERS_APPLY,
+                                        "arguments",
+                                        Map.of(
+                                                "operations",
+                                                List.of(Map.of(
+                                                        "operation",
+                                                        "set_value",
+                                                        "parameterId",
+                                                        "ParamAngleX",
+                                                        "value",
+                                                        1))))))));
+            }
+            // Three host writes occupy the host-work lane; the transport keeps a thread free.
+            awaitInFlight(ui, 3);
+
+            // Then: a lifecycle request still completes while those writes wait.
+            final HttpResponse<byte[]> ping = requestWithTimeout(
+                    server.endpoint(),
+                    SESSIONS.get(server.endpoint()),
+                    Duration.ofSeconds(5),
+                    Map.of("jsonrpc", "2.0", "id", 950, "method", "ping"));
+            assertEquals(200, ping.statusCode(), "a stalled host write must not starve lifecycle requests");
+
+            // And: the request beyond the bound fails explicitly instead of queueing forever.
+            final long rejections = writes.stream()
+                    .map(McpHttpServerIntegrationTest::quietly)
+                    .filter(response -> response != null && response.statusCode() == 503)
+                    .count();
+            assertTrue(rejections >= 1, "the over-bound host write must fail explicitly, not queue");
+        } finally {
+            callers.shutdownNow();
+            server.close();
+        }
+    }
+
+    private static void awaitInFlight(final StalledUi ui, final int expected) {
+        final long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (ui.submitted() < expected) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("host work did not reach the UI queue: " + ui.submitted());
+            }
+            try {
+                Thread.sleep(10L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(interrupted);
+            }
+        }
+    }
+
+    private static HttpResponse<byte[]> quietly(final Future<HttpResponse<byte[]>> response) {
+        try {
+            return response.get(30, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception pending) {
+            return null;
+        }
+    }
+
+    /** UiScheduler that records host work and never runs it, standing in for a busy host thread. */
+    private static final class StalledUi implements UiScheduler {
+        private final AtomicInteger submitted = new AtomicInteger();
+
+        int submitted() {
+            return submitted.get();
+        }
+
+        @Override
+        public Registration runOnUiThread(final Runnable work) {
+            submitted.incrementAndGet();
+            return () -> {};
+        }
+
+        @Override
+        public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+            return runOnUiThread(work);
+        }
+    }
+
     private static Map<String, Object> object(final Object value) {
         if (!(value instanceof Map<?, ?> raw)) {
             throw new AssertionError("Expected JSON object but got " + value);
@@ -2475,6 +2603,25 @@ final class McpHttpServerIntegrationTest {
     private McpHttpServer.Dependencies dependencies(
             final PluginLogger logger, final ModelObjectService objects, final FakeReadServices reads) {
         return dependencies(logger, objects, reads, temporaryDirectory);
+    }
+
+    private McpHttpServer.Dependencies dependencies(
+            final PluginLogger logger,
+            final ModelObjectService objects,
+            final FakeReadServices reads,
+            final Path stateDir,
+            final UiScheduler uiScheduler) {
+        return new McpHttpServer.Dependencies(
+                logger,
+                objects,
+                reads.hierarchy,
+                reads.selection,
+                reads.read,
+                reads.clipMasks,
+                uiScheduler,
+                stateDir,
+                0,
+                120);
     }
 
     private McpHttpServer.Dependencies dependencies(

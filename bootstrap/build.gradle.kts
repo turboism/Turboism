@@ -10,6 +10,7 @@ import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 
 dependencies {
     testImplementation(project(":testing:test-support"))
+    testImplementation(libs.jackson.databind)
     implementation(project(":runtime"))
     implementation(project(":sdk"))
     // Framework composition includes only SDK, runtime and internal contracts.
@@ -34,6 +35,8 @@ val frameworkUpdateResourcesDir =
         ?.let { rootProject.file(it) }
 
 tasks.named<Test>("test") {
+    systemProperty("turboism.test.repositoryRoot", rootProject.projectDir.absolutePath)
+    inputs.file(rootProject.file("compatibility/cubism/version-boundaries.json"))
     // Forward optional real-host evidence to the forked test JVM.
     providers.systemProperty("turboism.test.cubismEditorJar").orNull?.let {
         systemProperty("turboism.test.cubismEditorJar", it)

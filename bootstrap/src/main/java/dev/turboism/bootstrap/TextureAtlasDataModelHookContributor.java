@@ -21,6 +21,11 @@ final class TextureAtlasDataModelHookContributor implements HookContributor {
     }
 
     @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("texture-atlas");
+    }
+
+    @Override
     public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }

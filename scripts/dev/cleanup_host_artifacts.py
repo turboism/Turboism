@@ -11,7 +11,7 @@ Safely scans, reports, and removes disposable host validation temporary files:
 
 Strict safety rules:
   - NEVER removes or traverses the Golden Proton prefix.
-  - NEVER modifies or removes immutable source fixtures (.env specified).
+  - NEVER modifies or removes immutable source fixtures (`.env` and process environment).
   - NEVER modifies or removes Git-tracked source code.
   - NEVER terminates or removes active, running Cubism/Proton sessions.
   - Symlinks are unlinked directly and never traversed into target trees.
@@ -62,9 +62,57 @@ def parse_local_env(env_path: Path) -> dict[str, str]:
     return values
 
 
+class MergedEnv(dict):
+    """Merged environment that remembers every source it was built from.
+
+    Red-line variables (golden prefix, fixture sources) are protected for the
+    values of *all* sources, not only for the value that won the merge.
+    """
+
+    sources: tuple[dict[str, str], ...] = ()
+
+
+HOST_ROOT_KEYS = ("TURBOISM_HOST_VALIDATION_HOST_ROOT", "TURBOISM_HOST_VALIDATION_REMOTE_ROOT")
+
+
+def resolve_env(env_path: Path, environ: dict[str, str] | None = None) -> MergedEnv:
+    """Merge repository `.env` with the process environment.
+
+    The process environment wins for ordinary keys, including the host root.
+    Red-line variables are different: the golden prefix and every fixture source
+    from `.env` *and* from the process environment stay protected, so an export
+    can only make the guard stricter, never replace a `.env` protection.
+    `SafetyContext.create` reads them through `MergedEnv.sources`.
+
+    Blank values are ignored: an exported empty string must not erase the
+    `.env` value, because an empty golden prefix disables the red line.
+    """
+    dotenv_all = {key: val for key, val in parse_local_env(env_path).items() if val and val.strip()}
+    process_env = os.environ if environ is None else environ
+    process = {key: val for key, val in process_env.items() if val and val.strip()}
+    # A process-level host root (either alias) replaces the `.env` host root as a
+    # whole; otherwise a `.env` HOST_ROOT would outrank a process REMOTE_ROOT.
+    dotenv = dotenv_all
+    if any(key in process for key in HOST_ROOT_KEYS):
+        dotenv = {key: val for key, val in dotenv_all.items() if key not in HOST_ROOT_KEYS}
+    merged = MergedEnv(dotenv)
+    merged.update(process)
+    merged.sources = (dotenv_all, process)
+    return merged
+
+
+def first_nonblank(env: dict[str, str], *keys: str) -> str | None:
+    """Return the first non-blank value for `keys`, or None."""
+    for key in keys:
+        val = env.get(key)
+        if val and val.strip():
+            return val
+    return None
+
+
 @dataclasses.dataclass(frozen=True)
 class SafetyContext:
-    golden_prefix: Path | None
+    golden_prefixes: tuple[Path, ...]
     source_fixtures: tuple[Path, ...]
     source_fixture_inodes: tuple[tuple[int, int], ...]
     repo_root: Path
@@ -75,31 +123,44 @@ class SafetyContext:
     def create(cls, repo_root: Path, env: dict[str, str]) -> SafetyContext:
         user_home = Path.home().resolve()
 
-        golden_raw = env.get("TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX")
-        golden_prefix = Path(golden_raw).resolve() if golden_raw else None
+        # Red lines are the union over every source, not the merge winner.
+        sources = tuple(getattr(env, "sources", ())) or (env,)
+        golden_prefixes: list[Path] = []
+        for source in sources:
+            golden_raw = source.get("TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX")
+            if golden_raw and golden_raw.strip():
+                golden = Path(golden_raw).resolve()
+                if golden not in golden_prefixes:
+                    golden_prefixes.append(golden)
 
         default_host_root = str(user_home / "TurboismValidation")
-        host_root_raw = env.get(
+        host_root_raw = first_nonblank(
+            env,
             "TURBOISM_HOST_VALIDATION_HOST_ROOT",
-            env.get("TURBOISM_HOST_VALIDATION_REMOTE_ROOT", default_host_root)
-        )
+            "TURBOISM_HOST_VALIDATION_REMOTE_ROOT",
+        ) or default_host_root
         host_root = Path(host_root_raw).resolve()
 
         # Collect all configured fixture sources
         fixture_paths = []
         fixture_inodes = []
-        for key, val in env.items():
-            if key.startswith("TURBOISM_HOST_VALIDATION_FIXTURE_") and not key.endswith(("_SHA256", "_NAME")):
-                p = Path(val).resolve()
-                fixture_paths.append(p)
-                try:
-                    st = p.stat()
-                    fixture_inodes.append((st.st_dev, st.st_ino))
-                except OSError:
-                    pass
+        for source in sources:
+            for key, val in source.items():
+                if key.startswith("TURBOISM_HOST_VALIDATION_FIXTURE_") and not key.endswith(("_SHA256", "_NAME")):
+                    if not val or not val.strip():
+                        continue
+                    p = Path(val).resolve()
+                    if p in fixture_paths:
+                        continue
+                    fixture_paths.append(p)
+                    try:
+                        st = p.stat()
+                        fixture_inodes.append((st.st_dev, st.st_ino))
+                    except OSError:
+                        pass
 
         return cls(
-            golden_prefix=golden_prefix,
+            golden_prefixes=tuple(golden_prefixes),
             source_fixtures=tuple(fixture_paths),
             source_fixture_inodes=tuple(fixture_inodes),
             repo_root=repo_root.resolve(),
@@ -132,10 +193,10 @@ class SafetyContext:
             raise SecurityError(f"Refusing to delete critical root: {path}")
 
         # 2. Golden prefix protection
-        if self.golden_prefix is not None:
-            if resolved == self.golden_prefix or path == self.golden_prefix:
+        for golden_prefix in self.golden_prefixes:
+            if resolved == golden_prefix or path == golden_prefix:
                 raise SecurityError(f"Refusing to delete golden prefix: {path}")
-            if self.golden_prefix in resolved.parents or resolved in self.golden_prefix.parents:
+            if golden_prefix in resolved.parents or resolved in golden_prefix.parents:
                 raise SecurityError(f"Path overlaps with golden prefix: {path}")
 
         # 3. Source fixture protection
@@ -507,12 +568,19 @@ def run_cleanup(
     dry_run: bool = False,
     repo_root: Path | None = None,
     env_file: Path | None = None,
+    environ: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute cleanup inspection or removal according to arguments."""
     repo = repo_root or find_repo_root()
     env_path = env_file or repo / ".env"
-    env = parse_local_env(env_path)
+    env = resolve_env(env_path, environ)
     context = SafetyContext.create(repo, env)
+    if not dry_run and not context.golden_prefixes:
+        print(
+            "Warning: no TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env or the process environment; "
+            "the golden-prefix red line is inactive for this run.",
+            file=sys.stderr,
+        )
 
     all_items: list[ArtifactItem] = []
     seen_paths: set[Path] = set()

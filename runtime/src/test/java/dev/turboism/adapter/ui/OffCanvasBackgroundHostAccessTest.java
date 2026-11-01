@@ -27,6 +27,66 @@ class OffCanvasBackgroundHostAccessTest {
                 () -> new OffCanvasBackgroundHostAccess(artifact, getClass().getClassLoader()));
     }
 
+    @Test
+    void resolvesMaterialSignatureAcrossEveryReviewedVersion() throws Exception {
+        for (String version : dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions()) {
+            // Bytecode inspection of every reviewed artifact puts the signature change here.
+            final boolean indexed =
+                    dev.turboism.internal.ReviewedVersions.since("5.3.00").contains(version);
+            final Class<?> material = indexed ? IndexedMaterial.class : LegacyMaterial.class;
+            assertEquals(
+                    indexed ? 3 : 2,
+                    OffCanvasBackgroundHostAccess.materialColorSetter(version, material, Color.class)
+                            .getParameterCount(),
+                    version);
+        }
+    }
+
+    @Test
+    void probesIndexedSignatureWithoutInferringTheMinorLine() throws Exception {
+        assertEquals(
+                3,
+                OffCanvasBackgroundHostAccess.materialColorSetter("5.4.00", IndexedMaterial.class, Color.class)
+                        .getParameterCount());
+        assertEquals(
+                2,
+                OffCanvasBackgroundHostAccess.materialColorSetter("5.3.02", LegacyMaterial.class, Color.class)
+                        .getParameterCount());
+    }
+
+    @Test
+    void rejectsAbsentAmbiguousStaticAndWrongReturnSignatures() {
+        for (Class<?> material :
+                List.of(Object.class, AmbiguousMaterial.class, StaticMaterial.class, WrongReturn.class)) {
+            assertThrows(
+                    NoSuchMethodException.class,
+                    () -> OffCanvasBackgroundHostAccess.materialColorSetter("5.3.02", material, Color.class),
+                    material.getName());
+        }
+    }
+
+    public static class LegacyMaterial {
+        public void setColor(final String name, final Color value) {}
+    }
+
+    public static class IndexedMaterial {
+        public void setColor(final String name, final Color value, final Integer index) {}
+    }
+
+    public static class AmbiguousMaterial extends LegacyMaterial {
+        public void setColor(final String name, final Color value, final Integer index) {}
+    }
+
+    public static class StaticMaterial {
+        public static void setColor(final String name, final Color value, final Integer index) {}
+    }
+
+    public static class WrongReturn {
+        public Color setColor(final String name, final Color value, final Integer index) {
+            return value;
+        }
+    }
+
     /** Opt-in real-class regression; licensed jars remain external to the repository. */
     @Test
     void refreshesExistingAndFutureBackgroundMaterialsAcrossReviewedHosts() throws Exception {
@@ -73,7 +133,12 @@ class OffCanvasBackgroundHostAccessTest {
                 .getReturnType();
         final Object first = settings.getConstructor().newInstance();
         final Object second = settings.getConstructor().newInstance();
-        final boolean indexed = jar.getParent().getFileName().toString().startsWith("5.3.");
+        final Class<?> nativeMaterial = loader.loadClass("com.live2d.graphics3d.material.GMaterial");
+        final Class<?> nativeColor = loader.loadClass("com.live2d.type.CColor");
+        final boolean indexed =
+                OffCanvasBackgroundHostAccess.materialColorSetter("evidence", nativeMaterial, nativeColor)
+                                .getParameterCount()
+                        == 3;
         assertEquals(initial, materialColor(first, indexed));
 
         for (Color next : List.of(dark, light, initial)) {

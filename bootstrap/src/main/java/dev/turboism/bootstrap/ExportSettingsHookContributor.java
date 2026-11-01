@@ -33,6 +33,11 @@ final class ExportSettingsHookContributor implements HookContributor {
         return true;
     }
 
+    @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("protected-export");
+    }
+
     /**
      * Export-settings admission: the ordinary reviewed-runtime gate plus this hook's own exact
      * release requirement.

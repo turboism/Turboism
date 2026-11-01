@@ -64,8 +64,12 @@ exec bash "$runner" \
   --result-file 'state/parameter-batch-transfer-validation-result.properties' \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \
+  --result-fail-line 'status=BLOCKED' \
+  --result-fail-line 'status=SKIPPED' \
+  --require-assertions \
   --failure-marker 'PBT_MATRIX_RESULT status=FAIL' \
   --failure-marker 'PBT_MATRIX_RESULT status=BLOCKED' \
+  --failure-marker 'PBT_MATRIX_RESULT status=SKIPPED' \
   --failure-marker 'PBT_PROBE_FLAG_TIMEOUT' \
   --ready-timeout 300 \
   --result-timeout 900 \

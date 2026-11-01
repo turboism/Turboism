@@ -55,7 +55,12 @@ exec bash "$runner" \
   --result-file 'state/animation-timeline-validation-result.properties' \
   --result-pass-line 'terminal=PASS' \
   --result-fail-line 'terminal=FAIL' \
+  --result-fail-line 'terminal=BLOCKED' \
+  --result-fail-line 'terminal=SKIPPED' \
+  --require-assertions \
   --failure-marker 'ANIM_MATRIX_RESULT status=FAIL' \
+  --failure-marker 'ANIM_MATRIX_RESULT status=BLOCKED' \
+  --failure-marker 'ANIM_MATRIX_RESULT status=SKIPPED' \
   --failure-marker 'ANIM_PROBE_FLAG_TIMEOUT' \
   --ready-timeout 300 \
   --result-timeout 900 \

@@ -70,8 +70,8 @@ Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never commi
 | Gate | What it checks | When to run it |
 | --- | --- | --- |
 | focused compile/test | the narrowest affected `:module:compileJava`, `:module:test --tests '<class>'` | during implementation |
-| `devCheck` | every production `classes` task plus permanent structural boundaries: duplicate Java imports, package layout, module boundaries, code-quality ratchet (Javadoc/naming/assets), repository hygiene, Editor-model alias admission, version-set monotonicity/registry, SDK Cubism annotation coverage, compatibility-matrix freshness, plugin metadata validation, fx-broker argument contracts, `scripts/` ruff lint — plus the offline admission unit-test suites (`:runtime:admissionUnitTests`, `:sdk:test`, `:bootstrap:test`, `:testing:integration-tests:admissionUnitTests`) | slices that touch structural boundaries, plugin metadata, code-quality ratchets, repository hygiene, or admission/mapping expectations |
-| `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, preview bootstrap bridge and plugin runtime, external plugin-template consumer check | when a change crosses module, packaging, or preview-agent seams |
+| `devCheck` | every production `classes` task plus permanent structural boundaries: duplicate Java imports, package layout, module boundaries, plugin boundaries and permission audit, code-quality ratchet (Javadoc/naming/assets), repository hygiene, Editor-model alias admission, reviewed-release integrity, patch-line monotonicity and literal-set admission (`checkReviewedReleases`), SDK Cubism annotation coverage, compatibility-matrix freshness, plugin metadata validation, plugin API ranges, generated subscriber-catalog verification, installer plugin-section freshness, ASM dependency-model and resolved-bytecode-graph admission, `scripts/` ruff lint, shell lint — plus the offline admission unit-test suites (`:runtime:admissionUnitTests`, `:sdk:test`, `:bootstrap:test`, `:testing:integration-tests:admissionUnitTests`) | slices that touch structural boundaries, plugin metadata, code-quality ratchets, repository hygiene, or admission/mapping expectations |
+| `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, locale host-validation wrapper contract (`:testing:integration-tests:hostValidationScriptContractTest`), preview bootstrap bridge and plugin runtime, external plugin-template consumer check | when a change crosses module, packaging, or preview-agent seams |
 | `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, `spotlessCheck`, `checkThrowableContainment`, `checkLocalizedChangelogs`, official-plugin i18n completeness and README checks, SDK API baseline tool and current-surface check, module-boundary/code-quality/hygiene selftests, plugin event reference determinism | once, when a coherent change is ready to land |
 | `checkRelease` | `checkCompletedCommit` plus supply-chain and release-artifact checks: ASM admission and resolved bytecode dependency graph, release tooling selftests, SDK exact-API audits for every anchored baseline — all historical baselines plus the newest live one — and linkage, market release metadata, Java/Windows installer and localization checks | release work only; requires `-PinstallerVersion=<release-version> -PturboismRelease=true` matching the framework version |
 | host validation | exact-version Cubism runs through `validate*Host<version>` tasks (parameter, workspace, theme, clip-mask, PSD import, FPS, status bar, bounding-box overlay, separate save path) | explicitly selected per affected feature and Cubism version; needs a separately installed licensed Editor; never part of a default aggregate |
@@ -158,9 +158,9 @@ first-party plugin — never implement for a few versions and move on.
   `scripts/version-monotonicity-exceptions.json`.
 - **Patch lines are monotonic.** Inside one minor line a newer patch's
   capability set is a superset of every older patch's (5.3.04 ⊇ 5.3.03 ⊇
-  5.3.02 …). `checkVersionMonotonicity` in `devCheck` enforces upward closure
-  across verification records, annotations, class pins, validation tasks, and
-  literal sets; sanctioned violations live in
+  5.3.02 …). The R2 patch-closure check inside `checkReviewedReleases` in
+  `devCheck` enforces upward closure across verification records, annotations,
+  class pins, validation tasks, and literal sets; sanctioned violations live in
   `scripts/version-monotonicity-exceptions.json` with a `pending` owner or
   `evidence`.
 - **Derive, do not hand-write.** Review a selector or record on one reference
@@ -170,8 +170,9 @@ first-party plugin — never implement for a few versions and move on.
   and record a per-version reason for every version the propagation cannot
   reach. New literal version sets in production sources
   (`Set.of("5.x.yy", …)`, `SUPPORTED_VERSIONS`, dispatch tables) must be
-  registered in `scripts/version-set-registry.json` with a basis and reason —
-  `checkVersionSetRegistry` fails on unregistered or stale entries.
+  registered in `scripts/reviewed-release-literal-exceptions.json` with a basis
+  and reason — the R3 literal-set check inside `checkReviewedReleases` fails on
+  unregistered or stale entries.
 - **Annotate SDK API.** New public types and methods under
   `dev.turboism.sdk.cubism` must carry `@CubismEditor` — on the member or on
   its owning type. Exact `value` lists admit only the named reviewed
@@ -226,6 +227,13 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
 - **Python lint**: `devCheck` runs `checkPythonLint`, which needs the pinned
   ruff release (`python3 -m pip install "ruff==0.16.9"` or an equivalent
   `ruff` binary on `PATH`). The rule set lives in `ruff.toml`.
+- **Shell lint**: `devCheck` runs `checkShellLint`, which requires `shellcheck`
+  (`apt-get install shellcheck` on Debian/Ubuntu, `brew install shellcheck` on
+  macOS). The gate fails closed when the binary is missing instead of skipping,
+  so install it before running `devCheck` or the final gates. Set
+  `SHELLCHECK_BIN` to use a non-default path.
+- **Git**: the cleanup and worktree gates shell out to `git`, so run them from a
+  normal checkout with a configured identity.
 
 See the project documentation at https://docs.turboism.dev for the current
 architecture and contributor guidance.

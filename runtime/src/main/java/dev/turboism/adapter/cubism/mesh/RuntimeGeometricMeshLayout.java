@@ -42,6 +42,16 @@ import javax.swing.SwingUtilities;
 
 /** Runtime-owned geometric mesh point-and-edge layout controller bound to one mesh-tool activation. */
 final class RuntimeGeometricMeshLayout implements MeshBrush {
+    /**
+     * The only plugin identity this runtime brush is bound to. The value is the plugin id the
+     * plugin declares in its own {@code plugin.json}; the runtime does not verify that the JAR is
+     * first-party. A tool that merely reuses the tool identifier never reaches the brush, but a
+     * third-party JAR that declares this plugin id can reach it after capability and permission
+     * admission. The required {@code cubism.mesh.custom-tools} capability and user-granted model
+     * read/write permissions bound its operations; they do not establish first-party provenance.
+     */
+    static final String OWNER_PLUGIN_ID = "dev.turboism.plugin.geometric-mesh-layout";
+
     static final String TOOL_ID = "geometric-mesh-layout";
     private static final int MAX_POSITION_RETRIES = 20;
     private static final String ESCAPE_ACTION_KEY = "turboism:geometric-mesh-layout-deactivate";
@@ -178,8 +188,38 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         this.overlay = new GeometricMeshOverlayPanel(this::capturesInputAt);
     }
 
-    static boolean matches(final MeshTool tool) {
-        return tool != null && TOOL_ID.equals(tool.id());
+    /**
+     * Selects the runtime brush for one registered tool. Both the manifest-declared owning plugin
+     * identity and the tool identifier must match, so a plugin that reuses the identifier keeps its
+     * own (generic) brush instead of silently receiving runtime behaviour it never declared.
+     *
+     * @param pluginId the manifest-declared identity registered by the tool's plugin, may be null
+     * @param tool the registered tool, may be null
+     * @return {@code true} only for the owning plugin's own tool
+     */
+    static boolean matches(final String pluginId, final MeshTool tool) {
+        return OWNER_PLUGIN_ID.equals(pluginId) && tool != null && TOOL_ID.equals(tool.id());
+    }
+
+    /**
+     * Fail-closed admission for the runtime brush: the owning plugin identity plus the read and
+     * write permissions the brush actually exercises. Capability admission has already happened
+     * upstream — {@code cubism.mesh.custom-tools} is required to register any mesh tool — so this
+     * gate adds the per-surface authorization the identifier comparison lacked.
+     *
+     * @param pluginId the manifest-declared identity of the activating plugin
+     * @param permissions the activating plugin's permission checker
+     * @throws IllegalStateException when the tool is not owned by {@link #OWNER_PLUGIN_ID}
+     * @throws dev.turboism.sdk.permission.CubismPermissionException when a required grant is missing
+     */
+    static void requireOwner(final String pluginId, final PermissionChecker permissions) {
+        Objects.requireNonNull(permissions, "permissions");
+        if (!OWNER_PLUGIN_ID.equals(pluginId)) {
+            throw new IllegalStateException(
+                    "geometric mesh layout is reserved for plugin " + OWNER_PLUGIN_ID + ", not " + pluginId);
+        }
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.activate");
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.geometric-layout.activate");
     }
 
     static RuntimeGeometricMeshLayout production(
@@ -194,6 +234,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         lease.requireCurrent();
         Objects.requireNonNull(tool, "tool");
         Objects.requireNonNull(permissions, "permissions");
+        requireOwner(lease.pluginId(), permissions);
         if (!(lease.session() instanceof NativeMeshToolSession session)) {
             throw new IllegalStateException("geometric mesh layout requires an exact native mesh-tool session");
         }

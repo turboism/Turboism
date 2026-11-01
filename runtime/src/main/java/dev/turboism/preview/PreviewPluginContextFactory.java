@@ -121,6 +121,15 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         return servicesFactory.acquireEventContracts(descriptor, pluginJar);
     }
 
+    /**
+     * Resolves the file-chooser history view one context receives: the shell's reserved identity
+     * keeps the writable surface, every plugin gets the read-only view.
+     */
+    static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryFor(
+            final String pluginId, final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service) {
+        return dev.turboism.filechooser.FileChooserHistoryAdmission.forCaller(pluginId, service);
+    }
+
     Object hostAccessIdentity() {
         return hostAccess;
     }
@@ -174,7 +183,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                             .pluginStorage(services.pluginStorage())
                             .userFiles(services.userFiles())
                             .hostReads(services.hostReads())
-                            .fileChooserHistory(fileChooserHistory)
+                            .fileChooserHistory(fileChooserHistoryFor(requestedDescriptor.id(), fileChooserHistory))
                             .exportSettings(services.exportSettings())
                             .mcpConnectionService(services.mcpConnections())
                             .build();

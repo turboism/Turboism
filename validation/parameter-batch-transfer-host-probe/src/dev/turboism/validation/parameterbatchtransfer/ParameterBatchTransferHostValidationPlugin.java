@@ -18,6 +18,7 @@ import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.validation.shared.verdict.ProbeAssertions;
 
 import javax.swing.SwingUtilities;
 import java.awt.Robot;
@@ -107,7 +108,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
-    private final List<Assertion> assertions = new ArrayList<>();
+    private final ProbeAssertions assertions = new ProbeAssertions();
 
     private String modelId = "unknown";
     private String ownerType = "none";
@@ -173,7 +174,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             recordAssertion("matrix.unexpectedFailure", "no exception", singleLine(failure), "FAIL");
             logger.error("PBT_MATRIX_FAILED " + singleLine(failure), failure);
         }
-        final String terminal = computeTerminal();
+        final String terminal = assertions.terminal().name();
         writeResultFile(startedNanos);
         logger.info("PBT_MATRIX_RESULT status=" + terminal
             + " ownerType=" + ownerType
@@ -181,7 +182,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             + " bound=" + boundCount
             + " source=" + sourceParameter
             + " target=" + targetParameter
-            + " assertions=" + assertions.size()
+            + " " + assertions.counts()
             + " durationMillis=" + ((System.nanoTime() - startedNanos) / 1_000_000L));
         try {
             Thread.sleep(3_000L);
@@ -281,8 +282,10 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
      *
      * <p>Records the SDK-reported type/combined/markers for every parameter and
      * asserts that a morph (or combined) source row is offered only same-category
-     * targets. When the model has no morph/combined parameter the related
-     * assertions are recorded as SKIPPED with the scan evidence.</p>
+     * targets. A source kind the model does not contain leaves nothing to filter:
+     * the related assertion is recorded as INFO with the scan evidence, so a model
+     * without that kind of parameter does not turn the run into SKIPPED. The morph
+     * transfer itself is exercised by the apply matrix on a synthesized fixture.</p>
      */
     private void runClassificationMatrix(
         final List<BoundSnapshot> candidates,
@@ -329,8 +332,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (morphSource == null) {
             recordAssertion("classify.morph.filter",
                 "morph source row offers only morph targets",
-                "skipped: no morph parameter in model (morphCount=" + morphCount + ")",
-                "SKIPPED");
+                "not applicable: no morph parameter in model (morphCount=" + morphCount + ")",
+                "INFO");
         } else {
             final List<BoundSnapshot> morphTargets = targetCandidates(candidates, bound, morphSource);
             final boolean onlyMorph = morphTargets.stream().allMatch(BoundSnapshot::morph);
@@ -346,8 +349,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (combinedSource == null) {
             recordAssertion("classify.combined.filter",
                 "combined source row offers no morph targets",
-                "skipped: no combined parameter in model (combinedCount=" + combinedCount + ")",
-                "SKIPPED");
+                "not applicable: no combined parameter in model (combinedCount=" + combinedCount + ")",
+                "INFO");
         } else {
             final List<BoundSnapshot> combinedTargets = targetCandidates(candidates, bound, combinedSource);
             final boolean noMorph = combinedTargets.stream().noneMatch(BoundSnapshot::morph);
@@ -363,8 +366,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (normalSource == null) {
             recordAssertion("classify.normal.filter",
                 "normal source row offers no morph targets",
-                "skipped: no normal parameter in model",
-                "SKIPPED");
+                "not applicable: no normal parameter in model",
+                "INFO");
         } else {
             final List<BoundSnapshot> normalTargets = targetCandidates(candidates, bound, normalSource);
             final boolean noMorph = normalTargets.stream().noneMatch(BoundSnapshot::morph);
@@ -469,13 +472,15 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 true, "row.invert", robot
             );
         } else {
+            // With candidates left, the clamped rows below carry the verdict; this step only
+            // reports that they replace the unclamped plain/invert rows.
             recordAssertion(
                 "apply.destination",
                 "a same-category range-contained target besides source",
                 rangeCandidates.isEmpty()
                     ? "none available"
                     : "none contains source and inverted points without collision",
-                rangeCandidates.isEmpty() ? "BLOCKED" : "SKIPPED"
+                rangeCandidates.isEmpty() ? "BLOCKED" : "INFO"
             );
         }
 
@@ -1751,8 +1756,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             recordAssertion(
                 "setup.fallback.source.parameter",
                 "optional existing-form fast path: existing global BLEND_SHAPE parameter",
-                "none",
-                "SKIPPED"
+                "none; the scaffold fixture setup runs instead",
+                "INFO"
             );
             return null;
         }
@@ -1853,7 +1858,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "optional existing-form fast path: existing global BLEND_SHAPE parameter + Drawable with >=3 distinct existing ACForms",
             "none; blendShapeParameters=" + sourceParameters.stream().map(ParameterId::value).toList()
                 + " rejects=" + rejectEvidence(rejects),
-            "SKIPPED"
+            "INFO"
         );
         return null;
     }
@@ -3673,7 +3678,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     // ------------------------------------------------------------------
 
     private void recordAssertion(final String name, final Object expected, final Object actual, final String status) {
-        assertions.add(new Assertion(name, singleLine(expected), singleLine(actual), status));
+        assertions.record(name, expected, actual, status);
     }
 
     private static String causeChain(final Throwable failure) {
@@ -3693,19 +3698,6 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         return text.length() > 4000 ? text.substring(0, 4000) : text;
     }
 
-    private String computeTerminal() {
-        boolean anyFail = false;
-        boolean anyBlocked = false;
-        for (final Assertion assertion : assertions) {
-            if ("FAIL".equals(assertion.status())) {
-                anyFail = true;
-            } else if ("BLOCKED".equals(assertion.status())) {
-                anyBlocked = true;
-            }
-        }
-        return anyFail ? "FAIL" : anyBlocked ? "BLOCKED" : "PASS";
-    }
-
     private void writeResultFile(final long startedNanos) {
         final Path result = stateDir.getParent().resolve("parameter-batch-transfer-validation-result.properties");
         try {
@@ -3722,26 +3714,19 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 .append("sourceParameter=").append(sourceParameter).append('\n')
                 .append("targetParameter=").append(targetParameter).append('\n')
                 .append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-            for (final Assertion assertion : assertions) {
-                report.append("assertion.").append(assertion.name()).append(".expected=")
-                    .append(assertion.expected()).append('\n')
-                    .append("assertion.").append(assertion.name()).append(".actual=")
-                    .append(assertion.actual()).append('\n')
-                    .append("assertion.").append(assertion.name()).append(".status=")
-                    .append(assertion.status()).append('\n');
-            }
-            report.append("status=").append(computeTerminal()).append('\n');
+            assertions.appendCounters(report);
+            assertions.appendNamed(report);
+            // The terminal verdict goes last: the Runner requires a positive verdict count
+            // as soon as it observes the pass line.
+            report.append("status=").append(assertions.terminal().name()).append('\n');
             Files.createDirectories(result.getParent());
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             logger.info("PBT_RESULT_WRITTEN result=" + result
-                + " status=" + computeTerminal() + " assertions=" + assertions.size());
+                + " status=" + assertions.terminal().name() + " " + assertions.counts());
         } catch (Exception failure) {
             logger.error("PBT_RESULT_WRITE_FAILED result=" + result + " " + singleLine(failure));
         }
-    }
-
-    private record Assertion(String name, String expected, String actual, String status) {
     }
 
     /** One parameter source snapshot (mirrors BoundParameterSnapshot semantics). */

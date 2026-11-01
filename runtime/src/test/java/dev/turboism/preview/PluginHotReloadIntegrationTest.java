@@ -262,6 +262,181 @@ class PluginHotReloadIntegrationTest {
         }
     }
 
+    /**
+     * A rollback whose reload of the previous generation fails must report a failure. The old
+     * code discarded the {@code loader.load} result and answered {@code rolledBack} anyway, which
+     * told the caller a plugin was running again when nothing was.
+     */
+    @Test
+    void rollbackLoadFailureReportsFailureInsteadOfRolledBack() throws Exception {
+        final Path home = temporary.resolve("rollback-load-failure-home");
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+
+        final Path v1Jar = plugins.resolve(PLUGIN_ID + ".jar");
+        writeJar(v1Jar, PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+
+        try (LocalPluginRuntime runtime = createRuntime(home)) {
+            runtime.loadAll();
+            assertTrue(runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID));
+
+            final Path brokenReplacement = temporary.resolve("v2-broken-again.jar");
+            writeJar(brokenReplacement, PLUGIN_ID, "0.2.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {
+                    @Override public void init(PluginContext context) {
+                        throw new RuntimeException("Deliberate replacement failure");
+                    }
+                }
+                """);
+            final Path brokenRollback = temporary.resolve("rollback-broken.jar");
+            writeJar(brokenRollback, PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {
+                    @Override public void init(PluginContext context) {
+                        throw new RuntimeException("Deliberate rollback failure");
+                    }
+                }
+                """);
+
+            final var result = runtime.hotReloadCoordinator().hotReload(PLUGIN_ID, brokenReplacement, brokenRollback);
+
+            assertFalse(result.succeeded(), "a failed rollback is not a success");
+            assertFalse(result.rolledBack(), "nothing was restored, so the result must not claim a rollback");
+            assertEquals("ROLLBACK_FAILED", result.code());
+            assertFalse(
+                    runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID),
+                    "no generation is live after a failed rollback");
+        }
+    }
+
+    /** An unreadable rollback candidate must fail the reload instead of reporting a rollback. */
+    @Test
+    void unreadableRollbackCandidateReportsFailureInsteadOfRolledBack() throws Exception {
+        final Path home = temporary.resolve("rollback-candidate-home");
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+
+        final Path v1Jar = plugins.resolve(PLUGIN_ID + ".jar");
+        writeJar(v1Jar, PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+
+        try (LocalPluginRuntime runtime = createRuntime(home)) {
+            runtime.loadAll();
+
+            final Path brokenReplacement = temporary.resolve("v2-broken-candidate.jar");
+            writeJar(brokenReplacement, PLUGIN_ID, "0.2.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {
+                    @Override public void init(PluginContext context) {
+                        throw new RuntimeException("Deliberate replacement failure");
+                    }
+                }
+                """);
+            final Path unreadableRollback = temporary.resolve("rollback-without-descriptor.jar");
+            writeJarWithoutPluginDescriptor(unreadableRollback);
+
+            final var result =
+                    runtime.hotReloadCoordinator().hotReload(PLUGIN_ID, brokenReplacement, unreadableRollback);
+
+            assertFalse(result.succeeded());
+            assertFalse(result.rolledBack(), "an unreadable candidate cannot roll anything back");
+            assertEquals("ROLLBACK_FAILED", result.code());
+        }
+    }
+
+    /**
+     * A failed unload hands the fenced generation to the shutdown retention watcher. The reload
+     * reports {@code UNLOAD_FAILED}, the generation leaves the live list, and a later runtime close
+     * does not close it a second time.
+     */
+    @Test
+    void failedUnloadDuringReloadLeavesTheGenerationToRetentionAndClosesItOnce() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
+        final Path home = temporary.resolve("unload-failure-home");
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+
+        final Path v1Jar = plugins.resolve(PLUGIN_ID + ".jar");
+        writeJar(v1Jar, PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+        final Path v2Jar = temporary.resolve("v2-unload-failure.jar");
+        writeJar(v2Jar, PLUGIN_ID, "0.2.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+
+        final LocalPluginRuntime runtime = createRuntime(home, (pluginId, phase) -> {
+            if (PLUGIN_ID.equals(pluginId) && "close".equals(phase)) {
+                closes.incrementAndGet();
+                throw new IllegalStateException("Deliberate close failure");
+            }
+        });
+        try {
+            runtime.loadAll();
+            assertTrue(runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID));
+
+            final var result = runtime.hotReloadCoordinator().hotReload(PLUGIN_ID, v2Jar, v1Jar);
+
+            assertFalse(result.succeeded());
+            assertEquals("UNLOAD_FAILED", result.code());
+            assertFalse(
+                    runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID),
+                    "the retained generation must not stay registered as live");
+            assertEquals(1, closes.get(), "the failed unload ran the close once");
+        } finally {
+            runtime.close();
+        }
+        assertEquals(1, closes.get(), "the runtime close must not close the retained generation again");
+    }
+
+    /** {@code hotUnload} follows the same ownership rule as the reload path. */
+    @Test
+    void failedHotUnloadDoesNotReturnTheGenerationToTheLiveList() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
+        final Path home = temporary.resolve("hot-unload-failure-home");
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+        writeJar(plugins.resolve(PLUGIN_ID + ".jar"), PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+
+        final LocalPluginRuntime runtime = createRuntime(home, (pluginId, phase) -> {
+            if (PLUGIN_ID.equals(pluginId) && "close".equals(phase)) {
+                closes.incrementAndGet();
+                throw new IllegalStateException("Deliberate close failure");
+            }
+        });
+        try {
+            runtime.loadAll();
+
+            final var result = runtime.hotReloadCoordinator().hotUnload(PLUGIN_ID);
+
+            assertEquals("UNLOAD_FAILED", result.code());
+            assertFalse(runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID));
+            assertEquals(1, closes.get());
+        } finally {
+            runtime.close();
+        }
+        assertEquals(1, closes.get(), "the runtime close must not close the retained generation again");
+    }
+
     @Test
     void hookContributingPluginForcedToRestartRequired() throws Exception {
         final Path home = temporary.resolve("hook-home");
@@ -294,6 +469,11 @@ class PluginHotReloadIntegrationTest {
     }
 
     private LocalPluginRuntime createRuntime(final Path home) throws IOException {
+        return createRuntime(home, (pluginId, phase) -> {});
+    }
+
+    private LocalPluginRuntime createRuntime(final Path home, final LocalPluginRuntime.PluginCloseHook closeHook)
+            throws IOException {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
@@ -301,8 +481,15 @@ class PluginHotReloadIntegrationTest {
                 ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
-        return new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log, (dev.turboism.internal.core.ShellAdmission) null);
+        return new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, closeHook);
+    }
+
+    /** A syntactically valid archive that carries no plugin descriptor, so discovery rejects it. */
+    private static void writeJarWithoutPluginDescriptor(final Path destination) throws Exception {
+        Files.createDirectories(destination.getParent());
+        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(destination))) {
+            addEntry(out, "META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n".getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private void writeJar(

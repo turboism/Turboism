@@ -403,6 +403,25 @@ public class EditorInspectorDrawableWriteTest {
         assertEquals(1, fixture5302.document.editMode.edits.size());
     }
 
+    /**
+     * A successor reviewed generation must not fall back to the reduced 5.2 alpha-composition
+     * semantics. Its record carries the alpha-composition member family, so the write must go
+     * through instead of being rejected as "unavailable on Cubism 5.2 hosts".
+     */
+    @Test
+    void setAlphaCompositionWritesOnASuccessorReviewedGeneration() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var mesh = new EditorBackedCubismModelAccess(resolver("5.4.00", true), "session-a")
+                .active()
+                .drawables()
+                .find(new ArtMeshId("ArtMeshFace"));
+
+        mesh.setAlphaComposition(AlphaComposition.DISJOINT);
+        assertEquals("DISJOINT", fixture.meshSource.alphaCompositionValue);
+        assertEquals(1, fixture.document.editMode.edits.size());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setCullingWritesSourceAndRefreshesShader(final String version) {

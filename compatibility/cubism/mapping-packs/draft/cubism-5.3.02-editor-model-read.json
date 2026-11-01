@@ -20886,6 +20886,139 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas"
       },
       "descriptor": "(ZZLcom/live2d/util/a/a;)V"
+    },
+    {
+      "confidence": "high",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget;)V",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.morph-target-set.remove",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "remove",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.morph-target-set_remove",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet"
+      }
+    },
+    {
+      "confidence": "high",
+      "descriptor": "(Lcom/live2d/type/CParameterGuid;)V",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.morph-target.set-parameter",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "setParameter",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.morph-target_set-parameter",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget"
+      }
+    },
+    {
+      "confidence": "high",
+      "descriptor": "(Lcom/live2d/type/CParameterGuid;Ljava/lang/Float;)V",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.morph-target.set-parameter-and-key-value",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "setParameterAndKeyValue",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.morph-target_set-parameter-and-key-value",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget"
+      }
+    },
+    {
+      "confidence": "high",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/parts/CPartSource;)V",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.parameter-controllable-source.internal-set-parent",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "internal_setParent",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.source_internal_set_parent",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
+      }
+    },
+    {
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/type/CParameterGroupGuid;",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.parameter-group.guid",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "getGuid",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.parameter-group_guid",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/group/CParameterGroup"
+      }
+    },
+    {
+      "confidence": "high",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;)V",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.part-source.remove-child",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "removeChild",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.part_source_remove_child",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
+      }
+    },
+    {
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CPartId;",
+      "intermediary": "",
+      "kind": "method",
+      "name": "cubism.editor-model.part.id",
+      "owner": "editor-model-readwrite",
+      "profile": "cubism-5.3.02",
+      "runtime": "getId",
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.part_id",
+      "source": "exact-public-classfile-observation",
+      "stability": "experimental",
+      "status": "DRAFT",
+      "verifiedAt": null,
+      "verifiedBy": "none",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPart"
+      }
     }
   ],
   "metadata": {
@@ -20897,7 +21030,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 1111
     },
-    "selectorCount": 1130,
+    "selectorCount": 1137,
     "capabilityCount": 119,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -21020,7 +21153,7 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "942632cb2a17cea65c75f4e29da5b203e6783ad606085cd32ff6acb39fadb19d",
+    "verificationRecordSha256": "bae389400be14ba26ab066aaa83228905378ad9f583282d5dcbfed01aa5b9053",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 41922739,
     "profileId": "cubism-5.3.02",

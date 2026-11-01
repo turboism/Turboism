@@ -120,6 +120,14 @@ SDK APIs use Turboism-owned types only. They must not expose:
 - runtime implementation types;
 - mutable arrays whose ownership belongs to Cubism.
 
+Sole documented exception to the no-native-handle surface rule: `OwnedMoc.nativeHandle()`
+and `OwnedModel.nativeHandle()` return the opaque Cubism Core handle of the owned instance
+as a `long`. The value is Core identity used for diagnostics and for telling owned instances
+apart; Java code cannot dereference it, no Turboism API accepts it back as a host object, and
+it authorizes no Core or Editor operation. The exception is closed, not a precedent: no other
+SDK type may expose a native handle, neither method may gain overloads or companion accessors,
+and the shape stays frozen in the published API baselines.
+
 Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs. The full version-adaptation contract — coverage targets, evidence requirements, derivation tooling, and the `devCheck` gates that enforce it — lives in `CONTRIBUTING.md` under "Cubism version adaptation".
 
 Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
@@ -199,7 +207,26 @@ interface. Terminal bypass is name + zero-arity by design: the SDK terminal surf
 many interfaces with heterogeneous return types, so a signature allowlist could silently
 miss a release and leak resources; a missed terminal call is a worse failure than
 over-admitting a coincidental same-named no-arg call. The surface must never widen — a
-verb taking any argument stays fenced.
+verb taking any argument stays fenced, except the one documented exemption below.
+
+One documented exception to the zero-arity rule: `UiScheduler.runUiTeardown(cleanup, timeout)`
+takes arguments and still passes the fence. `disable()`, `shutdown()` and scope closers always
+run after fencing, and this verb exists so they can release windows and other UI resources. It
+is matched by exact declaring type and method name, so no other method can ride on it. The
+exemption releases UI resources only: a plugin must not use it to run other host operations
+after fencing, and no second argument-taking verb may be added to the exemption.
+
+依赖方向（plugin → sdk → runtime）的封闭例外：仅 `EarlyThemeAppearanceBootstrap`
+可以在插件加载前读取 `ui-theme` 的选择文档
+`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`。
+文档限 typed-config schema version 1，选择键限 `selected-theme`，原生主题哨兵限 `__native__`。
+该读取器还可以读取 `data/dev.turboism.plugin.uitheme/themes/` 下所选主题包的颜色数据。
+Cubism 在首次访问 GL 场景时缓存画布外背景色，因此颜色注入必须早于插件加载和 SDK 服务初始化。
+当前仅有这个启动前消费者，因此保留读取器，不新增公共 SDK 契约。
+读取器只读，校验完整文档结构。格式无效时只输出一条有界诊断。
+例外仅覆盖此读取器、此选择文档及上述所选主题颜色数据，不允许其他运行时读取器或插件私有文档。
+`ThemeSelectionConfigTest` 与 `EarlyThemeAppearanceBootstrapTest` 分别在各自模块固定同一组常量。
+运行时测试不读取插件源码。
 
 ## 6. Invocation and event lifecycle
 
@@ -267,6 +294,16 @@ turboism.host.unsafe
 ```
 
 Permission ids are declared at the granularity a reviewer must approve and the runtime must be able to revoke. Surfaces that attach a plugin to shared host UI therefore carry their own contribution permissions — `turboism.ui.menu.contribute`, `turboism.ui.toolbar.main.contribute`, `turboism.ui.panel.contribute`, `turboism.ui.context-menu.contribute`, `turboism.ui.dialog.contribute`, `turboism.ui.canvas.hint`, and so on — rather than riding on a blanket UI grant. First-party manifests declare them exactly the way third-party plugins do; the fine granularity exists so each contribution can be audited and revoked independently.
+
+Rewriting host UI through a runtime service is governed by that service's own capability and
+permission contract. It is not a `ui.*` contribution and neither requires nor implies one, and
+it is not a blanket UI grant. Two shipped instances: `physics-editor` rewrites the native
+Physics Settings surface through `PhysicsEditorService` holding only
+`turboism.cubism.model.write`, and `protected-export` drives the native Export Settings dialog
+through `ExportSettingsContributionService` holding only `turboism.cubism.model.read`. Each such
+service owns the admission, host-identity, generation, lifecycle and audit rules for the surface
+it rewrites, and a plugin that attaches its own host UI still declares the matching `ui.*`
+contribution permission.
 
 Ownership, namespace, quota, lifecycle, and cleanup then bound what a granted plugin may do at runtime; they complement a declared permission rather than replace it. Plugin-private facilities that cannot cross a risk boundary — localization, the plugin logger and paths, bounded task scheduling, the disposable scope — carry no dedicated permission id.
 
