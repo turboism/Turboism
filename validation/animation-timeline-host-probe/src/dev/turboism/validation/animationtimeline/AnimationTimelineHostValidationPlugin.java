@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.validation.shared.verdict.ProbeAssertions;
 
 import javax.swing.SwingUtilities;
 import java.io.File;
@@ -49,7 +50,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
-    private final List<Assertion> assertions = new ArrayList<>();
+    private final ProbeAssertions assertions = new ProbeAssertions();
 
     @Override
     public void init(final PluginContext context) {
@@ -111,10 +112,10 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             recordAssertion("matrix.unexpectedFailure", "no exception", singleLine(failure), "FAIL");
             logger.error("ANIM_MATRIX_FAILED " + singleLine(failure), failure);
         }
-        final String terminal = computeTerminal();
+        final String terminal = assertions.terminal().name();
         writeResultFile(startedNanos);
         logger.info("ANIM_MATRIX_RESULT status=" + terminal
-            + " assertions=" + assertions.size()
+            + " " + assertions.counts()
             + " durationMillis=" + ((System.nanoTime() - startedNanos) / 1_000_000L));
         try {
             Thread.sleep(3_000L);
@@ -857,7 +858,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
     private void recordAssertion(
         final String name, final Object expected, final Object actual, final String status
     ) {
-        assertions.add(new Assertion(name, singleLine(expected), singleLine(actual), status));
+        assertions.record(name, expected, actual, status);
     }
 
     private static String singleLine(final Object value) {
@@ -866,16 +867,6 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
         }
         final String text = value.toString().replace('\n', ' ').replace('\r', ' ');
         return text.length() > 4000 ? text.substring(0, 4000) : text;
-    }
-
-    private String computeTerminal() {
-        boolean anyFail = false;
-        for (final Assertion assertion : assertions) {
-            if ("FAIL".equals(assertion.status())) {
-                anyFail = true;
-            }
-        }
-        return anyFail ? "FAIL" : "PASS";
     }
 
     private void writeResultFile(final long startedNanos) {
@@ -890,32 +881,17 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 .append("hostVersion=")
                 .append(System.getProperty("turboism.validation.hostVersion", "unknown"))
                 .append('\n')
-                .append("terminal=").append(computeTerminal()).append('\n')
                 .append("durationMillis=")
-                .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n')
-                .append("assertions=").append(assertions.size()).append('\n');
-            for (int i = 0; i < assertions.size(); i++) {
-                final Assertion assertion = assertions.get(i);
-                report.append("assertion.").append(i).append(".name=").append(assertion.name())
-                    .append('\n')
-                    .append("assertion.").append(i).append(".expected=")
-                    .append(escape(assertion.expected())).append('\n')
-                    .append("assertion.").append(i).append(".actual=")
-                    .append(escape(assertion.actual())).append('\n')
-                    .append("assertion.").append(i).append(".status=").append(assertion.status())
-                    .append('\n');
-            }
+                .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
+            assertions.appendCounters(report);
+            assertions.appendIndexed(report, true);
+            // The terminal verdict goes last: the Runner requires a positive verdict count
+            // as soon as it observes the pass line.
+            report.append("terminal=").append(assertions.terminal().name()).append('\n');
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception failure) {
             logger.error("ANIM_RESULT_WRITE_FAILED " + singleLine(failure), failure);
         }
-    }
-
-    private static String escape(final String value) {
-        return value.replace("\\", "\\\\").replace("\n", " ").replace("=", "\\=");
-    }
-
-    private record Assertion(String name, String expected, String actual, String status) {
     }
 }

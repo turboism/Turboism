@@ -214,6 +214,9 @@ public final class TestExecutionGuard {
                 switch (character) {
                     case '*' -> regex.append(".*");
                     case '?' -> regex.append('.');
+                    // A dot separates package, class and the `$`-joined nested class name:
+                    // `Outer.*` must match `Outer$Inner.method` as well as `Outer.method`.
+                    case '.' -> regex.append("[.$]");
                     default -> regex.append(Pattern.quote(String.valueOf(character)));
                 }
             }

@@ -35,7 +35,7 @@ INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture
     "--fixture-host", "--fixture-remote", "--remote-pre-launch", "--remote-post-launch",
     "--remote-pre-cleanup"})
 COMPOSITE_FLAGS = frozenset({"--plugin", "--aux-agent", "--home-file", "--home-dir", "--client-script"})
-BOOLEAN_FLAGS = frozenset({"--require-fixture-unchanged", "--keep-prefix",
+BOOLEAN_FLAGS = frozenset({"--require-fixture-unchanged", "--keep-prefix", "--require-assertions",
     "--remote-pre-launch-background", "--remote-pre-launch-args-only", "--focus-editor-window"})
 VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-name",
     "--result-marker", "--result-file", "--result-pass-line", "--result-fail-line",
