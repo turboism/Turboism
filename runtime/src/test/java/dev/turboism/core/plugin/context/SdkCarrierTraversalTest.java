@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -410,6 +411,77 @@ class SdkCarrierTraversalTest {
         future.complete(raw);
         assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertSame(wrapped, asyncResult.get());
+    }
+
+    @Test
+    void plainArgumentsReturnTheOriginalArrayWithoutCloningOrUnwrapping() {
+        final Object[] input = new Object[] {
+            new String("text"), Integer.valueOf(42), Float.valueOf(1.5f), SampleEnum.ONLY, new SampleRecord("id")
+        };
+        final java.util.function.Function<Object, Object> rejecting = value -> {
+            throw new AssertionError("leaf argument must not be unwrapped: " + value);
+        };
+
+        final Object[] unwrapped = SdkCarrierTraversal.unwrapArguments(input, rejecting);
+
+        assertSame(input, unwrapped);
+    }
+
+    @Test
+    void unchangedCarrierArgumentsReturnTheOriginalArray() {
+        final Object[] input =
+                new Object[] {Optional.of("value"), List.of("a", "b"), Set.of("a", "b"), Map.of("key", "value")};
+
+        final Object[] unwrapped = SdkCarrierTraversal.unwrapArguments(input, value -> value);
+
+        assertSame(input, unwrapped);
+    }
+
+    @Test
+    void changedCarrierArgumentsAreClonedWithoutMutatingTheInput() {
+        final TargetSdkInterface proxy = (TargetSdkInterface) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {TargetSdkInterface.class},
+                (ignoredProxy, method, arguments) -> null);
+        final TargetSdkInterface delegate = new TargetSdkInterface() {};
+        final java.util.function.Function<Object, Object> unwrapper = value -> value == proxy ? delegate : value;
+
+        final Optional<Object> optional = Optional.of(proxy);
+        final List<Object> list = List.of(proxy);
+        final Set<Object> set = Set.of(proxy);
+        final Map<String, Object> map = Map.of("key", proxy);
+        final List<Object> nestedList = List.of(Optional.of(proxy));
+        final Object[] array = new Object[] {proxy, "plain"};
+        final Object untouched = new Object();
+        final Object[] input = new Object[] {untouched, optional, list, set, map, nestedList, array};
+
+        final Object[] unwrapped = SdkCarrierTraversal.unwrapArguments(input, unwrapper);
+
+        assertNotSame(input, unwrapped);
+        assertSame(untouched, unwrapped[0]);
+        assertSame(delegate, ((Optional<?>) unwrapped[1]).orElseThrow());
+        assertSame(delegate, ((List<?>) unwrapped[2]).get(0));
+        assertSame(delegate, ((Set<?>) unwrapped[3]).iterator().next());
+        assertSame(delegate, ((Map<?, ?>) unwrapped[4]).get("key"));
+        assertSame(delegate, ((Optional<?>) ((List<?>) unwrapped[5]).get(0)).orElseThrow());
+        final Object[] unwrappedArray = (Object[]) unwrapped[6];
+        assertNotSame(array, unwrappedArray);
+        assertSame(delegate, unwrappedArray[0]);
+        assertSame("plain", unwrappedArray[1]);
+
+        // Copy-on-change leaves the caller's array and every nested container untouched.
+        assertSame(optional, input[1]);
+        assertSame(proxy, optional.orElseThrow());
+        assertSame(list, input[2]);
+        assertSame(proxy, list.get(0));
+        assertSame(set, input[3]);
+        assertSame(proxy, set.iterator().next());
+        assertSame(map, input[4]);
+        assertSame(proxy, map.get("key"));
+        assertSame(nestedList, input[5]);
+        assertSame(proxy, ((Optional<?>) nestedList.get(0)).orElseThrow());
+        assertSame(array, input[6]);
+        assertSame(proxy, array[0]);
     }
 
     @Test

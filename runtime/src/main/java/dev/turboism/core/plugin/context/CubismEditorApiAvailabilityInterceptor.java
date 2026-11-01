@@ -240,11 +240,11 @@ final class CubismEditorApiAvailabilityInterceptor {
         }
 
         private Object wrapMethodResult(final Method method, final Object[] arguments, final Object result) {
-            if ((PluginServiceDirectory.class.isAssignableFrom(sdkInterface)
-                            || PluginServiceDirectory.class.isAssignableFrom(method.getDeclaringClass()))
-                    && arguments != null
+            if (arguments != null
                     && arguments.length == 1
-                    && arguments[0] instanceof Class<?> serviceType) {
+                    && arguments[0] instanceof Class<?> serviceType
+                    && (PluginServiceDirectory.class.isAssignableFrom(sdkInterface)
+                            || PluginServiceDirectory.class.isAssignableFrom(method.getDeclaringClass()))) {
                 if ("find".equals(method.getName()) && result instanceof Optional<?> optional) {
                     return optional.map(service -> wrapInterface(service, serviceType));
                 }
