@@ -75,8 +75,7 @@ class TurboismAgentBootstrapTest {
     }
 
     @Test
-    void missingPremainWarpHookIsExplicitlyWithdrawn() {
-        final HookContributor warp = new WarpAltMirrorHookContributor();
+    void missingPremainWarpHookIsExplicitlyWithdrawn() {        final HookContributor warp = new WarpAltMirrorHookContributor();
         final List<String> withdrawn = new ArrayList<>();
         TurboismAgent.prepareEarlyHooks(
                 List.of(warp),
@@ -89,6 +88,33 @@ class TurboismAgentBootstrapTest {
                     throw new AssertionError("missing hook cannot bind");
                 });
         assertEquals(List.of("warp-alt-mirror"), withdrawn);
+    }
+
+    /**
+     * Every catalog hook that a verification record names in {@code capabilityConditions} must be
+     * owned by the contributor that installs that seam. Without the declaration a failed or closed
+     * hook leaves the dependent capability authorized, so a plugin reaches a dead native path.
+     *
+     * <p>The {@code editor-ui} and {@code workspace-control} seams are installed by the UI layer
+     * rather than by a bootstrap contributor; they stay registered as a known limitation.</p>
+     */
+    @Test
+    void bootstrapOwnedCapabilityConditionHooksAreWithdrawnOnFailureOrClose() throws Exception {
+        final java.util.Set<String> owned = new java.util.HashSet<>();
+        for (final HookContributor contributor :
+                HookManifest.load(TurboismAgentBootstrapTest.class.getClassLoader())) {
+            owned.addAll(contributor.runtimeHookIds());
+        }
+
+        assertTrue(
+                owned.containsAll(java.util.Set.of(
+                        "control-appearance",
+                        "object-context-menu",
+                        "performance-fps",
+                        "physics-editor",
+                        "protected-export",
+                        "texture-atlas")),
+                "a catalog hook lost its runtime withdrawal wiring: " + owned);
     }
 
     @Test
