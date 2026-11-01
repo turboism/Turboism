@@ -82,6 +82,14 @@ tasks.named<Test>("test") {
     }
 }
 
+// Every Test task proves it executed tests and that each skip is registered with a
+// reason (gradle/test-skip-allowlist.txt). A suite that selects nothing, or an
+// environment that silently disables a suite, used to report success.
+val testSkipAllowlist = rootProject.file("gradle/test-skip-allowlist.txt")
+tasks.withType<Test>().configureEach {
+    dev.turboism.gradle.internal.TestExecutionGuard.apply(this, testSkipAllowlist)
+}
+
 dependencies {
     add("testImplementation", platform(libs.findLibrary("junit-bom").get()))
     add("testImplementation", libs.findLibrary("junit-jupiter").get())
