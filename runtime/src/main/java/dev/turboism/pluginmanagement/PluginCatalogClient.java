@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 
 /**
  * HTTPS-only transport client for the Plugin Directory v2 catalog, detached signature,
- * and approved GitHub Release JAR artifacts.
+ * and verified JAR artifacts via the official API/CDN with GitHub Release fallback.
  */
 public final class PluginCatalogClient {
 
@@ -56,11 +56,14 @@ public final class PluginCatalogClient {
     private static final Duration READ_IDLE_TIMEOUT = Duration.ofSeconds(30);
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration MIRROR_DEADLINE = Duration.ofSeconds(15);
+    private static final Set<Integer> MIRROR_UNAVAILABLE_STATUSES = Set.of(403, 404, 408, 410, 429);
     private static final int MAX_REDIRECTS = 5;
     private static final Set<Integer> REDIRECT_STATUSES = Set.of(301, 302, 303, 307, 308);
     private static final Pattern GITHUB_RELEASE_PATH = Pattern.compile(
             "/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/download/[^/?#]+/[A-Za-z0-9][A-Za-z0-9._-]*\\.jar");
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern ARTIFACT_FILE_NAME_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*\\.jar");
 
     /** Pluggable HTTP connection factory used by unit tests. */
     @FunctionalInterface
@@ -296,8 +299,8 @@ public final class PluginCatalogClient {
     }
 
     /**
-     * Downloads an immutable plugin JAR artifact from an approved GitHub Release host,
-     * enforcing HTTPS, redirect host allowlisting, exact byte length, and constant-time SHA-256 equality.
+     * Downloads an immutable plugin JAR directly from GitHub. Callers with an Ed25519-verified
+     * catalog artifact should use the artifact overload to enable the official API/CDN route.
      *
      * @param artifactUrl initial HTTPS GitHub Release artifact URL
      * @param expectedSize exact expected JAR size in bytes (`1..16 MiB`)
@@ -320,6 +323,63 @@ public final class PluginCatalogClient {
             final DownloadControl control,
             final Consumer<DownloadProgress> progress)
             throws IOException {
+        downloadArtifact(artifactUrl, expectedSize, expectedSha256, destination, control, progress, null);
+    }
+
+    /**
+     * Downloads a JAR described by an already Ed25519-verified catalog, trying the official API/CDN
+     * before the original signed GitHub URL. Both routes verify the full size and SHA-256.
+     *
+     * @param artifact artifact from a verified catalog release, including its signed file name
+     * @param destination target file path to write
+     * @throws IOException when download or byte verification fails
+     */
+    public void downloadArtifact(final PluginCatalog.CatalogArtifact artifact, final Path destination)
+            throws IOException {
+        downloadArtifact(artifact, destination, new DownloadControl(), ignored -> {});
+    }
+
+    /**
+     * Downloads an already verified catalog artifact with cancellation and worker-thread progress.
+     * Mirror transport and byte verification failures restart from the signed GitHub source.
+     *
+     * @param artifact artifact from an Ed25519-verified catalog release
+     * @param destination target file path to write
+     * @param control cancellation shared across both routes
+     * @param progress observer of received bytes for the current attempt
+     * @throws IOException when download or byte verification fails
+     */
+    public void downloadArtifact(
+            final PluginCatalog.CatalogArtifact artifact,
+            final Path destination,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress)
+            throws IOException {
+        Objects.requireNonNull(artifact, "artifact");
+        final String fileName = artifact.fileName();
+        if (fileName.length() > 255
+                || !ARTIFACT_FILE_NAME_PATTERN.matcher(fileName).matches()) {
+            throw new IOException("invalid catalog artifact fileName: " + fileName);
+        }
+        downloadArtifact(
+                URI.create(artifact.url()),
+                artifact.size(),
+                artifact.sha256(),
+                destination,
+                control,
+                progress,
+                fileName);
+    }
+
+    private void downloadArtifact(
+            final URI artifactUrl,
+            final long expectedSize,
+            final String expectedSha256,
+            final Path destination,
+            final DownloadControl control,
+            final Consumer<DownloadProgress> progress,
+            final String signedFileName)
+            throws IOException {
         Objects.requireNonNull(artifactUrl, "artifactUrl");
         Objects.requireNonNull(expectedSha256, "expectedSha256");
         Objects.requireNonNull(destination, "destination");
@@ -334,10 +394,34 @@ public final class PluginCatalogClient {
         validateInitialArtifactUri(artifactUrl);
 
         final long deadlineNanos = deadlineNanos(artifactDeadline);
+        if (signedFileName != null) {
+            final URI mirror = URI.create(
+                    "https://api.turboism.dev/v1/plugins/artifacts/" + expectedSha256 + "/" + signedFileName);
+            final URI cdn = URI.create("https://dl.turboism.dev/plugins/" + expectedSha256 + "/" + signedFileName);
+            // Reserve most of the total budget for the original source if the mirror is missing or invalid.
+            final long mirrorNanos =
+                    Math.min(MIRROR_DEADLINE.toNanos(), Math.max(1, remainingNanos(deadlineNanos) / 3));
+            try {
+                downloadAttempt(
+                        mirror,
+                        expectedSize,
+                        expectedSha256,
+                        destination,
+                        control,
+                        progress,
+                        System.nanoTime() + mirrorNanos,
+                        cdn);
+                return;
+            } catch (DownloadFailure failure) {
+                if (!mirrorUnavailable(failure)) throw failure;
+                checkDownload(deadlineNanos, control);
+                notifyProgress(progress, 0, expectedSize);
+            }
+        }
         for (int attempt = 1; ; attempt++) {
             try {
                 downloadAttempt(
-                        artifactUrl, expectedSize, expectedSha256, destination, control, progress, deadlineNanos);
+                        artifactUrl, expectedSize, expectedSha256, destination, control, progress, deadlineNanos, null);
                 return;
             } catch (DownloadFailure failure) {
                 if (attempt >= artifactAttempts
@@ -349,6 +433,20 @@ public final class PluginCatalogClient {
         }
     }
 
+    private static boolean mirrorUnavailable(final DownloadFailure failure) {
+        return switch (failure.code()) {
+            case "PLUGIN_MIRROR_UNAVAILABLE",
+                    "PLUGIN_DOWNLOAD_RESPONSE_TIMEOUT",
+                    "PLUGIN_DOWNLOAD_READ_TIMEOUT",
+                    "PLUGIN_DOWNLOAD_CONNECTION_FAILED",
+                    "PLUGIN_DOWNLOAD_READ_FAILED",
+                    "PLUGIN_ARTIFACT_SIZE_MISMATCH",
+                    "PLUGIN_ARTIFACT_HASH_MISMATCH",
+                    "PLUGIN_DOWNLOAD_DEADLINE_EXCEEDED" -> true;
+            default -> false;
+        };
+    }
+
     private void downloadAttempt(
             final URI artifactUrl,
             final long expectedSize,
@@ -356,12 +454,22 @@ public final class PluginCatalogClient {
             final Path destination,
             final DownloadControl control,
             final Consumer<DownloadProgress> progress,
-            final long deadlineNanos)
+            final long deadlineNanos,
+            final URI approvedCdn)
             throws IOException {
         URI currentUri = artifactUrl;
         for (int redirects = 0; ; redirects++) {
             checkDownload(deadlineNanos, control);
-            final HttpURLConnection connection = connectionFactory.open(currentUri);
+            final HttpURLConnection connection;
+            try {
+                connection = connectionFactory.open(currentUri);
+            } catch (IOException failure) {
+                checkDownload(deadlineNanos, control);
+                throw new DownloadFailure(
+                        "PLUGIN_DOWNLOAD_CONNECTION_FAILED",
+                        "Cannot connect to " + currentUri.getHost() + ": " + failure.getMessage(),
+                        failure);
+            }
             control.connection.set(connection);
             try {
                 checkDownload(deadlineNanos, control);
@@ -405,21 +513,46 @@ public final class PluginCatalogClient {
                     } catch (IllegalArgumentException badRedirect) {
                         throw new IOException("invalid redirect Location URI", badRedirect);
                     }
-                    validateRedirectArtifactUri(nextUri);
+                    if (approvedCdn != null) {
+                        if (redirects != 0
+                                || status != HttpURLConnection.HTTP_MOVED_TEMP
+                                || !approvedCdn.equals(nextUri))
+                            throw new IOException("unapproved plugin CDN redirect: " + nextUri);
+                    } else {
+                        validateRedirectArtifactUri(nextUri);
+                    }
                     currentUri = nextUri;
                     continue;
                 }
                 if (status != HttpURLConnection.HTTP_OK) {
                     throw new DownloadFailure(
-                            "PLUGIN_DOWNLOAD_HTTP_FAILED", "Artifact download failed with HTTP " + status, null);
+                            approvedCdn != null
+                                            && (MIRROR_UNAVAILABLE_STATUSES.contains(status)
+                                                    || (status >= 500 && status <= 599))
+                                    ? "PLUGIN_MIRROR_UNAVAILABLE"
+                                    : "PLUGIN_DOWNLOAD_HTTP_FAILED",
+                            "Artifact download failed with HTTP " + status,
+                            null);
                 }
                 rejectCompressedContentEncoding(connection);
                 final long contentLength = connection.getContentLengthLong();
                 if (contentLength >= 0L && contentLength != expectedSize) {
-                    throw new IOException(
-                            "PLUGIN_ARTIFACT_SIZE_MISMATCH: Content-Length " + contentLength + " != " + expectedSize);
+                    throw new DownloadFailure(
+                            "PLUGIN_ARTIFACT_SIZE_MISMATCH",
+                            "PLUGIN_ARTIFACT_SIZE_MISMATCH: Content-Length " + contentLength + " != " + expectedSize,
+                            null);
                 }
-                try (InputStream input = connection.getInputStream()) {
+                final InputStream stream;
+                try {
+                    stream = connection.getInputStream();
+                } catch (IOException failure) {
+                    checkDownload(deadlineNanos, control);
+                    throw new DownloadFailure(
+                            "PLUGIN_DOWNLOAD_READ_FAILED",
+                            "Cannot read plugin download from " + currentUri.getHost(),
+                            failure);
+                }
+                try (InputStream input = stream) {
                     streamAndVerifyArtifact(
                             input,
                             expectedSize,
@@ -531,7 +664,10 @@ public final class PluginCatalogClient {
             final Consumer<DownloadProgress> progress)
             throws IOException {
         if (input == null) {
-            throw new IOException("PLUGIN_ARTIFACT_SIZE_MISMATCH: empty artifact response stream");
+            throw new DownloadFailure(
+                    "PLUGIN_ARTIFACT_SIZE_MISMATCH",
+                    "PLUGIN_ARTIFACT_SIZE_MISMATCH: empty artifact response stream",
+                    null);
         }
         final MessageDigest digest;
         try {
@@ -611,8 +747,9 @@ public final class PluginCatalogClient {
             if (!completed && opened) {
                 try {
                     Files.deleteIfExists(destination);
-                } catch (IOException ignored) {
-                    // Best-effort cleanup of rejected artifact file.
+                } catch (IOException failure) {
+                    throw new DownloadFailure(
+                            "PLUGIN_DOWNLOAD_WRITE_FAILED", "Cannot discard rejected plugin download", failure);
                 }
             }
         }
@@ -655,6 +792,7 @@ public final class PluginCatalogClient {
         if (!"https".equalsIgnoreCase(uri.getScheme())
                 || uri.getHost() == null
                 || !"github.com".equalsIgnoreCase(uri.getHost())
+                || (uri.getPort() != -1 && uri.getPort() != 443)
                 || uri.getUserInfo() != null
                 || uri.getRawQuery() != null
                 || uri.getRawFragment() != null
@@ -667,6 +805,7 @@ public final class PluginCatalogClient {
     private static void validateRedirectArtifactUri(final URI uri) throws IOException {
         if (!"https".equalsIgnoreCase(uri.getScheme())
                 || uri.getHost() == null
+                || (uri.getPort() != -1 && uri.getPort() != 443)
                 || uri.getUserInfo() != null
                 || uri.getRawFragment() != null) {
             throw new IOException("unapproved redirect URI: " + uri);

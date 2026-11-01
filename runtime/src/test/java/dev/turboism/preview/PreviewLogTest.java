@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedAccessException;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -24,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -127,6 +130,47 @@ class PreviewLogTest {
 
         assertEquals(List.of(PreviewLog.Level.WARN), levels);
         assertEquals("1970-01-01T00:00:00Z [WARN] [probe] visible\n", Files.readString(path));
+    }
+
+    @Test
+    void actionTracingIsOptInAndFollowsRuntimeLogLevelChanges() throws Exception {
+        final Path path = temporary.resolve("input-trace.log");
+        try (PreviewLog log = new PreviewLog(path, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), PreviewLog.Sink.NONE)) {
+            RuntimeDiagnostics.clear();
+            RuntimeDiagnostics.install(log);
+            NativeWarpAltMirrorBridge.diagnostics(message -> RuntimeDiagnostics.info("warp-alt-mirror", message));
+            final Object action = new Object();
+            SwingUtilities.invokeAndWait(() -> {
+                for (int i = 0; i < 10_000; i++) NativeWarpAltMirrorBridge.diagSetAction(action, null);
+            });
+            log.drain();
+            assertTrue(log.snapshot().lines().isEmpty());
+            assertEquals(0, Files.size(path), "default input must not enter the file writer");
+
+            log.setMinimumLevel("TRACE");
+            NativeWarpAltMirrorBridge.diagSetAction(action, null);
+            assertEquals(1, log.snapshot().lines().size());
+            assertTrue(log.snapshot()
+                    .lines()
+                    .get(0)
+                    .contains("[TRACE] [warp-alt-mirror] WARP_ALT_MIRROR_DIAG stage=SET_ACTION"));
+
+            log.setMinimumLevel("INFO");
+            NativeWarpAltMirrorBridge.diagSetAction(action, null);
+            RuntimeDiagnostics.info("warp-alt-mirror", "BRIDGE_BOUND");
+            RuntimeDiagnostics.error("warp-alt-mirror", "hook failed", new IllegalStateException("probe"));
+            log.drain();
+            final String written = Files.readString(path);
+            assertEquals(
+                    1,
+                    written.lines().filter(line -> line.contains("SET_ACTION")).count());
+            assertTrue(written.contains("[INFO] [warp-alt-mirror] BRIDGE_BOUND"));
+            assertTrue(written.contains("[ERROR] [warp-alt-mirror] hook failed"));
+            assertTrue(written.contains("IllegalStateException: probe"));
+        } finally {
+            NativeWarpAltMirrorBridge.uninstall();
+            RuntimeDiagnostics.clear();
+        }
     }
 
     @Test

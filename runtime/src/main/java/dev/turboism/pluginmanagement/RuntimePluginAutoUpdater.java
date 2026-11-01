@@ -28,7 +28,6 @@ import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.update.UpdatePreferencesStore;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -504,7 +503,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         Path tempJar = null;
         try {
             tempJar = createPrivateTempJar();
-            client.downloadArtifact(URI.create(artifact.url()), artifact.size(), artifact.sha256(), tempJar);
+            client.downloadArtifact(artifact, tempJar);
             final JarCheckResult check = inspectDownloadedJar(update, tempJar, activeCubism);
             if (check == JarCheckResult.CUBISM_SIDECAR_INCOMPATIBLE) {
                 report("PLUGIN_UPDATE_CUBISM_SIDECAR_INCOMPATIBLE");

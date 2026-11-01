@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.warpalt;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -32,6 +33,10 @@ import java.util.function.Consumer;
  * classpath while the host classes live on the application class loader, and no
  * compiled dependency in either direction may exist. Any failure is swallowed into
  * a diagnostic; it must never reach the host call site.</p>
+ *
+ * <p>Per-input tracing is opt-in through the runtime TRACE log level. Every diagnostic-only
+ * entry returns before inspecting host objects or constructing messages unless TRACE is
+ * enabled. Lifecycle, failure and first-application markers remain independently available.</p>
  */
 public final class NativeWarpAltMirrorBridge {
     private static final String WARP_BINDER_CLASS = "com.live2d.cubism.view.context.temporaryHandler.warp.WarpBinder";
@@ -133,6 +138,8 @@ public final class NativeWarpAltMirrorBridge {
         BINDER_CLASS_NAME.set(WARP_BINDER_CLASS);
         REPORTED_SKIPS.clear();
         LAST_THROTTLE.set(0);
+        LAST_INPUT_KIND.set("");
+        INPUT_KIND_RUN.set(0);
         ARMED_AXIS.set(0);
         NativeArtMeshSymmetryBridge.service().resetSession();
         GREEN_APPLIED_REPORTED.set(false);
@@ -212,11 +219,13 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void mirrorPointMove(final Object ref, final Object target, final float weight) {
         try {
-            final long now = System.currentTimeMillis();
-            if (now - LAST_THROTTLE.get() >= 1_000L) {
-                LAST_THROTTLE.set(now);
-                diagnostic("POINT_MOVE_CALL ref="
-                        + (ref == null ? "null" : ref.getClass().getName()));
+            if (traceEnabled()) {
+                final long now = System.currentTimeMillis();
+                if (now - LAST_THROTTLE.get() >= 1_000L) {
+                    LAST_THROTTLE.set(now);
+                    trace("POINT_MOVE_CALL ref="
+                            + (ref == null ? "null" : ref.getClass().getName()));
+                }
             }
             final Binding binding = INSTALLED.get();
             if (binding == null || !binding.enabled() || ref == null || target == null) {
@@ -699,6 +708,7 @@ public final class NativeWarpAltMirrorBridge {
      * selected-point move, or the doc-level point write.
      */
     public static void diagPressHit(final Object event) {
+        if (!traceEnabled()) return;
         if (REPORTED_SKIPS.add("route:pressHit")) {
             diagEventModifiers(event, "PRESS_HIT");
         }
@@ -706,6 +716,7 @@ public final class NativeWarpAltMirrorBridge {
 
     /** Route diagnostics: reports the drag dispatch once, then throttled ticks. */
     public static void diagDragDispatch(final Object event) {
+        if (!traceEnabled()) return;
         if (REPORTED_SKIPS.add("route:dragDispatch")) {
             diagEventModifiers(event, "DRAG_DISPATCH");
         }
@@ -714,6 +725,7 @@ public final class NativeWarpAltMirrorBridge {
 
     /** Route diagnostics: reports the selected-point move entry. */
     public static void diagMoveSelected(final Object event) {
+        if (!traceEnabled()) return;
         diagEventModifiers(event, "MOVE_SELECTED");
     }
 
@@ -749,8 +761,9 @@ public final class NativeWarpAltMirrorBridge {
 
     /** Strip (view context menu) diagnostics, prefixed for log filtering. */
     public static void diagStrip(final String stage) {
+        if (!traceEnabled()) return;
         try {
-            diagnostic("STRIP_DIAG stage=" + stage);
+            trace("STRIP_DIAG stage=" + stage);
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // never reach the host call site
@@ -764,12 +777,13 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void diagMouseAction(final Object manager, final Object event) {
         NativeArtMeshSymmetryBridge.beginTick(manager);
+        if (!traceEnabled()) return;
         try {
             if (!REPORTED_SKIPS.add(
                     "mouse:" + (event == null ? "null" : event.getClass().getSimpleName()))) {
                 return;
             }
-            diagnostic("MOUSE_ACTION event="
+            trace("MOUSE_ACTION event="
                     + (event == null ? "null" : event.getClass().getName())
                     + " manager="
                     + (manager == null ? "null" : manager.getClass().getName()));
@@ -789,6 +803,7 @@ public final class NativeWarpAltMirrorBridge {
      * Consecutive events of the same kind are coalesced into a run count.
      */
     public static void diagInputEvent(final Object viewContext, final Object event) {
+        if (!traceEnabled()) return;
         try {
             // Zero-reflection first: prove the ingress ran even if kind lookup fails.
             final String eventClass = event == null ? "null" : event.getClass().getName();
@@ -808,10 +823,10 @@ public final class NativeWarpAltMirrorBridge {
             }
             final int run = INPUT_KIND_RUN.getAndSet(0);
             if (run > 0) {
-                diagnostic("INPUT_EVENT_RUN x" + run);
+                trace("INPUT_EVENT_RUN x" + run);
             }
             LAST_INPUT_KIND.set(kindName);
-            diagnostic("INPUT_EVENT kind=" + kindName + " event=" + eventClass + " ctx=" + ctxClass);
+            trace("INPUT_EVENT kind=" + kindName + " event=" + eventClass + " ctx=" + ctxClass);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
         }
@@ -822,8 +837,9 @@ public final class NativeWarpAltMirrorBridge {
      * reports exactly which action object claims each gesture event.
      */
     public static void diagSetAction(final Object action, final Object event) {
+        if (!traceEnabled()) return;
         try {
-            diagnostic("SET_ACTION action="
+            trace("SET_ACTION action="
                     + (action == null ? "null" : action.getClass().getName())
                     + " event=" + (event == null ? "null" : event.getClass().getName()));
         } catch (Throwable failure) {
@@ -856,8 +872,8 @@ public final class NativeWarpAltMirrorBridge {
      */
     public static void mirrorGreenTick(final Object action, final Object event) {
         try {
-            if (REPORTED_SKIPS.add("green:entered")) {
-                diagnostic("GREEN_TICK_ENTERED action="
+            if (traceEnabled() && REPORTED_SKIPS.add("green:entered")) {
+                trace("GREEN_TICK_ENTERED action="
                         + (action == null ? "null" : action.getClass().getName()) + " event="
                         + (event == null ? "null" : event.getClass().getName()));
             }
@@ -1272,16 +1288,18 @@ public final class NativeWarpAltMirrorBridge {
 
     /** Route stage marker with the event's modifier snapshot. */
     public static void diagRoute(final Object stage, final Object event) {
+        if (!traceEnabled()) return;
         try {
             diagEventModifiers(event, stage instanceof String name ? name : "ROUTE");
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            diagnostic("ROUTE_FAILED reason=" + failure.getClass().getName());
+            trace("ROUTE_FAILED reason=" + failure.getClass().getName());
         }
     }
 
     /** Route diagnostics: reports the doc-level point write with index and position when resolvable. */
     public static void diagPointMove(final Object ref) {
+        if (!traceEnabled()) return;
         try {
             if (ref == null) return;
             final Object index = invoke(ref, "h", new Class<?>[0]);
@@ -1291,10 +1309,10 @@ public final class NativeWarpAltMirrorBridge {
             if (positions instanceof float[] xy && idx >= 0 && idx * 2 + 1 < xy.length) {
                 detail += " pos=" + xy[idx * 2] + "," + xy[idx * 2 + 1];
             }
-            diagnostic("POINT_MOVE " + detail + " class=" + ref.getClass().getName());
+            trace("POINT_MOVE " + detail + " class=" + ref.getClass().getName());
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            diagnostic("POINT_MOVE_FAILED reason=" + failure.getClass().getName());
+            trace("POINT_MOVE_FAILED reason=" + failure.getClass().getName());
         }
     }
 
@@ -1325,16 +1343,18 @@ public final class NativeWarpAltMirrorBridge {
     private static void diagEventModifiers(final Object event, final String stage) {
         try {
             if (event == null) {
-                diagnostic(stage + " event=null");
+                trace(stage + " event=null");
                 return;
             }
-            final boolean alt = modifier(event, java.awt.event.InputEvent.ALT_DOWN_MASK);
-            final boolean shift = modifier(event, java.awt.event.InputEvent.SHIFT_DOWN_MASK);
-            final boolean ctrl = modifier(event, java.awt.event.InputEvent.CTRL_DOWN_MASK);
-            diagnostic(stage + " alt=" + alt + " shift=" + shift + " ctrl=" + ctrl);
+            final var input = NativeMirrorInput.awt(event);
+            final int modifiers = input == null ? 0 : input.getModifiersEx();
+            final boolean alt = (modifiers & java.awt.event.InputEvent.ALT_DOWN_MASK) != 0;
+            final boolean shift = (modifiers & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
+            final boolean ctrl = (modifiers & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0;
+            trace(stage + " alt=" + alt + " shift=" + shift + " ctrl=" + ctrl);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            diagnostic(stage + " event-read-failed " + failure.getClass().getName());
+            trace(stage + " event-read-failed " + failure.getClass().getName());
         }
     }
 
@@ -1360,6 +1380,14 @@ public final class NativeWarpAltMirrorBridge {
         if (REPORTED_SKIPS.add("green:" + reason)) {
             diagnostic("GREEN_SKIP reason=" + reason);
         }
+    }
+
+    private static boolean traceEnabled() {
+        return RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.TRACE);
+    }
+
+    private static void trace(final String stage) {
+        RuntimeDiagnostics.trace("warp-alt-mirror", "WARP_ALT_MIRROR_DIAG stage=" + stage);
     }
 
     private static void diagnostic(final String stage) {

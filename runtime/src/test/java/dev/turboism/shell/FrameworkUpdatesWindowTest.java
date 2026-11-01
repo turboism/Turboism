@@ -129,6 +129,35 @@ class FrameworkUpdatesWindowTest {
     }
 
     @Test
+    void oneInstallClickDownloadsAndQueuesOnceAfterVerification() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of(ROW))) {
+            f.planned();
+            final var verified = new CompletableFuture<CoreFrameworkUpdates.Snapshot>();
+            f.framework.pendingDownload = verified;
+            edt(() -> {
+                f.window.installButton().doClick();
+                f.window.installButton().doClick();
+                return null;
+            });
+            await(() -> f.framework.downloads.get() == 1 && f.service.downloads.get() == 1);
+            assertEquals(0, f.service.commits.get());
+            assertTrue(edt(() -> f.window.cancelButton().isEnabled()));
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
+            f.framework.state =
+                    new CoreFrameworkUpdates.Snapshot(CoreFrameworkUpdates.Phase.STAGED, "0.44.0", 100, 100, "");
+            verified.complete(f.framework.state);
+            await(() -> f.framework.snapshot().phase() == CoreFrameworkUpdates.Phase.APPLY_PENDING
+                    && f.window.currentBatchState() == FrameworkUpdatesWindow.BatchState.IDLE);
+            assertEquals(1, f.framework.downloads.get());
+            assertEquals(1, f.service.downloads.get());
+            assertEquals(1, f.service.commits.get());
+            assertEquals(1, f.service.lastCommitted.size());
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
+            assertFalse(edt(() -> f.window.cancelButton().isEnabled()));
+        }
+    }
+
+    @Test
     void showsReleaseNotesAndDoesNotInterpretEmbeddedHtml() throws Exception {
         try (Fixture f = new Fixture(target -> List.of())) {
             f.planned();
@@ -242,28 +271,33 @@ class FrameworkUpdatesWindowTest {
             assertEquals(1, edt(() -> f.window.pluginTable().getRowCount()));
             assertEquals("Demo", edt(() -> f.window.pluginTable().getValueAt(0, 1)));
             await(() -> f.window.releaseNotesPane().getText().contains("Plugin notes"));
-            f.download();
-            assertEquals(0, f.framework.downloads.get());
+            f.service.reportedProgress = new PluginCatalogClient.DownloadProgress(150_000, 150_000);
             edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            assertEquals(0, f.framework.downloads.get());
+            assertEquals(1, f.service.downloads.get());
             assertEquals(1, f.service.lastCommitted.size());
             assertEquals(CoreFrameworkUpdates.Phase.IDLE, f.framework.snapshot().phase());
             assertTrue(edt(f.window::currentDetailText).contains("only_staged_count"));
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
-            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
+            assertFalse(edt(() -> f.window.cancelButton().isEnabled()));
+            assertTrue(edt(() -> f.window.progressBar().getString()).contains("0.15 / 0.15 MB"));
         }
     }
 
     @Test
-    void deselectingFrameworkAllowsOnlyPluginsAndEmptyListClearsNotes() throws Exception {
+    void availableFrameworkStaysSelectedAndEmptyListClearsNotes() throws Exception {
         try (Fixture f = new Fixture(target -> List.of(ROW))) {
             f.planned();
+            assertFalse(edt(() -> f.window.tableModel().isCellEditable(0, 0)));
             edt(() -> {
                 f.window.tableModel().setValueAt(false, 0, 0);
                 return null;
             });
-            f.download();
-            assertEquals(0, f.framework.downloads.get());
-            assertTrue(edt(() -> f.window.installButton().isEnabled()));
+            assertEquals(true, edt(() -> f.window.tableModel().getValueAt(0, 0)));
+            edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            assertEquals(1, f.framework.downloads.get());
+            assertEquals(1, f.service.lastCommitted.size());
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
         }
         try (Fixture f = new Fixture(target -> List.of())) {
             f.planned();
@@ -275,7 +309,7 @@ class FrameworkUpdatesWindowTest {
             });
             assertEquals(0, edt(() -> f.window.pluginTable().getRowCount()));
             assertFalse(edt(() -> f.window.releaseNotesPane().getText()).contains("Old framework notes"));
-            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
         }
     }
 
@@ -305,7 +339,7 @@ class FrameworkUpdatesWindowTest {
             f.service.reportedProgress = new PluginCatalogClient.DownloadProgress(1_250_000, 2_000_000);
             f.framework.pendingDownload = new CompletableFuture<>();
             final var pending = edt(f.window::triggerDownload);
-            await(() -> f.window.progressBar().getString().contains("2.50, 12.00"));
+            await(() -> f.window.progressBar().getString().contains("2.50 / 12.00 MB"));
             edt(() -> {
                 f.window.triggerCancel();
                 return null;
@@ -326,8 +360,8 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.progressBar().getString()).contains("1.25, 10.00"));
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:07"));
+            assertTrue(edt(() -> f.window.progressBar().getString()).contains("1.25 / 10.00 MB"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m07s"));
             edt(() -> {
                 f.window.triggerCancel();
                 return null;
@@ -338,11 +372,11 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:07"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m07s"));
             final var pending = new CompletableFuture<CoreFrameworkUpdates.Snapshot>();
             f.framework.pendingDownload = pending;
             final var retried = edt(f.window::triggerDownload);
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:00"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m00s"));
             await(() -> f.framework.downloads.get() == 2);
             f.nanos.set(TimeUnit.SECONDS.toNanos(73));
             f.framework.state = new CoreFrameworkUpdates.Snapshot(
@@ -354,7 +388,7 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:03"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m03s"));
         }
     }
 
@@ -372,7 +406,6 @@ class FrameworkUpdatesWindowTest {
                     return null;
                 });
             assertEquals(1, attempts.get());
-            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
             assertTrue(edt(f.window::currentDetailText).contains("Bad catalog"));
             edt(() -> {
@@ -385,21 +418,21 @@ class FrameworkUpdatesWindowTest {
     }
 
     @Test
-    void catalogFailureAllowsExplicitFrameworkOnlyChoiceWithoutRetryStorm() throws Exception {
+    void checkUpdatesRetriesCatalogAndCanPrepareFrameworkWithoutPluginUpdates() throws Exception {
         AtomicInteger attempts = new AtomicInteger();
         try (Fixture f = new Fixture(target -> {
-            attempts.incrementAndGet();
-            throw new IllegalStateException("Offline catalog");
+            if (attempts.incrementAndGet() == 1) throw new IllegalStateException("Offline catalog");
+            return List.of();
         })) {
             await(() -> f.window.currentPlanState() == FrameworkUpdatesWindow.PlanState.PLAN_FAILED);
             edt(() -> {
-                f.window.includePluginsCheckbox().doClick();
+                f.window.checkButton().doClick();
                 return null;
             });
             f.planned();
             f.download();
             edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
-            assertEquals(1, attempts.get());
+            assertEquals(2, attempts.get());
             assertEquals(0, f.service.lastCommitted.size());
             assertEquals(
                     CoreFrameworkUpdates.Phase.APPLY_PENDING,
@@ -427,7 +460,9 @@ class FrameworkUpdatesWindowTest {
                 return null;
             });
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
-            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
+            edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            assertEquals(0, f.framework.downloads.get());
+            assertEquals(0, f.service.commits.get());
             finish.countDown();
             f.planned();
             f.download();
@@ -459,9 +494,9 @@ class FrameworkUpdatesWindowTest {
                 f.window.tableModel().setValueAt(true, 1, 0);
                 return null;
             });
-            assertFalse(edt(() -> f.window.installButton().isEnabled()));
-            f.download();
+            assertTrue(edt(() -> f.window.installButton().isEnabled()));
             edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            assertEquals(2, f.service.downloads.get());
             assertEquals(1, f.service.commits.get());
             assertEquals(1, f.service.lastCommitted.size());
         }
@@ -482,20 +517,24 @@ class FrameworkUpdatesWindowTest {
                     throw new RuntimeException(e);
                 }
             };
-            var old = edt(f.window::triggerDownload);
+            var old = edt(f.window::triggerInstall);
             assertTrue(started.await(5, TimeUnit.SECONDS));
             assertFalse(edt(() -> f.window.tableModel().isCellEditable(1, 0)));
             edt(() -> {
-                f.window.triggerCancel();
+                f.window.cancelButton().doClick();
                 return null;
             });
             assertTrue(oldControl.get().isCancelled());
             f.service.downloadHook = control -> {};
-            var next = edt(f.window::triggerDownload);
+            var next = edt(f.window::triggerInstall);
             finish.countDown();
-            assertEquals(FrameworkUpdatesWindow.BatchState.CANCELLED, old.get(10, TimeUnit.SECONDS));
-            assertEquals(FrameworkUpdatesWindow.BatchState.PREPARED, next.get(10, TimeUnit.SECONDS));
-            assertTrue(edt(() -> f.window.installButton().isEnabled()));
+            old.get(10, TimeUnit.SECONDS);
+            next.get(10, TimeUnit.SECONDS);
+            assertEquals(1, f.service.commits.get());
+            assertEquals(
+                    CoreFrameworkUpdates.Phase.APPLY_PENDING,
+                    f.framework.snapshot().phase());
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
         }
     }
 
@@ -504,10 +543,11 @@ class FrameworkUpdatesWindowTest {
         try (Fixture f = new Fixture(target -> List.of(ROW))) {
             f.planned();
             try (var lease = PluginUpdateGate.acquireLease(home).orElseThrow()) {
-                f.download();
+                edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
                 assertEquals(0, f.framework.downloads.get());
                 assertEquals(0, f.service.downloads.get());
-                assertFalse(edt(() -> f.window.installButton().isEnabled()));
+                assertEquals(0, f.service.commits.get());
+                assertTrue(edt(() -> f.window.installButton().isEnabled()));
                 assertTrue(PluginUpdateGate.isHeld(home));
             }
         }
@@ -519,19 +559,23 @@ class FrameworkUpdatesWindowTest {
             f.planned();
             f.service.downloadHook = control -> f.nanos.addAndGet(TimeUnit.SECONDS.toNanos(1));
             f.service.failDownload = true;
-            f.download();
+            edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
             f.nanos.addAndGet(TimeUnit.SECONDS.toNanos(100));
             edt(() -> {
                 f.window.render();
                 return null;
             });
-            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("00:01"));
+            assertTrue(edt(() -> f.window.elapsedLabel().getText()).contains("0m01s"));
             assertTrue(edt(f.window::currentDetailText).contains("Hash mismatch"));
-            assertTrue(edt(() -> f.window.downloadButton().isEnabled()));
-            assertFalse(edt(() -> f.window.installButton().isEnabled()));
-            f.service.failDownload = false;
-            f.download();
             assertTrue(edt(() -> f.window.installButton().isEnabled()));
+            assertEquals(0, f.service.commits.get());
+            f.service.failDownload = false;
+            edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            assertEquals(1, f.service.commits.get());
+            assertEquals(
+                    CoreFrameworkUpdates.Phase.APPLY_PENDING,
+                    f.framework.snapshot().phase());
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
         }
     }
 
@@ -585,7 +629,6 @@ class FrameworkUpdatesWindowTest {
             assertTrue(started.await(5, TimeUnit.SECONDS));
             assertFalse(edt(() -> f.window.tableModel().isCellEditable(1, 0)));
             assertFalse(edt(() -> f.window.checkButton().isEnabled()));
-            assertFalse(edt(() -> f.window.includePluginsCheckbox().isEnabled()));
             edt(() -> {
                 f.window.close();
                 return null;
@@ -646,7 +689,6 @@ class FrameworkUpdatesWindowTest {
                 f.window.render();
                 return null;
             });
-            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
         }
     }

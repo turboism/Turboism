@@ -18,7 +18,6 @@ import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerifica
 import dev.turboism.preview.PluginHotReloadCoordinator;
 import dev.turboism.update.UpdateFileSupport;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -458,13 +457,7 @@ public final class PluginMarketService implements AutoCloseable {
         }
 
         try {
-            client.downloadArtifact(
-                    URI.create(release.artifact().url()),
-                    release.artifact().size(),
-                    release.artifact().sha256(),
-                    tempDownload,
-                    control,
-                    progress);
+            client.downloadArtifact(release.artifact(), tempDownload, control, progress);
         } catch (IOException downloadError) {
             try {
                 Files.deleteIfExists(tempDownload);

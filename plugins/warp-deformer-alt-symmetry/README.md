@@ -104,6 +104,11 @@ No telemetry is sent by this plugin.
 Plugin lifecycle and failure records can appear in Turboism's session log and
 Cubism's host log with the plugin ID attached.
 
+Per-input diagnostics (`SET_ACTION`, input events and drag routes) are disabled at
+the default INFO log level. To investigate input routing, temporarily select TRACE
+in Turboism's log settings, then restore INFO after capture. Changing the level
+takes effect immediately and does not change mirror editing behavior.
+
 ## Status and limitations
 
 - **Status:** Preview.
