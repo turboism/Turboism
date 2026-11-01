@@ -19,13 +19,13 @@ import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 /**
  * Ports the legacy BoundingBox overlay mirror workflow: one overlay button opens a
@@ -49,15 +49,19 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
 
     private PluginContext context;
     private PluginLogger logger;
+    private UiScheduler uiScheduler;
+    private volatile boolean enabled;
 
     @Override
     public void init(final PluginContext pluginContext) {
         this.context = pluginContext;
         this.logger = pluginContext.logger();
+        this.uiScheduler = pluginContext.uiScheduler();
     }
 
     @Override
     public void enable() {
+        enabled = true;
         try {
             context.disposableScope()
                     .register(context.services()
@@ -86,10 +90,31 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
     @Override
     public void disable() {
         // The overlay registration is bound to disposableScope; disable unregisters it.
+        enabled = false;
     }
 
     private void onOverlayClick() {
-        SwingUtilities.invokeLater(this::openMirrorDialog);
+        dispatchToUiThread(this::openMirrorDialog);
+    }
+
+    private void dispatchToUiThread(final Runnable work) {
+        if (!enabled) {
+            return;
+        }
+        final UiScheduler scheduler = uiScheduler;
+        if (scheduler == null) {
+            logger.warn("Warp mirror UI dispatch skipped: no UI scheduler");
+            return;
+        }
+        try {
+            scheduler.runOnUiThread(() -> {
+                if (enabled) {
+                    work.run();
+                }
+            });
+        } catch (IllegalStateException fenced) {
+            logger.warn("Warp mirror UI dispatch skipped: plugin generation is closed");
+        }
     }
 
     private void openMirrorDialog() {
@@ -172,7 +197,7 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
                     .append('\n');
         }
         final int severity = summary.recoveryFailed() ? JOptionPane.ERROR_MESSAGE : JOptionPane.WARNING_MESSAGE;
-        SwingUtilities.invokeLater(() -> showMessage(message.toString(), severity));
+        dispatchToUiThread(() -> showMessage(message.toString(), severity));
     }
 
     private String blockerText(final PluginLocalization localization, final WarpMirrorBlockerCode code) {

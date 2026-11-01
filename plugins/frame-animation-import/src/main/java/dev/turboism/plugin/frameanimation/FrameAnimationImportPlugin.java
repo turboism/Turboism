@@ -17,11 +17,11 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import java.awt.GraphicsEnvironment;
 import java.util.Objects;
 import java.util.function.Consumer;
-import javax.swing.SwingUtilities;
 
 /**
  * Official plugin entrypoint for importing sequence frame animations and binding keyform opacities.
@@ -37,6 +37,8 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
     private PluginContext context;
     private PluginLocalization localization;
     private PluginLogger logger;
+    private UiScheduler uiScheduler;
+    private volatile boolean enabled;
 
     public FrameAnimationImportPlugin() {}
 
@@ -49,6 +51,7 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.localization = context.localization();
         this.logger = context.logger();
+        this.uiScheduler = context.uiScheduler();
         if (service == null) {
             service = new FrameAnimationImportService(logger);
         }
@@ -57,11 +60,13 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
 
     @Override
     public void enable() {
+        enabled = true;
         try {
             registerAction();
             context.disposableScope().register(contribute(CONTEXT_MENU_PART_ID, ContextMenuRegistry.Location.PART_TAB));
             context.disposableScope().register(contributeTopMenu());
         } catch (RuntimeException failure) {
+            enabled = false;
             closeScopeQuietly();
             throw failure;
         }
@@ -70,11 +75,13 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
 
     @Override
     public void disable() {
+        enabled = false;
         logger.info("FrameAnimationImportPlugin disabled");
     }
 
     @Override
     public void shutdown() {
+        enabled = false;
         logger.info("FrameAnimationImportPlugin shutdown");
     }
 
@@ -119,6 +126,9 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
     }
 
     void openDialog() {
+        if (!enabled) {
+            return;
+        }
         if (!context.cubism().model().isAvailable()) {
             notify("frameAnimation.status.noModel", "WARNING", localization.text("status.noModel"));
             return;
@@ -137,39 +147,58 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
             return;
         }
 
-        SwingUtilities.invokeLater(() -> {
-            final FrameAnimationDialog dialog = new FrameAnimationDialog(null, localization);
-            final FrameAnimationImportPlan plan = dialog.showDialog();
-            if (plan == null) {
-                return; // User cancelled
-            }
+        dispatchToUiThread(() -> showDialog(model));
+    }
 
-            try {
-                final AuthoringTransactionService tx = context.cubism().authoringTransactions();
-                final AuthoringTransactionResult<FrameAnimationImportResult> result = service.execute(model, plan, tx);
-
-                if (result.outcome() == AuthoringTransactionOutcome.COMMITTED
-                        && result.value().isPresent()) {
-                    final FrameAnimationImportResult res = result.value().get();
-                    notify(
-                            "frameAnimation.status.success",
-                            "INFO",
-                            localization.format(
-                                    "status.success",
-                                    res.frameCount(),
-                                    res.parameterId().value()));
-                } else {
-                    notify(
-                            "frameAnimation.status.failed",
-                            "ERROR",
-                            localization.format(
-                                    "status.failed", result.diagnosticId().orElse("transaction aborted")));
+    private void dispatchToUiThread(final Runnable work) {
+        final UiScheduler scheduler = uiScheduler;
+        if (scheduler == null) {
+            logger.warn("Frame animation import UI dispatch skipped: no UI scheduler");
+            return;
+        }
+        try {
+            scheduler.runOnUiThread(() -> {
+                if (enabled) {
+                    work.run();
                 }
-            } catch (Exception ex) {
-                logger.error("Failed to execute frame animation import", ex);
-                notify("frameAnimation.status.failed", "ERROR", localization.format("status.failed", ex.getMessage()));
+            });
+        } catch (IllegalStateException fenced) {
+            logger.warn("Frame animation import UI dispatch skipped: plugin generation is closed");
+        }
+    }
+
+    private void showDialog(final CubismModel model) {
+        final FrameAnimationDialog dialog = new FrameAnimationDialog(null, localization);
+        final FrameAnimationImportPlan plan = dialog.showDialog();
+        if (plan == null) {
+            return; // User cancelled
+        }
+
+        try {
+            final AuthoringTransactionService tx = context.cubism().authoringTransactions();
+            final AuthoringTransactionResult<FrameAnimationImportResult> result = service.execute(model, plan, tx);
+
+            if (result.outcome() == AuthoringTransactionOutcome.COMMITTED
+                    && result.value().isPresent()) {
+                final FrameAnimationImportResult res = result.value().get();
+                notify(
+                        "frameAnimation.status.success",
+                        "INFO",
+                        localization.format(
+                                "status.success",
+                                res.frameCount(),
+                                res.parameterId().value()));
+            } else {
+                notify(
+                        "frameAnimation.status.failed",
+                        "ERROR",
+                        localization.format(
+                                "status.failed", result.diagnosticId().orElse("transaction aborted")));
             }
-        });
+        } catch (Exception ex) {
+            logger.error("Failed to execute frame animation import", ex);
+            notify("frameAnimation.status.failed", "ERROR", localization.format("status.failed", ex.getMessage()));
+        }
     }
 
     private void notify(final String id, final String severity, final String message) {

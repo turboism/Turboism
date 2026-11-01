@@ -7,11 +7,11 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import javax.swing.SwingUtilities;
 
 /**
  * Contributes a single-line model-image counter into the native texture-atlas editor
@@ -21,13 +21,15 @@ import javax.swing.SwingUtilities;
 public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
 
     private PluginContext context;
+    private UiScheduler uiScheduler;
     private ScheduledExecutorService scheduler;
     private TextureAtlasEditorPanel panel;
-    private boolean enabled;
+    private volatile boolean enabled;
 
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
+        this.uiScheduler = context.uiScheduler();
         // context.logger().info("Texture Atlas Statistics plugin initialized");
     }
 
@@ -58,12 +60,11 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                                     .map(TextureAtlasSummary::imageCount)
                                     .orElse(0);
                             final String text = i18n.format("texture-atlas-stats.line", whole, selected);
-                            SwingUtilities.invokeLater(() -> attached.setText(text));
+                            dispatchTextToUi(attached, text);
                         } catch (ThreadDeath | VirtualMachineError fatal) {
                             throw fatal;
                         } catch (Throwable failure) {
-                            final String unavailable = i18n.text("texture-atlas-stats.unavailable");
-                            SwingUtilities.invokeLater(() -> attached.setText(unavailable));
+                            dispatchTextToUi(attached, i18n.text("texture-atlas-stats.unavailable"));
                         }
                     },
                     1,
@@ -79,6 +80,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
+        enabled = false;
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
@@ -87,13 +89,32 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             panel.close();
             panel = null;
         }
-        enabled = false;
     }
 
     @Override
     public void shutdown() {
         disable();
+        uiScheduler = null;
         context = null;
+    }
+
+    private void dispatchTextToUi(final TextureAtlasEditorPanel target, final String text) {
+        if (!enabled) {
+            return;
+        }
+        final UiScheduler ui = uiScheduler;
+        if (ui == null) {
+            return;
+        }
+        try {
+            ui.runOnUiThread(() -> {
+                if (enabled) {
+                    target.setText(text);
+                }
+            });
+        } catch (IllegalStateException fenced) {
+            // The plugin generation is fenced; the polling executor is shutting down.
+        }
     }
 
     private void requireContext() {

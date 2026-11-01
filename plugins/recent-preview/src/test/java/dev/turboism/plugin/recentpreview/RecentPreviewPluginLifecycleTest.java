@@ -39,6 +39,7 @@ import dev.turboism.sdk.task.TaskOutcome;
 import dev.turboism.sdk.task.TaskProgress;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.task.TaskSubmissionStatus;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -422,6 +423,7 @@ final class RecentPreviewPluginLifecycleTest {
                     case "disposableScope" -> scope;
                     case "tasks" -> tasks;
                     case "localization" -> dev.turboism.sdk.i18n.PluginLocalization.unavailable();
+                    case "uiScheduler" -> new FakeDirectUiScheduler();
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
     }

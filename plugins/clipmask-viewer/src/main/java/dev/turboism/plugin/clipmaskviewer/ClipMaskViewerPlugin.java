@@ -31,7 +31,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.swing.SwingUtilities;
 
 /**
  * 剪贴蒙版检查器（clipmask-viewer）官方插件。
@@ -195,10 +194,15 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
             logger.warn("Clip Mask Viewer cannot open because the JVM is headless");
             return;
         }
-        ui.invokeLater(() -> showWindow(openGeneration));
+        dispatchToUiThread(() -> showWindow(openGeneration));
     }
 
     private void showWindow(final long openGeneration) {
+        synchronized (lifecycleLock) {
+            if (!enabled || generation != openGeneration) {
+                return;
+            }
+        }
         final WindowView existing = window.get();
         if (existing != null) {
             existing.showAndFront();
@@ -230,7 +234,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         expectedView.showLoading();
         // Yield the current EDT event so the modeless window can paint its loading state before
         // the exact-host snapshot is captured on the required host/UI thread.
-        ui.invokeLater(() -> captureRecords(requestGeneration, expectedView));
+        dispatchToUiThread(() -> captureRecords(requestGeneration, expectedView));
     }
 
     private void captureRecords(final long requestGeneration, final WindowView expectedView) {
@@ -275,8 +279,21 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         }
         currentRefresh.set(handle);
         handle.completion()
-                .whenComplete((outcome, failure) -> ui.invokeLater(
+                .whenComplete((outcome, failure) -> dispatchToUiThread(
                         () -> applyAnalysis(requestGeneration, expectedView, handle, result.get(), outcome, failure)));
+    }
+
+    private void dispatchToUiThread(final Runnable work) {
+        final UiScheduler scheduler = uiScheduler;
+        if (scheduler == null) {
+            logger.warn("Clip Mask Viewer UI dispatch skipped: no UI scheduler");
+            return;
+        }
+        try {
+            ui.invokeLater(scheduler, work);
+        } catch (IllegalStateException fenced) {
+            logger.warn("Clip Mask Viewer UI dispatch skipped: plugin generation is closed");
+        }
     }
 
     private void applyAnalysis(
@@ -368,11 +385,27 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         boolean isHeadless();
 
         /**
-         * Schedules {@code action} on the UI event thread and returns immediately.
+         * Legacy scheduling seam retained for test doubles that do not inject a scheduler.
          *
          * @param action the UI work to run; must not be null
+         * @deprecated use {@link #invokeLater(UiScheduler, Runnable)} so work stays fenced by the
+         *     framework scheduler
          */
-        void invokeLater(Runnable action);
+        @Deprecated
+        default void invokeLater(Runnable action) {
+            throw new UnsupportedOperationException("UI dispatch requires the plugin scheduler");
+        }
+
+        /**
+         * Schedules {@code action} on the UI event thread through {@code scheduler} and returns
+         * immediately.
+         *
+         * @param scheduler the plugin's UI scheduler, captured while the plugin was live
+         * @param action the UI work to run; must not be null
+         */
+        default void invokeLater(UiScheduler scheduler, Runnable action) {
+            invokeLater(action);
+        }
 
         /**
          * Runs idempotent teardown {@code action} on the UI event thread and waits for it, bounded.
@@ -441,8 +474,8 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void invokeLater(final Runnable action) {
-            SwingUtilities.invokeLater(action);
+        public void invokeLater(final UiScheduler scheduler, final Runnable action) {
+            scheduler.runOnUiThread(action);
         }
 
         @Override

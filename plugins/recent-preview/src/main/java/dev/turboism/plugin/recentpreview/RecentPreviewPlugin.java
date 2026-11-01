@@ -20,6 +20,7 @@ import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.task.TaskHandle;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -36,6 +37,7 @@ import javax.swing.SwingUtilities;
 public final class RecentPreviewPlugin implements CubismPlugin {
 
     private PluginContext context;
+    private UiScheduler uiScheduler;
     private RecentPreviewController controller;
     private PreviewCacheIndex cacheIndex;
     private RecentPreviewRendererImpl renderer;
@@ -59,6 +61,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     @Override
     public void init(final PluginContext context) {
         this.context = Objects.requireNonNull(context, "context");
+        this.uiScheduler = context.uiScheduler();
         cacheIndex = new PreviewCacheIndex(context.storage());
         controller = new RecentPreviewController(
                 context.services().find(RecentFileService.class).orElseGet(RecentFileService::unavailable),
@@ -104,6 +107,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         renderer = null;
         controller = null;
         cacheIndex = null;
+        uiScheduler = null;
         context = null;
     }
 
@@ -160,9 +164,28 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         if (SwingUtilities.isEventDispatchThread()) {
             // Never run the host capture inline inside the popup render; let the
             // popup show immediately and refresh it when the capture completes.
-            SwingUtilities.invokeLater(() -> doCapture(id));
+            dispatchToUiThread(() -> doCapture(id));
         } else {
             doCapture(id);
+        }
+    }
+
+    private void dispatchToUiThread(final Runnable work) {
+        final UiScheduler scheduler = uiScheduler;
+        if (scheduler == null) {
+            return;
+        }
+        try {
+            scheduler.runOnUiThread(() -> {
+                if (enabled) {
+                    work.run();
+                }
+            });
+        } catch (IllegalStateException fenced) {
+            final PluginContext current = context;
+            if (current != null) {
+                current.logger().warn("Recent preview UI dispatch skipped: plugin generation is closed");
+            }
         }
     }
 
