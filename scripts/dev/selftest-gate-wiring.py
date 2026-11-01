@@ -15,6 +15,9 @@ makes a gate real:
      buildSrc but never runs its `test` task, so an unwired test suite would be
      dead weight
 
+Gradle sources are read with comments stripped, so a task name that is only
+commented out does not count as wired.
+
 The checks are textual because the subject is build wiring; every referenced
 task name is also asserted to exist so a rename cannot leave a dangling edge.
 """
@@ -44,6 +47,40 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         print(f"FAIL: {name}" + (f" ({detail})" if detail else ""))
 
 
+def strip_comments(text: str) -> str:
+    """Drop `//` and `/* */` comments, keeping string literals intact.
+
+    Globs such as "**/*.java" contain comment openers, so strings are skipped
+    whole. A commented-out task name then no longer counts as wiring.
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        two = text[i:i + 2]
+        if text.startswith('"""', i):
+            end = text.find('"""', i + 3)
+            end = n if end < 0 else end + 3
+            out.append(text[i:end])
+            i = end
+        elif text[i] in "\"'":
+            quote = text[i]
+            j = i + 1
+            while j < n and text[j] != quote and text[j] != "\n":
+                j += 2 if text[j] == "\\" else 1
+            out.append(text[i:j + 1])
+            i = j + 1
+        elif two == "//":
+            while i < n and text[i] != "\n":
+                i += 1
+        elif two == "/*":
+            end = text.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
+
+
 def task_block(text: str, declaration: str) -> str:
     """Return the body of the first block that starts with `declaration`."""
     start = text.find(declaration)
@@ -62,10 +99,17 @@ def task_block(text: str, declaration: str) -> str:
 
 
 def main() -> int:
-    verification = VERIFICATION.read_text(encoding="utf-8")
-    integration_build = INTEGRATION_BUILD.read_text(encoding="utf-8")
-    extension = EXTENSION.read_text(encoding="utf-8")
-    asm_admission = ASM_ADMISSION.read_text(encoding="utf-8")
+    # 0. the comment stripper itself: a commented-out task must not count as wired.
+    sample = 'dependsOn(\n    // "checkAsmDependencyModel",\n    /* "checkOther", */\n    "kept", "**/*.java", // trailing\n)'
+    stripped = strip_comments(sample)
+    check("comment stripper drops a commented-out task name", '"checkAsmDependencyModel"' not in stripped)
+    check("comment stripper drops block comments", '"checkOther"' not in stripped)
+    check("comment stripper keeps live names and glob strings", '"kept"' in stripped and '"**/*.java"' in stripped)
+
+    verification = strip_comments(VERIFICATION.read_text(encoding="utf-8"))
+    integration_build = strip_comments(INTEGRATION_BUILD.read_text(encoding="utf-8"))
+    extension = strip_comments(EXTENSION.read_text(encoding="utf-8"))
+    asm_admission = strip_comments(ASM_ADMISSION.read_text(encoding="utf-8"))
 
     dev_check = task_block(verification, "val devCheck by tasks.registering {")
     check_integration = task_block(verification, 'tasks.register("checkIntegration")')
