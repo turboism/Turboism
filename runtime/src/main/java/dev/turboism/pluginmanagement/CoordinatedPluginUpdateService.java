@@ -491,11 +491,37 @@ public class CoordinatedPluginUpdateService {
         return downloadAndPrepare(rows, targetApiVersion, control::isCancelled, control);
     }
 
+    /**
+     * Prepares the selected batch and reports aggregate plugin byte progress on the worker thread.
+     *
+     * @param rows selected plan rows
+     * @param targetApiVersion framework API to remain compatible with
+     * @param control caller-owned cancellation
+     * @param progress aggregate received and total bytes; completion still requires verification
+     * @return verified packages without committing an installation
+     */
+    public DownloadResult downloadAndPrepare(
+            final List<PluginUpdateRow> rows,
+            final Optional<PluginVersion> targetApiVersion,
+            final PluginCatalogClient.DownloadControl control,
+            final java.util.function.Consumer<PluginCatalogClient.DownloadProgress> progress) {
+        return downloadAndPrepare(rows, targetApiVersion, control::isCancelled, control, progress);
+    }
+
     private DownloadResult downloadAndPrepare(
             final List<PluginUpdateRow> rows,
             final Optional<PluginVersion> targetApiVersion,
             final java.util.function.BooleanSupplier cancelled,
             final PluginCatalogClient.DownloadControl control) {
+        return downloadAndPrepare(rows, targetApiVersion, cancelled, control, ignored -> {});
+    }
+
+    private DownloadResult downloadAndPrepare(
+            final List<PluginUpdateRow> rows,
+            final Optional<PluginVersion> targetApiVersion,
+            final java.util.function.BooleanSupplier cancelled,
+            final PluginCatalogClient.DownloadControl control,
+            final java.util.function.Consumer<PluginCatalogClient.DownloadProgress> progress) {
         if (pending.recoveryRequired()) {
             return DownloadResult.failure(
                     "PLUGIN_PENDING_REVIEW_REQUIRED",
@@ -512,6 +538,11 @@ public class CoordinatedPluginUpdateService {
 
         final List<Path> tempDownloadFiles = new ArrayList<>();
         final List<PreparedPluginJar> preparedList = new ArrayList<>();
+        final long totalBytes = selectedUpdates.stream()
+                .mapToLong(update -> update.release().artifact().size())
+                .sum();
+        long completedBytes = 0;
+        progress.accept(new PluginCatalogClient.DownloadProgress(0, totalBytes));
 
         try {
             Files.createDirectories(stagingPackages);
@@ -528,13 +559,16 @@ public class CoordinatedPluginUpdateService {
                 tempDownloadFiles.add(tempDownload);
 
                 try {
+                    final long precedingBytes = completedBytes;
                     client.downloadArtifact(
                             URI.create(artifact.url()),
                             artifact.size(),
                             artifact.sha256(),
                             tempDownload,
                             control,
-                            ignored -> {});
+                            value -> progress.accept(new PluginCatalogClient.DownloadProgress(
+                                    precedingBytes + value.receivedBytes(), totalBytes)));
+                    completedBytes += artifact.size();
                 } catch (IOException downloadError) {
                     cleanupTemp(tempDownloadFiles, preparedList);
                     return cancelled.getAsBoolean()

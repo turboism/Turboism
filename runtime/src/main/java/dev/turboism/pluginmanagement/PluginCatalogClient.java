@@ -199,6 +199,43 @@ public final class PluginCatalogClient {
     }
 
     /**
+     * Reads optional first-party release notes from the source revision recorded in the signed catalog.
+     * Missing translations fall back to English; this display-only request never changes update admission.
+     *
+     * @param update verified planned release
+     * @param locale preferred display language
+     * @return Markdown changes after the installed version and through the target version, or empty
+     * @throws IOException when the bounded HTTPS read fails
+     */
+    public String fetchReleaseNotes(final PluginAutoUpdatePlanner.PlannedUpdate update, final Locale locale)
+            throws IOException {
+        final String revision = update.release().sourceRevision().orElse("");
+        final String slug = update.plugin().slug();
+        if (!update.plugin().isOfficial()
+                || !"https://github.com/turboism/Turboism"
+                        .equalsIgnoreCase(update.plugin().repository())
+                || !revision.matches("[0-9a-f]{40}")
+                || !slug.matches("[a-z0-9][a-z0-9-]*")) return "";
+        final String language = locale.getLanguage();
+        final String suffix = Set.of("zh", "ja", "ko").contains(language) ? "_" + language : "";
+        final long deadline = deadlineNanos(requestDeadline);
+        for (String variant : suffix.isEmpty() ? java.util.List.of("") : java.util.List.of(suffix, "")) {
+            final URI uri = URI.create("https://raw.githubusercontent.com/turboism/Turboism/" + revision + "/plugins/"
+                    + slug + "/README" + variant + ".md");
+            final RawResponse response = fetchBytes(uri, "text/plain", Optional.empty(), 262_144, deadline);
+            if (response.statusCode() == HttpURLConnection.HTTP_NOT_FOUND) continue;
+            if (response.statusCode() != HttpURLConnection.HTTP_OK)
+                throw new IOException("Plugin release notes request failed: HTTP " + response.statusCode());
+            final String notes = PluginReleaseNotes.extract(
+                    new String(response.body(), java.nio.charset.StandardCharsets.UTF_8),
+                    update.installedVersion(),
+                    update.targetVersion());
+            if (!notes.isBlank()) return notes;
+        }
+        return "";
+    }
+
+    /**
      * Fetches the v2 catalog and its detached signature, honoring {@code etag} revalidation.
      *
      * @param etag optional previously cached ETag header value

@@ -15,6 +15,22 @@ final class PluginReadmeRenderer {
 
     private PluginReadmeRenderer() {}
 
+    static String render(final String markdown, final java.awt.Color foreground, final java.awt.Color background) {
+        final String fg = String.format("#%06x", foreground.getRGB() & 0xffffff);
+        final String bg = String.format("#%06x", background.getRGB() & 0xffffff);
+        final boolean dark = background.getRed() + background.getGreen() + background.getBlue() < 384;
+        final String html = render(markdown);
+        final int end = html.indexOf("</style>");
+        return html.substring(0, end)
+                        .replace("#202124", fg)
+                        .replace("#ffffff", bg)
+                        .replace("#f3f4f6", dark ? "#34373b" : "#f3f4f6")
+                        .replace("#d0d5dd", dark ? "#636870" : "#d0d5dd")
+                        .replace("#5f6368", dark ? "#c3c7cc" : "#5f6368")
+                        .replace("#155dfc", dark ? "#8ab4f8" : "#155dfc")
+                + html.substring(end);
+    }
+
     static String render(final String markdown) {
         final String normalized =
                 markdown == null ? "" : markdown.replace("\r\n", "\n").replace('\r', '\n');
