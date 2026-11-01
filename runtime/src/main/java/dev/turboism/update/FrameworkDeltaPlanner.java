@@ -25,11 +25,21 @@ import java.util.Objects;
 public final class FrameworkDeltaPlanner {
     private FrameworkDeltaPlanner() {}
 
+    /**
+     * What an apply step must do with one manifest entry: {@code REUSE} keeps the verified installed
+     * bytes, {@code DOWNLOAD} fetches the entry from the authenticated source.
+     */
     public enum Action {
         REUSE,
         DOWNLOAD
     }
 
+    /**
+     * One planned entry and the action selected for it.
+     *
+     * @param entry authenticated manifest entry the decision belongs to
+     * @param action whether apply reuses the installed bytes or downloads the entry
+     */
     public record Decision(UpdateManifestEntry entry, Action action) {
         public Decision {
             Objects.requireNonNull(entry, "entry");
@@ -37,6 +47,12 @@ public final class FrameworkDeltaPlanner {
         }
     }
 
+    /**
+     * Complete offline delta decision for one trusted manifest.
+     *
+     * @param decisions one immutable decision per manifest entry, in manifest order
+     * @param bytesToDownload sum of entry sizes that still have to be downloaded
+     */
     public record Plan(List<Decision> decisions, long bytesToDownload) {
         public Plan {
             decisions = List.copyOf(decisions);

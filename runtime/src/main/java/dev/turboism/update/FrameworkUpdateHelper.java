@@ -89,6 +89,15 @@ public final class FrameworkUpdateHelper {
 
     private FrameworkUpdateHelper() {}
 
+    /**
+     * Helper CLI entry point used by the launcher and by the detached apply process.
+     *
+     * <p>Exits the JVM with the helper's integer verdict ({@code 0/10/20/30} are the launchable codes,
+     * {@code 64/74/75} report usage, failure and busy). Trusted keys come only from the bundled framework
+     * authority inside the installed agent, never from the stage or the command line.</p>
+     *
+     * @param args CLI arguments parsed by {@code runInstalled}
+     */
     public static void main(final String[] args) {
         System.exit(runInstalled(args, System.out, System.err, trustedKeys(), ProcessHandle::of, Instant::now));
     }
