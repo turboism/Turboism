@@ -24,7 +24,7 @@ public final class VerifiedMemberResolver {
     private volatile java.util.Set<String> unavailableCapabilities = java.util.Set.of();
     // The immutable access plan and defining loader belong to this resolver's lifetime.
     // Do not make this process-global: provider replacement must release cached host members.
-    private final java.util.concurrent.ConcurrentMap<String, Method> invocationMethods =
+    private final java.util.concurrent.ConcurrentMap<String, VerifiedMethodCallSite> invocationCallSites =
             new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentMap<String, Field> invocationFields =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -739,36 +739,14 @@ public final class VerifiedMemberResolver {
 
     private Object invokeResolved(final StaticSelector selector, final Object target, final Object[] arguments) {
         try {
-            final Method method =
-                    invocationMethods.computeIfAbsent(selector.alias(), ignored -> resolveInvocationMethod(selector));
-            final Class<?> owner = method.getDeclaringClass();
-            if (target != null && !owner.isInstance(target)) {
-                throw new VerifiedAccessException(
-                        selector.alias(),
-                        VerifiedAccessException.FailureKind.RESOLUTION,
-                        "Verified host selector target type does not match.",
-                        null);
-            }
-            if (!method.canAccess(target)) {
-                final boolean publicMethodOnNonPublicOwner =
-                        Modifier.isPublic(method.getModifiers()) && !Modifier.isPublic(owner.getModifiers());
-                if (!publicMethodOnNonPublicOwner || !method.trySetAccessible()) {
-                    throw resolutionFailure(selector.alias(), "Verified host method is not accessible.");
-                }
-            }
-            return method.invoke(target, arguments == null ? new Object[0] : arguments);
+            final VerifiedMethodCallSite callSite = invocationCallSites.computeIfAbsent(
+                    selector.alias(),
+                    ignored -> VerifiedMethodCallSite.forResolver(selector, resolveInvocationMethod(selector)));
+            return target == null ? callSite.invokeStatic(arguments) : callSite.invoke(target, arguments);
         } catch (VerifiedAccessException exception) {
             throw exception;
-        } catch (InvocationTargetException exception) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(exception.getCause());
-            throw VerifiedAccessException.invocationFailure(
-                    selector.alias(), "Verified host method execution failed safely.", exception.getCause());
-        } catch (IllegalAccessException | IllegalArgumentException | LinkageError exception) {
-            throw new VerifiedAccessException(
-                    selector.alias(),
-                    VerifiedAccessException.FailureKind.RESOLUTION,
-                    "Verified host selector resolution failed safely.",
-                    null);
+        } catch (IllegalArgumentException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(selector.alias(), "Verified host selector resolution failed safely.");
         }
     }
 
