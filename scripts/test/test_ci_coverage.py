@@ -130,6 +130,7 @@ def executable_commands(document: dict, release: bool = False) -> list[list[str]
                         args = [x for x in args if not (x.startswith('-PinstallerVersion=') or x == '-PturboismRelease=true')]
                     assert not any(x.startswith(('-P', '-I', '--exclude-task=', '--tests')) for x in args), 'filtered gate'
                     assert set(args) <= {'devCheck', 'checkCompletedCommit', 'checkRelease',
+                                         ':buildSrc:test',
                                          '--no-daemon', '--offline', '--console=plain',
                                          '--stacktrace', '--continue'}, 'unexpected gate argument'
                     commands.append(args)
@@ -247,13 +248,20 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
     assert 'ordinaryTestTasks' in covered
     # Java test directories must belong to a module included in settings, where
     # checkCompletedCommit discovers its ordinary Test task automatically.
+    # buildSrc is a special Gradle build that settings.gradle.kts cannot list; its
+    # tests run through the explicit `:buildSrc:test` CI step instead.
     settings = (root / 'settings.gradle.kts').read_text()
+    ci_workflow = (root / '.github/workflows/ci.yml').read_text()
     for source in root.glob('**/src/test/java'):
         if 'build' in source.relative_to(root).parts:
             continue
         module = source.parents[2]
         path = ':' + module.relative_to(root).as_posix().replace('/', ':')
         assert (module / 'build.gradle.kts').is_file(), f'test source without module: {source}'
+        if path == ':buildSrc':
+            assert ':buildSrc:test' in ci_workflow, (
+                'buildSrc tests are not run by CI; add a `:buildSrc:test` step to ci.yml')
+            continue
         assert f'"{path.lstrip(chr(58))}"' in settings or f'"{path}"' in settings, f'test module omitted from settings: {path}'
 
 
