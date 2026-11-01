@@ -2,6 +2,8 @@ package dev.turboism.core.plugin.context;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -15,6 +17,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -41,7 +45,77 @@ public final class SdkCarrierTraversal {
         Object wrapInterface(Object value, Class<?> sdkInterface);
     }
 
+    // Interface shape and modifiers never change for a loaded class. Cache the fast-path
+    // decision per raw return type so hot calls avoid repeated hierarchy and modifier checks.
+    private static final ClassValue<Boolean> RETURN_WRAPPING_REQUIRED = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(final Class<?> returnType) {
+            if (returnType == void.class || returnType.isPrimitive() || returnType.isEnum()) {
+                return Boolean.FALSE;
+            }
+            // Arrays are defensively copied even when their component type is final.
+            if (returnType.isArray()) {
+                return Boolean.TRUE;
+            }
+            if (!Modifier.isFinal(returnType.getModifiers())) {
+                return Boolean.TRUE;
+            }
+            // Optional is final but still a carrier; a final CompletionStage subclass is
+            // traversed too because wrapValue checks that carrier by assignability.
+            return returnType == Optional.class || CompletionStage.class.isAssignableFrom(returnType);
+        }
+    };
+
+    // Generic signatures are immutable but expensive to resolve. Cache the resolved return
+    // type per declaring class so repeated calls through one SDK proxy reuse the parse result.
+    private static final ClassValue<ConcurrentMap<Method, Type>> GENERIC_RETURN_TYPES = new ClassValue<>() {
+        @Override
+        protected ConcurrentMap<Method, Type> computeValue(final Class<?> type) {
+            return new ConcurrentHashMap<>();
+        }
+    };
+
     private SdkCarrierTraversal() {}
+
+    /**
+     * Wraps one reflected method result without resolving its generic signature for leaf values.
+     *
+     * <p>Methods returning {@code void}, primitives, enums, or final non-array values other than
+     * {@link Optional} can never contain a wrappable SDK carrier. Their result is returned as-is
+     * without calling {@link Method#getGenericReturnType()}, which reparses and clones the generic
+     * type tree when a signature is present. Remaining results delegate to {@link #wrapValue} with
+     * the cached generic return type.</p>
+     *
+     * @param method the reflected method that produced the value
+     * @param result the method result
+     * @param interfaceWrapper the callback governing interface proxying
+     * @return the wrapped result, or the original value when no carrier traversal is required
+     */
+    public static Object wrapMethodReturnValue(
+            final Method method, final Object result, final InterfaceWrapper interfaceWrapper) {
+        if (result == null || !requiresReturnWrapping(method.getReturnType())) {
+            return result;
+        }
+        return wrapValue(result, genericReturnType(method), interfaceWrapper);
+    }
+
+    /**
+     * Returns whether a value declared as {@code returnType} can need carrier traversal or
+     * interface proxying. Final classes cannot be interfaces and, apart from {@link Optional}
+     * and {@link CompletionStage} subtypes, are not traversed by {@link #wrapValue}.
+     *
+     * @param returnType the raw declared return type
+     * @return {@code true} when the generic return type must be inspected
+     */
+    public static boolean requiresReturnWrapping(final Class<?> returnType) {
+        return RETURN_WRAPPING_REQUIRED.get(returnType);
+    }
+
+    private static Type genericReturnType(final Method method) {
+        return GENERIC_RETURN_TYPES
+                .get(method.getDeclaringClass())
+                .computeIfAbsent(method, Method::getGenericReturnType);
+    }
 
     /**
      * Recursively traverses SDK carrier structures (Optional, List, Collection, Set, Map, array,
