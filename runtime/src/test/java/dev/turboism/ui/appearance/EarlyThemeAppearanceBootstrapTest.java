@@ -24,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -177,8 +176,7 @@ class EarlyThemeAppearanceBootstrapTest {
     @Test
     void readsADocumentWhoseRevisionExceedsTheIntRange(@TempDir Path home) throws Exception {
         // The writer's revision is a long; a valid document must not be rejected for its size.
-        writeRawSelectionDocument(
-                home, document("1", Integer.MAX_VALUE + 1L, "selected-theme", "[\"turboism.nord\"]"));
+        writeRawSelectionDocument(home, document("1", Integer.MAX_VALUE + 1L, "selected-theme", "[\"turboism.nord\"]"));
 
         assertEquals(
                 Optional.of("turboism.nord"),
@@ -196,9 +194,7 @@ class EarlyThemeAppearanceBootstrapTest {
 
         assertEquals(Optional.empty(), readSelectionThemeId(bootstrap));
         assertEquals(1, diagnostics.size(), diagnostics.toString());
-        assertTrue(
-                diagnostics.get(0).contains("EARLY_THEME_SELECTION_SCHEMA_UNSUPPORTED"),
-                diagnostics.get(0));
+        assertTrue(diagnostics.get(0).contains("EARLY_THEME_SELECTION_SCHEMA_UNSUPPORTED"), diagnostics.get(0));
     }
 
     @Test
@@ -219,9 +215,7 @@ class EarlyThemeAppearanceBootstrapTest {
         // count=2 but only one entry line: a truncated or hand-edited document must not
         // be half-read into a theme id.
         final String body = entry("selected-theme", "[\"turboism.nord\"]");
-        writeRawSelectionDocument(
-                home,
-                "turboism-typed-config-v1\nschemaVersion=1\nrevision=1\ncount=2\n" + body);
+        writeRawSelectionDocument(home, "turboism-typed-config-v1\nschemaVersion=1\nrevision=1\ncount=2\n" + body);
 
         final List<String> diagnostics = captureDiagnostics();
         final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
@@ -286,7 +280,8 @@ class EarlyThemeAppearanceBootstrapTest {
                 ignored -> {});
         final DisposableScope scope = new DisposableScope();
         try {
-            final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler("early-theme-test", scheduler, scope);
+            final RuntimePluginTaskScheduler tasks =
+                    new RuntimePluginTaskScheduler("early-theme-test", scheduler, scope);
             final ConfigKey<List<String>> key = new ConfigKey<>(
                     "ui-theme.selection", SELECTED_THEME_KEY, List.of(), ConfigCodecs.boundedStringList(1, 128));
             final ConfigSchema schema = new ConfigSchema("ui-theme.selection", SELECTION_PATH, 1, List.of(key));
@@ -298,7 +293,8 @@ class EarlyThemeAppearanceBootstrapTest {
                     tasks,
                     scope)) {
                 registry.registerSchema(schema, List.of()).toCompletableFuture().join();
-                final var result = registry.write(key, selection, 0L).toCompletableFuture().join();
+                final var result =
+                        registry.write(key, selection, 0L).toCompletableFuture().join();
                 assertTrue(result.written(), "typed config write must succeed: " + result);
             }
         } finally {
@@ -315,8 +311,8 @@ class EarlyThemeAppearanceBootstrapTest {
 
     private static String document(
             final String schemaVersion, final long revision, final String key, final String value) {
-        return "turboism-typed-config-v1\nschemaVersion=" + schemaVersion + "\nrevision=" + revision
-                + "\ncount=2\n" + entry("unrelated-setting", "\"kept\"") + entry(key, value);
+        return "turboism-typed-config-v1\nschemaVersion=" + schemaVersion + "\nrevision=" + revision + "\ncount=2\n"
+                + entry("unrelated-setting", "\"kept\"") + entry(key, value);
     }
 
     private static String entry(final String key, final String value) {

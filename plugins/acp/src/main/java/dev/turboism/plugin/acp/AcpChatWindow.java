@@ -1965,10 +1965,7 @@ final class AcpChatWindow implements AcpChatController.View {
 
     /** Applies the entry-level paragraph attributes over a rendered range. */
     private void applyEntryParagraphs(
-            final TranscriptEntry entry,
-            final StyledDocument document,
-            final int start,
-            final int length)
+            final TranscriptEntry entry, final StyledDocument document, final int start, final int length)
             throws javax.swing.text.BadLocationException {
         final SimpleAttributeSet message = new SimpleAttributeSet();
         message.addAttribute(

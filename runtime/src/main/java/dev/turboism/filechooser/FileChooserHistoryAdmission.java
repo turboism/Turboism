@@ -83,8 +83,8 @@ public final class FileChooserHistoryAdmission {
         @Override
         public Registration registerProvider(final Provider provider) {
             throw new UnsupportedOperationException(
-                    "file-chooser history provider registration is reserved for the framework shell ("
-                            + WRITER_IDENTITY + ")");
+                    "file-chooser history provider registration is reserved for the framework shell (" + WRITER_IDENTITY
+                            + ")");
         }
     }
 }

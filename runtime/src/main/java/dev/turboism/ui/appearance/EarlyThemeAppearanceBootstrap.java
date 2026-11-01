@@ -182,8 +182,7 @@ public final class EarlyThemeAppearanceBootstrap {
      * half-read: the reader fails with one bounded diagnostic instead of silently loading a
      * different theme or none at all.
      */
-    private static Map<String, String> parseTypedConfigDocument(final String text)
-            throws SelectionDocumentException {
+    private static Map<String, String> parseTypedConfigDocument(final String text) throws SelectionDocumentException {
         final String[] lines = text.split("\\n", -1);
         if (lines.length < 5 || !lines[lines.length - 1].isEmpty()) {
             throw new SelectionDocumentException(DOCUMENT_INVALID, "document framing is incomplete");
@@ -201,8 +200,7 @@ public final class EarlyThemeAppearanceBootstrap {
         }
         final int count = parseMetadata(lines[3], COUNT_PREFIX, DOCUMENT_INVALID);
         if (count < 0 || lines.length != count + 5) {
-            throw new SelectionDocumentException(
-                    DOCUMENT_INVALID, "count does not match the persisted entry lines");
+            throw new SelectionDocumentException(DOCUMENT_INVALID, "count does not match the persisted entry lines");
         }
         final Base64.Decoder decoder = Base64.getUrlDecoder();
         final Map<String, String> entries = new LinkedHashMap<>();
@@ -240,7 +238,8 @@ public final class EarlyThemeAppearanceBootstrap {
     /** The writer's revision is a {@code long}; parse it as one so a valid document is never rejected. */
     private static long parseRevision(final String line) throws SelectionDocumentException {
         if (!line.startsWith(REVISION_PREFIX)) {
-            throw new SelectionDocumentException(DOCUMENT_INVALID, "metadata line is not " + REVISION_PREFIX + "<value>");
+            throw new SelectionDocumentException(
+                    DOCUMENT_INVALID, "metadata line is not " + REVISION_PREFIX + "<value>");
         }
         try {
             return Long.parseLong(line.substring(REVISION_PREFIX.length()));

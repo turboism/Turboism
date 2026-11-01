@@ -59,6 +59,7 @@ final class McpHttpServer implements AutoCloseable {
      * stalled host write.
      */
     private static final int HTTP_THREADS = 4;
+
     private static final int HOST_WORK_SLOTS = HTTP_THREADS - 1;
 
     private final HttpServer server;

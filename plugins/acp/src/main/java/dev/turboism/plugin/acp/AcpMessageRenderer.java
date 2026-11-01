@@ -81,8 +81,7 @@ final class AcpMessageRenderer {
         if (state == null || state.markdown != markdown) return false;
         if (source.length() < state.committedSource) return false;
         if (boundaryFingerprint(source, state.committedSource) != state.committedFingerprint) return false;
-        if (state.tailDocumentStart < 0
-                || state.tailDocumentStart + state.tailLength > document.getLength()) {
+        if (state.tailDocumentStart < 0 || state.tailDocumentStart + state.tailLength > document.getLength()) {
             return false;
         }
         document.remove(state.tailDocumentStart, state.tailLength);
