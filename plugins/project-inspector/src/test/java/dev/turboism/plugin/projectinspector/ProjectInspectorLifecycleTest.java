@@ -234,6 +234,17 @@ class ProjectInspectorLifecycleTest {
     }
 
     @Test
+    void fencedSchedulerDropsQueuedOpenWithoutCrashing() {
+        final Fixture fixture = new Fixture();
+        fixture.ui.schedulerFenced = true;
+
+        fixture.plugin.enable();
+
+        assertEquals(0, fixture.ui.createCount);
+        assertTrue(fixture.logger.warns.stream().anyMatch(message -> message.contains("generation is closed")));
+    }
+
+    @Test
     void headlessEnableDoesNotCreateWindowOrSubmitRead() {
         final Fixture fixture = new Fixture();
         fixture.ui.headless = true;
@@ -286,12 +297,16 @@ class ProjectInspectorLifecycleTest {
         private final UiScheduler uiScheduler = new UiScheduler() {
             @Override
             public Registration runOnUiThread(final Runnable work) {
-                throw new UnsupportedOperationException();
+                if (ui.schedulerFenced) {
+                    throw new IllegalStateException("plugin generation is closed");
+                }
+                ui.enqueue(work);
+                return () -> {};
             }
 
             @Override
             public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                throw new UnsupportedOperationException();
+                return runOnUiThread(work);
             }
         };
         private final ProjectInspectorPlugin plugin = new ProjectInspectorPlugin(ui);
@@ -321,6 +336,7 @@ class ProjectInspectorLifecycleTest {
         private FakeView view = new FakeView();
         private FakeView previousView;
         private boolean headless;
+        private boolean schedulerFenced;
         private int createCount;
         private int teardownCount;
         private UiScheduler teardownScheduler;
@@ -333,8 +349,8 @@ class ProjectInspectorLifecycleTest {
         }
 
         @Override
-        public void invokeLater(final Runnable action) {
-            queued.add(action);
+        public void invokeLater(final UiScheduler scheduler, final Runnable action) {
+            scheduler.runOnUiThread(action);
         }
 
         @Override
@@ -365,6 +381,10 @@ class ProjectInspectorLifecycleTest {
             if (action != null) {
                 action.run();
             }
+        }
+
+        private void enqueue(final Runnable action) {
+            queued.add(action);
         }
 
         private void replaceView() {

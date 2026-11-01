@@ -29,10 +29,12 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.test.plugin.FakePluginContext;
 import dev.turboism.test.ui.RecordingUiHost;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -170,6 +172,33 @@ class ParameterBatchTransferPluginTest {
     }
 
     @Test
+    void disabledPluginIgnoresContextMenuActionWithoutPreparingOrScheduling() {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context);
+        fixture.plugin.enable();
+        fixture.plugin.disable();
+
+        fixture.actions
+                .byId(ParameterBatchTransferPlugin.ACTION_ID)
+                .handler()
+                .accept(new ActionRegistry.ActionContext() {
+                    @Override
+                    public Optional<ContextMenuSelection> contextMenuSelection() {
+                        return Optional.of(new ContextMenuSelection(
+                                1L,
+                                "document-a",
+                                ContextMenuRegistry.Location.DEFORMER_TAB,
+                                List.of(new ContextMenuSelection.Item(
+                                        ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"))));
+                    }
+                });
+
+        assertTrue(fixture.uiHost.notifications.isEmpty());
+        assertTrue(fixture.uiScheduler.scheduled.isEmpty());
+        assertFalse(fixture.cubism.accessed);
+    }
+
+    @Test
     void enableFailureClosesTheDisposableScope() {
         final Fixture fixture = new Fixture();
         fixture.plugin.init(fixture.context);
@@ -186,8 +215,9 @@ class ParameterBatchTransferPluginTest {
         final RecordingContextMenus contextMenus = new RecordingContextMenus();
         final RecordingUiHost uiHost = new RecordingUiHost();
         final RecordingCubism cubism = new RecordingCubism();
+        final RecordingUiScheduler uiScheduler = new RecordingUiScheduler();
         final DisposableScope scope = new DisposableScope();
-        final PluginContext context = new RecordingContext(actions, contextMenus, uiHost, cubism, scope);
+        final PluginContext context = new RecordingContext(actions, contextMenus, uiHost, cubism, uiScheduler, scope);
         final ParameterBatchTransferPlugin plugin =
                 new ParameterBatchTransferPlugin(new ParameterBatchTransferService());
     }
@@ -197,6 +227,7 @@ class ParameterBatchTransferPluginTest {
         private final RecordingContextMenus contextMenus;
         private final RecordingUiHost uiHost;
         private final RecordingCubism cubism;
+        private final RecordingUiScheduler uiScheduler;
         private final DisposableScope scope;
 
         RecordingContext(
@@ -204,18 +235,25 @@ class ParameterBatchTransferPluginTest {
                 final RecordingContextMenus contextMenus,
                 final RecordingUiHost uiHost,
                 final RecordingCubism cubism,
+                final RecordingUiScheduler uiScheduler,
                 final DisposableScope scope) {
             super(FakePluginContext.builder());
             this.actions = actions;
             this.contextMenus = contextMenus;
             this.uiHost = uiHost;
             this.cubism = cubism;
+            this.uiScheduler = uiScheduler;
             this.scope = scope;
         }
 
         @Override
         public RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            return uiScheduler;
         }
 
         @Override
@@ -270,6 +308,21 @@ class ParameterBatchTransferPluginTest {
                     .filter(action -> action.id().equals(id))
                     .findFirst()
                     .orElseThrow();
+        }
+    }
+
+    private static final class RecordingUiScheduler implements UiScheduler {
+        final List<Runnable> scheduled = new ArrayList<>();
+
+        @Override
+        public Registration runOnUiThread(final Runnable work) {
+            scheduled.add(work);
+            return () -> {};
+        }
+
+        @Override
+        public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+            return runOnUiThread(work);
         }
     }
 

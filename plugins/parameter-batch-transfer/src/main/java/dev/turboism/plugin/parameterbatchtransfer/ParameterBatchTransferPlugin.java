@@ -16,6 +16,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import java.awt.GraphicsEnvironment;
@@ -56,6 +57,8 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
     private PluginContext context;
     private PluginLocalization localization;
     private PluginLogger logger;
+    private UiScheduler uiScheduler;
+    private volatile boolean enabled;
 
     public ParameterBatchTransferPlugin() {
         // service is created in init() once the plugin logger is available
@@ -70,6 +73,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.localization = context.localization();
         this.logger = context.logger();
+        this.uiScheduler = context.uiScheduler();
         if (service == null) {
             service = new ParameterBatchTransferService(logger);
         }
@@ -78,6 +82,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
 
     @Override
     public void enable() {
+        enabled = true;
         try {
             registerAction();
             context.disposableScope()
@@ -86,6 +91,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
             context.disposableScope()
                     .register(contribute(CONTEXT_MENU_WORKSPACE_ID, ContextMenuRegistry.Location.WORKSPACE_OBJECT));
         } catch (RuntimeException failure) {
+            enabled = false;
             closeScopeQuietly();
             throw failure;
         }
@@ -95,11 +101,13 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
 
     @Override
     public void disable() {
+        enabled = false;
         logger.info("ParameterBatchTransferPlugin disabled");
     }
 
     @Override
     public void shutdown() {
+        enabled = false;
         logger.info("ParameterBatchTransferPlugin shutdown");
     }
 
@@ -145,6 +153,9 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
      * blocking modal dialog would time the action out.
      */
     void open(final ContextMenuSelection selection) {
+        if (!enabled) {
+            return;
+        }
         if (selection == null || selection.items().size() != 1) {
             notify("parameter.batchTransfer.status.noSelection", "INFO", localization.text("status.noSelection"));
             return;
@@ -165,7 +176,7 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
             logger.warn("Parameter batch transfer cannot open because the JVM is headless");
             return;
         }
-        SwingUtilities.invokeLater(() -> {
+        dispatchToUiThread(() -> {
             final List<BatchTransferRow> rows =
                     new BatchTransferDialog(localization, service, prepared.session).showDialog();
             if (rows == null) {
@@ -188,6 +199,26 @@ public final class ParameterBatchTransferPlugin implements CubismPlugin {
                 default -> {}
             }
         });
+    }
+
+    private void dispatchToUiThread(final Runnable work) {
+        if (!enabled) {
+            return;
+        }
+        final UiScheduler scheduler = uiScheduler;
+        if (scheduler == null) {
+            logger.warn("Parameter batch transfer UI dispatch skipped: no UI scheduler");
+            return;
+        }
+        try {
+            scheduler.runOnUiThread(() -> {
+                if (enabled) {
+                    work.run();
+                }
+            });
+        } catch (IllegalStateException fenced) {
+            logger.warn("Parameter batch transfer UI dispatch skipped: plugin generation is closed");
+        }
     }
 
     /** Host-thread session preparation; emits precondition notifications. */
