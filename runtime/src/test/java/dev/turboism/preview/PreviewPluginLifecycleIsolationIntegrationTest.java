@@ -11,6 +11,8 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.test.concurrent.Await;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +24,9 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -52,8 +56,13 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
             Duration.ofMillis(200),
             Duration.ofMillis(40));
 
-    @TempDir
+    @TempDir(cleanup = CleanupMode.NEVER)
     Path temporary;
+
+    @AfterEach
+    void cleanTemporaryDirectory() {
+        deleteRecursivelyBestEffort(temporary);
+    }
 
     @Test
     void pluginInitCanCallTheHookInstalledByTheBootstrapBarrier() throws Exception {
@@ -470,6 +479,28 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
                 SidecarDispatcher.noop(),
                 ignored -> {});
+    }
+
+    /**
+     * A retained failed generation deliberately keeps its plugin {@code URLClassLoader} open,
+     * which on Windows locks the fixture JAR. Delete everything that is still deletable and
+     * leave the locked entries to JVM exit instead of letting JUnit's temp-dir cleanup fail.
+     */
+    private static void deleteRecursivelyBestEffort(final Path root) {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (var paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException locked) {
+                    path.toFile().deleteOnExit();
+                }
+            });
+        } catch (IOException | UncheckedIOException ignored) {
+            // Best effort only: a retained classloader may keep its JAR locked until JVM exit.
+        }
     }
 
     private static void add(final JarOutputStream output, final String name, final byte[] content) throws Exception {
