@@ -6,7 +6,8 @@ import { synchronize } from '../github.mjs';
 import { verifyGitHubIdentity } from '../identity.mjs';
 import { fixture } from './fixture.mjs';
 
-const TOKEN = 'ghs_' + 'offline-test-credential'.replaceAll('-', '_');
+// Job credentials are opaque; their provider may issue longer, encoded token formats.
+const TOKEN = 'offline.' + 'a'.repeat(1200) + '-encoded+/=';
 const reply = value => new Response(JSON.stringify(value), {headers: {'Content-Type': 'application/json'}});
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 const keys = await crypto.subtle.generateKey({name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256'}, true, ['sign', 'verify']);
@@ -70,10 +71,11 @@ test('trusted notification recovers a stale release after upstream 403 without p
   assert.equal(calls.length, count, 'cron must not replace a fresh authenticated snapshot with an anonymous failure');
 });
 
-test('an authenticated notification waits for an anonymous refresh and then retries with its own credential', async t => {
+test('an authenticated notification waits for an anonymous refresh and then retries with its own credential', {timeout: 2000}, async t => {
   const x = await setup(t);
   let releaseAnonymous;
   const pending = new Promise(resolve => {releaseAnonymous = resolve;});
+  t.after(() => releaseAnonymous());
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     if (url === 'https://token.actions.githubusercontent.com/.well-known/jwks') return reply({keys: [jwk]});
     if (new Headers(init.headers).get('Authorization') === 'Bearer ' + TOKEN) return x.metadata(url, init);
@@ -112,6 +114,19 @@ test('scheduled OIDC is accepted only for the main sync notifier, never framewor
   assert.ok(await verifyGitHubIdentity(await identity({event_name: 'schedule'}), fetcher));
   await assert.rejects(() => identity({event_name: 'schedule', ref: 'refs/tags/v1.2.3', workflow_ref: 'turboism/Turboism/.github/workflows/notify-release-api.yml@refs/tags/v1.2.3'}).then(token => verifyGitHubIdentity(token, fetcher)));
   await assert.rejects(() => identity({event_name: 'schedule', environment: 'production-release', workflow_ref: 'turboism/Turboism/.github/workflows/release-github-only.yml@refs/heads/main'}).then(token => verifyGitHubIdentity(token, fetcher, {workflow: 'release-github-only.yml', environment: 'production-release'})));
+});
+
+test('malformed or oversized credentials are rejected before any upstream request', async t => {
+  const x = await setup(t);
+  t.mock.method(globalThis, 'fetch', async url => {
+    assert.equal(url, 'https://token.actions.githubusercontent.com/.well-known/jwks');
+    return reply({keys: [jwk]});
+  });
+  const authorization = 'Bearer ' + await identity();
+  for (const githubToken of ['', 'a\r\nb', 'a\u00ffb', 'a'.repeat(8193), 'a'.repeat(17000)]) {
+    const response = await worker.fetch(new Request('https://api.turboism.dev/v1/sync', {method: 'POST', headers: {Authorization: authorization, 'Content-Type': 'application/json'}, body: JSON.stringify({githubToken})}), x.env);
+    assert.equal(response.status, 400);
+  }
 });
 
 test('upstream credentials never enter mirror downloads, and channel fallback is reported as degraded', async t => {

@@ -9,10 +9,10 @@ const registry=env=>env.REGISTRY.get(env.REGISTRY.idFromName('turboism'));
 async function syncCredential(request){
  if(!request.body)return null; // Existing OIDC-only notifications remain valid.
  if(request.headers.get('Content-Type')!=='application/json')throw new Error('Invalid sync credential');
- const reader=request.body.getReader(),bytes=new Uint8Array(1024);let size=0;
+ const reader=request.body.getReader(),bytes=new Uint8Array(16384);let size=0;
  try{while(true){const {done,value}=await reader.read();if(done)break;if(size+value.length>bytes.length){await reader.cancel();throw new Error('Invalid sync credential');}bytes.set(value,size);size+=value.length;}}finally{reader.releaseLock();}
  const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes.subarray(0,size)));
- if(!body||Array.isArray(body)||Object.keys(body).length!==1||typeof body.githubToken!=='string'||!/^[A-Za-z0-9_]{20,255}$/.test(body.githubToken))throw new Error('Invalid sync credential');
+ if(!body||Array.isArray(body)||Object.keys(body).length!==1||typeof body.githubToken!=='string'||body.githubToken.length>8192||!/^[\x21-\x7e]+$/.test(body.githubToken))throw new Error('Invalid sync credential');
  return body.githubToken;
 }
 export default {
