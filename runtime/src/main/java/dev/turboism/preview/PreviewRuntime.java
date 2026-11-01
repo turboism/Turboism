@@ -414,15 +414,7 @@ public final class PreviewRuntime implements AutoCloseable {
                     pendingPlugins.code()
                             + ": installed plugins kept; failed intent retained. Review pending changes in Plugin Management.");
         }
-        dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
-            switch (level) {
-                case TRACE -> log.trace(component, message);
-                case DEBUG -> log.debug(component, message);
-                case INFO -> log.info(component, message);
-                case WARN -> log.warn(component, message);
-                case ERROR -> log.error(component, message, failure);
-            }
-        });
+        dev.turboism.runtime.log.RuntimeDiagnostics.install(log);
         RuntimeScheduler scheduler = null;
         HostRuntimeIngress ingress = null;
         LocalPluginRuntime plugins = null;
