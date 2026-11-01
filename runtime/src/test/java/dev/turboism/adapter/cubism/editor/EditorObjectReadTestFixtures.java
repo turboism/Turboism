@@ -343,6 +343,7 @@ public final class EditorObjectReadTestFixtures {
         ObjectSource targetDeformer;
         boolean visible = true;
         boolean locked;
+        int idReads;
 
         ObjectSource(final String id, final String localName, final Failures failures) {
             this.id = new Id(id);
@@ -352,6 +353,7 @@ public final class EditorObjectReadTestFixtures {
         }
 
         public Id id() {
+            idReads++;
             return id;
         }
 
@@ -575,7 +577,16 @@ public final class EditorObjectReadTestFixtures {
         final ArtMeshSource targetB;
 
         GlueSource(final ArtMeshSource targetA, final ArtMeshSource targetB, final Failures failures) {
-            super("GlueFace", "Face Glue", failures);
+            this("GlueFace", "Face Glue", targetA, targetB, failures);
+        }
+
+        GlueSource(
+                final String id,
+                final String name,
+                final ArtMeshSource targetA,
+                final ArtMeshSource targetB,
+                final Failures failures) {
+            super(id, name, failures);
             this.targetA = targetA;
             this.targetB = targetB;
         }
@@ -673,7 +684,11 @@ public final class EditorObjectReadTestFixtures {
         boolean quadTransform;
 
         WarpSource(final Failures failures) {
-            super("WarpFace", "Face Warp", failures);
+            this("WarpFace", "Face Warp", failures);
+        }
+
+        WarpSource(final String id, final String name, final Failures failures) {
+            super(id, name, failures);
         }
 
         public int row() {
@@ -744,7 +759,11 @@ public final class EditorObjectReadTestFixtures {
         float baseAngle = 30.0F;
 
         RotationSource(final Failures failures) {
-            super("RotationHead", "Head Rotation", failures);
+            this("RotationHead", "Head Rotation", failures);
+        }
+
+        RotationSource(final String id, final String name, final Failures failures) {
+            super(id, name, failures);
         }
 
         public float baseAngle() {
@@ -1034,6 +1053,20 @@ public final class EditorObjectReadTestFixtures {
             document.pack.partRefreshCount = 0;
             document.pack.deformerRefreshCount = 0;
             document.pack.repaintCount = 0;
+        }
+
+        void resetIdReads() {
+            for (ArtMeshSource value : source.artMeshSources) value.idReads = 0;
+            for (ObjectSource value : source.deformerSources) value.idReads = 0;
+            for (ObjectSource value : source.glueSources) value.idReads = 0;
+        }
+
+        int idReads() {
+            int reads = 0;
+            for (ArtMeshSource value : source.artMeshSources) reads += value.idReads;
+            for (ObjectSource value : source.deformerSources) reads += value.idReads;
+            for (ObjectSource value : source.glueSources) reads += value.idReads;
+            return reads;
         }
 
         ArtMeshSource meshSource() {

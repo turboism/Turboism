@@ -4,6 +4,7 @@ import static dev.turboism.adapter.cubism.editor.EditorObjectReadTestFixtures.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -207,6 +208,141 @@ class EditorObjectReadAccessTest {
             model.deformers.clear();
             assertThrows(IllegalStateException.class, reader::get);
         }
+    }
+
+    @Test
+    void currentArtMeshChecksWholeBindingStructureButResolvesOnlyItsOwnId() {
+        final Fixture fixture = new Fixture();
+        for (int index = 0; index < 512; index++) {
+            final ArtMeshSource source =
+                    new ArtMeshSource("ArtMeshExtra" + index, "Extra Mesh " + index, false, fixture.failures);
+            fixture.source.artMeshSources.add(source);
+            fixture.source.model.artMeshes.add(new ArtMesh(source));
+        }
+        final var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final var expected =
+                core.artMeshes("session", fixture.source, fixture.source.model).get(0);
+        fixture.resetIdReads();
+
+        assertSame(expected, core.currentArtMesh("session", fixture.source, fixture.source.model, expected));
+        assertEquals(1, fixture.idReads());
+        assertEquals(1, ((ArtMeshSource) expected.source()).idReads);
+    }
+
+    @Test
+    void currentDeformerChecksWholeBindingStructureButResolvesOnlyItsOwnId() {
+        final Fixture fixture = new Fixture();
+        for (int index = 0; index < 512; index++) {
+            final WarpSource source = new WarpSource("WarpExtra" + index, "Extra Warp " + index, fixture.failures);
+            fixture.source.deformerSources.add(source);
+            fixture.source.model.deformers.add(new Warp(source));
+        }
+        final var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final var expected = core.deformerRefs("session", fixture.source, fixture.source.model)
+                .get(0);
+        fixture.resetIdReads();
+
+        assertSame(expected, core.currentDeformer("session", fixture.source, fixture.source.model, expected));
+        assertEquals(1, fixture.idReads());
+        assertEquals(1, ((WarpSource) expected.source()).idReads);
+    }
+
+    @Test
+    void currentGlueChecksWholeSourceStructureButResolvesOnlyItsOwnId() {
+        final Fixture fixture = new Fixture();
+        for (int index = 0; index < 512; index++) {
+            fixture.source.glueSources.add(new GlueSource(
+                    "GlueExtra" + index,
+                    "Extra Glue " + index,
+                    fixture.meshSource(),
+                    fixture.maskSource(),
+                    fixture.failures));
+        }
+        final var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final var expected =
+                core.glueRefs("session", fixture.source, fixture.source.model).get(0);
+        fixture.resetIdReads();
+
+        assertSame(expected, core.currentGlue("session", fixture.source, fixture.source.model, expected));
+        assertEquals(1, fixture.idReads());
+        assertEquals(1, ((GlueSource) expected.source()).idReads);
+    }
+
+    @Test
+    void sparseCurrentChecksStillRejectUnrelatedStructureDamage() {
+        final Fixture meshFixture = new Fixture();
+        final var meshCore = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final var mesh = meshCore.artMeshes("session", meshFixture.source, meshFixture.source.model)
+                .get(0);
+        meshFixture.resetIdReads();
+        meshFixture.source.model.artMeshes.add(
+                new ArtMesh(new ArtMeshSource("ArtMeshUnbound", "Unbound Mesh", false, meshFixture.failures)));
+        assertThrows(
+                IllegalStateException.class,
+                () -> meshCore.currentArtMesh("session", meshFixture.source, meshFixture.source.model, mesh));
+        assertEquals(0, meshFixture.idReads());
+
+        final Fixture deformerFixture = new Fixture();
+        final var deformerCore = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final var deformer = deformerCore
+                .deformerRefs("session", deformerFixture.source, deformerFixture.source.model)
+                .get(0);
+        deformerFixture.resetIdReads();
+        deformerFixture.source.model.deformers.add(
+                new Warp(new WarpSource("WarpUnbound", "Unbound Warp", deformerFixture.failures)));
+        assertThrows(
+                IllegalStateException.class,
+                () -> deformerCore.currentDeformer(
+                        "session", deformerFixture.source, deformerFixture.source.model, deformer));
+        assertEquals(0, deformerFixture.idReads());
+
+        final Fixture glueFixture = new Fixture();
+        final var glueCore = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final var glue = glueCore.glueRefs("session", glueFixture.source, glueFixture.source.model)
+                .get(0);
+        glueFixture.resetIdReads();
+        @SuppressWarnings("unchecked")
+        final java.util.List<Object> glueSources =
+                (java.util.List<Object>) (java.util.List<?>) glueFixture.source.glueSources;
+        glueSources.add(new ObjectSource("GlueInvalid", "Invalid Glue", glueFixture.failures));
+        assertThrows(
+                IllegalStateException.class,
+                () -> glueCore.currentGlue("session", glueFixture.source, glueFixture.source.model, glue));
+        assertEquals(0, glueFixture.idReads());
+    }
+
+    @Test
+    void fullObjectProjectionsStillRejectDuplicateIdsAcrossUnrelatedObjects() {
+        final Fixture meshFixture = new Fixture();
+        final var meshCore = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final ArtMeshSource duplicateMesh =
+                new ArtMeshSource("ArtMeshFace", "Duplicate Mesh", false, meshFixture.failures);
+        meshFixture.source.artMeshSources.add(duplicateMesh);
+        meshFixture.source.model.artMeshes.add(new ArtMesh(duplicateMesh));
+        assertThrows(
+                IllegalStateException.class,
+                () -> meshCore.artMeshes("session", meshFixture.source, meshFixture.source.model));
+
+        final Fixture deformerFixture = new Fixture();
+        final var deformerCore = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        final WarpSource duplicateWarp = new WarpSource("WarpFace", "Duplicate Warp", deformerFixture.failures);
+        deformerFixture.source.deformerSources.add(duplicateWarp);
+        deformerFixture.source.model.deformers.add(new Warp(duplicateWarp));
+        assertThrows(
+                IllegalStateException.class,
+                () -> deformerCore.deformerRefs("session", deformerFixture.source, deformerFixture.source.model));
+
+        final Fixture glueFixture = new Fixture();
+        final var glueCore = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        glueFixture.source.glueSources.add(new GlueSource(
+                "GlueFace",
+                "Duplicate Glue",
+                glueFixture.meshSource(),
+                glueFixture.maskSource(),
+                glueFixture.failures));
+        assertThrows(
+                IllegalStateException.class,
+                () -> glueCore.glueRefs("session", glueFixture.source, glueFixture.source.model));
     }
 
     @Test

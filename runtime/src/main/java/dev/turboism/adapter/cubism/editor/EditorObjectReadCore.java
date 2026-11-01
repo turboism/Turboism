@@ -68,6 +68,92 @@ final class EditorObjectReadCore {
     }
 
     List<ObjectRef> artMeshes(final String identity, final Object source, final Object model) {
+        final ArtMeshSnapshot snapshot = artMeshSnapshot(identity, source, model);
+        final ArrayList<ObjectRef> values = new ArrayList<>(snapshot.sources().size());
+        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        for (Object objectSource : snapshot.sources()) {
+            final String id = objectId(objectSource);
+            if (!ids.add(id)) throw unavailable("Editor ArtMesh identifiers are not unique.");
+            values.add(new ObjectRef(id, objectSource, snapshot.instance(objectSource)));
+        }
+        return List.copyOf(values);
+    }
+
+    List<DeformerRef> deformerRefs(final String identity, final Object source, final Object model) {
+        final DeformerSnapshot snapshot = deformerSnapshot(identity, source, model);
+        final ArrayList<DeformerRef> values = new ArrayList<>(snapshot.sources().size());
+        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        for (Object objectSource : snapshot.sources()) {
+            final String id = objectId(objectSource);
+            if (!ids.add(id)) throw unavailable("Editor Deformer identifiers are not unique.");
+            values.add(new DeformerRef(id, objectSource, snapshot.instance(objectSource), snapshot.kind(objectSource)));
+        }
+        return List.copyOf(values);
+    }
+
+    List<GlueRef> glueRefs(final String identity, final Object source, final Object model) {
+        final List<?> sources = glueSources(identity, source, model);
+        final ArrayList<GlueRef> values = new ArrayList<>(sources.size());
+        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        for (Object glueSource : sources) {
+            final String id = objectId(glueSource);
+            if (!ids.add(id)) throw unavailable("Editor Glue identifiers are not unique.");
+            values.add(new GlueRef(id, glueSource));
+        }
+        return List.copyOf(values);
+    }
+
+    ObjectRef currentArtMesh(
+            final String identity, final Object modelSource, final Object model, final ObjectRef expected) {
+        // Liveness needs the complete source/instance bijection, but not the IDs of
+        // unrelated objects. Duplicate IDs on a different source cannot make this
+        // handle ambiguous because matching is by source and instance identity. The
+        // full artMeshes projection still enforces global ID uniqueness.
+        final ArtMeshSnapshot snapshot = artMeshSnapshot(identity, modelSource, model);
+        if (!snapshot.contains(expected.source()) || snapshot.instance(expected.source()) != expected.instance()) {
+            throw stale("ArtMesh", expected.id());
+        }
+        if (!objectId(expected.source()).equals(expected.id())) throw stale("ArtMesh", expected.id());
+        return expected;
+    }
+
+    DeformerRef currentDeformer(
+            final String identity, final Object modelSource, final Object model, final DeformerRef expected) {
+        // As above, validate every binding and kind while resolving only the requested
+        // source's ID. The full deformerRefs projection retains global ID uniqueness.
+        final DeformerSnapshot snapshot = deformerSnapshot(identity, modelSource, model);
+        if (!snapshot.contains(expected.source())
+                || snapshot.instance(expected.source()) != expected.instance()
+                || snapshot.kind(expected.source()) != expected.kind()
+                || !objectId(expected.source()).equals(expected.id())) {
+            throw stale("Deformer", expected.id());
+        }
+        return expected;
+    }
+
+    Object replayDeformerSource(
+            final String identity, final Object modelSource, final Object model, final DeformerRef expected) {
+        // Native Undo/Redo may rebuild evaluated instances before listeners run.
+        // Authoring membership belongs to the persistent source, not that instance.
+        final Object source = deformerSourceById(identity, modelSource, model, new DeformerId(expected.id()));
+        if (source != expected.source()) throw stale("Deformer", expected.id());
+        return source;
+    }
+
+    GlueRef currentGlue(final String identity, final Object modelSource, final Object model, final GlueRef expected) {
+        // Glue has no instance layer, so validate every source type (including duplicate
+        // source identities) and resolve only the requested source's ID.
+        final List<?> sources = glueSources(identity, modelSource, model);
+        for (Object glueSource : sources) {
+            if (glueSource == expected.source()) {
+                if (!objectId(glueSource).equals(expected.id())) throw stale("Glue", expected.id());
+                return expected;
+            }
+        }
+        throw stale("Glue", expected.id());
+    }
+
+    private ArtMeshSnapshot artMeshSnapshot(final String identity, final Object source, final Object model) {
         currentGuard.requireCurrent(identity, model);
         final List<?> sources = list(
                 resolver.invoke("cubism.editor-model.model-source.all-art-meshes", source),
@@ -91,23 +177,22 @@ final class EditorObjectReadCore {
                 throw unavailable("Editor ArtMesh source/instance binding is invalid.");
             }
         }
-        final ArrayList<ObjectRef> values = new ArrayList<>(sources.size());
-        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        final java.util.IdentityHashMap<Object, Boolean> seenSources = new java.util.IdentityHashMap<>();
         for (Object objectSource : sources) {
             if (!resolver.isInstance("cubism.editor-model.art-mesh-source.class", objectSource)) {
                 throw unavailable("Editor ArtMesh source type is invalid.");
             }
-            final Object instance = instancesBySource.remove(objectSource);
-            if (instance == null) throw unavailable("Editor ArtMesh source has no active instance.");
-            final String id = objectId(objectSource);
-            if (!ids.add(id)) throw unavailable("Editor ArtMesh identifiers are not unique.");
-            values.add(new ObjectRef(id, objectSource, instance));
+            if (!instancesBySource.containsKey(objectSource) || seenSources.put(objectSource, Boolean.TRUE) != null) {
+                throw unavailable("Editor ArtMesh source has no active instance.");
+            }
         }
-        if (!instancesBySource.isEmpty()) throw unavailable("Editor ArtMesh instance has no source.");
-        return List.copyOf(values);
+        if (instancesBySource.size() != sources.size()) {
+            throw unavailable("Editor ArtMesh instance has no source.");
+        }
+        return new ArtMeshSnapshot(sources, instancesBySource);
     }
 
-    List<DeformerRef> deformerRefs(final String identity, final Object source, final Object model) {
+    private DeformerSnapshot deformerSnapshot(final String identity, final Object source, final Object model) {
         currentGuard.requireCurrent(identity, model);
         final List<?> sources = list(
                 resolver.invoke("cubism.editor-model.model-source.all-deformers", source),
@@ -127,79 +212,47 @@ final class EditorObjectReadCore {
                 throw unavailable("Editor Deformer source/instance binding is invalid.");
             }
         }
-        final ArrayList<DeformerRef> values = new ArrayList<>(sources.size());
-        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        final java.util.IdentityHashMap<Object, Kind> kindsBySource = new java.util.IdentityHashMap<>();
+        final java.util.IdentityHashMap<Object, Boolean> seenSources = new java.util.IdentityHashMap<>();
         for (Object objectSource : sources) {
-            final Object instance = instancesBySource.remove(objectSource);
-            if (instance == null) throw unavailable("Editor Deformer source has no active instance.");
-            final Kind kind;
-            if (resolver.isInstance("cubism.editor-model.warp.class", instance)
-                    && resolver.isInstance("cubism.editor-model.warp-source.class", objectSource)) {
-                kind = Kind.WARP;
-            } else if (resolver.isInstance("cubism.editor-model.rotation.class", instance)
-                    && resolver.isInstance("cubism.editor-model.rotation-source.class", objectSource)) {
-                kind = Kind.ROTATION;
-            } else {
-                throw unavailable("Editor Deformer type is unsupported by this verified projection.");
+            final Object instance = instancesBySource.get(objectSource);
+            if (instance == null || seenSources.put(objectSource, Boolean.TRUE) != null) {
+                throw unavailable("Editor Deformer source has no active instance.");
             }
-            final String id = objectId(objectSource);
-            if (!ids.add(id)) throw unavailable("Editor Deformer identifiers are not unique.");
-            values.add(new DeformerRef(id, objectSource, instance, kind));
+            kindsBySource.put(objectSource, deformerKind(instance, objectSource));
         }
-        if (!instancesBySource.isEmpty()) throw unavailable("Editor Deformer instance has no source.");
-        return List.copyOf(values);
+        if (instancesBySource.size() != sources.size()) {
+            throw unavailable("Editor Deformer instance has no source.");
+        }
+        return new DeformerSnapshot(sources, instancesBySource, kindsBySource);
     }
 
-    List<GlueRef> glueRefs(final String identity, final Object source, final Object model) {
+    private List<?> glueSources(final String identity, final Object source, final Object model) {
         currentGuard.requireCurrent(identity, model);
         final List<?> sources = list(
                 resolver.invoke("cubism.editor-model.model-source.all-glues", source), "Editor Glue source collection");
-        final ArrayList<GlueRef> values = new ArrayList<>(sources.size());
-        final java.util.HashSet<String> ids = new java.util.HashSet<>();
+        final java.util.IdentityHashMap<Object, Boolean> seenSources = new java.util.IdentityHashMap<>();
         for (Object glueSource : sources) {
             if (!resolver.isInstance("cubism.editor-model.glue-source.class", glueSource)) {
                 throw unavailable("Editor Glue source type is invalid.");
             }
-            final String id = objectId(glueSource);
-            if (!ids.add(id)) throw unavailable("Editor Glue identifiers are not unique.");
-            values.add(new GlueRef(id, glueSource));
+            if (seenSources.put(glueSource, Boolean.TRUE) != null) {
+                throw unavailable("Editor Glue identifiers are not unique.");
+            }
         }
-        return List.copyOf(values);
+        return sources;
     }
 
-    ObjectRef currentArtMesh(
-            final String identity, final Object modelSource, final Object model, final ObjectRef expected) {
-        return artMeshes(identity, modelSource, model).stream()
-                .filter(value -> value.id().equals(expected.id()))
-                .filter(value -> value.source() == expected.source() && value.instance() == expected.instance())
-                .findFirst()
-                .orElseThrow(() -> stale("ArtMesh", expected.id()));
-    }
-
-    DeformerRef currentDeformer(
-            final String identity, final Object modelSource, final Object model, final DeformerRef expected) {
-        return deformerRefs(identity, modelSource, model).stream()
-                .filter(value -> value.id().equals(expected.id()))
-                .filter(value -> value.source() == expected.source() && value.instance() == expected.instance())
-                .filter(value -> value.kind() == expected.kind())
-                .findFirst()
-                .orElseThrow(() -> stale("Deformer", expected.id()));
-    }
-
-    Object replayDeformerSource(
-            final String identity, final Object modelSource, final Object model, final DeformerRef expected) {
-        // Native Undo/Redo may rebuild evaluated instances before listeners run.
-        // Authoring membership belongs to the persistent source, not that instance.
-        final Object source = deformerSourceById(identity, modelSource, model, new DeformerId(expected.id()));
-        if (source != expected.source()) throw stale("Deformer", expected.id());
-        return source;
-    }
-
-    GlueRef currentGlue(final String identity, final Object modelSource, final Object model, final GlueRef expected) {
-        return glueRefs(identity, modelSource, model).stream()
-                .filter(value -> value.id().equals(expected.id()) && value.source() == expected.source())
-                .findFirst()
-                .orElseThrow(() -> stale("Glue", expected.id()));
+    private Kind deformerKind(final Object instance, final Object objectSource) {
+        if (resolver.isInstance("cubism.editor-model.warp.class", instance)
+                && resolver.isInstance("cubism.editor-model.warp-source.class", objectSource)) {
+            return Kind.WARP;
+        }
+        if (resolver.isInstance("cubism.editor-model.rotation.class", instance)
+                && resolver.isInstance("cubism.editor-model.rotation-source.class", objectSource)) {
+            return Kind.ROTATION;
+        }
+        throw unavailable("Editor Deformer type is unsupported by this verified projection.");
     }
 
     Optional<PartId> parentPartId(final Object objectSource) {
@@ -652,4 +705,31 @@ final class EditorObjectReadCore {
     record DeformerRef(String id, Object source, Object instance, Kind kind) {}
 
     record GlueRef(String id, Object source) {}
+
+    private record ArtMeshSnapshot(List<?> sources, java.util.IdentityHashMap<Object, Object> instancesBySource) {
+        boolean contains(final Object source) {
+            return instancesBySource.containsKey(source);
+        }
+
+        Object instance(final Object source) {
+            return instancesBySource.get(source);
+        }
+    }
+
+    private record DeformerSnapshot(
+            List<?> sources,
+            java.util.IdentityHashMap<Object, Object> instancesBySource,
+            java.util.IdentityHashMap<Object, Kind> kindsBySource) {
+        boolean contains(final Object source) {
+            return instancesBySource.containsKey(source);
+        }
+
+        Object instance(final Object source) {
+            return instancesBySource.get(source);
+        }
+
+        Kind kind(final Object source) {
+            return kindsBySource.get(source);
+        }
+    }
 }
