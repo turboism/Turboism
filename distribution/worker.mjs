@@ -4,26 +4,48 @@ import { synchronize } from './github.mjs';
 import { serveFile } from './files.mjs';
 import { START_RE,beginEdgeDownload } from './edge-redirect.mjs';
 import { verifyGitHubIdentity } from './identity.mjs';
+import { FrameworkAuthority,RESOURCE_RE,forwardPublisher,serveFramework,withIncremental } from './framework.mjs';
 const registry=env=>env.REGISTRY.get(env.REGISTRY.idFromName('turboism'));
+async function syncCredential(request){
+ if(!request.body)return null; // Existing OIDC-only notifications remain valid.
+ if(request.headers.get('Content-Type')!=='application/json')throw new Error('Invalid sync credential');
+ const reader=request.body.getReader(),bytes=new Uint8Array(16384);let size=0;
+ try{while(true){const {done,value}=await reader.read();if(done)break;if(size+value.length>bytes.length){await reader.cancel();throw new Error('Invalid sync credential');}bytes.set(value,size);size+=value.length;}}finally{reader.releaseLock();}
+ const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes.subarray(0,size)));
+ if(!body||Array.isArray(body)||Object.keys(body).length!==1||typeof body.githubToken!=='string'||body.githubToken.length>8192||!/^[\x21-\x7e]+$/.test(body.githubToken))throw new Error('Invalid sync credential');
+ return body.githubToken;
+}
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
   if(path==='/v1/sync'&&request.method==='POST'){
    try{await verifyGitHubIdentity(request.headers.get('Authorization')?.replace(/^Bearer /,''));}catch{return jsonResponse(request,{error:{code:'UNAUTHORIZED'}},401);}
-   return registry(env).fetch(new Request('https://registry.internal/_refresh',{method:'POST'}));
+   let token;try{token=await syncCredential(request);}catch{return jsonResponse(request,{error:{code:'INVALID_SYNC_CREDENTIAL'}},400);}
+   // Keep the upstream credential out of request URLs and headers captured by request telemetry.
+   return registry(env).fetch(new Request('https://registry.internal/_refresh',{method:'POST',...(token?{headers:{'Content-Type':'application/json'},body:JSON.stringify({githubToken:token})}:{})}));
+  }
+  if((path==='/v1/framework/admit'||path==='/v1/framework/withdraw')&&request.method==='POST'){
+   // A dedicated protected workflow (and optionally environment), never the sync notifier.
+   const workflow=env.FRAMEWORK_PUBLISHER_WORKFLOW;
+   if(!/^[A-Za-z0-9._-]+\.yml$/.test(workflow??'')||workflow==='notify-release-api.yml')return jsonResponse(request,{error:{code:'FRAMEWORK_DISABLED'}},503);
+   try{await verifyGitHubIdentity(request.headers.get('Authorization')?.replace(/^Bearer /,''),fetch,{workflow,environment:env.FRAMEWORK_PUBLISHER_ENVIRONMENT||null});}catch{return jsonResponse(request,{error:{code:'UNAUTHORIZED'}},401);}
+   return forwardPublisher(request,env,path.slice('/v1/framework/'.length));
   }
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'If-None-Match, Range, If-Range','Access-Control-Max-Age':'600'}});
   if(!['GET','HEAD'].includes(request.method))return jsonResponse(request,{error:{code:'METHOD_NOT_ALLOWED'}},405);
   if(path==='/')return jsonResponse(request,{service:'Turboism release API',schemaVersion:1,channels:CHANNELS.map(c=>`${ORIGIN}/v1/releases/${c}.json`),source:'https://github.com/turboism/Turboism/releases'});
+  if(RESOURCE_RE.test(path))return serveFramework(request,env);
   if(START_RE.test(path)||/^\/v1\/downloads\/[0-9A-Za-z.-]{1,96}\.json$/.test(path)||path==='/health'||/^\/v1\/releases\/(stable|beta|nightly)\.json$/.test(path)||/^\/files\/[a-f0-9]{64}\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path))return registry(env).fetch(request);
   return jsonResponse(request,{error:{code:'NOT_FOUND'}},404);
  },
- async scheduled(_event,env,ctx){ctx.waitUntil(registry(env).fetch(new Request('https://registry.internal/_refresh',{method:'POST'})));},
+ // Anonymous fallback refreshes stale data, without disturbing a recent authenticated notification.
+ async scheduled(_event,env,ctx){ctx.waitUntil(registry(env).fetch(new Request('https://registry.internal/health')));},
 };
 /** A single durable registry serializes snapshots, persists known hashes, and coalesces refreshes. */
+export { FrameworkAuthority };
 export class ReleaseRegistry {
  constructor(ctx,env){
-  this.ctx=ctx;this.env=env;this.snapshot=null;this.refreshing=null;this.lastAttempt=0;
+  this.ctx=ctx;this.env=env;this.snapshot=null;this.refreshing=null;this.refreshAuthenticated=false;this.lastAttempt=0;
   this.ready=ctx.blockConcurrencyWhile(async()=>{
    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS metadata (id INTEGER PRIMARY KEY, value TEXT NOT NULL)');
    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS known_releases (tag TEXT PRIMARY KEY, value TEXT NOT NULL)');
@@ -40,14 +62,20 @@ export class ReleaseRegistry {
    for(const [tag,value] of Object.entries(known??{}))this.ctx.storage.sql.exec('INSERT OR REPLACE INTO known_releases (tag,value) VALUES (?,?)',tag,JSON.stringify(value));
   });
  }
- async refresh(){
-  if(this.refreshing)return this.refreshing;
-  if(Date.now()-this.lastAttempt<60000&&this.snapshot)return;
+ async refresh(token=null){
+  while(this.refreshing){
+   const authenticated=this.refreshAuthenticated;
+   await this.refreshing;
+   if(!token||authenticated)return;
+  }
+  // A trusted notification can recover immediately after an anonymous upstream failure.
+  if(!token&&Date.now()-this.lastAttempt<60000&&this.snapshot)return;
   this.lastAttempt=Date.now();
+  this.refreshAuthenticated=Boolean(token);
   this.refreshing=(async()=>{
    try{this.counts?.prune();}catch{console.error('Download analytics cleanup failed');}
    const previous=this.snapshot;
-   try{this.snapshot=await synchronize(previous,this.env);this.snapshot.refreshError=null;this.save();}
+   try{this.snapshot=await synchronize(previous,this.env,fetch,token);this.snapshot.refreshError=null;this.save();}
    catch(error){
     if(previous?.syncedAt&&Array.isArray(previous.releases)&&previous.releases.length){this.snapshot={...previous,refreshError:'SYNC_UNAVAILABLE'};delete this.snapshot.error;}
     else this.snapshot={...(previous??{}),error:'SYNC_UNAVAILABLE',refreshError:'SYNC_UNAVAILABLE'};
@@ -57,9 +85,9 @@ export class ReleaseRegistry {
  }
  async fetch(request){
   await this.ready;const path=new URL(request.url).pathname;
-  if(path==='/_refresh'||!this.snapshot||this.snapshot.error||snapshotAge(this.snapshot)>SNAPSHOT_REFRESH_MS)await this.refresh();
+  if(path==='/_refresh'||!this.snapshot||this.snapshot.error||snapshotAge(this.snapshot)>SNAPSHOT_REFRESH_MS)await this.refresh(path==='/_refresh'?await syncCredential(request):null);
   if(path==='/_refresh'||path==='/health'){
-   const usable=snapshotUsable(this.snapshot),fresh=usable&&snapshotAge(this.snapshot)<=SNAPSHOT_REFRESH_MS&&!this.snapshot?.refreshError;
+   const usable=snapshotUsable(this.snapshot),fresh=usable&&snapshotAge(this.snapshot)<=SNAPSHOT_REFRESH_MS&&!this.snapshot?.refreshError&&!Object.keys(this.snapshot?.errors??{}).length;
    return jsonResponse(request,{service:'turboism-release-api',status:fresh?'ready':usable?'degraded':'unavailable',synchronizedAt:this.snapshot?.syncedAt??null,mirrorConfigured:Boolean(this.env.DOWNLOADS),channels:CHANNELS.map(channel=>({channel,status:documentFor(this.snapshot,channel).status}))},usable?200:503);
   }
   if(START_RE.test(path))return beginEdgeDownload(request,this.env,this.snapshot,this.counts);
@@ -75,7 +103,7 @@ export class ReleaseRegistry {
    return response;
   }
   const match=/^\/v1\/releases\/(stable|beta|nightly)\.json$/.exec(path);
-  if(match){const value=documentFor(this.snapshot,match[1]);return jsonResponse(request,value,value.status==='unavailable'?503:200);}
+  if(match){const value=await withIncremental(documentFor(this.snapshot,match[1]),this.env);return jsonResponse(request,value,value.status==='unavailable'?503:200);}
   if(path.startsWith('/files/')){
    if(!snapshotUsable(this.snapshot))return jsonResponse(request,{error:{code:'SYNC_UNAVAILABLE'}},503);
    const key=path.slice(1);

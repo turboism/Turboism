@@ -54,6 +54,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     private UpdatePreferencesStoreState preferences;
     private UpdateStateStore.State state;
     private Snapshot snapshot;
+    private volatile dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates =
+            dev.turboism.internal.core.CoreFrameworkUpdates.unavailable();
     private RuntimeTimerHandle automaticTimer;
     private CompletionStage<UpdateTransport.Response> transportStage;
     private CompletableFuture<Snapshot> inFlight;
@@ -130,6 +132,135 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     public Snapshot snapshot() {
         synchronized (lock) {
             return snapshot;
+        }
+    }
+
+    @Override
+    public dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates() {
+        return frameworkUpdates;
+    }
+
+    /** Product-owned binding only; never construct authority from a feed or a local status marker. */
+    public void bindFrameworkUpdates(final dev.turboism.internal.core.CoreFrameworkUpdates updates) {
+        Objects.requireNonNull(updates, "updates");
+        synchronized (lock) {
+            if (closed) throw new IllegalStateException("Update service is closed");
+            if (frameworkUpdates != dev.turboism.internal.core.CoreFrameworkUpdates.unavailable()) {
+                throw new IllegalStateException("Framework installer is already bound");
+            }
+            frameworkUpdates = updates;
+        }
+    }
+
+    /**
+     * Returns complete metadata from the last successful check only while an update is available.
+     * This is not signature authentication, installation evidence or permission to apply files.
+     */
+    public Optional<UpdateDiscovery.Candidate> incrementalCandidate() {
+        synchronized (lock) {
+            if (closed || inFlight != null || safeModeLocked() || snapshot.status() != Status.UPDATE_AVAILABLE) {
+                return Optional.empty();
+            }
+            return state.cachedResult()
+                    .flatMap(UpdateDiscovery::candidate)
+                    .filter(candidate -> candidate.incremental().isPresent());
+        }
+    }
+
+    /**
+     * Builds a read-only staging request on the caller's IO worker. No cached status or caller hash map
+     * can establish installation authority. No product keyring/receipt writer is enabled by this API.
+     */
+    @SuppressWarnings("ReferenceEquality") // Exact successful check snapshot, including repeated identical responses.
+    public IncrementalRequest incrementalRequest(final FrameworkInstallationReceiptLoader loader)
+            throws java.io.IOException, InterruptedException,
+                    UpdateManifestVerifier.UpdateManifestVerificationException {
+        final Snapshot checked;
+        final UpdateDiscovery.Candidate candidate;
+        synchronized (lock) {
+            checked = snapshot;
+            candidate = incrementalCandidate()
+                    .orElseThrow(() -> new java.io.IOException("No current successful incremental discovery"));
+        }
+        final FrameworkInstallationReceiptLoader.Evidence evidence = loader.load();
+        if (!installed.version().equals(InstalledBuild.from(evidence.loaded()).version())
+                || !installed.buildNumber().equals(evidence.loaded().buildNumber())
+                || !installed.channel().equals(evidence.loaded().channel().wireName())) {
+            throw new java.io.IOException("Discovery service and loaded installation differ");
+        }
+        final UpdateVerificationContext.Validation fresh = new UpdateVerificationContext.Validation() {
+            @Override
+            public void validate() throws java.io.IOException {
+                synchronized (lock) {
+                    if (snapshot != checked || !incrementalCandidate().equals(Optional.of(candidate))) {
+                        throw new java.io.IOException("Successful discovery changed or is no longer available");
+                    }
+                }
+            }
+
+            @Override
+            public void claimCommit(final Runnable claim) throws java.io.IOException {
+                synchronized (lock) {
+                    validate();
+                    claim.run(); // No IO while holding the service lock. This is the admission linearization point.
+                }
+            }
+        };
+        fresh.validate();
+        return new IncrementalRequest(
+                candidate, evidence.root(), UpdateVerificationContext.fromReceipt(candidate, loader, evidence, fresh));
+    }
+
+    /** A request bound to a live discovery snapshot; every operation reloads the old receipt. */
+    public static final class IncrementalRequest {
+        private final UpdateDiscovery.Candidate candidate;
+        private final Path installation;
+        private final UpdateVerificationContext context;
+
+        private IncrementalRequest(
+                final UpdateDiscovery.Candidate candidate,
+                final Path installation,
+                final UpdateVerificationContext context) {
+            this.candidate = candidate;
+            this.installation = installation;
+            this.context = context;
+        }
+
+        CompletableFuture<FrameworkUpdateCoordinator.Status> downloadWith(
+                final FrameworkUpdateCoordinator coordinator, final FrameworkUpdateDownloader downloader) {
+            return coordinator.download(downloader, candidate, context);
+        }
+
+        /**
+         * Stages this request's candidate off the caller thread.
+         *
+         * <p>Bytes are verified against the manifest before they count as staged, and progress is reported
+         * through the supplied consumer. The returned future fails when verification or the installation
+         * root bound to this request no longer matches.</p>
+         *
+         * @param downloader downloader that owns transport, retries and staging
+         * @param progress progress consumer, may be {@code null}
+         * @return completion carrying the verified staged download
+         */
+        public CompletableFuture<FrameworkUpdateDownloader.Downloaded> stage(
+                final FrameworkUpdateDownloader downloader,
+                final Consumer<FrameworkUpdateDownloader.Progress> progress) {
+            return downloader.stage(candidate, context, installation, progress);
+        }
+
+        /**
+         * Resumes a previously staged task of this request instead of downloading it again.
+         *
+         * @param taskId staged task id recorded by the earlier attempt
+         * @param downloader downloader that owns the staged task store
+         * @param progress progress consumer, may be {@code null}
+         * @return completion carrying the recovered, re-verified staged download
+         */
+        public CompletableFuture<FrameworkUpdateDownloader.Downloaded> recover(
+                final String taskId,
+                final FrameworkUpdateDownloader downloader,
+                final Consumer<FrameworkUpdateDownloader.Progress> progress) {
+            return downloader.recover(taskId, candidate, context, installation, progress);
         }
     }
 
@@ -237,7 +368,11 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             snapshot = closedSnapshot();
             listeners.clear();
         }
-        executor.shutdownNow();
+        try {
+            frameworkUpdates.close();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private CompletionStage<Snapshot> request(final boolean manual) {
@@ -437,13 +572,19 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         }
         final UpdateDiscovery.Candidate candidate = discovery.candidate().orElseThrow();
         if (!isNewer(candidate)) {
+            final boolean installedCandidate =
+                    installed.version().filter(candidate.version()::equals).isPresent()
+                            && installed.buildNumber().equals(candidate.buildNumber());
             return new Snapshot(
                     Status.UP_TO_DATE,
                     installed.versionText(),
                     Optional.empty(),
                     OptionalLong.empty(),
                     userInitiated,
-                    false);
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
+                    installedCandidate ? candidate.releaseNotes() : java.util.Map.of());
         }
         final String identity = candidate.identity();
         final boolean reminder = !identity.equals(lastRemindedIdentity);
@@ -457,7 +598,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 userInitiated,
                 reminder,
                 matchedAsset.map(UpdateDiscovery.Asset::url),
-                matchedAsset.map(UpdateDiscovery.Asset::name));
+                matchedAsset.map(UpdateDiscovery.Asset::name),
+                candidate.releaseNotes());
     }
 
     /**

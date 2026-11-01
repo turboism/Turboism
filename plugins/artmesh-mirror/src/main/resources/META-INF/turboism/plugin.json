@@ -3,12 +3,12 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.artmesh-mirror",
   "name": "ArtMesh Mirror",
-  "version": "0.1.0",
+  "version": "0.68.1",
   "description": "Independent ArtMesh mirror editing with a freely movable and rotatable axis.",
   "entrypoints": [
     "dev.turboism.plugin.artmeshmirror.ArtMeshMirrorPlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.0,1.0.0)",
   "authors": [
     {
       "name": "Turboism Contributors"

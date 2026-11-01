@@ -1,0 +1,48 @@
+Native Windows Cubism startup/health validation (LOCAL TEST, NOT an official release)
+
+Host: D:\Live2D Cubism 5.3.04
+Turboism home: D:\turboism-test\home
+Agent source build: dc9010e2414af1466cfbcd8baa19f55e32bc1a86
+Build command: ./gradlew :bootstrap:jar -PturboismRelease=true --console=plain
+Embedded provenance: version=0.68.1, buildKind=local, buildNumber empty, dirty=false.
+The signing/staging tool used a temporary local-test key and a synthetic manifest build number. This does not
+establish official release identity or prove production release/ledger admission.
+
+FIRST RUN (new updater code before CodeSource fix):
+- apply returned AWAITING_HEALTH: 0.68.1, backups retained.
+- managed launcher transitioned to STARTING_HEALTH.
+- real Cubism loaded the new runtime: 29 plugins, zero failures.
+- bootstrap-loaded FrameworkBuildInfo had null CodeSource, so health confirmation did not execute.
+- after that test Cubism exited, the external helper returned
+  RECOVERED: rolled back interrupted update from state STARTING_HEALTH (exit 30).
+- installed-build.json restored to previous synthetic 0.67.6.
+
+FIX:
+- resolve bootstrap-loaded artifact via its defining class JAR resource when CodeSource is absent.
+- add real JVM -Xbootclasspath/a regression test; CodeSource null is required by the assertion.
+
+SECOND RUN (fixed updater code):
+- apply returned AWAITING_HEALTH: 0.68.1.
+- managed launcher started real Cubism, PID 10864.
+- runtime log:
+  D:\turboism-test\home\logs\runtime\2026-10-31\turboism-03-57-46.206-p10864-14974461875980786600.log
+  2026-10-31T03:58:04.722019300Z [INFO] [turboism.core] Shell startup: ready
+  2026-10-31T03:58:06.199252400Z [INFO] [plugin-loader] Plugin load complete: loaded=29, failed=0
+    Version   : 0.68.1 (stable, local)
+  2026-10-31T03:58:06.476746200Z [INFO] [updates] UPDATE_STARTUP_CONFIRMED
+- journal.json absent and backup directory absent after confirmation.
+
+This validates apply/startup confirmation and previous unconfirmed-startup recovery on actual Windows Cubism.
+It does NOT validate automatic discovery/download through the public service, receipt advancement across successive
+signed releases, native-window download interaction, official signing trust, or full Issue #50 acceptance.
+
+Public release API observation during this work:
+- GET https://api.turboism.dev/v1/releases/stable.json
+- version 0.67.4, no incremental member, asset kinds windows-installer and full only.
+
+Regression tests:
+- selected update/CoreShell runtime tests: 349 tests, 0 failures/errors, 6 skips.
+- core-contract: 31 tests, 0 failures/errors/skips.
+- broader shell run: 434 tests, 1 failure, 7 skips; isolated repeat also failed:
+  DeclarativeSettingsRendererTest.pluginSettingsFitLongControlsInSingleAndMultipleTabs (line 553).
+  Its renderer source was not modified; baseline causality has not been established. Do not report all shell tests green.

@@ -3,12 +3,12 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.deformer-batch-rename",
   "name": "Batch Rename Deformers",
-  "version": "0.1.0",
+  "version": "0.68.1",
   "description": "Preview and rename Warp and Rotation Deformers from descendant names and bound parameters.",
   "entrypoints": [
     "dev.turboism.plugin.deformerbatchrename.DeformerBatchRenamePlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.0,1.0.0)",
   "authors": [
     {
       "name": "Turboism Contributors"

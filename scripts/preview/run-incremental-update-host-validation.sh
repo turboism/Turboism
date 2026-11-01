@@ -62,7 +62,8 @@ driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 probe_options=()
 ready_markers=(--ready-marker 'INCREMENTAL_UPDATE_EXERCISER_READY')
 if [[ "$enabled" == true ]]; then
-  ready_markers+=(--ready-marker 'TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE')
+  ready_markers+=(--ready-marker 'TURBOISM_INCREMENTAL_UPDATE installation=COMPLETE'
+    --failure-marker 'TURBOISM_INCREMENTAL_UPDATE installation=NOT_ADMITTED')
 fi
 if [[ "$probe" == true ]]; then
   probe_options+=(--jvm-option '-Dturboism.incremental-update.probe=true')
@@ -87,7 +88,6 @@ exec bash "$runner" \
   --remote-pre-launch-arg '{FIXTURE_NAME}' \
   "${ready_markers[@]}" \
   --failure-marker 'TURBOISM_INCREMENTAL_UPDATE installation=FAILED' \
-  --failure-marker 'TURBOISM_INCREMENTAL_UPDATE installation=NOT_ADMITTED' \
   --result-file 'state/dev.turboism.validation.incremental-update/result.txt' \
   --result-pass-line 'status=PASS' \
   --result-fail-line 'status=FAIL' \

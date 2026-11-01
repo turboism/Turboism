@@ -107,6 +107,70 @@ class PluginHotReloadIntegrationTest {
     }
 
     @Test
+    void installedJarCanBeReplacedWhileItsGenerationIsLoaded() throws Exception {
+        final Path home = temporary.resolve("installed-home");
+        final Path installed = home.resolve("plugins/" + PLUGIN_ID + ".jar");
+        writeJar(installed, PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+        final Path replacement = temporary.resolve("installed-v2.jar");
+        writeJar(replacement, PLUGIN_ID, "0.2.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+        try (LocalPluginRuntime runtime = createRuntime(home)) {
+            runtime.loadAll();
+            final var result = runtime.hotReloadCoordinator().hotReplace(PLUGIN_ID, replacement, installed);
+            assertTrue(result.succeeded(), result.toString());
+            assertEquals(
+                    "0.2.0",
+                    runtime.loadedPlugins().stream()
+                            .filter(plugin -> PLUGIN_ID.equals(plugin.id()))
+                            .findFirst()
+                            .orElseThrow()
+                            .version());
+        }
+    }
+
+    @Test
+    void failedInstalledReplacementRestoresBytesBeforeReloadingPreviousGeneration() throws Exception {
+        final Path home = temporary.resolve("installed-rollback-home");
+        final Path installed = home.resolve("plugins/" + PLUGIN_ID + ".jar");
+        writeJar(installed, PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+        final byte[] original = Files.readAllBytes(installed);
+        final Path replacement = temporary.resolve("installed-broken.jar");
+        writeJar(replacement, PLUGIN_ID, "0.2.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {
+                    public void init(PluginContext context) { throw new IllegalStateException("broken update"); }
+                }
+                """);
+        try (LocalPluginRuntime runtime = createRuntime(home)) {
+            runtime.loadAll();
+            final var result = runtime.hotReloadCoordinator().hotReplace(PLUGIN_ID, replacement, installed);
+            assertTrue(result.rolledBack(), result.toString());
+            org.junit.jupiter.api.Assertions.assertArrayEquals(original, Files.readAllBytes(installed));
+            final var restored =
+                    runtime.hotReloadCoordinator().findLoaded(PLUGIN_ID).orElseThrow();
+            assertEquals(installed, restored.jar());
+            assertEquals("0.1.0", restored.runtime().descriptor().version());
+            try (var files = Files.list(temporary)) {
+                assertFalse(
+                        files.anyMatch(file -> file.getFileName().toString().startsWith(".backup-")),
+                        "Rollback must release and delete the backup, including on Windows");
+            }
+        }
+    }
+
+    @Test
     void staleReferenceFencedAfterHotReload() throws Exception {
         final Path home = temporary.resolve("fence-home");
         final Path plugins = home.resolve("plugins");

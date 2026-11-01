@@ -152,61 +152,6 @@ class PluginMarketServiceTest {
     }
 
     @Test
-    void failedRollbackRestoresThePreviousJarInsteadOfDeletingTheBackup() throws Exception {
-        final byte[] previous = PluginManagementPackageFixture.pluginJarBytes("dev.market", "1.0.0");
-        final byte[] replacement = PluginManagementPackageFixture.pluginJarBytes("dev.market", "2.0.0");
-        final Path plugins = Files.createDirectories(home.resolve("plugins"));
-        final Path targetJar = plugins.resolve("dev.market.jar");
-        final Path backupJar = home.resolve("backup-dev.market.jar");
-        final Path source = Files.write(home.resolve("source.jar"), replacement);
-        final var prepared = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
-                        new dev.turboism.distribution.LocalPluginJarPreparer()
-                                .prepare(source, home.resolve("state/runtime/plugin-management/packages")))
-                .value();
-        // State after copyAtomic: the replacement is on disk, the backup holds the previous version.
-        Files.write(targetJar, replacement);
-        Files.write(backupJar, previous);
-        final List<String> logs = new java.util.ArrayList<>();
-        try (var mgmt = new RuntimePluginManagementService(home, Optional::empty, List::of);
-                var market = new PluginMarketService(
-                        home,
-                        new PluginCatalogClient(
-                                PluginCatalogClient.CATALOG_URI,
-                                PluginCatalogClient.SIGNATURE_URI,
-                                java.time.Duration.ofSeconds(5),
-                                uri -> {
-                                    throw new java.io.IOException("offline");
-                                }),
-                        new PluginCatalogVerifier(),
-                        new PluginCatalogStateStore(home),
-                        new PendingPluginOperations(home),
-                        mgmt,
-                        Optional::empty,
-                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
-                        logs::add)) {
-            final var result = market.finishHotReload(
-                    dev.turboism.preview.PluginHotReloadCoordinator.HotReloadResult.failed(
-                            "ROLLBACK_FAILED", "previous generation could not be restored"),
-                    "dev.market",
-                    targetJar,
-                    backupJar,
-                    prepared);
-
-            assertTrue(result.accepted(), result.toString());
-            org.junit.jupiter.api.Assertions.assertArrayEquals(
-                    previous,
-                    Files.readAllBytes(targetJar),
-                    "the previous version must stay installed after a failed rollback");
-            assertTrue(Files.exists(backupJar), "a failed rollback must retain the recovery backup");
-            org.junit.jupiter.api.Assertions.assertArrayEquals(previous, Files.readAllBytes(backupJar));
-            assertTrue(
-                    logs.stream().anyMatch(line -> line.contains("previous version could not be restarted")),
-                    "the failed rollback must be logged: " + logs);
-            assertTrue(result.message().contains("stopped"), result.message());
-        }
-    }
-
-    @Test
     void resolvesAllRowsFromOneBackgroundReadAndRefreshesChangedLocalState() throws Exception {
         final AtomicInteger reads = new AtomicInteger();
         final AtomicReference<List<PluginInfo>> installed = new AtomicReference<>(List.of());

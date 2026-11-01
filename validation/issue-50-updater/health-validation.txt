@@ -1,0 +1,27 @@
+Environment: native Windows, local JDK 17 (not Linux/Proton).
+Command: ./gradlew :runtime:test --tests 'dev.turboism.update.*' --console=plain
+Result: BUILD SUCCESSFUL
+JUnit XML totals: tests=321, failures=0, errors=0, skipped=6.
+Skipped cases must not be counted as passes; opt-in tools/native/platform-specific cases remain separate.
+
+Command: ./gradlew :bootstrap:jar --console=plain
+Result: BUILD SUCCESSFUL (including checkBootstrapJarLicenses).
+
+Independent packaged-JAR probe:
+  Copy bootstrap/libs/turboism-agent.jar to D:\turboism-test\helper-validation\helper-runner.jar
+  java -cp <copy> dev.turboism.update.FrameworkUpdateHelper
+    --root D:\turboism-test\home
+    --work D:\turboism-test\helper-validation\work
+    --prepare-launch <PowerShell PID>
+Result: NOTHING: no journal; exit=10 (expected).
+This verifies the relocated standalone helper entry can execute; it does NOT qualify a complete Cubism update.
+
+PowerShell 5.1 syntax parse of packaging/windows-installer/launch-cubism-turboism.ps1: no errors.
+
+New process tests:
+- First real launcher process exits without health acknowledgement.
+- Next launcher process restores the old agent before allowing startup.
+- A transaction lock held by one process excludes recovery in another JVM.
+
+Still required: rebuilt-agent health confirmation in real Cubism, UI/service wiring, complete signed publication,
+transactional receipt advancement and full security/recovery review. See STATUS.md.

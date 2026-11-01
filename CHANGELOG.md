@@ -14,6 +14,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- The update window lists pending framework and plugin updates together, hides components with no update, and shows the selected component's localized release notes on the right. Plugins can update independently; download size is shown in MB with elapsed time.
+
+- Added signed framework self-updates for official Windows Stable/Beta packages: download changed framework files in Cubism, optionally queue selected compatible plugin updates, and apply the framework update on the next managed launch with startup recovery. Existing installations first need a full package that includes a signed installation receipt.
 - The SDK adds the incubating `UiScheduler.runUiTeardown(Runnable, Duration)` for bounded UI cleanup during plugin disable. It runs inline on the EDT, otherwise waits up to the timeout; when the EDT is blocked or the caller is interrupted it returns `false`, keeps the cleanup queued to run exactly once, and restores the interrupt flag. The plugin generation fence admits it after disable.
 - Added a first-party plugin selection page to the Windows installer, featuring RichEdit20W-rendered localized README previews (English, Simplified Chinese, Japanese, Korean), select-all/deselect-all controls, per-plugin install skip markers, and payload filtering.
 - Enrolled `parameter-sync` (real-time normalized parameter value synchronization) and `deformer-batch-rename` (batch deformer renaming with native Cubism Warp and Rotation icon previews) into the official release manifests and bundled installer payloads.
@@ -37,6 +40,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `acp` accepts `mcp` plugin versions in `[0.1.0,1.0.0)`.
 
 ### Fixed
+
+- Fixed coordinated plugin updates rejecting valid signed catalogs with long permission or dependency explanations; the client now matches the directory v2 limit of 2,000 Unicode code points.
 
 - Full installations that only contain newer official plugins (`atlas-bitmask-nesting`, `atlas-dalsoo-polygon`, `atlas-folder-layout`, `deformer-batch-rename`, `frame-animation-import`, `parameter-sync`) are no longer misdetected as thin builds by the updater.
 - Stabilized the WebDAV backup shutdown test by joining worker threads instead of polling, and made the admission mutation test report whether its mutation hook fired.

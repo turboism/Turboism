@@ -67,6 +67,11 @@ val generateVerificationSources by tasks.registering(Exec::class) {
     description = "Renders verification manifests and selector contracts from byte-hashed records plus family authoring files."
     inputs.files(
         rootProject.file("scripts/generate_verification_sources.py"),
+        rootProject.file("compatibility/cubism/reviewed-releases.json"),
+        rootProject.file("scripts/preview/reviewed_host_artifacts.py"),
+        rootProject.file("scripts/turboism_dev/json_io.py"),
+        rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json"),
+        rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json"),
         fileTree(rootProject.file("scripts/verification-sources")),
         fileTree(rootProject.file("build/generated/verification")) {
             include("*.json")
@@ -339,6 +344,13 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
 }
 
 tasks.named<Test>("test") {
+    // Cross-language update verification consumes the actual offline Python/OpenSSL producer.
+    inputs.files(
+        rootProject.file("scripts/release/build-framework-update.py"),
+        rootProject.fileTree("scripts/release/turboism_release") { include("*.py") },
+        rootProject.file("scripts/test/test_release_tooling.py"),
+        rootProject.file("packaging/framework-update-layout.json")
+    )
     @Suppress("UNCHECKED_CAST")
     val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
     systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
@@ -501,3 +513,40 @@ tasks.withType<Test>().configureEach {
     dependsOn(rootProject.tasks.named("materializeDraftContracts"))
     inputs.files(rootProject.tasks.named("materializeDraftContracts"))
 }
+
+// W2 is opt-in. This creates a portable validation classpath, never loads the native DLL on Linux.
+val windowsReceiptFixtureJar by tasks.registering(Jar::class) {
+    dependsOn(tasks.named("testClasses"))
+    archiveFileName.set("windows-receipt-fixture.jar")
+    destinationDirectory.set(rootProject.layout.buildDirectory.dir("native/windows-receipt-validation"))
+    from(sourceSets["main"].output)
+    from(sourceSets["test"].output) {
+        include("dev/turboism/update/WindowsReceiptNativeFixture*.class")
+    }
+}
+val windowsReceiptValidationBundle by tasks.registering(Copy::class) {
+    group = "verification"
+    description = "Builds opt-in standalone Windows receipt fixture; no native execution or product enabling."
+    dependsOn(windowsReceiptFixtureJar)
+    from(configurations.runtimeClasspath.map { files -> files.filter { it.name.startsWith("jackson-") } })
+    into(rootProject.layout.buildDirectory.dir("native/windows-receipt-validation"))
+}
+
+val bootstrapReceiptTestClasspathFile = layout.buildDirectory.file("update-test/bootstrap-receipt-test-classpath.txt")
+val writeBootstrapReceiptTestClasspath by tasks.registering {
+    group = "verification"
+    description = "Exports the exact runtime test classpath for Issue #50 bootstrap receipt integration tests."
+    dependsOn(tasks.named("testClasses"))
+    inputs.files(sourceSets["test"].runtimeClasspath)
+    outputs.file(bootstrapReceiptTestClasspathFile)
+    // The Python caller consumes this invocation's marker, never a guessed/stale worktree export.
+    outputs.upToDateWhen { false }
+    doLast {
+        val cp = sourceSets["test"].runtimeClasspath.asPath
+        val target = bootstrapReceiptTestClasspathFile.get().asFile
+        target.parentFile.mkdirs()
+        target.writeText(cp, Charsets.UTF_8)
+        println("BOOTSTRAP_RECEIPT_TEST_CLASSPATH: ${target.absolutePath}")
+    }
+}
+

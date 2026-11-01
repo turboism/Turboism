@@ -884,24 +884,23 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             self.tmp, "--manifest", str(self.manifest),
             "--build-root", str(self.build_root), "--output", str(self.output),
             "--source-revision", GIT_SHA, "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0",
         )
 
     def test_incompatible_published_dependency_preserves_previous_output(self):
         self.output.mkdir()
         marker = self.output / "previous.txt"
         marker.write_text("previous release")
-        result = self.stage_with_dependency("[0.1.0,0.2.0)")
+        result = self.stage_with_dependency("[0.2.0,0.3.0)")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("publication provides 0.67.0", result.stderr)
+        self.assertIn("publication provides 0.1.0", result.stderr)
         self.assertEqual(marker.read_text(), "previous release")
         self.assertEqual(list(self.output.iterdir()), [marker])
         self.assertEqual(list(self.tmp.glob("release.tmp-*")), [])
 
     def test_compatible_published_dependency_succeeds(self):
-        result = self.stage_with_dependency("[0.1.0,0.68.0)")
+        result = self.stage_with_dependency("[0.1.0,0.2.0)")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue((self.output / "webdav-backup-0.67.0.jar").exists())
+        self.assertTrue((self.output / "webdav-backup-0.1.0.jar").exists())
 
     def test_dependency_range_matches_runtime_boundaries(self):
         pmr = load_script()
@@ -913,7 +912,7 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(pmr.MarketError):
                 pmr.dependency_range_contains(invalid, "0.67.1")
 
-    def test_first_publish_assigns_framework_base_and_injects_descriptor_version(self):
+    def test_first_publish_keeps_tracked_version_independent_of_framework(self):
         self.write_catalog([])
         result = run_script(
             self.tmp,
@@ -922,7 +921,6 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(self.output),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0",
             "--release-channel", "stable",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -930,23 +928,23 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         # Source descriptors remain untouched at 0.1.0.
         self.assertEqual(json.loads(self.fixture.mcp_descriptor.read_text())["version"], "0.1.0")
         self.assertEqual(json.loads(self.fixture.backup_descriptor.read_text())["version"], "0.1.0")
-        # Staged JARs and sidecar carry the injected 0.67.0 version.
+        # Staged JARs and sidecar keep the tracked plugin version.
         names = sorted(p.name for p in self.output.iterdir())
-        self.assertEqual(names, ["market-release.json", "mcp-0.67.0.jar", "webdav-backup-0.67.0.jar"])
+        self.assertEqual(names, ["market-release.json", "mcp-0.1.0.jar", "webdav-backup-0.1.0.jar"])
         sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
         for artifact in sidecar["artifacts"]:
-            self.assertEqual(artifact["descriptor"]["version"], "0.67.0")
+            self.assertEqual(artifact["descriptor"]["version"], "0.1.0")
             self.assertEqual(artifact["policy"]["channel"], "stable")
             jar_path = self.output / artifact["asset"]
             with zipfile.ZipFile(jar_path) as archive:
                 embedded_raw = archive.read(DESCRIPTOR_ENTRY)
             self.assertEqual(hashlib.sha256(embedded_raw).hexdigest(), artifact["descriptorSha256"])
-            self.assertEqual(json.loads(embedded_raw)["version"], "0.67.0")
+            self.assertEqual(json.loads(embedded_raw)["version"], "0.1.0")
 
     def test_changed_plugin_bumps_patch_and_unchanged_plugin_is_skipped(self):
         descriptor = json.loads(self.fixture.mcp_descriptor.read_text())
         descriptor["dependencies"] = [{
-            "id": "dev.turboism.plugin.webdav", "version": "[0.67.0,0.68.0)",
+            "id": "dev.turboism.plugin.webdav", "version": "[0.1.0,0.2.0)",
             "type": "required", "ordering": "after", "reason": "fixture",
         }]
         self.fixture.mcp_descriptor.write_text(json.dumps(descriptor) + "\n")
@@ -960,7 +958,6 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(self.output),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0",
         )
         first_sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
         catalog_plugins = []
@@ -995,15 +992,14 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(second_out),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "selected=1")
-        self.assertEqual(sorted(p.name for p in second_out.iterdir()), ["market-release.json", "mcp-0.67.1.jar"])
+        self.assertEqual(sorted(p.name for p in second_out.iterdir()), ["market-release.json", "mcp-0.1.1.jar"])
         second_sidecar = json.loads((second_out / "market-release.json").read_text(encoding="utf-8"))
         self.assertEqual(len(second_sidecar["artifacts"]), 1)
         self.assertEqual(second_sidecar["artifacts"][0]["module"], "mcp")
-        self.assertEqual(second_sidecar["artifacts"][0]["descriptor"]["version"], "0.67.1")
+        self.assertEqual(second_sidecar["artifacts"][0]["descriptor"]["version"], "0.1.1")
 
     def test_all_unchanged_skips_all_and_removes_output(self):
         self.write_catalog([])
@@ -1014,7 +1010,6 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(self.output),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0",
         )
         first_sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
         self.write_catalog([
@@ -1039,7 +1034,6 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(self.output),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "selected=0")
@@ -1088,7 +1082,6 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(self.output),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0-0.nightly.12",
             "--release-channel", "nightly",
         )
         self.assertEqual(nightly.returncode, 0, nightly.stderr)
@@ -1102,35 +1095,25 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--output", str(self.output),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
-            "--framework-version", "0.67.0-beta.1",
             "--release-channel", "beta",
         )
         self.assertEqual(beta.returncode, 0, beta.stderr)
         self.assertEqual(beta.stdout.strip(), "selected=2")
         sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
         for artifact in sidecar["artifacts"]:
-            self.assertEqual(artifact["descriptor"]["version"], "0.67.0")
+            self.assertEqual(artifact["descriptor"]["version"], "0.1.0")
             self.assertEqual(artifact["policy"]["channel"], "preview")
 
-    def test_version_progression_across_minor_lines(self):
+    def test_version_progression_ignores_framework_version(self):
         pmr = load_script()
-        self.assertEqual(pmr.resolve_next_plugin_version("0.67.0", []), "0.67.0")
+        self.assertEqual(pmr.resolve_next_plugin_version([], "0.1.0"), "0.1.0")
+        self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.1.0"}], "0.1.0"), "0.1.1")
         self.assertEqual(
-            pmr.resolve_next_plugin_version("0.67.0", [{"version": "0.67.0"}]),
-            "0.67.1",
-        )
-        self.assertEqual(
-            pmr.resolve_next_plugin_version("0.67.0-beta.2", [{"version": "0.67.0"}, {"version": "0.67.1"}]),
-            "0.67.2",
-        )
-        self.assertEqual(
-            pmr.resolve_next_plugin_version("0.68.0", [{"version": "0.67.0"}, {"version": "0.67.2"}]),
-            "0.68.0",
-        )
-        self.assertEqual(
-            pmr.resolve_next_plugin_version("0.68.0", [{"version": "0.67.2"}, {"version": "0.68.0"}]),
+            pmr.resolve_next_plugin_version([{"version": "0.68.0"}, {"version": "0.67.2"}], "0.1.0"),
             "0.68.1",
         )
+        self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.68.0"}], "0.69.0"), "0.69.0")
+        self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.68.0"}], "0.68.0"), "0.68.1")
 
 
 class WorkflowStaticTest(unittest.TestCase):

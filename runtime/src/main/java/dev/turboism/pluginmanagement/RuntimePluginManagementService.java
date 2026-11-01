@@ -50,6 +50,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         Locale get();
     }
 
+    private final Path home;
     private final Path pluginsDirectory;
     private final Supplier<Optional<Path>> synchronousPackageChooser;
     private final PackageChooser packageChooser;
@@ -174,6 +175,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             final Consumer<String> diagnostics,
             final ExecutorService installExecutor) {
         final Path normalized = home.toAbsolutePath().normalize();
+        this.home = normalized;
         pluginsDirectory = normalized.resolve("plugins");
         this.synchronousPackageChooser =
                 java.util.Objects.requireNonNull(synchronousPackageChooser, "synchronousPackageChooser");
@@ -212,6 +214,21 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     /** Binds the host Cubism version provider. */
     public void bindCubismVersion(final Supplier<Optional<String>> versionSupplier) {
         this.cubismVersion = Objects.requireNonNull(versionSupplier, "versionSupplier");
+    }
+
+    /** Returns the installation home directory path. */
+    public Path homeDirectory() {
+        return home;
+    }
+
+    /** Returns the pending operations journal for startup staging. */
+    public PendingPluginOperations pendingOperations() {
+        return pending;
+    }
+
+    /** Returns the supplier of the current host Cubism version. */
+    public Supplier<Optional<String>> cubismVersionSupplier() {
+        return cubismVersion;
     }
 
     /** Returns the market service for in-app catalog browsing and installs. */
@@ -501,6 +518,61 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
      */
     public static PendingPluginOperations.ApplyResult applyPending(final Path home) {
         return new PendingPluginOperations(home).apply();
+    }
+
+    @Override
+    public PendingChanges pendingChanges() {
+        if (!active.get()) return new PendingChanges("", "PLUGIN_PENDING_UNAVAILABLE", List.of());
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+            return new PendingChanges("", "PLUGIN_PENDING_WORKER_REQUIRED", List.of());
+        }
+        synchronized (PluginUpdateGate.rootLock(home)) {
+            final PendingChanges snapshot = pending.pendingChanges();
+            return frameworkRecoveryPending()
+                    ? new PendingChanges(snapshot.snapshot(), "PLUGIN_FRAMEWORK_RECOVERY_PENDING", snapshot.changes())
+                    : snapshot;
+        }
+    }
+
+    @Override
+    public OperationResult discardPendingChanges(final String expectedSnapshot) {
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+            return OperationResult.rejected("PLUGIN_PENDING_WORKER_REQUIRED", "Use the background worker.");
+        }
+        final Optional<PluginUpdateGate.Lease> lease = PluginUpdateGate.acquireLease(home);
+        if (lease.isEmpty()) {
+            return OperationResult.rejected("PLUGIN_PENDING_BUSY", "Another update operation is active.");
+        }
+        try (PluginUpdateGate.Lease owned = lease.orElseThrow()) {
+            synchronized (PluginUpdateGate.rootLock(home)) {
+                if (!active.get())
+                    return OperationResult.rejected("PLUGIN_PENDING_UNAVAILABLE", "Plugin management is closed.");
+                if (frameworkRecoveryPending()) {
+                    return OperationResult.rejected(
+                            "PLUGIN_FRAMEWORK_RECOVERY_PENDING",
+                            "Restart through the managed launcher to finish framework recovery before cancelling plugin intent.");
+                }
+                return pending.discardPendingChanges(expectedSnapshot);
+            }
+        }
+    }
+
+    private boolean frameworkRecoveryPending() {
+        final Path work = dev.turboism.update.FrameworkUpdateHealth.workDirectory(home);
+        for (String name : List.of("pending.json", "journal.json")) {
+            try {
+                Files.readAttributes(
+                        work.resolve(name),
+                        java.nio.file.attribute.BasicFileAttributes.class,
+                        LinkOption.NOFOLLOW_LINKS);
+                return true;
+            } catch (java.nio.file.NoSuchFileException absent) {
+                // Neither queued framework intent nor a health/rollback transaction may be cancelled here.
+            } catch (IOException | RuntimeException uncertain) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
