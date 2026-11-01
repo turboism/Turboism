@@ -209,6 +209,13 @@ miss a release and leak resources; a missed terminal call is a worse failure tha
 over-admitting a coincidental same-named no-arg call. The surface must never widen — a
 verb taking any argument stays fenced.
 
+One documented exception to the zero-arity rule: `UiScheduler.runUiTeardown(cleanup, timeout)`
+takes arguments and still passes the fence. `disable()`, `shutdown()` and scope closers always
+run after fencing, and this verb exists so they can release windows and other UI resources. It
+is matched by exact declaring type and method name, so no other method can ride on it. The
+exemption releases UI resources only: a plugin must not use it to run other host operations
+after fencing, and no second argument-taking verb may be added to the exemption.
+
 ## 6. Invocation and event lifecycle
 
 Wrapped operations use one consistent lifecycle:
