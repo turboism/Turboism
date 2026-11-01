@@ -493,8 +493,8 @@ public final class FrameworkUpdateDownloader {
                     opened.setReadTimeout(5000);
                     opened.setRequestMethod("GET");
                     opened.setRequestProperty("Accept-Encoding", "identity");
-                    // Each request is disconnected below. Do not let the JDK keep-alive cleaner drain
-                    // a cancelled body while holding the stream lock beyond the bounded read timeout.
+                    // Each request is single-use. Teardown stays worker-owned even if the server
+                    // does not echo this header and the JDK still creates a keep-alive stream.
                     opened.setRequestProperty("Connection", "close");
                     if (offset > 0) {
                         opened.setRequestProperty("Range", "bytes=" + offset + "-");
@@ -652,12 +652,9 @@ public final class FrameworkUpdateDownloader {
                 if (worker != null) worker.cancel(true);
                 if (timeout != null) timeout.cancel(false);
             }
-            // HttpURLConnection close/disconnect may block; never do it on the cancelling/UI thread.
-            try {
-                timer.execute(this::closeResponse);
-            } catch (java.util.concurrent.RejectedExecutionException ignored) {
-                // Caller shut down its timer; the interrupted worker still owns bounded read teardown.
-            }
+            // The worker owns transport teardown after its bounded connect/read returns. Closing
+            // concurrently here can make it wait on the JDK keep-alive cleaner's second socket read,
+            // and blocking teardown on the caller's timer delays other deadlines as well.
             return true;
         }
 
