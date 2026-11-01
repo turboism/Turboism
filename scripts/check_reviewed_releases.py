@@ -809,6 +809,22 @@ def r2_collect_mcp_coverage(
 # --------------------------------------------------------------------------
 
 
+_R2_EVIDENCE_PATH = re.compile(r"[\w./-]+\.(?:md|json|java|py)\b")
+
+
+def r2_cites_checkable_source(root: Path, evidence: str) -> bool:
+    """Require a repository evidence reference, not merely an inspection command."""
+    for token in _R2_EVIDENCE_PATH.findall(evidence):
+        path = (root / token).resolve()
+        if (
+            path.is_relative_to(root.resolve())
+            and path.is_file()
+            and path != (root / r2_EXCEPTIONS_FILE).resolve()
+        ):
+            return True
+    return False
+
+
 def r2_load_exceptions(root: Path) -> tuple[list[dict], list[str]]:
     path = root / r2_EXCEPTIONS_FILE
     if not path.is_file():
@@ -830,6 +846,24 @@ def r2_load_exceptions(root: Path) -> tuple[list[dict], list[str]]:
         if "pending" not in entry and "evidence" not in entry:
             problems.append(
                 f"{r2_EXCEPTIONS_FILE}: exception {index} needs 'pending' or 'evidence'"
+            )
+        for key in ("pending", "evidence"):
+            if key in entry and (
+                not isinstance(entry[key], str) or not entry[key].strip()
+            ):
+                problems.append(
+                    f"{r2_EXCEPTIONS_FILE}: exception {index} {key!r} must be a non-empty string"
+                )
+        if (
+            entry.get("kind") == "verification-record"
+            and "pending" not in entry
+            and isinstance(entry.get("evidence"), str)
+            and not r2_cites_checkable_source(root, entry["evidence"])
+        ):
+            problems.append(
+                f"{r2_EXCEPTIONS_FILE}: exception {index} 'evidence' for a verification-record "
+                "gap must cite an existing repository evidence file; "
+                "use 'pending' for a gap that is not yet checked"
             )
         if not isinstance(entry.get("missing", []), list):
             problems.append(

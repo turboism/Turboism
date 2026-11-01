@@ -23801,10 +23801,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.00-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.morph-target-set_remove"
         },
         {
@@ -25545,10 +25545,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.00-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.source_internal_set_parent"
         },
         {
@@ -26755,10 +26755,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.00-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.parameter-group_guid"
         },
         {
@@ -30195,10 +30195,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.00-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.part_source_remove_child"
         },
         {
@@ -30571,10 +30571,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.00-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.part_id"
         },
         {
@@ -43301,10 +43301,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.01-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.01-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.01-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.01-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.morph-target_set-parameter"
         },
         {
@@ -43335,10 +43335,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.01-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.01-5.3.04",
       "mappingId": [
         {
-          "versions": "5.0.01-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.01-5.2.02,5.3.00-5.3.04",
           "id": "cubism.mapping.v5_3_03.editor_model.method.morph-target_set-parameter-and-key-value"
         },
         {
@@ -59652,7 +59652,14 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        545,
+        1061,
+        1062,
+        591,
+        624,
+        718,
+        728
       ]
     },
     {
