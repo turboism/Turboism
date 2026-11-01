@@ -2,12 +2,21 @@
 
 ## Current result: official Beta framework updates accepted (2026-11-01)
 
-**Latest release: 0.68.1-beta.9 / Build 83.** PR #63 fixed the client catalog-reason limit and added localized
-release notes, decimal MB and elapsed time to the update window. All PR/main checks, official candidate signing,
-protected publication and public API/signature/36-object HEAD/Range checks passed. No service deployment was
-needed. Native coordinated upgrade acceptance is deferred at the user's explicit request while gaming; the new
-Beta.8 lab successfully started with 30 enabled plugins and zero failures, then exited normally. See the
-[update-window follow-up](update-window-followup.md) for the release evidence and exact resume point.
+**Latest release: 0.68.1-beta.10 / Build 84.** PR #64 combines pending framework and plugin updates in one list,
+hides components without an update, and shows the selected component's localized notes on the right. Plugin-only
+updates, combined MB totals and elapsed time are included. All PR/main checks, official signing, protected publication,
+and public API/signature/36-object HEAD/Range checks passed. No service deployment was needed.
+
+The official Beta.10 window passed a real two-plugin download, queue and managed-restart installation in Cubism
+5.3.02: both 0.68.0 → 0.68.1 hashes matched; the other 30 plugin JARs, configuration, preferences, signed framework
+and receipt stayed unchanged. Startup reported 30 enabled plugins and zero failures; updated rows disappeared.
+See [unified update window acceptance](unified-update-window-acceptance.md) for exact release and native evidence.
+
+The official Beta.9 / Build 83 → Beta.10 / Build 84 coordinated framework-plus-two-plugin upgrade also passed.
+All 36 installed framework files matched the admitted signed manifest, runtime startup health was confirmed,
+30 enabled plugins started with zero failures, other plugin files/settings stayed unchanged, and both transactions
+cleared. The older lab hit GitHub response timeouts before a normal restart; the restarted attempt succeeded.
+Both official acceptance labs were closed normally.
 
 Production deployment, signing, client activation and publication are complete. Two consecutive native Windows
 Cubism 5.3.02 upgrades passed: **0.68.1-beta.2 / Build 76 → beta.5 / Build 79 → beta.7 / Build 81**.
@@ -17,7 +26,7 @@ Each verified all 36 framework files, preserved 32 plugin JARs and user settings
 
 See [production Beta acceptance](production-beta-acceptance.md) and its
 [machine-readable evidence](production-beta-evidence.json) for exact identities, release runs and limitations.
-Server configuration is complete. Product PRs #59–#63 have merged; the local branch remains
+Server configuration is complete. Product PRs #59–#64 have merged; the local branch remains
 `local/w2-validation-fixes`, tracking `test/issue-50-windows-validation-fixes`.
 
 Beta.7's selected-plugin update is blocked by its outdated permission-reason limit; Beta.9 aligns the client with
