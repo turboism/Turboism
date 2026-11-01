@@ -2,10 +2,13 @@
 """Self-test for check_code_quality.py: every rule must fail closed on a seeded violation."""
 from __future__ import annotations
 
+import importlib.util
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 CHECKER = Path(__file__).resolve().parent / "check_code_quality.py"
 
@@ -470,6 +473,22 @@ def case_parse_error_fails_closed_in_report(root: Path) -> None:
     assert "Broken.java" in result.stderr
 
 
+def case_jdk_home_accepts_windows_executable_suffix(root: Path) -> None:
+    """Windows JDK homes expose bin/javac.exe and bin/java.exe, not extensionless tools."""
+    spec = importlib.util.spec_from_file_location("check_code_quality_under_test", CHECKER)
+    assert spec is not None and spec.loader is not None
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    home = root / "fake-jdk"
+    (home / "bin").mkdir(parents=True)
+    (home / "bin" / "javac.exe").write_bytes(b"")
+    (home / "bin" / "java.exe").write_bytes(b"")
+    with mock.patch.dict(os.environ, {"TURBOISM_QUALITY_JAVA_HOME": str(home)}, clear=True):
+        assert checker._jdk_home() == home
+    assert checker._jdk_executable(home, "javac") == home / "bin" / "javac.exe"
+    assert checker._jdk_executable(home, "java") == home / "bin" / "java.exe"
+
+
 def case_missing_jdk_fails_closed(root: Path) -> None:
     """Without a usable JDK the javadoc rule cannot run and must fail closed."""
     env = {"PATH": "/nonexistent-jdk", "TMPDIR": tempfile.gettempdir()}
@@ -805,6 +824,7 @@ CASES = (
     case_java17_declarations,
     case_parse_error_fails_closed,
     case_parse_error_fails_closed_in_report,
+    case_jdk_home_accepts_windows_executable_suffix,
     case_missing_jdk_fails_closed,
     case_missing_jdk_fails_closed_in_report,
     case_report_lists_real_findings,
