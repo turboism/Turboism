@@ -5,6 +5,7 @@ import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +73,28 @@ public final class SdkCarrierTraversal {
         @Override
         protected ConcurrentMap<Method, Type> computeValue(final Class<?> type) {
             return new ConcurrentHashMap<>();
+        }
+    };
+
+    // Most SDK arguments are immutable leaves (ids, floats, strings, enums) that cannot be
+    // proxies or carriers. Cache the classification per class so a hot call skips both the
+    // unwrapper callback and the carrier instanceof chain. JDK immutable collections are final
+    // but still carriers, so carrier assignability is checked before the final-class shortcut.
+    private static final ClassValue<Boolean> LEAF_ARGUMENT = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(final Class<?> type) {
+            if (type.isArray() || Proxy.isProxyClass(type) || type == Optional.class) {
+                return Boolean.FALSE;
+            }
+            if (List.class.isAssignableFrom(type)
+                    || Set.class.isAssignableFrom(type)
+                    || Map.class.isAssignableFrom(type)) {
+                return Boolean.FALSE;
+            }
+            return type == String.class
+                    || isPrimitiveWrapper(type)
+                    || Enum.class.isAssignableFrom(type)
+                    || Modifier.isFinal(type.getModifiers());
         }
     };
 
@@ -180,32 +203,43 @@ public final class SdkCarrierTraversal {
     }
 
     /**
-     * Clones an argument array and unwraps owned proxy handles inside argument values and nested
-     * carrier structures before delegating invocation.
+     * Unwraps owned proxy handles inside argument values and nested carrier structures before
+     * delegating invocation.
      *
      * <p>Only proxies recognized by {@code ownedProxyUnwrapper} are unwrapped to their underlying
      * delegate; unchanged carrier collections preserve their identity, and arrays are defensively
-     * copied.</p>
+     * copied. The argument array is cloned lazily: when no element changes, the original array is
+     * returned without allocating a replacement.</p>
      *
      * @param arguments the method argument array to unwrap
      * @param ownedProxyUnwrapper the callback unwrapping owned proxies to delegates
-     * @return the unwrapped argument array, or the original array if empty or null
+     * @return the unwrapped argument array, or the original array if empty, null, or unchanged
      */
     public static Object[] unwrapArguments(
             final Object[] arguments, final Function<Object, Object> ownedProxyUnwrapper) {
         if (arguments == null || arguments.length == 0) {
             return arguments;
         }
-        final Object[] unwrapped = arguments.clone();
-        for (int index = 0; index < unwrapped.length; index++) {
-            unwrapped[index] = unwrapValue(unwrapped[index], ownedProxyUnwrapper);
+        Object[] unwrapped = null;
+        for (int index = 0; index < arguments.length; index++) {
+            final Object argument = arguments[index];
+            final Object value = unwrapValue(argument, ownedProxyUnwrapper);
+            if (value != argument) {
+                if (unwrapped == null) {
+                    unwrapped = arguments.clone();
+                }
+                unwrapped[index] = value;
+            }
         }
-        return unwrapped;
+        return unwrapped == null ? arguments : unwrapped;
     }
 
     private static Object unwrapValue(final Object value, final Function<Object, Object> ownedProxyUnwrapper) {
         if (value == null) {
             return null;
+        }
+        if (LEAF_ARGUMENT.get(value.getClass())) {
+            return value;
         }
         final Object unwrapped = ownedProxyUnwrapper.apply(value);
         if (unwrapped != value) {
@@ -344,6 +378,18 @@ public final class SdkCarrierTraversal {
             target[index] = valueMapper.apply(source[index], componentType);
         }
         return target;
+    }
+
+    private static boolean isPrimitiveWrapper(final Class<?> type) {
+        return type == Boolean.class
+                || type == Byte.class
+                || type == Character.class
+                || type == Short.class
+                || type == Integer.class
+                || type == Long.class
+                || type == Float.class
+                || type == Double.class
+                || type == Void.class;
     }
 
     private static Class<?> rawClass(final Type type) {
