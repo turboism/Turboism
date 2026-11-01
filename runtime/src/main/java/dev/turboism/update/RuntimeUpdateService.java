@@ -231,12 +231,31 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             return coordinator.download(downloader, candidate, context);
         }
 
+        /**
+         * Stages this request's candidate off the caller thread.
+         *
+         * <p>Bytes are verified against the manifest before they count as staged, and progress is reported
+         * through the supplied consumer. The returned future fails when verification or the installation
+         * root bound to this request no longer matches.</p>
+         *
+         * @param downloader downloader that owns transport, retries and staging
+         * @param progress progress consumer, may be {@code null}
+         * @return completion carrying the verified staged download
+         */
         public CompletableFuture<FrameworkUpdateDownloader.Downloaded> stage(
                 final FrameworkUpdateDownloader downloader,
                 final Consumer<FrameworkUpdateDownloader.Progress> progress) {
             return downloader.stage(candidate, context, installation, progress);
         }
 
+        /**
+         * Resumes a previously staged task of this request instead of downloading it again.
+         *
+         * @param taskId staged task id recorded by the earlier attempt
+         * @param downloader downloader that owns the staged task store
+         * @param progress progress consumer, may be {@code null}
+         * @return completion carrying the recovered, re-verified staged download
+         */
         public CompletableFuture<FrameworkUpdateDownloader.Downloaded> recover(
                 final String taskId,
                 final FrameworkUpdateDownloader downloader,

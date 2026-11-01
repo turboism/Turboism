@@ -41,6 +41,17 @@ import java.util.jar.JarFile;
  */
 public class CoordinatedPluginUpdateService {
 
+    /**
+     * Classification of one row of the coordinated plan.
+     *
+     * <p>Where a newer release is on offer the status describes that offered version; otherwise it
+     * describes the installed one. {@code DUAL_COMPATIBLE} means the planned release runs on the current
+     * and on the target API, {@code FUTURE_ONLY} means only a newer release that requires the target API
+     * exists (so installing it before the framework update is not rollback safe), and
+     * {@code TARGET_INCOMPATIBLE} means the installed version does not declare support for the target API.
+     * {@code UP_TO_DATE} has nothing newer and compatible to offer, and {@code NOT_OFFICIAL} is not managed
+     * by this updater.</p>
+     */
     public enum CompatibilityStatus {
         DUAL_COMPATIBLE,
         FUTURE_ONLY,
@@ -49,6 +60,20 @@ public class CoordinatedPluginUpdateService {
         NOT_OFFICIAL
     }
 
+    /**
+     * One selectable row of the coordinated update plan.
+     *
+     * @param pluginId plugin id this row belongs to
+     * @param pluginName display name from the installed descriptor
+     * @param installedVersion currently installed version, or an empty string when the plugin is absent
+     * @param targetVersion version the plan would install, or an empty string when nothing is offered
+     * @param enabled whether the runtime configuration currently enables this plugin
+     * @param selected whether the user wants this row installed together with the framework update
+     * @param status classification of the offered or installed version, see {@link CompatibilityStatus}
+     * @param explanation user-facing reason for that classification
+     * @param requiredDependencies plugin ids that must be installed together with this row
+     * @param plannedUpdate catalog release to download, empty when the row needs no download
+     */
     public record PluginUpdateRow(
             String pluginId,
             String pluginName,
@@ -61,6 +86,12 @@ public class CoordinatedPluginUpdateService {
             List<String> requiredDependencies,
             Optional<PluginAutoUpdatePlanner.PlannedUpdate> plannedUpdate) {
 
+        /**
+         * Returns a copy of this row with only the selection flag replaced.
+         *
+         * @param newSelected new selection state
+         * @return a new immutable row, never this instance
+         */
         public PluginUpdateRow withSelected(final boolean newSelected) {
             return new PluginUpdateRow(
                     pluginId,
@@ -76,31 +107,85 @@ public class CoordinatedPluginUpdateService {
         }
     }
 
+    /**
+     * Outcome of a coordinated download. Prepared staging files are returned only on success and are
+     * deleted again on failure or cancellation, so the pending journal is never touched here.
+     *
+     * @param succeeded whether every selected plugin was downloaded, verified and prepared
+     * @param code stable machine-readable outcome such as {@code DOWNLOAD_SUCCESS}
+     * @param message user-facing explanation, empty on success
+     * @param prepared files prepared for a later explicit commit, empty unless {@code succeeded}
+     */
     public record DownloadResult(boolean succeeded, String code, String message, List<PreparedPluginJar> prepared) {
 
+        /**
+         * Reports a fully prepared download.
+         *
+         * @param prepared prepared plugin files, copied into the result
+         * @return a successful result carrying those files
+         */
         public static DownloadResult success(final List<PreparedPluginJar> prepared) {
             return new DownloadResult(true, "DOWNLOAD_SUCCESS", "", List.copyOf(prepared));
         }
 
+        /**
+         * Reports a failed download.
+         *
+         * @param code stable failure code exposed to the UI and diagnostics
+         * @param message user-facing explanation
+         * @return a failed result with no prepared files
+         */
         public static DownloadResult failure(final String code, final String message) {
             return new DownloadResult(false, code, message, List.of());
         }
 
+        /**
+         * Reports a download the user cancelled before it completed.
+         *
+         * @return a cancelled result with no prepared files
+         */
         public static DownloadResult cancelled() {
             return new DownloadResult(false, "DOWNLOAD_CANCELLED", "Plugin download was cancelled.", List.of());
         }
     }
 
+    /**
+     * Outcome of committing prepared plugin files to the pending install journal.
+     *
+     * @param succeeded whether the staged set became a pending next-launch install
+     * @param code stable machine-readable outcome such as {@code COMMIT_SUCCESS}
+     * @param message user-facing explanation, empty on success
+     * @param staged files handed to the journal, empty unless {@code succeeded}
+     */
     public record CommitResult(boolean succeeded, String code, String message, List<PreparedPluginJar> staged) {
 
+        /**
+         * Reports a commit that staged exactly the requested files.
+         *
+         * @param staged files now recorded in the pending journal
+         * @return a successful commit result
+         */
         public static CommitResult success(final List<PreparedPluginJar> staged) {
             return new CommitResult(true, "COMMIT_SUCCESS", "", List.copyOf(staged));
         }
 
+        /**
+         * Reports a commit refused because another pending plugin operation already owns the journal.
+         *
+         * @param message user-facing explanation of the conflicting pending work
+         * @return a conflict result with no staged files
+         */
         public static CommitResult conflict(final String message) {
             return new CommitResult(false, "CONFLICT_PENDING_PLUGIN", message, List.of());
         }
 
+        /**
+         * Reports a commit that did not stage anything.
+         *
+         * @param code stable failure code exposed to the UI and diagnostics
+         * @param message user-facing explanation
+         * @return a failed commit result with no staged files
+         */
         public static CommitResult failed(final String code, final String message) {
             return new CommitResult(false, code, message, List.of());
         }
@@ -132,6 +217,11 @@ public class CoordinatedPluginUpdateService {
         this.currentApiVersion = Objects.requireNonNull(currentApiVersion, "currentApiVersion");
     }
 
+    /**
+     * Absolute Turboism home this service operates on; all staging stays beneath it.
+     *
+     * @return normalized absolute home path
+     */
     public Path home() {
         return home;
     }
@@ -385,6 +475,15 @@ public class CoordinatedPluginUpdateService {
         return downloadAndPrepare(rows, targetApiVersion, cancelled::get, new PluginCatalogClient.DownloadControl());
     }
 
+    /**
+     * Downloads and prepares the selected plugins while observing a caller-owned download control, so a
+     * UI cancel propagates into the transport and uncommitted staging files are removed again.
+     *
+     * @param rows selected plan rows; non-selected rows are ignored
+     * @param targetApiVersion framework API version the plan was computed for
+     * @param control download control carrying the cancel signal and progress callbacks
+     * @return the download outcome; nothing is written to the pending journal
+     */
     public DownloadResult downloadAndPrepare(
             final List<PluginUpdateRow> rows,
             final Optional<PluginVersion> targetApiVersion,
@@ -742,6 +841,17 @@ public class CoordinatedPluginUpdateService {
         discardUncommitted(preparedList);
     }
 
+    /**
+     * Maps plugin ids to the regular JAR files immediately inside the supplied directory.
+     *
+     * <p>The directory and file checks use {@code NOFOLLOW_LINKS}; unreadable descriptors are skipped. A
+     * plugin id claimed by two JARs is rejected instead of silently picking one, so an ambiguous install
+     * can never be updated on a guess.</p>
+     *
+     * @param pluginsDir directory to scan; {@code null} or a missing directory yields an empty map
+     * @return plugin id to JAR path beneath the supplied directory; empty when nothing is installed
+     * @throws IllegalStateException when directory enumeration fails or two JARs declare the same plugin id
+     */
     public static Map<String, Path> scanInstalledJars(final Path pluginsDir) {
         if (pluginsDir == null || !Files.isDirectory(pluginsDir, LinkOption.NOFOLLOW_LINKS)) {
             return Map.of();

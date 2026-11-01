@@ -37,11 +37,20 @@ import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 
 /**
- * Offline-enabled download session: authenticates documents before planning/streaming resources.
- * Not wired to production or UI. Staged observations always require fresh recovery before future apply.
+ * Download session: authenticates documents before planning or streaming framework resources.
+ * Staged observations always require fresh recovery before future apply.
  * Caller owns executor/scheduler lifecycle; this class creates no threads or global pools.
  */
 public final class FrameworkUpdateDownloader {
+    /**
+     * Progress phase reported while a staged download advances.
+     *
+     * <p>{@code RECEIVING} streams bytes, {@code RETRYING} is a bounded retry of a failed request,
+     * {@code VERIFIED} confirms a resource against the manifest hash, and {@code TASK} reports staged-task
+     * durability. {@code RESTARTING} means the server refused a resumable continuation (status, range or
+     * ETag mismatch), so the resource is discarded and downloaded again from byte zero within the restart
+     * budget.</p>
+     */
     public enum Phase {
         RECEIVING,
         RESTARTING,
@@ -57,6 +66,16 @@ public final class FrameworkUpdateDownloader {
     /** A verified staging observation, never installation or future apply authority. */
     public record StagedTask(String id, boolean directoryDurabilityConfirmed) {}
 
+    /**
+     * Verified, staged download result. Holding one is evidence about staged bytes only; it carries no
+     * installation or future-apply authority, and the helper revalidates everything before applying.
+     *
+     * @param manifest on-disk copy of the authenticated manifest
+     * @param envelope on-disk copy of the signature envelope that authenticated it
+     * @param plan delta plan computed against the installed files
+     * @param objects manifest entry path to the verified staged object that holds its bytes
+     * @param staged staged-task observation when the caller asked for one
+     */
     public record Downloaded(
             Path manifest,
             Path envelope,
