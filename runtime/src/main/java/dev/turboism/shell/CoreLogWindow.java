@@ -46,7 +46,7 @@ final class CoreLogWindow implements AutoCloseable {
     private JTextPane output;
     private JTextField keyword;
     private JComboBox<String> minimumLevel;
-    private Timer refreshTimer;
+    private volatile Timer refreshTimer;
 
     CoreLogWindow(final PluginLocalization i18n, final RuntimeLogReader logs) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
@@ -64,6 +64,12 @@ final class CoreLogWindow implements AutoCloseable {
 
     @Override
     public void close() {
+        // Stop the one-second refresh on the caller thread first: javax.swing.Timer#stop is
+        // thread-safe, and teardown can run while the host event queue is wedged, exiting, or
+        // absent. Leaving the stop inside the posted task would keep the timer scheduled for
+        // the rest of the host session whenever that task never runs.
+        final Timer scheduled = refreshTimer;
+        if (scheduled != null) scheduled.stop();
         CoreDialogs.onEdt(() -> {
             if (refreshTimer != null) refreshTimer.stop();
             if (dialog != null) dialog.dispose();
@@ -73,6 +79,12 @@ final class CoreLogWindow implements AutoCloseable {
             minimumLevel = null;
             refreshTimer = null;
         });
+    }
+
+    /** Test seam: reports whether the one-second refresh timer is still scheduled. */
+    boolean refreshTimerRunning() {
+        final Timer timer = refreshTimer;
+        return timer != null && timer.isRunning();
     }
 
     private JDialog createDialog() {

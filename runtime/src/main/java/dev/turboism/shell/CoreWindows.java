@@ -198,6 +198,15 @@ final class CoreWindows implements AutoCloseable {
         });
     }
 
+    /**
+     * Test seam: reports whether {@link #close()} has released this window set. The dialog
+     * disposal it posts to the EDT is not covered — this answers for the resources the owner
+     * itself holds: the plugin-details executor and the log refresh timer.
+     */
+    boolean released() {
+        return closed.get() && pluginDetailsExecutor.isShutdown() && !logWindow.refreshTimerRunning();
+    }
+
     private JDialog createSettingsDialog() {
         final RuntimeSettings value = settings.read();
         final JDialog dialog = CoreDialogs.create(text("window.settings.title"), 780, 560);
