@@ -6,6 +6,7 @@
 #   1. cleanup script exits non-zero -> teardown exits non-zero
 #   2. cleanup script missing       -> teardown exits non-zero
 #   3. cleanup script succeeds      -> teardown exits zero and cleans both slugs
+#   4. invalid slug                 -> teardown exits non-zero and the engine never sees it
 #
 # Fixtures live in a temporary directory; no real workspace or host artifact is touched.
 set -uo pipefail
@@ -89,12 +90,37 @@ if ! run_teardown "${root}" "fix/example-lane" >"${WORK_ROOT}/success.log" 2>&1;
   fail "successful cleanup: expected zero exit, output: $(cat "${WORK_ROOT}/success.log")"
 elif ! grep -q -- "--worktree worktree" "${root}/invocations.log"; then
   fail "successful cleanup: worktree directory slug not cleaned"
-elif ! grep -q -- "--worktree fix/example-lane" "${root}/invocations.log"; then
+elif ! grep -q -- "--worktree fix-example-lane" "${root}/invocations.log"; then
   fail "successful cleanup: branch slug not cleaned"
 elif ! grep -q "Teardown completed successfully" "${WORK_ROOT}/success.log"; then
   fail "successful cleanup: success not reported"
 else
   pass "successful cleanup cleans both slugs and exits zero"
+fi
+
+# ---------- 4. an invalid slug never reaches the cleanup engine ----------
+TOTAL=$((TOTAL + 1))
+root="${WORK_ROOT}/invalid"
+mkdir -p "${root}/Bad_Name/scripts/dev" "${root}/checkout/scripts/dev"
+cat >"${root}/Bad_Name/scripts/dev/cleanup-host-artifacts.sh" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${root}/invocations.log"
+exit 0
+STUB
+chmod +x "${root}/Bad_Name/scripts/dev/cleanup-host-artifacts.sh"
+if PASEO_WORKTREE_PATH="${root}/Bad_Name" \
+  PASEO_SOURCE_CHECKOUT_PATH="${root}/checkout" \
+  PASEO_BRANCH_NAME="refs/heads/x" \
+  bash "${SCRIPT_DIR}/paseo-worktree-teardown.sh" >"${WORK_ROOT}/invalid.log" 2>&1; then
+  fail "invalid slug: expected non-zero exit"
+elif [ -s "${root}/invocations.log" ]; then
+  fail "invalid slug: the engine was invoked with $(cat "${root}/invocations.log")"
+elif ! grep -q "not a valid worktree id" "${WORK_ROOT}/invalid.log"; then
+  fail "invalid slug: refusal reason not reported"
+elif ! grep -q "Teardown FAILED" "${WORK_ROOT}/invalid.log"; then
+  fail "invalid slug: failure not reported"
+else
+  pass "invalid slugs fail the teardown and never reach the cleanup engine"
 fi
 
 echo "paseo teardown self-test: $((TOTAL - FAILED))/${TOTAL} cases passed"

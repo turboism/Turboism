@@ -7,6 +7,7 @@
 # a clean teardown. Warnings never replace a failed exit status here.
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKTREE_DIR="${PASEO_WORKTREE_PATH:-${PWD}}"
 REPO_ROOT="${PASEO_SOURCE_CHECKOUT_PATH:-/opt/dev/projects/turboism}"
 
@@ -16,6 +17,18 @@ fail() {
   echo "[paseo-worktree-teardown] error: $*" >&2
   failures=$((failures + 1))
 }
+
+# The cleanup engine matches slugs as substrings of host task files, so an
+# unchecked slug can select another worktree's artifacts. Only ids that pass the
+# shared worktree-id rules reach it.
+ID_RULES_LOADED=0
+if [ -r "${SCRIPT_DIR}/worktree-id-lib.sh" ]; then
+  # shellcheck source=worktree-id-lib.sh
+  . "${SCRIPT_DIR}/worktree-id-lib.sh"
+  ID_RULES_LOADED=1
+else
+  fail "worktree-id-lib.sh not found next to the teardown script; slugs cannot be validated."
+fi
 
 echo "[paseo-worktree-teardown] Teardown triggered for worktree: ${WORKTREE_DIR}"
 
@@ -47,9 +60,22 @@ WT_DIRNAME="$(basename "${WORKTREE_DIR}")"
 BRANCH="${PASEO_BRANCH_NAME:-}"
 BRANCH_SLUG="${BRANCH#refs/heads/}"
 BRANCH_SLUG="${BRANCH_SLUG#worktree/}"
+# Branch names carry '/' and dots that the id alphabet excludes; apply the same
+# sanitizer the worktree ids are created with before validating.
+if [ "${ID_RULES_LOADED}" -eq 1 ] && [ -n "${BRANCH_SLUG}" ]; then
+  BRANCH_SLUG="$(sanitize_turboism_worktree_id "${BRANCH_SLUG}")"
+fi
 
 clean_worktree_artifacts() {
   local slug="$1"
+  if [ "${ID_RULES_LOADED}" -ne 1 ]; then
+    fail "slug ${slug} cannot be validated; refusing to pass it to the cleanup engine."
+    return
+  fi
+  if ! validate_id "${slug}"; then
+    fail "slug ${slug} is not a valid worktree id; refusing to pass it to the cleanup engine."
+    return
+  fi
   echo "[paseo-worktree-teardown] Cleaning host artifacts for worktree slug: ${slug}"
   if ! "${CLEANUP_SCRIPT}" --worktree "${slug}"; then
     fail "host artifact cleanup failed for slug ${slug}."
@@ -59,7 +85,7 @@ clean_worktree_artifacts() {
 # 4. Clean external host validation artifacts associated with this worktree
 if [ -n "${CLEANUP_SCRIPT}" ] && [ -n "${WT_DIRNAME}" ] && [ "${WT_DIRNAME}" != "/" ]; then
   clean_worktree_artifacts "${WT_DIRNAME}"
-  if [ -n "${BRANCH_SLUG}" ] && [ "${BRANCH_SLUG}" != "${WT_DIRNAME}" ]; then
+  if [ -n "${PASEO_BRANCH_NAME:-}" ] && [ "${BRANCH_SLUG}" != "${WT_DIRNAME}" ]; then
     clean_worktree_artifacts "${BRANCH_SLUG}"
   fi
 fi
