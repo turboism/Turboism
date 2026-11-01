@@ -292,12 +292,13 @@ class PluginHotReloadIntegrationTest {
     }
 
     /**
-     * A generation whose teardown failed stays under live management: the reload reports
-     * {@code UNLOAD_FAILED}, and the still-holding generation is re-registered so a later runtime
-     * close can reach it instead of leaking it.
+     * A failed unload hands the fenced generation to the shutdown retention watcher. The reload
+     * reports {@code UNLOAD_FAILED}, the generation leaves the live list, and a later runtime close
+     * does not close it a second time.
      */
     @Test
-    void failedUnloadKeepsTheLiveGenerationRegistered() throws Exception {
+    void failedUnloadDuringReloadLeavesTheGenerationToRetentionAndClosesItOnce() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
         final Path home = temporary.resolve("unload-failure-home");
         final Path plugins = home.resolve("plugins");
         Files.createDirectories(plugins);
@@ -315,13 +316,13 @@ class PluginHotReloadIntegrationTest {
                 public final class TestEntrypoint implements TurboismPlugin {}
                 """);
 
-        final java.util.concurrent.atomic.AtomicBoolean failClose =
-                new java.util.concurrent.atomic.AtomicBoolean(true);
-        try (LocalPluginRuntime runtime = createRuntime(home, (pluginId, phase) -> {
-            if (failClose.get() && PLUGIN_ID.equals(pluginId) && "close".equals(phase)) {
+        final LocalPluginRuntime runtime = createRuntime(home, (pluginId, phase) -> {
+            if (PLUGIN_ID.equals(pluginId) && "close".equals(phase)) {
+                closes.incrementAndGet();
                 throw new IllegalStateException("Deliberate close failure");
             }
-        })) {
+        });
+        try {
             runtime.loadAll();
             assertTrue(runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID));
 
@@ -329,11 +330,47 @@ class PluginHotReloadIntegrationTest {
 
             assertFalse(result.succeeded());
             assertEquals("UNLOAD_FAILED", result.code());
-            assertTrue(
+            assertFalse(
                     runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID),
-                    "a generation whose teardown failed must stay registered so it can still be closed");
-            failClose.set(false);
+                    "the retained generation must not stay registered as live");
+            assertEquals(1, closes.get(), "the failed unload ran the close once");
+        } finally {
+            runtime.close();
         }
+        assertEquals(1, closes.get(), "the runtime close must not close the retained generation again");
+    }
+
+    /** {@code hotUnload} follows the same ownership rule as the reload path. */
+    @Test
+    void failedHotUnloadDoesNotReturnTheGenerationToTheLiveList() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
+        final Path home = temporary.resolve("hot-unload-failure-home");
+        final Path plugins = home.resolve("plugins");
+        Files.createDirectories(plugins);
+        writeJar(plugins.resolve(PLUGIN_ID + ".jar"), PLUGIN_ID, "0.1.0", true, false, """
+                package dev.example.hotreloadable;
+                import dev.turboism.sdk.plugin.*;
+                public final class TestEntrypoint implements TurboismPlugin {}
+                """);
+
+        final LocalPluginRuntime runtime = createRuntime(home, (pluginId, phase) -> {
+            if (PLUGIN_ID.equals(pluginId) && "close".equals(phase)) {
+                closes.incrementAndGet();
+                throw new IllegalStateException("Deliberate close failure");
+            }
+        });
+        try {
+            runtime.loadAll();
+
+            final var result = runtime.hotReloadCoordinator().hotUnload(PLUGIN_ID);
+
+            assertEquals("UNLOAD_FAILED", result.code());
+            assertFalse(runtime.hotReloadCoordinator().isLoaded(PLUGIN_ID));
+            assertEquals(1, closes.get());
+        } finally {
+            runtime.close();
+        }
+        assertEquals(1, closes.get(), "the runtime close must not close the retained generation again");
     }
 
     @Test

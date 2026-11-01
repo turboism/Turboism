@@ -182,14 +182,12 @@ public final class PluginHotReloadCoordinator {
         }
         if (live != null) {
             shutdown.fence(List.of(live));
-            final int liveIndex = loaded.indexOf(live);
             loaded.remove(live);
             final LocalPluginRuntime.LoadedPluginSummary unloadSummary = shutdown.unloadOne(live);
             if (!"SUCCEEDED".equals(unloadSummary.unloadState())) {
-                // The previous generation was fenced but its teardown did not succeed, so it still
-                // holds resources. Put it back under live management at its load position: a
-                // generation dropped from this list can never be closed by a later runtime close.
-                loaded.add(liveIndex >= 0 ? liveIndex : loaded.size(), live);
+                // The failed close already handed the fenced generation to the shutdown's retention
+                // watcher (or finished disposing it). It must not return to the live list: a later
+                // runtime close would close the same generation a second time.
                 return HotReloadResult.failed("UNLOAD_FAILED", "Failed to cleanly unload previous generation.");
             }
         }

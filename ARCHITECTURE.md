@@ -207,7 +207,7 @@ interface. Terminal bypass is name + zero-arity by design: the SDK terminal surf
 many interfaces with heterogeneous return types, so a signature allowlist could silently
 miss a release and leak resources; a missed terminal call is a worse failure than
 over-admitting a coincidental same-named no-arg call. The surface must never widen — a
-verb taking any argument stays fenced.
+verb taking any argument stays fenced, except the one documented exemption below.
 
 One documented exception to the zero-arity rule: `UiScheduler.runUiTeardown(cleanup, timeout)`
 takes arguments and still passes the fence. `disable()`, `shutdown()` and scope closers always
@@ -215,6 +215,18 @@ run after fencing, and this verb exists so they can release windows and other UI
 is matched by exact declaring type and method name, so no other method can ride on it. The
 exemption releases UI resources only: a plugin must not use it to run other host operations
 after fencing, and no second argument-taking verb may be added to the exemption.
+
+依赖方向（plugin → sdk → runtime）的封闭例外：仅 `EarlyThemeAppearanceBootstrap`
+可以在插件加载前读取 `ui-theme` 的选择文档
+`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`。
+文档限 typed-config schema version 1，选择键限 `selected-theme`，原生主题哨兵限 `__native__`。
+该读取器还可以读取 `data/dev.turboism.plugin.uitheme/themes/` 下所选主题包的颜色数据。
+Cubism 在首次访问 GL 场景时缓存画布外背景色，因此颜色注入必须早于插件加载和 SDK 服务初始化。
+当前仅有这个启动前消费者，因此保留读取器，不新增公共 SDK 契约。
+读取器只读，校验完整文档结构。格式无效时只输出一条有界诊断。
+例外仅覆盖此读取器、此选择文档及上述所选主题颜色数据，不允许其他运行时读取器或插件私有文档。
+`ThemeSelectionConfigTest` 与 `EarlyThemeAppearanceBootstrapTest` 分别在各自模块固定同一组常量。
+运行时测试不读取插件源码。
 
 ## 6. Invocation and event lifecycle
 

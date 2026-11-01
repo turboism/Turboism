@@ -31,7 +31,10 @@ import javax.swing.plaf.ColorUIResource;
 public final class EarlyThemeAppearanceBootstrap {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.uitheme";
-    /** The plugin-private selection document this bootstrap reads; bound by a contract test. */
+    /**
+     * The plugin-private selection document this bootstrap reads. This is the closed exception in
+     * ARCHITECTURE.md section 5; both modules pin these values in their own tests.
+     */
     static final String SELECTION_PATH = "ui-theme/selection.cfg";
     /** The one selector key this bootstrap reads out of that document. */
     static final String SELECTED_THEME_KEY = "selected-theme";
@@ -193,7 +196,7 @@ public final class EarlyThemeAppearanceBootstrap {
             throw new SelectionDocumentException(
                     SCHEMA_UNSUPPORTED, "schemaVersion " + schemaVersion + " is not " + SUPPORTED_SCHEMA_VERSION);
         }
-        if (parseMetadata(lines[2], REVISION_PREFIX, DOCUMENT_INVALID) < 0) {
+        if (parseRevision(lines[2]) < 0) {
             throw new SelectionDocumentException(DOCUMENT_INVALID, "revision is negative");
         }
         final int count = parseMetadata(lines[3], COUNT_PREFIX, DOCUMENT_INVALID);
@@ -231,6 +234,18 @@ public final class EarlyThemeAppearanceBootstrap {
             return Integer.parseInt(line.substring(prefix.length()));
         } catch (NumberFormatException outOfRange) {
             throw new SelectionDocumentException(reason, "metadata " + prefix + "<value> is not an int");
+        }
+    }
+
+    /** The writer's revision is a {@code long}; parse it as one so a valid document is never rejected. */
+    private static long parseRevision(final String line) throws SelectionDocumentException {
+        if (!line.startsWith(REVISION_PREFIX)) {
+            throw new SelectionDocumentException(DOCUMENT_INVALID, "metadata line is not " + REVISION_PREFIX + "<value>");
+        }
+        try {
+            return Long.parseLong(line.substring(REVISION_PREFIX.length()));
+        } catch (NumberFormatException outOfRange) {
+            throw new SelectionDocumentException(DOCUMENT_INVALID, "revision is not a long");
         }
     }
 

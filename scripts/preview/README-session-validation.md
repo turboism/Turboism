@@ -62,3 +62,9 @@ aggregate `state/session/session-result.properties` is the job's terminal
 result file; per-step evidence maps back to `task:version@variant` rows
 through `scripts/preview/host_validation_triage.py` and
 `scripts/preview/sync_campaign_ledger.py`.
+
+保存路径步骤采用只读契约。Session Runner 在启动前预置
+`config/turboism.core/save-directory-history.properties`，数据来自探针的固定双槽文件。
+Windows 验证包携带同一份 `fixtures/save-directory-history.properties`，并将其计入 SHA256SUMS。
+手工准备任务 home 时，必须通过 Runner 的 `--home-file` 将此文件放到上述配置路径。
+此步骤验证读取、持久化一致性和写入拒绝，不再写入 shell 历史。结果采用 schemaVersion=2。

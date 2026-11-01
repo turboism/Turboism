@@ -164,6 +164,7 @@ exec bash "$runner" \
   --bundle-root "$bundle_root" --agent "$bundle_root/turboism-agent.jar" \
   "${plugin_args[@]}" \
   --home-file "$plan_file:state/session/plan.json" \
+  --home-file "$repo_root/validation/separate-save-path-host-probe/fixtures/save-directory-history.properties:config/turboism.core/save-directory-history.properties" \
   --fixture-host "$fixture_src" --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
   --jvm-option '-Dturboism.validation.session=true' \
