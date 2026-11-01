@@ -34,13 +34,15 @@ public interface CorePublicApiProvider {
      * The capability flags for this provider's artifact profile.
      *
      * <p>The default derives them from {@link #artifactProfile()}: parameter-repeat support for
-     * every reviewed 5.3-generation profile and MOC metadata always assumed readable.</p>
+     * every reviewed 5.3-generation profile and MOC metadata always assumed readable. The
+     * generation is selected from the generated reviewed-version table, so a successor reviewed
+     * generation is not misread as a pre-5.3 profile.</p>
      *
      * @return the capability flags; never null
      */
     default dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
         return new dev.turboism.sdk.cubism.core.CoreCapabilities(
-                artifactProfile().startsWith("5.3."), true, false);
+                dev.turboism.internal.ReviewedVersions.since("5.3.00").contains(artifactProfile()), true, false);
     }
 
     /**

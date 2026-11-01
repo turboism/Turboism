@@ -83,12 +83,12 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
         if (!ReviewedVersions.since("5.1.00").contains(verified.admittedCubismVersion())) {
             throw new IllegalArgumentException("Edit-toggle dialog hook version is unsupported.");
         }
-        final boolean is5203 = !verified.admittedCubismVersion().startsWith("5.3.");
+        final boolean is530x = ReviewedVersions.since("5.3.00").contains(verified.admittedCubismVersion());
         if (!verified.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, Set.of(BUILD_HOOK_ALIAS))) {
             throw new IllegalArgumentException("Edit-toggle dialog hook is not authorized.");
         }
         final StaticSelector selector = verified.verifiedSelector(BUILD_HOOK_ALIAS);
-        final String expectedDescriptor = is5203 ? BUILD_DESCRIPTOR_5203 : BUILD_DESCRIPTOR_530X;
+        final String expectedDescriptor = is530x ? BUILD_DESCRIPTOR_530X : BUILD_DESCRIPTOR_5203;
         if (selector.kind() != StaticSelector.Kind.METHOD
                 || !BUILD_OWNER.equals(selector.ownerInternalName())
                 || !BUILD_NAME.equals(selector.memberName())
