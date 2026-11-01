@@ -57,6 +57,7 @@ exec bash "$runner" \
   --result-fail-line 'terminal=FAIL' \
   --result-fail-line 'terminal=BLOCKED' \
   --result-fail-line 'terminal=SKIPPED' \
+  --require-assertions \
   --failure-marker 'ANIM_MATRIX_RESULT status=FAIL' \
   --failure-marker 'ANIM_MATRIX_RESULT status=BLOCKED' \
   --failure-marker 'ANIM_MATRIX_RESULT status=SKIPPED' \

@@ -788,9 +788,11 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 report.append(sampleLine).append('\n');
             }
             report.append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-            report.append("status=").append(assertions.terminal().name()).append('\n');
             assertions.appendCounters(report);
             assertions.appendNamed(report);
+            // The terminal verdict goes last: the Runner requires a positive verdict count
+            // as soon as it observes the pass line.
+            report.append("status=").append(assertions.terminal().name()).append('\n');
             Files.createDirectories(result.getParent());
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
