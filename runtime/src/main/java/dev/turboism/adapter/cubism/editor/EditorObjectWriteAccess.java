@@ -82,20 +82,45 @@ final class EditorObjectWriteAccess {
         KEYFORM_EDIT
     }
 
-    private boolean isCubism52() {
-        return !resolver.admittedCubismVersion().startsWith("5.3.");
+    /**
+     * The ArtMesh alpha-composition write members this path needs.
+     *
+     * <p>Their presence in a verified record is the reviewed marker for the newer Inspector
+     * drawable generation. The remaining alpha-composition constants belong to the Part family
+     * and are not required here.</p>
+     */
+    private static final java.util.Set<String> ART_MESH_ALPHA_COMPOSITION_ALIASES = java.util.Set.of(
+            "cubism.editor-model.alpha-composition.values",
+            "cubism.editor-model.art-mesh-source.set-alpha-composition");
+
+    /**
+     * Returns whether this host's verified record carries the ArtMesh alpha-composition members.
+     *
+     * <p>The marker is read from the record rather than from a version prefix, so a successor
+     * reviewed generation keeps the full contract instead of falling back to the reduced
+     * pre-alpha-composition form.</p>
+     *
+     * @return {@code true} only when both ArtMesh alpha-composition members are verified
+     */
+    private boolean supportsAlphaComposition() {
+        return resolver.authorizesFeature(
+                EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID,
+                ART_MESH_ALPHA_COMPOSITION_ALIASES);
     }
 
     private void requireInspectorWriteAuthorized() {
-        final boolean authorized = isCubism52()
-                ? resolver.authorizesFeature(
-                        EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.ADAPTER_SLICE_ID,
-                        EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID,
-                        EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES)
-                : resolver.authorizesFeature(
+        // Both reviewed alias sets are admissible: the reduced form is the earlier generation's
+        // record, whose alias set is the full set minus the alpha-composition members. Accepting
+        // either keeps every reviewed record admitted without keying the choice to a version.
+        final boolean authorized = resolver.authorizesFeature(
                         EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID,
                         EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID,
-                        EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES);
+                        EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES)
+                || resolver.authorizesFeature(
+                        EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.ADAPTER_SLICE_ID,
+                        EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID,
+                        EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
         if (!authorized) {
             throw new UnsupportedOperationException(
                     "Editor ArtMesh Inspector writes require exact verified host evidence.");
@@ -1553,10 +1578,10 @@ final class EditorObjectWriteAccess {
             });
             return;
         }
-        if (isCubism52()) {
+        if (!supportsAlphaComposition()) {
             throw new UnsupportedOperationException(
-                    "ArtMesh alpha composition is unavailable on Cubism 5.2 hosts (AlphaComposition introduced in"
-                            + " 5.3).");
+                    "ArtMesh alpha composition is unavailable on this Cubism host (its verified record carries no"
+                            + " AlphaComposition member family).");
         }
         requireInspectorWriteAuthorized();
         final Object hostValue =

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
@@ -84,10 +85,10 @@ public record FileChooserHistoryHostProfile(
         }
         final String dialogClass;
         final String contextClass;
-        if (cubismVersion.startsWith("5.0.")) {
+        if (ReviewedVersions.line("5.0").contains(cubismVersion)) {
             dialogClass = "Y";
             contextClass = APP_CTRL_EXPORT_CONTEXT_CLASS_53;
-        } else if (cubismVersion.startsWith("5.3.")) {
+        } else if (ReviewedVersions.since("5.3.00").contains(cubismVersion)) {
             dialogClass = "V";
             contextClass = APP_CTRL_EXPORT_CONTEXT_CLASS_53;
         } else {

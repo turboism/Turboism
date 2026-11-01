@@ -174,8 +174,13 @@ final class CoreWindows implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         pluginDetailsExecutor.shutdownNow();
+        // The log refresh timer stops here, on the calling thread: the disposal below is posted to
+        // the host event queue and never runs while that queue is wedged, exiting, or absent, so a
+        // timer stopped only inside that task would keep polling the log for the rest of the
+        // session. CoreLogWindow.close() stops the timer synchronously and posts the dialog
+        // disposal itself.
+        logWindow.close();
         CoreDialogs.onEdt(() -> {
-            logWindow.close();
             keybindingsWindow.close();
             if (pluginSettingsWindow != null) pluginSettingsWindow.close();
             if (pluginMarketWindow != null) pluginMarketWindow.close();
@@ -196,6 +201,20 @@ final class CoreWindows implements AutoCloseable {
             pluginDetailsDialog = null;
             aboutDialog = null;
         });
+    }
+
+    /** Test seam: reports whether the log refresh timer is still scheduled. */
+    boolean refreshTimerRunning() {
+        return logWindow.refreshTimerRunning();
+    }
+
+    /**
+     * Test seam: reports whether {@link #close()} has released this window set. The dialog
+     * disposal it posts to the EDT is not covered — this answers for the resources the owner
+     * itself holds: the plugin-details executor and the log refresh timer.
+     */
+    boolean released() {
+        return closed.get() && pluginDetailsExecutor.isShutdown() && !refreshTimerRunning();
     }
 
     private JDialog createSettingsDialog() {

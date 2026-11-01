@@ -182,9 +182,14 @@ public final class PluginHotReloadCoordinator {
         }
         if (live != null) {
             shutdown.fence(List.of(live));
+            final int liveIndex = loaded.indexOf(live);
             loaded.remove(live);
             final LocalPluginRuntime.LoadedPluginSummary unloadSummary = shutdown.unloadOne(live);
             if (!"SUCCEEDED".equals(unloadSummary.unloadState())) {
+                // The previous generation was fenced but its teardown did not succeed, so it still
+                // holds resources. Put it back under live management at its load position: a
+                // generation dropped from this list can never be closed by a later runtime close.
+                loaded.add(liveIndex >= 0 ? liveIndex : loaded.size(), live);
                 return HotReloadResult.failed("UNLOAD_FAILED", "Failed to cleanly unload previous generation.");
             }
         }
@@ -200,16 +205,25 @@ public final class PluginHotReloadCoordinator {
                 return HotReloadResult.success();
             }
         }
-        // Failure: rollback to previous generation if available
+        // Failure: roll back to the previous generation when one is available. A rollback only
+        // counts once the previous generation actually loaded again: a discarded or null load
+        // result means the plugin is now stopped, so reporting it as rolled back would hide the
+        // fact that nothing is running.
         if (rollbackJarPath != null && Files.isRegularFile(rollbackJarPath, LinkOption.NOFOLLOW_LINKS)) {
             final List<LocalPluginRuntime.PluginFailure> rollbackFailures = new ArrayList<>();
             final PreviewPluginCandidate rollbackCandidate = discovery.readCandidate(rollbackJarPath, rollbackFailures);
-            if (rollbackCandidate != null) {
-                loader.load(rollbackCandidate, rollbackFailures);
+            if (rollbackCandidate != null && loader.load(rollbackCandidate, rollbackFailures) != null) {
+                log.warn(pluginId, "Plugin lifecycle: hot reload failed; rolled back to previous generation");
+                return HotReloadResult.rolledBack(
+                        "HOT_RELOAD_FAILED", "New generation failed to start; rolled back to previous generation.");
             }
-            log.warn(pluginId, "Plugin lifecycle: hot reload failed; rolled back to previous generation");
-            return HotReloadResult.rolledBack(
-                    "HOT_RELOAD_FAILED", "New generation failed to start; rolled back to previous generation.");
+            log.error(
+                    pluginId,
+                    "Plugin lifecycle: hot reload failed and the previous generation could not be restored",
+                    null);
+            return HotReloadResult.failed(
+                    "ROLLBACK_FAILED",
+                    "New generation failed to start and the previous generation could not be restored.");
         }
         return HotReloadResult.failed(
                 "HOT_RELOAD_FAILED", "New generation failed to start and rollback was unavailable.");
