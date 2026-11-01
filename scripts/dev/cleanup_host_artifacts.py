@@ -11,7 +11,7 @@ Safely scans, reports, and removes disposable host validation temporary files:
 
 Strict safety rules:
   - NEVER removes or traverses the Golden Proton prefix.
-  - NEVER modifies or removes immutable source fixtures (.env specified).
+  - NEVER modifies or removes immutable source fixtures (`.env` and process environment).
   - NEVER modifies or removes Git-tracked source code.
   - NEVER terminates or removes active, running Cubism/Proton sessions.
   - Symlinks are unlinked directly and never traversed into target trees.
@@ -62,6 +62,32 @@ def parse_local_env(env_path: Path) -> dict[str, str]:
     return values
 
 
+def resolve_env(env_path: Path, environ: dict[str, str] | None = None) -> dict[str, str]:
+    """Merge repository `.env` with the process environment.
+
+    The process environment wins for every key it defines. Red-line variables
+    (golden prefix, host root, fixture sources) therefore stay effective no
+    matter whether the operator exported them or wrote them to `.env`; a
+    process-level export can only make the guard stricter, never looser.
+
+    Blank values are ignored: an exported empty string must not erase the
+    `.env` value, because an empty golden prefix disables the red line.
+    """
+    merged = parse_local_env(env_path)
+    process_env = os.environ if environ is None else environ
+    merged.update({key: val for key, val in process_env.items() if val and val.strip()})
+    return merged
+
+
+def first_nonblank(env: dict[str, str], *keys: str) -> str | None:
+    """Return the first non-blank value for `keys`, or None."""
+    for key in keys:
+        val = env.get(key)
+        if val and val.strip():
+            return val
+    return None
+
+
 @dataclasses.dataclass(frozen=True)
 class SafetyContext:
     golden_prefix: Path | None
@@ -76,13 +102,14 @@ class SafetyContext:
         user_home = Path.home().resolve()
 
         golden_raw = env.get("TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX")
-        golden_prefix = Path(golden_raw).resolve() if golden_raw else None
+        golden_prefix = Path(golden_raw).resolve() if golden_raw and golden_raw.strip() else None
 
         default_host_root = str(user_home / "TurboismValidation")
-        host_root_raw = env.get(
+        host_root_raw = first_nonblank(
+            env,
             "TURBOISM_HOST_VALIDATION_HOST_ROOT",
-            env.get("TURBOISM_HOST_VALIDATION_REMOTE_ROOT", default_host_root)
-        )
+            "TURBOISM_HOST_VALIDATION_REMOTE_ROOT",
+        ) or default_host_root
         host_root = Path(host_root_raw).resolve()
 
         # Collect all configured fixture sources
@@ -90,6 +117,8 @@ class SafetyContext:
         fixture_inodes = []
         for key, val in env.items():
             if key.startswith("TURBOISM_HOST_VALIDATION_FIXTURE_") and not key.endswith(("_SHA256", "_NAME")):
+                if not val or not val.strip():
+                    continue
                 p = Path(val).resolve()
                 fixture_paths.append(p)
                 try:
@@ -507,11 +536,12 @@ def run_cleanup(
     dry_run: bool = False,
     repo_root: Path | None = None,
     env_file: Path | None = None,
+    environ: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute cleanup inspection or removal according to arguments."""
     repo = repo_root or find_repo_root()
     env_path = env_file or repo / ".env"
-    env = parse_local_env(env_path)
+    env = resolve_env(env_path, environ)
     context = SafetyContext.create(repo, env)
 
     all_items: list[ArtifactItem] = []

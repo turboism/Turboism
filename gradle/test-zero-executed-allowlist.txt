@@ -1,0 +1,14 @@
+# Sanctioned zero-execution test tasks.
+#
+# buildSrc/src/main/java/dev/turboism/gradle/internal/TestExecutionGuard.java
+# fails a Test task that executed no test, even when every skipped test is
+# registered in gradle/test-skip-allowlist.txt. A suite whose entire purpose is
+# to run later, under conditions the default gate cannot provide, must be
+# registered here instead of silently passing.
+#
+# Format: one entry per line, `<gradle task path glob> # <reason>`.
+# `*` matches any characters. The trailing reason is mandatory.
+# Lines starting with `#` and blank lines are ignored.
+#
+# Keep this list empty unless a task genuinely cannot execute anything in the
+# daily gate; a task that selects nothing is a defect, not an exemption.
