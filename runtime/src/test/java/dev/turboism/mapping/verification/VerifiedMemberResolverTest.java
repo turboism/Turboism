@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.fixture.PackagePrivateConstructorHost;
 import dev.turboism.mapping.verification.fixture.PackagePrivateMethodHost;
+import dev.turboism.mapping.verification.fixture.PackagePrivateMethodOnlyHost;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -184,6 +185,66 @@ class VerifiedMemberResolverTest {
         assertEquals(
                 "package-private-owner",
                 resolver.invoke("fixture.package-private-owner-method", PackagePrivateMethodHost.create()));
+    }
+
+    @Test
+    void classifiesCallTimeArgumentErrorsAsResolutionAndHostNpeAsInvocation() {
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+                plan(
+                        StaticSelector.staticMethod(
+                                "fixture.echo",
+                                internalName(SyntheticHost.class),
+                                "echo",
+                                "(I)Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.null-failure",
+                                internalName(SyntheticHost.class),
+                                "nullFailure",
+                                "()V",
+                                StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
+        final SyntheticHost target = new SyntheticHost();
+
+        assertEquals(
+                VerifiedAccessException.FailureKind.RESOLUTION,
+                assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.echo"))
+                        .failureKind());
+        assertEquals(
+                VerifiedAccessException.FailureKind.RESOLUTION,
+                assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.echo", "bad"))
+                        .failureKind());
+        assertEquals(
+                VerifiedAccessException.FailureKind.RESOLUTION,
+                assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.echo", (Object) null))
+                        .failureKind());
+
+        assertEquals("int:7", resolver.invokeStatic("fixture.echo", 7));
+        assertEquals("int:7", resolver.invokeStatic("fixture.echo", (byte) 7));
+
+        final var failure =
+                assertThrows(VerifiedAccessException.class, () -> resolver.invoke("fixture.null-failure", target));
+        assertEquals(VerifiedAccessException.FailureKind.INVOCATION, failure.failureKind());
+        assertEquals(VerifiedAccessException.HostFailureCategory.NULL_POINTER, failure.hostFailureCategory());
+        assertEquals(null, failure.getCause());
+    }
+
+    @Test
+    void neverOpensPackagePrivateMethodsFromAnotherPackage() {
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+                plan(StaticSelector.method(
+                        "fixture.package-private-method",
+                        internalName(PackagePrivateMethodOnlyHost.class),
+                        "hidden",
+                        "()Ljava/lang/String;")),
+                SyntheticHost.class.getClassLoader());
+
+        final var failure = assertThrows(
+                VerifiedAccessException.class,
+                () -> resolver.invoke("fixture.package-private-method", PackagePrivateMethodOnlyHost.create()));
+
+        assertEquals(VerifiedAccessException.FailureKind.RESOLUTION, failure.failureKind());
+        assertEquals(null, failure.getCause());
     }
 
     @Test
@@ -520,12 +581,20 @@ class VerifiedMemberResolverTest {
             return "static";
         }
 
+        public static String echo(final int value) {
+            return "int:" + value;
+        }
+
         public static Object callCallback(final SyntheticZeroCallback callback) {
             return callback.apply();
         }
 
         public String instanceValue() {
             return value;
+        }
+
+        public void nullFailure() {
+            throw new NullPointerException("private-host-detail");
         }
 
         public String fail() {
