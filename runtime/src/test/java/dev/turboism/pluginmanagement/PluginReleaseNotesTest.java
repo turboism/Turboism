@@ -73,6 +73,24 @@ class PluginReleaseNotesTest {
     }
 
     @Test
+    void rawHostTimeoutFallsBackToGithubApiForTheSameSourceAndLanguage() throws Exception {
+        final List<URI> requests = new ArrayList<>();
+        final PluginCatalogClient client = client(uri -> {
+            requests.add(uri);
+            if ("raw.githubusercontent.com".equals(uri.getHost()))
+                throw new java.net.SocketTimeoutException("Blocked raw host");
+            return new Response(uri, 200, README);
+        });
+        assertTrue(client.fetchReleaseNotes(update("demo", REVISION), Locale.SIMPLIFIED_CHINESE)
+                .contains("Newest fix"));
+        assertEquals(2, requests.size());
+        assertEquals(
+                URI.create("https://api.github.com/repos/turboism/Turboism/contents/plugins/demo/README_zh.md?ref="
+                        + REVISION),
+                requests.get(1));
+    }
+
+    @Test
     void localizedNotesArePreferredAndMissingNotesStayEmpty() throws Exception {
         final List<URI> requests = new ArrayList<>();
         final PluginCatalogClient client = client(uri -> {
