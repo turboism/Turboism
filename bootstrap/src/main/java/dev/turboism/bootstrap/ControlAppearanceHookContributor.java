@@ -16,6 +16,11 @@ final class ControlAppearanceHookContributor implements HookContributor {
     }
 
     @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("control-appearance");
+    }
+
+    @Override
     public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }

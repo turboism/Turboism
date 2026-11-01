@@ -1827,5 +1827,41 @@
         "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
       }
     }
+  ],
+  "knownLimitations": [
+    {
+      "id": "hook:editor-ui",
+      "kind": "missing-runtime-withdrawal-wiring",
+      "affectedCapabilities": [
+        "cubism.editor-ui.bounding-box-overlay-button",
+        "cubism.editor-ui.control-appearance.deformer-control-row",
+        "cubism.editor-ui.control-appearance.deformer-label",
+        "cubism.editor-ui.control-appearance.parameter-folder",
+        "cubism.editor-ui.control-appearance.parameter-label",
+        "cubism.editor-ui.control-appearance.part-folder",
+        "cubism.editor-ui.control-appearance.part-label",
+        "cubism.editor-ui.embedded-panel",
+        "cubism.editor-ui.main-toolbar",
+        "cubism.editor-ui.top-menu",
+        "ui.canvas.hint",
+        "ui.mesh-toolbar.contribute",
+        "ui.status.notify"
+      ],
+      "impact": "These capabilities name hook:editor-ui in capabilityConditions, but no HookContributor declares runtimeHookIds()=editor-ui. VerifiedMemberResolver.disableCapabilitiesRequiringHook therefore never removes them: after the editor-UI seam fails to bind or is closed, the resolver keeps authorizing the capability and a plugin reaches a dead host-UI seam instead of a typed denial.",
+      "reason": "The editor-UI seam is installed by the UI layer (dev.turboism.ui host providers), not by a bootstrap HookContributor, so the withdrawal call has no owner inside this remediation's file scope.",
+      "status": "known-limitation",
+      "nextStep": "Give the editor-UI seam an owner that calls disableCapabilitiesRequiringHook(\"editor-ui\") when it fails or closes, then remove this entry."
+    },
+    {
+      "id": "hook:workspace-control",
+      "kind": "missing-runtime-withdrawal-wiring",
+      "affectedCapabilities": [
+        "cubism.workspace.control"
+      ],
+      "impact": "cubism.workspace.control names hook:workspace-control in capabilityConditions, but no HookContributor declares runtimeHookIds()=workspace-control. A failed or closed workspace-control seam leaves the capability authorized, so workspace control calls reach a dead native path instead of failing closed.",
+      "reason": "The workspace-control seam is installed by VerifiedWorkspaceHostProvider in the UI layer, not by a bootstrap HookContributor, so the withdrawal call has no owner inside this remediation's file scope.",
+      "status": "known-limitation",
+      "nextStep": "Make VerifiedWorkspaceHostProvider call disableCapabilitiesRequiringHook(\"workspace-control\") on failure and close, then remove this entry."
+    }
   ]
 }
