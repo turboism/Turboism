@@ -19,6 +19,15 @@ import java.util.Optional;
  * shell's reserved config directory ({@code <home>/config/turboism.core/}).
  * The runtime service delegates reads/writes to the registered provider and
  * is fail-closed without one (reads empty, writes no-op).
+ *
+ * <p><strong>Write contract:</strong> the persisted history belongs to the
+ * framework shell. A plugin context therefore receives a read-only view:
+ * {@link #projectRecentDirectory()}, {@link #exportRecentDirectory()},
+ * {@link #exportSeparationEnabled()} and {@link #isAvailable()} work, while
+ * {@link #setProjectRecentDirectory(Path)}, {@link #setExportRecentDirectory(Path)}
+ * and {@link #registerProvider(Provider)} fail closed with
+ * {@link UnsupportedOperationException}. There is no plugin-facing write to
+ * grant, so this boundary carries no permission id.
  */
 @CubismEditor
 public interface FileChooserHistoryService {
@@ -37,14 +46,24 @@ public interface FileChooserHistoryService {
     })
     Optional<Path> exportRecentDirectory();
 
-    /** Persists the recent directory for project saves. */
+    /**
+     * Persists the recent directory for project saves.
+     *
+     * @throws UnsupportedOperationException when this instance is the read-only view a
+     *     plugin context receives; writes are reserved for the framework shell
+     */
     @CubismEditor({
         "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
         "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
     })
     void setProjectRecentDirectory(Path dir);
 
-    /** Persists the recent directory for export-output saves. */
+    /**
+     * Persists the recent directory for export-output saves.
+     *
+     * @throws UnsupportedOperationException when this instance is the read-only view a
+     *     plugin context receives; writes are reserved for the framework shell
+     */
     @CubismEditor({
         "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
         "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
