@@ -106,7 +106,7 @@ without requesting `WRITE_OWNER`. Existing user file bytes under `state` are pre
 2. **Standard ZIP** (`assemble-release.sh`):
    - Validates `--bootstrap-receipt-dir` in the shared phase before packaging.
    - When provided, bundles `bootstrap/manifest.json` and `bootstrap/manifest.json.sig` into `turboism-<ver>.zip`.
-   - Keeps public `$dist` strictly to the 8 approved release assets; no sidecars are published to `$dist`.
+   - Keeps public `$dist` strictly to the 8 approved release assets, including their checksum sidecars. Incremental documents and objects stay outside `$dist`.
    - Compute candidate ZIP SHA-256 and size from the final archive after embedding these documents.
 3. **NSIS Installer** (`packaging/windows-installer/installer.nsi`):
    - Conditional compile flag: `-DBOOTSTRAP_RECEIPT_DIR=<dir>`.
@@ -114,7 +114,47 @@ without requesting `WRITE_OWNER`. Existing user file bytes under `state` are pre
      restoring `SetOutPath "$INSTDIR"`.
    - During `.onInstSuccess`, `configure_turboism.ps1 -InitializeSelection` automatically executes `bootstrap-receipt.ps1`.
    - On uninstall, cleans up `$INSTDIR\bootstrap` and `$INSTDIR\bootstrap-receipt.ps1`.
-   - When omitted (e.g. legacy build), the conditional receipt payload is absent; real NSIS compilation remains unverified here.
+   - When omitted (e.g. legacy build), the conditional receipt payload is absent.
+
+### Candidate signing and protected publication
+
+Stable and Beta can opt into the signed-package path. With no configuration, the existing full-package release
+path remains in use. Nightly continues to publish full packages: its scheduled workflow identity is not the
+configured framework publisher identity.
+
+1. `release.yml` generates the public client resources before the first Gradle build and produces the complete
+   first package, allocated build receipt and `writeFrameworkPayloadInventory` output.
+2. `framework-release-signing.yml` runs in `framework-release-signing`. It binds the receipt to the same
+   source, version, channel, run and attempt; checks the activation policy and keyring inside the actual agent;
+   then calls `prepare-framework-release.py sign`. Only that step receives the private signing key.
+3. `assemble-release.sh --skip-gradle --bootstrap-receipt-dir ...` packages the signed documents into both
+   ZIP and EXE. It reuses the candidate's developer artifacts. The manifest covers framework files; the two
+   bootstrap documents are package metadata, so there is no self-referential hash.
+4. `prepare-framework-release.py verify` checks the final ZIP payload against the signature and inventory,
+   allows exactly the declared config/plugin exclusions, and compares the embedded documents byte for byte.
+   Final candidate evidence is refreshed before the canonical candidate artifact is uploaded.
+5. `release-github-only.yml` verifies that candidate as usual. With `framework_publish=admit` (or `initialize`
+   for an empty channel), it uploads the signed resources and performs the existing public byte/Range preflight
+   after plugin publication checks and before the final GitHub Release promotion. It never rebuilds the candidate.
+   `framework_reactivate=true` is required to restore a deliberately withdrawn candidate; ordinary retries do not.
+
+Configuration is prepared by these code changes but has not been provisioned:
+
+| Location | Name | Purpose |
+| --- | --- | --- |
+| Product repository variable | `FRAMEWORK_UPDATE_SIGNING_ENABLED` | Set to `true` to produce signed Stable/Beta candidates; unset is disabled. |
+| Product repository variable | `FRAMEWORK_UPDATE_TRUSTED_KEYS` | Public client schema: `schemaVersion`, `keys` and `revoked`; generated resources stay under `build/`. |
+| Signing variable | `FRAMEWORK_UPDATE_SIGNING_KEY_ID` | An active key ID already bundled in the candidate agent. |
+| Signing variable | `FRAMEWORK_UPDATE_MINIMUM_UPDATER` | Required compatible updater baseline. B and C must retain a baseline supported by A when the protocol remains compatible; it must not automatically follow the target release version. |
+| `framework-release-signing` environment secret | `FRAMEWORK_UPDATE_SIGNING_KEY_B64` | Base64 PEM Ed25519 private key, read only by the signing step and removed from its temporary file afterwards. |
+| `production-release` environment secrets | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Upload to the existing isolated R2 bucket. |
+| Worker configuration | `FRAMEWORK_PUBLISHER_WORKFLOW`, `FRAMEWORK_PUBLISHER_ENVIRONMENT` | The publisher is `release-github-only.yml` in `production-release`. |
+| Worker configuration | `FRAMEWORK_TRUSTED_KEYS` | Bare active key-ID-to-SPKI map matching the client public keys. |
+
+Changing these production values or deploying the Worker is separate from preparing this implementation.
+The existing candidate, signing and publisher workflows require product `main`. This implementation remains on
+the requested test branch; a production release requires a separate source-release decision. Deploying the
+Worker from the pinned test-branch commit does not require merging the product branch.
 
 ## Managed Launcher (`launch-cubism-turboism.ps1`)
 
@@ -136,5 +176,5 @@ Cubism launch acceptance test.
   - PowerShell (`packaging/windows-installer/test-bootstrap-receipt.ps1`): 33 assertions covering script plumbing with a mock helper, stale-document bypass, collision/error propagation. Real receipt/signature execution is covered separately by the Python integration tests.
   - Full existing test suites: `test-config-merge.py`, `test-installer-packaging.py`, `test_release_tooling.py`, `test_windows_update_native.py`.
 - **Explicitly Unverified / Downstream Scope**:
-  - **Real NSIS compiler (`makensis`) execution**: `makensis` binary was not run in this environment; only source-contract/config-merge checks were run; real binary compilation belongs to CI.
+  - **Real installation acceptance**: NSIS 3.09 compiled an isolated signed fixture into an EXE with the eight-asset roster on 2026-11-01; its ZIP passed signature/payload checks. This is compilation evidence, not execution of a real CI-produced installer. See [release-pipeline-validation.md](../../validation/issue-50-updater/release-pipeline-validation.md).
   - **Protected Signing CI and Production Keys**: Client and installer remain strictly verification-only; production keys are not yet provisioned in `framework-update-trusted-keys.json`.

@@ -13,9 +13,10 @@ activate the product path.
 {"schemaVersion":1,"enabled":true,"endpoint":"https://api.turboism.dev/v1/framework/"}
 ```
 
-The endpoint above is an EXAMPLE contract path, not a claim that the deployed API serves it. Activation must select
-the actual reviewed endpoint, which must be HTTPS on `api.turboism.dev`, without credentials, port overrides, query,
-fragment or redirects. Its relative resources must implement:
+The endpoint above is the implemented service prefix and the release resource generator's fixed endpoint. The
+current production deployment has not yet been upgraded to this implementation; see the
+[deployment proposal](service-deployment-proposal.md). It uses HTTPS on `api.turboism.dev`, without credentials,
+port overrides, query, fragment or redirects. Its relative resources implement:
 
 - `documents/<sha256>` for the exact signed manifest and detached envelope;
 - `objects/<sha256>/payload` for immutable file content;

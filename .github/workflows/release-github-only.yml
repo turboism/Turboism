@@ -23,10 +23,23 @@ on:
         description: Must be publish-github-only:<source_sha>
         required: true
         type: string
+      framework_publish:
+        description: Framework self-update feed admission; `none` keeps the release GitHub-only
+        required: false
+        default: none
+        type: choice
+        options: [none, initialize, admit]
+      framework_reactivate:
+        description: Re-admit an explicitly withdrawn candidate (never automatic)
+        required: false
+        default: false
+        type: boolean
 
+# Workflow-level permissions stay read-only. The protected publish job opts into exactly the extra
+# scopes it needs (repository writes plus OIDC for the feed admission); nothing is granted globally.
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 env:
   PLUGIN_DIRECTORY_REVISION: 8545f9d1d5b36fdc8501a681bd2667a5eb0e8aa1
@@ -41,6 +54,11 @@ jobs:
     runs-on: ubuntu-22.04
     environment: production-release
     timeout-minutes: 45
+    permissions:
+      contents: write
+      actions: read
+      # Only the framework feed admission step uses OIDC; the value never leaves this job.
+      id-token: write
     steps:
       - name: Check out trusted publisher tooling
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -242,6 +260,80 @@ jobs:
           done
           echo "Plugin Directory website https://turboism.dev/plugins did not respond before timeout"
           exit 1
+
+      # Framework self-update feed admission. Runs after the plugin-directory proof and before the
+      # final promotion, so a failed admission leaves no publicly promoted release behind. It reuses
+      # the already downloaded candidate bundle and trusted tooling: no second resolve, no download,
+      # no rebuild. Stable and Beta only; Nightly deliberately keeps the full-package path.
+      - name: Reject a candidate without signed framework documents
+        if: inputs.framework_publish != 'none'
+        id: framework
+        run: |
+          set -euo pipefail
+          BUNDLE=build/github-release-fallback/candidate
+          EVIDENCE="$BUNDLE/release-orchestrator/framework-bootstrap-evidence.json"
+          if [ ! -f "$EVIDENCE" ] || [ ! -d "$BUNDLE/release-orchestrator/framework-update" ]; then
+            echo '::error::This candidate carries no signed framework update documents; incremental publication is off by default.'
+            exit 1
+          fi
+          python3 - "$EVIDENCE" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          from pathlib import Path
+          evidence = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          identity = evidence.get("identity") or {}
+          if evidence.get("format") != "turboism.framework-bootstrap-evidence":
+              raise SystemExit("unexpected framework bootstrap evidence format")
+          if identity.get("channel") not in ("stable", "beta"):
+              raise SystemExit("only Stable and Beta candidates may reach the incremental feed")
+          print(f"version={identity['version']}")
+          print(f"channel={identity['channel']}")
+          print(f"key_id={evidence['keyId']}")
+          print(f"archive_sha256={evidence['archive']['sha256']}")
+          PY
+
+      - name: Re-verify the framework package against its shipped activation resources
+        if: inputs.framework_publish != 'none'
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          VERSION: ${{ steps.framework.outputs.version }}
+        run: |
+          set -euo pipefail
+          BUNDLE=build/github-release-fallback/candidate
+          python3 release-tools/scripts/release/prepare-framework-release.py verify             --dist "$BUNDLE/windows-installer/dist"             --documents "$BUNDLE/release-orchestrator/framework-update"             --inventory "$BUNDLE/windows-installer/generated/framework-payload-inventory.json"             --identity "$BUNDLE/release-orchestrator/build-identity.json"             --evidence-output build/github-release-fallback/framework-bootstrap-evidence.recheck.json
+          # The reviewed evidence and the live re-verification must describe identical bytes.
+          python3 - "$BUNDLE/release-orchestrator/framework-bootstrap-evidence.json"                     build/github-release-fallback/framework-bootstrap-evidence.recheck.json                     "$SOURCE_SHA" <<'PY'
+          import json, sys
+          from pathlib import Path
+          reviewed = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          recheck = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          source = sys.argv[3]
+          for key in ("identity", "keyId", "archive", "manifest", "envelope", "payload"):
+              if reviewed.get(key) != recheck.get(key):
+                  raise SystemExit(f"reviewed evidence and live verification differ for {key}")
+          if reviewed["identity"]["sourceRevision"] != source:
+              raise SystemExit("framework evidence belongs to another source revision")
+          PY
+
+      - name: Stage immutable framework objects and request feed admission
+        if: inputs.framework_publish != 'none'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION: ${{ steps.framework.outputs.version }}
+          KEY_ID: ${{ steps.framework.outputs.key_id }}
+          FEED_ACTION: ${{ inputs.framework_publish }}
+          REACTIVATE: ${{ inputs.framework_reactivate }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID" || {
+            echo '::error::The production-release environment has no Cloudflare R2 credentials for the framework feed.'
+            exit 1
+          }
+          FLAGS=()
+          if [ "$FEED_ACTION" = initialize ]; then FLAGS+=(--initialize); fi
+          if [ "$REACTIVATE" = true ]; then FLAGS+=(--reactivate); fi
+          cd release-tools
+          node distribution/publish-framework.mjs             "../build/github-release-fallback/candidate/release-orchestrator/framework-update"             "turboism-$VERSION" "$KEY_ID" "${FLAGS[@]}"
 
       - name: Verify payload then create or resume official tag and Release
         env:

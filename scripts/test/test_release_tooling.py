@@ -171,7 +171,7 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIsNotNone(top_permissions)
         self.assertEqual(
             set(top_permissions.group(1).splitlines()),
-            {"  actions: read", "  contents: write"},
+            {"  actions: read", "  contents: read"},
         )
         self.assertEqual(publisher.count("contents: write"), 1)
 

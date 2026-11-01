@@ -16,17 +16,29 @@
 #   4. makensis 构建 TurboismInstaller-<ver>.exe + .sha256（--skip-nsis 跳过）
 #
 # 产物目录: build/windows-installer/<ver>/  (staging/ 与 dist/)
+#
+# 签名流程（Stable/Beta 的可选自更新发布）：受保护的签名 job 已拿到上一次完整打包的
+# staging/dist 与签名后的 bootstrap 文档，只重跑打包而不跑 Gradle：
+#   assemble-release.sh <ver> --skip-gradle --bootstrap-receipt-dir <已签名文档目录>
+# 此时已发布的开发者构件（event-processor）从现有 dist 复制保留，SDK JAR 取自 staging，
+# 因此候选的 8 个 GitHub 资产契约与 SDK/事件构件字节都不变，只更新 ZIP/EXE（含 docs）。
 
 set -euo pipefail
 
 VER=""
 SKIP_NSIS=0
+SKIP_GRADLE=0
 BOOTSTRAP_RECEIPT_DIR="${TURBOISM_BOOTSTRAP_RECEIPT_DIR:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-nsis)
       SKIP_NSIS=1
+      shift
+      ;;
+    --skip-gradle)
+      # 仅在受保护签名 job 内使用：复用已上传的 staging/dist，不跑 Gradle。
+      SKIP_GRADLE=1
       shift
       ;;
     --bootstrap-receipt-dir)
@@ -50,7 +62,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$VER" ]]; then
-  echo "usage: assemble-release.sh <version> [--skip-nsis] [--bootstrap-receipt-dir <path>]" >&2
+  echo "usage: assemble-release.sh <version> [--skip-nsis] [--skip-gradle] [--bootstrap-receipt-dir <path>]" >&2
   exit 2
 fi
 
@@ -64,19 +76,31 @@ dist="$repo_root/build/windows-installer/dist"
 generated="$repo_root/build/windows-installer/generated"
 
 # ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
-echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
-gradle_ver_args=(-PinstallerVersion="$VER" -PturboismRelease=true)
-if [[ -z "${TURBOISM_BUILD_VERSION:-}" ]]; then
-  gradle_ver_args+=(-PturboismVersion="$VER")
+if [[ "$SKIP_GRADLE" == "1" ]]; then
+  echo "[assemble] --skip-gradle: 复用现有 staging/dist，不调用 Gradle"
+else
+  echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
+  gradle_ver_args=(-PinstallerVersion="$VER" -PturboismRelease=true)
+  if [[ -z "${TURBOISM_BUILD_VERSION:-}" ]]; then
+    gradle_ver_args+=(-PturboismVersion="$VER")
+  fi
+  ./gradlew stageInstallerPayload :event-processor:jar \
+    "${gradle_ver_args[@]}" \
+    --console=plain
 fi
-./gradlew stageInstallerPayload :event-processor:jar \
-  "${gradle_ver_args[@]}" \
-  --console=plain
 if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
   echo "error: staged payload incomplete at $stage" >&2
   exit 1
 fi
 mkdir -p "$dist" "$generated"
+# 签名重打包时不再有 Gradle 构建目录：只复用已通过校验的上一步候选 dist 里的开发者构件。
+# 普通构建绝不回退到旧 dist，否则本应先失败的“构件缺失”会被掩盖。
+preserved_event_processor=""
+if [[ "$SKIP_GRADLE" == "1" && -f "$dist/turboism-event-processor-$VER.jar" && ! -L "$dist/turboism-event-processor-$VER.jar" ]]; then
+  mkdir -p "$generated/previous"
+  cp -p "$dist/turboism-event-processor-$VER.jar" "$generated/previous/event-processor.jar"
+  preserved_event_processor="$generated/previous/event-processor.jar"
+fi
 # Reassembly must not leak obsolete full/thin assets into the new exact roster.
 find "$dist" -maxdepth 1 -type f -delete
 
@@ -762,13 +786,22 @@ if [[ ${#sdk_jars[@]} -ne 1 || "$(basename "${sdk_jars[0]}")" != "sdk-$VER.jar" 
 fi
 cp "${sdk_jars[0]}" "$dist/turboism-sdk-$VER.jar"
 
-wt_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
-event_processor_jar="$repo_root/build/worktree/$wt_id/event-processor/libs/event-processor-$VER.jar"
-if [[ ! -f "$event_processor_jar" || -L "$event_processor_jar" ]]; then
-  echo "error: expected built event-processor JAR named event-processor-$VER.jar at $event_processor_jar" >&2
-  exit 1
+if [[ "$SKIP_GRADLE" == "1" ]]; then
+  # 只接受上一步候选 dist 里的同一字节，即使本地存在另一份同版本 build/worktree 构件也不用。
+  if [[ -z "$preserved_event_processor" || ! -f "$preserved_event_processor" ]]; then
+    echo "error: --skip-gradle requires the verified event-processor JAR already published in $dist" >&2
+    exit 1
+  fi
+  cp -p "$preserved_event_processor" "$dist/turboism-event-processor-$VER.jar"
+else
+  wt_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
+  event_processor_jar="$repo_root/build/worktree/$wt_id/event-processor/libs/event-processor-$VER.jar"
+  if [[ ! -f "$event_processor_jar" || -L "$event_processor_jar" ]]; then
+    echo "error: expected built event-processor JAR named event-processor-$VER.jar at $event_processor_jar" >&2
+    exit 1
+  fi
+  cp "$event_processor_jar" "$dist/turboism-event-processor-$VER.jar"
 fi
-cp "$event_processor_jar" "$dist/turboism-event-processor-$VER.jar"
 
 # sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (

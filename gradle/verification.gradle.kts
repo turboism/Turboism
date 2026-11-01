@@ -1739,8 +1739,16 @@ val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/release/build-framework-update.py",
+        "scripts/release/prepare-framework-client.py",
+        "scripts/release/prepare-framework-release.py",
         fileTree("scripts/release/turboism_release") { include("*.py") },
         "scripts/test/test_release_tooling.py",
+        "scripts/test/test_framework_client.py",
+        "scripts/test/test_framework_release.py",
+        "bootstrap/build.gradle.kts",
+        ".github/workflows/release.yml",
+        ".github/workflows/release-github-only.yml",
+        ".github/workflows/framework-release-signing.yml",
         fileTree("packaging") { include("**/*") },
         "LICENSE",
         "graal-host/build.gradle.kts",
@@ -1748,7 +1756,9 @@ val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
     )
     VerificationStamps.apply(this)
     commandLine("python3", "-m", "unittest", "-v",
-        "scripts.test.test_release_tooling.FrameworkUpdateToolTest")
+        "scripts.test.test_release_tooling.FrameworkUpdateToolTest",
+        "scripts.test.test_framework_client",
+        "scripts.test.test_framework_release")
 }
 tasks.named("checkCompletedCommit") { dependsOn(checkFrameworkUpdateTooling) }
 
