@@ -493,6 +493,9 @@ public final class FrameworkUpdateDownloader {
                     opened.setReadTimeout(5000);
                     opened.setRequestMethod("GET");
                     opened.setRequestProperty("Accept-Encoding", "identity");
+                    // Each request is disconnected below. Do not let the JDK keep-alive cleaner drain
+                    // a cancelled body while holding the stream lock beyond the bounded read timeout.
+                    opened.setRequestProperty("Connection", "close");
                     if (offset > 0) {
                         opened.setRequestProperty("Range", "bytes=" + offset + "-");
                         opened.setRequestProperty("If-Range", etag);
