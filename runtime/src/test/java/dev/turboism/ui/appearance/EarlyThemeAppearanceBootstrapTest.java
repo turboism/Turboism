@@ -257,10 +257,22 @@ class EarlyThemeAppearanceBootstrapTest {
         return value;
     }
 
+    /**
+     * Captures only the bootstrap's own diagnostics.
+     *
+     * <p>{@link RuntimeDiagnostics#install} is process-global, and other tests can
+     * still emit diagnostics from background EDT work after their test method
+     * returns (for example a deferred plugin UI teardown). Filtering on the
+     * {@code appearance} component keeps this test's intent — "reading this document
+     * must not produce a diagnostic" — without asserting on that foreign traffic.</p>
+     */
     private static List<String> captureDiagnostics() {
         final List<String> diagnostics = new CopyOnWriteArrayList<>();
-        RuntimeDiagnostics.install((level, component, message, failure) ->
-                diagnostics.add(level + " " + component + " " + message));
+        RuntimeDiagnostics.install((level, component, message, failure) -> {
+            if ("appearance".equals(component)) {
+                diagnostics.add(level + " " + component + " " + message);
+            }
+        });
         return diagnostics;
     }
 
