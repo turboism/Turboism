@@ -8,15 +8,10 @@ import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridg
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -71,16 +66,20 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         }
         errorType = Class.forName(target.errorOwner().replace('/', '.'), false, loader);
         frameType = Class.forName(target.frameOwner().replace('/', '.'), false, loader);
-        attest(errorType, loader, artifact);
-        attest(frameType, loader, artifact);
+        VerifiedHookInstallerSupport.attestClassSource(
+                errorType, loader, artifact, "deferred-check loader/source mismatch: " + errorType.getName());
+        VerifiedHookInstallerSupport.attestClassSource(
+                frameType, loader, artifact, "deferred-check loader/source mismatch: " + frameType.getName());
         // The frame-end report needs the host logger and GLException shape the
         // bridge binds lazily; refuse admission up front when they are absent.
         if (UniformLocationHookBridge.DeferredAccessors.resolve(loader) == null) {
             throw new IllegalStateException("deferred error check report path absent");
         }
         try (JarFile jar = new JarFile(artifact.toFile())) {
-            final byte[] errorReference = reference(jar, errorType);
-            final byte[] frameReference = reference(jar, frameType);
+            final byte[] errorReference = VerifiedHookInstallerSupport.readReferenceBytes(
+                    jar, errorType, "deferred-check reference class missing: " + errorType.getName());
+            final byte[] frameReference = VerifiedHookInstallerSupport.readReferenceBytes(
+                    jar, frameType, "deferred-check reference class missing: " + frameType.getName());
             transformer = new DeferredGlErrorCheckTransformer(loader, artifact, errorReference, frameReference, target);
             final List<String> errorComposed = composedShape(
                     loader,
@@ -108,7 +107,11 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
             }
             verify(
                     errorType,
-                    capture(errorType),
+                    VerifiedHookInstallerSupport.captureLoadedBytes(
+                            instrumentation,
+                            errorType,
+                            "deferred-check class unmodifiable: " + errorType.getName(),
+                            "deferred-check capture absent: " + errorType.getName()),
                     target.errorOwner(),
                     DeferredGlErrorCheckTarget.ERROR_METHOD,
                     DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
@@ -116,7 +119,11 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
                     errorComposed);
             verify(
                     frameType,
-                    capture(frameType),
+                    VerifiedHookInstallerSupport.captureLoadedBytes(
+                            instrumentation,
+                            frameType,
+                            "deferred-check class unmodifiable: " + frameType.getName(),
+                            "deferred-check capture absent: " + frameType.getName()),
                     target.frameOwner(),
                     DeferredGlErrorCheckTarget.FRAME_METHOD,
                     DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR,
@@ -173,60 +180,6 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         }
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || type.getProtectionDomain().getCodeSource() == null
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("deferred-check loader/source mismatch: " + type.getName());
-        }
-    }
-
-    private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        final var entry = jar.getJarEntry(type.getName().replace('.', '/') + ".class");
-        if (entry == null) {
-            throw new IllegalArgumentException("deferred-check reference class missing: " + type.getName());
-        }
-        try (var input = jar.getInputStream(entry)) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException("deferred-check class unmodifiable: " + type.getName());
-        }
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("deferred-check capture absent: " + type.getName());
-        }
-        return result.get();
-    }
-
     synchronized void install() throws Exception {
         if (installed) return;
         if (!instrumentation.isModifiableClass(errorType) || !instrumentation.isModifiableClass(frameType)) {
@@ -269,8 +222,14 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
                         Map.entry(errorType, target.errorOwner()), Map.entry(frameType, target.frameOwner()))
                 .entrySet()) {
             try {
-                final String hash = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(capture(owner.getKey())));
+                final String hash =
+                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
+                                instrumentation,
+                                owner.getKey(),
+                                "deferred-check class unmodifiable: "
+                                        + owner.getKey().getName(),
+                                "deferred-check capture absent: "
+                                        + owner.getKey().getName()));
                 if (!hash.equals(transformer.beforeSha256(owner.getValue()))) {
                     throw new IllegalStateException("deferred-check restoration not proven: " + owner.getValue());
                 }

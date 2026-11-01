@@ -41,13 +41,7 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
             transformers.add(new ParameterPointContextMenuNativeMethodTransformer(
                     owner, "b", "(" + contextDescriptor + "II)V", "h", loader));
             transformers.forEach(value -> instrumentation.addTransformer(value, true));
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getClassLoader() == loader
-                        && owner.equals(loaded.getName().replace('.', '/'))
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, owner.replace('/', '.'), loader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -63,13 +57,7 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
         }
         transformers.clear();
         try {
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getClassLoader() == loader
-                        && owner.equals(loaded.getName().replace('.', '/'))
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, owner.replace('/', '.'), loader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified parameter-point context-menu hook restoration failed", failure);

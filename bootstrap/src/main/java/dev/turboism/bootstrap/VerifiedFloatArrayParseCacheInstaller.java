@@ -37,20 +37,11 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
                 ReviewedHostContract.resolve(artifact, CANDIDATES), "float array reuse");
         this.instrumentation = instrumentation;
         target = Class.forName(FloatArrayParseTransformer.TARGET.replace('/', '.'), false, loader);
-        if (target.getClassLoader() != loader
-                || !artifact.toAbsolutePath()
-                        .normalize()
-                        .equals(Path.of(target.getProtectionDomain()
-                                        .getCodeSource()
-                                        .getLocation()
-                                        .toURI())
-                                .toAbsolutePath()
-                                .normalize())) {
-            throw new IllegalArgumentException("float array host loader or artifact mismatch");
-        }
-        try (JarFile jar = new JarFile(artifact.toFile());
-                var input = jar.getInputStream(jar.getJarEntry(FloatArrayParseTransformer.TARGET + ".class"))) {
-            transformer = new FloatArrayParseTransformer(loader, artifact, input.readAllBytes());
+        VerifiedHookInstallerSupport.attestClassSource(
+                target, loader, artifact, "float array host loader or artifact mismatch");
+        try (JarFile jar = new JarFile(artifact.toFile())) {
+            transformer = new FloatArrayParseTransformer(
+                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
         }
         contract.requireUnchanged(artifact);
     }

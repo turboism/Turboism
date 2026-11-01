@@ -3,13 +3,8 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget;
 import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
-import java.util.HexFormat;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -42,58 +37,11 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
         }
         entry = Class.forName(target.owner().replace('/', '.'), false, loader);
         try (JarFile jar = new JarFile(artifact.toFile())) {
-            attest(entry, loader, artifact);
-            transformer = new GlGetErrorElisionTransformer(loader, artifact, reference(jar, entry), target);
+            VerifiedHookInstallerSupport.attestClassSource(
+                    entry, loader, artifact, "glGetError elision loader/source mismatch");
+            transformer = new GlGetErrorElisionTransformer(
+                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, entry), target);
         }
-    }
-
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("glGetError elision loader/source mismatch");
-        }
-    }
-
-    private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException("glGetError elision class unmodifiable");
-        }
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("glGetError elision inspection absent");
-        }
-        return result.get();
     }
 
     synchronized void install() throws Exception {
@@ -142,9 +90,12 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
         // elided after a failed restore are no longer claimed as ours.
         GlGetErrorElisionTransformer.clearInstalled(entry.getClassLoader(), target.owner());
         try {
-            final byte[] original = capture(entry);
-            final String hash = HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
+            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation,
+                    entry,
+                    "glGetError elision class unmodifiable",
+                    "glGetError elision inspection absent");
+            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
             if (!hash.equals(transformer.beforeSha256())) {
                 throw new IllegalStateException("native glGetError elision restoration not proven: " + target.owner());
             }

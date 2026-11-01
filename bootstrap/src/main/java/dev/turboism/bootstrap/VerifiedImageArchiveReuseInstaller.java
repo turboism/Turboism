@@ -37,16 +37,9 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
         this.instrumentation = instrumentation;
         target = Class.forName("com.live2d.graphics.CImageResource", false, hostLoader);
         final Class<?> image = Class.forName("com.live2d.graphics.CWritableImage", false, hostLoader);
-        if (target.getClassLoader() != hostLoader
-                || image.getClassLoader() != hostLoader
-                || !artifact.toAbsolutePath()
-                        .normalize()
-                        .equals(Path.of(target.getProtectionDomain()
-                                        .getCodeSource()
-                                        .getLocation()
-                                        .toURI())
-                                .toAbsolutePath()
-                                .normalize())) {
+        VerifiedHookInstallerSupport.attestClassSource(
+                target, hostLoader, artifact, "image archive host loader or source mismatch");
+        if (image.getClassLoader() != hostLoader) {
             throw new IllegalArgumentException("image archive host loader or source mismatch");
         }
         transformer = new ImageArchiveReuseTransformer(hostLoader, artifact);

@@ -6,8 +6,6 @@ import dev.turboism.exportsettings.ProtectedExportChooserRedirectTransformer;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import java.lang.instrument.Instrumentation;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -132,9 +130,7 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
         }
         try {
             instrumentation.addTransformer(transformer, true);
-            for (Class<?> loaded : loadedTargets()) {
-                instrumentation.retransformClasses(loaded);
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
             return true;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -159,26 +155,12 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
             transformerRemoved = true;
         }
         try {
-            for (Class<?> loaded : loadedTargets()) {
-                instrumentation.retransformClasses(loaded);
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // Restoration failure leaves transformed bytes; callers treat close as best-effort
             // and the armed-session gate refuses orchestration without a live seam anyway.
         }
         installed.set(false);
-    }
-
-    private List<Class<?>> loadedTargets() {
-        final List<Class<?>> targets = new ArrayList<>();
-        for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (loaded.getName().equals(targetClassName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
-                targets.add(loaded);
-            }
-        }
-        return targets;
     }
 }

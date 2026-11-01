@@ -6,17 +6,12 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.Incremen
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /**
@@ -76,31 +71,20 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         try (JarFile jar = new JarFile(artifact.toFile())) {
             final List<byte[]> references = new ArrayList<>(5);
             for (final Class<?> entry : entries) {
-                attest(entry, loader, artifact);
-                references.add(reference(jar, entry));
+                VerifiedHookInstallerSupport.attestClassSource(
+                        entry, loader, artifact, "incremental-update dependency loader/source mismatch");
+                references.add(VerifiedHookInstallerSupport.readReferenceBytes(jar, entry));
             }
             transformer = new IncrementalUpdateTransformer(loader, artifact, references, target);
             for (final IncrementalUpdateTarget.Dep dep : target.dependencies()) {
                 final Class<?> owner = Class.forName(dep.owner(), false, loader);
-                attest(owner, loader, artifact);
+                VerifiedHookInstallerSupport.attestClassSource(
+                        owner, loader, artifact, "incremental-update dependency loader/source mismatch");
                 verifyMethod(jar, owner, dep.name(), dep.descriptor(), observed);
             }
         }
         bridge = new IncrementalUpdateBridge(target, loader);
         contract.requireUnchanged(artifact);
-    }
-
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("incremental-update dependency loader/source mismatch");
-        }
     }
 
     private void verifyMethod(
@@ -112,11 +96,16 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             throws Exception {
         byte[] actual = observed.get(type);
         if (actual == null) {
-            actual = capture(type);
+            actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation,
+                    type,
+                    "incremental-update class unmodifiable",
+                    "incremental-update inspection absent");
             observed.put(type, actual);
         }
         final String owner = type.getName().replace('.', '/');
-        final var expected = ReviewedMethodShape.read(reference(jar, type), owner, name, descriptor);
+        final var expected = ReviewedMethodShape.read(
+                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, name, descriptor);
         if (expected == null) {
             verifyAbstract(type, name, descriptor);
             return;
@@ -139,42 +128,6 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         }
         throw new NoSuchMethodException("abstract incremental-update dependency absent or concrete: " + type.getName()
                 + "." + name + descriptor);
-    }
-
-    private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(final Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) {
-            throw new IllegalStateException("incremental-update class unmodifiable");
-        }
-        final AtomicReference<byte[]> result = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) {
-            throw new IllegalStateException("incremental-update inspection absent");
-        }
-        return result.get();
     }
 
     synchronized void install() throws Exception {
@@ -215,9 +168,12 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         try {
             for (final String owner : transformer.touchedClasses()) {
                 final Class<?> type = Class.forName(owner.replace('/', '.'), false, entries[0].getClassLoader());
-                final byte[] original = capture(type);
-                final String hash = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
+                final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
+                        instrumentation,
+                        type,
+                        "incremental-update class unmodifiable",
+                        "incremental-update inspection absent");
+                final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
                 if (!hash.equals(transformer.beforeSha256(owner))) {
                     throw new IllegalStateException("native incremental-update restoration not proven: " + owner);
                 }

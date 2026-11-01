@@ -46,13 +46,10 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
                 instrumentation.addTransformer(transformer, true);
                 owners.add(binding.operation().ownerInternalName());
             }
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getClassLoader() == hostClassLoader
-                        && owners.contains(loaded.getName().replace('.', '/'))
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation,
+                    owners.stream().map(owner -> owner.replace('/', '.')).toList(),
+                    hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -70,13 +67,10 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         }
         transformers.clear();
         try {
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getClassLoader() == hostClassLoader
-                        && owners.contains(loaded.getName().replace('.', '/'))
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation,
+                    owners.stream().map(owner -> owner.replace('/', '.')).toList(),
+                    hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified object context-menu hook restoration failed", failure);

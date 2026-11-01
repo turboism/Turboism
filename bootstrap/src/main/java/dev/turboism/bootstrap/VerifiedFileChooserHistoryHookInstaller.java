@@ -48,15 +48,8 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
         NativeFileChooserHistoryBridge.install(bridge);
         instrumentation.addTransformer(transformer, true);
         try {
-            int retransformed = 0;
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (targetClassName.equals(loaded.getName())
-                        && loaded.getClassLoader() == hostClassLoader
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                    retransformed++;
-                }
-            }
+            final int retransformed =
+                    VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
                     "file-chooser", "Installed verified file-chooser hooks; retransformed=" + retransformed);
         } catch (Throwable failure) {

@@ -37,13 +37,8 @@ final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
             if (!instrumentation.isRetransformClassesSupported()) {
                 throw new IllegalStateException("Floating-frame dispose retransformation is unavailable");
             }
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getClassLoader() == hostClassLoader
-                        && loaded.getName().replace('.', '/').equals(dispose.ownerInternalName())
-                        && instrumentation.isModifiableClass(loaded)) {
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation, dispose.ownerInternalName().replace('/', '.'), hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();

@@ -51,15 +51,13 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
         final String factoryOwner = TextureUploadPreparationTransformer.ownerForVersion(contract.sourceVersion());
         target = Class.forName(factoryOwner.replace('/', '.'), false, loader);
         Class<?> profile = Class.forName("com.jogamp.opengl.GLProfile", false, loader);
-        if (target.getClassLoader() != loader
-                || profile.getClassLoader() != loader
-                || !source(target).equals(artifact.toAbsolutePath().normalize())
-                || !source(profile).equals(jogl)) {
-            throw new IllegalArgumentException("texture factory/profile loader or code source mismatch");
-        }
-        try (JarFile jar = new JarFile(artifact.toFile());
-                var input = jar.getInputStream(jar.getJarEntry(factoryOwner + ".class"))) {
-            transformer = new TextureUploadPreparationTransformer(loader, artifact, input.readAllBytes(), factoryOwner);
+        VerifiedHookInstallerSupport.attestClassSource(
+                target, loader, artifact, "texture factory/profile loader or code source mismatch");
+        VerifiedHookInstallerSupport.attestClassSource(
+                profile, loader, jogl, "texture factory/profile loader or code source mismatch");
+        try (JarFile jar = new JarFile(artifact.toFile())) {
+            transformer = new TextureUploadPreparationTransformer(
+                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, target), factoryOwner);
         }
         bridge = new TextureUploadPreparationBridge(profile);
         contract.requireUnchanged(artifact);
@@ -130,12 +128,6 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
 
     boolean restored() {
         return restored;
-    }
-
-    private static Path source(Class<?> type) throws Exception {
-        return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath()
-                .normalize();
     }
 
     private static String sha256(Path path) throws Exception {

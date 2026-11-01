@@ -5,18 +5,13 @@ import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge;
 import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.ProtectionDomain;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /** Exact native pure-accessor/consumer admission and verified restoration. */
@@ -55,8 +50,10 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
         Class<?> helper = Class.forName("com.live2d.graphics3d.type.f", false, loader);
         Map<Class<?>, byte[]> observed = new HashMap<>();
         try (JarFile jar = new JarFile(artifact.toFile())) {
-            attest(target, loader, artifact);
-            transformer = new WarpPositionProjectionTransformer(loader, artifact, reference(jar, target));
+            VerifiedHookInstallerSupport.attestClassSource(
+                    target, loader, artifact, "warp dependency loader/source mismatch");
+            transformer = new WarpPositionProjectionTransformer(
+                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
             for (Method method : new Method[] {
                 form.getMethod("getPositions"),
                 form.getMethod("getSource"),
@@ -69,7 +66,8 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
                 helper.getMethod("a", float[].class, int.class, int.class, vector)
             }) {
                 Class<?> owner = method.getDeclaringClass();
-                attest(owner, loader, artifact);
+                VerifiedHookInstallerSupport.attestClassSource(
+                        owner, loader, artifact, "warp dependency loader/source mismatch");
                 verifyMethod(
                         jar,
                         owner,
@@ -78,10 +76,12 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
                                 .descriptorString(),
                         observed);
             }
-            attest(vector, loader, artifact);
+            VerifiedHookInstallerSupport.attestClassSource(
+                    vector, loader, artifact, "warp dependency loader/source mismatch");
             verifyMethod(jar, vector, "<init>", "(FF)V", observed);
             verifyMethod(jar, vector, "<init>", "()V", observed);
-            attest(refs, loader, artifact);
+            VerifiedHookInstallerSupport.attestClassSource(
+                    refs, loader, artifact, "warp dependency loader/source mismatch");
             Class<?> source = form.getMethod("getSource").getReturnType();
             verifyMethod(
                     jar,
@@ -96,64 +96,21 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
         contract.requireUnchanged(artifact);
     }
 
-    private static void attest(Class<?> type, ClassLoader loader, Path artifact) throws Exception {
-        if (type.getClassLoader() != loader
-                || !Path.of(type.getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI())
-                        .toAbsolutePath()
-                        .normalize()
-                        .equals(artifact.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("warp dependency loader/source mismatch");
-        }
-    }
-
     private void verifyMethod(
             JarFile jar, Class<?> type, String name, String descriptor, Map<Class<?>, byte[]> observed)
             throws Exception {
         byte[] actual = observed.get(type);
         if (actual == null) {
-            actual = capture(type);
+            actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation, type, "warp dependency unmodifiable", "warp dependency inspection absent");
             observed.put(type, actual);
         }
         String owner = type.getName().replace('.', '/');
-        var expected = ReviewedMethodShape.read(reference(jar, type), owner, name, descriptor);
+        var expected = ReviewedMethodShape.read(
+                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, name, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, name, descriptor))) {
             throw new IllegalStateException("warp dependency body changed: " + owner + "." + name);
         }
-    }
-
-    private static byte[] reference(JarFile jar, Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
-            return input.readAllBytes();
-        }
-    }
-
-    private byte[] capture(Class<?> type) throws Exception {
-        if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException("warp dependency unmodifiable");
-        AtomicReference<byte[]> result = new AtomicReference<>();
-        ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    Module module,
-                    ClassLoader loader,
-                    String name,
-                    Class<?> redefined,
-                    ProtectionDomain domain,
-                    byte[] bytes) {
-                if (redefined == type) result.set(bytes.clone());
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(type);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-        if (result.get() == null) throw new IllegalStateException("warp dependency inspection absent");
-        return result.get();
     }
 
     synchronized void install() throws Exception {
@@ -185,9 +142,9 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         try {
-            byte[] original = capture(target);
-            String hash = HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
+            byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
+                    instrumentation, target, "warp dependency unmodifiable", "warp dependency inspection absent");
+            String hash = VerifiedHookInstallerSupport.sha256Hex(original);
             restored = hash.equals(transformer.beforeSha256());
             if (!restored) throw new IllegalStateException("native warp consumer restoration not proven");
             installed = false;
