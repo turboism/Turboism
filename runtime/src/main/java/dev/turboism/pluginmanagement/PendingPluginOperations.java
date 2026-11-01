@@ -140,8 +140,26 @@ public final class PendingPluginOperations {
         }
     }
 
+    /**
+     * Outcome of staging a batch of prepared plugins for the next launch.
+     *
+     * @param accepted whether the whole batch was recorded, or the batch was legitimately empty
+     * @param code stable machine-readable outcome such as {@code PLUGIN_BATCH_EMPTY}
+     * @param staged files now referenced by the journal, empty unless {@code accepted}
+     */
     public record StagedBatchResult(boolean accepted, String code, List<PreparedPluginJar> staged) {}
 
+    /**
+     * Records a whole batch of prepared plugins as one pending next-launch install.
+     *
+     * <p>All-or-nothing: an empty batch is a successful no-op, and a duplicate plugin id, an unreadable
+     * staged file, a path outside the private package directory, a link, or an unreadable journal rejects
+     * the whole batch without leaving partial entries. The batch is journaled in one atomic write, so a
+     * failure never leaves a subset of the batch pending.</p>
+     *
+     * @param batch prepared plugins to record, each staged beneath this home
+     * @return whether the batch was recorded, with a stable outcome code
+     */
     public synchronized StagedBatchResult stageBatch(final List<PreparedPluginJar> batch) {
         return stageBatch(batch, null);
     }

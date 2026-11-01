@@ -75,6 +75,13 @@ public interface CorePluginManagement extends AutoCloseable {
         return OperationResult.rejected("PLUGIN_PENDING_UNAVAILABLE", "Pending changes are unavailable.");
     }
 
+    /**
+     * Display-only description of one journalled plugin change, without executable paths.
+     *
+     * @param pluginId plugin whose next-launch state would change
+     * @param operation pending operation name
+     * @param version version associated with the pending change, empty when no version is recorded
+     */
     record PendingChange(String pluginId, String operation, String version) {}
 
     /** Opaque, root-bound staleness witness; it is not a signature or authorization token. */

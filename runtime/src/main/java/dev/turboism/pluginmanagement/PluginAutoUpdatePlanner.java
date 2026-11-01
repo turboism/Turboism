@@ -258,10 +258,20 @@ public final class PluginAutoUpdatePlanner {
         return turboismApiAccepted(release);
     }
 
+    /**
+     * Framework API version the caller asked to plan towards; empty when the plan uses the running API.
+     *
+     * @return the requested target API version, or empty
+     */
     public Optional<PluginVersion> targetApiVersion() {
         return targetApiVersion;
     }
 
+    /**
+     * Framework API version of the running agent, which decides whether a release works before a restart.
+     *
+     * @return the current Turboism API version
+     */
     public PluginVersion turboismApiVersion() {
         return turboismApiVersion;
     }

@@ -334,6 +334,13 @@ public final class UpdateManifestVerifier {
             String manifestSha256,
             byte[] signatureBytes) {}
 
+    /**
+     * Verification refusal carrying a stable machine-readable code.
+     *
+     * <p>The code identifies the exact gate that refused (for example {@code SIGNATURE_INVALID},
+     * {@code UPDATER_VERSION_TOO_OLD} or {@code VERSION_DOWNGRADE}) so callers and diagnostics never have to
+     * parse the message text.</p>
+     */
     public static final class UpdateManifestVerificationException extends Exception {
         private final String errorCode;
 
@@ -348,6 +355,11 @@ public final class UpdateManifestVerifier {
             this.errorCode = errorCode;
         }
 
+        /**
+         * Returns the stable verification code of this refusal.
+         *
+         * @return the machine-readable code recorded when the refusal was raised
+         */
         public String errorCode() {
             return errorCode;
         }

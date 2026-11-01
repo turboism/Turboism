@@ -32,6 +32,14 @@ import java.util.function.Supplier;
  * Unsaved work is therefore never at risk: nothing here closes anything.
  */
 public final class FrameworkUpdateCoordinator implements AutoCloseable {
+    /**
+     * Observable phase of one framework update attempt.
+     *
+     * <p>{@code DOWNLOADING} covers verification of the documents and of every staged byte,
+     * {@code STAGED} means the update is complete and verified but not scheduled, and
+     * {@code APPLY_PENDING} means the detached helper was actually started and will apply on the next
+     * Cubism launch. {@code CANCELLED} and {@code FAILED} are terminal for the attempt.</p>
+     */
     public enum State {
         IDLE,
         DOWNLOADING,
@@ -115,12 +123,27 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                 .start();
     }
 
+    /**
+     * Returns the current immutable status without blocking on download or helper progress.
+     *
+     * @return the latest published status
+     */
     public Status status() {
         synchronized (lock) {
             return status;
         }
     }
 
+    /**
+     * Registers a listener and immediately hands it the current status.
+     *
+     * <p>The first call happens on the calling thread; later progress is delivered on the thread that
+     * publishes it, so UI callers must marshal to the event dispatch thread themselves. The returned
+     * handle unregisters the listener.</p>
+     *
+     * @param listener status consumer, must not be {@code null}
+     * @return a handle that removes the listener when run
+     */
     public Runnable subscribe(final Consumer<Status> listener) {
         listeners.add(Objects.requireNonNull(listener, "listener"));
         listener.accept(status());
