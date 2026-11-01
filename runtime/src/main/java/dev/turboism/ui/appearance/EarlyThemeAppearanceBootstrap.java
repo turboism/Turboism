@@ -1,6 +1,7 @@
 package dev.turboism.ui.appearance;
 
 import java.awt.Color;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,7 +31,25 @@ import javax.swing.plaf.ColorUIResource;
 public final class EarlyThemeAppearanceBootstrap {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.uitheme";
-    private static final String SELECTION_PATH = "ui-theme/selection.cfg";
+    /** The plugin-private selection document this bootstrap reads; bound by a contract test. */
+    static final String SELECTION_PATH = "ui-theme/selection.cfg";
+    /** The one selector key this bootstrap reads out of that document. */
+    static final String SELECTED_THEME_KEY = "selected-theme";
+    /** The typed-config schema version the reader understands. */
+    static final int SUPPORTED_SCHEMA_VERSION = 1;
+    /** The plugin's sentinel for "no theme selected". */
+    static final String NATIVE_THEME_ID = "__native__";
+
+    private static final String DOCUMENT_HEADER = "turboism-typed-config-v1";
+    private static final String SCHEMA_VERSION_PREFIX = "schemaVersion=";
+    private static final String REVISION_PREFIX = "revision=";
+    private static final String COUNT_PREFIX = "count=";
+    private static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
+    private static final int MAX_THEME_ID_LENGTH = 128;
+    private static final String DOCUMENT_INVALID = "EARLY_THEME_SELECTION_DOCUMENT_INVALID";
+    private static final String SCHEMA_UNSUPPORTED = "EARLY_THEME_SELECTION_SCHEMA_UNSUPPORTED";
+    private static final String SELECTION_INVALID = "EARLY_THEME_SELECTION_VALUE_INVALID";
+    private static final String DOCUMENT_UNREADABLE = "EARLY_THEME_SELECTION_DOCUMENT_UNREADABLE";
     private static final String THEMES_DIR = "themes";
     private static final long LOOK_AND_FEEL_TIMEOUT_MILLIS = 60_000L;
     private static final long LOOK_AND_FEEL_POLL_MILLIS = 100L;
@@ -127,28 +146,129 @@ public final class EarlyThemeAppearanceBootstrap {
         if (!Files.isRegularFile(document)) {
             return Optional.empty();
         }
+        final Map<String, String> entries;
         try {
-            final String text = Files.readString(document, StandardCharsets.UTF_8);
-            final Base64.Decoder decoder = Base64.getUrlDecoder();
-            for (String line : text.split("\\n", -1)) {
-                final int separator = line.indexOf(':');
-                if (separator <= 0 || separator != line.lastIndexOf(':')) {
-                    continue;
-                }
-                final String key = new String(decoder.decode(line.substring(0, separator)), StandardCharsets.UTF_8);
-                if (!"selected-theme".equals(key)) {
-                    continue;
-                }
-                final String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
-                // Encoded as a bounded string list: ["theme-id"]
-                if (value.startsWith("[\"") && value.endsWith("\"]") && value.indexOf('"', 2) == value.length() - 2) {
-                    return Optional.of(value.substring(2, value.length() - 2));
-                }
+            if (Files.size(document) > MAX_DOCUMENT_BYTES) {
+                return diagnosed(DOCUMENT_INVALID, "document exceeds the size limit");
             }
-        } catch (Exception ignored) {
+            entries = parseTypedConfigDocument(Files.readString(document, StandardCharsets.UTF_8));
+        } catch (SelectionDocumentException malformed) {
+            return diagnosed(malformed.reason, malformed.getMessage());
+        } catch (IOException unreadable) {
+            return diagnosed(DOCUMENT_UNREADABLE, unreadable.getClass().getSimpleName());
+        }
+        final String encoded = entries.get(SELECTED_THEME_KEY);
+        if (encoded == null) {
+            // The plugin persists the schema defaults for keys it never wrote.
             return Optional.empty();
         }
+        final Optional<String> themeId = decodeSelectedTheme(encoded);
+        if (themeId.isEmpty() && (encoded.isEmpty() || "[]".equals(encoded))) {
+            // The plugin persists an empty bounded list when no theme is selected.
+            return Optional.empty();
+        }
+        if (themeId.isEmpty()) {
+            return diagnosed(SELECTION_INVALID, "selected-theme is not a bounded single-element list");
+        }
+        return NATIVE_THEME_ID.equals(themeId.orElseThrow()) ? Optional.empty() : themeId;
+    }
+
+    /**
+     * Validates the private {@code ui-theme} selection document against the exact typed-config
+     * document schema the runtime writer emits. A document that does not match is never
+     * half-read: the reader fails with one bounded diagnostic instead of silently loading a
+     * different theme or none at all.
+     */
+    private static Map<String, String> parseTypedConfigDocument(final String text)
+            throws SelectionDocumentException {
+        final String[] lines = text.split("\\n", -1);
+        if (lines.length < 5 || !lines[lines.length - 1].isEmpty()) {
+            throw new SelectionDocumentException(DOCUMENT_INVALID, "document framing is incomplete");
+        }
+        if (!DOCUMENT_HEADER.equals(lines[0])) {
+            throw new SelectionDocumentException(DOCUMENT_INVALID, "document header is not " + DOCUMENT_HEADER);
+        }
+        final int schemaVersion = parseMetadata(lines[1], SCHEMA_VERSION_PREFIX, DOCUMENT_INVALID);
+        if (schemaVersion != SUPPORTED_SCHEMA_VERSION) {
+            throw new SelectionDocumentException(
+                    SCHEMA_UNSUPPORTED, "schemaVersion " + schemaVersion + " is not " + SUPPORTED_SCHEMA_VERSION);
+        }
+        if (parseMetadata(lines[2], REVISION_PREFIX, DOCUMENT_INVALID) < 0) {
+            throw new SelectionDocumentException(DOCUMENT_INVALID, "revision is negative");
+        }
+        final int count = parseMetadata(lines[3], COUNT_PREFIX, DOCUMENT_INVALID);
+        if (count < 0 || lines.length != count + 5) {
+            throw new SelectionDocumentException(
+                    DOCUMENT_INVALID, "count does not match the persisted entry lines");
+        }
+        final Base64.Decoder decoder = Base64.getUrlDecoder();
+        final Map<String, String> entries = new LinkedHashMap<>();
+        for (int index = 0; index < count; index++) {
+            final String line = lines[index + 4];
+            final int separator = line.indexOf(':');
+            if (separator <= 0 || separator != line.lastIndexOf(':')) {
+                throw new SelectionDocumentException(DOCUMENT_INVALID, "entry framing is invalid");
+            }
+            try {
+                final String key = new String(decoder.decode(line.substring(0, separator)), StandardCharsets.UTF_8);
+                final String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
+                if (key.isBlank() || entries.putIfAbsent(key, value) != null) {
+                    throw new SelectionDocumentException(DOCUMENT_INVALID, "entry key is blank or duplicated");
+                }
+            } catch (IllegalArgumentException malformedEntry) {
+                throw new SelectionDocumentException(DOCUMENT_INVALID, "entry encoding is invalid");
+            }
+        }
+        return entries;
+    }
+
+    private static int parseMetadata(final String line, final String prefix, final String reason)
+            throws SelectionDocumentException {
+        if (!line.startsWith(prefix)) {
+            throw new SelectionDocumentException(reason, "metadata line is not " + prefix + "<value>");
+        }
+        try {
+            return Integer.parseInt(line.substring(prefix.length()));
+        } catch (NumberFormatException outOfRange) {
+            throw new SelectionDocumentException(reason, "metadata " + prefix + "<value> is not an int");
+        }
+    }
+
+    private static Optional<String> decodeSelectedTheme(final String encoded) {
+        if (encoded.isEmpty()) {
+            return Optional.empty();
+        }
+        if (!encoded.startsWith("[\"") || !encoded.endsWith("\"]")) {
+            return Optional.empty();
+        }
+        final String themeId = encoded.substring(2, encoded.length() - 2);
+        // The plugin codec emits plain JSON strings; the reader accepts no escapes, so a value
+        // it cannot read unambiguously is rejected rather than guessed.
+        if (themeId.isBlank()
+                || themeId.length() > MAX_THEME_ID_LENGTH
+                || themeId.indexOf('"') >= 0
+                || themeId.indexOf('\\') >= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(themeId);
+    }
+
+    private static Optional<String> diagnosed(final String reason, final String detail) {
+        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "appearance",
+                reason + " config/" + PLUGIN_ID + "/" + SELECTION_PATH + ": " + detail
+                        + "; early theme injection skipped");
         return Optional.empty();
+    }
+
+    /** One bounded, non-retryable reason the persisted selection could not be read. */
+    private static final class SelectionDocumentException extends Exception {
+        private final String reason;
+
+        private SelectionDocumentException(final String reason, final String detail) {
+            super(detail);
+            this.reason = reason;
+        }
     }
 
     private Optional<Map<String, String>> loadBuiltinColors(final String themeId) {
