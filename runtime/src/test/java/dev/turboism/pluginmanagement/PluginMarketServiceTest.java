@@ -197,7 +197,8 @@ class PluginMarketServiceTest {
                     previous,
                     Files.readAllBytes(targetJar),
                     "the previous version must stay installed after a failed rollback");
-            assertFalse(Files.exists(backupJar), "the backup is consumed by the restore");
+            assertTrue(Files.exists(backupJar), "a failed rollback must retain the recovery backup");
+            org.junit.jupiter.api.Assertions.assertArrayEquals(previous, Files.readAllBytes(backupJar));
             assertTrue(
                     logs.stream().anyMatch(line -> line.contains("previous version could not be restarted")),
                     "the failed rollback must be logged: " + logs);

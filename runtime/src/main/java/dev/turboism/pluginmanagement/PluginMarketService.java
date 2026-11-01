@@ -558,12 +558,8 @@ public final class PluginMarketService implements AutoCloseable {
                 }
             } catch (Exception e) {
                 logSink.accept("Hot lifecycle operation failed; falling back to staging: " + e.getMessage());
-                if (backupJar != null) {
-                    try {
-                        Files.deleteIfExists(backupJar);
-                    } catch (IOException ignored) {
-                    }
-                }
+                // Restoring the old JAR can itself fail. Keep any remaining backup for recovery
+                // instead of deleting the only old copy in this exceptional fallback.
                 return stageForRestart(prepared);
             }
         } else {
@@ -597,8 +593,10 @@ public final class PluginMarketService implements AutoCloseable {
         }
         if ("ROLLBACK_FAILED".equals(reloadResult.code())) {
             // The replacement failed to start and the previous generation did not come back, so the
-            // plugin is stopped. Keep the previous version on disk: it is the only working copy.
-            restoreBackup(backupJar, targetJar);
+            // plugin is stopped. Restore the previous version and retain its recovery backup.
+            if (backupJar != null) {
+                UpdateFileSupport.copyAtomic(backupJar, targetJar);
+            }
             logSink.accept("Plugin " + pluginId + " hot update failed and the previous version could not be"
                     + " restarted; the plugin is stopped. The previous JAR was restored on disk.");
             final var staged = pending.stage(prepared);
