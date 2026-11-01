@@ -16,7 +16,10 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -31,8 +34,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
+import javax.swing.ListSelectionModel;
 import javax.swing.Timer;
 import javax.swing.table.AbstractTableModel;
 
@@ -60,6 +65,13 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final CorePluginManagement plugins;
     private final CoordinatedPluginUpdateService coordinatedService;
     private final Function<String, List<PluginUpdateRow>> planner;
+    private final Function<PluginUpdateRow, String> notesLoader;
+    private final ExecutorService notesWorker = Executors.newSingleThreadExecutor(r -> {
+        final Thread thread = new Thread(r, "turboism-update-notes");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final Map<PluginUpdateRow, CompletableFuture<String>> notesCache = new HashMap<>();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         final Thread thread = new Thread(r, "turboism-framework-updates-window");
         thread.setDaemon(true);
@@ -80,6 +92,9 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final PluginSelectionTableModel pluginTableModel;
     private final JTable pluginTable;
     private final JPanel pluginPanel = new JPanel(new BorderLayout(4, 4));
+    private final JLabel emptyList = new JLabel();
+    private final JLabel notesTitle = new JLabel();
+    private final JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
     private JDialog dialog;
     private boolean subscribed;
     private boolean closed;
@@ -95,16 +110,23 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private long elapsedNanos;
     private boolean timing;
     private String displayedNotes;
+    private boolean plannedFrameworkAvailable;
+    private boolean pluginQueued;
+    private long notesGeneration;
 
     /** Worker-owned resources, published to EDT only after preparation completes. Never reused by another batch. */
     private static final class DownloadJob {
         final String version;
+        final boolean framework;
         final PluginCatalogClient.DownloadControl control = new PluginCatalogClient.DownloadControl();
         List<PreparedPluginJar> prepared = List.of();
         PluginUpdateGate.Lease lease;
+        volatile long pluginBytes;
+        volatile long pluginTotalBytes;
 
-        DownloadJob(final String version) {
+        DownloadJob(final String version, final boolean framework) {
             this.version = version;
+            this.framework = framework;
         }
     }
 
@@ -141,6 +163,17 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             final CoordinatedPluginUpdateService coordinator,
             final Function<String, List<PluginUpdateRow>> customPlanner,
             final LongSupplier nanoTime) {
+        this(i18n, discovery, plugins, coordinator, customPlanner, nanoTime, null);
+    }
+
+    FrameworkUpdatesWindow(
+            final PluginLocalization i18n,
+            final CoreUpdateService discovery,
+            final CorePluginManagement plugins,
+            final CoordinatedPluginUpdateService coordinator,
+            final Function<String, List<PluginUpdateRow>> customPlanner,
+            final LongSupplier nanoTime,
+            final Function<PluginUpdateRow, String> customNotesLoader) {
         this.i18n = i18n;
         this.nanoTime = nanoTime;
         this.discovery = discovery;
@@ -148,6 +181,17 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         this.plugins = plugins;
         pluginTableModel = new PluginSelectionTableModel();
         pluginTable = new JTable(pluginTableModel);
+        notesLoader = customNotesLoader != null
+                ? customNotesLoader
+                : row -> {
+                    if (row.plannedUpdate().isEmpty()) return "";
+                    try {
+                        return new PluginCatalogClient()
+                                .fetchReleaseNotes(row.plannedUpdate().get(), i18n.locale());
+                    } catch (java.io.IOException failure) {
+                        throw new java.util.concurrent.CompletionException(failure);
+                    }
+                };
         if (coordinator != null) {
             coordinatedService = coordinator;
         } else if (plugins instanceof RuntimePluginManagementService runtime) {
@@ -196,18 +240,39 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         releaseNotes.setContentType("text/html");
         releaseNotes.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
         releaseNotes.setEditable(false);
+        releaseNotes.addPropertyChangeListener("UI", event -> {
+            if (displayedNotes != null) CoreDialogs.onEdt(this::renderNotes);
+        });
         progress.setStringPainted(true);
+        pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        pluginTable.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) renderNotes();
+        });
         pluginTable.getColumnModel().getColumn(0).setMaxWidth(60);
+        pluginTable.getColumnModel().getColumn(1).setPreferredWidth(180);
+        pluginTable.setRowHeight(
+                Math.max(pluginTable.getRowHeight(), pluginTable.getFont().getSize() + 12));
         final JScrollPane tableScroll = new JScrollPane(pluginTable);
-        tableScroll.setPreferredSize(new Dimension(540, 100));
+        tableScroll.setPreferredSize(new Dimension(540, 340));
         pluginPanel.add(new JLabel(text("updates.plugins.header")), BorderLayout.NORTH);
         pluginPanel.add(tableScroll, BorderLayout.CENTER);
-        pluginPanel.setVisible(false);
+        pluginPanel.add(emptyList, BorderLayout.SOUTH);
+        pluginPanel.setMinimumSize(new Dimension(400, 160));
+        final JPanel notesPanel = new JPanel(new BorderLayout(4, 4));
+        notesPanel.add(notesTitle, BorderLayout.NORTH);
+        notesPanel.add(new JScrollPane(releaseNotes), BorderLayout.CENTER);
+        notesPanel.setMinimumSize(new Dimension(280, 160));
+        split.setLeftComponent(pluginPanel);
+        split.setRightComponent(notesPanel);
+        split.setResizeWeight(0.55);
+        split.setDividerLocation(550);
+        split.setBorder(null);
         check.addActionListener(e -> {
             if (batchState == BatchState.COMMITTING) return;
             invalidateBatch();
             ++planGeneration;
             planState = PlanState.IDLE;
+            notesCache.clear();
             persistentDetailMessage = "";
             discovery.checkManual().whenComplete((result, failure) -> CoreDialogs.onEdt(this::render));
             render();
@@ -226,7 +291,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             subscriptions.add(updates.subscribe(s -> CoreDialogs.onEdt(this::render)));
         }
         if (dialog == null) {
-            dialog = CoreDialogs.create(text("updates.install.title"), 720, 680);
+            dialog = CoreDialogs.create(text("updates.install.title"), 1040, 640);
             if (dialog != null) {
                 final JPanel content = new JPanel(new BorderLayout(8, 8));
                 content.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 12, 12));
@@ -238,17 +303,14 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 heading.add(includePlugins);
                 content.add(heading, BorderLayout.NORTH);
                 final JPanel center = new JPanel(new BorderLayout(8, 8));
-                center.add(pluginPanel, BorderLayout.NORTH);
-                final JPanel notesPanel = new JPanel(new BorderLayout(4, 4));
-                notesPanel.add(new JLabel(text("updates.install.notes")), BorderLayout.NORTH);
-                notesPanel.add(new JScrollPane(releaseNotes), BorderLayout.CENTER);
-                center.add(notesPanel, BorderLayout.CENTER);
+                center.add(split, BorderLayout.CENTER);
                 center.add(new JScrollPane(detail), BorderLayout.SOUTH);
                 content.add(center, BorderLayout.CENTER);
                 final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.TRAILING));
                 for (JButton button : List.of(check, download, cancel, install)) buttons.add(button);
                 content.add(buttons, BorderLayout.SOUTH);
                 dialog.setContentPane(content);
+                dialog.setMinimumSize(new Dimension(900, 520));
             }
         }
         render();
@@ -260,14 +322,22 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         final var offered = discovery.snapshot();
         final var state = updates.snapshot();
         final boolean committing = batchState == BatchState.COMMITTING;
-        final boolean queued = state.phase() == CoreFrameworkUpdates.Phase.APPLY_PENDING;
+        final boolean queued = pluginQueued || state.phase() == CoreFrameworkUpdates.Phase.APPLY_PENDING;
+        final boolean frameworkAvailable = offered.status() == CoreUpdateService.Status.UPDATE_AVAILABLE
+                && state.phase() != CoreFrameworkUpdates.Phase.UNAVAILABLE;
+        pluginTableModel.setFrameworkVersion(
+                frameworkAvailable ? offered.availableVersion().orElse("") : "");
+        final String target = frameworkAvailable ? offered.availableVersion().orElseThrow() : currentApiVersion();
         if (!committing
                 && !queued
-                && state.phase() != CoreFrameworkUpdates.Phase.UNAVAILABLE
-                && offered.status() == CoreUpdateService.Status.UPDATE_AVAILABLE
-                && offered.availableVersion().isPresent()) {
-            final String target = offered.availableVersion().get();
-            if (!target.equals(plannedVersion) || planState == PlanState.IDLE) startPlanning(target);
+                && offered.status() != CoreUpdateService.Status.CHECKING
+                && (frameworkAvailable || coordinatedService != null)) {
+            if (!target.equals(plannedVersion)
+                    || frameworkAvailable != plannedFrameworkAvailable
+                    || planState == PlanState.IDLE) {
+                plannedFrameworkAvailable = frameworkAvailable;
+                startPlanning(target);
+            }
         }
         final boolean busy = batchState == BatchState.DOWNLOADING;
         final boolean planned = planState == PlanState.PLANNED;
@@ -276,31 +346,44 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 ? state.version()
                 : offered.availableVersion().orElse("");
         version.setText(offered.localVersion() + (displayTarget.isEmpty() ? "" : " → " + displayTarget));
-        final String phaseName = planState == PlanState.PLAN_FAILED || batchState == BatchState.DOWNLOAD_FAILED
-                ? "failed"
-                : batchState == BatchState.CANCELLED
-                        ? "cancelled"
-                        : busy ? "downloading" : state.phase().name().toLowerCase(java.util.Locale.ROOT);
+        final String phaseName = queued
+                ? "apply_pending"
+                : planState == PlanState.PLAN_FAILED || batchState == BatchState.DOWNLOAD_FAILED
+                        ? "failed"
+                        : batchState == BatchState.CANCELLED
+                                ? "cancelled"
+                                : busy
+                                        ? "downloading"
+                                        : batchState == BatchState.PREPARED
+                                                ? "staged"
+                                                : !frameworkAvailable && coordinatedService != null
+                                                        ? "idle"
+                                                        : state.phase().name().toLowerCase(java.util.Locale.ROOT);
         phase.setText(text("updates.install.state." + phaseName));
-        progress.setIndeterminate(busy && state.phase() != CoreFrameworkUpdates.Phase.DOWNLOADING);
-        progress.setValue(
-                state.totalBytes() == 0 ? 0 : (int) Math.min(100, 100.0 * state.verifiedBytes() / state.totalBytes()));
-        progress.setString(
-                text("updates.install.progress", megabytes(state.verifiedBytes()), megabytes(state.totalBytes())));
+        final boolean frameworkProgress =
+                activeJob == null ? pluginTableModel.frameworkSelected() : activeJob.framework;
+        final long totalBytes =
+                (frameworkProgress ? state.totalBytes() : 0) + (activeJob == null ? 0 : activeJob.pluginTotalBytes);
+        final long receivedBytes =
+                (frameworkProgress ? state.verifiedBytes() : 0) + (activeJob == null ? 0 : activeJob.pluginBytes);
+        progress.setIndeterminate(busy && totalBytes == 0);
+        progress.setValue(totalBytes == 0 ? 0 : (int) Math.min(100, 100.0 * receivedBytes / totalBytes));
+        progress.setString(text("updates.install.progress", megabytes(receivedBytes), megabytes(totalBytes)));
         renderElapsed();
-        final String notes = offered.notesFor(i18n.locale());
-        final String shownNotes = notes.isBlank() ? text("updates.install.notes.empty") : notes;
-        if (!shownNotes.equals(displayedNotes)) {
-            displayedNotes = shownNotes;
-            releaseNotes.setText(PluginReadmeRenderer.render(shownNotes));
-            releaseNotes.setCaretPosition(0);
-        }
+        renderNotes();
+        emptyList.setText(
+                planState == PlanState.PLANNING
+                        ? text("updates.plugins.planning")
+                        : pluginTableModel.getRowCount() == 0 && planState == PlanState.PLANNED
+                                ? text("updates.list.empty")
+                                : "");
+        final boolean selectedFramework = pluginTableModel.frameworkSelected();
+        final int selected = pluginTableModel.selectedCount();
         download.setEnabled(planned
                 && !busy
                 && !committing
                 && !queued
-                && state.phase() != CoreFrameworkUpdates.Phase.UNAVAILABLE
-                && offered.status() == CoreUpdateService.Status.UPDATE_AVAILABLE
+                && (selectedFramework || selected > 0)
                 && batchState != BatchState.PREPARED);
         cancel.setEnabled(busy);
         check.setEnabled(!busy
@@ -308,23 +391,25 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 && !queued
                 && planState != PlanState.PLANNING
                 && offered.status() != CoreUpdateService.Status.CHECKING);
-        final int selected = pluginTableModel.selectedCount();
         final boolean verified = selected == 0
                 || (batchState == BatchState.PREPARED
                         && activeJob != null
-                        && activeJob.version.equals(state.version())
+                        && (!activeJob.framework || activeJob.version.equals(state.version()))
                         && activeJob.prepared.size() == selected);
         install.setEnabled(planned
                 && !busy
                 && !committing
-                && state.phase() == CoreFrameworkUpdates.Phase.STAGED
-                && plannedVersion.equals(state.version())
+                && !queued
+                && (selectedFramework
+                        ? state.phase() == CoreFrameworkUpdates.Phase.STAGED && plannedVersion.equals(state.version())
+                        : selected > 0 && batchState == BatchState.PREPARED)
                 && verified);
         detail.setText(
                 !persistentDetailMessage.isBlank()
                         ? persistentDetailMessage
                         : text(
                                         state.phase() == CoreFrameworkUpdates.Phase.UNAVAILABLE
+                                                        && coordinatedService == null
                                                 ? "updates.install.unsupported"
                                                 : "updates.install.no-shutdown")
                                 + (state.detail().isBlank() ? "" : "\n\n" + state.detail()));
@@ -340,7 +425,6 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         if (!includePlugins.isSelected()) {
             planState = PlanState.PLANNED;
             persistentDetailMessage = "";
-            pluginPanel.setVisible(false);
             return;
         }
         worker.execute(() -> {
@@ -351,7 +435,6 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     planState = PlanState.PLANNED;
                     persistentDetailMessage = "";
                     pluginTableModel.setRows(rows);
-                    pluginPanel.setVisible(!rows.isEmpty());
                     render();
                 });
             } catch (Exception failure) {
@@ -365,13 +448,50 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         });
     }
 
+    private void renderNotes() {
+        if (closed) return;
+        final long generation = ++notesGeneration;
+        final int index = pluginTable.getSelectedRow();
+        if (index < 0 || index >= pluginTableModel.getRowCount()) {
+            notesTitle.setText(text("updates.install.notes"));
+            showNotes(text("updates.install.notes.select"));
+            return;
+        }
+        notesTitle.setText(text("updates.install.notes") + " · " + pluginTableModel.getValueAt(index, 1));
+        if (pluginTableModel.isFramework(index)) {
+            showNotes(discovery.snapshot().notesFor(i18n.locale()));
+            return;
+        }
+        final PluginUpdateRow row = pluginTableModel.pluginAt(index).withSelected(false);
+        final var future = notesCache.computeIfAbsent(
+                row, key -> CompletableFuture.supplyAsync(() -> notesLoader.apply(key), notesWorker));
+        if (!future.isDone()) showNotes(text("updates.install.notes.loading"));
+        future.whenComplete((notes, failure) -> CoreDialogs.onEdt(() -> {
+            if (closed || generation != notesGeneration) return;
+            showNotes(failure == null ? notes : text("updates.install.notes.failed"));
+        }));
+    }
+
+    private void showNotes(final String notes) {
+        final String shown = notes == null || notes.isBlank() ? text("updates.install.notes.empty") : notes;
+        final String themed =
+                PluginReadmeRenderer.render(shown, releaseNotes.getForeground(), releaseNotes.getBackground());
+        if (themed.equals(displayedNotes)) return;
+        displayedNotes = themed;
+        releaseNotes.setText(themed);
+        releaseNotes.setCaretPosition(0);
+    }
+
     CompletableFuture<BatchState> startCoordinatedDownload() {
         if (closed
+                || !download.isEnabled()
                 || planState != PlanState.PLANNED
                 || batchState == BatchState.COMMITTING
                 || batchState == BatchState.DOWNLOADING) return CompletableFuture.completedFuture(batchState);
         invalidateBatch();
-        final DownloadJob job = new DownloadJob(plannedVersion);
+        final boolean frameworkSelected = pluginTableModel.frameworkSelected();
+        final DownloadJob job =
+                new DownloadJob(frameworkSelected ? plannedVersion : currentApiVersion(), frameworkSelected);
         activeJob = job;
         final List<PluginUpdateRow> rows = List.copyOf(pluginTableModel.rows);
         final int selected = pluginTableModel.selectedCount();
@@ -388,23 +508,31 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             try {
                 acquireLease(job);
                 if (job.control.isCancelled()) throw new java.util.concurrent.CancellationException();
-                final var framework = updates.download().toCompletableFuture();
+                final var framework = job.framework ? updates.download().toCompletableFuture() : null;
                 if (coordinatedService != null) {
                     final var result = coordinatedService.downloadAndPrepare(
-                            rows, Optional.of(FrameworkBuildInfo.parseApiVersion(job.version)), job.control);
+                            rows, Optional.of(FrameworkBuildInfo.parseApiVersion(job.version)), job.control, value -> {
+                                job.pluginBytes = value.receivedBytes();
+                                job.pluginTotalBytes = value.totalBytes();
+                                CoreDialogs.onEdt(() -> {
+                                    if (!closed && activeJob == job) render();
+                                });
+                            });
                     if (!result.succeeded()) throw new IllegalStateException(result.message());
                     job.prepared = List.copyOf(result.prepared());
                     if (job.prepared.size() != selected) throw new IllegalStateException("Incomplete plugin batch");
                 }
-                final var verified = framework.join();
+                final var verified = framework == null ? null : framework.join();
                 if (job.control.isCancelled()) throw new java.util.concurrent.CancellationException();
-                if (verified.phase() != CoreFrameworkUpdates.Phase.STAGED || !job.version.equals(verified.version())) {
+                if (verified != null
+                        && (verified.phase() != CoreFrameworkUpdates.Phase.STAGED
+                                || !job.version.equals(verified.version()))) {
                     throw new IllegalStateException(
                             verified.detail().isBlank() ? "Framework download not ready" : verified.detail());
                 }
             } catch (Exception failure) {
                 error = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
-                updates.cancel();
+                if (job.framework) updates.cancel();
                 cleanup(job);
             }
             final String failure = error;
@@ -443,8 +571,9 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
     CompletableFuture<Void> commitCoordinatedInstall() {
         if (closed || !install.isEnabled()) return CompletableFuture.completedFuture(null);
-        final String certifiedVersion = updates.snapshot().version();
-        final DownloadJob job = activeJob != null ? activeJob : new DownloadJob(certifiedVersion);
+        final boolean frameworkSelected = pluginTableModel.frameworkSelected();
+        final String certifiedVersion = frameworkSelected ? updates.snapshot().version() : currentApiVersion();
+        final DownloadJob job = activeJob != null ? activeJob : new DownloadJob(certifiedVersion, frameworkSelected);
         final List<PreparedPluginJar> batch = List.copyOf(job.prepared);
         batchState = BatchState.COMMITTING;
         render();
@@ -456,7 +585,9 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             try {
                 acquireLease(job);
                 final var current = updates.snapshot();
-                if (current.phase() != CoreFrameworkUpdates.Phase.STAGED || !certifiedVersion.equals(current.version()))
+                if (job.framework
+                        && (current.phase() != CoreFrameworkUpdates.Phase.STAGED
+                                || !certifiedVersion.equals(current.version())))
                     throw new IllegalStateException("Framework plan changed");
                 if (coordinatedService != null) {
                     final var result = coordinatedService.commitStagedBatch(
@@ -466,12 +597,17 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     if (!result.succeeded()) throw new IllegalStateException(result.message());
                 }
                 pluginCommitSucceeded = !batch.isEmpty();
-                frameworkAttempted = true;
-                final var queued = updates.installOnExit().toCompletableFuture().join();
-                if (queued.phase() != CoreFrameworkUpdates.Phase.APPLY_PENDING)
-                    throw new IllegalStateException(queued.detail());
-                message = text("updates.plugins.staged_count", batch.size()) + "\n\n"
-                        + text("updates.install.no-shutdown");
+                if (job.framework) {
+                    frameworkAttempted = true;
+                    final var queued =
+                            updates.installOnExit().toCompletableFuture().join();
+                    if (queued.phase() != CoreFrameworkUpdates.Phase.APPLY_PENDING)
+                        throw new IllegalStateException(queued.detail());
+                }
+                message = text(
+                                job.framework ? "updates.plugins.staged_count" : "updates.plugins.only_staged_count",
+                                batch.size())
+                        + "\n\n" + text("updates.install.no-shutdown");
             } catch (Exception failure) {
                 message = pluginCommitSucceeded
                         ? text("updates.plugins.partial_failure", failure.getMessage())
@@ -482,7 +618,9 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 cleanup(job); // Journalled packages are retained. No global cross-journal transaction is claimed.
             }
             final String resultMessage = message;
+            final boolean pluginsOnlyCommitted = pluginCommitSucceeded && !job.framework;
             CoreDialogs.onEdt(() -> {
+                pluginQueued = pluginsOnlyCommitted;
                 activeJob = null;
                 batchState = BatchState.IDLE;
                 persistentDetailMessage = resultMessage;
@@ -526,6 +664,10 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
     private String megabytes(final long bytes) {
         return String.format(i18n.locale(), "%.2f", bytes / 1_000_000.0);
+    }
+
+    private static String currentApiVersion() {
+        return FrameworkBuildInfo.current().apiVersion().toString();
     }
 
     private void renderElapsed() {
@@ -635,16 +777,69 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         subscriptions.clear();
         // Let an already-consented commit and queued cleanup finish; closing this view never cancels a queued install.
         worker.shutdown();
+        notesWorker.shutdownNow();
         if (dialog != null) dialog.dispose();
     }
 
     final class PluginSelectionTableModel extends AbstractTableModel {
         private final String[] columns = {"select", "name", "current", "target", "status"};
         List<PluginUpdateRow> rows = List.of();
+        private List<PluginUpdateRow> visibleRows = List.of();
+        private String frameworkVersion = "";
+        private boolean frameworkChecked = true;
+
+        boolean isFramework(final int index) {
+            return !frameworkVersion.isEmpty() && index == 0;
+        }
+
+        boolean frameworkSelected() {
+            return !frameworkVersion.isEmpty() && frameworkChecked;
+        }
+
+        PluginUpdateRow pluginAt(final int index) {
+            return visibleRows.get(index - (frameworkVersion.isEmpty() ? 0 : 1));
+        }
+
+        private String selectionKey() {
+            final int selected = pluginTable.getSelectedRow();
+            if (selected < 0 || selected >= getRowCount()) return "";
+            return isFramework(selected)
+                    ? CorePluginManagement.CORE_PLUGIN_ID
+                    : pluginAt(selected).pluginId();
+        }
+
+        private void refresh(final String selectedKey) {
+            fireTableDataChanged();
+            for (int row = 0; row < getRowCount(); row++) {
+                final String key = isFramework(row)
+                        ? CorePluginManagement.CORE_PLUGIN_ID
+                        : pluginAt(row).pluginId();
+                if (key.equals(selectedKey)) {
+                    pluginTable.setRowSelectionInterval(row, row);
+                    return;
+                }
+            }
+            if (getRowCount() > 0) pluginTable.setRowSelectionInterval(0, 0);
+            else renderNotes();
+        }
+
+        void setFrameworkVersion(final String value) {
+            if (Objects.equals(frameworkVersion, value)) return;
+            final String selectedKey = selectionKey();
+            frameworkVersion = value;
+            frameworkChecked = true;
+            refresh(selectedKey);
+        }
 
         void setRows(final List<PluginUpdateRow> value) {
+            final String selectedKey = selectionKey();
             rows = List.copyOf(value);
-            fireTableDataChanged();
+            visibleRows = rows.stream()
+                    .filter(row -> !row.targetVersion().isBlank()
+                            && !row.targetVersion().equals(row.installedVersion())
+                            && row.status() == CoordinatedPluginUpdateService.CompatibilityStatus.DUAL_COMPATIBLE)
+                    .toList();
+            refresh(selectedKey);
         }
 
         int selectedCount() {
@@ -653,7 +848,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
         @Override
         public int getRowCount() {
-            return rows.size();
+            return visibleRows.size() + (frameworkVersion.isEmpty() ? 0 : 1);
         }
 
         @Override
@@ -675,17 +870,30 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         public boolean isCellEditable(final int row, final int col) {
             return col == 0
                     && row >= 0
-                    && row < rows.size()
+                    && row < getRowCount()
                     && planState == PlanState.PLANNED
                     && batchState != BatchState.DOWNLOADING
                     && batchState != BatchState.COMMITTING
+                    && !pluginQueued
                     && updates.snapshot().phase() != CoreFrameworkUpdates.Phase.APPLY_PENDING
-                    && rows.get(row).status() == CoordinatedPluginUpdateService.CompatibilityStatus.DUAL_COMPATIBLE;
+                    && (isFramework(row)
+                            || pluginAt(row).status()
+                                    == CoordinatedPluginUpdateService.CompatibilityStatus.DUAL_COMPATIBLE);
         }
 
         @Override
         public Object getValueAt(final int index, final int col) {
-            final var row = rows.get(index);
+            if (isFramework(index)) {
+                return switch (col) {
+                    case 0 -> frameworkChecked;
+                    case 1 -> text("updates.list.framework");
+                    case 2 -> discovery.snapshot().localVersion();
+                    case 3 -> frameworkVersion;
+                    case 4 -> text("updates.list.available");
+                    default -> "";
+                };
+            }
+            final var row = pluginAt(index);
             return switch (col) {
                 case 0 -> row.selected();
                 case 1 -> row.pluginName();
@@ -698,10 +906,19 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
         @Override
         public void setValueAt(final Object value, final int index, final int col) {
-            if (!isCellEditable(index, col) || !(value instanceof Boolean selected) || coordinatedService == null)
+            if (!isCellEditable(index, col) || !(value instanceof Boolean selected)) return;
+            if (isFramework(index)) {
+                if (frameworkChecked == selected) return;
+                invalidateBatch();
+                frameworkChecked = selected;
+                fireTableCellUpdated(index, col);
+                persistentDetailMessage = text("updates.plugins.selection_changed");
+                render();
                 return;
+            }
+            if (coordinatedService == null) return;
             final var updated =
-                    coordinatedService.toggleSelection(rows, rows.get(index).pluginId(), selected);
+                    coordinatedService.toggleSelection(rows, pluginAt(index).pluginId(), selected);
             if (updated.equals(rows)) return;
             invalidateBatch();
             setRows(updated);

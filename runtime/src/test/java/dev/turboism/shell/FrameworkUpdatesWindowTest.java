@@ -98,8 +98,13 @@ class FrameworkUpdatesWindowTest {
         final FrameworkUpdatesWindow window;
 
         Fixture(Function<String, List<PluginUpdateRow>> planner) throws Exception {
-            window = edt(() ->
-                    new FrameworkUpdatesWindow(I18N, discovery, new EmptyPlugins(), service, planner, nanos::get));
+            this(planner, row -> "");
+        }
+
+        Fixture(Function<String, List<PluginUpdateRow>> planner, Function<PluginUpdateRow, String> notes)
+                throws Exception {
+            window = edt(() -> new FrameworkUpdatesWindow(
+                    I18N, discovery, new EmptyPlugins(), service, planner, nanos::get, notes));
             edt(() -> {
                 window.show();
                 return null;
@@ -144,6 +149,168 @@ class FrameworkUpdatesWindowTest {
                 return null;
             });
             assertTrue(edt(() -> f.window.releaseNotesPane().getText()).contains("updates.install.notes.empty"));
+        }
+    }
+
+    @Test
+    void listsOnlyUpdatesAndSwitchesNotesWithoutChangingInstallSelection() throws Exception {
+        final PluginUpdateRow current = new PluginUpdateRow(
+                "current",
+                "Already current",
+                "1.0.0",
+                "",
+                true,
+                false,
+                CoordinatedPluginUpdateService.CompatibilityStatus.UP_TO_DATE,
+                "",
+                List.of(),
+                Optional.empty());
+        try (Fixture f = new Fixture(target -> List.of(current, ROW), row -> "### Demo changes\n\n- Plugin fix")) {
+            f.planned();
+            assertEquals(2, edt(() -> f.window.pluginTable().getRowCount()));
+            assertEquals(
+                    "updates.list.framework", edt(() -> f.window.pluginTable().getValueAt(0, 1)));
+            assertEquals("Demo", edt(() -> f.window.pluginTable().getValueAt(1, 1)));
+            f.discovery.notes = java.util.Map.of("en", "Framework changes");
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.releaseNotesPane().getText()).contains("Framework changes"));
+            edt(() -> {
+                f.window.pluginTable().setRowSelectionInterval(1, 1);
+                return null;
+            });
+            await(() -> f.window.releaseNotesPane().getText().contains("Plugin fix"));
+            assertFalse(edt(() -> f.window.releaseNotesPane().getText()).contains("Framework changes"));
+            assertTrue(edt(() -> f.window.tableModel().rows.get(1).selected()));
+            edt(() -> {
+                f.window.tableModel().setValueAt(false, 1, 0);
+                return null;
+            });
+            assertEquals(1, edt(() -> f.window.pluginTable().getSelectedRow()));
+            assertFalse(edt(() -> f.window.tableModel().rows.get(1).selected()));
+            assertTrue(edt(() -> f.window.releaseNotesPane().getText()).contains("Plugin fix"));
+        }
+    }
+
+    @Test
+    void latePluginNotesCannotReplaceFrameworkSelectionAndDoNotBlockDownload() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1), finish = new CountDownLatch(1);
+        try (Fixture f = new Fixture(target -> List.of(ROW), row -> {
+            entered.countDown();
+            try {
+                finish.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+            }
+            return "Late plugin notes";
+        })) {
+            f.planned();
+            f.discovery.notes = java.util.Map.of("en", "Framework notes");
+            edt(() -> {
+                f.window.pluginTable().setRowSelectionInterval(1, 1);
+                return null;
+            });
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            edt(() -> {
+                f.window.pluginTable().setRowSelectionInterval(0, 0);
+                return null;
+            });
+            f.download();
+            assertTrue(edt(() -> f.window.installButton().isEnabled()));
+            finish.countDown();
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertTrue(edt(() -> f.window.releaseNotesPane().getText()).contains("Framework notes"));
+        } finally {
+            finish.countDown();
+        }
+    }
+
+    @Test
+    void currentFrameworkIsHiddenAndPluginsCanBeQueuedAlone() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of(ROW), row -> "Plugin notes")) {
+            f.planned();
+            f.discovery.target = null;
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            f.planned();
+            assertEquals(1, edt(() -> f.window.pluginTable().getRowCount()));
+            assertEquals("Demo", edt(() -> f.window.pluginTable().getValueAt(0, 1)));
+            await(() -> f.window.releaseNotesPane().getText().contains("Plugin notes"));
+            f.download();
+            assertEquals(0, f.framework.downloads.get());
+            edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            assertEquals(1, f.service.lastCommitted.size());
+            assertEquals(CoreFrameworkUpdates.Phase.IDLE, f.framework.snapshot().phase());
+            assertTrue(edt(f.window::currentDetailText).contains("only_staged_count"));
+            assertFalse(edt(() -> f.window.installButton().isEnabled()));
+            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
+        }
+    }
+
+    @Test
+    void deselectingFrameworkAllowsOnlyPluginsAndEmptyListClearsNotes() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of(ROW))) {
+            f.planned();
+            edt(() -> {
+                f.window.tableModel().setValueAt(false, 0, 0);
+                return null;
+            });
+            f.download();
+            assertEquals(0, f.framework.downloads.get());
+            assertTrue(edt(() -> f.window.installButton().isEnabled()));
+        }
+        try (Fixture f = new Fixture(target -> List.of())) {
+            f.planned();
+            f.discovery.target = null;
+            f.discovery.notes = java.util.Map.of("en", "Old framework notes");
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertEquals(0, edt(() -> f.window.pluginTable().getRowCount()));
+            assertFalse(edt(() -> f.window.releaseNotesPane().getText()).contains("Old framework notes"));
+            assertFalse(edt(() -> f.window.downloadButton().isEnabled()));
+        }
+    }
+
+    @Test
+    void combinedProgressIncludesPluginsAndNotesFailureCanRetry() throws Exception {
+        final AtomicInteger attempts = new AtomicInteger();
+        try (Fixture f = new Fixture(target -> List.of(ROW), row -> {
+            if (attempts.incrementAndGet() == 1) throw new IllegalStateException("offline");
+            return "Recovered notes";
+        })) {
+            f.planned();
+            edt(() -> {
+                f.window.pluginTable().setRowSelectionInterval(1, 1);
+                return null;
+            });
+            await(() -> f.window.releaseNotesPane().getText().contains("notes.failed"));
+            edt(() -> {
+                f.window.checkButton().doClick();
+                return null;
+            });
+            f.planned();
+            edt(() -> {
+                f.window.pluginTable().setRowSelectionInterval(1, 1);
+                return null;
+            });
+            await(() -> f.window.releaseNotesPane().getText().contains("Recovered notes"));
+            f.service.reportedProgress = new PluginCatalogClient.DownloadProgress(1_250_000, 2_000_000);
+            f.framework.pendingDownload = new CompletableFuture<>();
+            final var pending = edt(f.window::triggerDownload);
+            await(() -> f.window.progressBar().getString().contains("2.50, 12.00"));
+            edt(() -> {
+                f.window.triggerCancel();
+                return null;
+            });
+            pending.get(10, TimeUnit.SECONDS);
         }
     }
 
@@ -282,14 +449,14 @@ class FrameworkUpdatesWindowTest {
             assertEquals(0, f.service.commits.get());
             assertTrue(edt(() -> f.window.installButton().isEnabled()), edt(f.window::currentDetailText));
             edt(() -> {
-                f.window.tableModel().setValueAt(false, 0, 0);
+                f.window.tableModel().setValueAt(false, 1, 0);
                 return null;
             });
             assertEquals(FrameworkUpdatesWindow.BatchState.IDLE, edt(f.window::currentBatchState));
             assertTrue(edt(f.window::currentDetailText).contains("selection_changed"));
             // Selecting it again requires a new verified batch, not the discarded old file.
             edt(() -> {
-                f.window.tableModel().setValueAt(true, 0, 0);
+                f.window.tableModel().setValueAt(true, 1, 0);
                 return null;
             });
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
@@ -317,7 +484,7 @@ class FrameworkUpdatesWindowTest {
             };
             var old = edt(f.window::triggerDownload);
             assertTrue(started.await(5, TimeUnit.SECONDS));
-            assertFalse(edt(() -> f.window.tableModel().isCellEditable(0, 0)));
+            assertFalse(edt(() -> f.window.tableModel().isCellEditable(1, 0)));
             edt(() -> {
                 f.window.triggerCancel();
                 return null;
@@ -416,7 +583,7 @@ class FrameworkUpdatesWindowTest {
             };
             var commit = edt(f.window::triggerInstall);
             assertTrue(started.await(5, TimeUnit.SECONDS));
-            assertFalse(edt(() -> f.window.tableModel().isCellEditable(0, 0)));
+            assertFalse(edt(() -> f.window.tableModel().isCellEditable(1, 0)));
             assertFalse(edt(() -> f.window.checkButton().isEnabled()));
             assertFalse(edt(() -> f.window.includePluginsCheckbox().isEnabled()));
             edt(() -> {
@@ -487,6 +654,7 @@ class FrameworkUpdatesWindowTest {
     private final class StubPlugins extends CoordinatedPluginUpdateService {
         final AtomicInteger downloads = new AtomicInteger(), commits = new AtomicInteger();
         volatile boolean failDownload;
+        volatile PluginCatalogClient.DownloadProgress reportedProgress = new PluginCatalogClient.DownloadProgress(0, 0);
         volatile Consumer<PluginCatalogClient.DownloadControl> downloadHook = control -> {};
         volatile Runnable commitHook = () -> {};
         volatile List<PreparedPluginJar> lastCommitted = List.of();
@@ -505,9 +673,11 @@ class FrameworkUpdatesWindowTest {
         public DownloadResult downloadAndPrepare(
                 List<PluginUpdateRow> rows,
                 Optional<PluginVersion> target,
-                PluginCatalogClient.DownloadControl control) {
+                PluginCatalogClient.DownloadControl control,
+                Consumer<PluginCatalogClient.DownloadProgress> progress) {
             assertFalse(SwingUtilities.isEventDispatchThread());
             downloads.incrementAndGet();
+            progress.accept(reportedProgress);
             downloadHook.accept(control);
             if (control.isCancelled()) return DownloadResult.cancelled();
             if (failDownload) return DownloadResult.failure("HASH", "Hash mismatch");
@@ -574,10 +744,10 @@ class FrameworkUpdatesWindowTest {
 
         public Snapshot snapshot() {
             return new Snapshot(
-                    Status.UPDATE_AVAILABLE,
+                    target == null ? Status.UP_TO_DATE : Status.UPDATE_AVAILABLE,
                     "0.43.10",
-                    Optional.of(target),
-                    OptionalLong.of(1),
+                    Optional.ofNullable(target),
+                    target == null ? OptionalLong.empty() : OptionalLong.of(1),
                     false,
                     false,
                     Optional.empty(),

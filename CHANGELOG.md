@@ -14,7 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- The update window now shows localized release notes, framework sizes in MB, and elapsed download/verification time that stops on completion or cancellation and resets on retry.
+- The update window lists pending framework and plugin updates together, hides components with no update, and shows the selected component's localized release notes on the right. Plugins can update independently; download size is shown in MB with elapsed time.
 
 - Added signed framework self-updates for official Windows Stable/Beta packages: download changed framework files in Cubism, optionally queue selected compatible plugin updates, and apply the framework update on the next managed launch with startup recovery. Existing installations first need a full package that includes a signed installation receipt.
 - The SDK adds the incubating `UiScheduler.runUiTeardown(Runnable, Duration)` for bounded UI cleanup during plugin disable. It runs inline on the EDT, otherwise waits up to the timeout; when the EDT is blocked or the caller is interrupted it returns `false`, keeps the cleanup queued to run exactly once, and restores the interrupt flag. The plugin generation fence admits it after disable.
