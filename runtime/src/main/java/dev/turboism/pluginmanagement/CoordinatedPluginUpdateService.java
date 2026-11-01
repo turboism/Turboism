@@ -15,7 +15,6 @@ import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -561,9 +560,7 @@ public class CoordinatedPluginUpdateService {
                 try {
                     final long precedingBytes = completedBytes;
                     client.downloadArtifact(
-                            URI.create(artifact.url()),
-                            artifact.size(),
-                            artifact.sha256(),
+                            artifact,
                             tempDownload,
                             control,
                             value -> progress.accept(new PluginCatalogClient.DownloadProgress(
