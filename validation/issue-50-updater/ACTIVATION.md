@@ -1,9 +1,10 @@
-# Framework self-update activation contract (not activated)
+# Framework self-update activation contract (official Beta enabled)
 
-Current rollout preparation is recorded in [activation-release-validation.md](activation-release-validation.md).
-The user has authorized activation and a verified main release; the signing switch is now enabled, while actual
-signed-package publication and the Windows upgrade acceptance remain pending. The 2026-11-01 provisioning details
-below describe the earlier disabled configuration.
+Production signing, publishing and client activation are enabled with user authorization. Official Windows
+Cubism upgrades beta.2 → beta.5 → beta.7 passed native download, consent, managed application and health
+confirmation; see [production Beta acceptance](production-beta-acceptance.md). Older installations need the new
+full package once; optional selected-plugin updates currently require a catalog correction.
+The [rollout record](activation-release-validation.md) preserves the earlier disabled and preparation stages.
 
 The normal runtime now constructs the installer adapter, but it remains UNAVAILABLE unless a reviewed release
 bundles both a client activation policy and dedicated framework signing authority. Neither resource is taken from
@@ -39,9 +40,10 @@ existing clients before using it. Revoked keys cannot authorize new installation
 when trustworthy history is unavailable the updater refuses and requires reviewed full-install recovery.
 
 The official keyring and the main-only `framework-release-signing` environment were provisioned on 2026-11-01.
-The production API now trusts the same public key, while `FRAMEWORK_UPDATE_SIGNING_ENABLED=false` and both Worker
-publisher identity settings remain empty. No production candidate has bundled the activation resources or run the
-protected signing workflow; see the [signing provisioning validation](signing-provisioning-validation.md).
+`FRAMEWORK_UPDATE_SIGNING_ENABLED=true`; the production API trusts the same public key and has its protected
+publisher identity configured. Official Beta candidates bundle activation resources and use the protected
+signing workflow. The [signing provisioning record](signing-provisioning-validation.md) describes the earlier
+disabled checkpoint, before the user subsequently authorized activation.
 
 Both files must be added BEFORE assembling/signing the agent and before generating its framework manifest. Client
 construction additionally requires a clean numbered CI identity and the actual standard-package agent location.
@@ -105,9 +107,14 @@ turns it into USING before runtime/plugin initialization. USING remains until th
 after startup health. Child-JVM and built-agent premain probes plus local Cubism recovery/native-consent acceptance
 are recorded in [the current Windows evidence](windows-launch-lease-host-validation.md). Legacy/direct launches
 still have a pre-premain window, and old retained helpers without the token protocol fail closed rather than
-migrating. Long-session, broken-new-launcher and full signed-release qualification remain blockers.
+migrating. Successful full signed-release upgrades now have production Beta evidence. Long-session and
+broken-new-launcher recovery qualification are not established by that evidence.
 
-## Required before enabling
+## Original qualification checklist and remaining scope
+
+The deployment, real CI publication, bundled authority, full ZIP bootstrap and two successive native signed
+upgrade items below are now complete for Beta on Windows Cubism 5.3.02. Other platform, failure and migration
+scenarios retain their separate evidence requirements.
 
 - Configure the first release's updater baseline and publisher credentials, then publish immutable resources and
   admit a real numbered release through the deployed API.
@@ -122,5 +129,5 @@ migrating. Long-session, broken-new-launcher and full signed-release qualificati
 - Validate UI download/cancel/resume and at least two successive real signed updates inside supported Windows
   Cubism. Keep Linux/Proton evidence separate.
 
-Current production feeds still advertise only full packages. The service and its public key configuration have
-been deployed and validated; publication and client activation remain disabled.
+The public Beta feed now advertises official signed framework updates as well as full packages. Production
+publication and client activation are enabled; this does not migrate existing Stable installations automatically.
