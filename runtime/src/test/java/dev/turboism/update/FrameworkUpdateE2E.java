@@ -36,7 +36,8 @@ final class FrameworkUpdateE2E {
     /** Helper entry for the subprocess with an injected test key (never present in production main). */
     public static final class Main {
         public static void main(final String[] args) throws Exception {
-            final byte[] der = Base64.getDecoder().decode(Files.readString(Path.of(args[0])).trim());
+            final byte[] der = Base64.getDecoder()
+                    .decode(Files.readString(Path.of(args[0])).trim());
             final PublicKey key = KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(der));
             final String[] rest = java.util.Arrays.copyOfRange(args, 1, args.length);
             System.exit(FrameworkUpdateHelper.run(
@@ -83,7 +84,8 @@ final class FrameworkUpdateE2E {
                 "{\"schemaVersion\":1,\"variant\":\"full\",\"version\":\"1.0.0\"}\n");
 
         final KeyPair keys = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
-        Files.writeString(keyFile, Base64.getEncoder().encodeToString(keys.getPublic().getEncoded()));
+        Files.writeString(
+                keyFile, Base64.getEncoder().encodeToString(keys.getPublic().getEncoded()));
         final List<UpdateManifestEntry> entries = new ArrayList<>();
         for (var e : newFiles.entrySet()) {
             final Path p = stage.resolve("files").resolve(e.getKey());
@@ -111,7 +113,8 @@ final class FrameworkUpdateE2E {
                         .put("signature", Base64.getEncoder().encodeToString(signer.sign()))));
 
         final String cp = System.getProperty("java.class.path");
-        final String javaBin = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        final String javaBin =
+                Path.of(System.getProperty("java.home"), "bin", "java").toString();
         say("os=" + System.getProperty("os.name") + " java=" + System.getProperty("java.version"));
         say("agent bytes old=" + oldAgent.length + " new=" + newAgent.length);
 
@@ -127,8 +130,16 @@ final class FrameworkUpdateE2E {
 
             // 2. Helper told to wait for that pid: must refuse (exit 75) and change nothing.
             final int busy = helper(
-                    javaBin, cp, keyFile, root, stage, work,
-                    "--wait-pid", Long.toString(cubism.pid()), "--wait-seconds", "2");
+                    javaBin,
+                    cp,
+                    keyFile,
+                    root,
+                    stage,
+                    work,
+                    "--wait-pid",
+                    Long.toString(cubism.pid()),
+                    "--wait-seconds",
+                    "2");
             say("[2] helper while Cubism running, waited 2s -> exit " + busy + " (expect 75)");
             assertEquals(FrameworkUpdateHelper.EXIT_BUSY, busy);
             assertArrayEquals(oldAgent, Files.readAllBytes(root.resolve("turboism-agent.jar")));
@@ -150,8 +161,16 @@ final class FrameworkUpdateE2E {
 
         // 5. After the exit the update applies.
         final int applied = helper(
-                javaBin, cp, keyFile, root, stage, work,
-                "--wait-pid", Long.toString(cubism.pid()), "--wait-seconds", "10");
+                javaBin,
+                cp,
+                keyFile,
+                root,
+                stage,
+                work,
+                "--wait-pid",
+                Long.toString(cubism.pid()),
+                "--wait-seconds",
+                "10");
         say("[5] helper after exit -> exit " + applied + " (expect 0)");
         assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, applied);
         assertArrayEquals(newAgent, Files.readAllBytes(root.resolve("turboism-agent.jar")));
@@ -174,8 +193,16 @@ final class FrameworkUpdateE2E {
 
         // 8. The real production entry point must reject an update signed by an unknown key.
         final Process production = new ProcessBuilder(
-                        javaBin, "-cp", cp, "dev.turboism.update.FrameworkUpdateHelper",
-                        "--root", root.toString(), "--stage", stage.toString(), "--work", work.toString())
+                        javaBin,
+                        "-cp",
+                        cp,
+                        "dev.turboism.update.FrameworkUpdateHelper",
+                        "--root",
+                        root.toString(),
+                        "--stage",
+                        stage.toString(),
+                        "--work",
+                        work.toString())
                 .redirectErrorStream(true)
                 .start();
         production.getInputStream().readAllBytes();
@@ -197,8 +224,17 @@ final class FrameworkUpdateE2E {
             final String... extra)
             throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>(List.of(
-                javaBin, "-cp", cp, Main.class.getName(), keyFile.toString(),
-                "--root", root.toString(), "--stage", stage.toString(), "--work", work.toString()));
+                javaBin,
+                "-cp",
+                cp,
+                Main.class.getName(),
+                keyFile.toString(),
+                "--root",
+                root.toString(),
+                "--stage",
+                stage.toString(),
+                "--work",
+                work.toString()));
         command.addAll(List.of(extra));
         final Process p = new ProcessBuilder(command).redirectErrorStream(true).start();
         final String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();

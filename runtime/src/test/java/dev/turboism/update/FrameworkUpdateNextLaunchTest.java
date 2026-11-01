@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -75,12 +74,7 @@ final class FrameworkUpdateNextLaunchTest {
                 "--prepare-launch", Long.toString(launcherPid)
             };
             return FrameworkUpdateHelper.run(
-                    args,
-                    new PrintStream(out),
-                    new PrintStream(err),
-                    trusted(),
-                    processes,
-                    Instant::now);
+                    args, new PrintStream(out), new PrintStream(err), trusted(), processes, Instant::now);
         }
     }
 
@@ -108,7 +102,8 @@ final class FrameworkUpdateNextLaunchTest {
         final var applier = new FrameworkUpdateApplier(f.root, f.work);
         final var result = applier.recover();
         assertEquals(FrameworkUpdateApplier.Outcome.NOTHING, result.outcome());
-        assertTrue(FrameworkUpdatePendingTask.read(f.work).isPresent(),
+        assertTrue(
+                FrameworkUpdatePendingTask.read(f.work).isPresent(),
                 "recover with no journal must not delete valid pending task");
     }
 
@@ -146,7 +141,8 @@ final class FrameworkUpdateNextLaunchTest {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         final var applier = new FrameworkUpdateApplier(f.root, f.work);
         final var manifest = new UpdateManifestVerifier(f.trusted())
-                .authenticate(Files.readAllBytes(f.stage.resolve("manifest.json")),
+                .authenticate(
+                        Files.readAllBytes(f.stage.resolve("manifest.json")),
                         Files.readAllBytes(f.stage.resolve("manifest.json.sig")));
         applier.applyPendingHealth(manifest, f.stage.resolve("files"), "{}".getBytes(StandardCharsets.UTF_8));
         applier.prepareLaunch(ProcessHandle.current().pid());
@@ -163,8 +159,7 @@ final class FrameworkUpdateNextLaunchTest {
         assertEquals(FrameworkUpdateHelper.EXIT_RECOVERED, code);
         assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
         // Pending task must be discarded to prevent infinite retry loops
-        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent(),
-                "pending task must be discarded on rollback");
+        assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent(), "pending task must be discarded on rollback");
         assertFalse(Files.exists(journalPath));
 
         // Subsequent launch does not retry the bad update: returns NOTHING and keeps old version
@@ -181,7 +176,8 @@ final class FrameworkUpdateNextLaunchTest {
         // An update was applied (e.g. by background helper before Cubism closed)
         final var applier = new FrameworkUpdateApplier(f.root, f.work);
         final var manifest = new UpdateManifestVerifier(f.trusted())
-                .authenticate(Files.readAllBytes(f.stage.resolve("manifest.json")),
+                .authenticate(
+                        Files.readAllBytes(f.stage.resolve("manifest.json")),
                         Files.readAllBytes(f.stage.resolve("manifest.json.sig")));
         applier.applyPendingHealth(manifest, f.stage.resolve("files"), "{}".getBytes(StandardCharsets.UTF_8));
 
@@ -192,7 +188,10 @@ final class FrameworkUpdateNextLaunchTest {
         // First launch prepares launch: must NOT roll back
         final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
         assertEquals(FrameworkUpdateHelper.EXIT_NOTHING, code);
-        assertEquals("agent-new", Files.readString(f.root.resolve("turboism-agent.jar")), "must not roll back legitimate startup");
+        assertEquals(
+                "agent-new",
+                Files.readString(f.root.resolve("turboism-agent.jar")),
+                "must not roll back legitimate startup");
         assertTrue(Files.exists(f.work.resolve("backup")), "backup must be retained for health check");
 
         final ObjectNode updated = (ObjectNode) UpdateFileSupport.JSON.readTree(Files.readAllBytes(journalPath));
@@ -303,18 +302,22 @@ final class FrameworkUpdateNextLaunchTest {
         final Path stage = temporary.resolve("stage-oversized");
 
         // 1. Version string too long
-        assertThrows(IllegalArgumentException.class, () ->
-                FrameworkUpdatePendingTask.write(workDir, root, stage, "x".repeat(65)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FrameworkUpdatePendingTask.write(workDir, root, stage, "x".repeat(65)));
 
         // 2. Relative paths rejected
-        assertThrows(IllegalArgumentException.class, () ->
-                FrameworkUpdatePendingTask.write(workDir, Path.of("rel/root"), stage, "1.0.0"));
-        assertThrows(IllegalArgumentException.class, () ->
-                FrameworkUpdatePendingTask.write(workDir, root, Path.of("rel/stage"), "1.0.0"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FrameworkUpdatePendingTask.write(workDir, Path.of("rel/root"), stage, "1.0.0"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FrameworkUpdatePendingTask.write(workDir, root, Path.of("rel/stage"), "1.0.0"));
 
         // 3. Stage inside root rejected
-        assertThrows(IllegalArgumentException.class, () ->
-                FrameworkUpdatePendingTask.write(workDir, root, root.resolve("stage"), "1.0.0"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FrameworkUpdatePendingTask.write(workDir, root, root.resolve("stage"), "1.0.0"));
 
         // 4. File on disk exceeding MAX_PENDING_BYTES is discarded by read
         Files.createDirectories(workDir);
@@ -327,18 +330,22 @@ final class FrameworkUpdateNextLaunchTest {
     @Test
     void prepareLaunchWhenApplyFailsAndRollsBackReturnsExitRolledBackAndDiscardsTask() throws Exception {
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("windows"),
+                System.getProperty("os.name", "")
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .contains("windows"),
                 "This fault injection requires Windows open-file replacement semantics");
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         f.persistPending("1.1.0");
 
         // On Windows, holding an open FileChannel on the target file prevents Files.move(REPLACE_EXISTING)
         // from overwriting it, triggering a clean rollback to old version and returning EXIT_ROLLED_BACK (20).
-        try (var channel = java.nio.channels.FileChannel.open(f.root.resolve("turboism-agent.jar"), java.nio.file.StandardOpenOption.READ)) {
+        try (var channel = java.nio.channels.FileChannel.open(
+                f.root.resolve("turboism-agent.jar"), java.nio.file.StandardOpenOption.READ)) {
             final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
             assertEquals(FrameworkUpdateHelper.EXIT_ROLLED_BACK, code);
             assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
-            assertFalse(FrameworkUpdatePendingTask.read(f.work).isPresent(),
+            assertFalse(
+                    FrameworkUpdatePendingTask.read(f.work).isPresent(),
                     "pending task must be consumed/discarded on rollback");
             assertFalse(Files.exists(f.work.resolve("journal.json")));
         }

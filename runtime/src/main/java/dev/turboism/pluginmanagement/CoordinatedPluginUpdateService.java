@@ -5,8 +5,8 @@ import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.distribution.LocalPluginJarPreparer;
-import dev.turboism.distribution.PreparedPluginJar;
 import dev.turboism.distribution.PluginJarPreflight;
+import dev.turboism.distribution.PreparedPluginJar;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogArtifact;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogDependency;
@@ -76,11 +76,7 @@ public class CoordinatedPluginUpdateService {
         }
     }
 
-    public record DownloadResult(
-            boolean succeeded,
-            String code,
-            String message,
-            List<PreparedPluginJar> prepared) {
+    public record DownloadResult(boolean succeeded, String code, String message, List<PreparedPluginJar> prepared) {
 
         public static DownloadResult success(final List<PreparedPluginJar> prepared) {
             return new DownloadResult(true, "DOWNLOAD_SUCCESS", "", List.copyOf(prepared));
@@ -95,11 +91,7 @@ public class CoordinatedPluginUpdateService {
         }
     }
 
-    public record CommitResult(
-            boolean succeeded,
-            String code,
-            String message,
-            List<PreparedPluginJar> staged) {
+    public record CommitResult(boolean succeeded, String code, String message, List<PreparedPluginJar> staged) {
 
         public static CommitResult success(final List<PreparedPluginJar> staged) {
             return new CommitResult(true, "COMMIT_SUCCESS", "", List.copyOf(staged));
@@ -156,7 +148,8 @@ public class CoordinatedPluginUpdateService {
         Objects.requireNonNull(installedPlugins, "installedPlugins");
         Objects.requireNonNull(targetApiVersion, "targetApiVersion");
         if (pending.recoveryRequired()) {
-            throw new IllegalStateException("PLUGIN_PENDING_REVIEW_REQUIRED: review pending changes in Plugin Management first.");
+            throw new IllegalStateException(
+                    "PLUGIN_PENDING_REVIEW_REQUIRED: review pending changes in Plugin Management first.");
         }
 
         final Map<String, CorePluginManagement.PluginInfo> byId = new LinkedHashMap<>();
@@ -170,8 +163,8 @@ public class CoordinatedPluginUpdateService {
         }
 
         final Optional<String> activeCubism = cubismVersion.get();
-        final PluginAutoUpdatePlanner planner = new PluginAutoUpdatePlanner(
-                channel, activeCubism, currentApiVersion, targetApiVersion);
+        final PluginAutoUpdatePlanner planner =
+                new PluginAutoUpdatePlanner(channel, activeCubism, currentApiVersion, targetApiVersion);
 
         final Set<String> pendingUninstalls = new HashSet<>();
         for (PendingPluginOperations.Operation op : pending.operations()) {
@@ -194,20 +187,39 @@ public class CoordinatedPluginUpdateService {
             final String id = info.id();
             final boolean isOfficial = PluginAutoUpdatePlanner.isFirstPartyOfficialId(id);
             if (!isOfficial) {
-                rawRows.put(id, new PluginUpdateRow(
-                        id, info.name(), info.version(), "", isEnabled(info), false,
-                        CompatibilityStatus.NOT_OFFICIAL, "Third-party plugin (catalog unmanaged)", List.of(), Optional.empty()));
+                rawRows.put(
+                        id,
+                        new PluginUpdateRow(
+                                id,
+                                info.name(),
+                                info.version(),
+                                "",
+                                isEnabled(info),
+                                false,
+                                CompatibilityStatus.NOT_OFFICIAL,
+                                "Third-party plugin (catalog unmanaged)",
+                                List.of(),
+                                Optional.empty()));
                 continue;
             }
 
-            final Optional<CatalogPlugin> catPlugin = catalog.plugins().stream()
-                    .filter(p -> p.id().equals(id))
-                    .findFirst();
+            final Optional<CatalogPlugin> catPlugin =
+                    catalog.plugins().stream().filter(p -> p.id().equals(id)).findFirst();
 
             if (catPlugin.isEmpty()) {
-                rawRows.put(id, new PluginUpdateRow(
-                        id, info.name(), info.version(), "", isEnabled(info), false,
-                        CompatibilityStatus.UP_TO_DATE, "No catalog entry", List.of(), Optional.empty()));
+                rawRows.put(
+                        id,
+                        new PluginUpdateRow(
+                                id,
+                                info.name(),
+                                info.version(),
+                                "",
+                                isEnabled(info),
+                                false,
+                                CompatibilityStatus.UP_TO_DATE,
+                                "No catalog entry",
+                                List.of(),
+                                Optional.empty()));
                 continue;
             }
 
@@ -217,10 +229,19 @@ public class CoordinatedPluginUpdateService {
                         .filter(CatalogDependency::isRequired)
                         .map(CatalogDependency::id)
                         .toList();
-                rawRows.put(id, new PluginUpdateRow(
-                        id, info.name(), info.version(), planned.release().version(),
-                        isEnabled(info), isEnabled(info), CompatibilityStatus.DUAL_COMPATIBLE,
-                        "Compatible with current and target framework", requiredDeps, Optional.of(planned)));
+                rawRows.put(
+                        id,
+                        new PluginUpdateRow(
+                                id,
+                                info.name(),
+                                info.version(),
+                                planned.release().version(),
+                                isEnabled(info),
+                                isEnabled(info),
+                                CompatibilityStatus.DUAL_COMPATIBLE,
+                                "Compatible with current and target framework",
+                                requiredDeps,
+                                Optional.of(planned)));
                 continue;
             }
 
@@ -240,7 +261,8 @@ public class CoordinatedPluginUpdateService {
                                 break;
                             }
                         }
-                    } catch (IllegalArgumentException ignored) {}
+                    } catch (IllegalArgumentException ignored) {
+                    }
                 }
                 if (hasFutureOnly) {
                     status = CompatibilityStatus.FUTURE_ONLY;
@@ -251,18 +273,31 @@ public class CoordinatedPluginUpdateService {
                             .findFirst();
                     if (currentRel.isPresent()) {
                         try {
-                            if (!VersionRange.parse(currentRel.get().turboismApi()).contains(targetApi)) {
+                            if (!VersionRange.parse(currentRel.get().turboismApi())
+                                    .contains(targetApi)) {
                                 status = CompatibilityStatus.TARGET_INCOMPATIBLE;
-                                explanation = "Current version does not support target framework API (" + targetApi + ")";
+                                explanation =
+                                        "Current version does not support target framework API (" + targetApi + ")";
                             }
-                        } catch (IllegalArgumentException ignored) {}
+                        } catch (IllegalArgumentException ignored) {
+                        }
                     }
                 }
             }
 
-            rawRows.put(id, new PluginUpdateRow(
-                    id, info.name(), info.version(), "", isEnabled(info), false,
-                    status, explanation, List.of(), Optional.empty()));
+            rawRows.put(
+                    id,
+                    new PluginUpdateRow(
+                            id,
+                            info.name(),
+                            info.version(),
+                            "",
+                            isEnabled(info),
+                            false,
+                            status,
+                            explanation,
+                            List.of(),
+                            Optional.empty()));
         }
 
         // Enforce dependency closure on default selection:
@@ -319,8 +354,7 @@ public class CoordinatedPluginUpdateService {
         return List.copyOf(rowMap.values());
     }
 
-    private void selectDependenciesRecursively(
-            final PluginUpdateRow row, final Map<String, PluginUpdateRow> rowMap) {
+    private void selectDependenciesRecursively(final PluginUpdateRow row, final Map<String, PluginUpdateRow> rowMap) {
         for (String depId : row.requiredDependencies()) {
             final PluginUpdateRow depRow = rowMap.get(depId);
             if (depRow != null && depRow.plannedUpdate().isPresent() && !depRow.selected()) {
@@ -330,8 +364,7 @@ public class CoordinatedPluginUpdateService {
         }
     }
 
-    private void deselectDependentsRecursively(
-            final String deselectId, final Map<String, PluginUpdateRow> rowMap) {
+    private void deselectDependentsRecursively(final String deselectId, final Map<String, PluginUpdateRow> rowMap) {
         for (Map.Entry<String, PluginUpdateRow> entry : rowMap.entrySet()) {
             final PluginUpdateRow candidate = entry.getValue();
             if (candidate.selected() && candidate.requiredDependencies().contains(deselectId)) {
@@ -365,7 +398,8 @@ public class CoordinatedPluginUpdateService {
             final java.util.function.BooleanSupplier cancelled,
             final PluginCatalogClient.DownloadControl control) {
         if (pending.recoveryRequired()) {
-            return DownloadResult.failure("PLUGIN_PENDING_REVIEW_REQUIRED",
+            return DownloadResult.failure(
+                    "PLUGIN_PENDING_REVIEW_REQUIRED",
                     "Review pending changes in Plugin Management before downloading again.");
         }
         final List<PluginAutoUpdatePlanner.PlannedUpdate> selectedUpdates = rows.stream()
@@ -399,11 +433,15 @@ public class CoordinatedPluginUpdateService {
                             URI.create(artifact.url()),
                             artifact.size(),
                             artifact.sha256(),
-                            tempDownload, control, ignored -> {});
+                            tempDownload,
+                            control,
+                            ignored -> {});
                 } catch (IOException downloadError) {
                     cleanupTemp(tempDownloadFiles, preparedList);
-                    return cancelled.getAsBoolean() ? DownloadResult.cancelled()
-                            : DownloadResult.failure("PLUGIN_DOWNLOAD_FAILED",
+                    return cancelled.getAsBoolean()
+                            ? DownloadResult.cancelled()
+                            : DownloadResult.failure(
+                                    "PLUGIN_DOWNLOAD_FAILED",
                                     "Failed to download " + update.pluginId() + ": " + downloadError.getMessage());
                 }
 
@@ -417,7 +455,8 @@ public class CoordinatedPluginUpdateService {
                         RuntimePluginAutoUpdater.inspectDownloadedJar(update, tempDownload, activeCubism);
                 if (check != RuntimePluginAutoUpdater.JarCheckResult.VALID) {
                     cleanupTemp(tempDownloadFiles, preparedList);
-                    return DownloadResult.failure("PLUGIN_VERIFICATION_FAILED",
+                    return DownloadResult.failure(
+                            "PLUGIN_VERIFICATION_FAILED",
                             "Downloaded JAR failed verification check (" + check + ") for " + update.pluginId());
                 }
 
@@ -425,19 +464,23 @@ public class CoordinatedPluginUpdateService {
                 final PluginDescriptor descriptor = readJarDescriptor(tempDownload);
                 if (descriptor == null) {
                     cleanupTemp(tempDownloadFiles, preparedList);
-                    return DownloadResult.failure("DESCRIPTOR_PARSE_FAILED",
-                            "Failed to parse descriptor from " + update.pluginId());
+                    return DownloadResult.failure(
+                            "DESCRIPTOR_PARSE_FAILED", "Failed to parse descriptor from " + update.pluginId());
                 }
                 final VersionRange apiRange = VersionRange.parse(descriptor.turboismApi());
                 if (!apiRange.contains(currentApiVersion)) {
                     cleanupTemp(tempDownloadFiles, preparedList);
-                    return DownloadResult.failure("CURRENT_API_INCOMPATIBLE",
-                            "Downloaded artifact " + update.pluginId() + " does not support current API " + currentApiVersion);
+                    return DownloadResult.failure(
+                            "CURRENT_API_INCOMPATIBLE",
+                            "Downloaded artifact " + update.pluginId() + " does not support current API "
+                                    + currentApiVersion);
                 }
                 if (targetApiVersion.isPresent() && !apiRange.contains(targetApiVersion.get())) {
                     cleanupTemp(tempDownloadFiles, preparedList);
-                    return DownloadResult.failure("TARGET_API_INCOMPATIBLE",
-                            "Downloaded artifact " + update.pluginId() + " does not support target API " + targetApiVersion.get());
+                    return DownloadResult.failure(
+                            "TARGET_API_INCOMPATIBLE",
+                            "Downloaded artifact " + update.pluginId() + " does not support target API "
+                                    + targetApiVersion.get());
                 }
 
                 // Prepare via LocalPluginJarPreparer
@@ -448,7 +491,8 @@ public class CoordinatedPluginUpdateService {
 
                 if (prep instanceof LocalPluginJarPreparer.PreparationRejected rejected) {
                     cleanupTemp(tempDownloadFiles, preparedList);
-                    return DownloadResult.failure(rejected.code(),
+                    return DownloadResult.failure(
+                            rejected.code(),
                             "Plugin " + update.pluginId() + " rejected by preflight: " + rejected.code());
                 }
 
@@ -465,10 +509,7 @@ public class CoordinatedPluginUpdateService {
     }
 
     private record ResolvedPluginMeta(
-            String id,
-            String version,
-            String turboismApi,
-            List<ResolvedDependency> requiredDependencies) {}
+            String id, String version, String turboismApi, List<ResolvedDependency> requiredDependencies) {}
 
     private record ResolvedDependency(String id, String version) {}
 
@@ -492,8 +533,10 @@ public class CoordinatedPluginUpdateService {
         }
     }
 
-    private CommitResult validateAndCommit(final List<PreparedPluginJar> preparedBatch,
-            final PluginVersion certifiedTargetApi, final List<CorePluginManagement.PluginInfo> installedPlugins) {
+    private CommitResult validateAndCommit(
+            final List<PreparedPluginJar> preparedBatch,
+            final PluginVersion certifiedTargetApi,
+            final List<CorePluginManagement.PluginInfo> installedPlugins) {
         final List<PendingPluginOperations.Operation> pendingSnapshot = pending.operations();
         final Set<String> uninstalledIds = new HashSet<>();
         // 1. Re-verify all prepared batch items for dual API compatibility against certifiedTargetApi
@@ -506,7 +549,8 @@ public class CoordinatedPluginUpdateService {
                                     + certifiedTargetApi + " and current API " + currentApiVersion);
                 }
             } catch (Exception invalid) {
-                return CommitResult.conflict("Corrupt descriptor for prepared plugin " + prep.descriptor().id());
+                return CommitResult.conflict("Corrupt descriptor for prepared plugin "
+                        + prep.descriptor().id());
             }
         }
 
@@ -526,7 +570,8 @@ public class CoordinatedPluginUpdateService {
                 activeMetadata.put(d.id(), new ResolvedPluginMeta(d.id(), d.version(), d.turboismApi(), reqDeps));
                 try {
                     postUpdateVersions.put(d.id(), PluginVersion.parse(d.version()));
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -542,13 +587,15 @@ public class CoordinatedPluginUpdateService {
             } else if ("INSTALL".equals(op.type())) {
                 try {
                     final Path staged = Path.of(op.stagedJar());
-                    if (!PluginJarPreflight.matches(staged, op.pluginId(), op.version(),
-                            op.descriptorSha256(), op.jarSha256(), op.jarSize())) {
-                        return CommitResult.conflict("Existing pending plugin bytes differ from its recorded intent: " + op.pluginId());
+                    if (!PluginJarPreflight.matches(
+                            staged, op.pluginId(), op.version(), op.descriptorSha256(), op.jarSha256(), op.jarSize())) {
+                        return CommitResult.conflict(
+                                "Existing pending plugin bytes differ from its recorded intent: " + op.pluginId());
                     }
                     final PluginDescriptor d = readJarDescriptor(staged);
                     if (d == null) {
-                        return CommitResult.conflict("Existing pending plugin '" + op.pluginId() + "' metadata is invalid.");
+                        return CommitResult.conflict(
+                                "Existing pending plugin '" + op.pluginId() + "' metadata is invalid.");
                     }
                     final List<ResolvedDependency> reqDeps = d.dependencies().stream()
                             .filter(dep -> "required".equalsIgnoreCase(dep.type()))
@@ -557,7 +604,8 @@ public class CoordinatedPluginUpdateService {
                     activeMetadata.put(d.id(), new ResolvedPluginMeta(d.id(), d.version(), d.turboismApi(), reqDeps));
                     postUpdateVersions.put(op.pluginId(), PluginVersion.parse(d.version()));
                 } catch (Exception ex) {
-                    return CommitResult.conflict("Error validating existing pending plugin '" + op.pluginId() + "': " + ex.getMessage());
+                    return CommitResult.conflict(
+                            "Error validating existing pending plugin '" + op.pluginId() + "': " + ex.getMessage());
                 }
             }
         }
@@ -567,42 +615,53 @@ public class CoordinatedPluginUpdateService {
             final String id = prep.descriptor().id();
             final PluginVersion currentVer = postUpdateVersions.get(id);
             try {
-                final PluginVersion targetVer = PluginVersion.parse(prep.descriptor().version());
+                final PluginVersion targetVer =
+                        PluginVersion.parse(prep.descriptor().version());
                 if (currentVer != null && targetVer.compareTo(currentVer) < 0) {
-                    return CommitResult.conflict("Cannot downgrade plugin '" + id + "' from " + currentVer + " to " + targetVer);
+                    return CommitResult.conflict(
+                            "Cannot downgrade plugin '" + id + "' from " + currentVer + " to " + targetVer);
                 }
                 postUpdateVersions.put(id, targetVer);
                 final List<ResolvedDependency> reqDeps = prep.descriptor().dependencies().stream()
                         .filter(dep -> "required".equalsIgnoreCase(dep.type()))
                         .map(dep -> new ResolvedDependency(dep.id(), dep.version()))
                         .toList();
-                activeMetadata.put(id, new ResolvedPluginMeta(id, prep.descriptor().version(), prep.descriptor().turboismApi(), reqDeps));
+                activeMetadata.put(
+                        id,
+                        new ResolvedPluginMeta(
+                                id,
+                                prep.descriptor().version(),
+                                prep.descriptor().turboismApi(),
+                                reqDeps));
             } catch (IllegalArgumentException invalidVer) {
-                return CommitResult.conflict("Invalid target version for plugin " + id + ": " + prep.descriptor().version());
+                return CommitResult.conflict("Invalid target version for plugin " + id + ": "
+                        + prep.descriptor().version());
             }
         }
 
         // 3. Verify all existing unselected pending operations: must support certifiedTargetApi
         for (PendingPluginOperations.Operation op : pendingSnapshot) {
             if ("INSTALL".equals(op.type())) {
-                final boolean inBatch = preparedBatch.stream()
-                        .anyMatch(p -> p.descriptor().id().equals(op.pluginId()));
+                final boolean inBatch =
+                        preparedBatch.stream().anyMatch(p -> p.descriptor().id().equals(op.pluginId()));
                 if (!inBatch) {
                     final ResolvedPluginMeta meta = activeMetadata.get(op.pluginId());
-                    if (meta == null || !VersionRange.parse(meta.turboismApi()).contains(certifiedTargetApi)
+                    if (meta == null
+                            || !VersionRange.parse(meta.turboismApi()).contains(certifiedTargetApi)
                             || !VersionRange.parse(meta.turboismApi()).contains(currentApiVersion)) {
-                        return CommitResult.conflict(
-                                "Existing pending plugin '" + op.pluginId() + "' (" + op.version()
-                                        + ") does not support target framework API " + certifiedTargetApi
-                                        + ". Please clear or update it before proceeding.");
+                        return CommitResult.conflict("Existing pending plugin '" + op.pluginId() + "' (" + op.version()
+                                + ") does not support target framework API " + certifiedTargetApi
+                                + ". Please clear or update it before proceeding.");
                     }
                 }
             }
         }
 
         // Only enabled plugins participate in the loading graph; never silently enable a dependency.
-        final Set<String> enabledIds = installedPlugins.stream().filter(CoordinatedPluginUpdateService::isEnabled)
-                .filter(info -> !uninstalledIds.contains(info.id())).map(CorePluginManagement.PluginInfo::id)
+        final Set<String> enabledIds = installedPlugins.stream()
+                .filter(CoordinatedPluginUpdateService::isEnabled)
+                .filter(info -> !uninstalledIds.contains(info.id()))
+                .map(CorePluginManagement.PluginInfo::id)
                 .collect(java.util.stream.Collectors.toCollection(HashSet::new));
         postUpdateVersions.put(CorePluginManagement.CORE_PLUGIN_ID, certifiedTargetApi);
         enabledIds.add(CorePluginManagement.CORE_PLUGIN_ID);
@@ -616,19 +675,18 @@ public class CoordinatedPluginUpdateService {
             }
 
             // If not updated in batch, verify actual descriptor supports certifiedTargetApi
-            final boolean updatedInBatch = preparedBatch.stream()
-                    .anyMatch(p -> p.descriptor().id().equals(info.id()));
+            final boolean updatedInBatch =
+                    preparedBatch.stream().anyMatch(p -> p.descriptor().id().equals(info.id()));
             if (!updatedInBatch) {
                 final ResolvedPluginMeta meta = activeMetadata.get(info.id());
                 if (meta == null) {
-                    return CommitResult.conflict(
-                            "Installed plugin '" + info.name() + "' archive could not be verified from plugins directory.");
+                    return CommitResult.conflict("Installed plugin '" + info.name()
+                            + "' archive could not be verified from plugins directory.");
                 }
                 if (!VersionRange.parse(meta.turboismApi()).contains(certifiedTargetApi)) {
-                    return CommitResult.conflict(
-                            "Enabled plugin '" + info.name() + "' (" + info.version()
-                                    + ") does not support target framework API " + certifiedTargetApi
-                                    + ". Please update or disable it before proceeding.");
+                    return CommitResult.conflict("Enabled plugin '" + info.name() + "' (" + info.version()
+                            + ") does not support target framework API " + certifiedTargetApi
+                            + ". Please update or disable it before proceeding.");
                 }
             }
         }
@@ -645,18 +703,19 @@ public class CoordinatedPluginUpdateService {
                 }
                 final PluginVersion avail = postUpdateVersions.get(dep.id());
                 if (avail == null) {
-                    return CommitResult.conflict("Plugin '" + pluginId + "' requires dependency '"
-                            + dep.id() + "' which is not available in the post-update state.");
+                    return CommitResult.conflict("Plugin '" + pluginId + "' requires dependency '" + dep.id()
+                            + "' which is not available in the post-update state.");
                 }
                 if (!VersionRange.parse(dep.version()).contains(avail)) {
-                    return CommitResult.conflict("Plugin '" + pluginId + "' requires dependency '"
-                            + dep.id() + "' " + dep.version() + ", but available version is " + avail);
+                    return CommitResult.conflict("Plugin '" + pluginId + "' requires dependency '" + dep.id() + "' "
+                            + dep.version() + ", but available version is " + avail);
                 }
             }
         }
 
         // Even a framework-only batch must detect changed pending state before it is acknowledged.
-        final PendingPluginOperations.StagedBatchResult batchResult = pending.stageBatch(preparedBatch, pendingSnapshot);
+        final PendingPluginOperations.StagedBatchResult batchResult =
+                pending.stageBatch(preparedBatch, pendingSnapshot);
         if (!batchResult.accepted()) {
             return CommitResult.failed(batchResult.code(), "Staging batch failed: " + batchResult.code());
         }
@@ -677,7 +736,8 @@ public class CoordinatedPluginUpdateService {
         for (Path p : tempDownloads) {
             try {
                 Files.deleteIfExists(p);
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
         discardUncommitted(preparedList);
     }

@@ -121,7 +121,7 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
         self.assertEqual([], violations)
         self.assertEqual(0, equivalent)
         rendered = GEN.render_all(ROOT)
-        self.assertEqual(95, len(rendered))
+        self.assertEqual(96, len(rendered))
 
     def test_consistent_fixture_passes(self):
         document = record()
@@ -325,6 +325,112 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
             ).read_text()
             self.assertIn("${record:%s:sha256}" % RECORD_NAME, template)
             self.assert_clean(root, equivalent=1)
+
+
+class ModelUpdateTargetGenerationTest(unittest.TestCase):
+    """Fixtures mutate declaration authoring, independently of the frozen Java output."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.source = self.root / GEN.MODEL_UPDATE_SOURCE
+        self.source.parent.mkdir(parents=True)
+        self.document = json.loads((GEN.ROOT / GEN.MODEL_UPDATE_SOURCE).read_text())
+        releases = Path('compatibility/cubism/reviewed-releases.json')
+        (self.root / releases).parent.mkdir(parents=True)
+        (self.root / releases).write_bytes((GEN.ROOT / releases).read_bytes())
+        for family in ('model-update-skip', 'incremental-update'):
+            pin = GEN.MODEL_UPDATE_PINS / (family + '.json')
+            (self.root / pin).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / pin).write_bytes((GEN.ROOT / pin).read_bytes())
+        self.write()
+
+    def write(self):
+        self.source.write_text(json.dumps(self.document))
+
+    def fail(self, message):
+        self.write()
+        with self.assertRaisesRegex(GEN.GenerationError, message):
+            GEN.render_model_update_targets(self.root)
+
+    def test_deterministic_and_covered_in_registry_order(self):
+        first = GEN.render_model_update_targets(self.root)
+        self.document['targets'].reverse()
+        self.document['profiles'] = dict(reversed(list(self.document['profiles'].items())))
+        self.write()
+        self.assertEqual(first, GEN.render_model_update_targets(self.root))
+        source = first[GEN.MODEL_UPDATE_TARGET]
+        self.assertEqual(len(self.document['targets']), source.count('new Row('))
+        self.assertIn('ReviewedHostArtifacts.CUBISM_5_0_00', source)
+        self.assertLess(source.index('CUBISM_5_0_00'), source.index('CUBISM_5_3_04'))
+
+    def test_missing_version(self):
+        self.document['targets'].pop(0)
+        self.fail('missing/unknown reviewed versions')
+
+    def test_missing_authoring(self):
+        self.source.unlink()
+        with self.assertRaises(GEN.GenerationError):
+            GEN.render_model_update_targets(self.root)
+
+    def test_duplicate_and_conflicting_versions(self):
+        for profile in ('p1', 'p2'):
+            with self.subTest(profile=profile):
+                self.document['targets'].append({'version': '5.0.00', 'profile': profile})
+                self.fail('duplicate/conflicting')
+                self.document['targets'].pop()
+
+    def test_unknown_version_and_profile(self):
+        self.document['targets'].append({'version': '5.3.99', 'profile': 'p1'})
+        self.fail('missing/unknown reviewed versions')
+        self.document['targets'].pop()
+        self.document['targets'][0]['profile'] = 'unknown'
+        self.fail('unknown profile')
+
+    def test_invalid_descriptor_and_unknown_placeholder(self):
+        for suffix in ('garbage', '${unknown}'):
+            with self.subTest(suffix=suffix):
+                original = self.document['entryDescriptor']
+                self.document['entryDescriptor'] += suffix
+                self.fail('invalid method descriptor')
+                self.document['entryDescriptor'] = original
+
+    def test_descriptor_cannot_diverge_from_shared_context(self):
+        self.document['entryDescriptor'] = self.document['entryDescriptor'].replace('${updateContext}', 'wrong/Context')
+        self.fail('must reference shared context')
+
+    def test_duplicate_json_keys(self):
+        self.source.write_text(self.source.read_text().replace('"profiles":', '"format":"conflict", "profiles":'))
+        with self.assertRaisesRegex(GEN.GenerationError, 'duplicate JSON key'):
+            GEN.render_model_update_targets(self.root)
+
+    def test_invalid_class_flag_schema_and_unused_profile(self):
+        profile = self.document['profiles']['p1']
+        for field, value, error in [('updater', 'bad;class', 'invalid class name'),
+                                    ('conflictPolygonFlag', 'false', 'must be booleans'),
+                                    ('extra', True, 'profile fields')]:
+            with self.subTest(field=field):
+                original = dict(profile)
+                profile[field] = value
+                self.fail(error)
+                profile.clear()
+                profile.update(original)
+        self.document['profiles']['unused'] = dict(profile)
+        self.fail('unused profiles')
+
+    def test_unknown_symbol_reference(self):
+        self.document['profiles']['p1']['updater'] = 'com/live2d/cubism/view/unknown'
+        self.fail('unknown class pin references')
+
+    def test_shadow_declarations_fail(self):
+        for adapter in GEN.MODEL_UPDATE_ADAPTERS:
+            path = self.root / GEN.SOURCE_ROOT / 'dev/turboism/adapter/cubism' / adapter
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('new ModelUpdateSkipTarget(ReviewedHostArtifacts.CUBISM_5_0_00);')
+            with self.assertRaisesRegex(GEN.GenerationError, 'shadow table|consume generated rows'):
+                GEN.render_model_update_targets(self.root)
+            path.unlink()
 
 
 if __name__ == "__main__":

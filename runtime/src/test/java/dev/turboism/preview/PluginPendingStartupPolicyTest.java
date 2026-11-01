@@ -25,7 +25,9 @@ class PluginPendingStartupPolicyTest {
     void suspendedFailureAllowsOldPluginsButNeverConfirmsAFrameworkUpdate() {
         final var result = new ApplyResult(Status.DEFERRED, "PLUGIN_PENDING_REVIEW_REQUIRED");
         assertDoesNotThrow(() -> PreviewRuntime.requireSafePendingPlugins(result));
-        PreviewRuntime.confirmFrameworkHealthAfterPluginApply(result, () -> fail("Must not confirm"),
+        PreviewRuntime.confirmFrameworkHealthAfterPluginApply(
+                result,
+                () -> fail("Must not confirm"),
                 code -> assertEquals("UPDATE_STARTUP_NOT_CONFIRMED: PLUGIN_PENDING_REVIEW_REQUIRED", code));
     }
 
@@ -42,8 +44,10 @@ class PluginPendingStartupPolicyTest {
     void backupOrRollbackFailureStillBlocksStartupAndNeverConfirms() {
         for (String code : java.util.List.of("PLUGIN_PENDING_BACKUP_FAILED", "PLUGIN_PENDING_RECOVERY_REQUIRED")) {
             final var result = new ApplyResult(Status.RECOVERY_REQUIRED, code);
-            assertEquals(code, assertThrows(IOException.class,
-                    () -> PreviewRuntime.requireSafePendingPlugins(result)).getMessage());
+            assertEquals(
+                    code,
+                    assertThrows(IOException.class, () -> PreviewRuntime.requireSafePendingPlugins(result))
+                            .getMessage());
             final var confirmed = new AtomicInteger();
             PreviewRuntime.confirmFrameworkHealthAfterPluginApply(result, confirmed::incrementAndGet, ignored -> {});
             assertEquals(0, confirmed.get());

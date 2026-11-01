@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Added signed framework self-updates for official Windows Stable/Beta packages: download changed framework files in Cubism, optionally queue selected compatible plugin updates, and apply the framework update on the next managed launch with startup recovery. Existing installations first need a full package that includes a signed installation receipt.
 - The SDK adds the incubating `UiScheduler.runUiTeardown(Runnable, Duration)` for bounded UI cleanup during plugin disable. It runs inline on the EDT, otherwise waits up to the timeout; when the EDT is blocked or the caller is interrupted it returns `false`, keeps the cleanup queued to run exactly once, and restores the interrupt flag. The plugin generation fence admits it after disable.
 - Added a first-party plugin selection page to the Windows installer, featuring RichEdit20W-rendered localized README previews (English, Simplified Chinese, Japanese, Korean), select-all/deselect-all controls, per-plugin install skip markers, and payload filtering.
 - Enrolled `parameter-sync` (real-time normalized parameter value synchronization) and `deformer-batch-rename` (batch deformer renaming with native Cubism Warp and Rotation icon previews) into the official release manifests and bundled installer payloads.

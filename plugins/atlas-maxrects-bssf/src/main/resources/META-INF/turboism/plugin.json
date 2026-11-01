@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.texture-atlas",
   "name": "MaxRects-BSSF Layout Algorithm",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Registers the MaxRects-BSSF texture-atlas packing algorithm with parallel search.",
   "entrypoints": [
     "dev.turboism.plugin.atlasmaxrectsbssf.TextureAtlasPlugin"

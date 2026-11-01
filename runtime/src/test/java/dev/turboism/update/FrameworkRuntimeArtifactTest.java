@@ -12,20 +12,26 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class FrameworkRuntimeArtifactTest {
-    @TempDir Path temporary;
+    @TempDir
+    Path temporary;
 
     public static final class BootProbe {
         public static void main(final String[] args) {
-            System.out.println("source-null=" + (FrameworkBuildInfo.class.getProtectionDomain().getCodeSource() == null));
+            System.out.println("source-null="
+                    + (FrameworkBuildInfo.class.getProtectionDomain().getCodeSource() == null));
             System.out.println("artifact=" + FrameworkRuntimeArtifact.resolve());
             try {
                 final byte[] policy = FrameworkUpdateResources.read(FrameworkUpdateClientPolicy.RESOURCE, 4096);
-                System.out.println("policy=" + (policy == null ? "missing" : new String(policy, java.nio.charset.StandardCharsets.UTF_8)));
-            } catch (Exception failure) { throw new IllegalStateException(failure); }
+                System.out.println("policy="
+                        + (policy == null ? "missing" : new String(policy, java.nio.charset.StandardCharsets.UTF_8)));
+            } catch (Exception failure) {
+                throw new IllegalStateException(failure);
+            }
         }
     }
 
-    @Test void bootstrapLoadedRuntimeCanLocateItsJarWithoutCodeSource() throws Exception {
+    @Test
+    void bootstrapLoadedRuntimeCanLocateItsJarWithoutCodeSource() throws Exception {
         final Path agent = temporary.resolve("agent.jar");
         try (var zip = new JarOutputStream(Files.newOutputStream(agent))) {
             add(zip, FrameworkBuildInfo.class);
@@ -38,10 +44,14 @@ final class FrameworkRuntimeArtifactTest {
         }
         final Path output = temporary.resolve("boot-probe.log");
         final Process process = new ProcessBuilder(
-                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-Xbootclasspath/a:" + agent + File.pathSeparator + System.getProperty("java.class.path"),
-                "-cp", System.getProperty("java.class.path"), BootProbe.class.getName())
-                .redirectErrorStream(true).redirectOutput(output.toFile()).start();
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-Xbootclasspath/a:" + agent + File.pathSeparator + System.getProperty("java.class.path"),
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        BootProbe.class.getName())
+                .redirectErrorStream(true)
+                .redirectOutput(output.toFile())
+                .start();
         if (!process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)) {
             process.destroyForcibly();
             fail("Bootstrap probe timed out");

@@ -10,10 +10,13 @@ import java.util.function.Consumer;
 
 /** Asynchronous product-to-UI adapter. Receipt loading and all admission IO stay off the caller's thread. */
 public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, AutoCloseable {
-    @FunctionalInterface interface PreparedDownload {
+    @FunctionalInterface
+    interface PreparedDownload {
         CompletableFuture<FrameworkUpdateCoordinator.Status> start();
     }
-    @FunctionalInterface interface Admission {
+
+    @FunctionalInterface
+    interface Admission {
         PreparedDownload prepare() throws Exception;
     }
 
@@ -31,9 +34,12 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
     private Registration discoverySubscription = () -> {};
     private Runnable ownedShutdown = () -> {};
 
-    public RuntimeFrameworkUpdates(final RuntimeUpdateService discovery,
-            final FrameworkInstallationReceiptLoader receipt, final FrameworkUpdateDownloader downloader,
-            final FrameworkUpdateCoordinator coordinator, final Executor io) {
+    public RuntimeFrameworkUpdates(
+            final RuntimeUpdateService discovery,
+            final FrameworkInstallationReceiptLoader receipt,
+            final FrameworkUpdateDownloader downloader,
+            final FrameworkUpdateCoordinator coordinator,
+            final Executor io) {
         this(coordinator, io, () -> {
             final var request = discovery.incrementalRequest(receipt);
             return () -> request.downloadWith(coordinator, downloader);
@@ -42,22 +48,25 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
         discoverySubscription = discovery.subscribe(s -> publish(state));
     }
 
-    RuntimeFrameworkUpdates(final FrameworkUpdateCoordinator coordinator, final Executor io, final Admission admission) {
+    RuntimeFrameworkUpdates(
+            final FrameworkUpdateCoordinator coordinator, final Executor io, final Admission admission) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.io = Objects.requireNonNull(io, "io");
         this.admission = Objects.requireNonNull(admission, "admission");
         unsubscribe = coordinator.subscribe(s -> publish(convert(s)));
     }
 
-    @Override public Snapshot snapshot() {
+    @Override
+    public Snapshot snapshot() {
         final Snapshot current = state;
         return current.phase() == Phase.IDLE && !capability.getAsBoolean()
-                ? new Snapshot(Phase.UNAVAILABLE, "", 0, 0, "") : current;
+                ? new Snapshot(Phase.UNAVAILABLE, "", 0, 0, "")
+                : current;
     }
 
     /** Production startup seam: absence of release activation or dedicated keys leaves installation unavailable. */
-    public static CoreFrameworkUpdates createConfigured(final java.nio.file.Path home,
-            final RuntimeUpdateService discovery, final Consumer<String> diagnostic) {
+    public static CoreFrameworkUpdates createConfigured(
+            final java.nio.file.Path home, final RuntimeUpdateService discovery, final Consumer<String> diagnostic) {
         java.util.concurrent.ExecutorService worker = null;
         java.util.concurrent.ScheduledExecutorService timer = null;
         try {
@@ -68,12 +77,16 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
             final var info = dev.turboism.core.FrameworkBuildInfo.current();
             final java.nio.file.Path root = home.toAbsolutePath().normalize();
             final java.nio.file.Path agent = FrameworkRuntimeArtifact.resolve();
-            if (!root.resolve("turboism-agent.jar").equals(agent) || info.dirty()
-                    || !info.buildKind().equals("ci") || info.buildNumber().isEmpty()) {
+            if (!root.resolve("turboism-agent.jar").equals(agent)
+                    || info.dirty()
+                    || !info.buildKind().equals("ci")
+                    || info.buildNumber().isEmpty()) {
                 throw new java.io.IOException("Numbered source-bound standard installation required");
             }
-            final java.nio.file.Path area = java.nio.file.Path.of(System.getProperty("user.home"),
-                    ".cache", "turboism", "self-update").toAbsolutePath().normalize();
+            final java.nio.file.Path area = java.nio.file.Path.of(
+                            System.getProperty("user.home"), ".cache", "turboism", "self-update")
+                    .toAbsolutePath()
+                    .normalize();
             if (area.startsWith(root) || root.startsWith(area)) {
                 throw new java.io.IOException("Update cache must be outside the installation");
             }
@@ -89,31 +102,43 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
                 return thread;
             });
             final var verifier = new UpdateManifestVerifier(keys);
-            final var downloader = new FrameworkUpdateDownloader(area.resolve("resources"), policy.source(),
-                    verifier, worker, timer);
-            final var coordinator = new FrameworkUpdateCoordinator(root, area.resolve("stages"),
-                    FrameworkUpdateHealth.workDirectory(root), agent,
-                    java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java"), worker,
-                    null, () -> ProcessHandle.current().pid());
-            final var result = new RuntimeFrameworkUpdates(discovery,
-                    new FrameworkInstallationReceiptLoader(root, verifier), downloader, coordinator, worker);
+            final var downloader =
+                    new FrameworkUpdateDownloader(area.resolve("resources"), policy.source(), verifier, worker, timer);
+            final var coordinator = new FrameworkUpdateCoordinator(
+                    root,
+                    area.resolve("stages"),
+                    FrameworkUpdateHealth.workDirectory(root),
+                    agent,
+                    java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java"),
+                    worker,
+                    null,
+                    () -> ProcessHandle.current().pid());
+            final var result = new RuntimeFrameworkUpdates(
+                    discovery, new FrameworkInstallationReceiptLoader(root, verifier), downloader, coordinator, worker);
             final var ownedWorker = worker;
             final var ownedTimer = timer;
-            result.ownedShutdown = () -> { ownedWorker.shutdownNow(); ownedTimer.shutdownNow(); };
+            result.ownedShutdown = () -> {
+                ownedWorker.shutdownNow();
+                ownedTimer.shutdownNow();
+            };
             return result;
         } catch (Exception unavailable) {
             if (worker != null) worker.shutdownNow();
             if (timer != null) timer.shutdownNow();
-            diagnostic.accept("FRAMEWORK_INSTALL_UNAVAILABLE: " + unavailable.getClass().getSimpleName());
+            diagnostic.accept(
+                    "FRAMEWORK_INSTALL_UNAVAILABLE: " + unavailable.getClass().getSimpleName());
             return CoreFrameworkUpdates.unavailable();
         }
     }
 
-    @Override public CompletableFuture<Snapshot> download() {
+    @Override
+    public CompletableFuture<Snapshot> download() {
         final long token;
         final CompletableFuture<Snapshot> result;
         synchronized (gate) {
-            if (closed || state.phase() == Phase.APPLY_PENDING || state.phase() == Phase.STAGED
+            if (closed
+                    || state.phase() == Phase.APPLY_PENDING
+                    || state.phase() == Phase.STAGED
                     || !capability.getAsBoolean()) {
                 return CompletableFuture.completedFuture(snapshot());
             }
@@ -150,13 +175,15 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
     private void finish(final long token, final CompletableFuture<Snapshot> result, final Throwable failure) {
         synchronized (gate) {
             if (!closed && token == generation && failure != null) {
-                publish(new Snapshot(Phase.FAILED, state.version(), 0, 0, failure.getClass().getSimpleName()));
+                publish(new Snapshot(
+                        Phase.FAILED, state.version(), 0, 0, failure.getClass().getSimpleName()));
             }
             result.complete(state);
         }
     }
 
-    @Override public void cancel() {
+    @Override
+    public void cancel() {
         synchronized (gate) {
             if (closed || state.phase() != Phase.DOWNLOADING) return;
             ++generation;
@@ -166,14 +193,16 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
         }
     }
 
-    @Override public CompletableFuture<Snapshot> installOnExit() {
+    @Override
+    public CompletableFuture<Snapshot> installOnExit() {
         synchronized (gate) {
             if (closed || state.phase() != Phase.STAGED) return CompletableFuture.completedFuture(state);
         }
         return coordinator.applyOnExit().thenApply(RuntimeFrameworkUpdates::convert);
     }
 
-    @Override public Registration subscribe(final Consumer<Snapshot> listener) {
+    @Override
+    public Registration subscribe(final Consumer<Snapshot> listener) {
         listeners.add(Objects.requireNonNull(listener, "listener"));
         listener.accept(snapshot());
         return () -> listeners.remove(listener);
@@ -182,21 +211,37 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
     private void publish(final Snapshot next) {
         state = next;
         for (final Consumer<Snapshot> listener : listeners) {
-            try { listener.accept(snapshot()); } catch (RuntimeException ignored) { /* UI must not break the transfer. */ }
+            try {
+                listener.accept(snapshot());
+            } catch (RuntimeException ignored) {
+                /* UI must not break the transfer. */
+            }
         }
     }
 
     private static Snapshot convert(final FrameworkUpdateCoordinator.Status status) {
-        return new Snapshot(Phase.valueOf(status.state().name()), status.version(),
-                status.bytesVerified(), status.bytesTotal(), status.message().orElse(""));
+        return new Snapshot(
+                Phase.valueOf(status.state().name()),
+                status.version(),
+                status.bytesVerified(),
+                status.bytesTotal(),
+                status.message().orElse(""));
     }
 
-    @Override public void close() {
+    @Override
+    public void close() {
         cancel();
-        synchronized (gate) { closed = true; ++generation; }
+        synchronized (gate) {
+            closed = true;
+            ++generation;
+        }
         unsubscribe.run();
         discoverySubscription.close();
-        try { coordinator.close(); } finally { ownedShutdown.run(); }
+        try {
+            coordinator.close();
+        } finally {
+            ownedShutdown.run();
+        }
         listeners.clear();
     }
 }

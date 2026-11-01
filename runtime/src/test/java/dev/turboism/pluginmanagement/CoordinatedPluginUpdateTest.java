@@ -1,5 +1,6 @@
 package dev.turboism.pluginmanagement;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,7 +37,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -82,11 +82,35 @@ class CoordinatedPluginUpdateTest {
         final BuiltArtifact artA = buildArtifact(pluginA, "alpha", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
         final BuiltArtifact artB = buildArtifact(pluginB, "beta", "2.0.0", "[0.44.0,0.45.0)", false, List.of());
 
-        final byte[] catalogBytes = catalogWithPlugins(1L, List.of(
-                pluginJson(pluginA, "alpha", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA))),
-                pluginJson(pluginB, "beta", "official", List.of(
-                        releaseJson("2.0.0", "stable", "active", "[0.44.0,0.45.0)", false, List.of(), List.of(), artB)))));
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(
+                        pluginJson(
+                                pluginA,
+                                "alpha",
+                                "official",
+                                List.of(releaseJson(
+                                        "1.1.0",
+                                        "stable",
+                                        "active",
+                                        "[0.43.0,0.45.0)",
+                                        false,
+                                        List.of(),
+                                        List.of(),
+                                        artA))),
+                        pluginJson(
+                                pluginB,
+                                "beta",
+                                "official",
+                                List.of(releaseJson(
+                                        "2.0.0",
+                                        "stable",
+                                        "active",
+                                        "[0.44.0,0.45.0)",
+                                        false,
+                                        List.of(),
+                                        List.of(),
+                                        artB)))));
 
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalog catalog = verifier.verify(catalogBytes, sigBytes);
@@ -95,8 +119,28 @@ class CoordinatedPluginUpdateTest {
         final PluginVersion targetApi = PluginVersion.parse("0.44.0");
 
         final List<CorePluginManagement.PluginInfo> installed = List.of(
-                new CorePluginManagement.PluginInfo(pluginA, "Alpha", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()),
-                new CorePluginManagement.PluginInfo(pluginB, "Beta", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()));
+                new CorePluginManagement.PluginInfo(
+                        pluginA,
+                        "Alpha",
+                        "1.0.0",
+                        "",
+                        "LIVE",
+                        "LIVE",
+                        false,
+                        Optional.empty(),
+                        "integration",
+                        List.of()),
+                new CorePluginManagement.PluginInfo(
+                        pluginB,
+                        "Beta",
+                        "1.0.0",
+                        "",
+                        "LIVE",
+                        "LIVE",
+                        false,
+                        Optional.empty(),
+                        "integration",
+                        List.of()));
 
         final CoordinatedPluginUpdateService service = new CoordinatedPluginUpdateService(
                 tempHome,
@@ -109,12 +153,18 @@ class CoordinatedPluginUpdateTest {
         final List<PluginUpdateRow> rows = service.planCoordinatedUpdates(catalog, installed, Optional.of(targetApi));
         assertEquals(2, rows.size());
 
-        final PluginUpdateRow rowA = rows.stream().filter(r -> r.pluginId().equals(pluginA)).findFirst().orElseThrow();
+        final PluginUpdateRow rowA = rows.stream()
+                .filter(r -> r.pluginId().equals(pluginA))
+                .findFirst()
+                .orElseThrow();
         assertEquals(CompatibilityStatus.DUAL_COMPATIBLE, rowA.status());
         assertEquals("1.1.0", rowA.targetVersion());
         assertTrue(rowA.selected(), "Enabled dual-compatible plugin should be selected by default");
 
-        final PluginUpdateRow rowB = rows.stream().filter(r -> r.pluginId().equals(pluginB)).findFirst().orElseThrow();
+        final PluginUpdateRow rowB = rows.stream()
+                .filter(r -> r.pluginId().equals(pluginB))
+                .findFirst()
+                .orElseThrow();
         assertEquals(CompatibilityStatus.FUTURE_ONLY, rowB.status());
         assertFalse(rowB.selected(), "Future-only plugin must not be selected by default");
         assertTrue(rowB.explanation().contains("target API only"), "Explanation should note rollback unsafety");
@@ -125,15 +175,40 @@ class CoordinatedPluginUpdateTest {
         final String pluginA = "dev.turboism.plugin.main";
         final String pluginB = "dev.turboism.plugin.dep";
 
-        final String depDecl = "{\"id\":\"" + pluginB + "\",\"version\":\"[1.1.0,2.0.0)\",\"type\":\"required\",\"ordering\":\"none\"}";
+        final String depDecl = "{\"id\":\"" + pluginB
+                + "\",\"version\":\"[1.1.0,2.0.0)\",\"type\":\"required\",\"ordering\":\"none\"}";
         final BuiltArtifact artB = buildArtifact(pluginB, "dep", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
         final BuiltArtifact artA = buildArtifact(pluginA, "main", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
 
-        final byte[] catalogBytes = catalogWithPlugins(1L, List.of(
-                pluginJson(pluginA, "main", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(depDecl), artA))),
-                pluginJson(pluginB, "dep", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artB)))));
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(
+                        pluginJson(
+                                pluginA,
+                                "main",
+                                "official",
+                                List.of(releaseJson(
+                                        "1.1.0",
+                                        "stable",
+                                        "active",
+                                        "[0.43.0,0.45.0)",
+                                        false,
+                                        List.of(),
+                                        List.of(depDecl),
+                                        artA))),
+                        pluginJson(
+                                pluginB,
+                                "dep",
+                                "official",
+                                List.of(releaseJson(
+                                        "1.1.0",
+                                        "stable",
+                                        "active",
+                                        "[0.43.0,0.45.0)",
+                                        false,
+                                        List.of(),
+                                        List.of(),
+                                        artB)))));
 
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalog catalog = verifier.verify(catalogBytes, sigBytes);
@@ -143,12 +218,35 @@ class CoordinatedPluginUpdateTest {
 
         // Plugin B is disabled initially; plugin A is enabled
         final List<CorePluginManagement.PluginInfo> installed = List.of(
-                new CorePluginManagement.PluginInfo(pluginA, "Main", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()),
-                new CorePluginManagement.PluginInfo(pluginB, "Dep", "1.0.0", "", "DISABLED", "DISABLED", false, Optional.empty(), "integration", List.of()));
+                new CorePluginManagement.PluginInfo(
+                        pluginA,
+                        "Main",
+                        "1.0.0",
+                        "",
+                        "LIVE",
+                        "LIVE",
+                        false,
+                        Optional.empty(),
+                        "integration",
+                        List.of()),
+                new CorePluginManagement.PluginInfo(
+                        pluginB,
+                        "Dep",
+                        "1.0.0",
+                        "",
+                        "DISABLED",
+                        "DISABLED",
+                        false,
+                        Optional.empty(),
+                        "integration",
+                        List.of()));
 
         final CoordinatedPluginUpdateService service = new CoordinatedPluginUpdateService(
                 tempHome,
-                stubClient(catalogBytes, sigBytes, Map.of(URI.create(artA.url()), artA.bytes(), URI.create(artB.url()), artB.bytes())),
+                stubClient(
+                        catalogBytes,
+                        sigBytes,
+                        Map.of(URI.create(artA.url()), artA.bytes(), URI.create(artB.url()), artB.bytes())),
                 new PendingPluginOperations(tempHome),
                 FrameworkBuildInfo.Channel.STABLE,
                 Optional::empty,
@@ -157,17 +255,26 @@ class CoordinatedPluginUpdateTest {
         List<PluginUpdateRow> rows = service.planCoordinatedUpdates(catalog, installed, Optional.of(targetApi));
 
         // Dependency closure on default selection: B was disabled, but A requires B, so B must be auto-selected!
-        final PluginUpdateRow depRowInitial = rows.stream().filter(r -> r.pluginId().equals(pluginB)).findFirst().orElseThrow();
+        final PluginUpdateRow depRowInitial = rows.stream()
+                .filter(r -> r.pluginId().equals(pluginB))
+                .findFirst()
+                .orElseThrow();
         assertTrue(depRowInitial.selected(), "Required dependency B must be auto-selected when A is selected");
 
         // Uncheck dependency: main should automatically be unchecked
         rows = service.toggleSelection(rows, pluginB, false);
-        final PluginUpdateRow mainRowAfterDepUncheck = rows.stream().filter(r -> r.pluginId().equals(pluginA)).findFirst().orElseThrow();
+        final PluginUpdateRow mainRowAfterDepUncheck = rows.stream()
+                .filter(r -> r.pluginId().equals(pluginA))
+                .findFirst()
+                .orElseThrow();
         assertFalse(mainRowAfterDepUncheck.selected(), "Unchecking dependency B must deselect depending plugin A");
 
         // Re-check main: dependency B should automatically be re-checked
         rows = service.toggleSelection(rows, pluginA, true);
-        final PluginUpdateRow depRowAfterMainCheck = rows.stream().filter(r -> r.pluginId().equals(pluginB)).findFirst().orElseThrow();
+        final PluginUpdateRow depRowAfterMainCheck = rows.stream()
+                .filter(r -> r.pluginId().equals(pluginB))
+                .findFirst()
+                .orElseThrow();
         assertTrue(depRowAfterMainCheck.selected(), "Checking plugin A must auto-select required dependency B");
     }
 
@@ -176,9 +283,14 @@ class CoordinatedPluginUpdateTest {
         final String pluginA = "dev.turboism.plugin.isolated";
         final BuiltArtifact artA = buildArtifact(pluginA, "isolated", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
 
-        final byte[] catalogBytes = catalogWithPlugins(1L, List.of(
-                pluginJson(pluginA, "isolated", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(pluginJson(
+                        pluginA,
+                        "isolated",
+                        "official",
+                        List.of(releaseJson(
+                                "1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
 
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalog catalog = verifier.verify(catalogBytes, sigBytes);
@@ -186,8 +298,8 @@ class CoordinatedPluginUpdateTest {
         final PluginVersion currentApi = PluginVersion.parse("0.43.0");
         final PluginVersion targetApi = PluginVersion.parse("0.44.0");
 
-        final List<CorePluginManagement.PluginInfo> installed = List.of(
-                new CorePluginManagement.PluginInfo(pluginA, "Isolated", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()));
+        final List<CorePluginManagement.PluginInfo> installed = List.of(new CorePluginManagement.PluginInfo(
+                pluginA, "Isolated", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()));
 
         final PendingPluginOperations pending = new PendingPluginOperations(tempHome);
 
@@ -202,7 +314,8 @@ class CoordinatedPluginUpdateTest {
         final List<PluginUpdateRow> rows = service.planCoordinatedUpdates(catalog, installed, Optional.of(targetApi));
 
         // 1. Download and prepare
-        final DownloadResult downloadRes = service.downloadAndPrepare(rows, Optional.of(targetApi), new AtomicBoolean(false));
+        final DownloadResult downloadRes =
+                service.downloadAndPrepare(rows, Optional.of(targetApi), new AtomicBoolean(false));
         assertTrue(downloadRes.succeeded());
         assertEquals(1, downloadRes.prepared().size());
 
@@ -224,9 +337,14 @@ class CoordinatedPluginUpdateTest {
         final String pluginA = "dev.turboism.plugin.fail";
         final BuiltArtifact artA = buildArtifact(pluginA, "fail", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
 
-        final byte[] catalogBytes = catalogWithPlugins(1L, List.of(
-                pluginJson(pluginA, "fail", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(pluginJson(
+                        pluginA,
+                        "fail",
+                        "official",
+                        List.of(releaseJson(
+                                "1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalog catalog = verifier.verify(catalogBytes, sigBytes);
 
@@ -246,10 +364,21 @@ class CoordinatedPluginUpdateTest {
 
         final List<PluginUpdateRow> rows = service.planCoordinatedUpdates(
                 catalog,
-                List.of(new CorePluginManagement.PluginInfo(pluginA, "Fail", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of())),
+                List.of(new CorePluginManagement.PluginInfo(
+                        pluginA,
+                        "Fail",
+                        "1.0.0",
+                        "",
+                        "LIVE",
+                        "LIVE",
+                        false,
+                        Optional.empty(),
+                        "integration",
+                        List.of())),
                 Optional.of(PluginVersion.parse("0.44.0")));
 
-        final DownloadResult res = service.downloadAndPrepare(rows, Optional.of(PluginVersion.parse("0.44.0")), new AtomicBoolean(false));
+        final DownloadResult res =
+                service.downloadAndPrepare(rows, Optional.of(PluginVersion.parse("0.44.0")), new AtomicBoolean(false));
         assertFalse(res.succeeded(), "Corrupted download must fail");
         assertTrue(pending.operations().isEmpty(), "Failure must leave no pending operations");
     }
@@ -259,9 +388,14 @@ class CoordinatedPluginUpdateTest {
         final String pluginA = "dev.turboism.plugin.inflight";
         final BuiltArtifact artA = buildArtifact(pluginA, "inflight", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
 
-        final byte[] catalogBytes = catalogWithPlugins(1L, List.of(
-                pluginJson(pluginA, "inflight", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(pluginJson(
+                        pluginA,
+                        "inflight",
+                        "official",
+                        List.of(releaseJson(
+                                "1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
 
         // Install local plugin jar v1.0.0
@@ -285,7 +419,8 @@ class CoordinatedPluginUpdateTest {
         final RuntimeSettingsService settings = new StubSettingsService();
         final dev.turboism.core.runtime.RuntimeScheduler scheduler = new dev.turboism.core.runtime.RuntimeScheduler(
                 new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
-                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(1, 8, ignored -> {}, java.time.Clock.systemUTC()),
+                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
+                        1, 8, ignored -> {}, java.time.Clock.systemUTC()),
                 dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
                 ignored -> {});
         final RuntimePluginAutoUpdater autoUpdater = new RuntimePluginAutoUpdater(
@@ -322,13 +457,75 @@ class CoordinatedPluginUpdateTest {
             assertEquals(0, snap.stagedUpdates().size(), "Auto updater must not stage updates while gate is held");
 
             final PendingPluginOperations pending = new PendingPluginOperations(tempHome);
-            assertTrue(pending.operations().isEmpty(), "Auto-updater must be rejected by gate and leave pending journal empty");
+            assertTrue(
+                    pending.operations().isEmpty(),
+                    "Auto-updater must be rejected by gate and leave pending journal empty");
 
             lease.get().close();
         } finally {
             RuntimePluginAutoUpdater.testBeforeStageHook = null;
             autoUpdater.close();
             allowStageLatch.countDown();
+        }
+    }
+
+    @Test
+    void frameworkTaskHoldingTheGateBeforeTheCycleBlocksPluginAutoStage() throws Exception {
+        final String pluginId = "dev.turboism.plugin.gated";
+        final BuiltArtifact localArt = buildArtifact(pluginId, "gated", "1.0.0", "[0.43.0,0.45.0)", false, List.of());
+        final Path pluginJar = tempHome.resolve("plugins").resolve(pluginId + ".jar");
+        Files.createDirectories(pluginJar.getParent());
+        Files.write(pluginJar, localArt.bytes());
+
+        final BuiltArtifact art = buildArtifact(pluginId, "gated", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(pluginJson(
+                        pluginId,
+                        "gated",
+                        "official",
+                        List.of(releaseJson(
+                                "1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), art)))));
+        final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
+
+        final AtomicBoolean stageHookReached = new AtomicBoolean();
+        RuntimePluginAutoUpdater.testBeforeStageHook = () -> stageHookReached.set(true);
+        final List<String> diagnostics = new ArrayList<>();
+
+        final dev.turboism.core.runtime.RuntimeScheduler scheduler = new dev.turboism.core.runtime.RuntimeScheduler(
+                new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
+                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
+                        1, 8, ignored -> {}, java.time.Clock.systemUTC()),
+                dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
+                ignored -> {});
+        final RuntimePluginAutoUpdater autoUpdater = new RuntimePluginAutoUpdater(
+                tempHome,
+                scheduler,
+                new StubSettingsService(),
+                stubClient(catalogBytes, sigBytes, Map.of(URI.create(art.url()), art.bytes())),
+                verifier,
+                java.time.Clock.systemUTC(),
+                FrameworkBuildInfo.Channel.STABLE,
+                Optional::empty,
+                PluginVersion.parse("0.43.0"),
+                Duration.ZERO,
+                Duration.ofHours(24),
+                diagnostics::add);
+
+        try (var lease = PluginUpdateGate.acquireLease(tempHome).orElseThrow()) {
+            // The framework task is already holding the gate when the cycle starts.
+            final PluginAutoUpdateControl.Snapshot snap =
+                    autoUpdater.checkForPluginUpdates().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            assertEquals(PluginAutoUpdateControl.Status.UNAVAILABLE, snap.status());
+            assertTrue(diagnostics.contains("PLUGIN_UPDATE_GATE_LOCKED"), "Gate must block the cycle: " + diagnostics);
+            assertFalse(stageHookReached.get(), "No download or staging work may start while the gate is held");
+            assertTrue(
+                    new PendingPluginOperations(tempHome).operations().isEmpty(),
+                    "A gate-blocked cycle must leave the pending journal untouched");
+            assertArrayEquals(localArt.bytes(), Files.readAllBytes(pluginJar), "Installed bytes must stay unchanged");
+        } finally {
+            autoUpdater.close();
         }
     }
 
@@ -341,8 +538,11 @@ class CoordinatedPluginUpdateTest {
         final BuiltArtifact art1 = buildArtifact(p1, "one", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
         final Path temp1 = Files.createTempFile(stagingPackages, "stage-", ".jar");
         Files.write(temp1, art1.bytes());
-        final dev.turboism.distribution.LocalPluginJarPreparer preparer = new dev.turboism.distribution.LocalPluginJarPreparer();
-        final PreparedPluginJar prep1 = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(temp1, stagingPackages)).value();
+        final dev.turboism.distribution.LocalPluginJarPreparer preparer =
+                new dev.turboism.distribution.LocalPluginJarPreparer();
+        final PreparedPluginJar prep1 = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
+                        preparer.prepare(temp1, stagingPackages))
+                .value();
         Files.deleteIfExists(temp1);
 
         final PendingPluginOperations pending = new PendingPluginOperations(tempHome);
@@ -358,7 +558,9 @@ class CoordinatedPluginUpdateTest {
         final BuiltArtifact art2 = buildArtifact(p2, "two", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
         final Path temp2 = Files.createTempFile(stagingPackages, "stage-", ".jar");
         Files.write(temp2, art2.bytes());
-        final PreparedPluginJar prep2 = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(temp2, stagingPackages)).value();
+        final PreparedPluginJar prep2 = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
+                        preparer.prepare(temp2, stagingPackages))
+                .value();
         Files.deleteIfExists(temp2);
 
         // Tamper prep2 file
@@ -375,9 +577,14 @@ class CoordinatedPluginUpdateTest {
         final String pluginA = "dev.turboism.plugin.barrier";
         final BuiltArtifact artA = buildArtifact(pluginA, "barrier", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
 
-        final byte[] catalogBytes = catalogWithPlugins(1L, List.of(
-                pluginJson(pluginA, "barrier", "official", List.of(
-                        releaseJson("1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
+        final byte[] catalogBytes = catalogWithPlugins(
+                1L,
+                List.of(pluginJson(
+                        pluginA,
+                        "barrier",
+                        "official",
+                        List.of(releaseJson(
+                                "1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(), artA)))));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
 
         final Path pluginJar = tempHome.resolve("plugins").resolve(pluginA + ".jar");
@@ -400,7 +607,8 @@ class CoordinatedPluginUpdateTest {
         final RuntimeSettingsService settings = new StubSettingsService();
         final dev.turboism.core.runtime.RuntimeScheduler scheduler = new dev.turboism.core.runtime.RuntimeScheduler(
                 new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
-                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(1, 8, ignored -> {}, java.time.Clock.systemUTC()),
+                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
+                        1, 8, ignored -> {}, java.time.Clock.systemUTC()),
                 dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
                 ignored -> {});
         final RuntimePluginAutoUpdater autoUpdater = new RuntimePluginAutoUpdater(
@@ -421,7 +629,8 @@ class CoordinatedPluginUpdateTest {
             final CompletableFuture<PluginAutoUpdateControl.Snapshot> future =
                     autoUpdater.checkForPluginUpdates().toCompletableFuture();
 
-            assertTrue(insideCriticalSectionLatch.await(5, TimeUnit.SECONDS), "Must reach hook inside critical section");
+            assertTrue(
+                    insideCriticalSectionLatch.await(5, TimeUnit.SECONDS), "Must reach hook inside critical section");
 
             final CountDownLatch competitorStarted = new CountDownLatch(1);
             final var competitor = CompletableFuture.supplyAsync(() -> {
@@ -429,8 +638,10 @@ class CoordinatedPluginUpdateTest {
                 return PluginUpdateGate.acquireLease(tempHome);
             });
             assertTrue(competitorStarted.await(5, TimeUnit.SECONDS));
-            org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.TimeoutException.class,
-                    () -> competitor.get(100, TimeUnit.MILLISECONDS), "Lease cannot enter the auto mutation section");
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    java.util.concurrent.TimeoutException.class,
+                    () -> competitor.get(100, TimeUnit.MILLISECONDS),
+                    "Lease cannot enter the auto mutation section");
             allowCriticalSectionExitLatch.countDown();
             future.get(5, TimeUnit.SECONDS);
             try (var lease = competitor.get(5, TimeUnit.SECONDS).orElseThrow()) {
@@ -462,8 +673,8 @@ class CoordinatedPluginUpdateTest {
                 Optional::empty,
                 PluginVersion.parse("0.43.0"));
 
-        final List<CorePluginManagement.PluginInfo> installed = List.of(
-                new CorePluginManagement.PluginInfo(enabledOldId, "Old", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()));
+        final List<CorePluginManagement.PluginInfo> installed = List.of(new CorePluginManagement.PluginInfo(
+                enabledOldId, "Old", "1.0.0", "", "LIVE", "LIVE", false, Optional.empty(), "integration", List.of()));
 
         // Framework-only commit (preparedBatch is empty): must still detect incompatible enabled plugin!
         final CommitResult res1 = service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), installed);
@@ -474,11 +685,15 @@ class CoordinatedPluginUpdateTest {
         final Path stagingPackages = tempHome.resolve("state/runtime/plugin-management/packages");
         Files.createDirectories(stagingPackages);
         final String pendingId = "dev.turboism.plugin.pendingbad";
-        final BuiltArtifact badArt = buildArtifact(pendingId, "pendingbad", "1.0.0", "[0.43.0,0.43.99)", false, List.of());
+        final BuiltArtifact badArt =
+                buildArtifact(pendingId, "pendingbad", "1.0.0", "[0.43.0,0.43.99)", false, List.of());
         final Path tempStaged = Files.createTempFile(stagingPackages, "stage-", ".jar");
         Files.write(tempStaged, badArt.bytes());
-        final dev.turboism.distribution.LocalPluginJarPreparer preparer = new dev.turboism.distribution.LocalPluginJarPreparer();
-        final PreparedPluginJar prepBad = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(tempStaged, stagingPackages)).value();
+        final dev.turboism.distribution.LocalPluginJarPreparer preparer =
+                new dev.turboism.distribution.LocalPluginJarPreparer();
+        final PreparedPluginJar prepBad = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
+                        preparer.prepare(tempStaged, stagingPackages))
+                .value();
         Files.deleteIfExists(tempStaged);
         pending.stage(prepBad);
 
@@ -487,13 +702,17 @@ class CoordinatedPluginUpdateTest {
         assertTrue(res2.message().contains("Existing pending plugin 'dev.turboism.plugin.pendingbad'"));
 
         // Case 3: Implicit downgrade rejection
-        final BuiltArtifact v09Art = buildArtifact(pendingId, "pendingbad", "0.9.0", "[0.43.0,0.45.0)", false, List.of());
+        final BuiltArtifact v09Art =
+                buildArtifact(pendingId, "pendingbad", "0.9.0", "[0.43.0,0.45.0)", false, List.of());
         final Path tempStagedDowngrade = Files.createTempFile(stagingPackages, "stage-", ".jar");
         Files.write(tempStagedDowngrade, v09Art.bytes());
-        final PreparedPluginJar prepDowngrade = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(tempStagedDowngrade, stagingPackages)).value();
+        final PreparedPluginJar prepDowngrade = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
+                        preparer.prepare(tempStagedDowngrade, stagingPackages))
+                .value();
         Files.deleteIfExists(tempStagedDowngrade);
 
-        final CommitResult res3 = service.commitStagedBatch(List.of(prepDowngrade), PluginVersion.parse("0.44.0"), List.of());
+        final CommitResult res3 =
+                service.commitStagedBatch(List.of(prepDowngrade), PluginVersion.parse("0.44.0"), List.of());
         assertFalse(res3.succeeded());
         assertTrue(res3.message().contains("Cannot downgrade plugin"));
     }
@@ -510,19 +729,24 @@ class CoordinatedPluginUpdateTest {
 
         // 2. Existing third-party plugin that must NOT be touched
         final String thirdPartyId = "com.thirdparty.tool";
-        final BuiltArtifact thirdPartyArt = buildArtifact(thirdPartyId, "thirdparty", "0.9.0", "[0.43.0,0.45.0)", false, List.of());
+        final BuiltArtifact thirdPartyArt =
+                buildArtifact(thirdPartyId, "thirdparty", "0.9.0", "[0.43.0,0.45.0)", false, List.of());
         Files.write(pluginsDir.resolve(thirdPartyId + ".jar"), thirdPartyArt.bytes());
 
         // 3. Stage batch update for official plugin to 1.1.0
-        final BuiltArtifact v11Art = buildArtifact(officialId, "official", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
+        final BuiltArtifact v11Art =
+                buildArtifact(officialId, "official", "1.1.0", "[0.43.0,0.45.0)", false, List.of());
         final Path stagingPackages = tempHome.resolve("state/runtime/plugin-management/packages");
         Files.createDirectories(stagingPackages);
         final Path tempStaging = Files.createTempFile(stagingPackages, "stage-", ".jar");
         Files.write(tempStaging, v11Art.bytes());
 
-        final dev.turboism.distribution.LocalPluginJarPreparer preparer = new dev.turboism.distribution.LocalPluginJarPreparer();
-        final dev.turboism.distribution.PreparedPluginJar prep = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
-                preparer.prepare(tempStaging, stagingPackages)).value();
+        final dev.turboism.distribution.LocalPluginJarPreparer preparer =
+                new dev.turboism.distribution.LocalPluginJarPreparer();
+        final dev.turboism.distribution.PreparedPluginJar prep =
+                ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared)
+                                preparer.prepare(tempStaging, stagingPackages))
+                        .value();
         Files.deleteIfExists(tempStaging);
 
         final PendingPluginOperations pending = new PendingPluginOperations(tempHome);
@@ -556,21 +780,35 @@ class CoordinatedPluginUpdateTest {
         final BuiltArtifact plainA = buildArtifact(a, "graph-a", "1.0.0", "[0.43.0,0.45.0)", false, List.of());
         final byte[] aBytes = withDependency(plainA.bytes(), b);
         Files.write(dir.resolve("graph-a-versioned.jar"), aBytes);
-        Files.write(dir.resolve("graph-b-versioned.jar"), buildArtifact(b, "graph-b", "1.0.0", "[0.43.0,0.45.0)", false, List.of()).bytes());
+        Files.write(
+                dir.resolve("graph-b-versioned.jar"),
+                buildArtifact(b, "graph-b", "1.0.0", "[0.43.0,0.45.0)", false, List.of())
+                        .bytes());
         final PendingPluginOperations pending = new PendingPluginOperations(tempHome);
-        final var service = new CoordinatedPluginUpdateService(tempHome, new PluginCatalogClient(), pending,
-                FrameworkBuildInfo.Channel.STABLE, Optional::empty, PluginVersion.parse("0.43.0"));
+        final var service = new CoordinatedPluginUpdateService(
+                tempHome,
+                new PluginCatalogClient(),
+                pending,
+                FrameworkBuildInfo.Channel.STABLE,
+                Optional::empty,
+                PluginVersion.parse("0.43.0"));
         final var activeA = info(a, true);
         final var activeB = info(b, true);
-        assertTrue(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(activeA, activeB)).succeeded());
-        assertFalse(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(activeA, info(b, false))).succeeded());
+        assertTrue(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(activeA, activeB))
+                .succeeded());
+        assertFalse(
+                service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(activeA, info(b, false)))
+                        .succeeded());
         assertTrue(pending.stageUninstall(b).accepted());
-        final byte[] originalJournal = Files.readAllBytes(tempHome.resolve("state/runtime/plugin-management/pending.json"));
-        assertFalse(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(activeA, activeB)).succeeded());
-        org.junit.jupiter.api.Assertions.assertArrayEquals(originalJournal,
-                Files.readAllBytes(tempHome.resolve("state/runtime/plugin-management/pending.json")));
+        final byte[] originalJournal =
+                Files.readAllBytes(tempHome.resolve("state/runtime/plugin-management/pending.json"));
+        assertFalse(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(activeA, activeB))
+                .succeeded());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(
+                originalJournal, Files.readAllBytes(tempHome.resolve("state/runtime/plugin-management/pending.json")));
         // A disabled, non-loading plugin's unmet dependency must not block an unrelated framework update.
-        assertTrue(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(info(a, false), activeB)).succeeded());
+        assertTrue(service.commitStagedBatch(List.of(), PluginVersion.parse("0.44.0"), List.of(info(a, false), activeB))
+                .succeeded());
     }
 
     @Test
@@ -579,11 +817,19 @@ class CoordinatedPluginUpdateTest {
         final Path packages = tempHome.resolve("state/runtime/plugin-management/packages");
         Files.createDirectories(packages);
         final Path aJar = tempHome.resolve("a.jar"), bJar = tempHome.resolve("b.jar");
-        Files.write(aJar, buildArtifact("dev.turboism.plugin.batcha", "batch-a", "1.0.0", "[0.43.0,0.45.0)", false, List.of()).bytes());
-        Files.write(bJar, buildArtifact("dev.turboism.plugin.batchb", "batch-b", "1.0.0", "[0.43.0,0.45.0)", false, List.of()).bytes());
+        Files.write(
+                aJar,
+                buildArtifact("dev.turboism.plugin.batcha", "batch-a", "1.0.0", "[0.43.0,0.45.0)", false, List.of())
+                        .bytes());
+        Files.write(
+                bJar,
+                buildArtifact("dev.turboism.plugin.batchb", "batch-b", "1.0.0", "[0.43.0,0.45.0)", false, List.of())
+                        .bytes());
         final var preparer = new dev.turboism.distribution.LocalPluginJarPreparer();
-        final var a = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(aJar, packages)).value();
-        final var b = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(bJar, packages)).value();
+        final var a =
+                ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(aJar, packages)).value();
+        final var b =
+                ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparer.prepare(bJar, packages)).value();
         final var before = pending.operations();
         assertTrue(pending.stage(a).accepted());
         final Path journal = tempHome.resolve("state/runtime/plugin-management/pending.json");
@@ -596,19 +842,31 @@ class CoordinatedPluginUpdateTest {
     }
 
     private static CorePluginManagement.PluginInfo info(final String id, final boolean enabled) {
-        return new CorePluginManagement.PluginInfo(id, id, "1.0.0", "", "LIVE", enabled ? "ENABLED" : "DISABLED",
-                false, Optional.empty(), "integration", List.of());
+        return new CorePluginManagement.PluginInfo(
+                id,
+                id,
+                "1.0.0",
+                "",
+                "LIVE",
+                enabled ? "ENABLED" : "DISABLED",
+                false,
+                Optional.empty(),
+                "integration",
+                List.of());
     }
 
     private static byte[] withDependency(final byte[] jarBytes, final String id) throws Exception {
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (var in = new java.util.jar.JarInputStream(new java.io.ByteArrayInputStream(jarBytes));
                 var out = new JarOutputStream(bytes)) {
-            for (java.util.jar.JarEntry entry; (entry = in.getNextJarEntry()) != null;) {
+            for (java.util.jar.JarEntry entry; (entry = in.getNextJarEntry()) != null; ) {
                 byte[] data = in.readAllBytes();
                 if (entry.getName().equals("META-INF/turboism/plugin.json")) {
-                    String text = new String(data, StandardCharsets.UTF_8).replace("\"dependencies\":[]",
-                            "\"dependencies\":[{\"id\":\"" + id + "\",\"type\":\"required\",\"version\":\"[1.0.0,2.0.0)\",\"ordering\":\"before\"}]");
+                    String text = new String(data, StandardCharsets.UTF_8)
+                            .replace(
+                                    "\"dependencies\":[]",
+                                    "\"dependencies\":[{\"id\":\"" + id
+                                            + "\",\"type\":\"required\",\"version\":\"[1.0.0,2.0.0)\",\"ordering\":\"before\"}]");
                     data = text.getBytes(StandardCharsets.UTF_8);
                 }
                 putEntry(out, entry.getName(), data);
@@ -627,10 +885,7 @@ class CoordinatedPluginUpdateTest {
     }
 
     private static String pluginJson(
-            final String pluginId,
-            final String slug,
-            final String trust,
-            final List<String> releasesJson) {
+            final String pluginId, final String slug, final String trust, final List<String> releasesJson) {
         return "{"
                 + "\"id\":\"" + pluginId + "\","
                 + "\"slug\":\"" + slug + "\","
@@ -672,7 +927,8 @@ class CoordinatedPluginUpdateTest {
                 + "\"platforms\":[\"windows-x64\"],"
                 + "\"dependencies\":[" + String.join(",", dependenciesJson) + "],"
                 + "\"permissions\":[],"
-                + "\"releaseUrl\":\"https://github.com/turboism/turboism-plugin-directory/releases/tag/plugin-" + version + "\","
+                + "\"releaseUrl\":\"https://github.com/turboism/turboism-plugin-directory/releases/tag/plugin-"
+                + version + "\","
                 + "\"artifact\":{"
                 + "\"mediaType\":\"application/java-archive\","
                 + "\"fileName\":\"" + artifact.fileName() + "\","
@@ -718,7 +974,10 @@ class CoordinatedPluginUpdateTest {
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(out)) {
             putEntry(jar, "META-INF/turboism/plugin.json", descriptorBytes);
-            putEntry(jar, "META-INF/turboism/i18n/messages.properties", "plugin.name=Test\n".getBytes(StandardCharsets.UTF_8));
+            putEntry(
+                    jar,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "plugin.name=Test\n".getBytes(StandardCharsets.UTF_8));
             putEntry(jar, entrypoint.replace('.', '/') + ".class", new byte[] {0});
             if (requiresCubism) {
                 final String versionsJson = supportedCubism.stream()
@@ -726,7 +985,8 @@ class CoordinatedPluginUpdateTest {
                         .reduce((a, b) -> a + "," + b)
                         .orElse("");
                 final String sidecar = "{\"format\":\"turboism.plugin-cubism-versions/v1\",\"plugin\":\"" + id
-                        + "\",\"supportedVersions\":[" + versionsJson + "],\"fullFeatureVersions\":[" + versionsJson + "]}";
+                        + "\",\"supportedVersions\":[" + versionsJson + "],\"fullFeatureVersions\":[" + versionsJson
+                        + "]}";
                 putEntry(jar, "META-INF/turboism/cubism-versions.json", sidecar.getBytes(StandardCharsets.UTF_8));
             }
         }
@@ -734,7 +994,8 @@ class CoordinatedPluginUpdateTest {
         final String fileName = slug + "-" + version + ".jar";
         final String url = "https://github.com/turboism/turboism-plugin-directory/releases/download/plugin-" + slug
                 + "-v" + version + "/" + fileName;
-        return new BuiltArtifact(fileName, url, jarBytes, sha256Hex(jarBytes), sha256Hex(descriptorBytes), jarBytes.length);
+        return new BuiltArtifact(
+                fileName, url, jarBytes, sha256Hex(jarBytes), sha256Hex(descriptorBytes), jarBytes.length);
     }
 
     private static void putEntry(final JarOutputStream jar, final String name, final byte[] bytes) throws IOException {
@@ -778,16 +1039,34 @@ class CoordinatedPluginUpdateTest {
             this.responseBytes = responseBytes;
         }
 
-        @Override public void connect() {}
-        @Override public void disconnect() {}
-        @Override public boolean usingProxy() { return false; }
-        @Override public InputStream getInputStream() { return new java.io.ByteArrayInputStream(responseBytes); }
-        @Override public int getResponseCode() { return responseCode; }
+        @Override
+        public void connect() {}
+
+        @Override
+        public void disconnect() {}
+
+        @Override
+        public boolean usingProxy() {
+            return false;
+        }
+
+        @Override
+        public InputStream getInputStream() {
+            return new java.io.ByteArrayInputStream(responseBytes);
+        }
+
+        @Override
+        public int getResponseCode() {
+            return responseCode;
+        }
 
         private static URL toUrl(final URI uri) {
             try {
                 return new URL("http", "example.test", 80, uri.getPath(), new URLStreamHandler() {
-                    @Override protected URLConnection openConnection(URL u) { throw new UnsupportedOperationException(); }
+                    @Override
+                    protected URLConnection openConnection(URL u) {
+                        throw new UnsupportedOperationException();
+                    }
                 });
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -796,11 +1075,22 @@ class CoordinatedPluginUpdateTest {
     }
 
     private static final class StubSettingsService implements dev.turboism.sdk.runtime.RuntimeSettingsService {
-        private final dev.turboism.sdk.runtime.RuntimeSettings settings =
-                new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", 100, false, false, false, false, "en", false);
+        private final dev.turboism.sdk.runtime.RuntimeSettings settings = new dev.turboism.sdk.runtime.RuntimeSettings(
+                false, "INFO", 100, false, false, false, false, "en", false);
 
-        @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return settings; }
-        @Override public dev.turboism.sdk.runtime.RuntimeSettings save(dev.turboism.sdk.runtime.RuntimeSettings value) { return value; }
-        @Override public DockCleanupResult cleanEmptyDocks() { return new DockCleanupResult("ok"); }
+        @Override
+        public dev.turboism.sdk.runtime.RuntimeSettings read() {
+            return settings;
+        }
+
+        @Override
+        public dev.turboism.sdk.runtime.RuntimeSettings save(dev.turboism.sdk.runtime.RuntimeSettings value) {
+            return value;
+        }
+
+        @Override
+        public DockCleanupResult cleanEmptyDocks() {
+            return new DockCleanupResult("ok");
+        }
     }
 }

@@ -460,9 +460,7 @@ public final class CoreShell implements ShellHandle {
         final CoreUpdateService updates = services.update();
         if (!updates.available()) return;
         registerAction(
-                CoreUpdateService.MANUAL_CHECK_ACTION_ID,
-                localized("updates.check", "Check for updates"),
-                ignored -> {
+                CoreUpdateService.MANUAL_CHECK_ACTION_ID, localized("updates.check", "Check for updates"), ignored -> {
                     windows.showUpdates(updates);
                     updates.checkManual();
                 });
@@ -472,8 +470,8 @@ public final class CoreShell implements ShellHandle {
                     .register(context.menus().contribute(new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
                         @Override
                         public String menuPath() {
-                            return root + "/" + localized("updates.install.title", "Updates")
-                                    + "/" + localized("updates.check", "Check for updates");
+                            return root + "/" + localized("updates.install.title", "Updates") + "/"
+                                    + localized("updates.check", "Check for updates");
                         }
 
                         @Override

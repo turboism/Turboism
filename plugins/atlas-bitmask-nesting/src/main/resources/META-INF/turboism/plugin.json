@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.texture-atlas-nesting",
   "name": "Bitmask Nesting",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Fast concave texture-atlas nesting with conservative bit masks and free-angle candidates.",
   "entrypoints": [
     "dev.turboism.plugin.atlasnesting.TextureAtlasNestingPlugin"

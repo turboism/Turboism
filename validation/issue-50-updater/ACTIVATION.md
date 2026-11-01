@@ -1,5 +1,10 @@
 # Framework self-update activation contract (not activated)
 
+Current rollout preparation is recorded in [activation-release-validation.md](activation-release-validation.md).
+The user has authorized activation and a verified main release; the signing switch is now enabled, while actual
+signed-package publication and the Windows upgrade acceptance remain pending. The 2026-11-01 provisioning details
+below describe the earlier disabled configuration.
+
 The normal runtime now constructs the installer adapter, but it remains UNAVAILABLE unless a reviewed release
 bundles both a client activation policy and dedicated framework signing authority. Neither resource is taken from
 an update feed, staged directory, settings file or unrelated classpath JAR. Development class directories do not

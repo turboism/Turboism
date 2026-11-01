@@ -89,8 +89,9 @@ final class PendingPluginChangesAction implements AutoCloseable {
 
     private void consent(final long request, final CorePluginManagement.PendingChanges snapshot) {
         if (closed.get() || request != generation) return;
-        if (snapshot == null || !("PLUGIN_PENDING_READY".equals(snapshot.code())
-                || "PLUGIN_PENDING_FAILED".equals(snapshot.code()))) {
+        if (snapshot == null
+                || !("PLUGIN_PENDING_READY".equals(snapshot.code())
+                        || "PLUGIN_PENDING_FAILED".equals(snapshot.code()))) {
             finish(request, snapshot == null ? "PLUGIN_PENDING_RECOVERY_REQUIRED" : snapshot.code());
             return;
         }

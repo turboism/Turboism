@@ -263,7 +263,11 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 - Trust model: GitHub Release `.sha256` sidecars, the plugin-template `setup.sh` sidecar check and a plugin's `packageHash` are same-origin integrity checks (they catch corruption, not tampering). Independent anchors are the Ed25519-signed plugin catalog, pinned Gradle verification metadata / wrapper `distributionSha256Sum` / the ManagedGraal archive pin, and R2 write verification.
 - Same-version different bytes fail with a version-not-bumped error. Assets are never overwritten.
 - Partial publication is resumable by uploading only absent immutable objects.
-- Plugin versions are descriptor-owned and independent of the framework version.
+- Plugin versions are descriptor-owned and independent of the framework version. The build never rewrites
+  `plugin.json`; installer payloads and market jars carry the version committed in source. Staging reuses a
+  cataloged release when the jar content is unchanged and otherwise publishes the next patch above the highest
+  cataloged version (or the committed version when that is higher). Bump the committed version and add a
+  matching README changelog entry when a plugin changes.
 - Plugin publication uses immutable GitHub Releases and a verified Ed25519-signed catalog v2.
 - Combined releases publish and publicly verify plugins first, then framework GitHub assets, then R2 immutable files. Mutable channel pointers are updated last.
 - v0.42.0 is an immutable baseline and must not be edited or backfilled with fabricated historical counts.
@@ -299,7 +303,10 @@ Release notes are always extracted from the exact version section of `CHANGELOG.
 
 Core release behavior belongs in tracked scripts, tests, and workflows. Do not place release decisions or credentials in `AGENTS.md`, `.claude/`, local specifications, or operator prompts. Optional user-level automation may only invoke this CLI.
 
-The framework workflow never receives the Plugin Directory signing key or Cloudflare credentials. The signing key remains in the Plugin Directory signing environment; Cloudflare credentials remain in the Updates service environment.
+The candidate build never receives signing keys or Cloudflare credentials. Its separate framework signing job uses
+the dedicated key in `framework-release-signing`; the protected `release-github-only.yml` publisher uses R2
+credentials from `production-release`. Both environments are limited to main. The Plugin Directory signing key
+remains in the Plugin Directory's own signing environment and is not framework signing authority.
 
 ## Global build ledger
 
@@ -333,7 +340,19 @@ the template repository (on a daily schedule and via `workflow_dispatch`):
    `turboismSdkVersion` in `gradle.properties`, commits if changed, and tags
    `sdk-<version>` using the template repository's own `GITHUB_TOKEN`.
 
-### Offline framework update signing (local tooling only)
+### Framework update signing and publication
+
+When `FRAMEWORK_UPDATE_SIGNING_ENABLED=true`, Stable/Beta candidates bundle the reviewed public keyring and client
+policy before the agent is assembled. The protected signing job signs the exact numbered payload, packages the
+initial installation receipt in both the ZIP and EXE, and rechecks the final bytes. Nightly keeps the existing
+full-package path. The minimum updater version is the first compatible enabled release and must remain supported
+by earlier installed clients as subsequent targets advance.
+
+Promotion with `framework_publish=initialize` registers the first candidate of a channel; later releases use
+`admit`. The publisher uploads immutable objects, obtains a real GitHub OIDC identity, and verifies public
+reachability before completing the GitHub release. `framework_publish=none` publishes only the full packages.
+The setup and package contract are documented in
+[BOOTSTRAP_RECEIPT.md](packaging/windows-installer/BOOTSTRAP_RECEIPT.md).
 
 `writeFrameworkPayloadInventory` is an explicit, unsigned build-inventory task for
 numbered, clean CI builds. It depends on `stageInstallerPayload` and writes
@@ -389,6 +408,6 @@ The offline [incremental admission contract](distribution/INCREMENTAL.md) consum
 the descriptor, authenticates the exact manifest, recomputes its object closure,
 and verifies actual bytes before immutable registration and a final channel CAS.
 Its storage interface is exercised with an in-memory adapter by
-`node --test distribution/test/*.test.mjs`; it is not connected to the deployed
-worker or current publisher. Production activation requires reviewed trust and
-historical-evidence configuration plus a transactional storage adapter.
+`node --test distribution/test/*.test.mjs`. The production Worker uses R2 with a Durable Object registration and
+channel authority, and serves only admitted resources. Historical full-package releases remain valid without an
+incremental descriptor; adding signing configuration does not retroactively make them self-update capable.

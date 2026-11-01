@@ -283,9 +283,11 @@ public final class PendingPluginOperations {
                     ? (current.isEmpty() ? "PLUGIN_PENDING_RECOVERY_REQUIRED" : "PLUGIN_PENDING_FAILED")
                     : (current.isEmpty() ? "PLUGIN_PENDING_EMPTY" : "PLUGIN_PENDING_READY");
             return new CorePluginManagement.PendingChanges(
-                    observed.snapshot(), code,
-                    current.stream().map(op -> new CorePluginManagement.PendingChange(
-                            op.pluginId, op.type, op.version)).toList());
+                    observed.snapshot(),
+                    code,
+                    current.stream()
+                            .map(op -> new CorePluginManagement.PendingChange(op.pluginId, op.type, op.version))
+                            .toList());
         } catch (RuntimeException failure) {
             return new CorePluginManagement.PendingChanges("", "PLUGIN_PENDING_RECOVERY_REQUIRED", List.of());
         }
@@ -297,7 +299,8 @@ public final class PendingPluginOperations {
             final JournalSnapshot observed = reviewedJournal();
             final List<Operation> current = observed.operations();
             if (expectedSnapshot == null || !observed.snapshot().equals(expectedSnapshot)) {
-                return CorePluginManagement.OperationResult.rejected("PLUGIN_PLAN_CHANGED", "Pending changes changed; review them again.");
+                return CorePluginManagement.OperationResult.rejected(
+                        "PLUGIN_PLAN_CHANGED", "Pending changes changed; review them again.");
             }
             if (current.isEmpty()) {
                 return CorePluginManagement.OperationResult.rejected("PLUGIN_PENDING_EMPTY", "No pending changes.");
@@ -308,9 +311,11 @@ public final class PendingPluginOperations {
             for (Operation op : current) {
                 try {
                     if (!op.type.equals("INSTALL") || !op.jarSha256.matches("[0-9a-f]{64}")) continue;
-                    final Path owned = packages.resolve(op.pluginId + "-" + op.jarSha256 + ".jar").normalize();
+                    final Path owned = packages.resolve(op.pluginId + "-" + op.jarSha256 + ".jar")
+                            .normalize();
                     if (owned.getParent().equals(packages)
-                            && owned.equals(Path.of(op.stagedJar).toAbsolutePath().normalize())) {
+                            && owned.equals(
+                                    Path.of(op.stagedJar).toAbsolutePath().normalize())) {
                         discardIfUnreferenced(owned);
                     }
                 } catch (RuntimeException orphanRetained) {
@@ -353,6 +358,22 @@ public final class PendingPluginOperations {
         } catch (java.security.NoSuchAlgorithmException failure) {
             throw new IllegalStateException("PLUGIN_PENDING_SNAPSHOT_FAILED", failure);
         }
+    }
+
+    /** Completes an exact install after hot apply or confirmed rollback; retains other pending work. */
+    synchronized void completeHotApply(final PreparedPluginJar prepared) {
+        final Path applied = prepared.stagedJar().toAbsolutePath().normalize();
+        final List<Operation> previous = readOperations();
+        final List<Operation> remaining = previous.stream()
+                .filter(operation -> !(operation.type.equals("INSTALL")
+                        && operation.pluginId.equals(prepared.descriptor().id())
+                        && Path.of(operation.stagedJar)
+                                .toAbsolutePath()
+                                .normalize()
+                                .equals(applied)))
+                .toList();
+        if (remaining.size() != previous.size()) writeOperations(remaining);
+        discardIfUnreferenced(applied);
     }
 
     synchronized boolean canHotApply(final String pluginId) {
@@ -462,8 +483,10 @@ public final class PendingPluginOperations {
 
     private void clearCancelledCatalogEntries(final List<Operation> cancelled) {
         try {
-            final Set<String> active = readOperations().stream().map(Operation::pluginId).collect(Collectors.toSet());
-            final Set<String> removed = cancelled.stream().map(Operation::pluginId).collect(Collectors.toSet());
+            final Set<String> active =
+                    readOperations().stream().map(Operation::pluginId).collect(Collectors.toSet());
+            final Set<String> removed =
+                    cancelled.stream().map(Operation::pluginId).collect(Collectors.toSet());
             final PluginCatalogStateStore store = new PluginCatalogStateStore(home);
             final var current = store.read();
             final var staged = new java.util.HashMap<>(current.stagedUpdates());
@@ -630,7 +653,8 @@ public final class PendingPluginOperations {
             try (var output = files.createNew(temporary, parent)) {
                 final ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) output.write(buffer);
-                if (!(output instanceof FileChannel channel)) throw new IOException("durable journal channel unavailable");
+                if (!(output instanceof FileChannel channel))
+                    throw new IOException("durable journal channel unavailable");
                 channel.force(true);
             }
             files.move(temporary, journal, parent, true);

@@ -20,7 +20,8 @@ public final class TestKeyHelperMain {
     private TestKeyHelperMain() {}
 
     public static void main(final String[] args) throws Exception {
-        final byte[] der = Base64.getDecoder().decode(Files.readString(Path.of(args[0])).trim());
+        final byte[] der =
+                Base64.getDecoder().decode(Files.readString(Path.of(args[0])).trim());
         final PublicKey key = KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(der));
         boolean installed = false;
         int offset = 1;
@@ -32,19 +33,8 @@ public final class TestKeyHelperMain {
         final Map<String, PublicKey> keys = Map.of("fixture", key, "local-test", key);
         final int exitCode = installed
                 ? FrameworkUpdateHelper.runInstalled(
-                        helperArgs,
-                        System.out,
-                        System.err,
-                        keys,
-                        ProcessHandle::of,
-                        Instant::now)
-                : FrameworkUpdateHelper.run(
-                        helperArgs,
-                        System.out,
-                        System.err,
-                        keys,
-                        ProcessHandle::of,
-                        Instant::now);
+                        helperArgs, System.out, System.err, keys, ProcessHandle::of, Instant::now)
+                : FrameworkUpdateHelper.run(helperArgs, System.out, System.err, keys, ProcessHandle::of, Instant::now);
         System.exit(exitCode);
     }
 }

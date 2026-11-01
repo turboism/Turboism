@@ -24,8 +24,13 @@ final class FrameworkUpdateReceipt {
         private final byte[] index;
         private final String digest;
 
-        private Prepared(final Path root, final UpdateManifest manifest, final byte[] document,
-                final byte[] envelope, final byte[] index, final String digest) {
+        private Prepared(
+                final Path root,
+                final UpdateManifest manifest,
+                final byte[] document,
+                final byte[] envelope,
+                final byte[] index,
+                final String digest) {
             this.root = root;
             this.manifest = manifest;
             this.document = document.clone();
@@ -34,10 +39,21 @@ final class FrameworkUpdateReceipt {
             this.digest = digest;
         }
 
-        UpdateManifest manifest() { return manifest; }
-        Path root() { return root; }
-        byte[] index() { return index.clone(); }
-        Path indexPath() { return root.resolve(FrameworkInstallationReceiptLoader.STATE).resolve("installed-receipt.json"); }
+        UpdateManifest manifest() {
+            return manifest;
+        }
+
+        Path root() {
+            return root;
+        }
+
+        byte[] index() {
+            return index.clone();
+        }
+
+        Path indexPath() {
+            return root.resolve(FrameworkInstallationReceiptLoader.STATE).resolve("installed-receipt.json");
+        }
 
         /** Append immutable documents only; a crash may leave harmless unreferenced documents. */
         void publishDocuments() throws IOException {
@@ -48,7 +64,10 @@ final class FrameworkUpdateReceipt {
         }
     }
 
-    static Prepared prepare(final Path installation, final byte[] document, final byte[] envelope,
+    static Prepared prepare(
+            final Path installation,
+            final byte[] document,
+            final byte[] envelope,
             final UpdateManifestVerifier verifier)
             throws IOException, UpdateManifestVerifier.UpdateManifestVerificationException {
         // Snapshot caller bytes before authentication: never authorize one array and persist a later mutation.
@@ -62,21 +81,22 @@ final class FrameworkUpdateReceipt {
             rootIdentity = files.rootIdentity();
         }
         final String digest = FrameworkUpdateTaskStore.hash(manifestBytes);
-        final var index = UpdateFileSupport.JSON.createObjectNode()
+        final var index = UpdateFileSupport.JSON
+                .createObjectNode()
                 .put("format", FrameworkInstallationReceiptLoader.FORMAT)
                 .put("schemaVersion", 1)
                 .put("layout", FrameworkInstallationReceiptLoader.LAYOUT)
                 .put("manifestSha256", digest)
                 .put("rootIdentity", rootIdentity);
-        return new Prepared(root, manifest, manifestBytes, signatureBytes,
-                UpdateFileSupport.JSON.writeValueAsBytes(index), digest);
+        return new Prepared(
+                root, manifest, manifestBytes, signatureBytes, UpdateFileSupport.JSON.writeValueAsBytes(index), digest);
     }
 
     /** First conventional full install: adopt only an explicitly signed complete layout with matching bytes.
      * Never scan for ownership or overwrite an existing, different receipt. Caller holds the transaction lock. */
-    static void initialize(final Path root, final byte[] document, final byte[] envelope,
-            final UpdateManifestVerifier verifier) throws IOException, InterruptedException,
-                    UpdateManifestVerifier.UpdateManifestVerificationException {
+    static void initialize(
+            final Path root, final byte[] document, final byte[] envelope, final UpdateManifestVerifier verifier)
+            throws IOException, InterruptedException, UpdateManifestVerifier.UpdateManifestVerificationException {
         final Prepared receipt = prepare(root, document, envelope, verifier);
         try (var files = FrameworkInstallationFiles.system(receipt.root())) {
             for (final var entry : receipt.manifest().entries()) files.verify(entry);
@@ -115,15 +135,19 @@ final class FrameworkUpdateReceipt {
             current = current.resolve(segment);
             if (FrameworkUpdateCache.attributes(current) == null) {
                 if (Files.getFileStore(current.getParent()).supportsFileAttributeView("posix")) {
-                    Files.createDirectory(current, PosixFilePermissions.asFileAttribute(
-                            PosixFilePermissions.fromString("rwx------")));
+                    Files.createDirectory(
+                            current,
+                            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
                 } else {
                     Files.createDirectory(current);
                     FrameworkUpdateCache.restrictAcl(current);
                 }
             }
             final var attributes = FrameworkUpdateCache.attributes(current);
-            if (attributes == null || !attributes.isDirectory() || attributes.isSymbolicLink() || attributes.isOther()
+            if (attributes == null
+                    || !attributes.isDirectory()
+                    || attributes.isSymbolicLink()
+                    || attributes.isOther()
                     || !owner.equals(Files.getOwner(current, LinkOption.NOFOLLOW_LINKS))) {
                 throw new IOException("Unsafe receipt directory");
             }
@@ -150,8 +174,12 @@ final class FrameworkUpdateReceipt {
             }
         }
         final var attributes = FrameworkUpdateCache.attributes(target);
-        if (attributes == null || !attributes.isRegularFile() || attributes.isSymbolicLink() || attributes.isOther()
-                || attributes.size() != bytes.length || !FrameworkUpdateCache.singleLink(target)) {
+        if (attributes == null
+                || !attributes.isRegularFile()
+                || attributes.isSymbolicLink()
+                || attributes.isOther()
+                || attributes.size() != bytes.length
+                || !FrameworkUpdateCache.singleLink(target)) {
             throw new IOException("Receipt document conflicts with immutable storage");
         }
         requirePrivate(target, false);
@@ -164,8 +192,8 @@ final class FrameworkUpdateReceipt {
 
     private static void requirePrivate(final Path path, final boolean directory) throws IOException {
         if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
-            if (!Files.getPosixFilePermissions(path, LinkOption.NOFOLLOW_LINKS).equals(
-                    PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------"))) {
+            if (!Files.getPosixFilePermissions(path, LinkOption.NOFOLLOW_LINKS)
+                    .equals(PosixFilePermissions.fromString(directory ? "rwx------" : "rw-------"))) {
                 throw new IOException("Receipt state is not private");
             }
         } else {
@@ -174,8 +202,10 @@ final class FrameworkUpdateReceipt {
             final var owner = Files.getOwner(path, LinkOption.NOFOLLOW_LINKS);
             for (final var entry : view.getAcl()) {
                 final String name = entry.principal().getName().toUpperCase(Locale.ROOT);
-                if (entry.type() == AclEntryType.ALLOW && !entry.principal().equals(owner)
-                        && !name.endsWith("\\SYSTEM") && !name.endsWith("\\ADMINISTRATORS")) {
+                if (entry.type() == AclEntryType.ALLOW
+                        && !entry.principal().equals(owner)
+                        && !name.endsWith("\\SYSTEM")
+                        && !name.endsWith("\\ADMINISTRATORS")) {
                     throw new IOException("Receipt state is not private");
                 }
             }

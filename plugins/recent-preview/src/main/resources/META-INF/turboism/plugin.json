@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.recent-preview",
   "name": "Recent Preview Plugin",
-  "version": "0.1.0",
+  "version": "0.68.0",
   "description": "Captures bounded preview thumbnails for recent project files and contributes them to the Recent Files hover popup.",
   "entrypoints": [
     "dev.turboism.plugin.recentpreview.RecentPreviewPlugin"

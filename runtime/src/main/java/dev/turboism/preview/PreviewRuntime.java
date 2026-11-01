@@ -409,8 +409,10 @@ public final class PreviewRuntime implements AutoCloseable {
                 ProcessHandle.current().pid(),
                 PreviewLog.Sink.NONE);
         if (!pendingPlugins.applied()) {
-            log.warn("plugin-management", pendingPlugins.code()
-                    + ": installed plugins kept; failed intent retained. Review pending changes in Plugin Management.");
+            log.warn(
+                    "plugin-management",
+                    pendingPlugins.code()
+                            + ": installed plugins kept; failed intent retained. Review pending changes in Plugin Management.");
         }
         dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
             switch (level) {

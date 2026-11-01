@@ -7,10 +7,12 @@ import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.UiScheduler;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
-import javax.swing.SwingUtilities;
+import java.time.Duration;
 
 /** Plugin lifecycle owner of the loopback MCP transport and its local connection window. */
 public final class McpPlugin extends AbstractTurboismPlugin {
@@ -18,13 +20,18 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     static final String CONNECTION_ACTION_ID = "turboism.mcp.connection.open";
     private static final int MENU_ORDER = 30;
 
+    private UiScheduler uiScheduler;
+    private PluginLogger logger;
+    private long generation;
     private McpHttpServer server;
     private McpConnectionWindow window;
 
     @Override
     public synchronized void init(final PluginContext context) {
         super.init(context);
-        context.disposableScope().register(this::disposeWindow);
+        uiScheduler = context.uiScheduler();
+        logger = context.logger();
+        context.disposableScope().register(this::stop);
     }
 
     @Override
@@ -72,12 +79,12 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     }
 
     @Override
-    public synchronized void disable() throws Exception {
+    public void disable() throws Exception {
         stop();
     }
 
     @Override
-    public synchronized void shutdown() throws Exception {
+    public void shutdown() throws Exception {
         try (DisposableScope cleanup = new DisposableScope()) {
             cleanup.register(super::shutdown);
             cleanup.register(this::stop);
@@ -127,14 +134,19 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     }
 
     private void showConnectionWindow() {
+        final long openGeneration;
+        synchronized (this) {
+            if (server == null) return;
+            openGeneration = generation;
+        }
         if (GraphicsEnvironment.isHeadless()) {
             context().logger().warn("MCP connection window cannot open because the JVM is headless");
             return;
         }
-        SwingUtilities.invokeLater(() -> {
+        uiScheduler.runOnUiThread(() -> {
             final McpConnectionWindow current;
             synchronized (this) {
-                if (server == null) return;
+                if (server == null || generation != openGeneration) return;
                 final PluginContext ctx;
                 try {
                     ctx = context();
@@ -146,8 +158,8 @@ public final class McpPlugin extends AbstractTurboismPlugin {
                     window.bind(this::connectionSnapshot);
                 }
                 current = window;
+                current.showAndFront();
             }
-            current.showAndFront();
         });
     }
 
@@ -161,25 +173,26 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     }
 
     private void stop() throws Exception {
+        final McpHttpServer currentServer;
+        final McpConnectionWindow currentWindow;
+        synchronized (this) {
+            generation++;
+            currentServer = server;
+            server = null;
+            currentWindow = window;
+            window = null;
+        }
+        // Close registrations and server before the window, without holding the EDT's lock.
         try (DisposableScope cleanup = new DisposableScope()) {
-            cleanup.register(this::disposeWindow);
-            cleanup.register(() -> {
-                final McpHttpServer current = server;
-                server = null;
-                if (current != null) current.close();
-            });
+            cleanup.register(() -> disposeWindow(currentWindow));
+            if (currentServer != null) cleanup.register(currentServer);
             cleanup.register(super::disable);
         }
     }
 
-    private void disposeWindow() {
-        final McpConnectionWindow current;
-        synchronized (this) {
-            current = window;
-            window = null;
+    private void disposeWindow(final McpConnectionWindow current) {
+        if (current != null && !uiScheduler.runUiTeardown(current::dispose, Duration.ofSeconds(2))) {
+            logger.warn("MCP connection window disposal deferred");
         }
-        if (current == null) return;
-        if (SwingUtilities.isEventDispatchThread()) current.dispose();
-        else SwingUtilities.invokeLater(current::dispose);
     }
 }

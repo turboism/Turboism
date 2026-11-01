@@ -25,7 +25,6 @@ import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerifica
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
-import dev.turboism.update.UpdateFileSupport;
 import dev.turboism.update.UpdatePreferencesStore;
 import java.io.IOException;
 import java.io.InputStream;
@@ -519,6 +518,9 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
             if (hook != null) {
                 hook.run();
             }
+            // Staging, journaling and the optional hot apply share the root lock: a framework task holding
+            // PluginUpdateGate must be honoured before anything is staged (the cycle-level check can race),
+            // and a manual installer must not interleave between the stage and the hot apply.
             synchronized (PluginUpdateGate.rootLock(home)) {
                 if (PluginUpdateGate.isAutoUpdateBlocked(home)) {
                     report("PLUGIN_UPDATE_GATE_LOCKED");
@@ -547,33 +549,23 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                     if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
                             && hotReloadCoordinator.isHotReloadSafe(
                                     staged.prepared().stagedJar())) {
-                        final Path stagingDir = home.resolve("state/runtime/plugin-management/packages");
-                        final Path backup = stagingDir.resolve(
-                                ".backup-" + update.pluginId() + "-" + java.util.UUID.randomUUID() + ".jar");
-                        boolean replaced = false;
-                        boolean applied = false;
-                        try {
-                            Files.copy(target, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            UpdateFileSupport.copyAtomic(staged.prepared().stagedJar(), target);
-                            replaced = true;
-                            final var reloadRes = hotReloadCoordinator.hotReload(update.pluginId(), target, backup);
-                            if (reloadRes.succeeded()) {
-                                Files.deleteIfExists(staged.prepared().stagedJar());
-                                applied = true;
-                                return StageAttempt.HOT_APPLIED;
-                            }
-                        } catch (IOException | RuntimeException failure) {
-                            // Keep staged in the pending journal for restart, including Windows file locks.
-                        } finally {
-                            try {
-                                if (replaced && !applied) {
-                                    UpdateFileSupport.copyAtomic(backup, target);
-                                }
-                                Files.deleteIfExists(backup);
-                            } catch (IOException | RuntimeException failure) {
-                                // Retain the backup if restoration failed.
-                                report("PLUGIN_UPDATE_BACKUP_CLEANUP_FAILED");
-                            }
+                        // The coordinator owns close-old-JAR -> atomic replace -> reload and restores the
+                        // installed generation on failure (including Windows file locks), so this path keeps
+                        // no backup/copy logic of its own.
+                        final var reloadRes = hotReloadCoordinator.hotReplace(
+                                update.pluginId(), staged.prepared().stagedJar(), target);
+                        if (reloadRes.succeeded()) {
+                            // Consume exactly this staged intent: a successful hot apply must not leave a
+                            // pending journal entry or the staged artifact behind.
+                            pending.completeHotApply(staged.prepared());
+                            return StageAttempt.HOT_APPLIED;
+                        }
+                        if (reloadRes.rolledBack() && "HOT_RELOAD_FAILED".equals(reloadRes.code())) {
+                            // Installed bytes are restored: consume the staged intent (a rollback must not
+                            // leave pending work that retries forever) and report the failed attempt.
+                            pending.completeHotApply(staged.prepared());
+                            report("PLUGIN_UPDATE_HOT_ROLLED_BACK");
+                            return StageAttempt.FAILED;
                         }
                     }
                 }

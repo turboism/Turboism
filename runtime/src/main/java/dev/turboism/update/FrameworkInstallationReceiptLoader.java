@@ -129,9 +129,15 @@ public final class FrameworkInstallationReceiptLoader {
         if (!FrameworkUpdateTaskStore.hash(manifestBytes).equals(digest))
             throw new IOException("Receipt document digest mismatch");
         final UpdateManifest manifest = verifier.authenticate(manifestBytes, envelopeBytes);
-        final FrameworkBuildInfo identity = info != null ? info : new FrameworkBuildInfo(
-                manifest.version(), FrameworkBuildInfo.Channel.valueOf(manifest.channel().toUpperCase(java.util.Locale.ROOT)),
-                java.util.OptionalLong.of(manifest.buildNumber()), manifest.sourceRevision(), "ci", false);
+        final FrameworkBuildInfo identity = info != null
+                ? info
+                : new FrameworkBuildInfo(
+                        manifest.version(),
+                        FrameworkBuildInfo.Channel.valueOf(manifest.channel().toUpperCase(java.util.Locale.ROOT)),
+                        java.util.OptionalLong.of(manifest.buildNumber()),
+                        manifest.sourceRevision(),
+                        "ci",
+                        false);
         if (!manifest.version().equals(identity.version())
                 || !manifest.channel().equals(identity.channel().wireName())
                 || manifest.buildNumber() != identity.buildNumber().orElseThrow()
@@ -148,8 +154,9 @@ public final class FrameworkInstallationReceiptLoader {
             files.verify(entry);
             hashes.put(entry.relativePath(), entry.sha256());
         }
-        if (info != null && (!root.resolve("turboism-agent.jar").equals(loadedArtifact.get())
-                        || !info.equals(loaded.get()))
+        if (info != null
+                        && (!root.resolve("turboism-agent.jar").equals(loadedArtifact.get())
+                                || !info.equals(loaded.get()))
                 || !rootIdentity.equals(files.rootIdentity())
                 || !java.util.Arrays.equals(indexBytes, files.document(indexPath, 4096))
                 || !java.util.Arrays.equals(

@@ -65,20 +65,15 @@ final class FrameworkUpdateHelperTest {
         }
 
         String[] args(final String... extra) {
-            final List<String> a = new ArrayList<>(List.of(
-                    "--root", root.toString(), "--stage", stage.toString(), "--work", work.toString()));
+            final List<String> a = new ArrayList<>(
+                    List.of("--root", root.toString(), "--stage", stage.toString(), "--work", work.toString()));
             a.addAll(List.of(extra));
             return a.toArray(String[]::new);
         }
 
         int run(final Fixture unused, final ProcessLookupHolder lookup, final String... extra) {
             return FrameworkUpdateHelper.run(
-                    args(extra),
-                    new PrintStream(out),
-                    new PrintStream(err),
-                    trusted(),
-                    lookup.lookup,
-                    Instant::now);
+                    args(extra), new PrintStream(out), new PrintStream(err), trusted(), lookup.lookup, Instant::now);
         }
     }
 
@@ -106,7 +101,8 @@ final class FrameworkUpdateHelperTest {
         assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, f.run(f, GONE), err.toString());
         assertEquals("agent-new", Files.readString(f.root.resolve("turboism-agent.jar")));
         assertEquals("{\"user\":1}", Files.readString(f.root.resolve("config.json")));
-        final var identity = UpdateFileSupport.JSON.readTree(Files.readAllBytes(f.root.resolve("installed-build.json")));
+        final var identity =
+                UpdateFileSupport.JSON.readTree(Files.readAllBytes(f.root.resolve("installed-build.json")));
         assertEquals("1.1.0", identity.path("version").asText());
         assertEquals("full", identity.path("variant").asText(), "variant preserved");
         assertEquals(60, identity.path("buildNumber").asLong());
@@ -128,7 +124,8 @@ final class FrameworkUpdateHelperTest {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         final var calls = new java.util.concurrent.atomic.AtomicInteger();
         final ProcessHandle self = ProcessHandle.current();
-        final var lookup = new ProcessLookupHolder(pid -> calls.incrementAndGet() < 3 ? Optional.of(self) : Optional.empty());
+        final var lookup =
+                new ProcessLookupHolder(pid -> calls.incrementAndGet() < 3 ? Optional.of(self) : Optional.empty());
         assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, f.run(f, lookup, "--wait-pid", "1", "--wait-seconds", "30"));
         assertTrue(calls.get() >= 3);
     }
@@ -138,7 +135,12 @@ final class FrameworkUpdateHelperTest {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         final KeyPair other = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         final int wrongKey = FrameworkUpdateHelper.run(
-                f.args(), new PrintStream(out), new PrintStream(err), Map.of("fixture", other.getPublic()), pid -> Optional.empty(), Instant::now);
+                f.args(),
+                new PrintStream(out),
+                new PrintStream(err),
+                Map.of("fixture", other.getPublic()),
+                pid -> Optional.empty(),
+                Instant::now);
         assertEquals(FrameworkUpdateHelper.EXIT_REJECTED, wrongKey);
         assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
 
@@ -170,7 +172,8 @@ final class FrameworkUpdateHelperTest {
 
     private static void deleteTree(final Path path) throws IOException {
         try (var stream = Files.walk(path)) {
-            for (final Path p : stream.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);
+            for (final Path p :
+                    stream.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);
         }
     }
 
@@ -239,11 +242,26 @@ final class FrameworkUpdateHelperTest {
             {"--root", "relative", "--stage", "/x", "--work", "/y"},
             {"--root", temporary.toString(), "--bogus"},
             {"--root", temporary.toString(), "--work", temporary.resolve("w").toString()},
-            {"--root", temporary.toString(), "--stage", temporary.toString(), "--work", temporary.resolve("w").toString(), "--wait-seconds", "99999"}
+            {
+                "--root",
+                temporary.toString(),
+                "--stage",
+                temporary.toString(),
+                "--work",
+                temporary.resolve("w").toString(),
+                "--wait-seconds",
+                "99999"
+            }
         }) {
             assertEquals(
                     FrameworkUpdateHelper.EXIT_USAGE,
-                    FrameworkUpdateHelper.run(bad, new PrintStream(out), new PrintStream(err), Map.of(), pid -> Optional.empty(), Instant::now),
+                    FrameworkUpdateHelper.run(
+                            bad,
+                            new PrintStream(out),
+                            new PrintStream(err),
+                            Map.of(),
+                            pid -> Optional.empty(),
+                            Instant::now),
                     String.join(" ", bad));
         }
     }
@@ -260,9 +278,12 @@ final class FrameworkUpdateHelperTest {
                         "-cp",
                         System.getProperty("java.class.path"),
                         "dev.turboism.update.FrameworkUpdateHelper",
-                        "--root", f.root.toString(),
-                        "--stage", f.stage.toString(),
-                        "--work", f.work.toString())
+                        "--root",
+                        f.root.toString(),
+                        "--stage",
+                        f.stage.toString(),
+                        "--work",
+                        f.work.toString())
                 .redirectErrorStream(true)
                 .start();
         final String output = new String(helper.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
@@ -276,15 +297,15 @@ final class FrameworkUpdateHelperTest {
     void realSubprocessWaitsForRealProcessExit() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         final Process sleeper = new ProcessBuilder(
-                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                        "-version")
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-version")
                 .redirectErrorStream(true)
                 .start();
         sleeper.getInputStream().readAllBytes();
         sleeper.waitFor();
         final Process live = new ProcessBuilder(
                         Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                        "-cp", System.getProperty("java.class.path"),
+                        "-cp",
+                        System.getProperty("java.class.path"),
                         "dev.turboism.update.FrameworkUpdateHelperTest$Sleep")
                 .redirectErrorStream(true)
                 .start();
@@ -292,7 +313,11 @@ final class FrameworkUpdateHelperTest {
             final long started = System.nanoTime();
             final int busy = FrameworkUpdateHelper.run(
                     f.args("--wait-pid", Long.toString(live.pid()), "--wait-seconds", "1"),
-                    new PrintStream(out), new PrintStream(err), f.trusted(), ProcessHandle::of, Instant::now);
+                    new PrintStream(out),
+                    new PrintStream(err),
+                    f.trusted(),
+                    ProcessHandle::of,
+                    Instant::now);
             assertEquals(FrameworkUpdateHelper.EXIT_BUSY, busy);
             assertTrue(System.nanoTime() - started >= 900_000_000L, "really waited about a second");
             assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
@@ -304,7 +329,11 @@ final class FrameworkUpdateHelperTest {
                 FrameworkUpdateHelper.EXIT_APPLIED,
                 FrameworkUpdateHelper.run(
                         f.args("--wait-pid", Long.toString(live.pid()), "--wait-seconds", "10"),
-                        new PrintStream(out), new PrintStream(err), f.trusted(), ProcessHandle::of, Instant::now),
+                        new PrintStream(out),
+                        new PrintStream(err),
+                        f.trusted(),
+                        ProcessHandle::of,
+                        Instant::now),
                 err.toString());
         assertEquals("agent-new", Files.readString(f.root.resolve("turboism-agent.jar")));
     }

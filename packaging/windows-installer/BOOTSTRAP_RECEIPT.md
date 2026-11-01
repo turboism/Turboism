@@ -139,8 +139,9 @@ configured framework publisher identity.
    `framework_reactivate=true` is required to restore a deliberately withdrawn candidate; ordinary retries do not.
 
 The official signing key, its public keyring and the main-only signing environment were provisioned on
-2026-11-01; `FRAMEWORK_UPDATE_SIGNING_ENABLED` remains `false`. The updater baseline and publisher credentials
-remain pending the first release. See [signing-provisioning-validation.md](../../validation/issue-50-updater/signing-provisioning-validation.md).
+2026-11-01. After explicit activation approval, `FRAMEWORK_UPDATE_SIGNING_ENABLED=true` and the updater baseline is
+`0.68.1`; the main-only publisher environment now has its R2 credentials. Actual signed publication and successive
+Windows upgrades remain pending; see [activation-release-validation.md](../../validation/issue-50-updater/activation-release-validation.md).
 
 | Location | Name | Purpose |
 | --- | --- | --- |
@@ -179,4 +180,4 @@ Cubism launch acceptance test.
   - Full existing test suites: `test-config-merge.py`, `test-installer-packaging.py`, `test_release_tooling.py`, `test_windows_update_native.py`.
 - **Explicitly Unverified / Downstream Scope**:
   - **Real installation acceptance**: NSIS 3.09 compiled an isolated signed fixture into an EXE with the eight-asset roster on 2026-11-01; its ZIP passed signature/payload checks. This is compilation evidence, not execution of a real CI-produced installer. See [release-pipeline-validation.md](../../validation/issue-50-updater/release-pipeline-validation.md).
-  - **Protected Signing CI and Activation**: The official key and public keyring are provisioned, but signing/activation remains disabled. No production candidate has yet bundled these resources or completed the protected signing workflow.
+  - **Protected Signing CI and Activation**: The official key, public keyring and release configuration are provisioned, and signing is enabled for subsequent candidates. No production candidate has yet bundled these resources or completed the protected signing workflow.
