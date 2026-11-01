@@ -91,6 +91,26 @@ class EditorPartOpacityAccessTest {
         assertThrows(IllegalStateException.class, () -> parts.find(new PartId("PartClip")));
     }
 
+    /**
+     * A successor reviewed generation must keep the authoring generation's part-opacity contract.
+     *
+     * <p>Its record carries {@code cubism.editor-model.part-opacity.write} and not the 5.2
+     * evaluation-read capability, so the generation decision has to come from the verified record
+     * rather than from a {@code 5.3.} version prefix.</p>
+     */
+    @Test
+    void successorGenerationReadsOpacityThroughItsOwnRecordedCapability() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access =
+                new EditorBackedCubismModelAccess(resolver(true, "5.4.00"), "session-a");
+        final var part = access.active().parts().find(new PartId("PartClip"));
+
+        assertEquals(1.0F, part.getOpacity());
+        part.setOpacity(0.5F);
+        assertEquals(0.5F, fixture.part.form.opacity);
+    }
+
     @Test
     void exactResolverWithoutPartCapabilityFailsClosedBeforeSelectorUse() {
         final Fixture fixture = new Fixture();

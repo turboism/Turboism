@@ -19,7 +19,14 @@ import java.util.List;
 @CubismEditor
 public interface OwnedModel extends AutoCloseable {
 
-    /** Core native handle of the owned {@code CubismModel} instance. */
+    /**
+     * Core native handle of the owned {@code CubismModel} instance.
+     *
+     * <p>Opaque identity only: it is a value, not a dereferenceable reference, and
+     * no Turboism API accepts it back as a host object. This is the documented
+     * exception in {@code ARCHITECTURE.md} section 3; no other SDK type exposes a
+     * native handle.</p>
+     */
     long nativeHandle();
 
     /** Evaluated canvas information. */
