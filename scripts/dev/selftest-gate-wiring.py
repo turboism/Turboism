@@ -11,6 +11,9 @@ makes a gate real:
   4. the installer plugin-sections byte comparison runs inside `devCheck`
   5. `checkShellLint` fails closed instead of skipping when shellcheck is absent
      and CONTRIBUTING.md lists shellcheck as a build requirement
+  6. the `TestExecutionGuard` unit tests run inside `devCheck`; Gradle builds
+     buildSrc but never runs its `test` task, so an unwired test suite would be
+     dead weight
 
 The checks are textual because the subject is build wiring; every referenced
 task name is also asserted to exist so a rename cannot leave a dangling edge.
@@ -153,6 +156,23 @@ def main() -> int:
         "CONTRIBUTING.md lists shellcheck as a build requirement",
         re.search(r"shellcheck", contributing, re.IGNORECASE) is not None
         and "checkShellLint" in contributing,
+    )
+
+    # 6. the execution-count guard's own tests must run inside devCheck.
+    guard_task = task_block(verification, "val checkTestExecutionGuard by tasks.registering(Exec::class)")
+    check('execution-count guard self-test task is registered', bool(guard_task))
+    check('devCheck aggregates the execution-count guard self-test', "checkTestExecutionGuard" in dev_check)
+    check(
+        'execution-count guard self-test runs the buildSrc test task',
+        '"-p", "buildSrc", "test"' in guard_task,
+    )
+    check(
+        'execution-count guard unit tests exist',
+        (ROOT / 'buildSrc/src/test/java/dev/turboism/gradle/internal/TestExecutionGuardTest.java').is_file(),
+    )
+    check(
+        'zero-execution allowlist is tracked',
+        (ROOT / 'gradle/test-zero-executed-allowlist.txt').is_file(),
     )
 
     print(f"gate wiring self-test: {'all checks passed' if not failures else f'{len(failures)} failed'}")
