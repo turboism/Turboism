@@ -553,8 +553,18 @@ public final class PluginMarketService implements AutoCloseable {
                         }
                         return stageForRestart(prepared);
                     } else {
-                        if (backupJar != null) Files.deleteIfExists(backupJar);
-                        return stageForRestart(prepared);
+                        // The new generation failed and the rollback load also failed. Keep the
+                        // last good package: restore the target from the backup, then report the
+                        // failure. Deleting the backup here would leave the broken jar in place and
+                        // destroy the only copy of the previous version.
+                        if (backupJar != null) {
+                            UpdateFileSupport.copyAtomic(backupJar, targetJar);
+                            Files.deleteIfExists(backupJar);
+                        }
+                        return OperationResult.rejected(
+                                reloadResult.code(),
+                                "Plugin update failed and the previous generation could not be reloaded: "
+                                        + reloadResult.message());
                     }
                 } else {
                     final var loadResult = hotReloadCoordinator.hotLoad(targetJar);
