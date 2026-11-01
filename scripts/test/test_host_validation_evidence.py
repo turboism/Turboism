@@ -9,6 +9,8 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import test_cubism_host_validation_result as runner_tests
 import host_validation_evidence as evidence
 import reviewed_host_artifacts
 from host_validation_queue import QueueError, file_digest
@@ -18,6 +20,45 @@ class ReviewedHostsCoverageTest(unittest.TestCase):
     def test_every_reviewed_version_has_an_install_directory(self):
         reviewed = {reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()}
         self.assertEqual(reviewed, set(evidence.HOSTS))
+
+
+class AssertionContractParityTest(unittest.TestCase):
+    def test_count_contract_agrees_with_the_runner_for_required_and_legacy_probes(self):
+        # Exercise the actual shell poll helpers and final gate on identical bytes.
+        # Legacy ACP/edit-protocol/FPS omit counts. Shared-recorder probes require them.
+        cases = (
+            ("", False, True),
+            ("assertion.a.status=PASS\nassertion.b.status=PASS\n", False, True),
+            ("", True, False),
+            ("assertion.a.status=PASS\n", True, False),
+            ("assertions=0\n", False, False),
+            ("assertions=0\n", True, False),
+            ("assertions=many\n", False, False),
+            ("assertions=many\n", True, False),
+            ("assertions=3\nassertions.verdict=0\n", False, False),
+            ("assertions=3\nassertions.verdict=0\n", True, False),
+            ("assertions=3\nassertions.verdict=bad\n", False, False),
+            ("assertions=3\nassertions.verdict=bad\n", True, False),
+            ("assertions=1\n", False, True),
+            ("assertions=1\n", True, True),
+            ("assertions=3\nassertions.verdict=1\nassertion.a.status=PASS\n", True, True),
+        )
+        for rows, required, expected in cases:
+            with self.subTest(rows=rows, required=required), tempfile.TemporaryDirectory() as directory:
+                task = Path(directory)
+                result = task / "turboism-home/state/result.properties"
+                result.parent.mkdir(parents=True)
+                payload = rows + "status=PASS\n"
+                result.write_text(payload, encoding="utf-8")
+                options = {"--result-file": ["state/result.properties"],
+                           "--result-pass-line": ["status=PASS"], "--result-fail-line": ["status=FAIL"]}
+                if required:
+                    options["--require-assertions"] = ["true"]
+                terminal = evidence.terminal_result({"task": task, "options": options})
+                runner = runner_tests.TerminalPublicationRace().poll(
+                    payload, preexisting=True, require_assertions=required)
+                self.assertEqual(expected, runner.returncode == 0, runner.stderr)
+                self.assertEqual(expected, terminal["passed"], terminal)
 
 
 class EvidenceTest(unittest.TestCase):

@@ -6,14 +6,14 @@ and returns a lifecycle record to the single queue owner.
 
 A recovery pass additionally re-reads the result file: a `status`/`terminal` record or an
 `assertion.<name>.status` record that reports `FAIL`, `BLOCKED` or `SKIPPED` fails the task.
-So does a verdict assertion count of zero, a malformed count, and an assertion-style result
+So does a verdict assertion count of zero, a malformed count, and a result
 that publishes no count at all when its task asked for `--require-assertions` (the four
 host probes that record through the shared recorder); the Runner's first screen applies the
 same rule, so a probe that never published counts (ACP, protocol-edit, FPS) is not failed
 here for a contract it never had. The verdict count (`assertions.verdict`) decides before the
 total (`assertions`), so evidence-only INFO records cannot mask a run that decided nothing.
-A run that asserted nothing or could not exercise its contract therefore never becomes
-release evidence.
+A shared-recorder run that asserted nothing or could not exercise its contract therefore
+never becomes release evidence. Legacy tasks keep their existing count-free contract.
 """
 from __future__ import annotations
 
@@ -178,8 +178,8 @@ def terminal_result(paths: dict[str, Any]) -> dict[str, Any]:
                  else ASSERTION_TOTAL_COUNT_KEY if ASSERTION_TOTAL_COUNT_KEY in counts
                  else None)
     assertion_count = counts.get(count_key) if count_key else None
-    # A task that requires assertions must publish its verdict count; without it the evidence
-    # cannot say how many assertions decided the run. Tasks without the flag keep the
+    # A task that requires assertions must publish a count (verdict preferred, total fallback),
+    # matching the Runner count reader. Tasks without the flag keep the
     # Runner's first-screen rule: a published count must be positive, no count is accepted.
     missing_count = count_key is None and REQUIRE_ASSERTIONS_FLAG in options
     # A run that asserted nothing proved nothing, even when it published a pass line.
