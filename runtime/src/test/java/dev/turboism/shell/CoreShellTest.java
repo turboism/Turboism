@@ -7,6 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.host.HostSession;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.internal.core.AtlasCacheReuseSettingsService;
 import dev.turboism.internal.core.AtlasTileBboxSettingsService;
 import dev.turboism.internal.core.CorePluginManagement;
@@ -15,6 +20,8 @@ import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.MeshTriangulationSettingsService;
 import dev.turboism.internal.core.ShellServices;
 import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
+import dev.turboism.preview.LocalPluginRuntime;
+import dev.turboism.preview.PreviewLog;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -64,6 +71,7 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -73,8 +81,12 @@ import java.util.Optional;
 import java.util.Set;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class CoreShellTest {
+
+    @TempDir
+    Path temporary;
 
     @Test
     void enableRegistersHomeActionAndMainToolbarContribution() throws Exception {
@@ -258,6 +270,70 @@ class CoreShellTest {
         assertTrue(context.uiHost().panelContributions().isEmpty());
         assertTrue(context.uiHost().settingsContributions().isEmpty());
         assertTrue(context.menus().contributions().isEmpty());
+    }
+
+    /**
+     * The shell handle owns the windows it created: closing it must release the plugin-details
+     * executor and the log refresh timer itself, not leave them to whichever disposable scope a
+     * composition happens to close afterwards.
+     */
+    @Test
+    void closeReleasesTheCoreWindowsItCreated() throws Exception {
+        final CoreShell plugin = plugin();
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.start(context);
+        final CoreWindows windows = plugin.coreWindows();
+        assertNotNull(windows, "start must create the core windows");
+        assertFalse(windows.released(), "the core windows are open until the shell closes");
+
+        plugin.close();
+
+        assertTrue(windows.released(), "CoreShell.close must release the core windows and their executor");
+    }
+
+    /**
+     * The production close path reaches the shell through the runtime-owned entry point: the
+     * runtime fences the generation, closes the shell handle on its lifecycle lane, then disposes
+     * the shell scope. The windows the shell created must be released on that path, not only by
+     * the scope disposal that happens to follow it.
+     */
+    @Test
+    void runtimeClosePathReleasesTheShellWindows() throws Exception {
+        final java.util.concurrent.atomic.AtomicReference<CoreShell> admitted =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final Path home = temporary.resolve("runtime-close-home");
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
+        final HostSession host = new HostSession(Optional::empty);
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                    home, scheduler, host.adapterAccess(), log, services -> {
+                        final CoreShell shell = new CoreShell(services);
+                        admitted.set(shell);
+                        return shell;
+                    });
+            try {
+                runtime.loadAll();
+                final CoreShell shell = admitted.get();
+                assertNotNull(shell, "the runtime must admit the shell");
+                final CoreWindows windows = shell.coreWindows();
+                assertNotNull(windows, "the admitted shell must create its core windows");
+                assertFalse(windows.released(), "the core windows are open while the runtime runs");
+            } finally {
+                runtime.close();
+            }
+            assertTrue(
+                    admitted.get().coreWindows().released(),
+                    "the runtime close path must release the shell windows");
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
     }
 
     @Test

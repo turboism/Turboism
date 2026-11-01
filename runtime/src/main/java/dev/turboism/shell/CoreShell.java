@@ -380,7 +380,20 @@ public final class CoreShell implements ShellHandle {
             historyProviderRegistration.unregister();
             historyProviderRegistration = null;
         }
+        // The shell owns the windows it created: the plugin-details executor and the log
+        // refresh timer must stop with the handle, not only when a composition later closes
+        // the disposable scope the windows are also registered in. CoreWindows.close() is
+        // idempotent, so both release routes stay safe.
+        final CoreWindows coreWindows = windows;
+        if (coreWindows != null) {
+            coreWindows.close();
+        }
         logger.info("Turboism core shutdown");
+    }
+
+    /** Test seam: the core windows this shell owns, or {@code null} before {@link #start} ran. */
+    CoreWindows coreWindows() {
+        return windows;
     }
 
     private void registerPluginUpdateFeatures() {
