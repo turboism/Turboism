@@ -1,12 +1,46 @@
 #!/usr/bin/env bash
 # Shell contract checks for the host-locale validation wrapper chain.
 # Build/test-only: never launches Cubism and never produces readiness evidence.
-set -uo pipefail
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-LAUNCH="$ROOT/scripts/preview/launch-cubism-host-locale-validation.sh"
-ADAPTER="$ROOT/scripts/preview/run-host-locale-host-validation.sh"
-HOOK="$ROOT/scripts/preview/host-locale-environment-language-hook.sh"
+# Run real wrappers from an isolated checkout. Only the terminal runner is a
+# stub: no local bundle, .env, Proton installation or host can affect this test.
+CONTRACT_ROOT="$(mktemp -d)"
+trap 'rm -rf -- "$CONTRACT_ROOT"' EXIT
+mkdir -p "$CONTRACT_ROOT/scripts/preview" "$CONTRACT_ROOT/scripts/dev" \
+  "$CONTRACT_ROOT/build/preview/locale-contract"
+for script in launch-cubism-host-locale-validation.sh run-host-locale-host-validation.sh \
+  host-validation-env.sh host-locale-environment-language-hook.sh host-validation-tasks.json; do
+  cp "$ROOT/scripts/preview/$script" "$CONTRACT_ROOT/scripts/preview/"
+done
+cp "$ROOT/scripts/dev/worktree-id.sh" "$ROOT/scripts/dev/worktree-id-lib.sh" \
+  "$CONTRACT_ROOT/scripts/dev/"
+export TURBOISM_WORKTREE_ID=locale-contract
+export TURBOISM_ENV_FILE=/dev/null
+unset TURBOISM_HOST_VALIDATION_ENVIRONMENT_LANGUAGE
+export TURBOISM_HOST_VALIDATION_MANIFEST="$CONTRACT_ROOT/scripts/preview/host-validation-tasks.json"
+touch "$CONTRACT_ROOT/build/preview/locale-contract/turboism-agent.jar" \
+  "$CONTRACT_ROOT/build/host-locale-validation-exerciser.jar"
+cat >"$CONTRACT_ROOT/scripts/preview/run-cubism-host-validation.sh" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+fixture='' hash='' language=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --fixture-remote) fixture="$2"; shift 2 ;;
+    --fixture-sha256) hash="$2"; shift 2 ;;
+    --remote-pre-launch-arg) language="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+[ "$fixture" = 'C:\fixture\model.cmo3' ] || exit 91
+[ "$hash" = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' ] || exit 92
+printf 'HOST_LOCALE_CONTRACT_RUNNER fixtureSha256=%s environmentLanguage=%s\n' "$hash" "$language"
+STUB
+LAUNCH="$CONTRACT_ROOT/scripts/preview/launch-cubism-host-locale-validation.sh"
+ADAPTER="$CONTRACT_ROOT/scripts/preview/run-host-locale-host-validation.sh"
+HOOK="$CONTRACT_ROOT/scripts/preview/host-locale-environment-language-hook.sh"
 
 checks=0
 fail() {
@@ -19,10 +53,10 @@ run() { # run <name> <expected-exit> <expected-substr> <expected-stderr-substr> 
   [ "$1" = "--" ] || fail "internal: missing -- separator"
   shift
   local out err rc
-  out="$(mktemp)"
-  err="$(mktemp)"
-  "$@" >"$out" 2>"$err"
-  rc=$?
+  out="$(mktemp "$CONTRACT_ROOT/out.XXXXXX")"
+  err="$(mktemp "$CONTRACT_ROOT/err.XXXXXX")"
+  rc=0
+  "$@" >"$out" 2>"$err" || rc=$?
   checks=$((checks + 1))
   if [ "$rc" -ne "$expected_exit" ]; then
     cat "$out" "$err" >&2
@@ -71,12 +105,8 @@ run "rejects-malformed-hash" 2 "" "64 hexadecimal characters" -- \
 run "adapter-rejects-without-hash" 2 "" "requires --fixture-sha256" -- \
   bash "$ADAPTER" 5302 --fixture 'C:\fixture\model.cmo3'
 
-# 7. Direct invocation with an explicit hash passes the fixture-identity gate and
-#    reaches the shared runner. The runner's own refusal depends on the local
-#    build/env state (missing agent bundle, missing golden prefix, unresolvable
-#    host fixture), so the contract pins only the part that must never happen
-#    here: an identity rejection before the runner is engaged.
-run "adapter-accepts-with-hash" 1 "" "host validation:" -- \
+# 7. A valid identity must reach the offline runner with the exact fixture/hash.
+run "adapter-accepts-with-hash" 0 "fixtureSha256=$HASH" "" -- \
   bash "$ADAPTER" 5302 --fixture 'C:\fixture\model.cmo3' --fixture-sha256 "$HASH"
 
 # 8. Pinned default fixtures keep their pinned hashes (no override, no hash needed).
@@ -88,7 +118,7 @@ run "adapter-rejects-unknown-environment-language" 2 "" "environment language mu
   bash "$ADAPTER" 5302 --environment-language fr --fixture 'C:\fixture\model.cmo3' --fixture-sha256 "$HASH"
 run "adapter-rejects-missing-environment-language-value" 2 "" "missing value for --environment-language" -- \
   bash "$ADAPTER" 5302 --environment-language
-run "adapter-accepts-environment-language" 1 "" "host validation:" -- \
+run "adapter-accepts-environment-language" 0 "environmentLanguage=ja" "" -- \
   bash "$ADAPTER" 5302 --locale system --environment-language ja \
   --fixture 'C:\fixture\model.cmo3' --fixture-sha256 "$HASH"
 # The runner's context argument 7 is the lane version token (5203/5302); the
@@ -97,23 +127,22 @@ run "adapter-accepts-environment-language" 1 "" "host validation:" -- \
 run "hook-requires-runner-arguments" 1 "" "missing runner hook arguments" -- \
   bash "$HOOK"
 run "hook-rejects-unknown-language" 1 "" "unsupported language" -- \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0 fr
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5302 300 wrapper runner :0 fr
 run "hook-rejects-unknown-version" 1 "" "unsupported Cubism version" -- \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5399 300 wrapper runner :0 ja
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5399 300 wrapper runner :0 ja
 # The language must be readable from the trailing argument (the queue drops the
 # ambient environment), and an absent language must fail closed.
 run "hook-reads-language-from-argument" 1 "" "has no users directory" -- \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0 en
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5302 300 wrapper runner :0 en
 run "hook-accepts-full-version-form" 1 "" "has no users directory" -- \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5.3.02 300 wrapper runner :0 en
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5.3.02 300 wrapper runner :0 en
 run "hook-argument-overrides-environment" 1 "" "unsupported language" -- \
   env TURBOISM_HOST_VALIDATION_ENVIRONMENT_LANGUAGE=en \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0 fr
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5302 300 wrapper runner :0 fr
 run "hook-rejects-missing-language" 1 "" "missing environment language argument" -- \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5302 300 wrapper runner :0
 run "hook-accepts-environment-fallback" 1 "" "has no users directory" -- \
   env TURBOISM_HOST_VALIDATION_ENVIRONMENT_LANGUAGE=ja \
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5203 300 wrapper runner :0
-  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5.3.02 300 wrapper runner :0
+  bash "$HOOK" task home /tmp/evidence "$CONTRACT_ROOT/missing-prefix" fixture runid 5203 300 wrapper runner :0
 
 printf 'host-locale contract: %s checks passed\n' "$checks"
