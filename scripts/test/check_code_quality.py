@@ -236,11 +236,20 @@ JAVADOC_HELPER_TIMEOUT_SECONDS = 600
 JAVADOC_COMPILE_TIMEOUT_SECONDS = 180
 
 
+def _jdk_executable(home: Path, name: str) -> Path | None:
+    """Resolves a JDK tool, accepting the Windows .exe suffix."""
+    for filename in (name, f"{name}.exe"):
+        candidate = home / "bin" / filename
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _jdk_home() -> Path:
     """Resolves the JDK 17+ home used for the Javadoc scan; prefers the toolchain Gradle wires in."""
     for variable in ("TURBOISM_QUALITY_JAVA_HOME", "JAVA17_HOME", "JAVA_HOME"):
         candidate = os.environ.get(variable)
-        if candidate and (Path(candidate) / "bin" / "javac").is_file():
+        if candidate and _jdk_executable(Path(candidate), "javac"):
             return Path(candidate)
     javac = shutil.which("javac")
     if javac:
@@ -254,10 +263,12 @@ def _jdk_home() -> Path:
 def _javadoc_findings(root: Path, sources: list[Path]) -> list[tuple[str, str, str, str]]:
     """Compiles the helper once, parses every source in one batch, returns (kind, name, path, line)."""
     home = _jdk_home()
-    javac = home / "bin" / "javac"
-    java = home / "bin" / "java"
-    if not java.is_file():
-        raise QualityToolError(f"javadoc rule requires a complete JDK; {java} is missing")
+    javac = _jdk_executable(home, "javac")
+    java = _jdk_executable(home, "java")
+    if javac is None:
+        raise QualityToolError(f"javadoc rule requires a complete JDK; {home / 'bin' / 'javac'} is missing")
+    if java is None:
+        raise QualityToolError(f"javadoc rule requires a complete JDK; {home / 'bin' / 'java'} is missing")
     try:
         with tempfile.TemporaryDirectory(prefix="turboism-quality-javadoc-") as work:
             workdir = Path(work)
