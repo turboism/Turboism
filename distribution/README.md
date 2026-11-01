@@ -39,12 +39,17 @@ API. Drafts and plugin tags are excluded; prerelease flags must match tags.
 ## Synchronization and security
 
 A SQLite-backed Durable Object persists snapshots and coalesces refreshes.
-Cloudflare Cron refreshes every 15 minutes. First use initializes the registry.
+Cloudflare Cron checks for stale data every 15 minutes. First use initializes the registry.
 GitHub's `notify-release-api.yml` requests an immediate refresh after release
 publication/changes or after the protected publisher finishes. The notification
 uses verified GitHub OIDC (repository ID, audience, workflow, ref, expiry and RSA
-signature), so no shared API secret is needed. The public cannot invoke refresh
-without authentication. No candidate artifact is executed by this service.
+signature), so no shared API secret is needed. The notifier also runs every ten
+minutes and lends its short-lived, `contents: read` job token to that refresh's
+fixed GitHub API requests. The token is never persisted, included in mirror
+downloads or forwarded through redirects. This avoids relying on anonymous
+Cloudflare egress quotas; anonymous refresh remains a fallback. The public cannot invoke refresh
+without authentication. A degraded or stale result fails the notification job
+after bounded retries. No candidate artifact is executed by this service.
 
 Remote lists are bounded and paginated; failure does not masquerade as absence.
 File identities are validated from GitHub's SHA-256 asset digests. The exact tag
