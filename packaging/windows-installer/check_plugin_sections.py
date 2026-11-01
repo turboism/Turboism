@@ -4,7 +4,7 @@
 `packaging/windows-installer/plugin-sections.nsh` is a generated artifact kept in
 Git because `installer.nsi` includes it and the packaging contract tests read it.
 Until this gate existed nothing compared it with a regeneration, so a plugin
-rename, a manifest change, or a framework version bump could ship a stale
+rename, a manifest change, or a plugin version bump could ship a stale
 installer payload list.
 
 The gate reproduces the assembly path rather than re-implementing it:
@@ -13,9 +13,9 @@ The gate reproduces the assembly path rather than re-implementing it:
      `<<'PYEOF'` block the assembler runs) and fail if the script no longer has
      exactly the two expected blocks.
   2. Build a synthetic staging tree whose `plugins/<module>.jar` entries carry
-     the real repository metadata: `META-INF/turboism/plugin.json` with the
-     framework version substituted exactly as `turboism.plugin-conventions`
-     does, the four installer locales, and the four README files.
+     the real repository metadata: the verbatim `META-INF/turboism/plugin.json`
+     (plugin versions are independent of the framework version), the four
+     installer locales, and the four README files.
   3. Run the extracted generator and byte-compare its `plugin-sections.nsh`
      output with the tracked file.
 
@@ -34,23 +34,19 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
 import zipfile
 
 DEFAULT_PACKAGE = Path(__file__).resolve().parent
-VERSION_FIELD = re.compile(r'^(\s*"version"\s*:\s*")[^"]+(".*)$')
-VERSION_DECLARATION = re.compile(
-    r'turboismFrameworkVersion"\]\s*=\s*"((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))'
-)
 INSTALLER_LOCALES = ("en", "zh_Hans", "ja", "ko")
 README_FILES = ("README.md", "README_zh.md", "README_ja.md", "README_ko.md")
 # Staged payload entries the generator only checks for existence while writing the
 # installer manifests. None of them feeds the plugin-sections output.
 SYNTHETIC_STAGE_FILES = (
     "turboism-agent.jar",
+    "bootstrap-receipt.ps1",
     "install-jar-payload.ps1",
     "launch-cubism-turboism.bat",
     "launch-cubism-turboism.ps1",
@@ -93,16 +89,6 @@ def production_generator(assemble_script: Path) -> str:
     return blocks[0]
 
 
-def framework_version(repo: Path) -> str:
-    declaration = repo / "gradle" / "common-java.gradle.kts"
-    if not declaration.is_file():
-        fail(f"framework version declaration missing: {declaration}")
-    match = VERSION_DECLARATION.search(declaration.read_text(encoding="utf-8"))
-    if not match:
-        fail(f"cannot read turboismFrameworkVersion from {declaration}")
-    return match.group(1)
-
-
 def manifest_modules(repo: Path) -> list[str]:
     manifest = repo / "packaging" / "release-plugins.txt"
     if not manifest.is_file():
@@ -116,32 +102,15 @@ def manifest_modules(repo: Path) -> list[str]:
     return [entry[len(":plugins:"):] for entry in entries]
 
 
-def rewrite_plugin_json(raw: str, version: str, plugin_json: Path) -> str:
-    """Substitute the framework version exactly like turboism.plugin-conventions does."""
-    out: list[str] = []
-    rewritten = False
-    for line in raw.splitlines(keepends=True):
-        field = None if rewritten else VERSION_FIELD.match(line)
-        if field is None:
-            out.append(line)
-            continue
-        rewritten = True
-        out.append(field.group(1) + version + field.group(2))
-    if not rewritten:
-        fail(f"{plugin_json}: no version field to substitute")
-    return "".join(out)
-
-
-def stage_plugin(repo: Path, module: str, stage: Path, version: str) -> None:
+def stage_plugin(repo: Path, module: str, stage: Path) -> None:
     plugin_dir = repo / "plugins" / module
     resources = plugin_dir / "src" / "main" / "resources" / "META-INF" / "turboism"
     plugin_json = resources / "plugin.json"
     if not plugin_json.is_file():
         fail(f"plugin metadata missing: {plugin_json}")
     payload: dict[str, bytes] = {
-        "META-INF/turboism/plugin.json": rewrite_plugin_json(
-            plugin_json.read_text(encoding="utf-8"), version, plugin_json
-        ).encode("utf-8"),
+        # Plugin versions are independent of the framework; plugin.json ships verbatim.
+        "META-INF/turboism/plugin.json": plugin_json.read_bytes(),
     }
     for locale in INSTALLER_LOCALES:
         messages = resources / "i18n" / f"messages_{locale}.properties"
@@ -163,12 +132,11 @@ def synthesize_stage(repo: Path, stage: Path, work: Path) -> str:
     (stage / "plugins").mkdir(parents=True)
     (stage / "graal" / "lib").mkdir(parents=True)
 
-    version = framework_version(repo)
     modules = manifest_modules(repo)
     if not modules:
         fail("release plugin manifest is empty")
     for module in modules:
-        stage_plugin(repo, module, stage, version)
+        stage_plugin(repo, module, stage)
 
     for name in SYNTHETIC_STAGE_FILES:
         (stage / name).write_text(f"synthetic {name}", encoding="utf-8")
