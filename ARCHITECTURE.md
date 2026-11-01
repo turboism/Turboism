@@ -216,17 +216,17 @@ is matched by exact declaring type and method name, so no other method can ride 
 exemption releases UI resources only: a plugin must not use it to run other host operations
 after fencing, and no second argument-taking verb may be added to the exemption.
 
-Closed exception to the dependency direction (plugin → sdk → runtime; the runtime does not read plugin state): `EarlyThemeAppearanceBootstrap` reads the
-`ui-theme` plugin's persisted selection document (`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`,
-typed-config schema version 1, key `selected-theme`, sentinel `__native__`) and its theme data
-under `data/dev.turboism.plugin.uitheme/themes/`. The reason is timing: Cubism caches the
-off-canvas background in a singleton on first GL scene access, before any plugin loads, so the
-value must be injected before plugin code or SDK services exist. A pre-load SDK contract for this
-single consumer would add public API without a second user. The reader is read-only, validates
-the full document framing, and fails with one bounded diagnostic instead of guessing. The
-exception covers this one document and these constants only. `ThemeSelectionConfigTest` (plugin)
-and `EarlyThemeAppearanceBootstrapTest` (runtime) each pin the same values, so a change on either
-side fails in its own module; the runtime test does not read plugin source files.
+依赖方向（plugin → sdk → runtime）的封闭例外：仅 `EarlyThemeAppearanceBootstrap`
+可以在插件加载前读取 `ui-theme` 的选择文档
+`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`。
+文档限 typed-config schema version 1，选择键限 `selected-theme`，原生主题哨兵限 `__native__`。
+该读取器还可以读取 `data/dev.turboism.plugin.uitheme/themes/` 下所选主题包的颜色数据。
+Cubism 在首次访问 GL 场景时缓存画布外背景色，因此颜色注入必须早于插件加载和 SDK 服务初始化。
+当前仅有这个启动前消费者，因此保留读取器，不新增公共 SDK 契约。
+读取器只读，校验完整文档结构。格式无效时只输出一条有界诊断。
+例外仅覆盖此读取器、此选择文档及上述所选主题颜色数据，不允许其他运行时读取器或插件私有文档。
+`ThemeSelectionConfigTest` 与 `EarlyThemeAppearanceBootstrapTest` 分别在各自模块固定同一组常量。
+运行时测试不读取插件源码。
 
 ## 6. Invocation and event lifecycle
 
