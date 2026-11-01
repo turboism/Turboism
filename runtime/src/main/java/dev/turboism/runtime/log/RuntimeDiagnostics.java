@@ -19,6 +19,14 @@ public final class RuntimeDiagnostics {
     @FunctionalInterface
     public interface Sink {
         /**
+         * Whether callers should prepare optional diagnostics at this level. Implementations
+         * must be cheap and thread-safe; existing sinks accept every level by default.
+         */
+        default boolean isEnabled(final Level level) {
+            return true;
+        }
+
+        /**
          * Receives one diagnostic record.
          *
          * <p>Called from arbitrary threads, including premain-phase replay; a sink must be
@@ -62,6 +70,21 @@ public final class RuntimeDiagnostics {
         synchronized (STATE_LOCK) {
             SINK.set(NONE);
             PENDING.clear();
+        }
+    }
+
+    /**
+     * Checks the installed sink without taking the startup-buffer lock. High-frequency callers
+     * can skip diagnostic-only host reads and message construction when the level is disabled.
+     * Returns false before installation or if the sink fails; ordinary ungated startup records
+     * still use the bounded premain buffer.
+     */
+    public static boolean isEnabled(final Level level) {
+        try {
+            final Sink sink = SINK.get();
+            return sink != NONE && sink.isEnabled(Objects.requireNonNull(level, "level"));
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
         }
     }
 

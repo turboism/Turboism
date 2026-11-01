@@ -44,6 +44,85 @@ class EditorSelectionReadAccessTest {
     }
 
     @Test
+    void sparseSelectionReadsOnlySelectedObjectIdsWhileCheckingEveryGuid() {
+        final Fixture fixture = new Fixture();
+        for (int i = 0; i < 4_096; i++) {
+            fixture.source.objects.add(new ObjectSource(new Id("guid-extra-" + i), new Id("Extra" + i)));
+        }
+        Host.document = fixture.document;
+        Host.updateManager.selection = List.of(fixture.warp.guid);
+
+        assertEquals(List.of("WarpA"), access(true).currentSelection().selectedObjectIds());
+        assertEquals(
+                1,
+                fixture.source.objects.stream()
+                        .mapToInt(source -> source.idReads)
+                        .sum());
+        assertEquals(
+                fixture.source.objects.size(),
+                fixture.source.objects.stream()
+                        .mapToInt(source -> source.guidReads)
+                        .sum());
+    }
+
+    @Test
+    void paletteOnlySelectionDoesNotEnumerateModelObjects() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorSelectionReadAccess access =
+                new EditorSelectionReadAccess(resolver(true), () -> List.of(fixture.parameter));
+
+        assertEquals(List.of("ParamA"), access.currentSelection().selectedObjectIds());
+        assertEquals(0, fixture.source.objectReads);
+        assertEquals(1, fixture.source.parameterReads);
+    }
+
+    @Test
+    void parameterProjectionAndPaletteShareOneEnumerationAndOnlyReadSelectedIds() {
+        final Fixture fixture = new Fixture();
+        final ParameterSource other = new ParameterSource(new Id("guid-other"), new Id("Other"));
+        fixture.source.parameters.add(other);
+        Host.document = fixture.document;
+        Host.updateManager.selection = List.of(fixture.parameter.guid);
+        final EditorSelectionReadAccess access =
+                new EditorSelectionReadAccess(resolver(true), () -> List.of(fixture.parameter));
+
+        assertEquals(List.of("ParamA"), access.currentSelection().selectedObjectIds());
+        assertEquals(1, fixture.source.parameterReads);
+        assertEquals(0, other.idReads);
+    }
+
+    @Test
+    void duplicateUnselectedGuidsStillFailClosed() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        Host.updateManager.selection = List.of(fixture.warp.guid);
+        fixture.source.objects.add(new ObjectSource(fixture.mesh.guid, new Id("Duplicate")));
+        assertThrows(IllegalStateException.class, () -> access(true).currentSelection());
+
+        fixture.source.objects.remove(fixture.source.objects.size() - 1);
+        Host.updateManager.selection = List.of(new Id("guid-unknown"));
+        fixture.source.parameters.add(new ParameterSource(fixture.parameter.guid, new Id("Duplicate")));
+        assertThrows(IllegalStateException.class, () -> access(true).currentSelection());
+    }
+
+    @Test
+    void repeatedReadsFollowReplacementDeletionAndDocumentSwitchWithoutStaleIds() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        Host.updateManager.selection = List.of(fixture.warp.guid);
+        final EditorSelectionReadAccess access = access(true);
+        assertEquals(List.of("WarpA"), access.currentSelection().selectedObjectIds());
+
+        fixture.source.objects.set(0, new ObjectSource(fixture.warp.guid, new Id("RenamedWarp")));
+        assertEquals(List.of("RenamedWarp"), access.currentSelection().selectedObjectIds());
+        fixture.source.objects.remove(0);
+        assertEquals(List.of(), access.currentSelection().selectedObjectIds());
+        Host.document = new Fixture().document;
+        assertEquals(List.of("WarpA"), access.currentSelection().selectedObjectIds());
+    }
+
+    @Test
     void projectsMixedMultiSelectionInHostOrder() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -305,12 +384,16 @@ class EditorSelectionReadAccessTest {
     public static final class ModelSource {
         final List<ObjectSource> objects = new ArrayList<>();
         final List<ParameterSource> parameters = new ArrayList<>();
+        int objectReads;
+        int parameterReads;
 
         public List<ObjectSource> allObjects() {
+            objectReads++;
             return objects;
         }
 
         public List<ParameterSource> allParameters() {
+            parameterReads++;
             return parameters;
         }
     }
@@ -318,6 +401,8 @@ class EditorSelectionReadAccessTest {
     public static class ObjectSource {
         private final Id guid;
         private final Id id;
+        int guidReads;
+        int idReads;
 
         ObjectSource(final Id guid, final Id id) {
             this.guid = guid;
@@ -325,10 +410,12 @@ class EditorSelectionReadAccessTest {
         }
 
         public Id guid() {
+            guidReads++;
             return guid;
         }
 
         public Id id() {
+            idReads++;
             return id;
         }
     }
@@ -336,6 +423,7 @@ class EditorSelectionReadAccessTest {
     public static final class ParameterSource {
         private final Id guid;
         private final Id id;
+        int idReads;
 
         ParameterSource(final Id guid, final Id id) {
             this.guid = guid;
@@ -347,6 +435,7 @@ class EditorSelectionReadAccessTest {
         }
 
         public Id id() {
+            idReads++;
             return id;
         }
     }

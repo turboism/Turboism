@@ -9,10 +9,12 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Live Editor selection read: projects the update manager's selection GUID list onto
@@ -20,7 +22,7 @@ import java.util.Optional;
  * independently selected rows captured by its verified selection hook.
  *
  * <p>The host list stores {@code Guid} values, not SDK ids, so every element is resolved
- * through a GUID→id map built from the document's object sources
+ * through a GUID→id map containing only requested GUIDs from the document's object sources
  * ({@code model-source.all-objects}) and, lazily and only when needed, parameter sources
  * ({@code model-source.all-parameters}). Host order is preserved verbatim; mixed and
  * multi selection are therefore unchanged. A GUID with no live source — a deleted object
@@ -28,6 +30,8 @@ import java.util.Optional;
  * guessed onto another object.
  * Palette rows must still be attached and their source objects must belong to the active
  * model by reference identity; IDs or GUIDs shared by copied documents are insufficient.
+ * Unselected sources still participate in GUID uniqueness checks, but their IDs are not read.
+ * Maps live only for this read, so renames, deletions and document switches cannot leave stale IDs.
  *
  * <p>{@code HostSelection.active*Id} stays empty: no reviewed selector proves which
  * palette entry is active, and the first selected entry is not a substitute.
@@ -85,15 +89,20 @@ final class EditorSelectionReadAccess {
         if (modelSource == null) {
             throw unavailable("Editor model source is unavailable.");
         }
-        final Map<String, String> idsByGuid = controllableIdsByGuid(modelSource);
+        final ArrayList<String> selectedGuids = new ArrayList<>(guidElements.size());
+        for (Object element : guidElements) selectedGuids.add(guidText(element));
+        final Set<String> requestedGuids = new HashSet<>(selectedGuids);
+        final Map<String, String> idsByGuid =
+                requestedGuids.isEmpty() ? Map.of() : controllableIdsByGuid(modelSource, requestedGuids);
         final ArrayList<String> selectedObjectIds = new ArrayList<>(guidElements.size());
         Map<String, String> parameterIdsByGuid = null;
-        for (Object element : guidElements) {
-            final String guid = guidText(element);
+        List<?> parameterSources = null;
+        for (String guid : selectedGuids) {
             String id = idsByGuid.get(guid);
             if (id == null) {
                 if (parameterIdsByGuid == null) {
-                    parameterIdsByGuid = parameterIdsByGuid(modelSource);
+                    parameterSources = parameterSources(modelSource);
+                    parameterIdsByGuid = parameterIdsByGuid(parameterSources, requestedGuids);
                 }
                 id = parameterIdsByGuid.get(guid);
             }
@@ -107,13 +116,13 @@ final class EditorSelectionReadAccess {
             final java.util.Set<Object> selectedSources =
                     java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
             selectedSources.addAll(paletteSources);
-            for (Object source : list(
-                    resolver.invoke("cubism.editor-model.model-source.all-parameters", modelSource),
-                    "Editor parameter source collection")) {
+            final Set<String> includedIds = new HashSet<>(selectedObjectIds);
+            if (parameterSources == null) parameterSources = parameterSources(modelSource);
+            for (Object source : parameterSources) {
                 if (!selectedSources.contains(source)) continue;
                 final Object id = resolver.invoke("cubism.editor-model.parameter-source.id", source);
                 final String value = text(resolver.invoke("cubism.editor-model.id.value", id), "Editor parameter ID");
-                if (!selectedObjectIds.contains(value)) selectedObjectIds.add(value);
+                if (includedIds.add(value)) selectedObjectIds.add(value);
             }
         }
         traceProjection(guidElements.size(), selectedObjectIds.size());
@@ -129,38 +138,47 @@ final class EditorSelectionReadAccess {
         }
     }
 
-    private Map<String, String> controllableIdsByGuid(final Object modelSource) {
+    private Map<String, String> controllableIdsByGuid(final Object modelSource, final Set<String> requestedGuids) {
         final List<?> sources = list(
                 resolver.invoke("cubism.editor-model.model-source.all-objects", modelSource),
                 "Editor object source collection");
         final HashMap<String, String> idsByGuid = new HashMap<>();
+        final Set<String> seenGuids = new HashSet<>();
         for (Object source : sources) {
             final Object guid = resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", source);
             final String guidValue =
                     text(resolver.invoke("cubism.editor-model.guid.value", guid), "Editor object GUID");
-            final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
-            final String idValue = text(resolver.invoke("cubism.editor-model.id.value", id), "Editor object ID");
-            if (idsByGuid.put(guidValue, idValue) != null) {
+            if (!seenGuids.add(guidValue)) {
                 throw unavailable("Editor object GUIDs are not unique.");
             }
+            if (!requestedGuids.contains(guidValue)) continue;
+            final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
+            final String idValue = text(resolver.invoke("cubism.editor-model.id.value", id), "Editor object ID");
+            idsByGuid.put(guidValue, idValue);
         }
         return idsByGuid;
     }
 
-    private Map<String, String> parameterIdsByGuid(final Object modelSource) {
-        final List<?> sources = list(
+    private List<?> parameterSources(final Object modelSource) {
+        return list(
                 resolver.invoke("cubism.editor-model.model-source.all-parameters", modelSource),
                 "Editor parameter source collection");
+    }
+
+    private Map<String, String> parameterIdsByGuid(final List<?> sources, final Set<String> requestedGuids) {
         final HashMap<String, String> idsByGuid = new HashMap<>();
+        final Set<String> seenGuids = new HashSet<>();
         for (Object source : sources) {
             final Object guid = resolver.invoke("cubism.editor-model.parameter-source.guid", source);
             final String guidValue =
                     text(resolver.invoke("cubism.editor-model.guid.value", guid), "Editor parameter GUID");
-            final Object id = resolver.invoke("cubism.editor-model.parameter-source.id", source);
-            final String idValue = text(resolver.invoke("cubism.editor-model.id.value", id), "Editor parameter ID");
-            if (idsByGuid.put(guidValue, idValue) != null) {
+            if (!seenGuids.add(guidValue)) {
                 throw unavailable("Editor parameter GUIDs are not unique.");
             }
+            if (!requestedGuids.contains(guidValue)) continue;
+            final Object id = resolver.invoke("cubism.editor-model.parameter-source.id", source);
+            final String idValue = text(resolver.invoke("cubism.editor-model.id.value", id), "Editor parameter ID");
+            idsByGuid.put(guidValue, idValue);
         }
         return idsByGuid;
     }

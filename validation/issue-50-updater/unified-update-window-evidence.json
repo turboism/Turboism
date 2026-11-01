@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "pullRequest": 64,
+  "implementationCommits": [
+    "da2473eca946e32282efc0cda34a61f4c8f67df4",
+    "b649bd7f9807467bfc27bca8d6f234c718ec4df1"
+  ],
+  "identity": {
+    "version": "0.68.1-beta.10",
+    "buildNumber": 84,
+    "sourceRevision": "96ff898324f1f0f6cb6af1968e59ba903dd0fce2",
+    "channel": "beta"
+  },
+  "releaseUrl": "https://github.com/turboism/Turboism/releases/tag/v0.68.1-beta.10",
+  "candidateRun": 41314639033,
+  "candidateRunAttempt": 1,
+  "publishRun": 41316246339,
+  "synchronizationRun": 41316801762,
+  "mainChecks": [
+    41314594472,
+    41314594466,
+    41314594467
+  ],
+  "archive": {
+    "name": "turboism-0.68.1-beta.10.zip",
+    "sha256": "a479afa6d5657383beb5138f11b187c160ae2e7d001fbaa84f2a2038bc20b516"
+  },
+  "signatureVerified": true,
+  "manifestSha256": "c496963c4e085896813caf9b603ba65e8b734b1b5d5db42dd8f47a2bbf324fcb",
+  "verifiedPackageFrameworkFiles": 36,
+  "publicObjectHeadAndRangeChecks": 36,
+  "unchangedChannels": [
+    "stable",
+    "nightly"
+  ],
+  "publicService": {
+    "checkedAt": "2026-11-01T22:35:09.462029+08:00",
+    "health": {
+      "service": "turboism-release-api",
+      "status": "ready",
+      "synchronizedAt": "2026-11-01T14:34:12.869Z",
+      "mirrorConfigured": true,
+      "channels": [
+        {
+          "channel": "stable",
+          "status": "ready"
+        },
+        {
+          "channel": "beta",
+          "status": "ready"
+        },
+        {
+          "channel": "nightly",
+          "status": "ready"
+        }
+      ]
+    },
+    "version": "0.68.1-beta.10",
+    "buildNumber": 84,
+    "sourceRevision": "96ff898324f1f0f6cb6af1968e59ba903dd0fce2",
+    "status": "ready",
+    "notesCharacters": {
+      "en": 6257,
+      "zh": 2597,
+      "ja": 3673,
+      "ko": 3804
+    },
+    "chineseNotesContainRequestedFeatures": true,
+    "incrementalDescriptorPresent": true
+  },
+  "officialPluginOnlyAcceptance": {
+    "identity": {
+      "version": "0.68.1-beta.10",
+      "buildNumber": 84,
+      "channel": "beta",
+      "sourceRevision": "96ff898324f1f0f6cb6af1968e59ba903dd0fce2"
+    },
+    "receiptManifestSha256": "c496963c4e085896813caf9b603ba65e8b734b1b5d5db42dd8f47a2bbf324fcb",
+    "verifiedInstalledFrameworkFiles": 36,
+    "updatedPlugins": {
+      "dev.turboism.plugin.clipmask-viewer": {
+        "from": {
+          "version": "0.68.0",
+          "sha256": "9a8836e75b2f949403637dbce5df42dfdafeba9c148ac7ad19d044e69900577b",
+          "bytes": 74911,
+          "path": "plugins\\clipmask-viewer.jar"
+        },
+        "to": {
+          "version": "0.68.1",
+          "sha256": "8f50e0df26dbdbcbd8c847bb9454771a7b04ae4d4a050d403672f06c6f72b133",
+          "bytes": 74856,
+          "path": "plugins\\dev.turboism.plugin.clipmask-viewer.jar"
+        }
+      },
+      "dev.turboism.plugin.command-palette": {
+        "from": {
+          "version": "0.68.0",
+          "sha256": "4f93043d29d9eaf6a1eabe672b13c8e4017f1f2d8d391e34add1d95634b0528c",
+          "bytes": 72174,
+          "path": "plugins\\command-palette.jar"
+        },
+        "to": {
+          "version": "0.68.1",
+          "sha256": "77a287f9d29e0c3a776059046c6ef27548964d89e8505a5dfb101614622f26d6",
+          "bytes": 72797,
+          "path": "plugins\\dev.turboism.plugin.command-palette.jar"
+        }
+      }
+    },
+    "unchangedPlugins": 30,
+    "configAndPreferencesUnchanged": true,
+    "officialBatUnchanged": true,
+    "pendingAndJournalCleared": true,
+    "health": null,
+    "operation": "verify-plugins",
+    "startup": "2026-11-01T14:37:08.595763200Z [INFO] [bootstrap] Turboism Developer Preview started: host=ACTIVE, plugins=30, failures=0",
+    "runtimePid": 48836
+  },
+  "officialCoordinatedAcceptance": {
+    "identity": {
+      "version": "0.68.1-beta.10",
+      "buildNumber": 84,
+      "channel": "beta",
+      "sourceRevision": "96ff898324f1f0f6cb6af1968e59ba903dd0fce2"
+    },
+    "receiptManifestSha256": "c496963c4e085896813caf9b603ba65e8b734b1b5d5db42dd8f47a2bbf324fcb",
+    "verifiedInstalledFrameworkFiles": 36,
+    "updatedPlugins": {
+      "dev.turboism.plugin.clipmask-viewer": {
+        "from": {
+          "version": "0.68.0",
+          "sha256": "9a8836e75b2f949403637dbce5df42dfdafeba9c148ac7ad19d044e69900577b",
+          "bytes": 74911,
+          "path": "plugins\\clipmask-viewer.jar"
+        },
+        "to": {
+          "version": "0.68.1",
+          "sha256": "8f50e0df26dbdbcbd8c847bb9454771a7b04ae4d4a050d403672f06c6f72b133",
+          "bytes": 74856,
+          "path": "plugins\\dev.turboism.plugin.clipmask-viewer.jar"
+        }
+      },
+      "dev.turboism.plugin.command-palette": {
+        "from": {
+          "version": "0.68.0",
+          "sha256": "4f93043d29d9eaf6a1eabe672b13c8e4017f1f2d8d391e34add1d95634b0528c",
+          "bytes": 72174,
+          "path": "plugins\\command-palette.jar"
+        },
+        "to": {
+          "version": "0.68.1",
+          "sha256": "77a287f9d29e0c3a776059046c6ef27548964d89e8505a5dfb101614622f26d6",
+          "bytes": 72797,
+          "path": "plugins\\dev.turboism.plugin.command-palette.jar"
+        }
+      }
+    },
+    "unchangedPlugins": 30,
+    "configAndPreferencesUnchanged": true,
+    "officialBatUnchanged": true,
+    "pendingAndJournalCleared": true,
+    "health": "2026-11-01T14:49:32.330742900Z [INFO] [updates] UPDATE_STARTUP_CONFIRMED",
+    "operation": "verify",
+    "startup": "2026-11-01T14:49:32.332740400Z [INFO] [bootstrap] Turboism Developer Preview started: host=ACTIVE, plugins=30, failures=0",
+    "runtimePid": 42232
+  },
+  "nativeUi": {
+    "labsClosedNormally": true,
+    "emptyListScreenshot": "build/native/issue50-validation/unified-updates-ui-official-20261101/J-no-updates-28840142.png",
+    "releaseNotesOnRight": true,
+    "downloadDecimalMB": "0.15 / 0.15",
+    "currentComponentsHidden": true,
+    "enabledPlugins": 30,
+    "notesScreenshot": "build/native/issue50-validation/unified-updates-ui-official-20261101/E-ui-command-notes-12521772.png",
+    "startupFailures": 0,
+    "elapsed": "00:02",
+    "notesFollowSelectedPlugin": true,
+    "updatedRowsDisappear": true
+  },
+  "observations": [
+    "First catalog request reset; a manual check succeeded.",
+    "The older Beta.9 JVM hit GitHub response timeouts twice; a normal restart followed by retry completed the coordinated download in 11 seconds.",
+    "No production service changes were needed.",
+    "A local Slate fixture exposed host-wide palette inconsistencies; complete dark theme conformance is not claimed."
+  ]
+}
