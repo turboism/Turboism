@@ -2,17 +2,27 @@ package dev.turboism.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.sdk.json.Json;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -75,7 +85,8 @@ class TurboismAgentBootstrapTest {
     }
 
     @Test
-    void missingPremainWarpHookIsExplicitlyWithdrawn() {        final HookContributor warp = new WarpAltMirrorHookContributor();
+    void missingPremainWarpHookIsExplicitlyWithdrawn() {
+        final HookContributor warp = new WarpAltMirrorHookContributor();
         final List<String> withdrawn = new ArrayList<>();
         TurboismAgent.prepareEarlyHooks(
                 List.of(warp),
@@ -95,26 +106,66 @@ class TurboismAgentBootstrapTest {
      * owned by the contributor that installs that seam. Without the declaration a failed or closed
      * hook leaves the dependent capability authorized, so a plugin reaches a dead native path.
      *
-     * <p>The {@code editor-ui} and {@code workspace-control} seams are installed by the UI layer
-     * rather than by a bootstrap contributor; they stay registered as a known limitation.</p>
+     * <p>Known limitations must match the records exactly and must have no bootstrap owner.</p>
      */
     @Test
-    void bootstrapOwnedCapabilityConditionHooksAreWithdrawnOnFailureOrClose() throws Exception {
-        final java.util.Set<String> owned = new java.util.HashSet<>();
-        for (final HookContributor contributor :
-                HookManifest.load(TurboismAgentBootstrapTest.class.getClassLoader())) {
+    void capabilityConditionHooksHaveOwnersOrExactKnownLimitations() throws Exception {
+        final Set<String> owned = new TreeSet<>();
+        for (final HookContributor contributor : HookManifest.load(TurboismAgentBootstrapTest.class.getClassLoader())) {
             owned.addAll(contributor.runtimeHookIds());
         }
 
+        final Path root = Path.of(System.getProperty("turboism.test.repositoryRoot"));
+        final Map<String, Set<String>> recorded = new TreeMap<>();
+        final ObjectMapper mapper = new ObjectMapper();
+        final Set<String> versions = new TreeSet<>();
+        try (var paths = Files.list(root.resolve("build/generated/verification"))) {
+            for (Path path : paths.filter(file -> file.getFileName().toString().endsWith(".json"))
+                    .toList()) {
+                // Match StaticVerificationRecordLoader, including historical duplicate top-level fields.
+                final Map<String, Object> record =
+                        mapper.readValue(Files.readAllBytes(path), new TypeReference<Map<String, Object>>() {});
+                versions.add((String) record.get("cubismVersion"));
+                final Map<?, ?> conditions = assertInstanceOf(Map.class, record.get("capabilityConditions"));
+                conditions.forEach((capability, values) -> {
+                    for (Object value : assertInstanceOf(List.class, values)) {
+                        final String condition = assertInstanceOf(String.class, value);
+                        if (condition.startsWith("hook:")) {
+                            recorded.computeIfAbsent(condition.substring("hook:".length()), ignored -> new TreeSet<>())
+                                    .add(assertInstanceOf(String.class, capability));
+                        }
+                    }
+                });
+            }
+        }
+        assertEquals(new TreeSet<>(ReviewedHostArtifacts.reviewedCubismVersions()), versions);
+        assertFalse(recorded.isEmpty(), "verification records must declare hook conditions");
+
+        final var boundaries =
+                Json.parseObject(Files.readAllBytes(root.resolve("compatibility/cubism/version-boundaries.json")));
+        final Set<String> limitations = new TreeSet<>();
+        for (Object value : assertInstanceOf(List.class, boundaries.get("knownLimitations"))) {
+            final Map<?, ?> entry = assertInstanceOf(Map.class, value);
+            if (!"missing-runtime-withdrawal-wiring".equals(entry.get("kind"))) {
+                continue;
+            }
+            final String id = assertInstanceOf(String.class, entry.get("id"));
+            assertTrue(id.startsWith("hook:"), id);
+            final String hook = id.substring("hook:".length());
+            assertTrue(limitations.add(hook), "duplicate limitation: " + id);
+            assertEquals("known-limitation", entry.get("status"), id);
+            assertFalse(owned.contains(hook), "remove limitation after wiring its owner: " + id);
+            final Set<String> affected = new TreeSet<>();
+            for (Object capability : assertInstanceOf(List.class, entry.get("affectedCapabilities"))) {
+                affected.add(assertInstanceOf(String.class, capability));
+            }
+            assertEquals(recorded.get(hook), affected, "limitation must name exactly the recorded capabilities: " + id);
+        }
+        final Set<String> required = new TreeSet<>(recorded.keySet());
+        required.removeAll(limitations);
         assertTrue(
-                owned.containsAll(java.util.Set.of(
-                        "control-appearance",
-                        "object-context-menu",
-                        "performance-fps",
-                        "physics-editor",
-                        "protected-export",
-                        "texture-atlas")),
-                "a catalog hook lost its runtime withdrawal wiring: " + owned);
+                owned.containsAll(required),
+                "catalog hooks lost runtime withdrawal wiring: " + required + "; owners=" + owned);
     }
 
     @Test
