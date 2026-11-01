@@ -220,9 +220,8 @@ public final class PluginCatalogClient {
         final String suffix = Set.of("zh", "ja", "ko").contains(language) ? "_" + language : "";
         final long deadline = deadlineNanos(requestDeadline);
         for (String variant : suffix.isEmpty() ? java.util.List.of("") : java.util.List.of(suffix, "")) {
-            final URI uri = URI.create("https://raw.githubusercontent.com/turboism/Turboism/" + revision + "/plugins/"
-                    + slug + "/README" + variant + ".md");
-            final RawResponse response = fetchBytes(uri, "text/plain", Optional.empty(), 262_144, deadline);
+            final String path = "plugins/" + slug + "/README" + variant + ".md";
+            final RawResponse response = fetchReadme(revision, path, deadline);
             if (response.statusCode() == HttpURLConnection.HTTP_NOT_FOUND) continue;
             if (response.statusCode() != HttpURLConnection.HTTP_OK)
                 throw new IOException("Plugin release notes request failed: HTTP " + response.statusCode());
@@ -233,6 +232,28 @@ public final class PluginCatalogClient {
             if (!notes.isBlank()) return notes;
         }
         return "";
+    }
+
+    private RawResponse fetchReadme(final String revision, final String path, final long deadline) throws IOException {
+        try {
+            final RawResponse raw = fetchBytes(
+                    URI.create("https://raw.githubusercontent.com/turboism/Turboism/" + revision + "/" + path),
+                    "text/plain",
+                    Optional.empty(),
+                    262_144,
+                    Math.min(deadline, deadlineNanos(Duration.ofSeconds(6))));
+            if (raw.statusCode() == HttpURLConnection.HTTP_OK || raw.statusCode() == HttpURLConnection.HTTP_NOT_FOUND)
+                return raw;
+        } catch (IOException unavailableRawHost) {
+            checkDeadline(deadline);
+        }
+        // The content API serves the same commit-pinned file when the raw hostname is unreachable.
+        return fetchBytes(
+                URI.create("https://api.github.com/repos/turboism/Turboism/contents/" + path + "?ref=" + revision),
+                "application/vnd.github.raw+json",
+                Optional.empty(),
+                262_144,
+                deadline);
     }
 
     /**
