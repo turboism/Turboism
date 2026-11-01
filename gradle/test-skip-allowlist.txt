@@ -62,3 +62,10 @@ dev.turboism.validation.modelimport3d.host.SurfaceVertexAuthoringTest.* # requir
 dev.turboism.validation.modelimport3d.host.SurfaceVertexPlanTest.* # requires gitignored local 3D fixtures.
 dev.turboism.validation.modelimport3d.host.SurfaceWarpImagePlanTest.* # requires gitignored local 3D fixtures.
 dev.turboism.validation.modelimport3d.host.SurfaceWarpImportCandidateTest.* # requires gitignored local 3D fixtures.
+# Opt-in real-agent handshakes require installed external CLIs; ordinary CI does
+# not enable either lane. Register only the methods that carry that condition.
+dev.turboism.plugin.acp.AcpRealAgentSmokeTest.devinCliCompletesTheAcpHandshake() # requires TURBOISM_ACP_SMOKE=1 and the installed devin CLI.
+dev.turboism.plugin.acp.AcpRealAgentSmokeTest.opencodeCompletesTheAcpHandshake() # requires TURBOISM_ACP_SMOKE=1 and the installed opencode CLI.
+dev.turboism.plugin.acp.NativeRealCliSmokeTest.createsNativeSessionWithoutExternalAdapter* # requires TURBOISM_NATIVE_SMOKE=1 and the installed codex/claude/pi CLIs; includes the disabled parameterized-method report.
+# Like the SDK headless factory case, this branch needs a JVM without a display.
+dev.turboism.plugin.perfstats.PerfStatsPluginLifecycleTest.windowActionFailsGracefullyInHeadlessEnvironment() # requires a headless JVM; X11/xvfb makes GraphicsEnvironment.isHeadless() false.
