@@ -72,13 +72,15 @@ if ! jar tf "$repo_root/build/mcp-host-validation-probe.jar" | grep -Fq 'validat
 fi
 
 rm -rf "$bundle_root"
-mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state"
+mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state" "$bundle_root/fixtures"
 cp "$preview_root/turboism-agent.jar" "$bundle_root/turboism-agent.jar"
 cp "${clipmask_jars[0]}" "$bundle_root/plugins/clipmask-viewer.jar"
 for jar_name in "${probe_jars[@]}"; do
   cp "$repo_root/build/$jar_name" "$bundle_root/plugins/$jar_name"
 done
 cp "$repo_root/scripts/preview/README-session-validation.md" "$bundle_root/README.md"
+cp "$repo_root/validation/separate-save-path-host-probe/fixtures/save-directory-history.properties" \
+  "$bundle_root/fixtures/save-directory-history.properties"
 
 (
   cd "$bundle_root"
@@ -86,6 +88,7 @@ cp "$repo_root/scripts/preview/README-session-validation.md" "$bundle_root/READM
     turboism-agent.jar \
     plugins/clipmask-viewer.jar \
     "${probe_jars[@]/#/plugins/}" \
+    fixtures/save-directory-history.properties \
     README.md > SHA256SUMS.txt
 )
 
