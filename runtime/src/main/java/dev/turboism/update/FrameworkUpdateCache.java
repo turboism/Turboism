@@ -3,8 +3,6 @@ package dev.turboism.update;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -48,8 +46,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
     private final Set<String> sessionPins = new HashSet<>();
     private final Path root;
     private final boolean posix;
-    private final FileChannel lockChannel;
-    private final FileLock lock;
+    private final FrameworkUpdateLock lock;
 
     FrameworkUpdateCache(final Path requested) throws IOException {
         this(requested, DEFAULT_QUOTA, ignored -> {});
@@ -92,16 +89,11 @@ final class FrameworkUpdateCache implements AutoCloseable {
         final Path lockPath = root.resolve("writer.lock");
         if (attributes(lockPath) == null) create(lockPath);
         file(lockPath);
-        lockChannel = FileChannel.open(lockPath, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-        FileLock acquired = null;
         try {
-            acquired = lockChannel.tryLock();
-            if (acquired == null) throw new IOException("Cache writer already active");
-        } catch (IOException | OverlappingFileLockException failure) {
-            lockChannel.close();
+            lock = FrameworkUpdateLock.acquireFile(lockPath);
+        } catch (IOException failure) {
             throw new IOException("Cache writer already active", failure);
         }
-        lock = acquired;
     }
 
     private static byte[] readMarker(final Path path) throws IOException {
@@ -424,10 +416,6 @@ final class FrameworkUpdateCache implements AutoCloseable {
 
     @Override
     public void close() throws IOException {
-        try {
-            lock.close();
-        } finally {
-            lockChannel.close();
-        }
+        lock.close();
     }
 }
