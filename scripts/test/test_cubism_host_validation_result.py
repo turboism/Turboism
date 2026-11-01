@@ -77,7 +77,7 @@ class TerminalPublicationRace(unittest.TestCase):
     """Exercise the runner's actual polling helpers with task-local evidence only."""
 
     def poll(self, payload, marker=False, preexisting=False, fail_lines=None,
-             require_assertions=False):
+             require_assertions=False, pass_line='status=PASS'):
         source = RUNNER.read_text()
         functions = source.split('terminal_result_observed() {', 1)[1].split('\nresult_passed=0', 1)[0]
         functions = 'terminal_result_observed() {' + functions
@@ -86,13 +86,14 @@ class TerminalPublicationRace(unittest.TestCase):
             if preexisting:
                 evidence.write_text(payload)
             env = dict(os.environ, TEST_RESULT_PATH=str(evidence), TEST_PAYLOAD=payload,
-                       TEST_FAIL_LINES=" ".join(fail_lines or ["status=FAIL"]))
+                       TEST_FAIL_LINES=" ".join(fail_lines or ["status=FAIL"]),
+                       TEST_PASS_LINE=pass_line)
             script = """
 set -eu
 log_file=$TEST_RESULT_PATH
 result_file=$TEST_RESULT_PATH
 result_marker=''
-result_pass_line='status=PASS'
+result_pass_line=$TEST_PASS_LINE
 result_fail_lines=(${TEST_FAIL_LINES:-'status=FAIL'})
 require_assertions=0
 failure_markers=()
