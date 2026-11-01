@@ -37,6 +37,29 @@ final class RuntimeUpdateServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-07T00:00:00Z");
 
     @Test
+    void currentReleaseKeepsItsNotesButAnOlderFeedCannotMasqueradeAsInstalledNotes(@TempDir final Path home)
+            throws Exception {
+        final DeferredTransport transport = new DeferredTransport();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
+        try {
+            for (String version : List.of("1.0.0", "0.9.0")) {
+                final var check = service.checkManual();
+                assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+                transport.completeWithDocument("{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
+                        + "\"release\":{\"version\":\"" + version + "\",\"notes\":\"Release notes\"}}");
+                final var state = check.toCompletableFuture().get(2, TimeUnit.SECONDS);
+                assertEquals(CoreUpdateService.Status.UP_TO_DATE, state.status());
+                assertEquals(version.equals("1.0.0") ? "Release notes" : "", state.notesFor(java.util.Locale.ENGLISH));
+            }
+        } finally {
+            service.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void startsAutomaticallyOnlyAfterTheConfiguredDelayAndPersistsTheAttempt(@TempDir final Path home)
             throws Exception {
         final DeferredTransport transport = new DeferredTransport();
@@ -524,7 +547,12 @@ final class RuntimeUpdateServiceTest {
 
     @Test
     void restartUsesWholeIncrementalCandidateOnlyAfterAConditionalSuccess(@TempDir final Path home) throws Exception {
-        final var discovery = new UpdateDiscoveryParser().parseNode(UpdateDiscoveryParserTest.incrementalDocument());
+        final var document = UpdateDiscoveryParserTest.incrementalDocument();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) document.get("release"))
+                .putObject("notesByLanguage")
+                .put("en", "Update notes")
+                .put("zh", "更新日志");
+        final var discovery = new UpdateDiscoveryParser().parseNode(document);
         new UpdateStateStore(home)
                 .save(new UpdateStateStore.State(Optional.empty(), Optional.of(discovery), Optional.of("\"v50\"")));
         final DeferredTransport transport = new DeferredTransport();
@@ -540,6 +568,8 @@ final class RuntimeUpdateServiceTest {
                     CoreUpdateService.Status.UPDATE_AVAILABLE,
                     check.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
             assertEquals(discovery.candidate(), service.incrementalCandidate());
+            assertEquals("更新日志", service.snapshot().notesFor(java.util.Locale.SIMPLIFIED_CHINESE));
+            assertEquals("Update notes", service.snapshot().notesFor(java.util.Locale.GERMAN));
         } finally {
             service.close();
             scheduler.shutdown();

@@ -3,6 +3,7 @@ package dev.turboism.pluginmanagement;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.FrameworkBuildInfo;
@@ -72,6 +73,51 @@ class CoordinatedPluginUpdateTest {
     @AfterEach
     void tearDown() {
         RuntimePluginAutoUpdater.testBeforeStageHook = null;
+    }
+
+    @Test
+    void acceptsPublishedCatalogReasonsUpToTwoThousandCodePoints() throws Exception {
+        // The directory v2 contract permits 2,000 code points for both reason fields.
+        // Published MCP permissions contain 508 and 1,021 characters.
+        for (String reason : List.of("r".repeat(508), "r".repeat(1021), "\uD83D\uDCDD".repeat(2000))) {
+            final byte[] catalog = catalogWithReason(reason, reason);
+            assertFalse(verifier.verify(catalog, signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID))
+                    .plugins()
+                    .isEmpty());
+        }
+    }
+
+    @Test
+    void rejectsEmptyAndOverlongCatalogReasons() throws Exception {
+        for (String reason : List.of("", "r".repeat(2001))) {
+            for (byte[] catalog :
+                    List.of(catalogWithReason(reason, "permission"), catalogWithReason("dependency", reason))) {
+                final byte[] signature = signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID);
+                assertThrows(
+                        PluginCatalogVerifier.PluginCatalogVerificationException.class,
+                        () -> verifier.verify(catalog, signature));
+            }
+        }
+    }
+
+    private byte[] catalogWithReason(final String dependencyReason, final String permissionReason) {
+        final BuiltArtifact artifact = new BuiltArtifact(
+                "demo-1.1.0.jar",
+                "https://github.com/turboism/Turboism/releases/download/v1/demo-1.1.0.jar",
+                new byte[] {1},
+                "a".repeat(64),
+                "b".repeat(64),
+                1);
+        final String dependency = "{\"id\":\"dev.turboism.plugin.peer\",\"version\":\"1.0.0\","
+                + "\"type\":\"optional\",\"ordering\":\"none\",\"reason\":\"" + dependencyReason + "\"}";
+        final String release = releaseJson(
+                        "1.1.0", "stable", "active", "[0.43.0,0.45.0)", false, List.of(), List.of(dependency), artifact)
+                .replace(
+                        "\"permissions\":[]",
+                        "\"permissions\":[{\"id\":\"turboism.cubism.model.read\","
+                                + "\"scope\":\"application\",\"reason\":\"" + permissionReason + "\"}]");
+        return catalogWithPlugins(
+                1L, List.of(pluginJson("dev.turboism.plugin.demo", "demo", "official", List.of(release))));
     }
 
     @Test

@@ -22,6 +22,40 @@ final class UpdateDiscoveryParserTest {
     private final UpdateDiscoveryParser parser = new UpdateDiscoveryParser();
 
     @Test
+    void localizedReleaseNotesSurviveTheValidatedDiskCache(@TempDir final Path home) {
+        final var document = incrementalDocument();
+        final var release = (ObjectNode) document.get("release");
+        release.put("notes", "English fallback");
+        release.putObject("notesByLanguage").put("zh", "### 修复\n\n- 插件联动更新").put("ja", "更新内容");
+        final var discovery = parser.parseNode(document);
+        final var store = new UpdateStateStore(home);
+        assertTrue(store.save(new UpdateStateStore.State(Optional.empty(), Optional.of(discovery), Optional.empty()))
+                .saved());
+        final var restored = store.read().cachedResult().orElseThrow();
+        assertEquals(discovery, restored);
+        assertEquals(
+                "English fallback",
+                restored.candidate().orElseThrow().releaseNotes().get("en"));
+        assertEquals(
+                "### 修复\n\n- 插件联动更新",
+                restored.candidate().orElseThrow().releaseNotes().get("zh"));
+    }
+
+    @Test
+    void malformedOptionalNotesDoNotDisableAnOtherwiseValidUpdate() {
+        final var document = incrementalDocument();
+        final var release = (ObjectNode) document.get("release");
+        release.put("notes", "Fallback");
+        release.putObject("notesByLanguage")
+                .put("zh", "x".repeat(24_001))
+                .put("ja", 7)
+                .put("ko", " ");
+        final var candidate = parser.parseNode(document).candidate().orElseThrow();
+        assertEquals(java.util.Map.of("en", "Fallback"), candidate.releaseNotes());
+        assertTrue(candidate.incremental().isPresent());
+    }
+
+    @Test
     void parsesTheRealStableDocumentServedByTheProductionApi() throws Exception {
         final byte[] document;
         try (InputStream source =
