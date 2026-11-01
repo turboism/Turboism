@@ -20,6 +20,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.test.concurrent.Await;
 import java.awt.Color;
+import java.beans.PropertyChangeListener;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +47,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Focused tests for the early-theme startup EDT correction: UIManager access
  * in early-theme readiness polling and native off-canvas capture is dispatched
- * to the EDT, while polling sleeps stay on the daemon/background thread.
+ * to the EDT, while polling waits stay on the daemon/background thread and a
+ * UIManager look-and-feel listener wakes those waits as soon as FlatLaf is installed.
  *
  * <p>The persisted-selection cases bind the startup reader to the private
  * {@code ui-theme} schema: a document the runtime typed-config writer produced
@@ -93,6 +95,47 @@ class EarlyThemeAppearanceBootstrapTest {
             assertFalse(poll.isDone(), "look-and-feel polling must run UIManager reads on the EDT");
             hold.release();
             assertTrue(poll.get(5, TimeUnit.SECONDS), "poll must find the installed look-and-feel");
+        }
+    }
+
+    @Test
+    void lookAndFeelPropertyChangeWakesWaitAndRemovesTheListener() throws Exception {
+        SwingUtilities.invokeAndWait(() -> installLookAndFeel(new javax.swing.plaf.metal.MetalLookAndFeel()));
+        assertFalse(hasEarlyThemeListener(), "no listener may be registered before the wait starts");
+        final EarlyThemeAppearanceBootstrap bootstrap = newBootstrap();
+        final AtomicReference<Thread> pollThread = new AtomicReference<>();
+        final Future<Boolean> wait = workers.submit(() -> {
+            pollThread.set(Thread.currentThread());
+            return bootstrap.waitForFlatLaf();
+        });
+        Await.condition(
+                "waiter parked in the bounded latch wait",
+                () -> pollThread.get() != null && isPollingWait(pollThread.get()),
+                java.time.Duration.ofSeconds(2));
+        Await.condition(
+                "early-theme property change listener registered",
+                EarlyThemeAppearanceBootstrapTest::hasEarlyThemeListener,
+                java.time.Duration.ofSeconds(2));
+
+        final CountDownLatch lookAndFeelInstalled = new CountDownLatch(1);
+        final CountDownLatch releaseEdt = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            installLookAndFeel(new TestCubismLightTheme());
+            lookAndFeelInstalled.countDown();
+            try {
+                releaseEdt.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        try {
+            assertTrue(lookAndFeelInstalled.await(2, TimeUnit.SECONDS), "look-and-feel change must run on the EDT");
+            // The EDT stays occupied, so the polling fallback cannot observe the new
+            // look-and-feel; only the property-change listener can complete the wait.
+            assertTrue(wait.get(2, TimeUnit.SECONDS), "lookAndFeel property change must wake the wait");
+            assertFalse(hasEarlyThemeListener(), "waitForFlatLaf must remove its property change listener");
+        } finally {
+            releaseEdt.countDown();
         }
     }
 
@@ -343,7 +386,7 @@ class EarlyThemeAppearanceBootstrapTest {
     }
 
     @Test
-    void pollingSleepStaysOffTheEdtSoHostInitializationIsNotBlocked() throws Exception {
+    void pollingWaitStaysOffTheEdtSoHostInitializationIsNotBlocked() throws Exception {
         final EarlyThemeAppearanceBootstrap bootstrap = newBootstrap();
         final AtomicReference<Thread> edtThread = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> edtThread.set(Thread.currentThread()));
@@ -357,42 +400,55 @@ class EarlyThemeAppearanceBootstrapTest {
         assertTrue(pollStarted.await(2, TimeUnit.SECONDS), "poll worker must start");
         final Thread worker = pollThread.get();
         assertNotSame(edtThread.get(), worker, "poll must run on a non-EDT worker");
-        // Deterministic sleep evidence: sample the exact worker until its state
-        // and stack show the active polling sleep (TIMED_WAITING with
-        // Thread.sleep under waitForFlatLaf). A sleep moved into the EDT lambda
-        // would put the 100 ms sleep on the EDT; this worker would never own it
-        // and the bounded observation would expire.
-        assertTrue(awaitPollingSleep(worker, 2_000L), "polling sleep must be observed on the poll worker's own stack");
+        // Deterministic wait evidence: sample the exact worker until its state
+        // and stack show the active bounded latch wait (TIMED_WAITING with
+        // CountDownLatch.await under waitForFlatLaf). A wait moved into the EDT
+        // lambda would put the 100 ms wait on the EDT; this worker would never
+        // own it and the bounded observation would expire.
+        assertTrue(awaitPollingWait(worker, 2_000L), "polling wait must be observed on the poll worker's own stack");
         final CountDownLatch edtProbe = new CountDownLatch(1);
         SwingUtilities.invokeLater(edtProbe::countDown);
-        // The EDT stays responsive while the poll sleeps on its worker.
+        // The EDT stays responsive while the poll waits on its worker.
         assertTrue(edtProbe.await(2, TimeUnit.SECONDS), "EDT must remain responsive while the poll is active");
         assertFalse(poll.isDone(), "poll must remain active while the probe fires");
         poll.cancel(true);
+        Await.condition("poll listener removed", () -> !hasEarlyThemeListener(), java.time.Duration.ofSeconds(2));
     }
 
     /**
-     * Bounded state sampling: waits until the worker is observed sleeping in
-     * the early-theme poll (TIMED_WAITING with {@code Thread.sleep} on the
-     * {@code waitForFlatLaf} stack). No latency threshold is asserted.
+     * Bounded state sampling: waits until the worker is observed waiting in
+     * the early-theme poll (TIMED_WAITING with {@code CountDownLatch.await}
+     * on the {@code waitForFlatLaf} stack). No latency threshold is asserted.
      */
-    private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis) {
+    private static boolean awaitPollingWait(final Thread worker, final long timeoutMillis) {
         Await.condition(
-                "polling sleep observed",
-                () -> worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace()),
-                java.time.Duration.ofMillis(timeoutMillis));
+                "polling wait observed", () -> isPollingWait(worker), java.time.Duration.ofMillis(timeoutMillis));
         return true;
     }
 
-    private static boolean isPollingSleep(final StackTraceElement[] stack) {
-        boolean sleeping = false;
+    private static boolean isPollingWait(final Thread worker) {
+        return worker.getState() == Thread.State.TIMED_WAITING && isPollingWait(worker.getStackTrace());
+    }
+
+    private static boolean isPollingWait(final StackTraceElement[] stack) {
+        boolean waiting = false;
         boolean polling = false;
         for (StackTraceElement element : stack) {
-            sleeping |= "java.lang.Thread".equals(element.getClassName()) && "sleep".equals(element.getMethodName());
+            waiting |= "java.util.concurrent.CountDownLatch".equals(element.getClassName())
+                    && "await".equals(element.getMethodName());
             polling |= EarlyThemeAppearanceBootstrap.class.getName().equals(element.getClassName())
                     && "waitForFlatLaf".equals(element.getMethodName());
         }
-        return sleeping && polling;
+        return waiting && polling;
+    }
+
+    private static boolean hasEarlyThemeListener() {
+        for (PropertyChangeListener listener : UIManager.getPropertyChangeListeners()) {
+            if (listener.getClass().getName().contains(EarlyThemeAppearanceBootstrap.class.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static EarlyThemeAppearanceBootstrap newBootstrap() {
