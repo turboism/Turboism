@@ -32,4 +32,21 @@ final class ThemeSelectionConfigTest {
         assertEquals("ui-theme/selection.cfg", config.schema.relativePath());
         assertEquals("selected-theme", config.schema.keys().get(0).name());
     }
+
+    /**
+     * The runtime's early theme reader (ARCHITECTURE.md section 5, closed exception) parses this
+     * document before the plugin loads and hard-codes these values. Changing any of them requires
+     * changing that reader and its pinned-contract test in the same commit.
+     */
+    @Test
+    void persistedSelectionContractMatchesTheRuntimeEarlyThemeReader() {
+        InMemoryConfigRegistry config = new InMemoryConfigRegistry();
+
+        new ThemeSelectionConfig(config).initialize().toCompletableFuture().join();
+
+        assertEquals("ui-theme/selection.cfg", config.schema.relativePath());
+        assertEquals("selected-theme", config.schema.keys().get(0).name());
+        assertEquals(1, config.schema.version());
+        assertEquals("__native__", ThemeSelectionConfig.NATIVE_ID);
+    }
 }

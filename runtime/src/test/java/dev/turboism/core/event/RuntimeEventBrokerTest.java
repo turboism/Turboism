@@ -767,6 +767,68 @@ class RuntimeEventBrokerTest {
         scheduler.shutdown();
     }
 
+    @Test
+    void slowSynchronousTransformSubscriberIsDiagnosedOncePerOwnerAndEventType() {
+        // Given: a broker whose slow-delivery threshold is small enough to trip in-test.
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker =
+                new RuntimeEventBroker(scheduler, 64, diagnostics::add, ignored -> {}, null, Duration.ofMillis(30));
+        final RuntimeEventBroker.Owner slow = broker.admit("dev.example.slow-transform");
+        final RuntimeEventBroker.Owner fast = broker.admit("dev.example.fast-transform");
+        final AtomicInteger slowTransformations = new AtomicInteger();
+        final AtomicReference<Integer> fastValue = new AtomicReference<>();
+        broker.subscribe(slow.key(), TestTransformEvent.class, event -> {
+            sleepQuietly(60L);
+            event.value += 1;
+            slowTransformations.incrementAndGet();
+        });
+        broker.subscribe(fast.key(), TestTransformEvent.class, event -> fastValue.set(event.value));
+        slow.activate();
+        fast.activate();
+
+        // When: the same synchronous transform runs twice, through both transform overloads.
+        final int first = broker.publishRuntimeTransform(
+                TestTransformEvent.class,
+                1,
+                TestTransformCallback::new,
+                event -> ((TestTransformEvent) event).value,
+                ignored -> true);
+        final float second = broker.publishRuntimeTransform(
+                TestTransformEvent.class, (float) first, value -> new TestTransformCallback(value.intValue()), event ->
+                        (float) ((TestTransformEvent) event).value);
+
+        // Then: the slow subscriber never changes delivery semantics...
+        assertEquals(2, slowTransformations.get());
+        assertEquals(3, second);
+        assertEquals(2, fastValue.get());
+        // ...and its host-thread cost is reported exactly once for the owner/event-type pair.
+        assertEquals(
+                1,
+                diagnostics.stream()
+                        .filter(diagnostic ->
+                                diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW)
+                        .count(),
+                () -> diagnostics.toString());
+        assertEquals(
+                slow.key(),
+                diagnostics.stream()
+                        .filter(diagnostic ->
+                                diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW)
+                        .findFirst()
+                        .orElseThrow()
+                        .owner());
+        scheduler.shutdown();
+    }
+
+    private static void sleepQuietly(final long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private static void awaitTrue(final java.util.function.BooleanSupplier condition) {
         Await.condition("condition did not become true in time", condition, Duration.ofSeconds(2));
     }

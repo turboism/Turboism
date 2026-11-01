@@ -23,14 +23,11 @@ import java.util.Properties;
  *
  * <p>Assertions:
  * <ol>
- *   <li>the {@link FileChooserHistoryService} is wired and usable (set/get
- *       behavior proves it is not the safe-mode unavailable instance);</li>
- *   <li>setting the project and export recent directories (real directories
- *       created under the task state tree) round-trips through the service;</li>
- *   <li>both directories persist into the core-plugin properties file
- *       {@code <home>/config/turboism.core/save-directory-history.properties}
- *       (plain JDK {@link java.util.Properties} read) — proving the
- *       service → runtime → shell provider chain;</li>
+ *   <li>the service is available and reads both independently seeded history slots;</li>
+ *   <li>both slots match the framework shell persistence fixture at
+ *       {@code <home>/config/turboism.core/save-directory-history.properties};</li>
+ *   <li>both setters and provider registration reject plugin writes, with history
+ *       reads and persisted properties unchanged after all three attempts;</li>
  *   <li>the global {@code <home>/config.json} no longer carries the
  *       rolled-back {@code fileChooserHistory} section (v1 → v2 evidence);</li>
  *   <li>{@code exportSeparationEnabled()} matches
@@ -144,66 +141,61 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
     }
 
     private void runAssertions(final List<String> failures) {
-        // 1. Service wiring: unavailable instances throw on write, so a
-        //    successful set proves a real service is exposed.
-        final FileChooserHistoryService service = context.services().find(FileChooserHistoryService.class).orElse(FileChooserHistoryService.unavailable());
-        if (service == null) {
-            failures.add("fileChooserHistory() returned null");
+        // The runner seeds the shell-owned store before startup. The ordinary plugin
+        // reads it through the SDK; it never writes shell config to set up its own proof.
+        final FileChooserHistoryService service = context.services().find(FileChooserHistoryService.class)
+            .orElse(FileChooserHistoryService.unavailable());
+        if (!service.isAvailable()) {
+            failures.add("file chooser history service unavailable");
             return;
         }
-        final Path projectDir = stateDir.getParent().resolve("project-saves");
-        final Path exportDir = stateDir.getParent().resolve("export-saves");
-        try {
-            Files.createDirectories(projectDir);
-            Files.createDirectories(exportDir);
-        } catch (IOException failure) {
-            failures.add("test directory creation failed: "
-                + failure.getClass().getSimpleName());
-            return;
-        }
-
-        // 2. set/get round-trip for both directories.
-        try {
-            service.setProjectRecentDirectory(projectDir);
-            service.setExportRecentDirectory(exportDir);
-        } catch (RuntimeException failure) {
-            failures.add("set failed (service may be unavailable): "
-                + failure.getClass().getSimpleName());
-            return;
-        }
+        final Path projectDir = Path.of("separate-save-path/project-saves");
+        final Path exportDir = Path.of("separate-save-path/export-saves");
         final Optional<Path> projectReadBack = readSafely(
             service::projectRecentDirectory, "projectRecentDirectory", failures);
         final Optional<Path> exportReadBack = readSafely(
             service::exportRecentDirectory, "exportRecentDirectory", failures);
-        if (projectReadBack.isPresent() && !projectReadBack.get().toAbsolutePath().normalize()
-            .equals(projectDir.toAbsolutePath().normalize())) {
-            failures.add("projectRecentDirectory round-trip mismatch: expected "
-                + projectDir + " actual " + projectReadBack.get());
-        }
-        if (exportReadBack.isPresent() && !exportReadBack.get().toAbsolutePath().normalize()
-            .equals(exportDir.toAbsolutePath().normalize())) {
-            failures.add("exportRecentDirectory round-trip mismatch: expected "
-                + exportDir + " actual " + exportReadBack.get());
-        }
+        checkDirectory(projectReadBack, projectDir, "projectRecentDirectory fixture", failures);
+        checkDirectory(exportReadBack, exportDir, "exportRecentDirectory fixture", failures);
 
-        // 3. Persistence: the core-plugin provider writes both slots to
-        //    <home>/config/turboism.core/save-directory-history.properties (the
-        //    framework shell keeps the reserved turboism.core identity).
-        //    <home>/state/<plugin-id>.
         final Path home = stateDir.getParent().getParent();
-        final Path pluginConfig = home.resolve("config")
-            .resolve("turboism.core")
-            .resolve("save-directory-history.properties");
+        final Path pluginConfig = home.resolve("config/turboism.core/save-directory-history.properties");
+        final Properties persisted;
         if (!Files.isRegularFile(pluginConfig)) {
             failures.add("save-directory-history.properties missing at " + pluginConfig);
+            persisted = null;
         } else {
-            final Properties persisted = readProperties(pluginConfig, failures);
+            persisted = readProperties(pluginConfig, failures);
             if (persisted != null) {
-                checkPersistedSlot(
-                    persisted, "projectRecentDirectory", projectDir, failures);
-                checkPersistedSlot(
-                    persisted, "exportRecentDirectory", exportDir, failures);
+                checkPersistedSlot(persisted, "projectRecentDirectory", projectDir, failures);
+                checkPersistedSlot(persisted, "exportRecentDirectory", exportDir, failures);
             }
+        }
+
+        // Each entry point must reject writes. A no-op writable service is also a failure.
+        expectReadOnly(() -> service.setProjectRecentDirectory(stateDir.resolve("forbidden-project")),
+            "setProjectRecentDirectory", failures);
+        expectReadOnly(() -> service.setExportRecentDirectory(stateDir.resolve("forbidden-export")),
+            "setExportRecentDirectory", failures);
+        expectReadOnly(() -> {
+            try (FileChooserHistoryService.Registration ignored = service.registerProvider(
+                    new FileChooserHistoryService.Provider() {
+                        public Optional<Path> loadProjectDirectory() { return Optional.empty(); }
+                        public Optional<Path> loadExportDirectory() { return Optional.empty(); }
+                        public void saveProjectDirectory(Path dir) { throw new AssertionError("unexpected provider write"); }
+                        public void saveExportDirectory(Path dir) { throw new AssertionError("unexpected provider write"); }
+                    })) {
+                // Close an erroneously accepted registration without leaving it installed.
+            }
+        }, "registerProvider", failures);
+        if (!projectReadBack.equals(readSafely(service::projectRecentDirectory, "project after rejection", failures))) {
+            failures.add("project history changed after rejected writes");
+        }
+        if (!exportReadBack.equals(readSafely(service::exportRecentDirectory, "export after rejection", failures))) {
+            failures.add("export history changed after rejected writes");
+        }
+        if (persisted != null && !persisted.equals(readProperties(pluginConfig, failures))) {
+            failures.add("persisted history changed after rejected writes");
         }
 
         // 4. Rollback evidence: config.json (if present) must no longer carry
@@ -232,6 +224,24 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         } else {
             logger.info("SEPARATE_SAVE_PATH_ENABLED_FLAG expected=" + expectEnabled
                 + " actual=" + actualEnabled);
+        }
+    }
+
+    private static void expectReadOnly(final Runnable write, final String name, final List<String> failures) {
+        try {
+            write.run();
+            failures.add(name + " accepted a plugin write");
+        } catch (UnsupportedOperationException expected) {
+            // The ordinary plugin's SDK contract requires this exact refusal.
+        } catch (RuntimeException unexpected) {
+            failures.add(name + " threw " + unexpected.getClass().getSimpleName() + " instead of read-only refusal");
+        }
+    }
+
+    private static void checkDirectory(final Optional<Path> actual, final Path expected,
+            final String name, final List<String> failures) {
+        if (actual.isEmpty() || !actual.get().toAbsolutePath().normalize().equals(expected.toAbsolutePath().normalize())) {
+            failures.add(name + " mismatch: expected " + expected + " actual " + actual);
         }
     }
 
@@ -287,7 +297,7 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         final String value = properties.getProperty(key);
         if (value == null || value.isBlank()) {
             failures.add("save-directory-history.properties missing " + key);
-        } else if (!expectedText.equals(value)) {
+        } else if (!expectedText.equals(Path.of(value).toAbsolutePath().normalize().toString())) {
             failures.add("save-directory-history.properties " + key + " mismatch: expected \""
                 + expectedText + " actual " + value);
         } else {
@@ -299,7 +309,8 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         final StringBuilder result = new StringBuilder()
             .append("status=").append(pass ? "PASS" : "FAIL").append('\n')
             .append("phase=matrix\n")
-            .append("schemaVersion=1\n")
+            .append("schemaVersion=2\n")
+            .append("contract=plugin-read-only-seeded-history\n")
             .append("failures=").append(failures.size()).append('\n');
         for (int index = 0; index < failures.size(); index++) {
             result.append("failure.").append(index).append('=')

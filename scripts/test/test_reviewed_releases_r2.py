@@ -164,6 +164,36 @@ class VersionMonotonicityTest(unittest.TestCase):
             write_exceptions(root, [entry])
             self.assertTrue(live(root))
 
+    def test_exception_with_blank_pending_or_evidence_fails(self):
+        for key in ("pending", "evidence"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                write_tree(root)
+                entry = exception()
+                del entry["pending"]
+                entry[key] = "   "
+                write_exceptions(root, [entry])
+                self.assertTrue(live(root))
+
+    def test_verification_record_evidence_must_cite_a_checkable_source(self):
+        cases = {
+            "prose only": ("not in the observation pack", False),
+            "missing file": ("see docs/nowhere.md", False),
+            "bare command": ("javap -p -cp Live2D_Cubism.jar com.live2d.cubism.doc.model.parts.CPart", False),
+            "self reference": ("see " + gate.r2_EXCEPTIONS_FILE.as_posix(), False),
+            "existing evidence": ("see evidence.md", True),
+        }
+        for name, (evidence, expected) in cases.items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                write_tree(root)
+                (root / "evidence.md").write_text("classfile inspection output", encoding="utf-8")
+                entry = exception(kind="verification-record", evidence=evidence)
+                del entry["pending"]
+                write_exceptions(root, [entry])
+                _, problems = gate.r2_load_exceptions(root)
+                self.assertEqual(not problems, expected, problems)
+
     def test_annotation_value_hole_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

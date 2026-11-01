@@ -3,9 +3,14 @@ package dev.turboism.adapter.cubism.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.cubism.mesh.MeshTool;
+import dev.turboism.sdk.cubism.mesh.MeshToolContext;
 import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.permission.PermissionIds;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.InputEvent;
@@ -256,6 +261,78 @@ class RuntimeGeometricMeshLayoutTest {
         final GeometricMeshDialog.Texts ko = GeometricMeshDialog.textsForLocale(Locale.KOREAN);
         assertEquals("기하학 메시 배치", ko.title());
         assertEquals("동심원 수:", ko.concentricLabel());
+    }
+
+    @Test
+    void matchesOnlyTheOwningPluginToolIdentifier() {
+        final MeshTool ownerTool = tool(RuntimeGeometricMeshLayout.TOOL_ID);
+        final MeshTool renamedOwnerTool = tool("some-other-tool");
+
+        assertTrue(RuntimeGeometricMeshLayout.matches(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, ownerTool));
+        assertFalse(
+                RuntimeGeometricMeshLayout.matches("dev.turboism.plugin.someone-else", ownerTool),
+                "a plugin that reuses the reserved tool id must not receive the runtime brush");
+        assertFalse(RuntimeGeometricMeshLayout.matches(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, renamedOwnerTool));
+        assertFalse(RuntimeGeometricMeshLayout.matches(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, null));
+        assertFalse(RuntimeGeometricMeshLayout.matches(null, ownerTool));
+    }
+
+    @Test
+    void requireOwnerFailsClosedForAForeignPluginIdentity() {
+        final List<String> checked = new ArrayList<>();
+        final PermissionChecker permissions = (permissionId, operation) -> checked.add(permissionId);
+
+        final IllegalStateException refusal = assertThrows(
+                IllegalStateException.class,
+                () -> RuntimeGeometricMeshLayout.requireOwner("dev.turboism.plugin.someone-else", permissions));
+        assertTrue(refusal.getMessage().contains(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID), refusal.getMessage());
+        assertEquals(List.of(), checked, "a foreign identity must be refused before any permission check");
+    }
+
+    @Test
+    void requireOwnerChecksReadAndWriteForTheOwningPlugin() {
+        final List<String> checked = new ArrayList<>();
+        final PermissionChecker permissions = (permissionId, operation) -> checked.add(permissionId);
+
+        RuntimeGeometricMeshLayout.requireOwner(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, permissions);
+
+        assertEquals(
+                List.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE), checked);
+    }
+
+    @Test
+    void requireOwnerFailsClosedWhenTheOwningPluginLacksWriteAccess() {
+        final PermissionChecker readOnly = (permissionId, operation) -> {
+            if (!PermissionIds.TURBOISM_CUBISM_MODEL_READ.equals(permissionId)) {
+                throw new dev.turboism.sdk.permission.CubismPermissionException("denied " + permissionId);
+            }
+        };
+
+        assertThrows(
+                dev.turboism.sdk.permission.CubismPermissionException.class,
+                () -> RuntimeGeometricMeshLayout.requireOwner(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, readOnly));
+    }
+
+    private static MeshTool tool(final String id) {
+        return new MeshTool() {
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String label() {
+                return id;
+            }
+
+            @Override
+            public String iconResourcePath() {
+                return "icons/tool.png";
+            }
+
+            @Override
+            public void activate(final MeshToolContext context) {}
+        };
     }
 
     private static Component findByName(final Container root, final String name) {

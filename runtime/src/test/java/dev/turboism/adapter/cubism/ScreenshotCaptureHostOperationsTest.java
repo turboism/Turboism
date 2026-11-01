@@ -263,9 +263,7 @@ class ScreenshotCaptureHostOperationsTest {
 
     @Test
     void capturesCurrentProjectWithDebounceAndPopupSuppression() throws Exception {
-        Assumptions.assumeFalse(
-                GraphicsEnvironment.isHeadless(),
-                "direct capture requires a visible AWT window; covered by the real-host rerun");
+        assumeDirectCaptureDisplay();
 
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
@@ -321,6 +319,30 @@ class ScreenshotCaptureHostOperationsTest {
         } finally {
             SwingUtilities.invokeAndWait(host::dispose);
         }
+    }
+
+    /**
+     * Skips the case unless the desktop can back the {@link java.awt.Robot} screen tier.
+     *
+     * <p>The on-screen tier needs a visible X11 desktop. Under Wayland its capture blocks inside
+     * {@code sun.awt.screencast.ScreencastHelper} while the screen-share portal is unanswered: the
+     * capture future times out, the EDT stays blocked, and the cleanup {@code invokeAndWait} hangs
+     * the whole suite instead of failing it. The real-host rerun owns that evidence.</p>
+     */
+    private static void assumeDirectCaptureDisplay() {
+        Assumptions.assumeFalse(
+                GraphicsEnvironment.isHeadless(),
+                "direct capture requires a visible AWT window; covered by the real-host rerun");
+        final String sessionType = System.getenv("XDG_SESSION_TYPE");
+        Assumptions.assumeFalse(
+                sessionType != null && sessionType.strip().equalsIgnoreCase("wayland"),
+                "direct capture needs the X11 Robot screen tier; a Wayland session blocks on the"
+                        + " screen-share portal");
+        final String waylandDisplay = System.getenv("WAYLAND_DISPLAY");
+        Assumptions.assumeFalse(
+                waylandDisplay != null && !waylandDisplay.isBlank(),
+                "direct capture needs the X11 Robot screen tier; a Wayland session blocks on the"
+                        + " screen-share portal");
     }
 
     private static PreviewCaptureHostOperations.PopupSuppression noopSuppression() {

@@ -22,6 +22,11 @@ final class FpsHookContributor implements HookContributor {
     }
 
     @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("performance-fps");
+    }
+
+    @Override
     public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }

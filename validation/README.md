@@ -16,8 +16,12 @@
 - `tools/RelocateJar.java` — ASM 包名重定位 jar 工具（`RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`），各 build.sh 直接 `javac` 此文件并以 `dev.turboism.validation.shared.tools.RelocateJar` 调用。
 - `fixture/FixtureLoader.java` — child-first `URLClassLoader`（同名 fixture 类不回落系统 classpath）。
 - `fixture/CodeSourceUrl.java` — 打印目录的 `Path.toUri().toURL().toExternalForm()`，供 run.sh 推导期望 codeSource。
+- `verdict/ProbeTerminal.java` — 终态集合（PASS/FAIL/BLOCKED/SKIPPED）与判定规则：任一 FAIL 为 FAIL；存在 BLOCKED 为 BLOCKED；断言数为 0 为 BLOCKED；存在 SKIPPED 为 SKIPPED；全部 PASS 为 PASS。`INFO` 仅作证据，不参与判定。
+- `verdict/ProbeAssertions.java` — 断言记录器；记录时拒绝未知状态，并输出 `assertions=` 计数行与两种结果行布局。
 
-历史：RelocateJar 曾四副本分叉（triweave 副本丢 module-info 剥离注释），FixtureLoader/CodeSourceUrl 双副本；2026-10 收敛为单一源。`checkValidationToolsSync`（`scripts/test/check_validation_tools_sync.py`，挂 `devCheck`）拒绝目录内再出现同名副本；有意例外（meshhash 字节数组 loader、T033/T035 私有 defineClass loader）在脚本内点名。SelfCheck/Probe 各目录实现本就不同，不在收敛范围。
+`verdict/` 是四个终态探针的唯一判定来源；离线用例：`bash validation/shared/check-probe-terminal.sh`。
+
+历史：RelocateJar 曾四副本分叉（triweave 副本丢 module-info 剥离注释），FixtureLoader/CodeSourceUrl 双副本；2026-10 收敛为单一源。探针终态逻辑曾七份分叉，2026-11 收敛为 `verdict/` 共享实现（spec 066）。`checkValidationToolsSync`（`scripts/test/check_validation_tools_sync.py`，挂 `devCheck`）拒绝目录内再出现同名副本，并拒绝四个终态探针重新实现本地 `computeTerminal` 或漏编译共享源；有意例外（meshhash 字节数组 loader、T033/T035 私有 defineClass loader）在脚本内点名。SelfCheck/Probe 各目录实现本就不同，不在收敛范围。
 
 ## 新探针放哪
 

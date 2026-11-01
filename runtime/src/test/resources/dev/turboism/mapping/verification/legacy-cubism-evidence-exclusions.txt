@@ -1,0 +1,44 @@
+# Tests that need separately staged licensed Cubism evidence. runtime/build.gradle.kts reads this
+# file for the offline-suite exclusions and pins the same entries into legacyCubismEvidenceTest, so
+# one declaration owns both sides. LegacyCubismEvidenceExclusionsTest asserts every entry below
+# offline, without a Cubism JAR: a renamed class or a lost @Test method fails there instead of
+# silently excluding nothing.
+#
+# A class entry excludes every test in that class. A method entry excludes only that test and keeps
+# the rest of its class in the offline suites.
+dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest
+dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest
+dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest
+dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest
+dev.turboism.mapping.verification.EditorEditSelectorContractTest
+dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest
+dev.turboism.mapping.verification.EditorInspectorSelectorContractTest
+dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest
+dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest
+dev.turboism.mapping.verification.EditorPartNameSelectorContractTest
+dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest
+dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest
+dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest
+dev.turboism.mapping.verification.EditorStructureSelectorContractTest
+dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest
+dev.turboism.mapping.verification.EditorTextureSelectorContractTest
+dev.turboism.mapping.verification.CorePublicApiAdmissionTest
+dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest
+dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchArtifactTest
+dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionArtifactTest
+dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseArtifactTest
+dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationArtifactTest
+dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipArtifactTest
+dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateArtifactTest
+dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseArtifactTest
+dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisionArtifactTest
+dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteArtifactTest
+dev.turboism.adapter.cubism.performance.PerformanceProbeImageArtifactTest
+dev.turboism.adapter.cubism.shader.ShaderUniformCompositionArtifactTest
+dev.turboism.mapping.verification.CubismHostCompatibilityRealSampleTest
+# Mixed suites retain their synthetic behavior tests in the offline gates.
+dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformerTest.realJarBytesMatchPinnedDigestsAndTransformOnEveryReviewedVersion
+dev.turboism.adapter.cubism.mesh.PopupMeshUndoContractTest.popupSnapshotRestoresRealNativeMeshAndInvalidatesPositionsOnUndoRedo
+dev.turboism.adapter.ui.OffCanvasBackgroundHostAccessTest.refreshesExistingAndFutureBackgroundMaterialsAcrossReviewedHosts
+dev.turboism.mapping.verification.ReviewedHostArtifactsTest.localExactArtifactsMatchTheReviewedIdentitiesWhenPresent
+dev.turboism.ui.table.SceneTableCompatibilityTest.realMembersBindAfterRepackingAndDeclarationChangeButRejectOtherSources

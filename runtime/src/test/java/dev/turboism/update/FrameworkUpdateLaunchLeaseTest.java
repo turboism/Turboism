@@ -723,6 +723,9 @@ final class FrameworkUpdateLaunchLeaseTest {
                 final Process process = new ProcessBuilder(
                                 Path.of(System.getProperty("java.home"), "bin", "java")
                                         .toString(),
+                                // Linux JDK 17 truncates ProcessHandle.Info.commandLine at 4096 chars; keep the
+                                // agent path ahead of the long test classpath, as a real -javaagent launch does.
+                                "-Dturboism.test.agent=" + agent,
                                 "-cp",
                                 System.getProperty("java.class.path"),
                                 SleepProbe.class.getName(),

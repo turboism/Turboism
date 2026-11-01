@@ -3,23 +3,6 @@
   "comment": "Sanctioned upward-closure violations. Each entry suppresses exactly the listed missing items at the named site; when the repair lands the entry goes stale and fails the gate until removed. 'pending' names the worktree branch that owns the fix; 'evidence' documents why the set is deliberately not upward-closed.",
   "exceptions": [
     {
-      "kind": "verification-record",
-      "path": "compatibility/cubism/verification",
-      "site": "editor-model 5.3.01>5.3.02 aliases",
-      "missing": [
-        "cubism.editor-model.morph-target-set.create-undo",
-        "cubism.editor-model.morph-target-set.remove",
-        "cubism.editor-model.morph-target.set-parameter",
-        "cubism.editor-model.morph-target.set-parameter-and-key-value",
-        "cubism.editor-model.parameter-controllable-source.internal-set-parent",
-        "cubism.editor-model.parameter-group.guid",
-        "cubism.editor-model.part-source.remove-child",
-        "cubism.editor-model.part.id"
-      ],
-      "reason": "The 5.3.02 editor-model record drops the same eight morph-target/part selectors the 5.3.01 record carried.",
-      "evidence": "Deliberate exact-use truncation: records admit only the selectors the runtime slice actually consumes, and the >=5.3.02 editor-model generation does not consume these eight aliases. Backfilling them would assert unverified internal member names, so the regression is recorded as an explicit exception rather than papered over."
-    },
-    {
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/ui/workspace/WorkspaceControlAdmission.java",
       "site": "5.2.03,5.3.02,5.3.03",

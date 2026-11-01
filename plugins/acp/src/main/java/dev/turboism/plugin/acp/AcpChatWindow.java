@@ -1755,7 +1755,7 @@ final class AcpChatWindow implements AcpChatController.View {
             if (trimTranscript()) {
                 renderTranscript();
             } else if (sender != Sender.THINKING || previous.expanded) {
-                appendRenderedText(previous, text);
+                appendRenderedText(previous);
             }
             return;
         }
@@ -1831,9 +1831,46 @@ final class AcpChatWindow implements AcpChatController.View {
         }
     }
 
-    private void appendRenderedText(final TranscriptEntry entry, final String text) {
-        // Reparse the whole current message: delimiters and fences can span ACP stream chunks.
+    private void appendRenderedText(final TranscriptEntry entry) {
+        // Only the trailing line of the current message is re-rendered, so a stream chunk
+        // costs its own length instead of the whole message. Non-append updates, thinking
+        // entries, and image entries keep the full re-render path.
+        if (appendIncrementalEntry(entry)) {
+            return;
+        }
         replaceRenderedEntry(entry, entry.renderedLength);
+    }
+
+    private boolean appendIncrementalEntry(final TranscriptEntry entry) {
+        final AcpMessageRenderer.StreamRender stream = entry.stream;
+        if (stream == null || entry.renderedStart < 0 || entry.image != null) {
+            return false;
+        }
+        final StyledDocument document = transcript.getStyledDocument();
+        try {
+            if (entry.renderedStart + entry.renderedLength > document.getLength()) {
+                return false;
+            }
+            final int tailStart = stream.tailDocumentStart();
+            final int previousLength = entry.renderedLength;
+            if (!AcpMessageRenderer.append(
+                    document,
+                    stream,
+                    entry.content,
+                    contentAttributes(entry.sender),
+                    entry.sender == Sender.AGENT,
+                    entry.inlineImages)) {
+                return false;
+            }
+            final int tailEnd = stream.tailDocumentStart() + stream.tailLength();
+            entry.renderedLength = tailEnd - entry.renderedStart;
+            applyEntryParagraphs(entry, document, tailStart, tailEnd - tailStart);
+            shiftRenderedEntriesAfter(entry, entry.renderedLength - previousLength);
+            transcript.setCaretPosition(document.getLength());
+            return true;
+        } catch (javax.swing.text.BadLocationException failure) {
+            return false;
+        }
     }
 
     private void replaceRenderedEntry(final TranscriptEntry entry, final int previousRenderedLength) {
@@ -1859,7 +1896,10 @@ final class AcpChatWindow implements AcpChatController.View {
         if (delta == 0) return;
         boolean after = false;
         for (TranscriptEntry entry : transcriptEntries) {
-            if (after && entry.renderedStart >= 0) entry.renderedStart += delta;
+            if (after && entry.renderedStart >= 0) {
+                entry.renderedStart += delta;
+                if (entry.stream != null) entry.stream.shift(delta);
+            }
             if (entry == changed) after = true;
         }
     }
@@ -1871,6 +1911,7 @@ final class AcpChatWindow implements AcpChatController.View {
             for (TranscriptEntry entry : transcriptEntries) {
                 entry.renderedStart = -1;
                 entry.renderedLength = 0;
+                entry.stream = null;
             }
             for (int index = 0; index < transcriptEntries.size(); ) {
                 final TranscriptEntry entry = transcriptEntries.get(index++);
@@ -1907,7 +1948,7 @@ final class AcpChatWindow implements AcpChatController.View {
             document.insertString(start, " ", imageStyle);
             document.insertString(start + 1, "\n", contentAttributes(entry.sender));
         }
-        AcpMessageRenderer.insert(
+        AcpMessageRenderer.StreamRender stream = AcpMessageRenderer.insert(
                 document,
                 document.getLength() == before ? start : start + 2,
                 renderedEntry(entry),
@@ -1916,6 +1957,16 @@ final class AcpChatWindow implements AcpChatController.View {
                 entry.inlineImages);
         entry.renderedStart = start;
         entry.renderedLength = document.getLength() - before;
+        // The incremental position is only valid while the entry renders itself; image and
+        // thinking entries keep their dedicated layouts.
+        entry.stream = entry.image == null ? stream : null;
+        applyEntryParagraphs(entry, document, start, entry.renderedLength);
+    }
+
+    /** Applies the entry-level paragraph attributes over a rendered range. */
+    private void applyEntryParagraphs(
+            final TranscriptEntry entry, final StyledDocument document, final int start, final int length)
+            throws javax.swing.text.BadLocationException {
         final SimpleAttributeSet message = new SimpleAttributeSet();
         message.addAttribute(
                 AcpTranscriptEditorKit.USER_BACKGROUND,
@@ -1928,13 +1979,15 @@ final class AcpChatWindow implements AcpChatController.View {
             StyleConstants.setSpaceAbove(message, 4F);
             StyleConstants.setSpaceBelow(message, 8F);
         }
-        document.setParagraphAttributes(start, entry.renderedLength, message, false);
-        final SimpleAttributeSet paragraph = new SimpleAttributeSet();
-        StyleConstants.setLeftIndent(paragraph, entry.sender == Sender.USER ? 12F : 4F);
-        StyleConstants.setRightIndent(paragraph, 12F);
-        StyleConstants.setSpaceAbove(paragraph, 10F);
-        StyleConstants.setSpaceBelow(paragraph, 4F);
-        document.setParagraphAttributes(start, 1, paragraph, false);
+        document.setParagraphAttributes(start, length, message, false);
+        if (start == entry.renderedStart) {
+            final SimpleAttributeSet paragraph = new SimpleAttributeSet();
+            StyleConstants.setLeftIndent(paragraph, entry.sender == Sender.USER ? 12F : 4F);
+            StyleConstants.setRightIndent(paragraph, 12F);
+            StyleConstants.setSpaceAbove(paragraph, 10F);
+            StyleConstants.setSpaceBelow(paragraph, 4F);
+            document.setParagraphAttributes(start, 1, paragraph, false);
+        }
         // Swing retains the last paragraph's attributes after its trailing newline.
         // Keep that empty paragraph neutral so later messages do not inherit a user panel.
         document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
@@ -2302,6 +2355,7 @@ final class AcpChatWindow implements AcpChatController.View {
         private final java.util.Set<String> requestedImages = new java.util.HashSet<>();
         private int renderedStart = -1;
         private int renderedLength;
+        private AcpMessageRenderer.StreamRender stream;
 
         private TranscriptEntry(
                 final Sender sender,

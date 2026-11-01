@@ -40,7 +40,7 @@ final class RuntimeMeshToolContext implements MeshToolContext, AutoCloseable {
         lease.requireCurrent();
         if (closed) throw new IllegalStateException("mesh-tool context is closed");
         if (brush == null) {
-            if (RuntimeGeometricMeshLayout.matches(tool)) {
+            if (RuntimeGeometricMeshLayout.matches(lease.pluginId(), tool)) {
                 final RuntimeGeometricMeshLayout candidate =
                         RuntimeGeometricMeshLayout.production(editor, lease, deactivate, tool, permissions);
                 try {

@@ -43,7 +43,8 @@ Result modes (choose one):
   --result-marker <runtime-log PASS marker>
   --result-file <Turboism-home-relative path>
       [--result-pass-line <exact line, default status=PASS>]
-      [--result-fail-line <exact line, default status=FAIL>]
+      [--result-fail-line <exact line, default status=FAIL>]  repeatable
+      [--require-assertions]  require a positive verdict assertion count
 
 Local-only options:
   --host-root <local task root>
@@ -353,7 +354,9 @@ failure_markers=()
 result_marker=''
 result_file=''
 result_pass_line='status=PASS'
-result_fail_line='status=FAIL'
+result_fail_lines=('status=FAIL')
+result_fail_line_explicit=0
+require_assertions=0
 trigger_path=''
 client_script=''
 client_script_remote_name=''
@@ -413,7 +416,16 @@ while [ "$#" -gt 0 ]; do
     --result-marker) require_value "$@"; result_marker="$2"; shift 2 ;;
     --result-file) require_value "$@"; result_file="$2"; shift 2 ;;
     --result-pass-line) require_value "$@"; result_pass_line="$2"; shift 2 ;;
-    --result-fail-line) require_value "$@"; result_fail_line="$2"; shift 2 ;;
+    --require-assertions) require_assertions=1; shift ;;
+    --result-fail-line)
+      require_value "$@"
+      # The first explicit line replaces the default; further lines add fail-closed
+      # terminal states such as BLOCKED and SKIPPED.
+      if [ "$result_fail_line_explicit" = 0 ]; then
+        result_fail_lines=()
+        result_fail_line_explicit=1
+      fi
+      result_fail_lines+=("$2"); shift 2 ;;
     --trigger) require_value "$@"; trigger_path="$2"; shift 2 ;;
     --client-script) require_value "$@"; client_script="$2"; shift 2 ;;
     --client-python) require_value "$@"; client_python="$2"; shift 2 ;;
@@ -577,6 +589,9 @@ fi
 if [ -z "$result_marker" ] && [ -z "$result_file" ]; then
   fail "one result mode is required"
 fi
+if [ "$require_assertions" = 1 ] && [ -z "$result_file" ]; then
+  fail "--require-assertions needs --result-file"
+fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
 [ -z "$trigger_path" ] || require_relative_path "$trigger_path" "trigger path"
 
@@ -602,7 +617,7 @@ if [ -n "$client_script" ]; then
   client_script="$local_path"
 fi
 
-for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line" "$cubism_java_console_marker"; do
+for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "${result_fail_lines[@]}" "$cubism_java_console_marker"; do
   [ -z "$marker" ] || require_safe_marker "$marker" "marker"
 done
 for option in "${jvm_options[@]}" "${remote_pre_launch_args[@]}"; do
@@ -891,7 +906,9 @@ for marker in "${failure_markers[@]}"; do normalized_argv+=(--failure-marker "$m
 if [ -n "$result_marker" ]; then
   normalized_argv+=(--result-marker "$result_marker")
 else
-  normalized_argv+=(--result-file "$result_file" --result-pass-line "$result_pass_line" --result-fail-line "$result_fail_line")
+  normalized_argv+=(--result-file "$result_file" --result-pass-line "$result_pass_line")
+  for fail_line in "${result_fail_lines[@]}"; do normalized_argv+=(--result-fail-line "$fail_line"); done
+  [ "$require_assertions" = 1 ] && normalized_argv+=(--require-assertions)
 fi
 [ -n "$trigger_path" ] && normalized_argv+=(--trigger "$trigger_path")
 [ -n "$client_script" ] && normalized_argv+=(--client-script "$client_script:$client_script_remote_name")
@@ -1710,6 +1727,36 @@ with path.open('rb') as result:
     for raw in result:
         if raw.removesuffix(b'\n').removesuffix(b'\r') == expected:
             raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
+# The decisive verdict assertion count, printed as one decimal number. `assertions.verdict`
+# wins over the `assertions` total so INFO-only diagnostics cannot mask a run that decided
+# nothing. Exit 1 when the result file publishes no count; a malformed value prints -1.
+result_file_assertion_count() {
+  local relative="$1"
+  python3 - "$home_dir/$relative" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if not path.is_file():
+    raise SystemExit(1)
+counts = {}
+for raw in path.read_bytes().split(b'\n'):
+    text = raw.decode('utf-8', 'replace').strip()
+    key, separator, value = text.partition('=')
+    if not separator or key.strip() not in ('assertions', 'assertions.verdict'):
+        continue
+    try:
+        counts[key.strip()] = int(value.strip())
+    except ValueError:
+        counts[key.strip()] = -1
+for key in ('assertions.verdict', 'assertions'):
+    if key in counts:
+        print(counts[key])
+        raise SystemExit(0)
 raise SystemExit(1)
 PY
 }
@@ -2630,11 +2677,31 @@ terminal_result_observed() {
   if [ -n "$result_marker" ]; then
     [ -n "$log_file" ] && runtime_log_contains "$log_file" "$result_marker"
   else
-    if result_file_contains "$result_file" "$result_fail_line"; then
-      fail "result file reported failure: $result_file"
-    fi
-    result_file_contains "$result_file" "$result_pass_line"
+    for fail_line in "${result_fail_lines[@]}"; do
+      if result_file_contains "$result_file" "$fail_line"; then
+        fail "result file reported failure: $result_file line=$fail_line"
+      fi
+    done
+    result_file_contains "$result_file" "$result_pass_line" || return 1
+    require_result_assertions
   fi
+}
+
+# A published pass line is not enough: an empty or INFO-only run must not pass the first
+# screen either, or a monitor that only watches the Runner exit code is misled. A result
+# file without any count passes unchanged unless the call opted into --require-assertions.
+require_result_assertions() {
+  local count
+  if count="$(result_file_assertion_count "$result_file")"; then
+    if [ "$count" -le 0 ]; then
+      fail "result file publishes no verdict assertion: $result_file count=$count"
+    fi
+    return 0
+  fi
+  if [ "$require_assertions" = 0 ]; then
+    return 0
+  fi
+  fail "result file publishes no assertion count: $result_file"
 }
 
 terminal_result_or_process_exit() {

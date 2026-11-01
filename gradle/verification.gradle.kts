@@ -1061,8 +1061,9 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
 
 /*
  * shellcheck runs at error severity only: warnings stay advisory so the gate only
- * blocks on real error-class findings. The script self-skips when shellcheck is
- * absent; CI installs it via apt (see .github/workflows/ci.yml).
+ * blocks on real error-class findings. A missing shellcheck binary fails the gate
+ * instead of silently skipping it; CI installs it via apt (see .github/workflows/ci.yml)
+ * and CONTRIBUTING.md lists it as a local build requirement.
  */
 tasks.register<Exec>("checkShellLint") {
     group = "verification"
@@ -1087,8 +1088,201 @@ tasks.register<Exec>("checkShellLint") {
     inputs.property("shellcheckPath", shellcheckBinPath.map { it.ifEmpty { "absent" } })
     inputs.files(shellcheckBinPath.map { path -> if (path.isNotEmpty()) listOf(file(path)) else emptyList<File>() })
 
-    VerificationStamps.apply(this) { shellcheckBinPath.get().isNotEmpty() }
+    VerificationStamps.apply(this) {
+        // Absence of the binary now fails the gate, so a successful run always stamps.
+        shellcheckBinPath.get().isNotEmpty()
+    }
     commandLine("bash", "scripts/check_shell_lint.sh")
+}
+
+/*
+ * Negative self-tests for the cleanup and gate-hardening lane. Each one drives a
+ * temporary fixture through the real script and asserts the refusal, exit status,
+ * or wiring that the fix introduced; a regression here means a gate silently
+ * stopped proving its subject.
+ */
+val checkShellLintRequiresShellcheck by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the shell lint gate fails closed when shellcheck is unavailable or reports findings."
+    workingDir(rootDir)
+    inputs.files("scripts/check_shell_lint.sh", "scripts/dev/selftest-shell-lint.sh")
+    VerificationStamps.apply(this)
+    commandLine("bash", "scripts/dev/selftest-shell-lint.sh")
+}
+
+val checkCleanWorktreeSafety by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves clean-worktree.sh refuses dirty worktrees and unmerged branches without --force."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/dev/clean-worktree.sh",
+        "scripts/dev/worktree-id-lib.sh",
+        "scripts/dev/selftest-clean-worktree.sh"
+    )
+    VerificationStamps.apply(this)
+    commandLine("bash", "scripts/dev/selftest-clean-worktree.sh")
+}
+
+val checkCleanupFailurePropagation by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the Paseo teardown hook returns non-zero when host artifact cleanup fails."
+    workingDir(rootDir)
+    inputs.files("scripts/dev/paseo-worktree-teardown.sh", "scripts/dev/selftest-paseo-teardown.sh")
+    VerificationStamps.apply(this)
+    commandLine("bash", "scripts/dev/selftest-paseo-teardown.sh")
+}
+
+val checkHostCleanupEnvMerge by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves host artifact cleanup merges .env with the process environment and process wins."
+    workingDir(rootDir)
+    inputs.files("scripts/dev/cleanup_host_artifacts.py", "scripts/dev/selftest-host-cleanup-env.py")
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/dev/selftest-host-cleanup-env.py")
+}
+
+/*
+ * Gradle compiles buildSrc before the main build but never runs its `test` task, so the
+ * execution-count guard's own negative cases (a suite whose entire selection was skipped)
+ * would live in a suite nobody executes. Replay them from the daily gate through a nested
+ * build (GradleBuild cannot target buildSrc, whose name is reserved).
+ */
+val checkTestExecutionGuard by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Replays the buildSrc TestExecutionGuard rules against fixture JUnit XML."
+    workingDir(rootDir)
+    inputs.files(
+        "buildSrc/build.gradle.kts",
+        fileTree("buildSrc/src") { include("**/*.java", "**/*.kt") }
+    )
+    VerificationStamps.apply(this)
+    commandLine("./gradlew", "-p", "buildSrc", "test", "--console=plain")
+}
+
+val checkGateWiringSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the rewired gates are aggregated by devCheck/checkIntegration instead of orphaned."
+    workingDir(rootDir)
+    inputs.files(
+        "gradle/verification.gradle.kts",
+        "gradle/asm-admission.gradle.kts",
+        "buildSrc/src/main/kotlin/dev/turboism/gradle/TurboismPluginExtension.kt",
+        "testing/integration-tests/build.gradle.kts",
+        "scripts/check_shell_lint.sh",
+        "CONTRIBUTING.md",
+        "scripts/dev/selftest-gate-wiring.py"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/dev/selftest-gate-wiring.py")
+}
+
+/*
+ * The tracked plugin-sections.nsh is generated for the Windows installer and was
+ * never compared with a regeneration. The gate rebuilds the sections from the
+ * repository plugin metadata through the production generator block and compares
+ * bytes; see packaging/windows-installer/check_plugin_sections.py.
+ */
+val checkInstallerPluginSections by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Byte-compares packaging/windows-installer/plugin-sections.nsh with a fresh regeneration."
+    workingDir(rootDir)
+    inputs.files(
+        "packaging/windows-installer/check_plugin_sections.py",
+        "packaging/windows-installer/assemble-release.sh",
+        "packaging/windows-installer/plugin-sections.nsh",
+        "packaging/release-plugins.txt",
+        "packaging/windows-installer/script-engine.json",
+        "gradle/common-java.gradle.kts"
+    )
+    inputs.files(
+        fileTree("plugins") {
+            include("*/src/main/resources/META-INF/turboism/plugin.json")
+            include("*/src/main/resources/META-INF/turboism/i18n/messages_*.properties")
+            include("README.md", "README_zh.md", "README_ja.md", "README_ko.md")
+        }
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "packaging/windows-installer/check_plugin_sections.py")
+}
+
+val checkInstallerPluginSectionsGateSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Proves the installer plugin-sections comparison rejects stale and pruned artifacts."
+    workingDir(rootDir)
+    inputs.files(
+        "packaging/windows-installer/check_plugin_sections.py",
+        "packaging/windows-installer/selftest-plugin-sections.py",
+        "packaging/windows-installer/plugin-sections.nsh",
+        "packaging/windows-installer/assemble-release.sh"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "packaging/windows-installer/selftest-plugin-sections.py")
+}
+
+/*
+ * The four host probes share one fail-closed terminal rule (PASS/FAIL/BLOCKED/SKIPPED
+ * plus zero-assertion rejection). The shared self check compiles and runs that rule
+ * offline, so a probe-side regression cannot reach the compatibility matrix unnoticed.
+ * Inputs cover the shared sources, every probe that consumes them, and the evidence
+ * parser that interprets their output; a change in any of them re-runs the check
+ * instead of reporting an up-to-date success.
+ */
+val hostProbeDirectories = listOf(
+    "validation/animation-timeline-host-probe",
+    "validation/atlas-polygon-host-probe",
+    "validation/clipmask-viewer-host-probe",
+    "validation/parameter-batch-transfer-host-probe"
+)
+
+val checkProbeTerminalSelftest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs the offline shared probe-terminal contract (PASS/FAIL/BLOCKED/SKIPPED, zero assertions)."
+    workingDir(rootDir)
+    val script = "validation/shared/check-probe-terminal.sh"
+    // validation/shared is covered as a tree so a missing script reaches the explicit
+    // require below instead of a generic "input file does not exist" validation error.
+    inputs.files(fileTree("validation/shared") { include("**/*") })
+    inputs.files(hostProbeDirectories.map { directory -> fileTree(directory) { include("**/*") } })
+    inputs.file("scripts/preview/host_validation_evidence.py")
+    doFirst {
+        // A missing check must fail instead of turning into an empty green run.
+        require(rootProject.file(script).isFile) {
+            "$script is missing: the shared probe-terminal contract cannot be verified"
+        }
+    }
+    VerificationStamps.apply(this)
+    commandLine("bash", script)
+}
+
+// Execute the wrapper argv and producer/consumer contracts offline. Declaring the
+// scripts and shared/probe sources prevents stale stamps after a contract change.
+val checkHostProbeResultContract by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks probe status tokens, wrapper argv, result layout and Runner/evidence agreement offline."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_validation_tools_sync.py",
+        "scripts/test/test_host_validation_probe_statuses.py",
+        "scripts/test/test_host_validation_evidence.py",
+        "scripts/test/test_cubism_host_validation_result.py",
+        "scripts/test/test_host_validation_probe_wrappers.py",
+        "scripts/test/test_host_validation_probe_result_layout.py",
+        "scripts/dev/worktree-id.sh",
+        "scripts/dev/worktree-id-lib.sh",
+        "compatibility/cubism/reviewed-releases.json"
+    )
+    inputs.files(fileTree("scripts/preview") { include("**/*.py", "**/*.sh", "**/*.json") })
+    inputs.files(fileTree("validation/shared") { include("**/*") })
+    inputs.files(hostProbeDirectories.map { directory -> fileTree(directory) { include("**/*") } })
+    VerificationStamps.apply(this)
+    commandLine(
+        "python3", "-m", "unittest", "-v",
+        "scripts.test.test_host_validation_probe_statuses",
+        "scripts.test.test_host_validation_evidence",
+        "scripts.test.test_cubism_host_validation_result",
+        "scripts.test.test_host_validation_probe_wrappers",
+        "scripts.test.test_host_validation_probe_result_layout"
+    )
 }
 
 val checkPluginTemplateSetup by tasks.registering(Exec::class) {
@@ -1143,6 +1337,9 @@ val devCheck by tasks.registering {
     dependsOn("checkPluginBoundaries", "checkPluginPermissionAudit")
     group = "verification"
     description = "Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice."
+    // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the
+    // live collection keeps devCheck wired without a hardcoded plugin list.
+    dependsOn(tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" })
     dependsOn(
         productionClasses,
         checkDuplicateJavaImports,
@@ -1154,6 +1351,20 @@ val devCheck by tasks.registering {
         "checkPythonLint",
         "checkCompatibilityMatrix",
         "checkShellLint",
+        // ASM admission used to run only in checkRelease, so a plugin or SDK dependency
+        // could carry an unadmitted bytecode library through the daily gate unnoticed.
+        "checkAsmDependencyModel",
+        "checkResolvedBytecodeDependencyGraph",
+        "checkInstallerPluginSections",
+        checkInstallerPluginSectionsGateSelfTest,
+        checkProbeTerminalSelftest,
+        checkHostProbeResultContract,
+        "checkCleanWorktreeSafety",
+        "checkShellLintRequiresShellcheck",
+        "checkHostCleanupEnvMerge",
+        "checkCleanupFailurePropagation",
+        checkTestExecutionGuard,
+        checkGateWiringSelfTest,
         checkPluginTemplateSetup,
         checkRepositoryHygiene,
         checkTestCorpusSelfTest,
@@ -1705,6 +1916,10 @@ tasks.register("checkIntegration") {
         "checkHistoryValidationProbePackaging",
         "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
+        // Registered in :testing:integration-tests; the locale wrapper contract is
+        // offline and part of the packaged preview-agent surface, so the aggregated
+        // integration gate must execute it instead of leaving it orphaned.
+        ":testing:integration-tests:hostValidationScriptContractTest",
         ":bootstrap:checkBootstrapJarDependencyIsolation",
         ":bootstrap:checkBootstrapLaunchLeasePremain",
         "contractParentAgentTest",

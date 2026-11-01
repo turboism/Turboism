@@ -130,6 +130,7 @@ def executable_commands(document: dict, release: bool = False) -> list[list[str]
                         args = [x for x in args if not (x.startswith('-PinstallerVersion=') or x == '-PturboismRelease=true')]
                     assert not any(x.startswith(('-P', '-I', '--exclude-task=', '--tests')) for x in args), 'filtered gate'
                     assert set(args) <= {'devCheck', 'checkCompletedCommit', 'checkRelease',
+                                         ':buildSrc:test',
                                          '--no-daemon', '--offline', '--console=plain',
                                          '--stacktrace', '--continue'}, 'unexpected gate argument'
                     commands.append(args)
@@ -182,7 +183,39 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
         assert name in bodies, f'missing opt-in task: {name}'
         assert name not in reachable(graph, {'devCheck', 'checkIntegration', 'checkCompletedCommit'}), f'opt-in task became gated: {name}'
         assert '"host verification"' in bodies[name], f'opt-in task must be labelled: {name}'
+    check_opt_in_gradle_tests(bodies, covered)
     return bodies, covered
+
+
+def check_opt_in_gradle_tests(bodies: dict[str, list[str]], covered: set[str]) -> None:
+    """Opt-in host-evidence Test tasks must stay registered and stay ungated."""
+    module_bodies: dict[str, list[str]] = {}
+    for relative in OPT_IN_GRADLE_TEST_SOURCES:
+        for name, tokens in task_bodies((ROOT / relative).read_text()).items():
+            module_bodies.setdefault(name, []).extend(tokens)
+    gated_tokens = set()
+    for name in covered:
+        gated_tokens.update(bodies.get(name, ()))
+    for name, evidence in OPT_IN_GRADLE_TESTS.items():
+        assert name not in OPT_IN_TESTS, f'{name} cannot be both an Exec and a Test opt-in lane'
+        assert name in module_bodies, f'missing opt-in Gradle test task: {name}'
+        assert f':runtime:{name}' not in gated_tokens, f'opt-in Gradle test became gated: {name}'
+        body = module_bodies[name]
+        assert any(token in ('"verification"', '"host verification"') for token in body), \
+            f'opt-in Gradle test must declare a verification group: {name}'
+        assert 'includeTestsMatching' in body or 'excludeTestsMatching' in body, \
+            f'opt-in Gradle test must define its own explicit selection: {name}'
+        for required in evidence:
+            assert f'"{required}"' in body, \
+                f'opt-in Gradle test must declare its evidence input: {name} -> {required}'
+    # The ordinary runtime suite must keep excluding the opt-in evidence classes so
+    # enabling one lane cannot silently double-run them in the default suite.
+    ordinary = module_bodies.get('test', [])
+    for class_name in ('WarpAltMirrorReviewedArtifactsTest', 'ParameterLockReviewedArtifactsTest'):
+        assert any(class_name in token for token in ordinary), \
+            f'opt-in evidence class must stay excluded from :runtime:test: {class_name}'
+    assert any(token.startswith('legacyEvidenceTests') for token in ordinary), \
+        'the ordinary runtime suite must keep excluding legacy evidence tests'
 
 
 def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -> None:
@@ -215,13 +248,20 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
     assert 'ordinaryTestTasks' in covered
     # Java test directories must belong to a module included in settings, where
     # checkCompletedCommit discovers its ordinary Test task automatically.
+    # buildSrc is a special Gradle build that settings.gradle.kts cannot list; its
+    # tests run through the explicit `:buildSrc:test` CI step instead.
     settings = (root / 'settings.gradle.kts').read_text()
+    ci_workflow = (root / '.github/workflows/ci.yml').read_text()
     for source in root.glob('**/src/test/java'):
         if 'build' in source.relative_to(root).parts:
             continue
         module = source.parents[2]
         path = ':' + module.relative_to(root).as_posix().replace('/', ':')
         assert (module / 'build.gradle.kts').is_file(), f'test source without module: {source}'
+        if path == ':buildSrc':
+            assert ':buildSrc:test' in ci_workflow, (
+                'buildSrc tests are not run by CI; add a `:buildSrc:test` step to ci.yml')
+            continue
         assert f'"{path.lstrip(chr(58))}"' in settings or f'"{path}"' in settings, f'test module omitted from settings: {path}'
 
 
@@ -229,6 +269,20 @@ OPT_IN_TESTS = {
     'worktreeIdGateTest': ['bash', 'scripts/test/test_worktree_id_gate.sh'],
     'modelImport3dHostToolingTest': ['python3', 'validation/model-import-3d-host-probe/test-tooling.py', 'test_model_import_3d_*.py'],
 }
+
+# Opt-in Gradle Test tasks that need separately supplied Cubism bytecode evidence.
+# They are declared in runtime/build.gradle.kts, are unreachable from devCheck,
+# checkIntegration and checkCompletedCommit, and stay out of the ordinary `test`
+# task through explicit filters. Listing them here keeps each one an intentional,
+# reviewable lane instead of an orphaned task nobody runs.
+OPT_IN_GRADLE_TESTS = {
+    'warpAltMirrorArtifactTest': ['TURBOISM_CUBISM_REF_ROOT'],
+    'parameterLockArtifactTest': ['TURBOISM_CUBISM_REF_ROOT'],
+    'legacyCubismEvidenceTest': ['turboism.test.cubismEditorJar', 'turboism.test.verificationDir'],
+}
+
+# Test tasks that are deliberately only reachable through their own opt-in lane.
+OPT_IN_GRADLE_TEST_SOURCES = ('runtime/build.gradle.kts',)
 
 # Explicit opt-in host probes and the Gradle lifecycle alias.
 MANUAL_GATES = set("""check checkCubismHostValidationArguments

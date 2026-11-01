@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Separate-save-path adapter for exact-host validation: verifies the
-# FileChooserHistoryService wiring, set/get round-trip, config.json
-# persistence and the exportSeparationEnabled switch on 5.2.03 / 5.3.02.
+# FileChooserHistoryService read-only boundary, seeded shell persistence,
+# config migration and exportSeparationEnabled on reviewed task versions.
 set -euo pipefail
 
 # Machine-specific fixture paths come from the ignored repository `.env`.
@@ -48,6 +48,7 @@ exec bash "$runner" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
+  --home-file "$repo_root/validation/separate-save-path-host-probe/fixtures/save-directory-history.properties:config/turboism.core/save-directory-history.properties" \
   --jvm-option "-Dturboism.validation.separateSavePath.expectEnabled=false" \
   --ready-marker 'SEPARATE_SAVE_PATH_PROBE_ENABLED' \
   --result-file 'state/dev.turboism.validation.separatesavepath/host-validation-result.properties' \

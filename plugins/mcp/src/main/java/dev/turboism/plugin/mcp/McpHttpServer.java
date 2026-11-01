@@ -53,6 +53,14 @@ final class McpHttpServer implements AutoCloseable {
     private static final List<String> PREFERRED_PROTOCOL_VERSIONS =
             List.of(McpProtocol.VERSION, "2025-06-18", "2025-03-26");
     static final int DEFAULT_PORT = 43123;
+    /**
+     * Request threads. All requests share this pool, so one thread stays reserved for
+     * lifecycle and read requests while {@link #HOST_WORK_SLOTS} threads may wait on a
+     * stalled host write.
+     */
+    private static final int HTTP_THREADS = 4;
+
+    private static final int HOST_WORK_SLOTS = HTTP_THREADS - 1;
 
     private final HttpServer server;
     private final ExecutorService executor;
@@ -73,6 +81,7 @@ final class McpHttpServer implements AutoCloseable {
     private final McpAtlasDomain atlas;
     private final McpMocExportDomain mocExport;
     private final McpConnectionHistory history;
+    private final McpHostWorkLane hostWork;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private McpHttpServer(
@@ -114,6 +123,7 @@ final class McpHttpServer implements AutoCloseable {
         this.atlas = Objects.requireNonNull(atlas, "atlas");
         this.mocExport = Objects.requireNonNull(mocExport, "mocExport");
         this.history = Objects.requireNonNull(history, "history");
+        this.hostWork = new McpHostWorkLane(HOST_WORK_SLOTS);
     }
 
     static McpHttpServer start(final PluginContext context) throws IOException {
@@ -211,7 +221,7 @@ final class McpHttpServer implements AutoCloseable {
             server = HttpServer.create(address, 0);
 
             stage.enter("executor/transport construction");
-            executor = Executors.newFixedThreadPool(4, new DaemonThreadFactory("turboism-mcp-http-"));
+            executor = Executors.newFixedThreadPool(HTTP_THREADS, new DaemonThreadFactory("turboism-mcp-http-"));
             server.setExecutor(executor);
             final int actualPort = server.getAddress().getPort();
             final URI endpoint = URI.create("http://127.0.0.1:" + actualPort + "/mcp");
@@ -593,7 +603,22 @@ final class McpHttpServer implements AutoCloseable {
                 return;
             }
             history.record(McpConnectionHistory.Event.REQUEST, "", requestMethod(request));
-            final McpProtocol.Outcome outcome = protocol.handle(request, session.id());
+            final boolean hostWork = waitsOnHost(request);
+            if (hostWork && !this.hostWork.tryEnter()) {
+                // The host-work lane is full: fail explicitly rather than queueing behind a
+                // stalled host write. Lifecycle and read requests keep their own thread.
+                responseHeaders.set("Retry-After", "1");
+                sendEmpty(exchange, 503);
+                return;
+            }
+            final McpProtocol.Outcome outcome;
+            try {
+                outcome = protocol.handle(request, session.id());
+            } finally {
+                if (hostWork) {
+                    this.hostWork.exit();
+                }
+            }
             if (outcome.body() == null) {
                 sendEmpty(exchange, outcome.status());
             } else {
@@ -611,6 +636,31 @@ final class McpHttpServer implements AutoCloseable {
                 }
             }
         }
+    }
+
+    /**
+     * Reports whether serving this request may block on host execution.
+     *
+     * <p>Every {@code tools/call} handler may submit work to the host thread through
+     * {@link McpExecutionBridge}; a started host write cannot be cancelled, so the serving
+     * thread waits for the definitive result. {@code resources/read} handlers submit their
+     * read through the same boundary. Lifecycle, discovery, session, and authorization
+     * paths never wait on the host, so they stay outside the lane and keep a free thread.</p>
+     */
+    private static boolean waitsOnHost(final Object request) {
+        if (!(request instanceof Map<?, ?> values)) return false;
+        final Object method = values.get("method");
+        return "tools/call".equals(method) || "resources/read".equals(method);
+    }
+
+    /** @return host-work admissions currently held; test and diagnostics support only */
+    int hostWorkInFlight() {
+        return hostWork.inFlight();
+    }
+
+    /** @return maximum concurrent host-work waits; test and diagnostics support only */
+    int hostWorkBound() {
+        return hostWork.bound();
     }
 
     private byte[] readBounded(final HttpExchange exchange) throws IOException {
