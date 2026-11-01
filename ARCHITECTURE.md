@@ -207,7 +207,7 @@ interface. Terminal bypass is name + zero-arity by design: the SDK terminal surf
 many interfaces with heterogeneous return types, so a signature allowlist could silently
 miss a release and leak resources; a missed terminal call is a worse failure than
 over-admitting a coincidental same-named no-arg call. The surface must never widen — a
-verb taking any argument stays fenced.
+verb taking any argument stays fenced, except the one documented exemption below.
 
 One documented exception to the zero-arity rule: `UiScheduler.runUiTeardown(cleanup, timeout)`
 takes arguments and still passes the fence. `disable()`, `shutdown()` and scope closers always
@@ -215,6 +215,18 @@ run after fencing, and this verb exists so they can release windows and other UI
 is matched by exact declaring type and method name, so no other method can ride on it. The
 exemption releases UI resources only: a plugin must not use it to run other host operations
 after fencing, and no second argument-taking verb may be added to the exemption.
+
+Closed exception to the dependency direction (plugin → sdk → runtime; the runtime does not read plugin state): `EarlyThemeAppearanceBootstrap` reads the
+`ui-theme` plugin's persisted selection document (`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`,
+typed-config schema version 1, key `selected-theme`, sentinel `__native__`) and its theme data
+under `data/dev.turboism.plugin.uitheme/themes/`. The reason is timing: Cubism caches the
+off-canvas background in a singleton on first GL scene access, before any plugin loads, so the
+value must be injected before plugin code or SDK services exist. A pre-load SDK contract for this
+single consumer would add public API without a second user. The reader is read-only, validates
+the full document framing, and fails with one bounded diagnostic instead of guessing. The
+exception covers this one document and these constants only. `ThemeSelectionConfigTest` (plugin)
+and `EarlyThemeAppearanceBootstrapTest` (runtime) each pin the same values, so a change on either
+side fails in its own module; the runtime test does not read plugin source files.
 
 ## 6. Invocation and event lifecycle
 
