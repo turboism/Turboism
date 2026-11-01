@@ -80,6 +80,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -274,11 +275,14 @@ class CoreShellTest {
 
     /**
      * The shell handle owns the windows it created: closing it must release the plugin-details
-     * executor and the log refresh timer itself, not leave them to whichever disposable scope a
-     * composition happens to close afterwards.
+     * executor and stop the log refresh timer itself, not leave them to whichever disposable
+     * scope a composition happens to close afterwards. The log window is opened first so the
+     * timer assertion is not vacuous.
      */
     @Test
     void closeReleasesTheCoreWindowsItCreated() throws Exception {
+        Assumptions.assumeFalse(
+                GraphicsEnvironment.isHeadless(), "opening the logs window requires a visible AWT display");
         final CoreShell plugin = plugin();
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
@@ -288,9 +292,17 @@ class CoreShellTest {
         assertNotNull(windows, "start must create the core windows");
         assertFalse(windows.released(), "the core windows are open until the shell closes");
 
+        context.actions().execute("turboism.core.logs.open");
+        SwingUtilities.invokeAndWait(() -> {});
+        assertTrue(windows.refreshTimerRunning(), "the opened logs window schedules the one-second refresh");
+
         plugin.close();
 
-        assertTrue(windows.released(), "CoreShell.close must release the core windows and their executor");
+        assertFalse(windows.refreshTimerRunning(), "CoreShell.close must stop the log refresh timer");
+        assertTrue(
+                windows.released(),
+                "CoreShell.close must release the core windows and shut the plugin-details executor");
+        SwingUtilities.invokeAndWait(() -> {});
     }
 
     /**
