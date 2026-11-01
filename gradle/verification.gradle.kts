@@ -1089,6 +1089,24 @@ val checkHostCleanupEnvMerge by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/dev/selftest-host-cleanup-env.py")
 }
 
+/*
+ * Gradle compiles buildSrc before the main build but never runs its `test` task, so the
+ * execution-count guard's own negative cases (a suite whose entire selection was skipped)
+ * would live in a suite nobody executes. Replay them from the daily gate through a nested
+ * build (GradleBuild cannot target buildSrc, whose name is reserved).
+ */
+val checkTestExecutionGuard by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Replays the buildSrc TestExecutionGuard rules against fixture JUnit XML."
+    workingDir(rootDir)
+    inputs.files(
+        "buildSrc/build.gradle.kts",
+        fileTree("buildSrc/src") { include("**/*.java", "**/*.kt") }
+    )
+    VerificationStamps.apply(this)
+    commandLine("./gradlew", "-p", "buildSrc", "test", "--console=plain")
+}
+
 val checkGateWiringSelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Proves the rewired gates are aggregated by devCheck/checkIntegration instead of orphaned."
@@ -1293,6 +1311,7 @@ val devCheck by tasks.registering {
         "checkShellLintRequiresShellcheck",
         "checkHostCleanupEnvMerge",
         "checkCleanupFailurePropagation",
+        checkTestExecutionGuard,
         checkGateWiringSelfTest,
         checkPluginTemplateSetup,
         checkRepositoryHygiene,

@@ -177,6 +177,33 @@ TURBOISM_HOST_VALIDATION_FIXTURE_5203={self.fixture}
         self.assertFalse((task_dir / "copied_fixture.cmo3").exists())
         self.assertFalse(logs_dir.exists())
 
+    def test_process_environment_does_not_unprotect_dotenv_golden_prefix(self):
+        wt_id = "feature-redline-1"
+        task_dir = self.host_root / "sample-task" / "5304-r1" / "queue-run-1"
+        task_dir.mkdir(parents=True)
+        (task_dir / "launch.sh").write_text(f"TURBOISM_WORKTREE={wt_id}\nexec something")
+        protected = task_dir / "prefix"
+        protected.mkdir()
+        (protected / "system.reg").write_text("golden registry")
+        other_golden = self.test_root / "other_golden"
+        other_golden.mkdir()
+        self.env_file.write_text(
+            f"TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX={protected}\n"
+            f"TURBOISM_HOST_VALIDATION_HOST_ROOT={self.host_root}\n"
+        )
+
+        # The process exports a different golden prefix and a blank one for fixtures.
+        for exported in (str(other_golden), ""):
+            cleanup.run_cleanup(
+                worktree_id=wt_id,
+                clean_build_psd=False,
+                dry_run=False,
+                repo_root=self.repo,
+                env_file=self.env_file,
+                environ={"TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX": exported},
+            )
+            self.assertTrue((protected / "system.reg").is_file(), f"export={exported!r}")
+
     def test_terminal_and_build_disposables_cleanup(self):
         # 1. Create a terminal task in host_root
         task_dir = self.host_root / "atlas" / "5303-r1" / "queue-term-1"
