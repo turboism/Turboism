@@ -69,3 +69,12 @@ dev.turboism.plugin.acp.AcpRealAgentSmokeTest.opencodeCompletesTheAcpHandshake()
 dev.turboism.plugin.acp.NativeRealCliSmokeTest.createsNativeSessionWithoutExternalAdapter* # requires TURBOISM_NATIVE_SMOKE=1 and the installed codex/claude/pi CLIs; includes the disabled parameterized-method report.
 # Like the SDK headless factory case, this branch needs a JVM without a display.
 dev.turboism.plugin.perfstats.PerfStatsPluginLifecycleTest.windowActionFailsGracefullyInHeadlessEnvironment() # requires a headless JVM; X11/xvfb makes GraphicsEnvironment.isHeadless() false.
+# Framework self-update cases from main that only run on their target platform or
+# under an explicit opt-in environment; Linux CI skips them through assumptions.
+dev.turboism.update.FrameworkInstallationReceiptLoaderTest.appliedReceiptIndexAndRollbackBackupStayPrivateUnderWideInheritedAcl() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
+dev.turboism.update.FrameworkInstallationReceiptLoaderTest.receiptIndexRestorePublishesPrivateStateInsteadOfWideCopiedBackup() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
+dev.turboism.update.FrameworkUpdateApplierTest.lockedFileOnWindowsRollsBackEverythingElseAndKeepsLockedFileUntouched() # Windows sharing-violation semantics only.
+dev.turboism.update.FrameworkUpdateApplierTest.replacedFileThatBecomesLockedReportsIncompleteRollbackThenRecovers() # Windows sharing-violation semantics only.
+dev.turboism.update.FrameworkUpdateNextLaunchTest.prepareLaunchWhenApplyFailsAndRollsBackReturnsExitRolledBackAndDiscardsTask() # Windows file-lock rollback only (os.name assumption).
+dev.turboism.update.FrameworkUpdateE2E.realWindowsLifecycle() # opt-in real Windows lifecycle; requires TURBOISM_E2E_DIR.
+dev.turboism.update.SignTestStage.sign() # opt-in staging signer; requires TURBOISM_SIGN_STAGE.
