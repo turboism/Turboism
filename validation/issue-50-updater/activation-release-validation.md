@@ -18,7 +18,31 @@
 
 一次性工作流已在部署仓库提交 `2c330c88683d19a6c633b0f148d4d4f20ef51110` 中移除，远端密文产物和本机临时密文也已清理。公开操作记录保存在忽略目录 `build/agent-tasks/publisher-provisioning-record.json`。
 
-## 当前可用性
+## 最新发布进展
+
+- PR [#59](https://github.com/turboism/Turboism/pull/59) 的全部检查通过后，已正常合入 main `9fc8392c70666ef98441ed636f956344ef3edadc`；合并后主 CI、三通道打包与历史检查全部成功。
+- 服务端发布入口已部署并验收通过：[部署 41287404864](https://github.com/turboism/turboism-learn/actions/runs/41287404864)，部署仓库提交 `e574ebc9d5b2ab26f229314eaba71592753897a9`。无凭据的框架写请求返回 401；公开下载、完整镜像哈希、校验文件与 Range 验证通过。
+- 真实签名候选 `0.68.1-beta.2` / Build 76、Beta.3 / Build 77、Beta.4 / Build 78 均构建成功。Beta.2 的 ZIP 在本机再次通过正式公钥验签、36 个框架文件核验及 agent 内嵌 CI 身份核验。
+- Beta.2 首发发现插件目录固定版本过旧。完整 Git 树审查确认非目录数据差异仅涉及六个列表 UI、类型和测试文件，发布、签名及依赖代码未变。PR [#60](https://github.com/turboism/Turboism/pull/60) 更新四行固定版本，44 项 Linux 发布工具测试、工作流检查、全部 PR 与合并后 CI 均通过；产品 main 为 `206b8ed33f38eb9fc5f12e0bf961e29edb4d961f`。
+- 恢复后的 [Beta.2 发布 41289321257](https://github.com/turboism/Turboism/actions/runs/41289321257) 已完成插件目录发布、正式框架对象入库、真实 OIDC 准入和公开完整对象校验，但在最终 `POST git/refs` 创建 GitHub 标签时返回 403，没有生成 Release。没有通过本地伪造 CI 或扩大令牌权限来绕过。
+- [Beta.5 候选 41290510542](https://github.com/turboism/Turboism/actions/runs/41290510542) 已完整成功，真实 Build 79 / source `206b8ed33f38eb9fc5f12e0bf961e29edb4d961f`。[正式发布 41291393323](https://github.com/turboism/Turboism/actions/runs/41291393323) 已通过正式对象入库、OIDC 准入及全部对象读回校验，成功创建 [v0.68.1-beta.5](https://github.com/turboism/Turboism/releases/tag/v0.68.1-beta.5)。此前 Beta.2 的 403 不再阻塞当前 main 的发布，但旧提交创建标签失败的具体权限原因未获证实。
+- [Beta.6 候选 41291407318](https://github.com/turboism/Turboism/actions/runs/41291407318) 也已签名构建成功，仍未发布，留待首次实际升级完成后用于第二次连续升级。
+
+## 首发后的 API 刷新故障
+
+Beta.5 已发布，但 09:23 UTC 前后的公开 API 仍返回 Beta.1 / Build 73，快照时间停在 `2026-11-01T08:52:40.266Z`，健康为 `degraded`。此前通知工作流只检查通道是否 `unavailable`，因此在使用旧快照时仍显示成功。
+
+[只读生产诊断 41292738844](https://github.com/turboism/turboism-learn/actions/runs/41292738844) 捕获 7 条记录、2 次 `Release refresh failed: GitHub HTTP 403`。本机用相同服务端校验器读取公开 GitHub 元数据，三个通道全部通过，识别 Beta.5 / Build 79；完整发布列表仅约 1.4 MB，没有触发 4 MB 上限。已证实生产 GitHub 请求被拒绝，尚未取得足以区分具体限流类型的响应头。
+
+修复让既有受信 OIDC 通知携带该 job 的短期 `contents: read` 凭据，仅用于本次固定 GitHub API 读取。凭据放在有界 POST 请求体中，不写入快照、下载对象、客户端或请求 URL/自定义请求头。认证刷新可在匿名失败后立即重试，并等待正在进行的匿名刷新结束；普通公开调用仍不能提供凭据或触发内部刷新。新增每十分钟的受信通知，Cloudflare Cron 保留为过期快照的匿名回退。通知遇到 degraded、陈旧或不完整结果会在有界重试后失败。
+
+Windows Node 24 的 19 项聚焦测试通过，包括 7 项新回归；主要恢复与调度身份回归已先在修改前失败、修改后通过。工作流 actionlint 与 diff 检查通过。完整远端 CI、修复部署及 Beta.5 在线发现/验签仍待完成。
+
+本机已使用正式 Beta.2 签名 ZIP 完成首次安装收据初始化并启动 Cubism 5.3.02：30 个启用插件、0 个失败，MCP/ACP 仅在独立实验目录显式禁用。初次由工具沙箱账户解包、正常用户启动造成的目录 owner 不一致已留证；改为同一正常用户解包和启动后收据初始化成功，没有修改产品 ACL 检查。
+
+用户随后告知正在打游戏，因此已暂停所有窗口激活、鼠标、键盘和原生 UI 操作，只继续后台检查与发布。**真实原生下载、下次启动应用、健康确认和连续第二次升级仍待完成，不能把签名构建及 API 准入等同于客户端升级整体验收。**
+
+## CI 修复记录
 
 PR [#59](https://github.com/turboism/Turboism/pull/59) 首轮完整 CI 发现两处 core-contract 格式问题及 54 项公开 API 文档缺口。本次已补齐实际行为文档和真实覆盖方法的 `@Override`，保持检查器与零积压基线不变。原始代码质量检查在 WSL 通过；runtime、core-contract 格式检查与编译通过。完整 PR CI 仍须在修复提交上重新通过。
 
@@ -30,6 +54,6 @@ PR [#59](https://github.com/turboism/Turboism/pull/59) 首轮完整 CI 发现两
 
 Nightly 打包另发现取消下载后的工作线程退出超时。Linux 原测试重复到第 27 次复现；仅在失败后抓栈的复查在第 23 次再次复现，确认下载线程等待 JDK `Keep-Alive-SocketCleaner` 持有的流锁。取消调度器与下载线程并发关闭响应时，后台清理会继续读取已取消的响应，导致退出超过原有 7 秒上限。仅发送 `Connection: close` 的对照仍会复现，因为服务器可能不回送关闭标志。最终改为由下载线程在有界连接/读取返回后统一清理；取消仍立即完成 future 并中断工作线程，不在调用方或共享调度器执行阻塞关闭。保留原 7 秒断言，追加调度器在 1 秒内响应、取消/超时后立即重试成功、旧 future 保持失败的验证。新增调度器断言在 Windows Java 17 修复前失败、修复后通过，实际最终实现重复 10 次全绿；Linux 完整下载器 72 项全绿、无跳过。更长的取消对照与新的完整 CI 仍在执行。
 
-准备从 `0.68.1-beta.2` 的正式签名完整包开始验收，现有 Stable 保持原发布。当前尚无该完整包或可下载的正式增量更新，不能宣称已经可用。还需完成源码 CI、main 合入、Worker 发布授权部署、真实编号的签名候选发布，以及 Windows Cubism 内连续两次框架升级。
+原计划从 `0.68.1-beta.2` 开始；其正式签名完整包已产生并完成本机首装，但 GitHub 发布遇到上述标签权限错误。当前发布进度以上方“最新发布进展”为准，Stable 保持原发布。
 
 旧客户端必须先通过包含签名安装收据的新完整包升级一次；启用服务器和仓库变量不会改变已经安装或加载中的旧客户端。

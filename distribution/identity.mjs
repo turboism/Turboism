@@ -10,7 +10,7 @@ export async function verifyGitHubIdentity(token,fetcher=fetch,{workflow='notify
  require(header.alg==='RS256'&&typeof header.kid==='string'&&header.kid.length<200);
  require(c.iss===ISSUER&&c.aud==='https://api.turboism.dev'&&c.repository==='turboism/Turboism'&&c.repository_id==='1291982209');
  require(Number.isInteger(c.exp)&&c.exp>now&&Number.isInteger(c.iat)&&c.iat<=now+30&&c.exp-c.iat<=3600&&(!c.nbf||c.nbf<=now+30));
- require(['workflow_run','workflow_dispatch','release'].includes(c.event_name));
+ require(['workflow_run','workflow_dispatch','release'].includes(c.event_name)||(c.event_name==='schedule'&&workflow==='notify-release-api.yml'&&c.ref==='refs/heads/main'));
  require(c.ref==='refs/heads/main'||/^refs\/tags\/v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(c.ref??''));
  require(c.workflow_ref===`turboism/Turboism/.github/workflows/${workflow}@${c.ref}`);
  require(environment===null||c.environment===environment);
