@@ -25,6 +25,11 @@ final class ObjectContextMenuHookContributor implements HookContributor {
     }
 
     @Override
+    public java.util.Set<String> runtimeHookIds() {
+        return java.util.Set.of("object-context-menu");
+    }
+
+    @Override
     public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }

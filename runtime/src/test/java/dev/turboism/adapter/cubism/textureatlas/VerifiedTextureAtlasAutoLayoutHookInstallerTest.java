@@ -92,6 +92,48 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                 calls);
     }
 
+    /**
+     * A registered transformer alone does not rewrite host bytes. When the automatic-layout class
+     * is not loaded yet the installation must say so instead of claiming a completed rewrite.
+     */
+    @Test
+    void reportsArmedNotLoadedWhenTheAutomaticLayoutClassIsNotLoaded() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final Instrumentation instrumentation = instrumentation(calls, new Class<?>[][] {{}});
+
+        try (VerifiedTextureAtlasAutoLayoutHookInstaller installer =
+                VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+                        instrumentation,
+                        resolver(
+                                "5.3.02",
+                                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                                Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)),
+                        Target.class.getClassLoader())) {
+            assertEquals(
+                    VerifiedTextureAtlasAutoLayoutHookInstaller.Installation.ARMED_NOT_LOADED, installer.install());
+        }
+    }
+
+    @Test
+    void reportsRetransformedWhenTheAutomaticLayoutClassIsRewritten() throws Exception {
+        final List<String> calls = new ArrayList<>();
+
+        try (VerifiedTextureAtlasAutoLayoutHookInstaller installer =
+                VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
+                        instrumentation(calls),
+                        resolver(
+                                "5.3.02",
+                                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                                Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)),
+                        Target.class.getClassLoader())) {
+            assertEquals(VerifiedTextureAtlasAutoLayoutHookInstaller.Installation.RETRANSFORMED, installer.install());
+            assertEquals(
+                    VerifiedTextureAtlasAutoLayoutHookInstaller.Installation.RETRANSFORMED,
+                    installer.install(),
+                    "a repeated install reports the same rewrite result");
+        }
+    }
+
     @Test
     void admitsExact52AndRejectsUnsupportedVersion() {
         final Instrumentation instrumentation = instrumentation(new ArrayList<>());

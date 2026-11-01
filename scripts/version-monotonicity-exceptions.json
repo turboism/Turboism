@@ -7,7 +7,6 @@
       "path": "compatibility/cubism/verification",
       "site": "editor-model 5.3.01>5.3.02 aliases",
       "missing": [
-        "cubism.editor-model.morph-target-set.create-undo",
         "cubism.editor-model.morph-target-set.remove",
         "cubism.editor-model.morph-target.set-parameter",
         "cubism.editor-model.morph-target.set-parameter-and-key-value",
@@ -16,8 +15,8 @@
         "cubism.editor-model.part-source.remove-child",
         "cubism.editor-model.part.id"
       ],
-      "reason": "The 5.3.02 editor-model record drops the same eight morph-target/part selectors the 5.3.01 record carried.",
-      "evidence": "Deliberate exact-use truncation: records admit only the selectors the runtime slice actually consumes, and the >=5.3.02 editor-model generation does not consume these eight aliases. Backfilling them would assert unverified internal member names, so the regression is recorded as an explicit exception rather than papered over."
+      "reason": "The 5.3.02 editor-model record carries seven fewer aliases than the 5.3.01 and 5.3.03 records: the same morph-target/part selectors are declared on '5.0.00-5.3.01,5.3.03-5.3.04' in compatibility/cubism/verification-src/editor-model.json, so 5.3.02 is the only gap in the 5.3 line.",
+      "evidence": "Not backfillable from repository data, checked alias by alias against the 5.3.02 observation source: compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json (source=exact-public-classfile-observation, status=DRAFT, 1130 entries) carries no entry for KeyFormMorphTargetSet.remove(KeyFormMorphTarget)V, KeyFormMorphTarget.setParameter(CParameterGuid)V, KeyFormMorphTarget.setParameterAndKeyValue(CParameterGuid,Float)V, ACParameterControllableSource.internal_setParent(CPartSource)V, CParameterGroup.getGuid()CParameterGroupGuid, CPartSource.removeChild(ACParameterControllableSource)V, or CPart.getId()CPartId. Its only getId()CPartId observation is on CPartSource, so the CPart.id alias has no 5.3.02 member either. Backfilling would assert unverified internal member names for the exact 5.3.02 artifact; no reviewed 5.3.02 jar is available offline to re-verify them, so the gap stays an explicit exception. cubism.editor-model.morph-target-set.create-undo was removed from this list: 5.3.02 carries it through cubism.mapping.v5_3_02.editor_model.method.morph_target_set_create_undo, so it was never missing."
     },
     {
       "kind": "java-file",
