@@ -1,9 +1,12 @@
 package dev.turboism.runtime.log;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +66,41 @@ class RuntimeDiagnosticsTest {
                 (level, component, message, failure) -> records.add(level + ":" + component + ":" + message));
 
         assertEquals(List.of(), records);
+    }
+
+    @Test
+    void optionalDiagnosticsFollowTheLiveSinkAndStopOnClear() {
+        RuntimeDiagnostics.clear();
+        assertFalse(RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.TRACE));
+        final AtomicBoolean enabled = new AtomicBoolean();
+        RuntimeDiagnostics.install(new RuntimeDiagnostics.Sink() {
+            @Override
+            public boolean isEnabled(final RuntimeDiagnostics.Level level) {
+                return level != RuntimeDiagnostics.Level.TRACE || enabled.get();
+            }
+
+            @Override
+            public void write(RuntimeDiagnostics.Level level, String component, String message, Throwable failure) {}
+        });
+        assertTrue(RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.INFO));
+        assertFalse(RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.TRACE));
+        enabled.set(true);
+        assertTrue(RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.TRACE));
+        RuntimeDiagnostics.clear();
+        assertFalse(RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.TRACE));
+    }
+
+    @Test
+    void failingEnablementCheckCannotEscapeIntoTheHost() {
+        RuntimeDiagnostics.install(new RuntimeDiagnostics.Sink() {
+            @Override
+            public boolean isEnabled(final RuntimeDiagnostics.Level level) {
+                throw new IllegalStateException("unavailable sink");
+            }
+
+            @Override
+            public void write(RuntimeDiagnostics.Level level, String component, String message, Throwable failure) {}
+        });
+        assertFalse(RuntimeDiagnostics.isEnabled(RuntimeDiagnostics.Level.TRACE));
     }
 }

@@ -174,8 +174,9 @@ final class ArtMeshMirrorTickTest {
             final Object resolvedView = NativeWarpAltMirrorBridge.actionView(manager);
             assertSame(view, resolvedView);
 
-            // NativeArtMeshSymmetryBridge.beginTick initializes CURRENT, binds view, clears written
-            NativeArtMeshSymmetryBridge.beginTick(manager);
+            // The injected entry must maintain mirror state even with input tracing disabled.
+            dev.turboism.runtime.log.RuntimeDiagnostics.clear();
+            NativeWarpAltMirrorBridge.diagMouseAction(manager, null);
             final Object state = getCurrentState();
             assertNotNull(state);
             assertSame(view, getViewFromState(state));
@@ -187,7 +188,7 @@ final class ArtMeshMirrorTickTest {
             written.put(new float[] {1f, 2f}, new HashSet<>(Set.of(0, 1)));
             assertFalse(written.isEmpty());
 
-            NativeArtMeshSymmetryBridge.beginTick(manager);
+            NativeWarpAltMirrorBridge.diagMouseAction(manager, null);
             assertTrue(written.isEmpty());
         } finally {
             meshRegistration.close();
