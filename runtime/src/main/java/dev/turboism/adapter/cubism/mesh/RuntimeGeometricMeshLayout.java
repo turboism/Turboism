@@ -43,9 +43,12 @@ import javax.swing.SwingUtilities;
 /** Runtime-owned geometric mesh point-and-edge layout controller bound to one mesh-tool activation. */
 final class RuntimeGeometricMeshLayout implements MeshBrush {
     /**
-     * The only plugin identity this runtime brush is bound to. A tool that merely reuses the
-     * identifier never reaches it: the identity is the manifest-declared, runtime-verified plugin
-     * id, not a value the plugin chooses at runtime.
+     * The only plugin identity this runtime brush is bound to. The value is the plugin id the
+     * plugin declares in its own {@code plugin.json}; the runtime does not verify that the JAR is
+     * first-party. A tool that merely reuses the tool identifier never reaches the brush, but a
+     * third-party JAR that declares this plugin id can reach it after capability and permission
+     * admission. The required {@code cubism.mesh.custom-tools} capability and user-granted model
+     * read/write permissions bound its operations; they do not establish first-party provenance.
      */
     static final String OWNER_PLUGIN_ID = "dev.turboism.plugin.geometric-mesh-layout";
 
@@ -212,8 +215,8 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
     static void requireOwner(final String pluginId, final PermissionChecker permissions) {
         Objects.requireNonNull(permissions, "permissions");
         if (!OWNER_PLUGIN_ID.equals(pluginId)) {
-            throw new IllegalStateException("geometric mesh layout is reserved for plugin " + OWNER_PLUGIN_ID
-                    + ", not " + pluginId);
+            throw new IllegalStateException(
+                    "geometric mesh layout is reserved for plugin " + OWNER_PLUGIN_ID + ", not " + pluginId);
         }
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.activate");
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.geometric-layout.activate");

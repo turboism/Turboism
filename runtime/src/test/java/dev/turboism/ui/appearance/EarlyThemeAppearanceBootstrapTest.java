@@ -162,6 +162,9 @@ class EarlyThemeAppearanceBootstrapTest {
         // clearSelectedThemeId() persists an empty bounded list; it is a valid state, not a
         // malformed document, so it must not produce a diagnostic.
         writeSelectionThroughTypedConfigRegistry(home, List.of());
+        // install() replays process-wide buffered records. Other components are not theme diagnostics.
+        RuntimeDiagnostics.clear();
+        RuntimeDiagnostics.warn("host-session", "unrelated buffered diagnostic");
 
         final List<String> diagnostics = captureDiagnostics();
         assertEquals(
@@ -169,6 +172,18 @@ class EarlyThemeAppearanceBootstrapTest {
                 readSelectionThemeId(new EarlyThemeAppearanceBootstrap(
                         home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {})));
         assertEquals(List.of(), diagnostics);
+    }
+
+    @Test
+    void readsADocumentWhoseRevisionExceedsTheIntRange(@TempDir Path home) throws Exception {
+        // The writer's revision is a long; a valid document must not be rejected for its size.
+        writeRawSelectionDocument(
+                home, document("1", Integer.MAX_VALUE + 1L, "selected-theme", "[\"turboism.nord\"]"));
+
+        assertEquals(
+                Optional.of("turboism.nord"),
+                readSelectionThemeId(new EarlyThemeAppearanceBootstrap(
+                        home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {})));
     }
 
     @Test
@@ -218,33 +233,16 @@ class EarlyThemeAppearanceBootstrapTest {
     }
 
     /**
-     * Drift gate: the startup reader hard-codes one private {@code ui-theme} schema. This
-     * asserts the plugin side still declares exactly that path, selector key, schema
-     * version and native sentinel, so a plugin-side change fails here instead of silently
-     * dropping the early theme at startup.
+     * Pins the contract values the startup reader hard-codes (ARCHITECTURE.md section 5). The
+     * plugin side pins the same literals in {@code ThemeSelectionConfigTest}; each module checks
+     * only its own code, so a change on either side fails a test in that module.
      */
     @Test
-    void pluginThemeSchemaStaysBoundToTheEarlyThemeReader() throws Exception {
-        final Path pluginSource = repositoryRoot()
-                .resolve("plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java");
-        assertTrue(Files.isRegularFile(pluginSource), "plugin schema source is missing: " + pluginSource);
-        final String source = Files.readString(pluginSource, StandardCharsets.UTF_8);
-
-        assertTrue(
-                source.contains("CONFIG_PATH = \"" + SELECTION_PATH + "\""),
-                "ui-theme selection path changed; EarlyThemeAppearanceBootstrap reads " + SELECTION_PATH);
-        assertTrue(
-                source.contains("new ConfigKey<>(CONFIG_ID, \"" + SELECTED_THEME_KEY + "\""),
-                "ui-theme selector key changed; EarlyThemeAppearanceBootstrap reads " + SELECTED_THEME_KEY);
-        assertTrue(
-                source.contains("new ConfigSchema(CONFIG_ID, CONFIG_PATH, "
-                        + EarlyThemeAppearanceBootstrap.SUPPORTED_SCHEMA_VERSION + ","),
-                "ui-theme schema version changed; EarlyThemeAppearanceBootstrap supports "
-                        + EarlyThemeAppearanceBootstrap.SUPPORTED_SCHEMA_VERSION);
-        assertTrue(
-                source.contains("NATIVE_ID = \"" + EarlyThemeAppearanceBootstrap.NATIVE_THEME_ID + "\""),
-                "ui-theme native sentinel changed; EarlyThemeAppearanceBootstrap skips "
-                        + EarlyThemeAppearanceBootstrap.NATIVE_THEME_ID);
+    void readerPinsTheDocumentedSelectionContract() {
+        assertEquals("ui-theme/selection.cfg", EarlyThemeAppearanceBootstrap.SELECTION_PATH);
+        assertEquals("selected-theme", EarlyThemeAppearanceBootstrap.SELECTED_THEME_KEY);
+        assertEquals(1, EarlyThemeAppearanceBootstrap.SUPPORTED_SCHEMA_VERSION);
+        assertEquals("__native__", EarlyThemeAppearanceBootstrap.NATIVE_THEME_ID);
     }
 
     private static Optional<String> readSelectionThemeId(final EarlyThemeAppearanceBootstrap bootstrap)
@@ -325,17 +323,6 @@ class EarlyThemeAppearanceBootstrapTest {
         final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         return encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)) + ":"
                 + encoder.encodeToString(value.getBytes(StandardCharsets.UTF_8)) + "\n";
-    }
-
-    private static Path repositoryRoot() {
-        Path candidate = Path.of("").toAbsolutePath();
-        while (candidate != null) {
-            if (Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
-                return candidate;
-            }
-            candidate = candidate.getParent();
-        }
-        throw new IllegalStateException("repository root with settings.gradle.kts was not found");
     }
 
     /** Legacy registry slot the typed facade only delegates unused property calls to. */
