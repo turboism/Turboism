@@ -9,8 +9,9 @@ self-test pins the merged precedence and proves the guards stay effective:
   1. `.env`-only variable reaches the safety context
   2. process-environment-only variable reaches the safety context
   3. a key defined in both resolves to the process value
-  4. the golden prefix exported only in the process environment is refused
-  5. a fixture exported only in the process environment is refused
+  4. a blank process value never erases a non-blank `.env` value
+  5. the golden prefix exported only in the process environment is refused
+  6. a fixture exported only in the process environment is refused
 
 Every fixture is a temporary directory; no host artifact is scanned or deleted.
 """
@@ -84,6 +85,43 @@ class CleanupEnvMergeTest(unittest.TestCase):
         for candidate in (golden, golden / "pfx", golden / "pfx" / "system.reg"):
             with self.assertRaises(SecurityError):
                 context.assert_safe_to_delete(candidate)
+
+    def test_empty_process_value_keeps_dotenv_value(self) -> None:
+        """An exported empty string must not erase the `.env` golden prefix."""
+        golden = self.root / "dotenv-golden-blank-process"
+        self.write_env(f"{GOLDEN_KEY}={golden}\n")
+        env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: ""})
+        self.assertEqual(
+            Path(golden).resolve(),
+            SafetyContext.create(self.repo, env).golden_prefix,
+            "an empty TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX must not disable the red line",
+        )
+
+    def test_whitespace_process_value_keeps_dotenv_value(self) -> None:
+        """A whitespace-only export is as empty as an empty one."""
+        golden = self.root / "dotenv-golden-blank-ws"
+        self.write_env(f"{GOLDEN_KEY}={golden}\n")
+        env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: "   ", HOST_ROOT_KEY: "\t"})
+        context = SafetyContext.create(self.repo, env)
+        self.assertEqual(Path(golden).resolve(), context.golden_prefix)
+        self.assertEqual((Path.home() / "TurboismValidation").resolve(), context.host_root)
+
+    def test_missing_process_value_keeps_dotenv_value(self) -> None:
+        """No export at all leaves the `.env` value in charge."""
+        golden = self.root / "dotenv-golden-missing-process"
+        host_root = self.root / "dotenv-host-root"
+        self.write_env(f"{GOLDEN_KEY}={golden}\n{HOST_ROOT_KEY}={host_root}\n")
+        context = SafetyContext.create(self.repo, cleanup.resolve_env(self.env_file, {}))
+        self.assertEqual(Path(golden).resolve(), context.golden_prefix)
+        self.assertEqual(Path(host_root).resolve(), context.host_root)
+
+    def test_non_blank_process_value_replaces_dotenv_value(self) -> None:
+        """A real export still wins, so an operator can point the guard somewhere else."""
+        from_env = self.root / "dotenv-golden-nonblank"
+        from_process = self.root / "process-golden-nonblank"
+        self.write_env(f"{GOLDEN_KEY}={from_env}\n")
+        env = cleanup.resolve_env(self.env_file, {GOLDEN_KEY: str(from_process)})
+        self.assertEqual(Path(from_process).resolve(), SafetyContext.create(self.repo, env).golden_prefix)
 
     def test_fixture_from_process_environment_stays_protected(self) -> None:
         fixture = self.root / "source-model.cmo3"
