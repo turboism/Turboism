@@ -96,8 +96,11 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: when true the next managed Cubism launch
-     * adds {@code -XX:+UseZGC} to the managed JAVA_TOOL_OPTIONS block.
+     * Launcher preference: when true the next managed Cubism launch adds
+     * {@code -XX:+UseZGC} plus its companion {@code -XX:ZUncommitDelay=60} to
+     * the managed JVM options the launcher injects into the staged launch BAT.
+     * The shorter uncommit delay returns freed heap to the OS about a minute
+     * after editing stops instead of holding it for the 300 s ZGC default.
      * Launch-time flag — takes effect on the next launch only.
      * On by default; users disable it explicitly when startup speed
      * matters more than pause latency.
@@ -133,9 +136,9 @@ public interface CubismJvmSettingsService {
 
     /**
      * Launcher preference: when false the next managed Cubism launch adds
-     * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed
-     * JAVA_TOOL_OPTIONS block so the unchanged-frame skip hook is not
-     * installed. Off by default; takes effect on the next launch.
+     * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed JVM
+     * options so the unchanged-frame skip hook is not installed. Off by
+     * default; takes effect on the next launch.
      */
     default boolean modelUpdateSkip() {
         return false;

@@ -551,6 +551,7 @@ public static class SyntheticLeaseHost {
                     '-Dturboism.graal.enabled=false',
                     '-Djava.locale.providers=CLDR,SPI',
                     '-XX:+UseZGC',
+                    '-XX:ZUncommitDelay=60',
                     '-XX:+DisableAttachMechanism',
                     'com.live2d.cubism.CECubismEditorApp',
                     (Join-Path $chainRoot 'chain probe')
