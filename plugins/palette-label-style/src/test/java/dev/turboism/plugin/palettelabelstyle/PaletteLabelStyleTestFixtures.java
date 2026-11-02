@@ -10,9 +10,6 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.BlendMode;
-import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Deformers;
@@ -158,7 +155,7 @@ final class PaletteLabelStyleTestFixtures {
 
     // ---------------------------------------------------------- model fakes
 
-    static final class FakeModel implements CubismModel {
+    static final class FakeModel extends dev.turboism.test.fake.FakeModel {
         final List<FakeParameter> parameters = new ArrayList<>();
         final List<FakeParameterGroup> groups = new ArrayList<>();
         final List<FakePart> parts = new ArrayList<>();
@@ -233,7 +230,7 @@ final class PaletteLabelStyleTestFixtures {
             drawables.add(new FakeDrawable(id));
         }
 
-        FakeParameter parameter(final String id) {
+        public FakeParameter parameter(final String id) {
             return find(parameters, "parameter:" + id);
         }
 
@@ -371,50 +368,18 @@ final class PaletteLabelStyleTestFixtures {
         }
     }
 
-    static final class FakeParameter implements Parameter {
+    static final class FakeParameter extends dev.turboism.test.fake.FakeParameter {
         final FakePaletteEntry entry = new FakePaletteEntry();
-        final String id;
 
         FakeParameter(final String id) {
-            this.id = id;
+            super(id, id);
+            withRange(-1.0F, 1.0F);
+            withUi(() -> Optional.of(entry));
         }
-
-        @Override
-        public ParameterId id() {
-            return new ParameterId(id);
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.appearance.model.ParameterAppearance ui() {
-            return () -> Optional.of(entry);
-        }
-
-        @Override
-        public float getValue() {
-            return 0.0F;
-        }
-
-        @Override
-        public float getMinimumValue() {
-            return -1.0F;
-        }
-
-        @Override
-        public float getMaximumValue() {
-            return 1.0F;
-        }
-
-        @Override
-        public float getDefaultValue() {
-            return 0.0F;
-        }
-
-        @Override
-        public void setValue(final float value) {}
 
         @Override
         public String toString() {
-            return "parameter:" + id;
+            return "parameter:" + id().value();
         }
     }
 
@@ -584,24 +549,14 @@ final class PaletteLabelStyleTestFixtures {
         }
     }
 
-    static final class FakeDrawable implements Drawable {
+    static final class FakeDrawable extends dev.turboism.test.fake.FakeDrawable {
         final FakePaletteEntry partEntry = new FakePaletteEntry();
         final FakePaletteEntry deformerEntry = new FakePaletteEntry();
         final List<dev.turboism.sdk.ui.appearance.NativeLabelColor> nativeLabelColors = new ArrayList<>();
-        final String id;
 
         FakeDrawable(final String id) {
-            this.id = id;
-        }
-
-        @Override
-        public ArtMeshId id() {
-            return new ArtMeshId(id);
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.appearance.model.DrawableAppearance ui() {
-            return new dev.turboism.sdk.ui.appearance.model.DrawableAppearance() {
+            super(id);
+            withUi(new dev.turboism.sdk.ui.appearance.model.DrawableAppearance() {
                 @Override
                 public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() {
                     return Optional.of(partEntry);
@@ -621,92 +576,12 @@ final class PaletteLabelStyleTestFixtures {
                 public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) {
                     nativeLabelColors.add(color);
                 }
-            };
-        }
-
-        @Override
-        public byte constantFlag() {
-            return 0;
-        }
-
-        @Override
-        public byte dynamicFlag() {
-            return 0;
-        }
-
-        @Override
-        public BlendMode blendMode() {
-            return BlendMode.NORMAL;
-        }
-
-        @Override
-        public int textureIndex() {
-            return 0;
-        }
-
-        @Override
-        public int drawOrder() {
-            return 0;
-        }
-
-        @Override
-        public int renderOrder() {
-            return 0;
-        }
-
-        @Override
-        public float getOpacity() {
-            return 1.0F;
-        }
-
-        @Override
-        public IntSequence masks() {
-            return emptyInts();
-        }
-
-        @Override
-        public FloatSequence vertexPositions() {
-            return emptyFloats();
-        }
-
-        @Override
-        public FloatSequence vertexUvs() {
-            return emptyFloats();
-        }
-
-        @Override
-        public IntSequence indices() {
-            return emptyInts();
-        }
-
-        @Override
-        public Color multiplyColor() {
-            return new Color(1.0F, 1.0F, 1.0F, 1.0F);
-        }
-
-        @Override
-        public Color screenColor() {
-            return new Color(0.0F, 0.0F, 0.0F, 0.0F);
-        }
-
-        @Override
-        public int parentPartIndex() {
-            return -1;
-        }
-
-        @Override
-        public int parentDeformerIndex() {
-            return -1;
-        }
-
-        @Override
-        public IntSequence parameters() {
-            return emptyInts();
+            });
         }
 
         @Override
         public String toString() {
-            return "drawable:" + id;
+            return "drawable:" + id().value();
         }
     }
 

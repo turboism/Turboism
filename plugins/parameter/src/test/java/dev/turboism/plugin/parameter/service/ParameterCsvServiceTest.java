@@ -9,11 +9,11 @@ import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
-import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.test.fake.FakeModel;
+import dev.turboism.test.fake.FakeParameter;
 import dev.turboism.test.plugin.FakePluginContext;
 import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
@@ -357,14 +357,30 @@ class ParameterCsvServiceTest {
     }
 
     private static final class RecordingFacade implements CubismFacade {
-        private final RecordingModel model = new RecordingModel();
+        private final List<String> writes = new ArrayList<>();
+        private final FakeModel model = new FakeModel()
+                .addParameter(new FakeParameter("p1", "p1")
+                        .withRange(-1.0f, 1.0f)
+                        .withValue(0.5f)
+                        .beforeSetValue(value -> recordWrite("p1", value)))
+                .addParameter(new FakeParameter("p2", "p2")
+                        .withRange(-1.0f, 1.0f)
+                        .withValue(0.25f)
+                        .beforeSetValue(value -> recordWrite("p2", value)));
         private boolean modelAvailable = true;
         private String failOnParameterId;
         private dev.turboism.sdk.cubism.transaction.AuthoringTransactionService transactions =
                 dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
 
         List<String> parameterWrites() {
-            return model.parameterWrites();
+            return List.copyOf(writes);
+        }
+
+        private void recordWrite(final String id, final float value) {
+            if (id.equals(failOnParameterId)) {
+                throw new IllegalStateException("write failed");
+            }
+            writes.add(id + "=" + value);
         }
 
         @Override
@@ -398,7 +414,6 @@ class ParameterCsvServiceTest {
                 if (!modelAvailable) {
                     throw new IllegalStateException("no active model");
                 }
-                model.failOnParameterId = failOnParameterId;
                 return model;
             };
         }
@@ -406,124 +421,6 @@ class ParameterCsvServiceTest {
         @Override
         public dev.turboism.sdk.cubism.transaction.AuthoringTransactionService authoringTransactions() {
             return transactions;
-        }
-    }
-
-    private static final class RecordingModel implements CubismModel {
-        private final List<RecordingParameter> parameters = new ArrayList<>(List.of(
-                new RecordingParameter("p1", 0.5f, -1.0f, 1.0f), new RecordingParameter("p2", 0.25f, -1.0f, 1.0f)));
-        private final List<String> writes = new ArrayList<>();
-        private String failOnParameterId;
-
-        List<String> parameterWrites() {
-            return List.copyOf(writes);
-        }
-
-        RecordingParameter parameter(String id) {
-            return parameters.stream()
-                    .filter(parameter -> parameter.id.value().equals(id))
-                    .findFirst()
-                    .orElseThrow();
-        }
-
-        @Override
-        public ModelId id() {
-            return new ModelId("model-1");
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.model.Parameters parameters() {
-            return new dev.turboism.sdk.cubism.model.Parameters() {
-                @Override
-                public List<Parameter> all() {
-                    return List.copyOf(parameters);
-                }
-
-                @Override
-                public Parameter find(ParameterId id) {
-                    return parameters.stream()
-                            .filter(parameter -> parameter.id().equals(id))
-                            .findFirst()
-                            .orElseThrow();
-                }
-            };
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.model.Parts parts() {
-            throw unsupported();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.model.Drawables drawables() {
-            throw unsupported();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.model.Deformers deformers() {
-            throw unsupported();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.model.Glues glues() {
-            throw unsupported();
-        }
-
-        @Override
-        public void update() {
-            throw unsupported();
-        }
-
-        private final class RecordingParameter implements Parameter {
-            private final ParameterId id;
-            private final float minimum;
-            private final float maximum;
-            private float value;
-
-            private RecordingParameter(String id, float value, float minimum, float maximum) {
-                this.id = new ParameterId(id);
-                this.value = value;
-                this.minimum = minimum;
-                this.maximum = maximum;
-            }
-
-            @Override
-            public ParameterId id() {
-                return id;
-            }
-
-            @Override
-            public float getValue() {
-                return value;
-            }
-
-            @Override
-            public float getMinimumValue() {
-                return minimum;
-            }
-
-            @Override
-            public float getMaximumValue() {
-                return maximum;
-            }
-
-            @Override
-            public float getDefaultValue() {
-                return 0.0f;
-            }
-
-            @Override
-            public void setValue(float value) {
-                if (id.value().equals(failOnParameterId)) {
-                    throw new IllegalStateException("write failed");
-                }
-                this.value = value;
-                writes.add(id.value() + "=" + value);
-            }
-        }
-
-        private static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
         }
     }
 

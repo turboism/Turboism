@@ -9,19 +9,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Deformer;
-import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
-import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
-import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.InstanceRenderType;
-import dev.turboism.sdk.cubism.model.ModelInstance;
 import dev.turboism.sdk.cubism.model.MorphTarget;
 import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -30,12 +24,11 @@ import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterType;
-import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
-import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
+import dev.turboism.test.fake.FakeModel;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -846,7 +839,9 @@ class ProtectedExportPlannerTest {
                         "getParameterBindings", List.of(),
                         "morphTargets", morphTargets(List.of())),
                 mutations);
-        final FakeModel model = new FakeModel();
+        final FakeModel model = new FakeModel().withUpdateAction(() -> {
+            throw new AssertionError("planner invoked model update");
+        });
         model.parameters = List.of(parameter.value());
         model.parts = List.of(root.value(), childPart.value());
         model.deformers = List.of(rootDeformer.value(), childDeformer.value(), leaf.value());
@@ -934,7 +929,9 @@ class ProtectedExportPlannerTest {
                         "getParameterBindings", List.of(),
                         "morphTargets", morphTargets(List.of())),
                 mutations);
-        final FakeModel model = new FakeModel();
+        final FakeModel model = new FakeModel().withUpdateAction(() -> {
+            throw new AssertionError("planner invoked model update");
+        });
         model.parameters = List.of(parameter.value());
         model.parts = parts;
         model.deformers = deformers;
@@ -1095,61 +1092,6 @@ class ProtectedExportPlannerTest {
         @Override
         public void replaceForm(final dev.turboism.sdk.cubism.model.RotationDeformerForm form) {
             delegate.replaceForm(form);
-        }
-    }
-
-    private static final class FakeModel implements CubismModel {
-        private List<Parameter> parameters = List.of();
-        private List<Part> parts = List.of();
-        private List<Deformer> deformers = List.of();
-        private List<Drawable> drawables = List.of();
-        private List<Glue> glues = List.of();
-        private List<ModelInstance> instances = List.of();
-        private RuntimeException modelInstancesFailure;
-        private final AtomicInteger updateCalls = new AtomicInteger();
-
-        @Override
-        public ModelId id() {
-            return new ModelId("model");
-        }
-
-        @Override
-        public Parameters parameters() {
-            return collection(Parameters.class, () -> parameters);
-        }
-
-        @Override
-        public Parts parts() {
-            return collection(Parts.class, () -> parts);
-        }
-
-        @Override
-        public Deformers deformers() {
-            return collection(Deformers.class, () -> deformers);
-        }
-
-        @Override
-        public Drawables drawables() {
-            return collection(Drawables.class, () -> drawables);
-        }
-
-        @Override
-        public Glues glues() {
-            return collection(Glues.class, () -> glues);
-        }
-
-        @Override
-        public List<ModelInstance> modelInstances() {
-            if (modelInstancesFailure != null) {
-                throw modelInstancesFailure;
-            }
-            return List.copyOf(instances);
-        }
-
-        @Override
-        public void update() {
-            updateCalls.incrementAndGet();
-            throw new AssertionError("planner invoked model update");
         }
     }
 
