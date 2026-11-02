@@ -17,6 +17,9 @@ import dev.turboism.test.concurrent.Await;
 import dev.turboism.ui.panel.ChartDataRegistry;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -329,13 +332,69 @@ class RuntimePerformanceProbeServiceTest {
         try {
             await(() -> received.size() >= 1);
             calls.set(calls.get() + 100L);
-            await(() -> received.size() >= 2);
-            final PerformanceSnapshot latest = received.get(received.size() - 1);
+            await(() -> received.stream().anyMatch(snapshot -> snapshot.renderedFrames() >= 100L));
+            final PerformanceSnapshot latest = received.stream()
+                    .filter(snapshot -> snapshot.renderedFrames() >= 100L)
+                    .reduce((first, second) -> second)
+                    .orElseThrow();
             // 100 calls over the ~50ms window => ~2000 fps; must be positive and real.
             assertTrue(latest.fps() > 0.0, "fps must derive from real counter deltas, was " + latest.fps());
             assertTrue(latest.renderedFrames() >= 100L);
         } finally {
             registration.close();
+        }
+    }
+
+    @Test
+    void fpsWindowIsMonotonicWhenTheWallClockJumps() throws Exception {
+        final MutableClock clock = new MutableClock();
+        final RuntimePerformanceProbeService service =
+                new RuntimePerformanceProbeService("perf-stats", granted(), clock, new FakeOsBean(0.0));
+        final CopyOnWriteArrayList<PerformanceSnapshot> received = new CopyOnWriteArrayList<>();
+        final Registration registration = service.sample(Duration.ofMillis(50), received::add);
+        try {
+            await(() -> received.size() >= 1);
+            calls.addAndGet(100L);
+            // A wall-clock jump (NTP/manual adjustment) must not change the FPS
+            // denominator: the window is measured with System.nanoTime().
+            clock.advance(Duration.ofHours(1));
+            await(() -> received.stream().anyMatch(snapshot -> snapshot.renderedFrames() >= 100L));
+            final PerformanceSnapshot latest = received.stream()
+                    .filter(snapshot -> snapshot.renderedFrames() >= 100L)
+                    .reduce((first, second) -> second)
+                    .orElseThrow();
+            assertTrue(latest.fps() > 100.0, "FPS must use monotonic elapsed time, was " + latest.fps());
+            assertTrue(latest.renderedFrames() >= 100L);
+        } finally {
+            registration.close();
+        }
+    }
+
+    private static final class MutableClock extends Clock {
+        private long millis = 1_700_000_000_000L;
+
+        void advance(final Duration duration) {
+            millis += duration.toMillis();
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(final ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return Instant.ofEpochMilli(millis);
+        }
+
+        @Override
+        public long millis() {
+            return millis;
         }
     }
 

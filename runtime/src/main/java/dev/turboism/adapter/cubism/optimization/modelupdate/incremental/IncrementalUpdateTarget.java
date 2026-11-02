@@ -197,6 +197,7 @@ public record IncrementalUpdateTarget(
                 "(Lcom/live2d/doc/selection/d;Lcom/live2d/cubism/doc/model/ACForm;)"
                         + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;"));
         deps.add(new Dep(DR, "getDeformedForm", "()Lcom/live2d/cubism/doc/model/drawable/ACDrawableForm;"));
+        deps.add(new Dep(DR, "getAffectedForm", "()Lcom/live2d/cubism/doc/model/drawable/ACDrawableForm;"));
         deps.add(new Dep(DR, "getDrawOrder", "()I"));
         deps.add(new Dep(MF, "getPositions", "()[F"));
         deps.add(new Dep(PF, "getPositions", "()Lcom/live2d/type/CArrayList;"));

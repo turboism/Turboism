@@ -420,11 +420,19 @@ class IncrementalUpdateBridgeTest {
                                 M + "drawable/ACDrawable",
                                 null,
                                 null,
-                                f("form:L" + M + "drawable/ACDrawableForm;", "order:I"),
+                                f(
+                                        "form:L" + M + "drawable/ACDrawableForm;",
+                                        "affected:L" + M + "drawable/ACDrawableForm;",
+                                        "order:I"),
                                 f(),
                                 m(
                                         g("getDeformedForm", "()L" + M + "drawable/ACDrawableForm;", "form"),
+                                        g("getAffectedForm", "()L" + M + "drawable/ACDrawableForm;", "affected"),
                                         g("getDrawOrder", "()I", "order"))))
+                .add(M + "affecter/ACAffecter", emit(M + "affecter/ACAffecter", null, null, f(), f(), m()))
+                .add(
+                        M + "affecter/glue/CGlue",
+                        emit(M + "affecter/glue/CGlue", M + "affecter/ACAffecter", null, f(), f(), m()))
                 .add(
                         M + "drawable/artMesh/CArtMesh",
                         emit(
@@ -622,6 +630,7 @@ class IncrementalUpdateBridgeTest {
     @AfterEach
     void cleanup() {
         System.clearProperty(IncrementalUpdateBridge.ENABLE_PROPERTY);
+        System.clearProperty(IncrementalUpdateBridge.AFFECTER_PROPERTY);
         System.clearProperty(IncrementalUpdateBridge.PROBE_PROPERTY);
         System.clearProperty(IncrementalUpdateBridge.RESULT_PROPERTY);
     }
@@ -1031,6 +1040,69 @@ class IncrementalUpdateBridgeTest {
                 assertEquals(
                         1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
             }
+        }
+    }
+
+    @Test
+    void glueAffecterModelsReuseOnlyBehindExplicitOptIn() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        set(world.model, "affecters", List.of(make(loader, N + "doc/model/affecter/glue/CGlue")));
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            // Opt-in absent: a completed baseline must not be reused for affecter models.
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
+
+            System.setProperty(IncrementalUpdateBridge.AFFECTER_PROPERTY, "true");
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            // Glue is applied by the host after this call, from the reused deformed form.
+            assertSame(
+                    world.deformedOut,
+                    deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh}));
+            end().accept(world.epoch());
+        }
+    }
+
+    @Test
+    void savedAffecterPreferenceAdmitsGlueWithoutAProperty() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        set(world.model, "affecters", List.of(make(loader, N + "doc/model/affecter/glue/CGlue")));
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        IncrementalUpdateBridge.setAffecterConfiguredDefault(true);
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
+        } finally {
+            IncrementalUpdateBridge.setAffecterConfiguredDefault(false);
+        }
+    }
+
+    @Test
+    void unknownAffecterTypeStaysNativeEvenWithOptIn() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        set(world.model, "affecters", List.of(new Object()));
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        System.setProperty(IncrementalUpdateBridge.AFFECTER_PROPERTY, "true");
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
+            end().accept(world.epoch());
         }
     }
 

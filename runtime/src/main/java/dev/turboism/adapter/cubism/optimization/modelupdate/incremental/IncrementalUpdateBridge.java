@@ -52,6 +52,14 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
 
     /** Experimental opt-in switch; only explicit true enables reuse, re-read every frame. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.incrementalUpdate";
+    /**
+     * Experimental admission of glue-only affecter models; persisted as the Performance-page
+     * {@code launcher.incrementalUpdateAffecters} setting. Glue output is recomputed by the host
+     * from cleared {@code affectedForm}s and the current {@code deformedForm}s every update, so
+     * reuse of the latter stays valid; any other affecter type or a host without the glue class
+     * keeps the whole model on the native path.
+     */
+    public static final String AFFECTER_PROPERTY = "turboism.optimization.incrementalUpdateAffecters";
     /** Slot for the {@code Consumer<Object>} update-core entry callback ({model, ctx}). */
     public static final String BEGIN_PROPERTY = "turboism.incremental-update.begin";
     /** Slot for the {@code Consumer<Object>} update-core return callback ({model, ctx}). */
@@ -88,9 +96,13 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static final String GV = "com.live2d.graphics3d.type.GVector2";
 
     private static volatile boolean configuredDefault = false;
+    private static volatile boolean configuredAffecterDefault = false;
 
     private final IncrementalUpdateTarget target;
     private final Class<?> modelingDocumentType, editModeType, meshFormType, pathFormType;
+    /** Glue affecter type; {@code null} keeps every affecter model on the native path. */
+    private final Class<?> glueType;
+
     private final MethodHandle getSkipInterpolation,
             setSkipInterpolation,
             getAllDeformers,
@@ -119,6 +131,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             meshAnimatedForm,
             meshTransform,
             getDeformedForm,
+            getAffectedForm,
             getDrawOrder,
             meshPositions,
             pathPositions,
@@ -219,6 +232,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         meshAnimatedForm = handles.get(dep(CAM, "getLocalAnimatedForm"));
         meshTransform = handles.get(dep(MF, "transform"));
         getDeformedForm = handles.get(dep(DR, "getDeformedForm"));
+        getAffectedForm = handles.get(dep(DR, "getAffectedForm"));
         getDrawOrder = handles.get(dep(DR, "getDrawOrder"));
         meshPositions = handles.get(dep(MF, "getPositions"));
         pathPositions = handles.get(dep(PF, "getPositions"));
@@ -231,6 +245,16 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         vecX = handles.get(dep(GV, "getX"));
         vecY = handles.get(dep(GV, "getY"));
         updaterInstance = Class.forName(up, false, loader).getField("a").get(null);
+        glueType = optionalClass(loader, "com.live2d.cubism.doc.model.affecter.glue.CGlue");
+    }
+
+    /** Optional host type; a missing class only narrows which models may reuse. */
+    private static Class<?> optionalClass(final ClassLoader loader, final String name) {
+        try {
+            return Class.forName(name, false, loader);
+        } catch (ClassNotFoundException | LinkageError absent) {
+            return null;
+        }
     }
 
     private Dep dep(final String owner, final String name, final String descriptor) {
@@ -333,6 +357,11 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     /** Updates the persisted-config fallback used when {@link #ENABLE_PROPERTY} is unset. */
     public static void setConfiguredDefault(final boolean enabled) {
         configuredDefault = enabled;
+    }
+
+    /** Updates the persisted-config fallback used when {@link #AFFECTER_PROPERTY} is unset. */
+    public static void setAffecterConfiguredDefault(final boolean enabled) {
+        configuredAffecterDefault = enabled;
     }
 
     /** Returns true only for an explicit experimental opt-in; missing or malformed values stay native. */
@@ -733,14 +762,34 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         return md.digest();
     }
 
-    /** ArtPath glue or affecter meshes write into mesh vertices; those models stay native. */
+    /**
+     * ArtPath glue writes into path vertices outside the reused mesh forms, so models with
+     * paths stay native. Glue affecters are recomputed by the host from cleared affected
+     * forms and the current deformed forms each update; they are admitted only behind the
+     * explicit {@link #AFFECTER_PROPERTY} opt-in and only when every affecter is a known
+     * {@code CGlue}. Unknown affecter types and unknown host shapes fail closed.
+     */
     private boolean unsafe(final Object model) throws Throwable {
         final Object paths = (Object) getAllArtPaths.invokeExact(model);
+        if (!(paths instanceof List) || !((List<?>) paths).isEmpty()) return true;
         final Object affecters = (Object) getAllAffecters.invokeExact(model);
-        return !(paths instanceof List)
-                || !(affecters instanceof List)
-                || !((List<?>) paths).isEmpty()
-                || !((List<?>) affecters).isEmpty();
+        if (!(affecters instanceof List)) return true;
+        if (((List<?>) affecters).isEmpty()) return false;
+        if (glueType == null || !affecterReuseEnabled()) return true;
+        for (final Object affecter : (List<?>) affecters) {
+            if (affecter == null || !glueType.isInstance(affecter)) return true;
+        }
+        return false;
+    }
+
+    /** Only an explicit true or the saved Preference-page value admits glue affecter models. */
+    private static boolean affecterReuseEnabled() {
+        try {
+            final String explicit = System.getProperty(AFFECTER_PROPERTY);
+            return explicit == null ? configuredAffecterDefault : Boolean.parseBoolean(explicit);
+        } catch (SecurityException denied) {
+            return false;
+        }
     }
 
     private byte[] digest(final Object model) throws Throwable {
@@ -752,50 +801,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             final ByteBuffer buffer = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN);
             for (final Object drawable : (List<?>) drawables) {
                 if (drawable == null) throw new IllegalStateException("null drawable");
-                final Object form = (Object) getDeformedForm.invokeExact(drawable);
-                if (form == null) {
-                    putInt(md, buffer, 0);
-                } else if (meshFormType.isInstance(form)) {
-                    final float[] positions = (float[]) (Object) meshPositions.invokeExact(form);
-                    putInt(md, buffer, 1);
-                    if (positions == null) {
-                        putInt(md, buffer, -1);
-                    } else {
-                        putInt(md, buffer, positions.length);
-                        for (final float position : positions) putFloat(md, buffer, position);
-                    }
-                } else if (pathFormType.isInstance(form)) {
-                    final Object points = (Object) pathPositions.invokeExact(form);
-                    putInt(md, buffer, 2);
-                    if (points == null) {
-                        putInt(md, buffer, -1);
-                    } else if (!(points instanceof List)) {
-                        throw new IllegalStateException("path points of unexpected type "
-                                + points.getClass().getName());
-                    } else {
-                        putInt(md, buffer, ((List<?>) points).size());
-                        for (final Object point : (List<?>) points) {
-                            if (point == null) {
-                                putInt(md, buffer, -1);
-                                continue;
-                            }
-                            putInt(md, buffer, 1);
-                            final Object curve = (Object) pointCurve.invokeExact(point);
-                            if (curve == null) {
-                                putInt(md, buffer, -1);
-                            } else {
-                                putVector(md, buffer, (Object) spPoint.invokeExact(curve));
-                                putVector(md, buffer, (Object) spStart.invokeExact(curve));
-                                putVector(md, buffer, (Object) spEnd.invokeExact(curve));
-                            }
-                            putFloat(md, buffer, (float) pointWidth.invokeExact(point));
-                            putFloat(md, buffer, (float) pointOpacity.invokeExact(point));
-                        }
-                    }
-                } else {
-                    throw new IllegalStateException(
-                            "undigestable form " + form.getClass().getName());
-                }
+                putForm(md, buffer, (Object) getDeformedForm.invokeExact(drawable));
+                // Glue writes into affectedForm, which the deformer/mesh reuse never touches.
+                putForm(md, buffer, (Object) getAffectedForm.invokeExact(drawable));
                 putInt(md, buffer, (int) getDrawOrder.invokeExact(drawable));
             }
             buffer.flip();
@@ -803,6 +811,53 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             return md.digest();
         } finally {
             digestNanos.add(System.nanoTime() - started);
+        }
+    }
+
+    /** Digests one mesh or path form; {@code null} is a distinct "absent" marker. */
+    private void putForm(final MessageDigest md, final ByteBuffer buffer, final Object form) throws Throwable {
+        if (form == null) {
+            putInt(md, buffer, 0);
+        } else if (meshFormType.isInstance(form)) {
+            final float[] positions = (float[]) (Object) meshPositions.invokeExact(form);
+            putInt(md, buffer, 1);
+            if (positions == null) {
+                putInt(md, buffer, -1);
+            } else {
+                putInt(md, buffer, positions.length);
+                for (final float position : positions) putFloat(md, buffer, position);
+            }
+        } else if (pathFormType.isInstance(form)) {
+            final Object points = (Object) pathPositions.invokeExact(form);
+            putInt(md, buffer, 2);
+            if (points == null) {
+                putInt(md, buffer, -1);
+            } else if (!(points instanceof List)) {
+                throw new IllegalStateException(
+                        "path points of unexpected type " + points.getClass().getName());
+            } else {
+                putInt(md, buffer, ((List<?>) points).size());
+                for (final Object point : (List<?>) points) {
+                    if (point == null) {
+                        putInt(md, buffer, -1);
+                        continue;
+                    }
+                    putInt(md, buffer, 1);
+                    final Object curve = (Object) pointCurve.invokeExact(point);
+                    if (curve == null) {
+                        putInt(md, buffer, -1);
+                    } else {
+                        putVector(md, buffer, (Object) spPoint.invokeExact(curve));
+                        putVector(md, buffer, (Object) spStart.invokeExact(curve));
+                        putVector(md, buffer, (Object) spEnd.invokeExact(curve));
+                    }
+                    putFloat(md, buffer, (float) pointWidth.invokeExact(point));
+                    putFloat(md, buffer, (float) pointOpacity.invokeExact(point));
+                }
+            }
+        } else {
+            throw new IllegalStateException(
+                    "undigestable form " + form.getClass().getName());
         }
     }
 
@@ -902,6 +957,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         lastViewContext = new WeakReference<>(null);
         lastModel = new WeakReference<>(null);
         configuredDefault = false;
+        configuredAffecterDefault = false;
         completedUpdate = null;
         pendingUpdate = null;
         changedForms.clear();

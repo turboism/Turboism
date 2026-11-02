@@ -2093,7 +2093,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -2135,6 +2135,9 @@ function Get-CubismManagedJdkOptionTokens {
     }
     if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "incrementalUpdate") {
         $tokens += "-Dturboism.optimization.incrementalUpdate=true"
+    }
+    if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "incrementalUpdateAffecters") {
+        $tokens += "-Dturboism.optimization.incrementalUpdateAffecters=true"
     }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
         $tokens += "-Dturboism.optimization.uniformLocationCache=false"
@@ -2180,7 +2183,7 @@ function Read-CubismOptimizationPreference {
     # Proton-scoped options default off on this native-Windows path.
     # inputPathElision/mesaGlThread default on only under Wine/Proton, which
     # the Linux launcher resolves — this script never runs there.
-    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread"
+    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "incrementalUpdateAffecters" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread"
     if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }

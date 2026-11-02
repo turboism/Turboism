@@ -49,6 +49,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "memoryProfile",
             "modelUpdateSkip",
             "incrementalUpdate",
+            "incrementalUpdateAffecters",
             "uniformLocationCache",
             "uploadElision",
             "inputPathElision",
@@ -72,6 +73,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
             "modelUpdateSkip",
             "incrementalUpdate",
+            "incrementalUpdateAffecters",
             "uniformLocationCache",
             "uploadElision",
             "inputPathElision",
