@@ -126,6 +126,15 @@ abstract class NativeOptimizationHookContributor implements HookContributor {
         }
     }
 
+    static void debug(final HookEnvironment environment, final String line) {
+        final var runtime = environment.runtime();
+        if (runtime.isEmpty()) {
+            RuntimeDiagnostics.debug("bootstrap", line);
+        } else {
+            runtime.get().debug("bootstrap", line);
+        }
+    }
+
     /** Refuses installation with a diagnostic reason, without reporting completion. */
     final AutoCloseable refused(final String reason) {
         refusalReason = reason;

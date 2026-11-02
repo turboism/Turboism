@@ -29,7 +29,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
         final boolean validation = Boolean.getBoolean(InputPathElisionTransformer.ENABLE_PROPERTY);
         final boolean production = NativeOptimizationPolicy.inputPathElisionEnabled(environment);
         if (!validation && !production) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
@@ -40,7 +40,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
                         NativeOptimizationPolicy.load(environment.options().home()),
                         true,
                         Runtime.version())) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedInputPathElisionInstaller installer = new VerifiedInputPathElisionInstaller(

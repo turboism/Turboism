@@ -22,7 +22,7 @@ final class CanvasCompositeElisionHookContributor extends NativeOptimizationHook
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(CanvasCompositeElisionTransformer.ENABLE_PROPERTY)) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();

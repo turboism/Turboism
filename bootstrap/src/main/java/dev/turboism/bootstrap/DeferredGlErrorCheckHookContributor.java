@@ -33,7 +33,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.mesaGlThreadEnabled(environment)) {
-            log(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
+            debug(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
             return refused("preference-disabled");
         }
         final String seamFailure = seamFailure();

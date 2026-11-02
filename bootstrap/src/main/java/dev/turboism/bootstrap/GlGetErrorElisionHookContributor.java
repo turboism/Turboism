@@ -18,7 +18,7 @@ final class GlGetErrorElisionHookContributor extends NativeOptimizationHookContr
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(GlGetErrorElisionTransformer.ENABLE_PROPERTY)) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
         final var host = environment.host().orElseThrow();

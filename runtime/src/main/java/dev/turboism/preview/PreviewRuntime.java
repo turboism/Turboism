@@ -408,6 +408,13 @@ public final class PreviewRuntime implements AutoCloseable {
                 Clock.systemUTC(),
                 ProcessHandle.current().pid(),
                 PreviewLog.Sink.NONE);
+        final var runtimeConfig = new dev.turboism.config.RuntimeConfigRepository(
+                        home, diagnostic -> log.warn("config", diagnostic))
+                .read();
+        log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
+        log.setMaxStorageMiB(runtimeConfig
+                .path("maxLogStorageMiB")
+                .asInt(dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB));
         if (!pendingPlugins.applied()) {
             log.warn(
                     "plugin-management",
@@ -420,9 +427,6 @@ public final class PreviewRuntime implements AutoCloseable {
         LocalPluginRuntime plugins = null;
         final StartupPhaseTimer startupTimer = new StartupPhaseTimer(System::nanoTime);
         try {
-            final var runtimeConfig = new dev.turboism.config.RuntimeConfigRepository(
-                            home, diagnostic -> log.warn("config", diagnostic))
-                    .read();
             // Provisional: Cubism writes the Environment Settings language onto the
             // process default locale as the editor starts, which is later than this
             // first resolution. Re-resolved once the host is verified and ACTIVE.
@@ -430,10 +434,6 @@ public final class PreviewRuntime implements AutoCloseable {
                     new java.util.concurrent.atomic.AtomicReference<>(
                             resolveEffectiveLocale(runtimeConfig, message -> log.warn("i18n", message)));
             log.info("i18n", "Using startup locale " + effectiveLocale.get().toLanguageTag());
-            log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
-            log.setMaxStorageMiB(runtimeConfig
-                    .path("maxLogStorageMiB")
-                    .asInt(dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB));
             log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
             startupTimer.completed("configuration", message -> log.info("startup", message));
             // Inject the persisted theme before the Cubism GL scene initializes so
@@ -838,6 +838,16 @@ public final class PreviewRuntime implements AutoCloseable {
      */
     public void info(final String component, final String message) {
         log.info(component, message);
+    }
+
+    /**
+     * Writes a DEBUG line to the runtime log.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     */
+    public void debug(final String component, final String message) {
+        log.debug(component, message);
     }
 
     /**

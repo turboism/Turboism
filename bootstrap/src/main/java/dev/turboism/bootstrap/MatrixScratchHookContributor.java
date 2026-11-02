@@ -14,7 +14,7 @@ final class MatrixScratchHookContributor extends NativeOptimizationHookContribut
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.matrixScratchEnabled(environment)) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
@@ -23,7 +23,7 @@ final class MatrixScratchHookContributor extends NativeOptimizationHookContribut
                 NativeOptimizationPolicy.load(environment.options().home()),
                 true,
                 Runtime.version().feature())) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedMatrixScratchInstaller installer =

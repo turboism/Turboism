@@ -191,9 +191,9 @@ class RuntimePluginConfigRegistryTest {
                 new CopyOnWriteArrayList<>(),
                 failures,
                 new RejectingExecutor());
-        final Registration scope = registry.readScope("private/C:/Users/secret.properties");
+        final Registration scope = registry.readScope("private/Users/secret.properties");
 
-        assertTrue(registry.readString("private/C:/Users/secret.properties", "private-value")
+        assertTrue(registry.readString("private/Users/secret.properties", "private-value")
                 .isEmpty());
 
         final var collected = failures.snapshot().configFailures();

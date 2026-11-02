@@ -27,7 +27,7 @@ final class NativeOptimizationPolicy {
         final var choice = config.choice(option);
         dev.turboism.config.NativeOptimizationDiagnostics.requested(option, choice);
         if (environment != null) {
-            NativeOptimizationHookContributor.log(
+            NativeOptimizationHookContributor.debug(
                     environment,
                     "NATIVE_OPTIMIZATION preference=" + option.key()
                             + " requested=" + choice.enabled() + " source=" + choice.source()
