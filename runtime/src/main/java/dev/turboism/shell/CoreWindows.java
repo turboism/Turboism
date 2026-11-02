@@ -547,6 +547,7 @@ final class CoreWindows implements AutoCloseable {
             final JLabel caption = new JLabel(note.label());
             caption.setFont(caption.getFont().deriveFont(caption.getFont().getSize2D() - 2.0f));
             caption.setEnabled(false);
+            applyControlTooltip(note.id(), caption);
             add(panel, row, caption, new JLabel());
             return () -> true;
         }

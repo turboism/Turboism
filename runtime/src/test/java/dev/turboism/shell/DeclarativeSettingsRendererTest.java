@@ -384,6 +384,34 @@ class DeclarativeSettingsRendererTest {
     }
 
     @Test
+    void recommendationNoteCarriesTheRecommendedProfileTooltip() throws Exception {
+        final CoreWindows windows = new CoreWindows(
+                localization(),
+                settings(),
+                List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
+        final JPanel panel = new JPanel(new GridBagLayout());
+        final SettingsControl.Note control =
+                new SettingsControl.Note("performance-recommendation", "Recommended profile");
+        final Method render = CoreWindows.class.getDeclaredMethod(
+                "renderControl", JDialog.class, JPanel.class, int.class, SettingsControl.class);
+        render.setAccessible(true);
+
+        render.invoke(windows, null, panel, 0, control);
+
+        final javax.swing.JLabel caption = java.util.Arrays.stream(panel.getComponents())
+                .filter(javax.swing.JLabel.class::isInstance)
+                .map(javax.swing.JLabel.class::cast)
+                .filter(label -> control.label().equals(label.getText()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(caption.getToolTipText() != null
+                && caption.getToolTipText().contains("settings.performance.recommendation.tooltip"));
+    }
+
+    @Test
     void tallSettingsRemainReachableByWheelAndScrollBarAtLargeFonts() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             for (float size : new float[] {12f, 18f, 24f}) {
