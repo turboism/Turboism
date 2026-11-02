@@ -16,6 +16,11 @@ public final class PreviewReportDocuments {
     static final ObjectMapper JSON =
             new ObjectMapper(new JsonFactory()).enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
+    /** Shared deterministic mapper; the report snapshot factory lives one package up. */
+    public static ObjectMapper json() {
+        return JSON;
+    }
+
     private PreviewReportDocuments() {}
 
     /**
