@@ -68,5 +68,12 @@ JUnit class. Both static gates depend on their own fail-closed selftests, and
 `checkGateWiringSelfTest` asserts they stay aggregated and documented, so a gate
 cannot be dropped by deleting one `dependsOn` line.
 
+`.github/CODEOWNERS` records ownership of persistence formats, migrations, API
+baselines, verification wiring and the governance tooling. It does not block a
+merge by itself: repository admins must configure a GitHub ruleset requiring the
+`CI / devCheck` check on protected `main`. Enable "Require review from Code
+Owners" in that ruleset only once a second reviewer with write access exists,
+otherwise the single owner's own pull requests become unmergeable.
+
 This document is the initial governance baseline. Track intended module splits
 and follow-up evidence in issues rather than moving hundreds of classes blindly.
