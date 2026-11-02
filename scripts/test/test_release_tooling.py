@@ -270,18 +270,18 @@ class ReleaseWorkflowTest(unittest.TestCase):
 class RootReadmeTest(unittest.TestCase):
     EULA_PATHS = {
         "README.md": "packaging/eula/EULA.en.txt",
-        "README_zh.md": "EULA.md",
-        "README_ja.md": "packaging/eula/EULA.ja.txt",
-        "README_ko.md": "packaging/eula/EULA.ko.txt",
+        "README.zh-CN.md": "EULA.md",
+        "README.ja.md": "packaging/eula/EULA.ja.txt",
+        "README.ko.md": "packaging/eula/EULA.ko.txt",
     }
 
     PAGES = {
         "README.md": ["Copyright and notices", "About", "Supported Cubism Editor versions",
                       "Installation", "Development", "Documentation"],
-        "README_zh.md": ["版权声明", "项目简介", "支持的 Cubism Editor 版本", "安装", "开发", "文档"],
-        "README_ja.md": ["著作権と注意事項", "プロジェクト概要", "対応する Cubism Editor のバージョン",
+        "README.zh-CN.md": ["版权声明", "项目简介", "支持的 Cubism Editor 版本", "安装", "开发", "文档"],
+        "README.ja.md": ["著作権と注意事項", "プロジェクト概要", "対応する Cubism Editor のバージョン",
                          "インストール", "開発", "ドキュメント"],
-        "README_ko.md": ["저작권 및 고지", "프로젝트 소개", "지원하는 Cubism Editor 버전", "설치", "개발", "문서"],
+        "README.ko.md": ["저작권 및 고지", "프로젝트 소개", "지원하는 Cubism Editor 버전", "설치", "개발", "문서"],
     }
 
     def test_default_english_and_four_way_navigation_at_top(self):
@@ -289,8 +289,9 @@ class RootReadmeTest(unittest.TestCase):
             with self.subTest(page=filename):
                 first_line = (ROOT / filename).read_text(encoding="utf-8").splitlines()[0]
                 self.assertEqual(re.findall(r"\]\(([^)]+)\)", first_line), list(self.PAGES))
-                for label in ("EN / English", "ZH / 简体中文", "JP / 日本語", "KR / 한국어"):
-                    self.assertIn(label, first_line)
+                labels = re.findall(r"\[([^\]]+)\]\(", first_line)
+                self.assertEqual(labels, ["English", "简体中文", "日本語", "한국어"])
+                self.assertIn(" / ", first_line)
 
     def test_requested_section_order_and_installation_formats(self):
         for filename, headings in self.PAGES.items():
