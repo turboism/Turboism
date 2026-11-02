@@ -1,4 +1,4 @@
-package dev.turboism.runtime.log;
+package dev.turboism.adapter.cubism.service.log;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.reflect.MethodHandleCache;
@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
 import dev.turboism.sdk.runtime.CubismLogService;

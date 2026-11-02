@@ -507,13 +507,6 @@
         "dev.turboism.ui.toolbar"
       ],
       [
-        "dev.turboism.core.event",
-        "dev.turboism.core.runtime",
-        "dev.turboism.core.runtime.sidecar",
-        "dev.turboism.core.runtime.work",
-        "dev.turboism.runtime.log"
-      ],
-      [
         "dev.turboism.adapter.cubism.edit",
         "dev.turboism.adapter.cubism.editor",
         "dev.turboism.adapter.cubism.editor.history",
@@ -523,6 +516,11 @@
         "dev.turboism.adapter.cubism",
         "dev.turboism.adapter.cubism.service.read",
         "dev.turboism.hostread"
+      ],
+      [
+        "dev.turboism.core.runtime",
+        "dev.turboism.core.runtime.sidecar",
+        "dev.turboism.core.runtime.work"
       ]
     ],
     "topPackageCycles": [
@@ -534,7 +532,6 @@
         "dev.turboism.mapping",
         "dev.turboism.recentfile",
         "dev.turboism.recentpreview",
-        "dev.turboism.runtime",
         "dev.turboism.screenshot",
         "dev.turboism.task",
         "dev.turboism.ui"
@@ -892,10 +889,6 @@
       [
         "dev.turboism.recentpreview",
         "dev.turboism.permissions"
-      ],
-      [
-        "dev.turboism.runtime",
-        "dev.turboism.core"
       ],
       [
         "dev.turboism.screenshot",

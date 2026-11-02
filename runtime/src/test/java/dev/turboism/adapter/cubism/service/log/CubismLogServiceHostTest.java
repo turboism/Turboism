@@ -1,4 +1,4 @@
-package dev.turboism.runtime.log;
+package dev.turboism.adapter.cubism.service.log;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

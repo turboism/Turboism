@@ -84,9 +84,39 @@ downward. The factory stayed where it is: it composes package-private
 `RuntimeHostAdapters` helpers, and widening those to `public` would have been a
 larger surface change than moving one data record.
 
+## `:runtime` runtime.log ↔ core
+
+- **Owner**: runtime infrastructure maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.runtime.log` is infrastructure: diagnostics counters
+  and, before this change, the Cubism log-stream host. Infrastructure sits **below**
+  the framework core and never depends on it.
+- **Allowed dependencies**: `core.*` may depend on `runtime.log`;
+  `runtime.log` may depend only on the JDK, `core.reflect` and the SDK.
+- **Forbidden**: any import in `dev.turboism.runtime.log` of
+  `dev.turboism.core.*` (except `core.reflect`), and any plugin-facing log
+  adapter living here.
+- **Public API**: `RuntimeDiagnostics`. The Cubism log service is an adapter, not
+  infrastructure.
+- **Threading / IO**: `RuntimeDiagnostics` is lock-free and safe from any thread;
+  it never writes files.
+- **Tests**: `runtime/src/test/java/dev/turboism/runtime/log/**` for the counters;
+  the adapter's tests live with the adapter.
+- **Backward compatibility**: none on disk; the class name was internal.
+- **Enforcement**: `checkDependencyInventory` plus the layering rules in
+  `gradle/module-boundaries.gradle.kts`.
+
+**What changed (`#70` step 3b)**: `CubismLogServiceHost` — a Cubism host adapter
+that reflects into the Log4j2 context and needs the event broker, the scheduler
+and the work executor — lived under `runtime.log` and imported four `core.*`
+packages. It moved to `dev.turboism.adapter.cubism.service.log`, matching
+`CubismClipMaskServiceImpl` and the other `adapter.cubism.service.*` adapters.
+`runtime.log` now only exposes `RuntimeDiagnostics` and imports nothing upward.
+
 ## Next boundaries (not yet extracted)
 
-Contract `core.runtime` ↔ `runtime.log` (5-cycle), then
-`adapter.cubism.{edit,editor,history,transaction}` (4-cycle). Both need a
-contract before any file moves; see `architecture/DEPENDENCY_INVENTORY.md` for the
-current cycle list.
+`core.runtime` ↔ `core.runtime.{sidecar,work}`: `RuntimeScheduler` composes the
+executor set while the executors consume `PluginTask` and
+`RuntimeCancellationToken` from `core.runtime`. Breaking it means relocating those
+shared contracts below both (63 files reference `PluginTask`), which is a real
+contract change rather than a file move — it gets its own PR. Then
+`adapter.cubism.{edit,editor,history,transaction}` (4-cycle).
