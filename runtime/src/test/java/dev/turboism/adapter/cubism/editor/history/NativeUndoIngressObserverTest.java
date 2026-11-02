@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -205,14 +207,6 @@ public class NativeUndoIngressObserverTest {
                         method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
                         method("cubism.editor-history.manager.position", Manager.class, "position", "()I")),
                 Manager.class.getClassLoader());
-    }
-
-    static StaticSelector method(final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
     }
 
     /** The verified single-abstract-method host listener shape. */

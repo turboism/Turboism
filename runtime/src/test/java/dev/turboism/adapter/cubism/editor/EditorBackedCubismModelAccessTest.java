@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -717,18 +720,6 @@ class EditorBackedCubismModelAccessTest {
                 java.util.Set.of("cubism.editor-model.read"),
                 selectors,
                 Host.class.getClassLoader());
-    }
-
-    private static StaticSelector method(String alias, Class<?> owner, String name, String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String desc(Class<?> type) {
-        return "()L" + internal(type) + ";";
     }
 
     private static List<Float> sequence(final dev.turboism.sdk.cubism.model.FloatSequence values) {

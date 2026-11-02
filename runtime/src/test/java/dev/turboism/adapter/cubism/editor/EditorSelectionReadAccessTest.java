@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -318,15 +320,6 @@ class EditorSelectionReadAccessTest {
         values.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
         values.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
         return List.copyOf(values);
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
     }
 
     private static final class Fixture {
