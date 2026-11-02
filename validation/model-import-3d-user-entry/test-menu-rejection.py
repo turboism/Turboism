@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Synthetic refusal-report corruption tests; not native evidence."""
-import copy,json,runpy,shutil,tempfile
+import copy
+import json
+import runpy
+import shutil
+import tempfile
 from pathlib import Path
 
 module=runpy.run_path(str(Path(__file__).with_name('verify-menu-rejection.py')));verify=module['verify'];run='queue-'+'0'*32

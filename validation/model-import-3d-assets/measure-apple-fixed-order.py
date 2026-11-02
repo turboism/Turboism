@@ -5,7 +5,10 @@ Centroid order is only a candidate, never an occlusion proof. Original triangles
 positions and component provenance are unchanged. Coverage, nearest depth and
 component ownership are measured without excluding image boundaries.
 """
-import argparse,hashlib,json,struct
+import argparse
+import hashlib
+import json
+import struct
 from pathlib import Path
 import numpy as np
 from PIL import Image

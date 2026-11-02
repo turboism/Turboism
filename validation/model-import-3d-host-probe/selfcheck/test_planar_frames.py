@@ -1,6 +1,12 @@
 """Entire report/raster fixture is synthetic; validates gates, never native rendering."""
 from pathlib import Path
-import copy,hashlib,json,runpy,struct,unittest,zlib
+import copy
+import hashlib
+import json
+import runpy
+import struct
+import unittest
+import zlib
 ROOT=Path(__file__).resolve().parents[3]
 API=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-planar-pixels.py'))
 GEOMETRY=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-surface-geometry.py'))

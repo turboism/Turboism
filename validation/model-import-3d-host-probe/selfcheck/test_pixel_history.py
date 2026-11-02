@@ -1,6 +1,8 @@
 """Actual Java capture output, synthetic SDK/raster only; independent history chain tests."""
 from pathlib import Path
-import json,runpy,unittest
+import json
+import runpy
+import unittest
 ROOT=Path(__file__).resolve().parents[3]
 API=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-pose-drive.py'))
 AXES=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-surface-geometry.py'))['AXES']

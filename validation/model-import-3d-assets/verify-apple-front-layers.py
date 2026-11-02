@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Independent source-space rays verify front-layer raster witnesses, not import."""
-import argparse,hashlib,json,struct
+import argparse
+import hashlib
+import json
+import struct
 from pathlib import Path
 import numpy as np
 

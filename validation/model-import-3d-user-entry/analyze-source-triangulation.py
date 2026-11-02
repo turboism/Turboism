@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Verify a read-only real SDK query witness, never claim import/edit acceptance."""
-import collections,csv,hashlib,json,math,struct,sys
+import collections
+import hashlib
+import json
+import math
+import struct
+import sys
 from pathlib import Path
 
 def faces(indices):

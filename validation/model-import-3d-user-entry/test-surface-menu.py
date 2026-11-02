@@ -1,5 +1,8 @@
 """Independent inverse affine rasters and synthetic authoring corruption controls; not native acceptance."""
-import copy,json,math,runpy
+import copy
+import json
+import math
+import runpy
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2];API=runpy.run_path(str(Path(__file__).with_name('verify-surface-menu.py')))

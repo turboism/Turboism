@@ -1,6 +1,8 @@
 """Protocol controls use manufactured calculated orders; no native order evidence."""
 from pathlib import Path
-import json,runpy,unittest
+import json
+import runpy
+import unittest
 ROOT=Path(__file__).resolve().parents[3]
 API=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-sheet-order.py'))
 class SheetOrderTest(unittest.TestCase):

@@ -66,7 +66,7 @@ JIT 内联后整段迭代归属其构造帧）。`TriangleList.b`（remove）仅
 - shape gate：上述 invoke 点各恰好一处、方法签名/访问标志不变；
   否则整腿 INVALID（沿用 AbTransformer 约定）。
 
-## 集成验证（validation/triangulation-weave-ab，agent 级）
+## 集成验证（validation/archive/triangulation-weave-ab，agent 级）
 
 `TliWeave`+`Bridge` 编入 `tri-weave-agent.jar`；`WeaveAbConfig` 新增
 `turboism.validation.tlWeave.*` 命名空间（mode `tl-dump-only` /

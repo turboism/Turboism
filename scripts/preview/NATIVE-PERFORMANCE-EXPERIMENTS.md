@@ -838,7 +838,7 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 
 ### I45 — 合成宿主 A/B 微基准：遍历路径 CPU 收益量化（2026-09-12）
 
-- **方法**：自含基准 `scripts/perfbench/src/`（不进 Gradle 构建）：携带受审 Cubism 类名的合成宿主图（`CModelingDocument`/`CSceneDocument`/`CAnimationFileContent`/`IFileContent` 等 stub + `bench.*` 公共基类承载 selector owner）+ `TestVerifiedResolvers` + `VerifiedProjectWorkspaceHostOperations` + `HostSessionSnapshotSource` 真实现。同一 `PerfBench` 源分别对 `d3ee4d2a8`（本轮工作接手基线，含前序 P09 observe 机制）与 HEAD 编译运行；`System.nanoTime` + `ThreadMXBean.getCurrentThreadAllocatedBytes`；warmup 500-800 轮后计时 2000-3000 轮取均值。全 offline、无实机。
+- **方法**：自含基准 `validation/archive/perfbench/src/`（不进 Gradle 构建）：携带受审 Cubism 类名的合成宿主图（`CModelingDocument`/`CSceneDocument`/`CAnimationFileContent`/`IFileContent` 等 stub + `bench.*` 公共基类承载 selector owner）+ `TestVerifiedResolvers` + `VerifiedProjectWorkspaceHostOperations` + `HostSessionSnapshotSource` 真实现。同一 `PerfBench` 源分别对 `d3ee4d2a8`（本轮工作接手基线，含前序 P09 observe 机制）与 HEAD 编译运行；`System.nanoTime` + `ThreadMXBean.getCurrentThreadAllocatedBytes`；warmup 500-800 轮后计时 2000-3000 轮取均值。全 offline、无实机。
 - **数字（30 model + 10 anim 文档、45 contents；三次运行一致）**：
   | 度量 | d3ee4d2a8 | HEAD | Δ |
   |---|---|---|---|

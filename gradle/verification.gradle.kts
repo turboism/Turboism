@@ -1319,16 +1319,18 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
 }
 
 /*
- * scripts/ lint is part of the daily gate: ruff.toml pins the rule set and the
- * wrapper pins the ruff release, so the baseline cannot drift with ambient tools.
+ * scripts/ and validation/ probe lint is part of the daily gate: ruff.toml pins the
+ * rule set and the wrapper pins the ruff release, so the baseline cannot drift with
+ * ambient tools. validation/archive/ is excluded (see ruff.toml).
  */
 tasks.register<Exec>("checkPythonLint") {
     group = "verification"
-    description = "Lints scripts/ with the pinned ruff ruleset in ruff.toml."
+    description = "Lints scripts/ and validation/ with the pinned ruff ruleset in ruff.toml."
     workingDir(rootDir)
     inputs.file("ruff.toml")
     inputs.files("scripts/check_python_lint.py")
     inputs.files(fileTree("scripts") { include("**/*.py") })
+    inputs.files(fileTree("validation") { include("**/*.py"); exclude("archive/**") })
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_python_lint.py")
 }

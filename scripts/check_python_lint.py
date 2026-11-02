@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed Python lint gate for scripts/.
+"""Fail-closed Python lint gate for scripts/ and validation/ probes.
 
 Runs `ruff check` against the repo's ruff.toml. The pinned release keeps results
 identical across machines — a different ruff version fails with an install hint
@@ -49,7 +49,7 @@ def main() -> int:
         fail(f"ruff {observed} found, expected {PINNED_RUFF}; "
              f"install with: python3 -m pip install \"ruff=={PINNED_RUFF}\"")
     result = subprocess.run(
-        command + ["check", "--config", str(ROOT / "ruff.toml"), "scripts/"],
+        command + ["check", "--config", str(ROOT / "ruff.toml"), "scripts/", "validation/"],
         cwd=ROOT,
     )
     return result.returncode

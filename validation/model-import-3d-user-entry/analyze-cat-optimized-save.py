@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Optimized Cat native SAVE_AS gate. Reopen, editing and rendering remain separate."""
-import hashlib,json,runpy,sys
+import json
+import runpy
+import sys
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 PAIR=runpy.run_path(str(HERE/'analyze-derived-persistence.py'))

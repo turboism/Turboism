@@ -1,5 +1,9 @@
 """Synthetic UI checker integrity tests only, without native or pixel acceptance."""
-import argparse,copy,io,json,runpy,hashlib
+import argparse
+import copy
+import io
+import json
+import runpy
 from pathlib import Path
 import numpy as np
 from PIL import Image

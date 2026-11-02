@@ -1,6 +1,5 @@
 """Build an independent non-JFR JVM context diagnostic; frozen production Agents unchanged."""
 import argparse
-import hashlib
 import importlib.util
 import json
 import os

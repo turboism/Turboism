@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Independent finite diagnostic; never grants full Apple editability acceptance."""
-import collections,hashlib,json,struct,sys
+import collections
+import hashlib
+import json
+import struct
+import sys
 from pathlib import Path
 
 def analyze(controller):

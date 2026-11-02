@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Admit the exact frozen 5.2.03 surface vertex-path menu job, containment, artifacts and strict SDK report."""
-import argparse,hashlib,json,runpy,tarfile
+import argparse
+import hashlib
+import json
+import runpy
+import tarfile
 from pathlib import Path
 PREFIX='state/dev.turboism.validation.model-import-3d-user-entry/'
 CUBISM_JAR_5203='bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd'

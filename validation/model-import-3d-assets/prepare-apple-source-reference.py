@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Freeze an original-source depth/UV/material reference, never a native render."""
-import argparse,hashlib,json,struct,io,subprocess
+import argparse
+import hashlib
+import json
+import struct
+import io
+import subprocess
 from pathlib import Path
 import numpy as np
 from PIL import Image

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Full frozen canonical apple controls/source coordinates; capture integrity only."""
-import hashlib,json,math,runpy,struct
+import hashlib
+import math
+import runpy
 from pathlib import Path
 import numpy as np
 SOURCE_SHA='3b31ef1167d6aa75c5746906838ad1e37447718ece116512c187337be0f87999'

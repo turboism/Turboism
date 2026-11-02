@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Independent Cat menu lifecycle, inventory and consumed-pose observations."""
-import json,math,runpy,sys
+import json
+import math
+import runpy
+import sys
 from pathlib import Path
 from PIL import Image
 PAIR=runpy.run_path(str(Path(__file__).with_name('analyze-derived-persistence.py')))

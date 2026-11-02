@@ -5,7 +5,11 @@ Original GLB and fixture UVs remain unchanged. Derived shader UVs have an explic
 invertible image transform per original component; this is not native import evidence.
 """
 from pathlib import Path
-import argparse,hashlib,json,struct,io
+import argparse
+import hashlib
+import json
+import struct
+import io
 import numpy as np
 from PIL import Image
 
