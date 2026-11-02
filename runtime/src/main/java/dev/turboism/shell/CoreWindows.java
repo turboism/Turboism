@@ -545,7 +545,10 @@ final class CoreWindows implements AutoCloseable {
         }
         if (control instanceof SettingsControl.Note note) {
             final JLabel caption = new JLabel(note.label());
-            caption.setFont(caption.getFont().deriveFont(caption.getFont().getSize2D() - 2.0f));
+            final boolean prominent =
+                    "performance-restart-note".equals(note.id()) || "performance-recommendation".equals(note.id());
+            final float noteSize = caption.getFont().getSize2D() - (prominent ? 0.0f : 2.0f);
+            caption.setFont(caption.getFont().deriveFont(noteSize));
             final boolean hasTooltip = CubismJvmSettingsContribution.tooltipKey(note.id())
                     .filter(i18n::contains)
                     .isPresent();
@@ -575,6 +578,7 @@ final class CoreWindows implements AutoCloseable {
                                     + raw.replace("&", "&amp;")
                                             .replace("<", "&lt;")
                                             .replace(">", "&gt;")
+                                            .replace("\n", "<br>")
                                     + "</div></html>"
                             : raw;
                     for (javax.swing.JComponent component : components) {
