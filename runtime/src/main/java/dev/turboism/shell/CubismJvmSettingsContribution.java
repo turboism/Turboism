@@ -209,29 +209,21 @@ final class CubismJvmSettingsContribution {
                         "cubism-memory-profile-note", i18n.text("settings.cubism-jvm.memory-profile-note")));
     }
 
-    /** Small header note on the Performance tab; no binding, display only. */
-    static SettingsContribution createPerformanceNote(final PluginLocalization i18n) {
-        Objects.requireNonNull(i18n, "i18n");
-        return new SettingsContribution(
-                "performance-restart-note",
-                new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(60),
-                new SettingsControl.Note("performance-restart-note", i18n.text("settings.performance.restart-note")));
-    }
-
     /**
-     * Recommended opt-in profile based on the large-model measurements. Defaults
-     * remain off; the note and its tooltip explain the two non-conflicting branches
-     * and the upload/uniform exclusion.
+     * One header row on the Performance tab: the restart warning and the
+     * recommended combinations, separated by {@code |}. The tooltip shows the
+     * recommended combinations with line breaks.
      */
     static SettingsContribution createPerformanceRecommendationNote(final PluginLocalization i18n) {
         Objects.requireNonNull(i18n, "i18n");
+        final String label = i18n.text("settings.performance.restart-note")
+                + " | "
+                + i18n.text("settings.performance.recommendation");
         return new SettingsContribution(
                 "performance-recommendation",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(61),
-                new SettingsControl.Note(
-                        "performance-recommendation", i18n.text("settings.performance.recommendation")));
+                OptionalInt.of(60),
+                new SettingsControl.Note("performance-recommendation", label));
     }
 
     /**
