@@ -1071,6 +1071,24 @@ class IncrementalUpdateBridgeTest {
     }
 
     @Test
+    void savedAffecterPreferenceAdmitsGlueWithoutAProperty() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        set(world.model, "affecters", List.of(make(loader, N + "doc/model/affecter/glue/CGlue")));
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        IncrementalUpdateBridge.setAffecterConfiguredDefault(true);
+        try (IncrementalUpdateBridge bridge = installed(loader)) {
+            begin().accept(world.epoch());
+            end().accept(world.epoch());
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+            end().accept(world.epoch());
+        } finally {
+            IncrementalUpdateBridge.setAffecterConfiguredDefault(false);
+        }
+    }
+
+    @Test
     void unknownAffecterTypeStaysNativeEvenWithOptIn() throws Exception {
         Loader loader = host();
         World world = new World(loader);

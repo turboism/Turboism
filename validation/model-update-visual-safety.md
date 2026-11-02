@@ -10,13 +10,16 @@ Windows visual acceptance, and no performance workload was resumed for this chan
 `epochFull` before selecting interpolation reuse. Unsupported models therefore retain
 native interpolation, deformer dirty marking and mesh deformation in the same epoch.
 
-Glue-only affecter models are admitted only behind the explicit
-`-Dturboism.optimization.incrementalUpdate.affecters=true` opt-in. The host recomputes
+Glue-only affecter models are admitted only behind the explicit Performance-page
+"Include glue affecters" preference (`launcher.incrementalUpdateAffecters`, or
+`-Dturboism.optimization.incrementalUpdateAffecters=true`). The host recomputes
 `affectedForm` from cleared state and the current `deformedForm`s on every update, so
 the reused state stays valid; non-glue affecters, ArtPaths and hosts without the glue
 class still force a full epoch. The probe digest covers `getAffectedForm()` so a reuse
 mismatch in glue output is observable. Evidence and limits:
 [2026-11-02 affecter acceptance](incremental-update-host-probe/acceptance-20261102-affecters.md).
+ArtPath remains native; [the ArtPath analysis](incremental-update-artpath-analysis.md)
+records the same-shaped host pipeline and the probe/digest work a future admission needs.
 Editing guards continue to check both host editing flags and retain the first full
 update after editing ends. Their presence does not prove every native drag entry sets
 the flags throughout its transaction.

@@ -7,7 +7,7 @@
 ## 胶水 affecter 纳入增量更新（2026-11-02）
 
 `unsafe(model)` 仍拒绝 ArtPath 和非 `CGlue` affecter；仅在显式设置
-`-Dturboism.optimization.incrementalUpdate.affecters=true` 时允许只含胶水的模型复用。
+`-Dturboism.optimization.incrementalUpdateAffecters=true` 时允许只含胶水的模型复用。
 宿主每次更新都会清空 `affectedForm` 并从当前 `deformedForm` 重算胶水结果，因此被复用的
 状态仍然有效。探针 digest 同时覆盖 `getDeformedForm()` 与 `getAffectedForm()`。
 5.0.00/5.1.03/5.2.03/5.3.03/5.3.04 实机矩阵与限制见

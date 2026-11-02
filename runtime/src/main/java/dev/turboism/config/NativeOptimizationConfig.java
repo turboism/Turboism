@@ -10,6 +10,7 @@ public final class NativeOptimizationConfig {
     public enum Option {
         MODEL_UPDATE_SKIP("modelUpdateSkip"),
         INCREMENTAL_UPDATE("incrementalUpdate"),
+        INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters"),
         UNIFORM_LOCATION_CACHE("uniformLocationCache"),
         UPLOAD_ELISION("uploadElision"),
         INPUT_PATH_ELISION("inputPathElision"),

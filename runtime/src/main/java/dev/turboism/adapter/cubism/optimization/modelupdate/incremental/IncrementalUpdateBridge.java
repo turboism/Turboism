@@ -53,12 +53,13 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     /** Experimental opt-in switch; only explicit true enables reuse, re-read every frame. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.incrementalUpdate";
     /**
-     * Experimental admission of glue-only affecter models. Glue output is recomputed by the
-     * host from cleared {@code affectedForm}s and the current {@code deformedForm}s every
-     * update, so reuse of the latter stays valid; any other affecter type or a host without
-     * the glue class keeps the whole model on the native path.
+     * Experimental admission of glue-only affecter models; persisted as the Performance-page
+     * {@code launcher.incrementalUpdateAffecters} setting. Glue output is recomputed by the host
+     * from cleared {@code affectedForm}s and the current {@code deformedForm}s every update, so
+     * reuse of the latter stays valid; any other affecter type or a host without the glue class
+     * keeps the whole model on the native path.
      */
-    public static final String AFFECTER_PROPERTY = "turboism.optimization.incrementalUpdate.affecters";
+    public static final String AFFECTER_PROPERTY = "turboism.optimization.incrementalUpdateAffecters";
     /** Slot for the {@code Consumer<Object>} update-core entry callback ({model, ctx}). */
     public static final String BEGIN_PROPERTY = "turboism.incremental-update.begin";
     /** Slot for the {@code Consumer<Object>} update-core return callback ({model, ctx}). */
@@ -95,6 +96,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static final String GV = "com.live2d.graphics3d.type.GVector2";
 
     private static volatile boolean configuredDefault = false;
+    private static volatile boolean configuredAffecterDefault = false;
 
     private final IncrementalUpdateTarget target;
     private final Class<?> modelingDocumentType, editModeType, meshFormType, pathFormType;
@@ -355,6 +357,11 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     /** Updates the persisted-config fallback used when {@link #ENABLE_PROPERTY} is unset. */
     public static void setConfiguredDefault(final boolean enabled) {
         configuredDefault = enabled;
+    }
+
+    /** Updates the persisted-config fallback used when {@link #AFFECTER_PROPERTY} is unset. */
+    public static void setAffecterConfiguredDefault(final boolean enabled) {
+        configuredAffecterDefault = enabled;
     }
 
     /** Returns true only for an explicit experimental opt-in; missing or malformed values stay native. */
@@ -775,10 +782,11 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         return false;
     }
 
-    /** Only an explicit true admits glue affecter models; absent or malformed values stay native. */
+    /** Only an explicit true or the saved Preference-page value admits glue affecter models. */
     private static boolean affecterReuseEnabled() {
         try {
-            return Boolean.getBoolean(AFFECTER_PROPERTY);
+            final String explicit = System.getProperty(AFFECTER_PROPERTY);
+            return explicit == null ? configuredAffecterDefault : Boolean.parseBoolean(explicit);
         } catch (SecurityException denied) {
             return false;
         }
@@ -949,6 +957,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         lastViewContext = new WeakReference<>(null);
         lastModel = new WeakReference<>(null);
         configuredDefault = false;
+        configuredAffecterDefault = false;
         completedUpdate = null;
         pendingUpdate = null;
         changedForms.clear();

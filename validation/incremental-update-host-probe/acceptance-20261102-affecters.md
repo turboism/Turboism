@@ -4,11 +4,13 @@
 
 `IncrementalUpdateBridge.unsafe(model)` used to keep every model with a non-empty
 `CModel.getAllAffecters()` list on the complete native path. This change admits
-glue-only affecter models behind an explicit experimental opt-in:
+glue-only affecter models behind an explicit experimental opt-in, exposed as the
+Performance-page sub-toggle "Include glue affecters"
+(`launcher.incrementalUpdateAffecters`) and as the equivalent JVM override:
 
 ```text
 -Dturboism.optimization.incrementalUpdate=true
--Dturboism.optimization.incrementalUpdate.affecters=true
+-Dturboism.optimization.incrementalUpdateAffecters=true
 ```
 
 The default remains native for every affecter model. ArtPath presence and any
@@ -71,6 +73,18 @@ in all phases`, equal OFF/ON pixel SHA-256 for before/dragged/undo/redo, no docu
 timestamp change, and zero bridge failures. A 5.3.04 run with
 `-Dturboism.incremental-update.probe=true` also passes with no probe mismatch,
 exercising the new `affectedForm` digest.
+
+The 5.3.04 row was also re-run through the persisted settings path instead of JVM
+options: `config.json` carried `launcher.incrementalUpdate=true` and
+`launcher.incrementalUpdateAffecters=true`, the bootstrap read them through
+`NativeOptimizationConfig`, and the run again reports PASS with ON reuse 1008 and
+zero failures. That is the path the Performance-page toggle writes.
+
+The same bundle also opened the real editor settings dialog: the 性能 (Performance)
+tab shows "包含胶水影响器" immediately after "仅更新变化的模型部件"
+(`state/settings-shot/settings-performance.png` in the run directory). The
+contribution tests cover the binding, label key, tooltip and order; this capture
+confirms the row renders in the shipped page.
 
 Run directories: `build/host-validation-affecters/runs/incremental-undo-affecters-*`
 in the task worktree (raw `result.txt`, per-phase coordinate dumps and PNGs).

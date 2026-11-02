@@ -162,6 +162,16 @@ if ($JdkParserOnly) {
         $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
         Assert-ManagedLaunch ($optTokens -contains '-Dturboism.optimization.incrementalUpdate=true' -and $optTokens -notcontains '-Dturboism.optimization.incrementalUpdate=false') "explicit incremental opt-in is emitted on restart"
         Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.uniformLocationCache=false') "experimental opt-in leaves the independent uniform preference unchanged"
+        Assert-ManagedLaunch ($optTokens -notcontains '-Dturboism.optimization.incrementalUpdateAffecters=true') "glue admission stays off without its own preference"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"incrementalUpdate":true,"incrementalUpdateAffecters":true}}')
+        $optTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($optTokens -contains '-Dturboism.optimization.incrementalUpdate=true' -and $optTokens -contains '-Dturboism.optimization.incrementalUpdateAffecters=true') "explicit glue admission is emitted next to the incremental opt-in"
+        foreach ($invalidAffecters in @('"yes"', 'null', '1')) {
+            [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"launcher":{"incrementalUpdateAffecters":' + $invalidAffecters + '}}'))
+            $affectersInvalid = $false
+            try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $affectersInvalid = $true }
+            Assert-ManagedLaunch $affectersInvalid "non-boolean glue admission fails closed"
+        }
         foreach ($invalidIncremental in @('"yes"', 'null', '1')) {
             [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"launcher":{"incrementalUpdate":' + $invalidIncremental + '}}'))
             $incrementalInvalid = $false
@@ -171,7 +181,7 @@ if ($JdkParserOnly) {
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
         Assert-ManagedLaunch (-not (Read-CubismOptimizationPreference -TurboismHome $zgcHome -Name "incrementalUpdate")) "missing launcher keeps incremental geometry off"
         Assert-ManagedLaunch (-not (Read-CubismOptimizationPreference -Name "incrementalUpdate")) "missing home keeps incremental geometry off"
-        $incrementalCleanup = Remove-TurboismJdkOptions '-Dturboism.optimization.incrementalUpdate=true -Xmx2g -Dturboism.optimization.incrementalUpdate=false -Dapp.test=kept'
+        $incrementalCleanup = Remove-TurboismJdkOptions '-Dturboism.optimization.incrementalUpdate=true -Xmx2g -Dturboism.optimization.incrementalUpdate=false -Dturboism.optimization.incrementalUpdateAffecters=true -Dapp.test=kept'
         Assert-ManagedLaunch ($incrementalCleanup -eq '-Xmx2g -Dapp.test=kept') "stale incremental choices cannot override current preferences"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"modelUpdateSkip":"no"}}')
         $optInvalid = $false
