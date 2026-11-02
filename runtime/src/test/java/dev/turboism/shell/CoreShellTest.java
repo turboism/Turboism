@@ -110,7 +110,7 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(24, context.uiHost().settingsContributions().size());
+        assertEquals(25, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
                         "cubism-graalvm-path",
@@ -121,6 +121,7 @@ class CoreShellTest {
                         "cubism-memory-profile-note",
                         "model-update-skip",
                         "incremental-update",
+                        "incremental-update-affecters",
                         "uniform-location-cache",
                         "upload-elision",
                         "input-path-elision",
