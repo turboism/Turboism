@@ -12,9 +12,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -36,7 +38,11 @@ import java.util.jar.JarFile;
  *   <li>when the artifact declares a self-consistent Cubism identity whose release is
  *       not reviewed, every candidate is tried; exactly one distinct contract may
  *       match — zero matches or several distinct matching contracts refuse the hook
- *       with a bounded reason.</li>
+ *       with a bounded reason. A candidate whose whole-class pins no longer match may
+ *       still bind through its reviewed {@link MethodShapeSpec method shapes}: every
+ *       changed pinned class must be covered by a method whose instructions, operands
+ *       and branches are identical, which admits same-line zero-day patches without
+ *       accepting a changed hook target.</li>
  * </ul>
  *
  * <p>A declaration is mandatory: class digests never substitute for product and
@@ -57,21 +63,59 @@ public final class ReviewedHostContract {
     private ReviewedHostContract() {}
 
     /**
+     * One reviewed class method, identified by the constant-pool-independent shape
+     * captured by {@link ReviewedMethodShape#read}.
+     *
+     * @param owner internal class name, such as {@code "com/live2d/cubism/foo"}
+     * @param method method name
+     * @param descriptor JVM method descriptor
+     * @param expectedShape reviewed semantic instructions, operands, branches and handlers
+     */
+    public record MethodShapeSpec(String owner, String method, String descriptor, List<String> expectedShape) {
+        public MethodShapeSpec {
+            owner = requireText(owner, "owner");
+            method = requireText(method, "method");
+            descriptor = requireText(descriptor, "descriptor");
+            expectedShape = List.copyOf(Objects.requireNonNull(expectedShape, "expectedShape"));
+            if (expectedShape.isEmpty()) {
+                throw new IllegalArgumentException("expectedShape must not be empty");
+            }
+        }
+
+        private static String requireText(final String value, final String name) {
+            Objects.requireNonNull(value, name);
+            if (value.isBlank()) {
+                throw new IllegalArgumentException(name + " must not be blank");
+            }
+            return value;
+        }
+    }
+
+    /**
      * One reviewed generation of a hook contract.
      *
      * @param version reviewed Cubism version this contract was recovered from
      * @param contract the profile/target object the hook installs with
      * @param pinnedClassSha256 SHA-256 of each reviewed class entry, keyed by internal
      *     name (the jar entry path minus {@code .class})
+     * @param methodShapes reviewed target-method shapes that may admit a candidate when
+     *     a whole-class digest changed; empty keeps the exact-digest-only rule
      */
-    public record Candidate<T>(String version, T contract, Map<String, String> pinnedClassSha256) {
+    public record Candidate<T>(
+            String version, T contract, Map<String, String> pinnedClassSha256, List<MethodShapeSpec> methodShapes) {
         public Candidate {
             Objects.requireNonNull(version, "version");
             Objects.requireNonNull(contract, "contract");
             pinnedClassSha256 = Map.copyOf(Objects.requireNonNull(pinnedClassSha256, "pinnedClassSha256"));
+            methodShapes = List.copyOf(Objects.requireNonNull(methodShapes, "methodShapes"));
             if (pinnedClassSha256.isEmpty()) {
                 throw new IllegalArgumentException("a candidate must pin at least one class");
             }
+        }
+
+        /** A candidate that requires every pinned class to match its exact digest. */
+        public Candidate(final String version, final T contract, final Map<String, String> pinnedClassSha256) {
+            this(version, contract, pinnedClassSha256, List.of());
         }
     }
 
@@ -133,11 +177,30 @@ public final class ReviewedHostContract {
      */
     public static <T> List<Candidate<T>> candidates(
             final Map<String, Map<String, String>> pins, final Function<String, T> contractFor) {
+        return candidates(pins, contractFor, version -> List.of());
+    }
+
+    /**
+     * Builds one candidate per reviewed version with optional method-shape evidence.
+     *
+     * @param pins version to (internal name to SHA-256) pin maps
+     * @param contractFor contract factory for each version
+     * @param methodShapesFor method-shape factory for each version; must not return null
+     * @return candidates in the pin table's iteration order
+     */
+    public static <T> List<Candidate<T>> candidates(
+            final Map<String, Map<String, String>> pins,
+            final Function<String, T> contractFor,
+            final Function<String, List<MethodShapeSpec>> methodShapesFor) {
         final List<Candidate<T>> candidates = new ArrayList<>(pins.size());
         for (final Map.Entry<String, Map<String, String>> entry : pins.entrySet()) {
             final T contract = contractFor.apply(entry.getKey());
             if (contract != null) {
-                candidates.add(new Candidate<>(entry.getKey(), contract, entry.getValue()));
+                candidates.add(new Candidate<>(
+                        entry.getKey(),
+                        contract,
+                        entry.getValue(),
+                        Objects.requireNonNull(methodShapesFor.apply(entry.getKey()), "methodShapesFor result")));
             }
         }
         return List.copyOf(candidates);
@@ -249,9 +312,21 @@ public final class ReviewedHostContract {
             final List<Candidate<T>> candidates,
             final boolean declaredRelease) {
         final List<Candidate<T>> matched = new ArrayList<>();
+        final List<String> mismatch = new ArrayList<>();
         for (final Candidate<T> candidate : candidates) {
-            if (firstMismatch(jar, candidate.pinnedClassSha256()) == null) {
+            final String failed = firstMismatch(jar, candidate.pinnedClassSha256());
+            if (failed == null) {
                 matched.add(candidate);
+                continue;
+            }
+            // A changed class digest may still carry the reviewed contract when the
+            // candidate pins the target method shape. This admits same-minor zero-day
+            // patches, and an explicitly pinned shape may also carry across lines.
+            final String shapeFailed = firstMethodShapeMismatch(jar, candidate);
+            if (shapeFailed == null) {
+                matched.add(candidate);
+            } else {
+                mismatch.add(candidate.version() + ":" + failed + " (" + shapeFailed + ")");
             }
         }
         // Candidates that pin different class sets cannot merge; equal contracts
@@ -266,7 +341,8 @@ public final class ReviewedHostContract {
             }
         }
         if (distinct.isEmpty()) {
-            return new Refused<>("no reviewed target contract matched the host classes");
+            return new Refused<>("no reviewed target contract matched the host classes"
+                    + (mismatch.isEmpty() ? "" : ": " + String.join(", ", mismatch)));
         }
         if (distinct.size() > 1) {
             return new Refused<>("ambiguous target contract: classes match reviewed generations " + versions(distinct));
@@ -291,8 +367,26 @@ public final class ReviewedHostContract {
                     return candidate;
                 }
             }
+            // An unreviewed patch on the same minor line is represented by its
+            // reviewed sibling rather than an arbitrary older generation.
+            for (final Candidate<T> candidate : matched) {
+                if (sameMinorLine(candidate.version(), declared)) {
+                    return candidate;
+                }
+            }
         }
         return matched.get(0);
+    }
+
+    private static boolean sameMinorLine(final String left, final String right) {
+        return minorLine(left).equals(minorLine(right));
+    }
+
+    private static String minorLine(final String version) {
+        final int first = version.indexOf('.');
+        if (first < 0) return version;
+        final int second = version.indexOf('.', first + 1);
+        return second < 0 ? version : version.substring(0, second);
     }
 
     private static String versions(final List<? extends Candidate<?>> matched) {
@@ -323,16 +417,73 @@ public final class ReviewedHostContract {
      */
     private static String firstMismatch(final JarFile jar, final Map<String, String> pins) {
         for (final Map.Entry<String, String> pin : pins.entrySet()) {
-            final JarEntry entry = jar.getJarEntry(pin.getKey() + ".class");
-            if (entry == null) {
-                return pin.getKey() + " absent";
+            final String failed = classMismatch(jar, pin.getKey(), pin.getValue());
+            if (failed != null) {
+                return failed;
             }
-            try (InputStream input = jar.getInputStream(entry)) {
-                if (!pin.getValue().equals(sha256(input.readAllBytes()))) {
-                    return pin.getKey() + " digest mismatch";
+        }
+        return null;
+    }
+
+    private static String classMismatch(final JarFile jar, final String owner, final String expectedSha256) {
+        final JarEntry entry = jar.getJarEntry(owner + ".class");
+        if (entry == null) {
+            return owner + " absent";
+        }
+        try (InputStream input = jar.getInputStream(entry)) {
+            if (!expectedSha256.equals(sha256(input.readAllBytes()))) {
+                return owner + " digest mismatch";
+            }
+        } catch (IOException | RuntimeException failure) {
+            return owner + " unreadable";
+        }
+        return null;
+    }
+
+    /**
+     * Verifies the candidate's reviewed method shapes when its whole-class pins changed.
+     * Every changed pinned class must be covered by a matching shape, so an unrelated
+     * class change cannot ride along with one unchanged target method.
+     */
+    private static String firstMethodShapeMismatch(final JarFile jar, final Candidate<?> candidate) {
+        final List<MethodShapeSpec> shapes = candidate.methodShapes();
+        if (shapes.isEmpty()) {
+            return "no reviewed method shape";
+        }
+        final Set<String> shapedOwners = new LinkedHashSet<>();
+        for (final MethodShapeSpec shape : shapes) {
+            if (!candidate.pinnedClassSha256().containsKey(shape.owner())) {
+                return shape.owner() + " method shape is not pinned";
+            }
+            shapedOwners.add(shape.owner());
+            final byte[] bytes;
+            try {
+                final JarEntry entry = jar.getJarEntry(shape.owner() + ".class");
+                if (entry == null) {
+                    return shape.owner() + " absent";
+                }
+                try (InputStream input = jar.getInputStream(entry)) {
+                    bytes = input.readAllBytes();
                 }
             } catch (IOException | RuntimeException failure) {
-                return pin.getKey() + " unreadable";
+                return shape.owner() + " method shape unreadable";
+            }
+            final List<String> observed;
+            try {
+                observed = ReviewedMethodShape.read(bytes, shape.owner(), shape.method(), shape.descriptor());
+            } catch (RuntimeException failure) {
+                return shape.owner() + " method shape unreadable";
+            }
+            if (!shape.expectedShape().equals(observed)) {
+                return shape.owner() + "#" + shape.method() + shape.descriptor() + " shape mismatch";
+            }
+        }
+        for (final Map.Entry<String, String> pin : candidate.pinnedClassSha256().entrySet()) {
+            if (!shapedOwners.contains(pin.getKey())) {
+                final String failed = classMismatch(jar, pin.getKey(), pin.getValue());
+                if (failed != null) {
+                    return failed + " without a reviewed method shape";
+                }
             }
         }
         return null;
