@@ -352,7 +352,7 @@ class DeclarativeSettingsRendererTest {
     }
 
     @Test
-    void noteRendersAsDisabledSmallCaptionWithNothingToSave() throws Exception {
+    void noteRendersAsDisabledCaptionWithNothingToSave() throws Exception {
         final CoreWindows windows = new CoreWindows(
                 localization(),
                 settings(),
@@ -379,7 +379,7 @@ class DeclarativeSettingsRendererTest {
         assertEquals(control.label(), caption.getText());
         assertTrue(!caption.isEnabled());
         assertTrue(caption.getFont().getSize2D()
-                < new javax.swing.JLabel().getFont().getSize2D());
+                >= new javax.swing.JLabel().getFont().getSize2D());
         assertTrue(saver.getAsBoolean());
     }
 
