@@ -142,8 +142,10 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Launch-time preference: appends {@code -XX:+UseZGC} to the managed
-     * JAVA_TOOL_OPTIONS block on the next Cubism launch. No live apply —
+     * Launch-time preference: appends {@code -XX:+UseZGC} and its companion
+     * {@code -XX:ZUncommitDelay=60} to the managed JVM options the launcher
+     * injects into the staged launch BAT on the next Cubism start, so freed
+     * heap returns to the OS a minute after editing stops. No live apply —
      * the current JVM cannot change collectors mid-process.
      */
     static SettingsContribution createZgcToggle(

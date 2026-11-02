@@ -2109,6 +2109,11 @@ function Get-CubismManagedJdkOptionTokens {
     $tokens = @("-Djava.locale.providers=CLDR,SPI")
     if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
         $tokens += "-XX:+UseZGC"
+        # ZGC keeps freed heap committed for its 300 s default, so an idle editor
+        # still reports the post-edit resident set. One minute absorbs the burst
+        # after an edit and then returns the pages; the option is ZGC-only, so it
+        # is never emitted for another collector.
+        $tokens += "-XX:ZUncommitDelay=60"
     }
     # Lazy edge materialization requires sole-premain definition ownership.
     # The saved edge-index setting owns this startup requirement; turning it

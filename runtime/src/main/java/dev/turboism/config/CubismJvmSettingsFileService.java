@@ -332,10 +332,7 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                 actual = switch (field) {
                     case CUBISM_JVM -> System.getProperty("java.vm.name") + " / " + System.getProperty("java.vendor");
                     case GRAAL_VM_PATH -> System.getProperty("java.home");
-                    case ZGC ->
-                        java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
-                                .map(java.lang.management.GarbageCollectorMXBean::getName)
-                                .collect(java.util.stream.Collectors.joining(", "));
+                    case ZGC -> zgcActual();
                     case MEMORY_PROFILE ->
                         "maxHeapBytes=" + Runtime.getRuntime().maxMemory() + "; JVM="
                                 + java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
@@ -355,6 +352,23 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                     root != null && request != null && !saved.equals(request.value())));
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * Reports the collectors actually in force plus the ZGC uncommit delay the
+     * managed launcher passed, so the Performance status row shows whether the
+     * shorter delay is active for this process and not only that ZGC is used.
+     */
+    private static String zgcActual() {
+        final String collectors = java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
+                .map(java.lang.management.GarbageCollectorMXBean::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
+        return collectors
+                + java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
+                        .filter(argument -> argument.startsWith("-XX:ZUncommitDelay="))
+                        .findFirst()
+                        .map(argument -> "; " + argument)
+                        .orElse("");
     }
 
     @Override
