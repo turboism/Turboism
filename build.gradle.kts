@@ -213,6 +213,7 @@ val checkDraftContractDiagnostics by tasks.registering(Exec::class) {
 
 apply(from = "gradle/verification.gradle.kts")
 apply(from = "gradle/architecture-governance.gradle.kts")
+apply(from = "gradle/dependency-inventory.gradle.kts")
 tasks.named("devCheck") { dependsOn(checkDraftContractDiagnostics) }
 apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")
