@@ -202,7 +202,7 @@ final class NativePiProvider extends NativeAgentProvider {
                             text(message.get("title")),
                             "other",
                             text(message.get("id")),
-                            message.getOrDefault("message", ""),
+                            Map.of("message", text(message.get("message"))),
                             allow -> {
                                 synchronized (this) {
                                     uiResponse(message, allow && ownsPrompt(future) && !cancelled);

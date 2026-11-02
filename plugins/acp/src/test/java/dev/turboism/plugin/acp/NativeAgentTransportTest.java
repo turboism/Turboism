@@ -89,7 +89,7 @@ final class NativeAgentTransportTest {
             var decision = fixture.raw.permission.get(2, TimeUnit.SECONDS);
             var summary = fixture.permissionRequest.get(2, TimeUnit.SECONDS).details();
             assertFalse(summary.contains("<unavailable>"));
-            if (protocol == AgentProtocol.PI) assertEquals("Run tool?", summary);
+            if (protocol == AgentProtocol.PI) assertEquals("{\"message\":\"Run tool?\"}", summary);
             switch (protocol) {
                 case CODEX ->
                     assertEquals("decline", object(decision.get("result")).get("decision"));
