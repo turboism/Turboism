@@ -32,7 +32,7 @@ Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
 
 - Adds an embedded Performance panel and a standalone Performance Monitor window.
 - Samples a shared runtime statistics source once per second and retains a bounded 120-point chart history.
-- Shows a compact CPU percentage in the Cubism status area.
+- Shows a compact CPU percentage in the Cubism status area, republished only when the displayed value changes.
 
 ## Requirements and compatibility
 
