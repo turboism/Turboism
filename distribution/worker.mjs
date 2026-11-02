@@ -3,6 +3,7 @@ import { CHANNELS,ORIGIN,SNAPSHOT_REFRESH_MS,documentFor,jsonResponse,snapshotAg
 import { synchronize } from './github.mjs';
 import { serveFile } from './files.mjs';
 import { START_RE,beginEdgeDownload } from './edge-redirect.mjs';
+import {PLUGIN_API_RE,handlePluginJarGateway} from './plugin-jars.mjs';
 import { verifyGitHubIdentity } from './identity.mjs';
 import { FrameworkAuthority,RESOURCE_RE,forwardPublisher,serveFramework,withIncremental } from './framework.mjs';
 const registry=env=>env.REGISTRY.get(env.REGISTRY.idFromName('turboism'));
@@ -34,6 +35,7 @@ export default {
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'If-None-Match, Range, If-Range','Access-Control-Max-Age':'600'}});
   if(!['GET','HEAD'].includes(request.method))return jsonResponse(request,{error:{code:'METHOD_NOT_ALLOWED'}},405);
   if(path==='/')return jsonResponse(request,{service:'Turboism release API',schemaVersion:1,channels:CHANNELS.map(c=>`${ORIGIN}/v1/releases/${c}.json`),source:'https://github.com/turboism/Turboism/releases'});
+  if(PLUGIN_API_RE.test(path))return handlePluginJarGateway(request,env);
   if(RESOURCE_RE.test(path))return serveFramework(request,env);
   if(START_RE.test(path)||/^\/v1\/downloads\/[0-9A-Za-z.-]{1,96}\.json$/.test(path)||path==='/health'||/^\/v1\/releases\/(stable|beta|nightly)\.json$/.test(path)||/^\/files\/[a-f0-9]{64}\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path))return registry(env).fetch(request);
   return jsonResponse(request,{error:{code:'NOT_FOUND'}},404);

@@ -28,5 +28,8 @@
   },
   "cache": {
     "enabled": true
+  },
+  "vars": {
+    "PLUGIN_JAR_MIRROR_ENABLED": "true"
   }
 }

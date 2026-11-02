@@ -1,5 +1,6 @@
 import {hasVerifiedBytes} from '../mirror.mjs';
 import {parseRange} from '../files.mjs';
+import {PLUGIN_CDN_RE,servePluginJar} from '../plugin-jars.mjs';
 
 const channels=new Set(['stable','beta','nightly']);
 const FILE_RE=/^\/(stable|beta|nightly)\/files\/([a-f0-9]{64})\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
@@ -43,6 +44,7 @@ export default {
   const requestUrl=new URL(request.url);
   // Avoid unbounded query-string cache keys and custom host override tricks.
   if(requestUrl.search)return fail(404,'Not found');
+  if(PLUGIN_CDN_RE.test(requestUrl.pathname))return servePluginJar(request,env);
   const match=FILE_RE.exec(requestUrl.pathname);
   if(!match)return fail(404,'Not found');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'Range, If-Range, If-None-Match'}});
