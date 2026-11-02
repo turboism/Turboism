@@ -1166,10 +1166,18 @@ val checkGateWiringSelfTest by tasks.registering(Exec::class) {
     inputs.files(
         "gradle/verification.gradle.kts",
         "gradle/asm-admission.gradle.kts",
+        "gradle/architecture-governance.gradle.kts",
         "buildSrc/src/main/kotlin/dev/turboism/gradle/TurboismPluginExtension.kt",
         "testing/integration-tests/build.gradle.kts",
         "scripts/check_shell_lint.sh",
         "CONTRIBUTING.md",
+        "ARCHITECTURE_GOVERNANCE.md",
+        "sgconfig.yml",
+        "runtime/build.gradle.kts",
+        "tests/fixtures/snapshots/manifest.json",
+        ".github/workflows/ci.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/unified-channel-checks.yml",
         "scripts/dev/selftest-gate-wiring.py"
     )
     VerificationStamps.apply(this)
