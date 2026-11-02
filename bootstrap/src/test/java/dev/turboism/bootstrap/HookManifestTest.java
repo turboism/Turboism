@@ -58,7 +58,10 @@ final class HookManifestTest {
                         ObjectContextMenuHookContributor.class,
                         PhysicsEditorHookContributor.class,
                         BoundingBoxOverlayHookContributor.class,
-                        ControlAppearanceHookContributor.class),
+                        ControlAppearanceHookContributor.class,
+                        // Measurement-only: no behaviour, no ordering constraints.
+                        ClipMaskProbeHookContributor.class,
+                        ClipMaskDeduplicationHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

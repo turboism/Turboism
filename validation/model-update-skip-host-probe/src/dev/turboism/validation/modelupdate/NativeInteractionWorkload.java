@@ -43,6 +43,8 @@ final class NativeInteractionWorkload {
     private static final String COMPOSITE_PREDICATE = "turboism.canvas-composite.paint";
     private static final String COMPOSITE_GATE = "turboism.canvas-composite.gate";
     private static final String COMPOSITE_STATS = "turboism.canvas-composite.stats";
+    // Measurement-only clipping-mask probe: present only when the run installed it.
+    private static final String CLIPMASK_STATS = "turboism.clip-mask-probe.stats";
     private Frame window;
     private JComponent canvas;
     private NativeInteractionHost host;
@@ -232,6 +234,7 @@ final class NativeInteractionWorkload {
             ? inputPathStats() : Map.of();
         final Map<String, Long> compositeBefore = report != null && composite
             ? compositeStats() : Map.of();
+        final Map<String, Long> clipMaskBefore = report != null ? clipMaskStats() : Map.of();
         final long[] samples = new long[steps], queue = new long[steps], handler = new long[steps], repaint = new long[steps];
         final long[] started = {0L}, elapsed = {0L}, pressNanos = {0L}, releaseNanos = {0L};
         final List<Map<String, Long>> snapshots = new ArrayList<>();
@@ -418,6 +421,31 @@ final class NativeInteractionWorkload {
                     .append(prefix).append("movedStatePixelParity=true\n")
                     .append(prefix).append("restoredStatePixelParity=true\n")
                     .append(prefix).append("canvasPixelParity=true\n");
+                // Measurement-only mask/group counters, reported next to the leg's
+                // renderFramesPerSecond keys. Counter keys are leg deltas; the gauge
+                // (active) reports the absolute reading, and the per-rendered-frame
+                // values normalise the mask cost without post-processing.
+                final Map<String, Long> clipMaskAfter = clipMaskStats();
+                for (String key : clipMaskAfter.keySet().stream().sorted().toList()) {
+                    report.append(prefix).append("clipMask.").append(key).append('=')
+                        .append(key.equals("active")
+                            ? clipMaskAfter.get(key)
+                            : clipMaskAfter.get(key) - clipMaskBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                final long clipMaskFrames = clipMaskAfter.getOrDefault("frames", 0L)
+                    - clipMaskBefore.getOrDefault("frames", 0L);
+                if (clipMaskFrames > 0L) {
+                    report.append(prefix).append("clipMask.maskPassesPerRenderedFrame=")
+                        .append((double) (clipMaskAfter.getOrDefault("maskPasses", 0L)
+                            - clipMaskBefore.getOrDefault("maskPasses", 0L)) / clipMaskFrames).append('\n')
+                        .append(prefix).append("clipMask.maskPathNanosPerRenderedFrame=")
+                        .append((double) (clipMaskAfter.getOrDefault("maskPathNanos", 0L)
+                            - clipMaskBefore.getOrDefault("maskPathNanos", 0L)) / clipMaskFrames).append('\n')
+                        .append(prefix).append("clipMask.groupPassesPerRenderedFrame=")
+                        .append((double) (clipMaskAfter.getOrDefault("groupPasses", 0L)
+                            - clipMaskBefore.getOrDefault("groupPasses", 0L)) / clipMaskFrames).append('\n');
+                }
                 if (kind.equals("artmesh")) report.append(prefix).append("targetId=").append(edt(host::targetId)).append('\n')
                     .append(prefix).append("nativeUndoRedoRestored=true\n")
                     .append(prefix).append("allTargetVerticesMoved=true\n");
@@ -745,6 +773,21 @@ final class NativeInteractionWorkload {
         if (gate instanceof java.util.function.Consumer consumer) {
             consumer.accept(enabled);
         }
+    }
+
+    private static Map<String, Long> clipMaskStats() {
+        final Object callback = System.getProperties().get(CLIPMASK_STATS);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+            || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((k, v) -> {
+            if (k instanceof String key && v instanceof Number value) {
+                result.put(key, value.longValue());
+            }
+        });
+        return result;
     }
 
     private static Map<String, Long> compositeStats() {
