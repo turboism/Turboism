@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseDelegate;
 import dev.turboism.adapter.cubism.textureatlas.cache.VerifiedAtlasCacheReuseInstaller;
 import dev.turboism.config.AtlasCacheReusePreference;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
@@ -70,6 +71,8 @@ final class AtlasCacheReuseHookContributor implements HookContributor {
                 try {
                     installation.close();
                 } finally {
+                    // Nothing can reuse the retained pages once the guard is gone.
+                    AtlasCacheReuseDelegate.releaseRetainedOutputs();
                     dev.turboism.config.NativeOptimizationDiagnostics.installed(id(), "not-installed", "closed");
                 }
             };
