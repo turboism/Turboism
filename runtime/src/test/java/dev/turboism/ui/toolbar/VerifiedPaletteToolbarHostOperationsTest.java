@@ -20,6 +20,7 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
+import javax.swing.UIManager;
 import org.junit.jupiter.api.Test;
 
 class VerifiedPaletteToolbarHostOperationsTest {
@@ -98,8 +99,12 @@ class VerifiedPaletteToolbarHostOperationsTest {
         final VerifiedPaletteToolbarHostOperations host = host(fixture);
         host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
         final Container toolbarWrapper = fixture.scroll.getParent();
-        final JPanel filterWrapper = wrap(LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY, fixture.scroll);
-        LogPaletteHostStructure.replaceComponent(toolbarWrapper, fixture.scroll, filterWrapper);
+        final AtomicReference<JPanel> filter = new AtomicReference<>();
+        onEdt(() -> {
+            filter.set(wrap(LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY, fixture.scroll));
+            LogPaletteHostStructure.replaceComponent(toolbarWrapper, fixture.scroll, filter.get());
+        });
+        final JPanel filterWrapper = filter.get();
 
         host.clearContributions();
 
@@ -137,15 +142,115 @@ class VerifiedPaletteToolbarHostOperationsTest {
         final JButton button = findButton(fixture.root, "plugin-a:toggle");
         assertNotNull(button);
 
-        button.getParent().remove(button);
+        onEdt(() -> button.getParent().remove(button));
         assertEquals(0, countButtons(fixture.root));
 
         host.reconcileNow();
         assertSame(
                 button,
                 findButton(fixture.root, "plugin-a:toggle"),
-                "the poll must re-attach the contributed button, not recreate it");
+                "the reconcile must re-attach the contributed button, not recreate it");
         host.clearContributions();
+    }
+
+    @Test
+    void aSuccessfulReconcileStopsTheAttachSearch() {
+        final LogPaletteFixture fixture = new LogPaletteFixture();
+        final AtomicInteger resolves = new AtomicInteger();
+        final VerifiedPaletteToolbarHostOperations host = new VerifiedPaletteToolbarHostOperations(null, () -> {
+            resolves.incrementAndGet();
+            return fixture.pane;
+        });
+
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
+        flushEdt();
+
+        assertFalse(host.polling(), "a reconciled toolbar must not keep walking the host tree");
+        final int settled = resolves.get();
+        flushEdt();
+        assertEquals(settled, resolves.get(), "no timer may re-resolve the palette root once reconciled");
+        assertEquals(1, countButtons(fixture.root));
+        host.clearContributions();
+    }
+
+    @Test
+    void theAttachSearchKeepsPollingWhileTheRootIsMissing() {
+        final VerifiedPaletteToolbarHostOperations host = new VerifiedPaletteToolbarHostOperations(null, () -> null);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {}))));
+        assertTrue(host.polling(), "a palette that has not appeared yet keeps the bounded self-healing search");
+
+        host.clearContributions();
+        assertFalse(host.polling(), "clearing the contributions ends the search");
+    }
+
+    @Test
+    void aHostHierarchyChangeRearmsTheAttachSearch() {
+        final LogPaletteFixture first = new LogPaletteFixture();
+        final LogPaletteFixture reopened = new LogPaletteFixture();
+        final AtomicReference<JTextPane> currentPane = new AtomicReference<>(first.pane);
+        final AtomicInteger resolves = new AtomicInteger();
+        final VerifiedPaletteToolbarHostOperations host = new VerifiedPaletteToolbarHostOperations(null, () -> {
+            resolves.incrementAndGet();
+            return currentPane.get();
+        });
+
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
+        flushEdt();
+        assertFalse(host.polling());
+        final int settled = resolves.get();
+
+        // The host swaps its Log pane on the EDT without any Turboism call; only the
+        // hierarchy event carries the change.
+        onEdt(() -> {
+            currentPane.set(reopened.pane);
+            first.scroll.getViewport().setView(null);
+        });
+        flushEdt();
+
+        assertTrue(resolves.get() > settled, "a host hierarchy change must re-resolve the palette root");
+        assertEquals(1, countButtons(reopened.root), "the toolbar must follow the host's new pane");
+        assertFalse(host.polling(), "the re-armed reconcile settles as soon as the new pane is attached");
+        host.clearContributions();
+    }
+
+    @Test
+    void aLookAndFeelChangeRearmsTheReconcile() throws Exception {
+        final LogPaletteFixture fixture = new LogPaletteFixture();
+        final AtomicInteger resolves = new AtomicInteger();
+        final VerifiedPaletteToolbarHostOperations host = new VerifiedPaletteToolbarHostOperations(null, () -> {
+            resolves.incrementAndGet();
+            return fixture.pane;
+        });
+
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
+        flushEdt();
+        final int settled = resolves.get();
+        final javax.swing.LookAndFeel previous = UIManager.getLookAndFeel();
+        try {
+            UIManager.setLookAndFeel(new javax.swing.plaf.metal.MetalLookAndFeel());
+            flushEdt();
+
+            assertTrue(resolves.get() > settled, "a theme change must re-resolve the palette structure");
+            assertEquals(1, countButtons(fixture.root), "the toolbar survives a theme change");
+        } finally {
+            UIManager.setLookAndFeel(previous);
+        }
+        host.clearContributions();
+    }
+
+    private static void flushEdt() {
+        onEdt(() -> {});
+    }
+
+    private static void onEdt(final Runnable body) {
+        try {
+            javax.swing.SwingUtilities.invokeAndWait(body);
+        } catch (Exception failure) {
+            throw new AssertionError("EDT task failed", failure);
+        }
     }
 
     private static VerifiedPaletteToolbarHostOperations host(final LogPaletteFixture fixture) {
