@@ -160,6 +160,12 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private final java.util.concurrent.atomic.AtomicLong decisionMaxNanos =
             new java.util.concurrent.atomic.AtomicLong();
     private volatile long parameterCount = -1L;
+    /**
+     * Probe mode is a launch-time diagnostic switch, so it is read once per bridge instead of on
+     * every skipped frame. {@code null} until the first decision: the callback is only published by
+     * {@link #install()}, and tests configure the flag between install and the first frame.
+     */
+    private volatile Boolean probeMode;
 
     private static LongAdder[] newDecisionCounters() {
         final LongAdder[] counters = new LongAdder[DECISIONS.length];
@@ -424,7 +430,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             }
             decisions[decision.ordinal()].increment();
             final boolean skip = decision == Decision.SKIP;
-            if (skip && Boolean.getBoolean(PROBE_PROPERTY)) {
+            if (skip && probeEnabled()) {
                 try {
                     pendingDigest = digest(current.model());
                     pendingProbe = true;
@@ -457,6 +463,15 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             predicateNanos.add(nanos);
             predicateMaxNanos.accumulateAndGet(nanos, Math::max);
         }
+    }
+
+    private boolean probeEnabled() {
+        Boolean enabled = probeMode;
+        if (enabled == null) {
+            enabled = Boolean.getBoolean(PROBE_PROPERTY);
+            probeMode = enabled;
+        }
+        return enabled;
     }
 
     private synchronized void updateCompleted(final Object model) {
