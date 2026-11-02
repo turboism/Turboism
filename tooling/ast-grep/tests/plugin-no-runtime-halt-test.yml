@@ -1,0 +1,6 @@
+id: plugin-no-runtime-halt
+valid:
+  - 'class Plugin { void run() { Runtime.getRuntime().availableProcessors(); } }'
+invalid:
+  - 'class Plugin { void run() { Runtime.getRuntime().halt(1); } }'
+  - 'class Plugin { void run() { java.lang.Runtime.getRuntime().halt(0); } }'

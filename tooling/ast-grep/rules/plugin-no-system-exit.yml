@@ -1,0 +1,13 @@
+id: plugin-no-system-exit
+language: Java
+severity: error
+message: Plugins must never terminate the Cubism JVM; use the plugin lifecycle.
+files:
+  - plugins/**/src/main/java/**/*.java
+# This is an external standalone MCP relay process, not an in-host plugin entrypoint.
+ignores:
+  - plugins/mcp/src/main/java/dev/turboism/plugin/mcp/TurboismMcpBridge.java
+rule:
+  any:
+    - pattern: System.exit($STATUS)
+    - pattern: java.lang.System.exit($STATUS)

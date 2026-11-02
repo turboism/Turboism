@@ -1,0 +1,9 @@
+# Deliberately NOT in sgconfig.yml ruleDirs: Codemods must be invoked explicitly.
+# Java 17: replace a fully-qualified immutable empty-list factory with another.
+id: java17-collections-empty-list
+language: Java
+severity: info
+message: Prefer Java 9+ immutable List factory when appropriate.
+rule:
+  pattern: java.util.Collections.emptyList()
+fix: java.util.List.of()

@@ -14,6 +14,13 @@ makes a gate real:
   6. the `TestExecutionGuard` unit tests run inside `devCheck`; Gradle builds
      buildSrc but never runs its `test` task, so an unwired test suite would be
      dead weight
+  7. the architecture-governance gates (`checkArchitectureRules`,
+     `checkGoldenSnapshotManifest`) and their fail-closed selftests reach
+     `devCheck`/`checkCompletedCommit`/`checkRelease`, the pinned ast-grep CLI is
+     documented as a build requirement and installed by every channel workflow,
+     Codemods stay out of lint rule discovery, and the governance guide never
+     reappears under a forbidden `docs/` path
+  8. the golden-snapshot replay test cannot silently stop matching its class
 
 Gradle sources are read with comments stripped, so a task name that is only
 commented out does not count as wired.
@@ -35,6 +42,15 @@ EXTENSION = ROOT / "buildSrc/src/main/kotlin/dev/turboism/gradle/TurboismPluginE
 INTEGRATION_BUILD = ROOT / "testing/integration-tests/build.gradle.kts"
 SHELL_LINT = ROOT / "scripts/check_shell_lint.sh"
 CONTRIBUTING = ROOT / "CONTRIBUTING.md"
+ARCHITECTURE_GOVERNANCE = ROOT / "gradle/architecture-governance.gradle.kts"
+SG_CONFIG = ROOT / "sgconfig.yml"
+GOVERNANCE_GUIDE = ROOT / "ARCHITECTURE_GOVERNANCE.md"
+GOLDEN_MANIFEST = ROOT / "tests/fixtures/snapshots/manifest.json"
+GOVERNANCE_WORKFLOWS = (
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+    ".github/workflows/unified-channel-checks.yml",
+)
 
 failures: list[str] = []
 
@@ -219,9 +235,88 @@ def main() -> int:
         (ROOT / 'gradle/test-zero-executed-allowlist.txt').is_file(),
     )
 
+    # 7. architecture governance: gates, their selftests and the pinned toolchain.
+    architecture = strip_comments(ARCHITECTURE_GOVERNANCE.read_text(encoding="utf-8"))
+    architecture_dev_check = task_block(architecture, 'tasks.named("devCheck")')
+    check_completed = task_block(architecture, 'tasks.named("checkCompletedCommit")')
+    check_release = task_block(architecture, 'tasks.named("checkRelease")')
+    check("architecture-governance build script is applied", 'architecture-governance.gradle.kts' in verification)
+
+    for gate in ('checkArchitectureRules', 'checkGoldenSnapshotManifest'):
+        check(
+            f'{gate} is registered',
+            f'tasks.register<Exec>("{gate}")' in architecture,
+        )
+        check(f'devCheck aggregates {gate}', f'"{gate}"' in architecture_dev_check)
+        check(f'checkCompletedCommit aggregates {gate}', f'"{gate}"' in check_completed)
+        check(f'checkRelease aggregates {gate}', f'"{gate}"' in check_release)
+
+    for selftest, script in (
+        ('checkGoldenSnapshotManifestSelfTest', 'scripts/test/test_check_golden_snapshots.py'),
+        ('checkAstGrepSelfTest', 'scripts/test/test_check_ast_grep.py'),
+    ):
+        check(
+            f'{selftest} is registered',
+            f'val {selftest} by tasks.registering(Exec::class)' in architecture,
+        )
+        check(f'{selftest} is executed by its gate', f'dependsOn({selftest})' in architecture)
+        check(f'{selftest} runs {script}', f'"{script}"' in architecture)
+        check(f'{script} exists', (ROOT / script).is_file())
+
+    check(
+        'golden replay test is a devCheck gate',
+        '":runtime:persistenceGoldenSnapshotsTest"' in architecture_dev_check,
+    )
+    runtime_build = (ROOT / 'runtime/build.gradle.kts').read_text(encoding="utf-8")
+    check(
+        'runtime registers the golden replay test task',
+        'tasks.register<Test>("persistenceGoldenSnapshotsTest")' in runtime_build,
+    )
+    check(
+        'golden replay fails when its test class is renamed',
+        'isFailOnNoMatchingTests = true' in runtime_build,
+    )
+    check('golden snapshot manifest is tracked', GOLDEN_MANIFEST.is_file())
+    check('golden snapshot checker is tracked', (ROOT / 'scripts/check_golden_snapshots.py').is_file())
+
+    sg_config = SG_CONFIG.read_text(encoding="utf-8")
+    check(
+        'sgconfig discovers lint rules',
+        'tooling/ast-grep/rules' in sg_config and 'tooling/ast-grep/tests' in sg_config,
+    )
+    check(
+        'sgconfig never auto-applies codemods',
+        'codemods' not in sg_config and (ROOT / 'tooling/ast-grep/codemods').is_dir(),
+    )
+
+    check(
+        'CONTRIBUTING.md pins ast-grep as a build requirement',
+        '@ast-grep/cli@0.45.3' in contributing and 'checkArchitectureRules' in contributing,
+    )
+    check(
+        'CONTRIBUTING.md documents both governance gates',
+        'checkGoldenSnapshotManifest' in contributing and 'checkAstGrepSelfTest' in contributing,
+    )
+    for workflow in GOVERNANCE_WORKFLOWS:
+        check(
+            f'{workflow} installs the pinned ast-grep CLI',
+            '@ast-grep/cli@0.45.3' in (ROOT / workflow).read_text(encoding="utf-8"),
+        )
+
+    # The governance guide briefly lived under docs/, which no reachable commit may
+    # contain; publishing tools would fail the remote-hygiene scan only after the
+    # branch history made the mistake permanent.
+    check('governance guide is tracked at the repository root', GOVERNANCE_GUIDE.is_file())
+    docs_guides = [
+        path
+        for path in ROOT.rglob('*governance*.md')
+        if 'docs' in path.relative_to(ROOT).parts
+        and not {'build', '.git', '.gradle'} & set(path.relative_to(ROOT).parts)
+    ]
+    check('no governance guide sits under a forbidden docs/ segment', not docs_guides, str(docs_guides))
+
     print(f"gate wiring self-test: {'all checks passed' if not failures else f'{len(failures)} failed'}")
     return 0 if not failures else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())
