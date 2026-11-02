@@ -3,11 +3,13 @@ package dev.turboism.adapter.cubism.optimization;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Bound;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Candidate;
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.MethodShapeSpec;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Refused;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Resolution;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
@@ -41,6 +43,11 @@ class ReviewedHostContractTest {
     private static final int REVIEWED_BUILD = 503020001;
     private static final String UNKNOWN_VERSION = "5.9.99";
     private static final int UNKNOWN_BUILD = 509990001;
+    private static final String ZERO_DAY_VERSION = "5.3.05";
+    private static final int ZERO_DAY_BUILD = 503050001;
+    private static final String SHAPED_OWNER = "feature/Shaped";
+    private static final String SHAPED_METHOD = "tick";
+    private static final String SHAPED_DESCRIPTOR = "(II)I";
 
     @TempDir
     Path tempDir;
@@ -86,6 +93,99 @@ class ReviewedHostContractTest {
         assertEquals(REVIEWED_VERSION, bound.sourceVersion());
         assertEquals(UNKNOWN_VERSION, bound.probe().identity().orElseThrow().version());
         assertEquals(UNKNOWN_BUILD, bound.probe().identity().orElseThrow().build());
+    }
+
+    @Test
+    void exactSha256MatchBindsWithoutUsingAnOptionalMethodShape() throws Exception {
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final byte[] differentBody = shapedClassBytes(SHAPED_OWNER, "different", true);
+        final List<String> unrelatedShape =
+                ReviewedMethodShape.read(differentBody, SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR);
+        final Candidate<String> candidate = new Candidate<>(
+                "5.3.04",
+                "shaped",
+                Map.of(SHAPED_OWNER, sha256(reviewed)),
+                List.of(new MethodShapeSpec(SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR, unrelatedShape)));
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", reviewed), Map.of());
+
+        final Bound<String> bound =
+                assertInstanceOf(Bound.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
+        assertEquals("5.3.04", bound.sourceVersion());
+    }
+
+    @Test
+    void sameMinorPatchBindsWhenTheTargetMethodShapeIsUnchanged() throws Exception {
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
+        assertNotEquals(sha256(reviewed), sha256(patched));
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", patched), Map.of());
+
+        final Bound<String> bound =
+                assertInstanceOf(Bound.class, ReviewedHostContract.resolve(jar, List.of(shapedCandidate(reviewed))));
+        assertFalse(bound.declaredRelease());
+        assertEquals("5.3.04", bound.sourceVersion());
+        assertEquals(List.of("5.3.04"), bound.matchedVersions());
+        assertEquals(ZERO_DAY_VERSION, bound.probe().identity().orElseThrow().version());
+    }
+
+    @Test
+    void sameMinorPatchWithChangedTargetInstructionIsRefused() throws Exception {
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final byte[] changed = shapedClassBytes(SHAPED_OWNER, "changed", true);
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", changed), Map.of());
+
+        final Refused<?> refused =
+                assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(shapedCandidate(reviewed))));
+        assertTrue(refused.reason().contains("shape mismatch"), refused.reason());
+    }
+
+    @Test
+    void sameMinorClassDigestMismatchWithoutMethodShapeIsRefused() throws Exception {
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
+        final Candidate<String> candidate = new Candidate<>("5.3.04", "shaped", Map.of(SHAPED_OWNER, sha256(reviewed)));
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", patched), Map.of());
+
+        final Refused<?> refused =
+                assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
+        assertTrue(refused.reason().contains("no reviewed method shape"), refused.reason());
+    }
+
+    @Test
+    void methodShapeAdmissionRequiresEveryChangedPinnedClassToBeCovered() throws Exception {
+        final String sibling = "feature/Sibling";
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
+        final byte[] reviewedSibling = classBytes(sibling, "reviewed-sibling");
+        final byte[] patchedSibling = classBytes(sibling, "patched-sibling");
+        final Candidate<String> candidate = new Candidate<>(
+                "5.3.04",
+                "shaped",
+                Map.of(SHAPED_OWNER, sha256(reviewed), sibling, sha256(reviewedSibling)),
+                List.of(shapeSpec(reviewed)));
+        final Map<String, byte[]> classes = new LinkedHashMap<>();
+        classes.put(SHAPED_OWNER + ".class", patched);
+        classes.put(sibling + ".class", patchedSibling);
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, classes, Map.of());
+
+        final Refused<?> refused =
+                assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
+        assertTrue(refused.reason().contains("without a reviewed method shape"), refused.reason());
+    }
+
+    @Test
+    void ambiguousMethodShapeMatchesRefuse() throws Exception {
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
+        final Map<String, String> pins = Map.of(SHAPED_OWNER, sha256(reviewed));
+        final List<MethodShapeSpec> shapes = List.of(shapeSpec(reviewed));
+        final List<Candidate<String>> candidates = List.of(
+                new Candidate<>("5.3.03", "contract-a", pins, shapes),
+                new Candidate<>("5.3.04", "contract-b", pins, shapes));
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", patched), Map.of());
+
+        final Refused<?> refused = assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, candidates));
+        assertTrue(refused.reason().contains("ambiguous"), refused.reason());
     }
 
     @Test
@@ -224,6 +324,16 @@ class ReviewedHostContractTest {
         return new Candidate<>(version, "feature-" + version, pinnedSha256(pinnedClasses()));
     }
 
+    private static Candidate<String> shapedCandidate(final byte[] reviewed) {
+        return new Candidate<>(
+                "5.3.04", "shaped", Map.of(SHAPED_OWNER, sha256(reviewed)), List.of(shapeSpec(reviewed)));
+    }
+
+    private static MethodShapeSpec shapeSpec(final byte[] reviewed) {
+        final List<String> shape = ReviewedMethodShape.read(reviewed, SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR);
+        return new MethodShapeSpec(SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR, shape);
+    }
+
     private static Map<String, byte[]> pinnedClasses() {
         final Map<String, byte[]> classes = new LinkedHashMap<>();
         classes.put("feature/One.class", classBytes("feature/One", "one"));
@@ -342,6 +452,30 @@ class ReviewedHostContractTest {
                         null,
                         marker)
                 .visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] shapedClassBytes(
+            final String internalName, final String marker, final boolean alteredInstruction) {
+        final ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internalName, null, "java/lang/Object", null);
+        writer.visitField(
+                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+                        "MARKER",
+                        "Ljava/lang/String;",
+                        null,
+                        marker)
+                .visitEnd();
+        final var method = writer.visitMethod(
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, SHAPED_METHOD, SHAPED_DESCRIPTOR, null, null);
+        method.visitCode();
+        method.visitVarInsn(Opcodes.ILOAD, 0);
+        method.visitVarInsn(Opcodes.ILOAD, 1);
+        method.visitInsn(alteredInstruction ? Opcodes.ISUB : Opcodes.IADD);
+        method.visitInsn(Opcodes.IRETURN);
+        method.visitMaxs(2, 2);
+        method.visitEnd();
         writer.visitEnd();
         return writer.toByteArray();
     }
