@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -78,20 +79,6 @@ final class SessionOpsContractTest {
         assertEquals(List.of("AddParameterKey"), fixture.host.opsDispatchLabels());
         assertTrue(fixture.access.called("cubism.editor-model.undo.add"));
         assertRefreshRan(fixture.access);
-    }
-
-    @Test
-    void moveParameterKeyRejectsForceOverwriteBeforeDispatch() throws EditSessionException {
-        final Fixture fixture = new Fixture();
-        final EditSession session = fixture.open();
-
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.parameterKeys()
-                        .moveParameterKey(new ParameterKeyOps.MoveParameterKey(
-                                Optional.empty(), Optional.of(new ParameterId("AngleZ")), 0.0, 0.5, false, true)));
-        assertFalse(fixture.host.opsDispatchLabels().contains("MoveParameterKey"));
-        assertFalse(fixture.access.called("cubism.editor-model.undo.add"));
     }
 
     // ------------------------------------------------------------------
@@ -209,19 +196,6 @@ final class SessionOpsContractTest {
         assertFalse(fixture.access.called("cubism.editor-model.undo.add"));
     }
 
-    @Test
-    void moveParameterGroupFailsClosedWithoutDispatch() throws EditSessionException {
-        final Fixture fixture = new Fixture();
-        final EditSession session = fixture.open();
-
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.parameterStructure()
-                        .moveParameterGroup(
-                                new ParameterStructureOps.MoveParameterGroup(new ParameterGroupId("g1"), 0)));
-        assertFalse(fixture.host.opsDispatchLabels().contains("MoveParameterGroup"));
-    }
-
     // ------------------------------------------------------------------
     // selection family
     // ------------------------------------------------------------------
@@ -304,20 +278,31 @@ final class SessionOpsContractTest {
         assertRefreshRan(fixture.access);
     }
 
-    @Test
-    void deleteObjectRejectsArtPathObjects() throws EditSessionException {
+    @ParameterizedTest
+    @ValueSource(strings = {"deleteObject", "getObject"})
+    void artPathReferencesAreRejectedBeforeTheHostMemberRuns(final String operation) throws EditSessionException {
         final Fixture fixture = new Fixture();
         fixture.access.objects.add(fixture.artPath);
         final EditSession session = fixture.open();
+        final ModelObjectReference artPath = new ModelObjectReference(ModelObjectKind.ART_MESH, "path1");
 
         // The kind check inside requireObjectSource refuses a mismatched reference before
-        // the operation can touch a member — art paths are never deletable.
+        // the operation can touch a member — art paths are never deletable nor readable.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> session.partObjects()
-                        .deleteObject(new PartObjectOps.DeleteObject(
-                                new ModelObjectReference(ModelObjectKind.ART_MESH, "path1"))));
-        assertFalse(fixture.access.called("cubism.editor-model.model-handler.remove-objects"));
+                () -> {
+                    switch (operation) {
+                        case "deleteObject" ->
+                            session.partObjects().deleteObject(new PartObjectOps.DeleteObject(artPath));
+                        case "getObject" ->
+                            session.partObjects().object(new PartObjectOps.GetObject(artPath, List.of()));
+                        default -> throw new IllegalArgumentException(operation);
+                    }
+                },
+                operation);
+        assertFalse(
+                fixture.access.called("cubism.editor-model.model-handler.remove-objects"),
+                "an art path reference must never reach a host removal member");
     }
 
     @ParameterizedTest
@@ -433,28 +418,6 @@ final class SessionOpsContractTest {
                                 Optional.of(new PartId("root-part")),
                                 Optional.empty(),
                                 Optional.of(0))));
-    }
-
-    @Test
-    void addPartWithIdsOrNestedFailsClosed() throws EditSessionException {
-        final Fixture fixture = new Fixture();
-        final EditSession session = fixture.open();
-
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
-                        .addPart(new PartObjectOps.AddPart(
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty(),
-                                List.of(new ModelObjectId("mesh1")),
-                                false)));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
-                        .addPart(new PartObjectOps.AddPart(
-                                Optional.empty(), Optional.empty(), Optional.empty(), List.of(), true)));
-        assertFalse(fixture.host.opsDispatchLabels().contains("AddPart"));
     }
 
     @Test
@@ -708,48 +671,113 @@ final class SessionOpsContractTest {
     }
 
     // ------------------------------------------------------------------
+    // structural fail-closed checks
+    // ------------------------------------------------------------------
+
+    @ParameterizedTest
+    @CsvSource({
+        "forceOverwrite, MoveParameterKey",
+        "parameterGroupMove, MoveParameterGroup",
+        "partWithIds, AddPart",
+        "nestedPart, AddPart"
+    })
+    void structuralEditsFailClosedBeforeDispatch(final String scenario, final String dispatchLabel)
+            throws EditSessionException {
+        final Fixture fixture = new Fixture();
+        final EditSession session = fixture.open();
+
+        // Every unverifiable structure/position edit is rejected on its own; the operation
+        // never dispatches and never registers an undo step.
+        assertThrows(EditUnavailableException.class, () -> rejectedStructure(session, scenario), scenario);
+        assertFalse(fixture.host.opsDispatchLabels().contains(dispatchLabel), scenario);
+        assertFalse(fixture.access.called("cubism.editor-model.undo.add"), scenario);
+    }
+
+    private static void rejectedStructure(final EditSession session, final String scenario)
+            throws EditSessionException {
+        switch (scenario) {
+            case "forceOverwrite" ->
+                session.parameterKeys()
+                        .moveParameterKey(new ParameterKeyOps.MoveParameterKey(
+                                Optional.empty(), Optional.of(new ParameterId("AngleZ")), 0.0, 0.5, false, true));
+            case "parameterGroupMove" ->
+                session.parameterStructure()
+                        .moveParameterGroup(
+                                new ParameterStructureOps.MoveParameterGroup(new ParameterGroupId("g1"), 0));
+            case "partWithIds" ->
+                session.partObjects()
+                        .addPart(new PartObjectOps.AddPart(
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                List.of(new ModelObjectId("mesh1")),
+                                false));
+            case "nestedPart" ->
+                session.partObjects()
+                        .addPart(new PartObjectOps.AddPart(
+                                Optional.empty(), Optional.empty(), Optional.empty(), List.of(), true));
+            default -> throw new IllegalArgumentException(scenario);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // capability gate fail-closed checks (one per family)
     // ------------------------------------------------------------------
 
-    @Test
-    void deniedCapabilitiesFailClosedBeforeAnyMember() throws EditSessionException {
+    @ParameterizedTest
+    @CsvSource({
+        "denied, parameterKeys",
+        "denied, parameterStructure",
+        "denied, selection",
+        "denied, partStructure",
+        "denied, deformerStructure",
+        "conditioned, getObject",
+        "conditioned, editPart",
+        "conditioned, editArtMesh",
+        "conditioned, editGlue",
+        "conditioned, editRotationDeformer"
+    })
+    void capabilityGateFailsClosedBeforeAnyMember(final String gate, final String scenario)
+            throws EditSessionException {
         final Fixture fixture = new Fixture();
-        fixture.access.denyAll();
+        switch (gate) {
+            case "denied" -> fixture.access.denyAll();
+            case "conditioned" -> {}
+            default -> throw new IllegalArgumentException(gate);
+        }
         final EditSession session = fixture.open();
 
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.parameterKeys()
-                        .parameterKeys(new ParameterKeyOps.GetParameterKeys(
-                                new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"))));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.parameterStructure().parameterStructure());
-        assertThrows(EditUnavailableException.class, () -> session.selection().selectedObjects());
-        assertThrows(EditUnavailableException.class, () -> session.partObjects().partStructure());
-        assertThrows(EditUnavailableException.class, () -> session.deformers().deformerStructure());
-        // The capability gate is the only surface touched: no member ever ran.
-        assertEquals(List.of(), fixture.access.memberCalls());
+        assertThrows(EditUnavailableException.class, () -> gatedRequest(session, scenario), scenario);
+        if ("denied".equals(gate)) {
+            // The capability gate is the only surface touched: no member ever ran.
+            assertEquals(List.of(), fixture.access.memberCalls(), scenario);
+        } else {
+            assertEquals(List.of(), fixture.host.opsDispatchLabels(), scenario);
+        }
     }
 
-    @Test
-    void conditionedRequestsFailClosedBeforeDispatch() throws EditSessionException {
-        final Fixture fixture = new Fixture();
-        final EditSession session = fixture.open();
-
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
+    private static void gatedRequest(final EditSession session, final String scenario) throws EditSessionException {
+        switch (scenario) {
+            case "parameterKeys" ->
+                session.parameterKeys()
+                        .parameterKeys(new ParameterKeyOps.GetParameterKeys(
+                                new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1")));
+            case "parameterStructure" -> session.parameterStructure().parameterStructure();
+            case "selection" -> session.selection().selectedObjects();
+            case "partStructure" -> session.partObjects().partStructure();
+            case "deformerStructure" -> session.deformers().deformerStructure();
+            case "getObject" ->
+                session.partObjects()
                         .object(new PartObjectOps.GetObject(
-                                new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"), List.of(condition()))));
-        assertThrows(EditUnavailableException.class, () -> session.partObjects().editPart(editPartConditioned()));
-        assertThrows(EditUnavailableException.class, () -> session.partObjects().editArtMesh(editArtMeshConditioned()));
-        assertThrows(EditUnavailableException.class, () -> session.partObjects().editGlue(editGlueConditioned()));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.deformers()
-                        .editRotationDeformer(editRotation(List.of(condition()), Optional.empty(), Optional.empty())));
-        assertTrue(fixture.host.opsDispatchLabels().isEmpty());
+                                new ModelObjectReference(ModelObjectKind.ART_MESH, "mesh1"), List.of(condition())));
+            case "editPart" -> session.partObjects().editPart(editPartConditioned());
+            case "editArtMesh" -> session.partObjects().editArtMesh(editArtMeshConditioned());
+            case "editGlue" -> session.partObjects().editGlue(editGlueConditioned());
+            case "editRotationDeformer" ->
+                session.deformers()
+                        .editRotationDeformer(editRotation(List.of(condition()), Optional.empty(), Optional.empty()));
+            default -> throw new IllegalArgumentException(scenario);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -926,19 +954,6 @@ final class SessionOpsContractTest {
                                 new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, "warp1"), List.of()))
                         .data()
                         .kind());
-    }
-
-    @Test
-    void getObjectRejectsAnArtPathReference() throws EditSessionException {
-        final Fixture fixture = new Fixture();
-        fixture.access.objects.add(fixture.artPath);
-        final EditSession session = fixture.open();
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> session.partObjects()
-                        .object(new PartObjectOps.GetObject(
-                                new ModelObjectReference(ModelObjectKind.ART_MESH, "path1"), List.of())));
     }
 
     @Test

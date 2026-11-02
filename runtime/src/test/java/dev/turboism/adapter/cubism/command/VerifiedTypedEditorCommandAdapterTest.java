@@ -31,6 +31,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class VerifiedTypedEditorCommandAdapterTest {
 
@@ -85,17 +88,40 @@ class VerifiedTypedEditorCommandAdapterTest {
         }
     }
 
-    @Test
-    void canvasSettingRequiresVerifiedInstanceRebuildBeforeMutationOn5302() {
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "instanceRebuildSelectorMissing",
+                "foreignVersionRebuildResolver",
+                "verifiedPlanMissingSelectors",
+                "rollbackSelectorMissing"
+            })
+    void canvasSettingFailsClosedBeforeAnyMutation(final String admissionFailure) {
         FakeHost host = new FakeHost();
-        var adapter = new VerifiedEditorCommandAdapter(
-                host.resolver("5.3.02", true, "cubism.editor-model.model-source.update-instances"));
-        assertEquals(
-                EditorCommandResult.Status.FAILED,
-                adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
-        assertEquals(1000, host.canvas.width);
-        assertNull(host.editMode.lastEditLabel);
-        assertEquals(0, host.modelSource.rebuildCount);
+        VerifiedEditorCommandAdapter adapter =
+                switch (admissionFailure) {
+                    case "instanceRebuildSelectorMissing" ->
+                        new VerifiedEditorCommandAdapter(
+                                host.resolver("5.3.02", true, "cubism.editor-model.model-source.update-instances"));
+                    case "foreignVersionRebuildResolver" ->
+                        new VerifiedEditorCommandAdapter(host.resolver("5.3.02"), host.resolver("5.2.03"));
+                    case "verifiedPlanMissingSelectors" ->
+                        new VerifiedEditorCommandAdapter(host.resolver("5.3.02", false));
+                    case "rollbackSelectorMissing" ->
+                        new VerifiedEditorCommandAdapter(
+                                host.resolver("5.3.02", true, "cubism.editor-command.canvas.undo"));
+                    default -> throw new IllegalArgumentException(admissionFailure);
+                };
+
+        EditorCommandResult result = adapter.execute(new EditorCanvasSettingsRequest(1200, 1100));
+
+        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "pre-flight admission must fail closed");
+        assertEquals(1000, host.canvas.width, "no host mutation before the admission");
+        assertEquals(1000, host.canvas.height, "no host mutation before the admission");
+        assertNull(host.editMode.lastEditLabel, "no beginEdit before the admission");
+        assertEquals(0, host.group.undoCount, "no Undo entry before the admission");
+        assertEquals(0, host.modelSource.rebuildCount, "no instance rebuild before the admission");
+        assertFalse(host.document.dirty, "no dirty state before the admission");
     }
 
     @Test
@@ -108,17 +134,6 @@ class VerifiedTypedEditorCommandAdapterTest {
                 adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
         assertFalse(host.modelSource.temporaryInstancePresent);
         assertEquals(1, host.modelSource.rebuildCount);
-    }
-
-    @Test
-    void canvasSettingRejectsForeignVersionRebuildResolverBeforeMutation() {
-        FakeHost host = new FakeHost();
-        var adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"), host.resolver("5.2.03"));
-        assertEquals(
-                EditorCommandResult.Status.FAILED,
-                adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
-        assertEquals(1000, host.canvas.width);
-        assertNull(host.editMode.lastEditLabel);
     }
 
     @Test
@@ -139,16 +154,6 @@ class VerifiedTypedEditorCommandAdapterTest {
                 nonMainAdapter
                         .execute(new EditorCanvasSettingsRequest(1200, 1000))
                         .status());
-    }
-
-    @Test
-    void canvasSettingFailsClosedWhenSelectorsAreAbsentFromTheVerifiedPlan() {
-        FakeHost host = new FakeHost();
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02", false));
-        assertEquals(
-                EditorCommandResult.Status.FAILED,
-                adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
-        assertEquals(1000, host.canvas.width, "no host mutation without verified selectors");
     }
 
     @Test
@@ -240,100 +245,75 @@ class VerifiedTypedEditorCommandAdapterTest {
                 adapter.execute(new EditorModelingStatisticsRequest(true)).status());
     }
 
-    @Test
-    void externalAppSettingRollsBackWhenARemoteMutationFails() {
+    @ParameterizedTest
+    @ValueSource(strings = {"remoteMutation", "startFailure"})
+    void externalAppSettingRollsBackWhenAMutationStepFails(final String injectedFailure) {
         FakeHost host = new FakeHost();
-        host.failOnSetRemote = true;
+        switch (injectedFailure) {
+            case "remoteMutation" -> host.failOnSetRemote = true;
+            case "startFailure" -> host.failOnStart = true;
+            default -> throw new IllegalArgumentException(injectedFailure);
+        }
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         EditorCommandResult result = adapter.execute(new EditorExternalAppSettingsRequest(22034, true));
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
-        assertEquals(22033, host.webSocket.instance.port, "the port must be restored after the remote failure");
+        assertEquals(22033, host.webSocket.instance.port, "the port must be restored after the failed mutation");
         assertFalse(FakeHost.FakeWebSocketLCompanion.remoteFlag, "the remote flag must be restored");
         assertEquals(
                 false,
                 host.config.values.get(VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
                 "the persisted config must be restored to the original value");
         assertFalse(host.webSocket.instance.started, "no leaked server");
-    }
-
-    @Test
-    void externalAppSettingRollsBackWhenTheStartFails() {
-        FakeHost host = new FakeHost();
-        host.failOnStart = true;
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
-
-        EditorCommandResult result = adapter.execute(new EditorExternalAppSettingsRequest(22034, true));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
-        assertEquals(22033, host.webSocket.instance.port, "the port must be restored");
-        assertFalse(FakeHost.FakeWebSocketLCompanion.remoteFlag, "the remote flag must be restored");
-        assertEquals(
-                false,
-                host.config.values.get(VerifiedTypedEditorCommandOperations.EXTERNAL_APP_REMOTE_CONFIG_KEY),
-                "the persisted config must be restored to the original value");
         assertTrue(host.webSocket.instance.stopped, "the server must be stopped by the rollback");
     }
 
-    @Test
-    void gridSettingRollsBackWhenASpacingMutationFails() {
+    @ParameterizedTest
+    @CsvSource({"spacingMutation, 50, 1", "repaintFailure, 50, 2", "spacingRestoreFailure, 80, 2"})
+    void gridSettingRollsBackOrFailsClosedWhenAMutationStepFails(
+            final String injectedFailure, final int expectedSpacing, final int expectedRepaints) {
         FakeHost host = new FakeHost();
-        host.failOnSetSpacing = true;
+        switch (injectedFailure) {
+            case "spacingMutation" -> host.failOnSetSpacing = true;
+            case "repaintFailure" -> host.failOnRepaint = true;
+            case "spacingRestoreFailure" -> {
+                host.failOnRepaint = true;
+                host.failOnRestoreSpacing = true;
+            }
+            default -> throw new IllegalArgumentException(injectedFailure);
+        }
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         EditorCommandResult result =
                 adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
+        assertEquals(expectedSpacing, host.grid.spacing, "the spacing must reflect the verified rollback state");
         assertEquals(128, host.developerSetting.lastRed, "the color must be restored");
-        assertEquals(50, host.grid.spacing, "the spacing must be restored");
-        assertEquals(1, host.updateManager.repaints, "the rollback re-runs the refresh once");
+        assertEquals(expectedRepaints, host.updateManager.repaints, "each refresh attempt must be counted");
     }
 
-    @Test
-    void gridSettingRollsBackWhenTheRepaintFails() {
+    @ParameterizedTest
+    @ValueSource(strings = {"widthMutation", "modelScale"})
+    void canvasSettingRollsBackThroughTheUndoPathWhenAMidSequenceStepFails(final String injectedFailure) {
         FakeHost host = new FakeHost();
-        host.failOnRepaint = true;
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
-
-        EditorCommandResult result =
-                adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
-        assertEquals(50, host.grid.spacing, "the spacing must be restored after the repaint failure");
-        assertEquals(128, host.developerSetting.lastRed, "the color must be restored");
-    }
-
-    @Test
-    void canvasSettingRollsBackThroughTheUndoPathAfterWidthMutationFails() {
-        FakeHost host = new FakeHost();
-        host.failOnSetWidth = true;
+        switch (injectedFailure) {
+            case "widthMutation" -> host.failOnSetWidth = true;
+            case "modelScale" -> host.failOnScale = true;
+            default -> throw new IllegalArgumentException(injectedFailure);
+        }
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         EditorCommandResult result = adapter.execute(new EditorCanvasSettingsRequest(1200, 1100));
 
         assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
-        assertTrue(host.editMode.endEditCalled, "the transaction must be closed");
+        assertTrue(host.editMode.endEditCalled, "end-edit cleanup must close the transaction");
         assertEquals(1000, host.canvas.width, "the canvas must be restored through the Undo path");
         assertEquals(1000, host.canvas.height, "the canvas height must be restored");
         assertEquals(1, host.undoManager.undoCount, "the partial group must be undone");
+        assertEquals(1, host.group.undoCount, "the opened transaction must be registered on the session group");
         assertFalse(host.document.dirty, "dirty must not be marked after a rolled-back failure");
-    }
-
-    @Test
-    void canvasSettingRollsBackThroughTheUndoPathWhenTheModelScaleStepFails() {
-        FakeHost host = new FakeHost();
-        host.failOnScale = true;
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
-
-        EditorCommandResult result = adapter.execute(new EditorCanvasSettingsRequest(1200, 1100));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
-        assertTrue(host.editMode.endEditCalled, "the transaction must be closed");
-        assertEquals(1000, host.canvas.width, "the canvas must be restored through the Undo path");
-        assertEquals(1, host.undoManager.undoCount);
-        assertFalse(host.document.dirty);
     }
 
     @Test
@@ -350,44 +330,23 @@ class VerifiedTypedEditorCommandAdapterTest {
         assertFalse(host.document.dirty);
     }
 
-    @Test
-    void externalAppSettingFailsClosedWhenTheRollbackStopFails() {
+    @ParameterizedTest
+    @CsvSource({"rollbackStopFailure, 22033", "portRestoreFailure, 22034"})
+    void externalAppSettingFailsClosedWhenTheRollbackCannotRestoreTheHost(
+            final String injectedFailure, final int expectedPort) {
         FakeHost host = new FakeHost();
         host.failOnStart = true;
-        host.failOnStop = true;
+        switch (injectedFailure) {
+            case "rollbackStopFailure" -> host.failOnStop = true;
+            case "portRestoreFailure" -> host.failOnRestorePort = true;
+            default -> throw new IllegalArgumentException(injectedFailure);
+        }
         VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
 
         EditorCommandResult result = adapter.execute(new EditorExternalAppSettingsRequest(22034, true));
 
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "rollback failure must fail closed");
-        assertEquals(22033, host.webSocket.instance.port, "the port restore must still run");
-    }
-
-    @Test
-    void externalAppSettingFailsClosedWhenThePortRestoreFails() {
-        FakeHost host = new FakeHost();
-        host.failOnStart = true;
-        host.failOnRestorePort = true;
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
-
-        EditorCommandResult result = adapter.execute(new EditorExternalAppSettingsRequest(22034, true));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "unverified rollback must fail closed");
-        assertEquals(22034, host.webSocket.instance.port, "the unverifiable port restore must not be claimed");
-    }
-
-    @Test
-    void gridSettingFailsClosedWhenTheSpacingRestoreFails() {
-        FakeHost host = new FakeHost();
-        host.failOnRepaint = true;
-        host.failOnRestoreSpacing = true;
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
-
-        EditorCommandResult result =
-                adapter.execute(new EditorGridSettingsRequest(80, new Color(0.25f, 0.5f, 0.75f, 1.0f)));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "unverified grid rollback must fail closed");
-        assertEquals(80, host.grid.spacing, "the unverifiable spacing restore must not be claimed");
+        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "a failed rollback must fail closed");
+        assertEquals(expectedPort, host.webSocket.instance.port, "the claimed port must match the verified restore");
     }
 
     @Test
@@ -445,22 +404,6 @@ class VerifiedTypedEditorCommandAdapterTest {
         assertEquals(1000, host.canvas.height, "the committed write must be undone");
         assertEquals(1, host.undoManager.undoCount, "the committed group must be undone");
         assertTrue(host.editMode.endEditCalled, "the transaction must be closed");
-    }
-
-    @Test
-    void canvasSettingFailsBeforeMutationWhenARollbackSelectorIsAbsent() {
-        FakeHost host = new FakeHost();
-        VerifiedEditorCommandAdapter adapter =
-                new VerifiedEditorCommandAdapter(host.resolver("5.3.02", true, "cubism.editor-command.canvas.undo"));
-
-        EditorCommandResult result = adapter.execute(new EditorCanvasSettingsRequest(1200, 1100));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "pre-flight failure must fail closed");
-        assertEquals(1000, host.canvas.width, "no host mutation before the pre-flight resolution");
-        assertEquals(1000, host.canvas.height, "no host mutation before the pre-flight resolution");
-        assertNull(host.editMode.lastEditLabel, "no beginEdit before the pre-flight resolution");
-        assertEquals(0, host.group.undoCount, "no Undo entry before the pre-flight resolution");
-        assertFalse(host.document.dirty, "no dirty state before the pre-flight resolution");
     }
 
     @Test
@@ -614,21 +557,6 @@ class VerifiedTypedEditorCommandAdapterTest {
                 adapter.execute(new EditorCanvasSettingsRequest(1200, 1100)).status());
         assertEquals(1000, host.canvas.width, "no mutation while an edit is in progress");
         assertEquals(0, host.group.undoCount);
-    }
-
-    @Test
-    void canvasSettingCleansUpTheTransactionWhenAMidSequenceStepFails() {
-        FakeHost host = new FakeHost();
-        host.failOnSetWidth = true;
-        VerifiedEditorCommandAdapter adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"));
-
-        EditorCommandResult result = adapter.execute(new EditorCanvasSettingsRequest(1200, 1100));
-
-        assertEquals(EditorCommandResult.Status.FAILED, result.status(), "sanitized failure");
-        assertTrue(host.editMode.endEditCalled, "end-edit cleanup must run after a mid-sequence failure");
-        assertEquals(1000, host.canvas.width, "the failing mutation step never applied its value");
-        assertEquals(1, host.group.undoCount, "the opened transaction is closed so the editor never stays in an edit");
-        assertFalse(host.document.dirty, "dirty marking happens only after the full sequence");
     }
 
     @Test
