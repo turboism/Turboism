@@ -8,6 +8,7 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.fake.FakeCubismDocument;
 import dev.turboism.test.fake.FakeCubismHost;
 import dev.turboism.test.fake.FakeCubismModel;
@@ -63,21 +64,6 @@ class TransactionStubIntegrationTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id);
     }
 }

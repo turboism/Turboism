@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
+import dev.turboism.test.Stubs;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -98,13 +99,6 @@ final class EditorWarpMirrorSelectorContractTest {
     }
 
     private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("project root is unavailable");
-        }
-        return current;
+        return Stubs.locateProjectRoot();
     }
 }

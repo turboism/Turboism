@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.Stubs;
 import dev.turboism.ui.overlay.BoundingBoxOverlayButtonHookInstaller;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
@@ -303,34 +304,7 @@ class BoundingBoxOverlayButtonHookInstallerTest {
         }
 
         private static Object defaultValue(final Class<?> type) {
-            if (!type.isPrimitive()) {
-                return null;
-            }
-            if (type == boolean.class) {
-                return false;
-            }
-            if (type == int.class) {
-                return 0;
-            }
-            if (type == long.class) {
-                return 0L;
-            }
-            if (type == float.class) {
-                return 0F;
-            }
-            if (type == double.class) {
-                return 0D;
-            }
-            if (type == short.class) {
-                return (short) 0;
-            }
-            if (type == byte.class) {
-                return (byte) 0;
-            }
-            if (type == char.class) {
-                return '\0';
-            }
-            return null;
+            return Stubs.defaultValue(type);
         }
     }
 

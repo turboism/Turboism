@@ -3,15 +3,13 @@ package dev.turboism.core.event;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.Stubs;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
@@ -167,12 +165,6 @@ class PublicEventAbiCliTest {
     }
 
     private static String sha256Hex(final byte[] bytes) {
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException(failure);
-        }
-        return HexFormat.of().formatHex(digest.digest(bytes));
+        return Stubs.sha256Hex(bytes);
     }
 }

@@ -6,6 +6,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.Stubs;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -405,22 +406,7 @@ class SdkForwardingCompletenessGuardTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id);
     }
 
     /** Minimal in-memory model providing every collection entry point. */
@@ -739,11 +725,6 @@ class SdkForwardingCompletenessGuardTest {
     }
 
     private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
+        return Stubs.locateProjectRoot();
     }
 }

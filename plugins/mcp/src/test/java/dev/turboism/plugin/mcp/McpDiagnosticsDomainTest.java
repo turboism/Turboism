@@ -46,6 +46,8 @@ import dev.turboism.sdk.ui.workspace.layout.PaletteTab;
 import dev.turboism.sdk.ui.workspace.layout.SplitDock;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
+import dev.turboism.test.Stubs;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -465,17 +467,7 @@ final class McpDiagnosticsDomainTest {
     }
 
     private static DiagnosticReport diagnostics(final List<DiagnosticReport.Problem> problems) {
-        return new DiagnosticReport() {
-            @Override
-            public Instant createdAt() {
-                return Instant.EPOCH;
-            }
-
-            @Override
-            public List<Problem> problems() {
-                return List.copyOf(problems);
-            }
-        };
+        return Stubs.diagnostics(Instant.EPOCH, problems);
     }
 
     private static DiagnosticReport.Problem problem(
@@ -847,32 +839,11 @@ final class McpDiagnosticsDomainTest {
     }
 
     private static DiagnosticReport diagnostics() {
-        return new DiagnosticReport() {
-            @Override
-            public Instant createdAt() {
-                return Instant.EPOCH;
-            }
-
-            @Override
-            public List<Problem> problems() {
-                return List.of();
-            }
-        };
+        return Stubs.diagnostics(Instant.EPOCH);
     }
 
     private static UiScheduler immediateUi() {
-        return new UiScheduler() {
-            @Override
-            public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                throw new AssertionError("Delayed UI work is not expected");
-            }
-        };
+        return FakeDirectUiScheduler.immediateWithAssertionLater("Delayed UI work is not expected");
     }
 
     private static List<Map<String, Object>> resourceContent(final String uri, final Map<String, Object> payload) {

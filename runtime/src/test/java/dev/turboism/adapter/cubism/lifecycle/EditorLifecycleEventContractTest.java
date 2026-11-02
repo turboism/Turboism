@@ -5,16 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.EditorExitEvent;
 import dev.turboism.sdk.cubism.event.EditorStartupEvent;
 import dev.turboism.sdk.event.SubscribeEvent;
-import java.time.Clock;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -103,11 +101,7 @@ class EditorLifecycleEventContractTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                new NoOpSidecarDispatcher(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler();
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {

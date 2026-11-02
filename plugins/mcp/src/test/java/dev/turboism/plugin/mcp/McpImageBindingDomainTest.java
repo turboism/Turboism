@@ -8,10 +8,8 @@ import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
 import dev.turboism.sdk.json.Json;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
@@ -629,16 +627,8 @@ class McpImageBindingDomainTest {
             if (name.equals("authoringTransactions")) return service;
             throw new AssertionError(name);
         });
-        final McpExecutionBridge execution = new McpExecutionBridge(new UiScheduler() {
-            public Registration runOnUiThread(Runnable task) {
-                task.run();
-                return () -> {};
-            }
-
-            public Registration runOnUiThreadLater(Runnable task, Duration delay) {
-                throw new AssertionError();
-            }
-        });
+        final McpExecutionBridge execution =
+                new McpExecutionBridge(FakeDirectUiScheduler.immediateWithAssertionLater());
         final McpImageBindingDomain domain = new McpImageBindingDomain(facade, execution, store, () -> {
             checkHost();
             return new McpStoredAuthoringDomain.Context(model, binding());

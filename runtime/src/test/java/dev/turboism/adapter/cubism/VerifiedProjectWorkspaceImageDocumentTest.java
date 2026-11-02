@@ -11,13 +11,12 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ResourceKind;
+import dev.turboism.test.Stubs;
 import java.io.File;
-import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -124,20 +123,7 @@ class VerifiedProjectWorkspaceImageDocumentTest {
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
-        try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files.filter(
-                            path -> path.getFileName().toString().endsWith(".jar"))
-                    .sorted()
-                    .map(path -> {
-                        try {
-                            return path.toUri().toURL();
-                        } catch (java.net.MalformedURLException exception) {
-                            throw new IllegalArgumentException(exception);
-                        }
-                    })
-                    .toArray(URL[]::new);
-            return new URLClassLoader(classpath, VerifiedProjectWorkspaceImageDocumentTest.class.getClassLoader());
-        }
+        return Stubs.jarClassLoader(artifact, VerifiedProjectWorkspaceImageDocumentTest.class.getClassLoader());
     }
 
     public static final class ImageSyntheticAppCtrl {

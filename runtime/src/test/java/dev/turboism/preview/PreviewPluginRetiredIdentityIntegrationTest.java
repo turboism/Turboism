@@ -5,10 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.host.HostSession;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -167,11 +166,7 @@ class PreviewPluginRetiredIdentityIntegrationTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16, SidecarDispatcher.noop());
     }
 
     private static void writePlugin(

@@ -8,10 +8,8 @@ import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
 import dev.turboism.sdk.json.Json;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
@@ -504,16 +502,7 @@ class McpBindingInitializationDomainTest {
                 assertEquals("authoringTransactions", n);
                 return service;
             });
-            var execution = new McpExecutionBridge(new UiScheduler() {
-                public Registration runOnUiThread(Runnable task) {
-                    task.run();
-                    return () -> {};
-                }
-
-                public Registration runOnUiThreadLater(Runnable task, Duration delay) {
-                    throw new AssertionError();
-                }
-            });
+            var execution = new McpExecutionBridge(FakeDirectUiScheduler.immediateWithAssertionLater());
             tools = new McpBindingInitializationDomain(
                             facade,
                             execution,

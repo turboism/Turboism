@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -499,30 +500,10 @@ final class PsdClipMaskPlannerTest {
     }
 
     private static IntSequence emptyInts() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyInts();
     }
 
     private static FloatSequence emptyFloats() {
-        return new FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyFloats();
     }
 }

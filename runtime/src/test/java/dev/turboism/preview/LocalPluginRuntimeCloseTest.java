@@ -45,6 +45,7 @@ import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.storage.RuntimePluginStorage;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
 import dev.turboism.userfile.UserFileGrantSource;
 import java.lang.reflect.Constructor;
@@ -598,11 +599,7 @@ class LocalPluginRuntimeCloseTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4, SidecarDispatcher.noop());
     }
 
     private static DisposableScope scope(final String id, final List<String> order, final boolean fail) {

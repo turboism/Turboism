@@ -3,13 +3,10 @@ package dev.turboism.core.event;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
@@ -19,6 +16,7 @@ import dev.turboism.sdk.failure.FailureContext;
 import dev.turboism.sdk.failure.HandlesException;
 import dev.turboism.sdk.failure.NoFailureInterception;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -104,12 +102,7 @@ class AnnotatedEventSubscriberTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        final List<PluginWorkBudgetEvent> diagnostics = new CopyOnWriteArrayList<>();
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, diagnostics::add, CLOCK),
-                new NoOpSidecarDispatcher(),
-                diagnostics::add);
+        return RuntimeTestKit.scheduler(CLOCK, 1, 8, RuntimeTestKit.successfulSidecar());
     }
 
     public static final class Subscriber {

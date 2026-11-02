@@ -8,11 +8,9 @@ import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
 import dev.turboism.sdk.json.Json;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -593,16 +591,8 @@ final class McpPoseGridDomainTest {
                 default -> throw new UnsupportedOperationException(m);
             };
         });
-        final McpExecutionBridge execution = new McpExecutionBridge(new UiScheduler() {
-            public Registration runOnUiThread(Runnable r) {
-                r.run();
-                return () -> {};
-            }
-
-            public Registration runOnUiThreadLater(Runnable r, Duration d) {
-                throw new UnsupportedOperationException();
-            }
-        });
+        final McpExecutionBridge execution =
+                new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater());
         final McpRenderDomain render = new McpRenderDomain(facade, execution);
         final McpToolCatalog tools = McpToolCatalog.combine(
                 render.tools(), new McpPoseGridDomain(facade, execution, render, clock::get).tools());
