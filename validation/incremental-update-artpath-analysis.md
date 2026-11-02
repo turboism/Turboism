@@ -2,10 +2,26 @@
 
 ## 结论
 
-ArtPath 在宿主管线中的结构与 glue 相同：输出由**当前 ArtMesh 的计算表单**派生，
-路径自身的插值按对象受宿主跳过标志控制。因此增量复用（只复用 `deformedForm` 与
-按对象的插值跳过）在原理上同样成立。但本地没有含 ArtPath 的工程可做实机对照，
-`unsafe()` 目前仍整体拒绝 ArtPath；本次没有放开。
+ArtPath（图形路径）首先是**建模辅助工具**，其次才是可保存的 drawable：
+
+- `ToolGroup_ArtPath` 的 `command_createArtMeshForHitTest` 会创建 ArtMesh，
+  `addControlPoint` 直接接收 `CArtMesh`/`CArtMeshSource`，
+  `genControllerExtensionByArtPath` 会从路径生成 controller extension；
+  i18n 也有 “Auto Generation of ArtPath”“Align ArtPath's control point positions
+  with selected ArtMesh” 等条目。用它画出的路径通常被转换成 ArtMesh 顶点/控制器曲线。
+- 如果 ArtPath 对象本身被保留，它是 `CArtPath extends ACDrawable`，带
+  `GMeshRenderer`、画笔/颜色、关键形状，并进入 `getAllArtPaths()`；更新遍会插值并做
+  `postAffectedForm` 的 point-to-mesh 蒙皮。
+
+因此：
+
+1. 工具生成的 ArtMesh 顶点属于普通网格几何，现有增量复用已经覆盖，不需要额外开关。
+2. 只有**保存下来的 `CArtPath` drawable** 才受 `unsafe()` 的 ArtPath 门槛影响；
+   本地桌面样本 `containArtPath=false`、`getAllArtPaths()=0`，说明该样本只保留了
+   生成的网格，没有保留路径对象。
+
+对保存下来的路径对象，增量复用（只复用 `deformedForm` 与按对象的插值跳过）在原理上
+同样成立；但本地没有含 `CArtPath` 的工程可做实机对照，`unsafe()` 仍整体拒绝 ArtPath。
 
 ## 宿主管线证据（5.0.00 / 5.2.03 / 5.3.04）
 
