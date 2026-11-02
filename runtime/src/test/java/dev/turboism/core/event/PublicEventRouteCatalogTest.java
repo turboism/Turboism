@@ -5,14 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.descriptor.CorePluginDescriptor;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -337,11 +336,7 @@ class PublicEventRouteCatalogTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, CLOCK),
-                new NoOpSidecarDispatcher(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(CLOCK, 1, 8, RuntimeTestKit.successfulSidecar());
     }
 
     public record PublicFixtureEvent(String value) implements TurboismEvent {}

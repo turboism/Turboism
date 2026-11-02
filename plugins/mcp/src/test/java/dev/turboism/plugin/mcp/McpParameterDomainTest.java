@@ -32,6 +32,7 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -872,21 +873,7 @@ final class McpParameterDomainTest {
     }
 
     private static McpParameterDomain domain(final Supplier<CubismModel> model) {
-        return new McpParameterDomain(
-                new FakeFacade(model), new McpExecutionBridge(new dev.turboism.sdk.ui.UiScheduler() {
-                    @Override
-                    public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
-                        work.run();
-                        return () -> {};
-                    }
-
-                    @Override
-                    public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
-                            final Runnable work, final java.time.Duration delay) {
-                        work.run();
-                        return () -> {};
-                    }
-                }));
+        return new McpParameterDomain(new FakeFacade(model), new McpExecutionBridge(FakeDirectUiScheduler.direct()));
     }
 
     private static Map<String, Object> definition(final String id, final String name, final String type) {

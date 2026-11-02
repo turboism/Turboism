@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.test.Stubs;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
@@ -374,22 +375,7 @@ class ParameterNativeMethodTransformerTest {
         }
 
         private static dev.turboism.sdk.plugin.PluginLogger logger() {
-            return new dev.turboism.sdk.plugin.PluginLogger() {
-                @Override
-                public void debug(final String message) {}
-
-                @Override
-                public void info(final String message) {}
-
-                @Override
-                public void warn(final String message) {}
-
-                @Override
-                public void error(final String message) {}
-
-                @Override
-                public void error(final String message, final Throwable throwable) {}
-            };
+            return Stubs.noopLogger();
         }
     }
 

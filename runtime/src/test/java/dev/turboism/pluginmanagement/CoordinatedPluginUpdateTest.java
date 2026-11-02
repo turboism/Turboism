@@ -16,6 +16,7 @@ import dev.turboism.pluginmanagement.CoordinatedPluginUpdateService.DownloadResu
 import dev.turboism.pluginmanagement.CoordinatedPluginUpdateService.PluginUpdateRow;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.TrustedKey;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import dev.turboism.test.Stubs;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.time.Duration;
@@ -1051,8 +1051,7 @@ class CoordinatedPluginUpdateTest {
     }
 
     private static String sha256Hex(final byte[] data) throws Exception {
-        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return java.util.HexFormat.of().formatHex(digest.digest(data));
+        return Stubs.sha256Hex(data);
     }
 
     private static PluginCatalogClient stubClient(

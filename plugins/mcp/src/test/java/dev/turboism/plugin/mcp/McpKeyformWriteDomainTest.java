@@ -8,10 +8,8 @@ import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
 import dev.turboism.sdk.json.Json;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
@@ -714,16 +712,8 @@ final class McpKeyformWriteDomainTest {
             }
             default -> throw new UnsupportedOperationException(m);
         });
-        final McpExecutionBridge execution = new McpExecutionBridge(new UiScheduler() {
-            public Registration runOnUiThread(Runnable r) {
-                r.run();
-                return () -> {};
-            }
-
-            public Registration runOnUiThreadLater(Runnable r, Duration d) {
-                throw new UnsupportedOperationException();
-            }
-        });
+        final McpExecutionBridge execution =
+                new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater());
         final McpStoredAuthoringDomain reads = new McpStoredAuthoringDomain(facade, execution, store);
         final McpToolCatalog tools = McpToolCatalog.combine(
                 reads.tools(), new McpKeyformWriteDomain(facade, execution, store, reads::context).tools());

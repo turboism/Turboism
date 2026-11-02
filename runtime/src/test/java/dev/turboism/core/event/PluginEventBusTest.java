@@ -5,23 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -186,12 +182,7 @@ class PluginEventBusTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, events::add, CLOCK),
-                new NoOpSidecarDispatcher(),
-                events::add);
+        return RuntimeTestKit.scheduler(CLOCK, 1, 8, RuntimeTestKit.successfulSidecar());
     }
 
     private record TestEvent(String name) implements EventBus.TurboismEvent {}

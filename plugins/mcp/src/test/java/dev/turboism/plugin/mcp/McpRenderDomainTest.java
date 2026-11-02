@@ -7,11 +7,9 @@ import dev.turboism.sdk.cubism.history.*;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.json.Json;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
@@ -319,18 +317,8 @@ final class McpRenderDomainTest {
             case "history" -> history;
             default -> throw new UnsupportedOperationException(method);
         });
-        final McpToolCatalog tools = new McpRenderDomain(facade, new McpExecutionBridge(new UiScheduler() {
-                    @Override
-                    public Registration runOnUiThread(Runnable work) {
-                        work.run();
-                        return () -> {};
-                    }
-
-                    @Override
-                    public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                        throw new UnsupportedOperationException();
-                    }
-                }))
+        final McpToolCatalog tools = new McpRenderDomain(
+                        facade, new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater()))
                 .tools();
 
         Map<String, Object> state() {

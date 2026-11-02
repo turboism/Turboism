@@ -8,11 +8,9 @@ import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelecto
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
-import java.net.URL;
+import dev.turboism.test.Stubs;
 import java.net.URLClassLoader;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -87,19 +85,6 @@ class EditorInspectorSelectorContractTest {
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
-        try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files.filter(
-                            path -> path.getFileName().toString().endsWith(".jar"))
-                    .sorted()
-                    .map(path -> {
-                        try {
-                            return path.toUri().toURL();
-                        } catch (java.net.MalformedURLException exception) {
-                            throw new IllegalArgumentException(exception);
-                        }
-                    })
-                    .toArray(URL[]::new);
-            return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
-        }
+        return Stubs.jarClassLoader(artifact);
     }
 }

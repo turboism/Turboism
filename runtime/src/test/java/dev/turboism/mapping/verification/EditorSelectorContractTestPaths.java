@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.test.Stubs;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -85,14 +86,7 @@ public final class EditorSelectorContractTestPaths {
     }
 
     private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("project root is unavailable");
-        }
-        return current;
+        return Stubs.locateProjectRoot();
     }
 
     private static Path locateLegacyEvidence() {

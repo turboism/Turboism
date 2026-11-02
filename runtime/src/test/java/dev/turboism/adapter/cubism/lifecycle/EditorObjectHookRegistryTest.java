@@ -4,12 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
@@ -28,7 +26,8 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-import java.time.Clock;
+import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -295,11 +294,7 @@ class EditorObjectHookRegistryTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                new NoOpSidecarDispatcher(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler();
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
@@ -471,22 +466,7 @@ class EditorObjectHookRegistryTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(String message) {}
-
-            @Override
-            public void info(String message) {}
-
-            @Override
-            public void warn(String message) {}
-
-            @Override
-            public void error(String message) {}
-
-            @Override
-            public void error(String message, Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static class MutableDrawable implements Drawable {
@@ -583,30 +563,10 @@ class EditorObjectHookRegistryTest {
     }
 
     private static IntSequence ints() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyInts();
     }
 
     private static FloatSequence floats() {
-        return new FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyFloats();
     }
 }

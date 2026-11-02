@@ -8,13 +8,12 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.test.Stubs;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -532,7 +531,7 @@ class MappingPackDraftImportTest {
     }
 
     private static String sha256Hex(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        return Stubs.sha256Hex(bytes);
     }
 
     private static Set<String> asStringSet(final JsonNode array) {

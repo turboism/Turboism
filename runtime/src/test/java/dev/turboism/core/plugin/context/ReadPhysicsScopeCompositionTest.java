@@ -21,10 +21,8 @@ import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
@@ -57,11 +55,12 @@ import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.Stubs;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
+import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.ui.UiHostStateSource;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -841,22 +840,7 @@ class ReadPhysicsScopeCompositionTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(String message) {}
-
-            @Override
-            public void info(String message) {}
-
-            @Override
-            public void warn(String message) {}
-
-            @Override
-            public void error(String message) {}
-
-            @Override
-            public void error(String message, Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static PluginPaths paths() {
@@ -884,40 +868,15 @@ class ReadPhysicsScopeCompositionTest {
     }
 
     private static UiScheduler uiScheduler() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                return () -> {};
-            }
-        };
+        return FakeDirectUiScheduler.immediateOnly();
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, CLOCK),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
     }
 
     private static DiagnosticReport diagnostics() {
-        return new DiagnosticReport() {
-            @Override
-            public Instant createdAt() {
-                return CLOCK.instant();
-            }
-
-            @Override
-            public List<Problem> problems() {
-                return List.of();
-            }
-        };
+        return Stubs.diagnostics(CLOCK.instant());
     }
 
     private static final Clock CLOCK = Clock.systemUTC();

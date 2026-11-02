@@ -19,6 +19,7 @@ import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.plugin.FakePluginContext;
 import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
@@ -409,31 +410,11 @@ final class PsdClipMaskImportTestFixtures {
     }
 
     static IntSequence emptyInts() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyInts();
     }
 
     static FloatSequence emptyFloats() {
-        return new FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyFloats();
     }
 
     /**

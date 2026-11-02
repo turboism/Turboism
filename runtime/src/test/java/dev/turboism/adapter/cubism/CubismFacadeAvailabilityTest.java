@@ -15,6 +15,7 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoor
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.Stubs;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Clock;
@@ -321,21 +322,6 @@ class CubismFacadeAvailabilityTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "test";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id, "test", "test");
     }
 }

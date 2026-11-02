@@ -5,12 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
@@ -18,10 +16,10 @@ import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import java.time.Clock;
+import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
@@ -210,11 +208,7 @@ class DrawableOpacityLifecycleContractTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                new NoOpSidecarDispatcher(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler();
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
@@ -230,121 +224,11 @@ class DrawableOpacityLifecycleContractTest {
     }
 
     private static PluginDescriptor descriptor(final String id) {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String name() {
-                return id;
-            }
-
-            @Override
-            public String version() {
-                return "1.0.0";
-            }
-
-            @Override
-            public String description() {
-                return "test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of();
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "UNLICENSED";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.pluginDescriptor(id);
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static class MutableDrawable implements Drawable {
@@ -444,31 +328,11 @@ class DrawableOpacityLifecycleContractTest {
         }
 
         private static dev.turboism.sdk.cubism.model.IntSequence ints() {
-            return new dev.turboism.sdk.cubism.model.IntSequence() {
-                @Override
-                public int size() {
-                    return 0;
-                }
-
-                @Override
-                public int get(final int index) {
-                    throw new IndexOutOfBoundsException(index);
-                }
-            };
+            return Stubs.emptyInts();
         }
 
         private static dev.turboism.sdk.cubism.model.FloatSequence floats() {
-            return new dev.turboism.sdk.cubism.model.FloatSequence() {
-                @Override
-                public int size() {
-                    return 0;
-                }
-
-                @Override
-                public float get(final int index) {
-                    throw new IndexOutOfBoundsException(index);
-                }
-            };
+            return Stubs.emptyFloats();
         }
     }
 }

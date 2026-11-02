@@ -6,11 +6,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
-import java.net.URL;
+import dev.turboism.test.Stubs;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -119,12 +118,7 @@ class EditorObjectReadSelectorContractTest {
     }
 
     private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
+        return Stubs.locateProjectRoot();
     }
 
     /**
@@ -149,19 +143,6 @@ class EditorObjectReadSelectorContractTest {
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
-        try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files.filter(
-                            path -> path.getFileName().toString().endsWith(".jar"))
-                    .sorted()
-                    .map(path -> {
-                        try {
-                            return path.toUri().toURL();
-                        } catch (java.net.MalformedURLException exception) {
-                            throw new IllegalArgumentException(exception);
-                        }
-                    })
-                    .toArray(URL[]::new);
-            return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
-        }
+        return Stubs.jarClassLoader(artifact);
     }
 }

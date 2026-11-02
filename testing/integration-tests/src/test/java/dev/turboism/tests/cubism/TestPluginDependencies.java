@@ -10,8 +10,8 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -201,19 +201,7 @@ final class TestPluginDependencies {
     }
 
     static UiScheduler directUiScheduler() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                work.run();
-                return () -> {};
-            }
-        };
+        return FakeDirectUiScheduler.direct();
     }
 
     static DiagnosticReport emptyDiagnostics() {

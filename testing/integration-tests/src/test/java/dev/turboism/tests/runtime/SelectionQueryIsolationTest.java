@@ -22,6 +22,7 @@ import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.WorkBudget;
+import dev.turboism.test.Stubs;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -132,22 +133,7 @@ class SelectionQueryIsolationTest {
             SelectionQueryServiceImpl service, RuntimeEventBroker broker, RuntimeEventBroker.Owner observer) {}
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "selection isolation test";
-            }
-        };
+        return Stubs.permission(id, "read", "selection isolation test");
     }
 
     private static final class RecordingSidecarDispatcher implements SidecarDispatcher {

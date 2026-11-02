@@ -19,6 +19,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -357,19 +358,7 @@ final class AcpAgentDetectionRegressionTest {
                     return temporaryDirectory.resolve("cache");
                 }
             };
-            final UiScheduler ui = new UiScheduler() {
-                @Override
-                public Registration runOnUiThread(final Runnable work) {
-                    work.run();
-                    return () -> {};
-                }
-
-                @Override
-                public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                    work.run();
-                    return () -> {};
-                }
-            };
+            final UiScheduler ui = FakeDirectUiScheduler.direct();
             return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
                     PluginContext.class.getClassLoader(),
                     new Class<?>[] {PluginContext.class},

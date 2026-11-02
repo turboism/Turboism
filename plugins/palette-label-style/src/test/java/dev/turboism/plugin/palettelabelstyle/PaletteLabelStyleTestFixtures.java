@@ -31,6 +31,7 @@ import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.action.RecordingActionRegistry;
 import dev.turboism.test.plugin.FakePluginContext;
 import dev.turboism.test.plugin.RecordingPluginLogger;
@@ -782,30 +783,10 @@ final class PaletteLabelStyleTestFixtures {
     }
 
     static IntSequence emptyInts() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException();
-            }
-        };
+        return Stubs.emptyIntsWithoutIndex();
     }
 
     static FloatSequence emptyFloats() {
-        return new FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(final int index) {
-                throw new IndexOutOfBoundsException();
-            }
-        };
+        return Stubs.emptyFloatsWithoutIndex();
     }
 }

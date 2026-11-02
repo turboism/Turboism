@@ -6,12 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.WarpDeformerGridEvent;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
@@ -20,7 +18,8 @@ import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.event.SubscribeEvent;
-import java.time.Clock;
+import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -88,11 +87,7 @@ class WarpDeformerGridLifecycleContractTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                new NoOpSidecarDispatcher(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler();
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
@@ -170,16 +165,6 @@ class WarpDeformerGridLifecycleContractTest {
     }
 
     private static IntSequence ints() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyInts();
     }
 }

@@ -15,6 +15,7 @@ import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -159,22 +160,7 @@ final class AcpPluginSettingsTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static final class MemoryConfig implements PluginConfigRegistry {
