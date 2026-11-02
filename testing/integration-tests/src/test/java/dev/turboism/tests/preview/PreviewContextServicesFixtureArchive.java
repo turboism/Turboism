@@ -45,6 +45,8 @@ final class PreviewContextServicesFixtureArchive {
                 null,
                 null,
                 null,
+                "-encoding",
+                "UTF-8",
                 "-classpath",
                 System.getProperty("java.class.path"),
                 "-d",
