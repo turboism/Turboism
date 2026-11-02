@@ -21,6 +21,8 @@ makes a gate real:
      Codemods stay out of lint rule discovery, and the governance guide never
      reappears under a forbidden `docs/` path
   8. the golden-snapshot replay test cannot silently stop matching its class
+  9. the dependency inventory gate and its selftest reach `devCheck`, and the
+     committed baseline plus the regeneration command stay documented
 
 Gradle sources are read with comments stripped, so a task name that is only
 commented out does not count as wired.
@@ -46,6 +48,10 @@ ARCHITECTURE_GOVERNANCE = ROOT / "gradle/architecture-governance.gradle.kts"
 SG_CONFIG = ROOT / "sgconfig.yml"
 GOVERNANCE_GUIDE = ROOT / "ARCHITECTURE_GOVERNANCE.md"
 GOLDEN_MANIFEST = ROOT / "tests/fixtures/snapshots/manifest.json"
+ROOT_BUILD = ROOT / "build.gradle.kts"
+DEPENDENCY_INVENTORY_BUILD = ROOT / "gradle/dependency-inventory.gradle.kts"
+DEPENDENCY_INVENTORY_BASELINE = ROOT / "architecture/dependency-inventory.json"
+DEPENDENCY_INVENTORY_DOC = ROOT / "architecture/DEPENDENCY_INVENTORY.md"
 GOVERNANCE_WORKFLOWS = (
     ".github/workflows/ci.yml",
     ".github/workflows/release.yml",
@@ -240,7 +246,11 @@ def main() -> int:
     architecture_dev_check = task_block(architecture, 'tasks.named("devCheck")')
     check_completed = task_block(architecture, 'tasks.named("checkCompletedCommit")')
     check_release = task_block(architecture, 'tasks.named("checkRelease")')
-    check("architecture-governance build script is applied", 'architecture-governance.gradle.kts' in verification)
+    root_build = strip_comments(ROOT_BUILD.read_text(encoding="utf-8"))
+    check(
+        "architecture-governance build script is applied",
+        'apply(from = "gradle/architecture-governance.gradle.kts")' in root_build,
+    )
 
     for gate in ('checkArchitectureRules', 'checkGoldenSnapshotManifest'):
         check(
@@ -314,6 +324,39 @@ def main() -> int:
         and not {'build', '.git', '.gradle'} & set(path.relative_to(ROOT).parts)
     ]
     check('no governance guide sits under a forbidden docs/ segment', not docs_guides, str(docs_guides))
+
+    # 9. the dependency inventory (#70 step 1) must stay gate-backed and documented.
+    inventory_build = strip_comments(DEPENDENCY_INVENTORY_BUILD.read_text(encoding="utf-8"))
+    check(
+        'dependency inventory build script is applied',
+        'apply(from = "gradle/dependency-inventory.gradle.kts")' in root_build,
+    )
+    check('dependencyInventoryRaw writes the project graph', 'val dependencyInventoryRaw by tasks.registering' in inventory_build)
+    check(
+        'checkDependencyInventory is registered as a gate',
+        'tasks.register<Exec>("checkDependencyInventory")' in inventory_build,
+    )
+    check(
+        'checkDependencyInventory consumes the raw graph and the baseline',
+        'dependencyInventoryProjectGraph' in inventory_build
+        and '"architecture/dependency-inventory.json"' in inventory_build,
+    )
+    check(
+        'checkDependencyInventorySelfTest is registered and executed by its gate',
+        'val checkDependencyInventorySelfTest by tasks.registering(Exec::class)' in inventory_build
+        and 'dependsOn(dependencyInventoryRaw, checkDependencyInventorySelfTest)' in inventory_build,
+    )
+    check(
+        'dependency inventory selftest runs scripts/test/test_dependency_inventory.py',
+        '"scripts/test/test_dependency_inventory.py"' in inventory_build
+        and (ROOT / 'scripts/test/test_dependency_inventory.py').is_file(),
+    )
+    check('dependency inventory baseline is committed', DEPENDENCY_INVENTORY_BASELINE.is_file())
+    check('dependency inventory rationale is documented', DEPENDENCY_INVENTORY_DOC.is_file())
+    check(
+        'CONTRIBUTING.md documents the dependency inventory gate',
+        'checkDependencyInventory' in contributing,
+    )
 
     print(f"gate wiring self-test: {'all checks passed' if not failures else f'{len(failures)} failed'}")
     return 0 if not failures else 1
