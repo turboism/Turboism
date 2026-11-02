@@ -370,6 +370,262 @@ class EditorHistorySnapshotProviderTest {
         assertEquals(0, manager.moveCalls);
     }
 
+    @Test
+    void unchangedHistoryReusesTheDecodedDetailWithoutDecodingAgain() {
+        final Manager manager = new Manager();
+        final GroupEntry settled = groupedEntry("Settled edit");
+        final GroupEntry tip = groupedEntry("Open edit");
+        manager.entries.add(settled);
+        manager.entries.add(tip);
+        manager.position = 2;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 3);
+
+        final HistorySnapshot first = provider.snapshot();
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, first.entries().get(0).detailLevel());
+        assertEquals(1, settled.decodeReads(), "the first projection decodes the entry");
+        assertEquals(1, provider.memoizedDetailCount(), "only the entry below the tip is memoized");
+
+        final HistorySnapshot same = provider.snapshot();
+
+        assertSame(first, same, "unchanged history reuses its immutable projection");
+        assertEquals(1, settled.decodeReads(), "an unchanged entry below the tip is not decoded again");
+        assertEquals(2, settled.labelReads(), "mutable host labels are still re-read on every projection");
+        assertEquals(2, tip.decodeReads(), "the undo tip is projected from the host on every poll");
+        assertEquals(3, same.generation());
+        assertEquals(1, same.revision());
+    }
+
+    @Test
+    void aGroupThatIsStillReceivingChildrenIsDecodedAgain() {
+        final Manager manager = new Manager();
+        final GroupEntry settled = groupedEntry("Settled edit");
+        manager.entries.add(settled);
+        manager.entries.add(groupedEntry("Open edit"));
+        manager.position = 2;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 3);
+        final HistorySnapshot first = provider.snapshot();
+        assertEquals(1, settled.decodeReads());
+
+        settled.children.add(new Entry("Later child", true));
+        final HistorySnapshot grown = provider.snapshot();
+
+        assertEquals(2, settled.decodeReads(), "a group that grew after the projection is decoded again");
+        assertEquals(
+                2,
+                grown.entries().get(0).detail().group().orElseThrow().children().size());
+        assertEquals(first.revision() + 1, grown.revision());
+    }
+
+    @Test
+    void aRenamedEntryDropsItsMemoizedDetail() {
+        final Manager manager = new Manager();
+        final GroupEntry settled = groupedEntry("Before");
+        manager.entries.add(settled);
+        manager.entries.add(groupedEntry("Open edit"));
+        manager.position = 2;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 3);
+        final HistorySnapshot before = provider.snapshot();
+        assertEquals("Before", before.entries().get(0).detail().summary());
+
+        ((Entry) settled).label = "After";
+        final HistorySnapshot renamed = provider.snapshot();
+        assertEquals("After", renamed.entries().get(0).label());
+        assertEquals("After", renamed.entries().get(0).detail().summary(), "the detail follows the renamed entry");
+        assertEquals(2, settled.decodeReads(), "a renamed entry is decoded again");
+        assertEquals(before.revision() + 1, renamed.revision());
+    }
+
+    @Test
+    void metadataRegisteredAfterTheProjectionReplacesTheMemoizedDetail() {
+        final Manager manager = new Manager();
+        final GroupEntry settled = groupedEntry("Grouped edit");
+        manager.entries.add(settled);
+        manager.entries.add(groupedEntry("Open edit"));
+        manager.position = 2;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 3);
+        final HistorySnapshot decoded = provider.snapshot();
+
+        EditorHistoryMetadataRegistry.registerDetail(
+                settled,
+                HistoryEntryDetail.labelOnly(
+                        "Captured semantic summary", HistoryOrigin.hostUnattributed(), "history.detail.captured"));
+        final HistorySnapshot captured = provider.snapshot();
+
+        assertEquals(
+                "Captured semantic summary", captured.entries().get(0).detail().summary());
+        assertEquals(
+                decoded.entries().get(0).entryId(), captured.entries().get(0).entryId());
+        assertEquals(decoded.revision() + 1, captured.revision());
+    }
+
+    @Test
+    void appendingEntriesDecodesOnlyTheNewOnes() {
+        final Manager manager = new Manager();
+        final GroupEntry first = groupedEntry("First");
+        final GroupEntry second = groupedEntry("Second");
+        final GroupEntry third = groupedEntry("Third");
+        manager.entries.add(first);
+        manager.entries.add(second);
+        manager.entries.add(third);
+        manager.position = 3;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 4);
+        provider.snapshot();
+        assertEquals(1, first.decodeReads());
+        assertEquals(1, second.decodeReads());
+
+        final GroupEntry fourth = groupedEntry("Fourth");
+        manager.entries.add(fourth);
+        manager.position = 4;
+        final HistorySnapshot appended = provider.snapshot();
+
+        assertEquals(4, appended.entries().size());
+        assertEquals(1, first.decodeReads(), "an append keeps the settled prefix memoized");
+        assertEquals(1, second.decodeReads(), "an append keeps the settled prefix memoized");
+        assertEquals(2, third.decodeReads(), "only the entry that stopped being the tip is decoded again");
+        assertEquals(1, fourth.decodeReads(), "the new tip is decoded");
+        assertEquals(2, appended.revision());
+
+        final GroupEntry fifth = groupedEntry("Fifth");
+        manager.entries.add(fifth);
+        manager.position = 5;
+        final HistorySnapshot appendedAgain = provider.snapshot();
+
+        assertEquals(1, first.decodeReads());
+        assertEquals(1, second.decodeReads());
+        assertEquals(2, third.decodeReads(), "the previous tip is memoized once it is settled");
+        assertEquals(2, fourth.decodeReads());
+        assertEquals(1, fifth.decodeReads());
+        assertEquals(3, appendedAgain.revision());
+    }
+
+    @Test
+    void aCursorMoveKeepsSettledMemosAndReprojectsTheTail() {
+        final Manager manager = new Manager();
+        final GroupEntry first = groupedEntry("First");
+        final GroupEntry second = groupedEntry("Second");
+        final GroupEntry third = groupedEntry("Third");
+        final GroupEntry fourth = groupedEntry("Fourth");
+        manager.entries.add(first);
+        manager.entries.add(second);
+        manager.entries.add(third);
+        manager.entries.add(fourth);
+        manager.position = 4;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 4);
+        final HistorySnapshot applied = provider.snapshot();
+        assertEquals(1, first.decodeReads());
+
+        manager.position = 2;
+        final HistorySnapshot undone = provider.snapshot();
+
+        assertEquals(2, undone.position());
+        assertEquals(applied.revision() + 1, undone.revision());
+        assertEquals(1, first.decodeReads(), "the entry below the new cursor keeps its memo");
+        assertEquals(2, second.decodeReads(), "the entry under the cursor is projected again");
+        assertEquals(2, third.decodeReads(), "the redo tail is projected again");
+    }
+
+    @Test
+    void aTruncatedRedoTailIsPruned() {
+        final Manager manager = new Manager();
+        final GroupEntry first = groupedEntry("First");
+        final GroupEntry second = groupedEntry("Second");
+        final GroupEntry third = groupedEntry("Third");
+        manager.entries.add(first);
+        manager.entries.add(second);
+        manager.entries.add(third);
+        manager.position = 3;
+        Host.document = new Document(manager);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), () -> 4);
+        provider.snapshot();
+        assertEquals(2, provider.memoizedDetailCount());
+
+        manager.entries.subList(1, manager.entries.size()).clear();
+        manager.entries.add(groupedEntry("After undo"));
+        manager.position = 2;
+        final HistorySnapshot truncated = provider.snapshot();
+
+        assertEquals(2, truncated.entries().size());
+        assertEquals(1, first.decodeReads(), "the surviving settled entry keeps its memo");
+        assertEquals(1, provider.memoizedDetailCount(), "the memos of the dropped redo tail are pruned");
+    }
+
+    @Test
+    void generationRevisionAndBindingTrackEveryChangeWithMemoizedDetails() {
+        final Manager manager = new Manager();
+        final GroupEntry first = groupedEntry("First");
+        manager.entries.add(first);
+        manager.entries.add(groupedEntry("Second"));
+        manager.position = 2;
+        Host.document = new Document(manager);
+        final AtomicLong generation = new AtomicLong(5);
+        final VerifiedMemberResolver resolver = groupDecodingResolver();
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver), generation::get);
+
+        final HistorySnapshot initial = provider.snapshot();
+        assertEquals(5, initial.generation());
+        assertEquals(1, initial.revision());
+        assertSame(initial, provider.snapshot());
+        assertEquals(1, provider.snapshot().revision());
+        assertEquals(1, first.decodeReads());
+
+        manager.position = 0;
+        final HistorySnapshot undone = provider.snapshot();
+        assertEquals(5, undone.generation());
+        assertEquals(2, undone.revision());
+        assertEquals(0, undone.position());
+        assertFalse(undone.canUndo());
+        assertEquals(2, first.decodeReads(), "a fully undone history has no settled entry to reuse");
+
+        final GroupEntry appended = groupedEntry("Third");
+        manager.entries.add(appended);
+        manager.position = 3;
+        final HistorySnapshot grown = provider.snapshot();
+        assertEquals(3, grown.revision());
+        assertEquals(3, grown.entries().size());
+        assertEquals(1, appended.decodeReads());
+        assertEquals(3, first.decodeReads());
+
+        Host.document = new Document(manager);
+        final HistorySnapshot rebound = provider.snapshot();
+        assertEquals(4, rebound.revision());
+        assertNotEquals(grown.documentBindingId(), rebound.documentBindingId());
+        assertEquals(grown.managerBindingId(), rebound.managerBindingId());
+        assertEquals(4, first.decodeReads(), "a document switch drops every memoized detail");
+
+        generation.set(6);
+        final HistorySnapshot next = provider.snapshot();
+        assertEquals(6, next.generation());
+        assertEquals(1, next.revision(), "a new generation restarts the revision sequence");
+        assertEquals(5, first.decodeReads());
+    }
+
+    private static GroupEntry groupedEntry(final String label) {
+        final GroupEntry entry = new GroupEntry(label);
+        entry.children.add(new Entry("Unknown child", true));
+        return entry;
+    }
+
     private static Manager managerAt(final int position) {
         final Manager manager = new Manager();
         manager.entries.add(new Entry("First", true));
@@ -417,45 +673,67 @@ class EditorHistorySnapshotProviderTest {
     }
 
     private static VerifiedMemberResolver resolver() {
-        return TestVerifiedResolvers.create(
-                "5.3.02",
-                "adapter.editor-model.readwrite",
+        return historyResolver(
                 Set.of("cubism.editor-model.read", "cubism.editor-history.read", "cubism.editor-history.move"),
+                List.of());
+    }
+
+    /** Admits the exact semantic-group family so a projection actually decodes a native entry. */
+    private static VerifiedMemberResolver groupDecodingResolver() {
+        return historyResolver(
+                Set.of(
+                        "cubism.editor-model.read",
+                        "cubism.editor-history.read",
+                        "cubism.editor-history.move",
+                        "cubism.editor-history.semantic-read"),
                 List.of(
-                        StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)),
-                        StaticSelector.staticMethod(
-                                "cubism.editor-model.app-controller.instance",
-                                internal(Host.class),
-                                "instance",
-                                desc(Host.class),
-                                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
-                        method(
-                                "cubism.editor-model.app-controller.current-document",
-                                Host.class,
-                                "currentDocument",
-                                desc(Document.class)),
                         StaticSelector.classSelector(
-                                "cubism.editor-model.modeling-document.class", internal(Document.class)),
+                                "cubism.editor-history.semantic.group.class", internal(GroupEntry.class)),
                         method(
-                                "cubism.editor-history.document.undo-manager",
-                                Document.class,
-                                "undoManager",
-                                desc(Manager.class)),
-                        StaticSelector.classSelector("cubism.editor-history.manager.class", internal(Manager.class)),
-                        method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
-                        method("cubism.editor-history.manager.position", Manager.class, "position", "()I"),
-                        method("cubism.editor-history.manager.can-undo", Manager.class, "canUndo", "()Z"),
-                        method("cubism.editor-history.manager.can-redo", Manager.class, "canRedo", "()Z"),
-                        method("cubism.editor-history.manager.move-to", Manager.class, "moveTo", "(I)V"),
-                        StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Entry.class)),
-                        method(
-                                "cubism.editor-history.entry.presentation-name",
-                                Entry.class,
-                                "presentationName",
-                                "()Ljava/lang/String;"),
-                        method("cubism.editor-history.entry.significant", Entry.class, "significant", "()Z"),
-                        method("cubism.editor-history.semantic.group.count", Entry.class, "count", "()I")),
-                Host.class.getClassLoader());
+                                "cubism.editor-history.semantic.group.edits",
+                                GroupEntry.class,
+                                "edits",
+                                "()Ljava/util/List;")));
+    }
+
+    private static VerifiedMemberResolver historyResolver(
+            final Set<String> capabilities, final List<StaticSelector> extraSelectors) {
+        final ArrayList<StaticSelector> selectors = new ArrayList<>(List.of(
+                StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)),
+                StaticSelector.staticMethod(
+                        "cubism.editor-model.app-controller.instance",
+                        internal(Host.class),
+                        "instance",
+                        desc(Host.class),
+                        StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
+                method(
+                        "cubism.editor-model.app-controller.current-document",
+                        Host.class,
+                        "currentDocument",
+                        desc(Document.class)),
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)),
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        desc(Manager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(Manager.class)),
+                method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
+                method("cubism.editor-history.manager.position", Manager.class, "position", "()I"),
+                method("cubism.editor-history.manager.can-undo", Manager.class, "canUndo", "()Z"),
+                method("cubism.editor-history.manager.can-redo", Manager.class, "canRedo", "()Z"),
+                method("cubism.editor-history.manager.move-to", Manager.class, "moveTo", "(I)V"),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Entry.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        Entry.class,
+                        "presentationName",
+                        "()Ljava/lang/String;"),
+                method("cubism.editor-history.entry.significant", Entry.class, "significant", "()Z"),
+                method("cubism.editor-history.semantic.group.count", Entry.class, "count", "()I")));
+        selectors.addAll(extraSelectors);
+        return TestVerifiedResolvers.create(
+                "5.3.02", "adapter.editor-model.readwrite", capabilities, selectors, Host.class.getClassLoader());
     }
 
     private static StaticSelector method(
@@ -526,10 +804,11 @@ class EditorHistorySnapshotProviderTest {
         }
     }
 
-    public static final class Entry {
+    public static class Entry {
         private String label;
         private final boolean significant;
         private int groupCount;
+        private int labelReads;
 
         Entry(final String label, final boolean significant) {
             this.label = label;
@@ -537,6 +816,7 @@ class EditorHistorySnapshotProviderTest {
         }
 
         public String presentationName() {
+            labelReads++;
             return label;
         }
 
@@ -546,6 +826,34 @@ class EditorHistorySnapshotProviderTest {
 
         public int count() {
             return groupCount;
+        }
+
+        int labelReads() {
+            return labelReads;
+        }
+    }
+
+    /** Exact-class native group whose children are appended after the first projection. */
+    public static final class GroupEntry extends Entry {
+        private final List<Entry> children = new ArrayList<>();
+        private int decodeReads;
+
+        GroupEntry(final String label) {
+            super(label, true);
+        }
+
+        public List<Entry> edits() {
+            decodeReads++;
+            return children;
+        }
+
+        @Override
+        public int count() {
+            return children.size();
+        }
+
+        int decodeReads() {
+            return decodeReads;
         }
     }
 }
