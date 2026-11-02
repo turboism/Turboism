@@ -14,6 +14,7 @@ final class NativeInteractionHost {
     record Geometry(List<float[]> interpolated, List<float[]> source, List<float[]> calculated,
                     List<List<float[]>> keyforms) { }
     record Camera(float scale, float x, float y, float z) { }
+    record CameraTransform(List<float[]> vectors) { }
     private final String fixture;
     private final Frame window;
     private final JComponent canvas;
@@ -165,6 +166,35 @@ final class NativeInteractionHost {
             out.append(Integer.toHexString(Float.floatToRawIntBits(values[i])));
         }
         out.append('\n');
+    }
+    CameraTransform cameraTransform() throws Exception {
+        check();
+        Object transform = call(call(manager, "getCamera"), "getTransform");
+        List<float[]> vectors = new ArrayList<>();
+        for (String field : List.of("Position", "EulerAngles", "Scale")) {
+            Object vector = call(transform, "get" + field);
+            vectors.add(new float[] {number(call(vector, "getX")), number(call(vector, "getY")),
+                number(call(vector, "getZ"))});
+        }
+        return new CameraTransform(List.copyOf(vectors));
+    }
+    /** Test-only exact viewport restoration, outside all measured interactions. */
+    void restoreCamera(Camera saved, CameraTransform savedTransform) throws Exception {
+        restoreCamera(saved);
+        Object transform = call(call(manager, "getCamera"), "getTransform");
+        restoreCameraTransform(transform, savedTransform, call(camera, "getCameraLookAt"), saved);
+    }
+    static void restoreCameraTransform(Object transform, CameraTransform savedTransform, Object lookAt, Camera saved)
+        throws Exception {
+        List<String> names = List.of("Position", "EulerAngles", "Scale");
+        for (int i = 0; i < names.size(); i++) {
+            float[] values = savedTransform.vectors().get(i);
+            call(call(transform, "get" + names.get(i)), "set",
+                new Class<?>[] {float.class, float.class, float.class}, values[0], values[1], values[2]);
+        }
+        // updateCamera can itself round the mutable wrapper look-at vector.
+        call(lookAt, "set",
+            new Class<?>[] {float.class, float.class, float.class}, saved.x(), saved.y(), saved.z());
     }
     void restoreCamera(Camera saved) throws Exception {
         check();
