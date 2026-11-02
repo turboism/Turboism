@@ -636,13 +636,7 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
         selectors.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
         selectors.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(UndoEntry.class)));
-        selectors.add(method(
-                "cubism.editor-history.entry.presentation-name",
-                UndoEntry.class,
-                "presentationName",
-                "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-history.entry.significant", UndoEntry.class, "significant", "()Z"));
+        selectors.addAll(EditorSelectorCatalog.historyEntrySelectors(UndoEntry.class));
         selectors.add(method(
                 "cubism.editor-model.edit-mode.begin",
                 EditMode.class,
@@ -792,14 +786,7 @@ class EditorInspectorWriteAccessTest {
                 DeformerForm.class,
                 "getScreenColor",
                 desc(FloatColor.class)));
-        selectors.add(method("cubism.editor-model.float-color.red", FloatColor.class, "getR", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.green", FloatColor.class, "getG", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.blue", FloatColor.class, "getB", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.alpha", FloatColor.class, "getA", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.set-red", FloatColor.class, "setR", "(F)V"));
-        selectors.add(method("cubism.editor-model.float-color.set-green", FloatColor.class, "setG", "(F)V"));
-        selectors.add(method("cubism.editor-model.float-color.set-blue", FloatColor.class, "setB", "(F)V"));
-        selectors.add(method("cubism.editor-model.float-color.set-alpha", FloatColor.class, "setA", "(F)V"));
+        selectors.addAll(EditorSelectorCatalog.floatColorSelectors(FloatColor.class));
         selectors.add(method(
                 "cubism.editor-model.parameter-controllable-source.id", ParamSource.class, "id", desc(Id.class)));
         selectors.add(method(
