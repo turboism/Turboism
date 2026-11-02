@@ -10,7 +10,7 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!NativeOptimizationPolicy.imageArchiveReuseEnabled(environment)) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
@@ -18,7 +18,7 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
                 host.artifact(),
                 NativeOptimizationPolicy.load(environment.options().home()),
                 true)) {
-            log(environment, id() + " installation=NOT_ADMITTED");
+            debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedImageArchiveReuseInstaller installer = new VerifiedImageArchiveReuseInstaller(
