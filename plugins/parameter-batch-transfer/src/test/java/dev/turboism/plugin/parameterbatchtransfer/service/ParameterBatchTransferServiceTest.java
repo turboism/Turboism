@@ -10,22 +10,11 @@ import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferStatus;
 import dev.turboism.plugin.parameterbatchtransfer.domain.BoundParameterSnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.BlendMode;
-import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Deformer;
-import dev.turboism.sdk.cubism.model.Deformers;
-import dev.turboism.sdk.cubism.model.Drawable;
-import dev.turboism.sdk.cubism.model.Drawables;
-import dev.turboism.sdk.cubism.model.FloatSequence;
-import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.MorphTarget;
-import dev.turboism.sdk.cubism.model.MorphTargets;
-import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
@@ -33,12 +22,11 @@ import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
 import dev.turboism.sdk.cubism.model.ParameterType;
-import dev.turboism.sdk.cubism.model.Parameters;
-import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.test.fake.FakeDrawable;
+import dev.turboism.test.fake.FakeParameter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -498,210 +486,13 @@ class ParameterBatchTransferServiceTest {
         assertEquals(1, model.batch.clampedPlans.size());
     }
 
-    private static final class FakeModel implements CubismModel {
-        final List<Parameter> parameters = new ArrayList<>();
-        final List<Drawable> drawables = new ArrayList<>();
-        final List<Deformer> deformers = new ArrayList<>();
+    private static final class FakeModel extends dev.turboism.test.fake.FakeModel {
         final FakeDrawable drawable = new FakeDrawable("mesh-1");
         final FakeBatch batch = new FakeBatch();
 
         FakeModel() {
             drawables.add(drawable);
-        }
-
-        @Override
-        public ModelId id() {
-            return new ModelId("model-1");
-        }
-
-        @Override
-        public Parameters parameters() {
-            return new Parameters() {
-                @Override
-                public List<Parameter> all() {
-                    return parameters;
-                }
-
-                @Override
-                public Parameter find(final ParameterId id) {
-                    return parameters.stream()
-                            .filter(value -> value.id().equals(id))
-                            .findFirst()
-                            .orElseThrow();
-                }
-            };
-        }
-
-        @Override
-        public Drawables drawables() {
-            return new Drawables() {
-                @Override
-                public List<Drawable> all() {
-                    return drawables;
-                }
-
-                @Override
-                public Drawable find(final ArtMeshId id) {
-                    return drawables.stream()
-                            .filter(value -> value.id().equals(id))
-                            .findFirst()
-                            .orElseThrow();
-                }
-            };
-        }
-
-        @Override
-        public Deformers deformers() {
-            return new Deformers() {
-                @Override
-                public List<Deformer> all() {
-                    return deformers;
-                }
-
-                @Override
-                public Deformer find(final DeformerId id) {
-                    return deformers.stream()
-                            .filter(value -> value.id().equals(id))
-                            .findFirst()
-                            .orElseThrow();
-                }
-            };
-        }
-
-        @Override
-        public Parts parts() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Glues glues() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void update() {}
-
-        @Override
-        public ParameterBindingBatchOperations parameterBindingBatch() {
-            return batch;
-        }
-    }
-
-    private static final class FakeDrawable implements Drawable {
-        final List<ParameterBinding> bindings = new ArrayList<>();
-        final List<MorphTarget> morphTargets = new ArrayList<>();
-        private final ArtMeshId id;
-
-        FakeDrawable(final String id) {
-            this.id = new ArtMeshId(id);
-        }
-
-        @Override
-        public ArtMeshId id() {
-            return id;
-        }
-
-        @Override
-        public byte constantFlag() {
-            return 0;
-        }
-
-        @Override
-        public byte dynamicFlag() {
-            return 0;
-        }
-
-        @Override
-        public BlendMode blendMode() {
-            return BlendMode.NORMAL;
-        }
-
-        @Override
-        public int textureIndex() {
-            return 0;
-        }
-
-        @Override
-        public int drawOrder() {
-            return 0;
-        }
-
-        @Override
-        public int renderOrder() {
-            return 0;
-        }
-
-        @Override
-        public float getOpacity() {
-            return 1f;
-        }
-
-        @Override
-        public IntSequence masks() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FloatSequence vertexPositions() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FloatSequence vertexUvs() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public IntSequence indices() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Color multiplyColor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Color screenColor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int parentPartIndex() {
-            return -1;
-        }
-
-        @Override
-        public int parentDeformerIndex() {
-            return -1;
-        }
-
-        @Override
-        public IntSequence parameters() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<ParameterBinding> getParameterBindings() {
-            return bindings;
-        }
-
-        @Override
-        public MorphTargets morphTargets() {
-            return new MorphTargets() {
-                @Override
-                public List<MorphTarget> all() {
-                    return morphTargets;
-                }
-
-                @Override
-                public MorphTarget find(final ParameterId id) {
-                    return morphTargets.stream()
-                            .filter(target -> target.parameterId().equals(id))
-                            .findFirst()
-                            .orElseThrow();
-                }
-            };
+            withParameterBindingBatch(batch);
         }
     }
 
@@ -768,83 +559,6 @@ class ParameterBatchTransferServiceTest {
         public List<ParameterBinding> getParameterBindings() {
             return bindings;
         }
-    }
-
-    private static final class FakeParameter implements Parameter {
-        final List<ParameterBinding> bindings = new ArrayList<>();
-        private final ParameterId id;
-        private final String name;
-        private final ParameterType type;
-        private final boolean combined;
-        private final float minimum;
-        private final float maximum;
-
-        FakeParameter(final String id, final String name, final ParameterType type, final boolean combined) {
-            this(id, name, type, combined, -1f, 1f);
-        }
-
-        FakeParameter(
-                final String id,
-                final String name,
-                final ParameterType type,
-                final boolean combined,
-                final float minimum,
-                final float maximum) {
-            this.id = new ParameterId(id);
-            this.name = name;
-            this.type = type;
-            this.combined = combined;
-            this.minimum = minimum;
-            this.maximum = maximum;
-        }
-
-        @Override
-        public ParameterId id() {
-            return id;
-        }
-
-        @Override
-        public Optional<String> name() {
-            return Optional.ofNullable(name);
-        }
-
-        @Override
-        public ParameterType type() {
-            return type;
-        }
-
-        @Override
-        public Optional<Boolean> combined() {
-            return Optional.of(combined);
-        }
-
-        @Override
-        public List<ParameterBinding> getParameterBindings() {
-            return bindings;
-        }
-
-        @Override
-        public float getValue() {
-            return 0f;
-        }
-
-        @Override
-        public float getMinimumValue() {
-            return minimum;
-        }
-
-        @Override
-        public float getMaximumValue() {
-            return maximum;
-        }
-
-        @Override
-        public float getDefaultValue() {
-            return 0f;
-        }
-
-        @Override
-        public void setValue(final float value) {}
     }
 
     private static final class RecordingLogger implements PluginLogger {

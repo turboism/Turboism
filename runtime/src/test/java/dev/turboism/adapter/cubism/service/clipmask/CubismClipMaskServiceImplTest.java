@@ -29,16 +29,12 @@ import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelId;
-import dev.turboism.sdk.cubism.model.BlendMode;
-import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
-import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.Glues;
-import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
@@ -223,7 +219,7 @@ class CubismClipMaskServiceImplTest {
                 List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
                 List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
         final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名", "ArtMesh_3");
-        drawable.failId = true;
+        drawable.failId();
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess(drawable));
         final CubismClipMaskService.ClipMaskRecord record =
                 service.collectClipMaskRecords().get(0);
@@ -237,7 +233,7 @@ class CubismClipMaskServiceImplTest {
                 List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
                 List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
         final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名");
-        drawable.failGuid = true;
+        drawable.failGuid();
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess(drawable));
 
         assertEquals("Face", service.collectClipMaskRecords().get(0).displayName());
@@ -248,7 +244,7 @@ class CubismClipMaskServiceImplTest {
         final FakeCubismRead read =
                 new FakeCubismRead(List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)), List.of());
         final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名");
-        drawable.failName = true;
+        drawable.failName();
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess(drawable));
 
         assertEquals("guid-aaa", service.collectClipMaskRecords().get(0).displayName());
@@ -521,6 +517,17 @@ class CubismClipMaskServiceImplTest {
     }
 
     /** Fake model access: drawables fully controlled; failure knobs for the active-model read. */
+    /** Drawable fixture preserving the (guid, name, id) argument order used by clip-mask tests. */
+    static final class FakeDrawable extends dev.turboism.test.fake.FakeDrawable {
+        FakeDrawable(final String guid, final String name) {
+            this(guid, name, guid);
+        }
+
+        FakeDrawable(final String guid, final String name, final String idValue) {
+            super(idValue, name, guid);
+        }
+    }
+
     static final class FakeCubismModelAccess implements CubismModelAccess {
         private final List<Drawable> drawables;
         boolean failActive;
@@ -582,126 +589,4 @@ class CubismClipMaskServiceImplTest {
     }
 
     /** Fake drawable with knobs to fail guid()/name()/id() per test. */
-    static final class FakeDrawable implements Drawable {
-        private final String guid;
-        private final String name;
-        private final String idValue;
-        boolean failGuid;
-        boolean failName;
-        boolean failId;
-
-        FakeDrawable(final String guid, final String name) {
-            this(guid, name, guid);
-        }
-
-        FakeDrawable(final String guid, final String name, final String idValue) {
-            this.guid = guid;
-            this.name = name;
-            this.idValue = idValue;
-        }
-
-        @Override
-        public ArtMeshId id() {
-            if (failId) {
-                throw new UnsupportedOperationException("id unavailable");
-            }
-            return idValue == null ? null : new ArtMeshId(idValue);
-        }
-
-        @Override
-        public String guid() {
-            if (failGuid) {
-                throw new UnsupportedOperationException("guid unavailable");
-            }
-            return guid;
-        }
-
-        @Override
-        public String name() {
-            if (failName) {
-                throw new UnsupportedOperationException("name unavailable");
-            }
-            return name;
-        }
-
-        @Override
-        public byte constantFlag() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public byte dynamicFlag() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BlendMode blendMode() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int textureIndex() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int drawOrder() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int renderOrder() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public float getOpacity() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public IntSequence masks() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FloatSequence vertexPositions() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public FloatSequence vertexUvs() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public IntSequence indices() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Color multiplyColor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Color screenColor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int parentPartIndex() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int parentDeformerIndex() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public IntSequence parameters() {
-            throw new UnsupportedOperationException();
-        }
-    }
 }
