@@ -40,7 +40,8 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`).
 - `:runtime`: 34 top-level `dev.turboism.*` packages, 123 top-level package
-  edges, 1 top-level cycle, 6 leaf-package cycles.
+  edges, 1 top-level cycle, 4 leaf-package cycles (6 before the `#70` step 3a
+  pilot; see below).
 - Production code has no dependency on `:plugins:*`; runtime test code does
   (`testImplementation` only), which the inventory keeps as a separate
   configuration instead of folding into the production graph.
@@ -56,10 +57,15 @@ changes. Candidate direction is a note, not a decision.
 | 5 | `core.{event,runtime,runtime.sidecar,runtime.work}`, `runtime.log` | logging is infrastructure: `core.runtime` should not own the direction of `runtime.log` |
 | 4 | `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | one of edit/transaction is the lower layer; split the history adapter out first |
 | 3 | `adapter.cubism`, `adapter.cubism.service.read`, `hostread` | `hostread` is a port: the adapter should depend on it, never the reverse |
-| 2 | `adapter`, `adapter.host` | `adapter` is a namespace package; the edge is a misplaced class |
-| 2 | `preview`, `preview.report` | one-way report rendering; merge or invert |
 
-At top-level granularity the six merge into a single 11-package cycle
+### Resolved (pilot, `#70` step 3a)
+
+| Cycle | How it was broken | Contract |
+| --- | --- | --- |
+| `adapter` ↔ `adapter.host` | `HostVerificationEvidence` (shared input) moved down into `dev.turboism.adapter` | `architecture/MODULE_CONTRACTS.md` |
+| `preview` ↔ `preview.report` | the runtime→document bridge moved up into `dev.turboism.preview`, leaving `report` a pure formatter | `architecture/MODULE_CONTRACTS.md` |
+
+At top-level granularity the six merged into a single 11-package cycle
 (`adapter`, `config`, `core`, `hostread`, `mapping`, `recentfile`,
 `recentpreview`, `runtime`, `screenshot`, `task`, `ui`), so a "break one edge at
 the top level" reading is misleading — the leaf list above is the actionable one.
@@ -69,8 +75,11 @@ the top level" reading is misleading — the leaf list above is the actionable o
 1. Pure persistence codec/migration kernel (already covered by the golden
    snapshots) — it has no cycle today, only composition-layer reach-through.
 2. Compatibility policy, after the `hostread`/`adapter` direction is inverted.
-3. Nothing else until the six cycles above are gone; moving files across a cycle
-   turns a local cycle into a cross-module cycle and makes the gate unusable.
+3. Nothing else until the remaining four cycles are gone; moving files across a
+   cycle turns a local cycle into a cross-module cycle and makes the gate
+   unusable. The two package-level pilots above show the process: contract first,
+   then the smallest possible move, then let the inventory prove the cycle is
+   gone.
 
 Every extraction adds one reviewable module contract (owner, allowed compile and
 runtime dependencies, public API, forbidden imports, threading/IO semantics,

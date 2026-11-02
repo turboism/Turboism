@@ -1,4 +1,4 @@
-package dev.turboism.adapter.host;
+package dev.turboism.adapter;
 
 import dev.turboism.mapping.verification.SliceContract;
 import java.nio.file.Path;
