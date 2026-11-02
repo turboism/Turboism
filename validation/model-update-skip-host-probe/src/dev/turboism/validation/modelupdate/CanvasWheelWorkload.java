@@ -43,6 +43,10 @@ final class CanvasWheelWorkload {
     private static final String COMPOSITE_PREDICATE = "turboism.canvas-composite.paint";
     private static final String COMPOSITE_GATE = "turboism.canvas-composite.gate";
     private static final String COMPOSITE_STATS = "turboism.canvas-composite.stats";
+    // Measurement-only clipping-mask probe: present only when the run installed it, so
+    // these keys document the mask/group cost of the measured legs.
+    private static final String CLIPMASK_STATS = "turboism.clip-mask-probe.stats";
+    private static final String CLIPMASK_DEDUPE_STATS = "turboism.clip-mask-dedupe.stats";
     private static final int WARMUP_PAIRS = 12;
     private static final int MEASURED_PAIRS = 100;
     // Calibration is diagnostic only. Its smaller sample count never satisfies acceptance.
@@ -320,6 +324,8 @@ final class CanvasWheelWorkload {
                 final Map<String, Long> elisionBefore = uploadElisionStats();
                 final Map<String, Long> stateBefore = stateElisionStats();
                 final Map<String, Long> uniformHookBefore = statsSlot(UNIFORM_STATS);
+                final Map<String, Long> clipMaskBefore = statsSlot(CLIPMASK_STATS);
+                final Map<String, Long> clipMaskDedupeBefore = statsSlot(CLIPMASK_DEDUPE_STATS);
                 final Map<String, Long> inputPathBefore = inputPathStats();
                 final Map<String, Long> compositeBefore = compositeStats();
                 final long[] nanos = new long[measuredPairs * 2];
@@ -488,6 +494,37 @@ final class CanvasWheelWorkload {
                         report.append(p).append("resources.").append(entry.getKey()).append('=')
                             .append(entry.getValue()).append('\n');
                     }
+                }
+                // Measurement-only mask/group counters, reported next to the leg's
+                // renderFramesPerSecond keys. Counter keys are leg deltas; the gauge
+                // (active) reports the absolute reading, and the per-rendered-frame
+                // values normalise the mask cost without post-processing.
+                final Map<String, Long> clipMaskAfter = statsSlot(CLIPMASK_STATS);
+                for (String key : clipMaskAfter.keySet().stream().sorted().toList()) {
+                    report.append(p).append("clipMask.").append(key).append('=')
+                        .append(key.equals("active")
+                            ? clipMaskAfter.get(key)
+                            : clipMaskAfter.get(key) - clipMaskBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                final long clipMaskFrames = clipMaskAfter.getOrDefault("frames", 0L)
+                    - clipMaskBefore.getOrDefault("frames", 0L);
+                if (clipMaskFrames > 0L) {
+                    report.append(p).append("clipMask.maskPassesPerRenderedFrame=")
+                        .append((double) (clipMaskAfter.getOrDefault("maskPasses", 0L)
+                            - clipMaskBefore.getOrDefault("maskPasses", 0L)) / clipMaskFrames).append('\n')
+                        .append(p).append("clipMask.maskPathNanosPerRenderedFrame=")
+                        .append((double) (clipMaskAfter.getOrDefault("maskPathNanos", 0L)
+                            - clipMaskBefore.getOrDefault("maskPathNanos", 0L)) / clipMaskFrames).append('\n')
+                        .append(p).append("clipMask.groupPassesPerRenderedFrame=")
+                        .append((double) (clipMaskAfter.getOrDefault("groupPasses", 0L)
+                            - clipMaskBefore.getOrDefault("groupPasses", 0L)) / clipMaskFrames).append('\n');
+                }
+                final Map<String, Long> clipMaskDedupeAfter = statsSlot(CLIPMASK_DEDUPE_STATS);
+                for (String key : clipMaskDedupeAfter.keySet().stream().sorted().toList()) {
+                    report.append(p).append("clipMaskDedupe.").append(key).append('=')
+                        .append(clipMaskDedupeAfter.get(key) - clipMaskDedupeBefore.getOrDefault(key, 0L))
+                        .append('\n');
                 }
                 if (uniformTrial != null) {
                     long completed = uniformTrial.snapshot().get("completedDisplayFrames")

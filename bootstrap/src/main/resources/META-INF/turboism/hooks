@@ -73,3 +73,9 @@ dev.turboism.bootstrap.ObjectContextMenuHookContributor
 dev.turboism.bootstrap.PhysicsEditorHookContributor
 dev.turboism.bootstrap.BoundingBoxOverlayHookContributor
 dev.turboism.bootstrap.ControlAppearanceHookContributor
+# Measurement-only clipping-mask/transparent-group probe. It injects no
+# behaviour: the woven bytes only consult JDK functional-interface slots, so it
+# composes with every transform above and is inert unless
+# -Dturboism.validation.clipMaskProbe=true selects it.
+dev.turboism.bootstrap.ClipMaskProbeHookContributor
+dev.turboism.bootstrap.ClipMaskDeduplicationHookContributor

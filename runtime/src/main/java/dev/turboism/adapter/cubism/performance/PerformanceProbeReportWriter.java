@@ -105,6 +105,10 @@ public final class PerformanceProbeReportWriter {
             metrics.put(metricName(metric), reading);
         });
         report.put("metrics", metrics);
+        final Map<String, Long> clipMask = ClipMaskProbeBridge.installedSnapshot();
+        if (!clipMask.isEmpty()) {
+            report.put("clipMask", new LinkedHashMap<>(clipMask));
+        }
         if (images)
             report.put(
                     "measurement",
