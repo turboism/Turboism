@@ -1,6 +1,5 @@
 package dev.turboism.adapter;
 
-import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.SliceContract;
 import dev.turboism.mapping.verification.SliceRegistry;

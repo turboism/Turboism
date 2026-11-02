@@ -1,4 +1,4 @@
-package dev.turboism.preview.report;
+package dev.turboism.preview;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -7,7 +7,9 @@ import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.preview.LocalPluginRuntime;
+import dev.turboism.preview.report.PreviewReportDocuments;
+import dev.turboism.preview.report.PreviewReportType;
+import dev.turboism.preview.report.PreviewReportValidator;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -600,7 +602,7 @@ public final class PreviewReportSnapshotFactory {
             }
             final ArrayNode missing = (ArrayNode) entry.get("missingKeys");
             for (RuntimePluginLocalization.MissingKeySnapshot value : snapshot.missingKeys()) {
-                final ObjectNode item = PreviewReportDocuments.JSON.createObjectNode();
+                final ObjectNode item = PreviewReportDocuments.json().createObjectNode();
                 item.put("key", value.key());
                 item.put("locale", value.locale());
                 item.put("marker", value.marker());
@@ -609,7 +611,7 @@ public final class PreviewReportSnapshotFactory {
             }
             final ArrayNode malformed = (ArrayNode) entry.get("malformedPatterns");
             for (RuntimePluginLocalization.MalformedPatternSnapshot value : snapshot.malformedPatterns()) {
-                final ObjectNode item = PreviewReportDocuments.JSON.createObjectNode();
+                final ObjectNode item = PreviewReportDocuments.json().createObjectNode();
                 item.put("key", value.key());
                 item.put("locale", value.locale());
                 item.put("code", value.code());
@@ -761,7 +763,7 @@ public final class PreviewReportSnapshotFactory {
         final String value;
         try {
             final com.fasterxml.jackson.databind.JsonNode record =
-                    PreviewReportDocuments.JSON.readTree(verificationRecord.toFile());
+                    PreviewReportDocuments.json().readTree(verificationRecord.toFile());
             final com.fasterxml.jackson.databind.JsonNode version = record.path("cubismVersion");
             if (!version.isTextual() || version.textValue().isBlank()) {
                 return "UNKNOWN";

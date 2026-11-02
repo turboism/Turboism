@@ -1,4 +1,4 @@
-package dev.turboism.preview.report;
+package dev.turboism.preview;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -9,7 +9,7 @@ import dev.turboism.adapter.host.HostSession;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.i18n.RuntimePluginLocalization;
-import dev.turboism.preview.LocalPluginRuntime;
+import dev.turboism.preview.report.PreviewReportType;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;

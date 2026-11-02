@@ -1,9 +1,9 @@
 package dev.turboism.preview;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.adapter.host.HostSession;
-import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -17,7 +17,6 @@ import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.CubismEditorReleaseDeclaration;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.preview.report.PreviewReportSnapshotFactory;
 import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.preview.report.PreviewReportWriter;
 import java.io.IOException;

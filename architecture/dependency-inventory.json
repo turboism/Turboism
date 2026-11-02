@@ -523,14 +523,6 @@
         "dev.turboism.adapter.cubism",
         "dev.turboism.adapter.cubism.service.read",
         "dev.turboism.hostread"
-      ],
-      [
-        "dev.turboism.adapter",
-        "dev.turboism.adapter.host"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.preview.report"
       ]
     ],
     "topPackageCycles": [
