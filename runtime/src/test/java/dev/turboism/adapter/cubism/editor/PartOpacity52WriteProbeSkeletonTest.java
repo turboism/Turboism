@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -146,15 +148,6 @@ class PartOpacity52WriteProbeSkeletonTest {
                 "editMode",
                 "()L" + internal(EditMode.class) + ";"));
         return List.copyOf(values);
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
     }
 
     private static final class Fixture {

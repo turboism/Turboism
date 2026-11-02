@@ -1,6 +1,10 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.type;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -99,46 +103,7 @@ class EditorMorphTargetAccessTest {
     }
 
     private static VerifiedMemberResolver resolver(final boolean includeCapability) {
-        final List<StaticSelector> selectors = new ArrayList<>();
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
-        selectors.add(StaticSelector.staticMethod(
-                "cubism.editor-model.app-controller.instance",
-                internal(Host.class),
-                "instance",
-                desc(Host.class),
-                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        selectors.add(method(
-                "cubism.editor-model.app-controller.current-document",
-                Host.class,
-                "currentDocument",
-                desc(Document.class)));
-        selectors.add(method(
-                "cubism.editor-model.app-controller.complete-pack",
-                Host.class,
-                "completePack",
-                desc(CompletePack.class)));
-        selectors.add(
-                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
-        selectors.add(method(
-                "cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
-        selectors.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
-        selectors.add(method(
-                "cubism.editor-model.edit-mode.begin",
-                EditMode.class,
-                "begin",
-                "(Ljava/lang/String;)" + type(GroupUndo.class)));
-        selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
-        selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
-        selectors.add(method(
-                "cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
-        selectors.add(
-                StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
-        selectors.add(method(
-                "cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
-        selectors.add(method(
-                "cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
-        selectors.add(
-                method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
+        final List<StaticSelector> selectors = new ArrayList<>(EditorSelectorCatalog.standardWriteSelectors());
         selectors.add(method(
                 "cubism.editor-model.parameter-controllable.morph-target-set",
                 ObjectSource.class,
@@ -225,23 +190,6 @@ class EditorMorphTargetAccessTest {
                         : java.util.Set.of("cubism.editor-model.read"),
                 selectors,
                 Host.class.getClassLoader());
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String type(final Class<?> type) {
-        return "L" + internal(type) + ";";
-    }
-
-    private static String desc(final Class<?> type) {
-        return "()" + type(type);
     }
 
     private static final class Fixture {

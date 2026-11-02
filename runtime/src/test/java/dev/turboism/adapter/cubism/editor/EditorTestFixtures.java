@@ -2895,133 +2895,10 @@ public final class EditorTestFixtures {
 
     public static List<StaticSelector> hierarchySelectors() {
         final List<StaticSelector> selectors = new ArrayList<>();
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
-        selectors.add(StaticSelector.staticMethod(
-                "cubism.editor-model.app-controller.instance",
-                internal(Host.class),
-                "instance",
-                desc(Host.class),
-                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        selectors.add(method(
-                "cubism.editor-model.app-controller.current-document",
-                Host.class,
-                "currentDocument",
-                desc(Document.class)));
-        selectors.add(method(
-                "cubism.editor-model.app-controller.complete-pack",
-                Host.class,
-                "completePack",
-                desc(CompletePack.class)));
-        selectors.add(method(
-                "cubism.editor-model.app-controller.update-manager",
-                Host.class,
-                "updateManager",
-                desc(UpdateManager.class)));
-        selectors.add(method("cubism.editor-model.app-controller.command-delete", Host.class, "commandDelete", "()V"));
-        selectors.add(method(
-                "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
-                Host.class,
-                "commandDeleteDeformerAndSetParam",
-                "()V"));
-        selectors.add(StaticSelector.classSelector(
-                "cubism.editor-model.update-manager.class", internal(UpdateManager.class)));
-        selectors.add(method(
-                "cubism.editor-model.update-manager.set-selection",
-                UpdateManager.class,
-                "setSelection",
-                "(Ljava/lang/Object;Ljava/util/List;ZZ)V"));
-        selectors.add(
-                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
-        selectors.add(method(
-                "cubism.editor-model.modeling-document.model-source",
-                Document.class,
-                "modelSource",
-                desc(ModelSource.class)));
-        selectors.add(method(
-                "cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
-        selectors.add(method(
-                "cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)));
-        selectors.add(method(
-                "cubism.editor-model.modeling-document.selector",
-                Document.class,
-                "selector",
-                desc(NativeSelector.class)));
-        selectors.add(method(
-                "cubism.editor-model.parameter-controllable-source.selection",
-                ObjectSource.class,
-                "selection",
-                desc(ObjectSource.class)));
-        selectors.add(method(
-                "cubism.editor-model.selector.replace-selected",
-                NativeSelector.class,
-                "replace",
-                "(Ljava/util/List;I)V"));
-        selectors.add(method(
-                "cubism.editor-model.selector.selected", NativeSelector.class, "selected", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
-        selectors.add(method(
-                "cubism.editor-model.edit-mode.begin",
-                EditMode.class,
-                "begin",
-                "(Ljava/lang/String;)" + type(GroupUndo.class)));
-        selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
-        selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
-        selectors.add(method(
-                "cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
-        selectors.add(
-                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
-        selectors.add(method(
-                "cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Ljava/lang/Boolean;"));
-        selectors.add(method(
-                "cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Ljava/lang/Boolean;"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GroupUndo.class)));
-        selectors.add(method(
-                "cubism.editor-history.entry.presentation-name",
-                GroupUndo.class,
-                "presentationName",
-                "()Ljava/lang/String;"));
-        selectors.add(method(
-                "cubism.editor-history.entry.significant", GroupUndo.class, "significant", "()Ljava/lang/Boolean;"));
-        selectors.add(
-                StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
-        selectors.add(method("cubism.editor-model.undo.execute-undo", Undo.class, "executeUndo", "()V"));
-        selectors.add(method("cubism.editor-model.undo.group-undo", GroupUndo.class, "groupUndo", "()V"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
-        selectors.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)));
-        selectors.add(method(
-                "cubism.editor-model.model-source.current-instance",
-                ModelSource.class,
-                "currentInstance",
-                desc(Model.class)));
-        selectors.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-model.part-id.value", Id.class, "value", "()Ljava/lang/String;"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-id.class", internal(Id.class)));
-        selectors.add(method(
-                "cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
-        selectors.add(method(
-                "cubism.editor-model.model-source.update-visible-lock-hierarchy",
-                ModelSource.class,
-                "updateVisibleAndLockHierarchy",
-                "()V"));
-        selectors.add(
-                method("cubism.editor-model.model-source.parts", ModelSource.class, "allParts", "()Ljava/util/List;"));
-        selectors.add(method(
-                "cubism.editor-model.model-source.all-deformers",
-                ModelSource.class,
-                "allDeformers",
-                "()Ljava/util/List;"));
-        selectors.add(method(
-                "cubism.editor-model.model-source.all-art-meshes",
-                ModelSource.class,
-                "allArtMeshes",
-                "()Ljava/util/List;"));
-        selectors.add(method(
-                "cubism.editor-model.model-source.all-objects", ModelSource.class, "allObjects", "()Ljava/util/List;"));
-        selectors.add(method(
-                "cubism.editor-model.model-source.handler", ModelSource.class, "handler", desc(ModelHandler.class)));
+        selectors.addAll(EditorSelectorCatalog.standardAppControllerSelectors());
+        selectors.addAll(EditorSelectorCatalog.standardDocumentSelectors());
+        selectors.addAll(EditorSelectorCatalog.standardHistorySelectors());
+        selectors.addAll(EditorSelectorCatalog.standardModelSelectors());
         selectors.add(method(
                 "cubism.editor-model.model-handler.add-source-undo",
                 ModelHandler.class,
@@ -3325,15 +3202,7 @@ public final class EditorTestFixtures {
                 GlueSource.class,
                 "targetB",
                 desc(ACDrawableSource.class)));
-        selectors.add(method(
-                "cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)));
-        selectors.add(method(
-                "cubism.editor-model.parameter-set.parameters",
-                ParameterSet.class,
-                "parameters",
-                "()Ljava/util/List;"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.parameter.class", internal(Parameter.class)));
-        selectors.add(method("cubism.editor-model.parameter.id", Parameter.class, "id", desc(Id.class)));
+        selectors.addAll(EditorSelectorCatalog.standardParameterSelectors());
         selectors.add(method(
                 "cubism.editor-model.parameter-controllable-source.visible", ObjectSource.class, "visible", "()Z"));
         selectors.add(method(

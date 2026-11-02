@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -159,19 +162,6 @@ class NativeHistoryDecoderRegistryTest {
                         desc(Parameter.class)),
                 method("cubism.editor-model.parameter-source.id", Parameter.class, "id", desc(HostId.class)),
                 method("cubism.editor-model.id.value", HostId.class, "value", "()Ljava/lang/String;"));
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String desc(final Class<?> type) {
-        return "()L" + internal(type) + ";";
     }
 
     public static class BaseEntry {

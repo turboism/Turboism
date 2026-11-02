@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -12,6 +13,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
 import dev.turboism.sdk.cubism.model.ModelEditLevel;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -97,61 +99,12 @@ class EditorModelEditLevelAccessTest {
                         EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
                         EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID)
                 : Set.of("cubism.editor-model.read", EditorModelEditLevelReadSelectorContract.CAPABILITY_ID);
+        final List<StaticSelector> selectors = new ArrayList<>(EditorSelectorCatalog.standardModelReadSelectors());
+        selectors.add(method("cubism.editor-model.app-controller.edit-level", Host.class, "editLevel", "()I"));
+        selectors.add(
+                method("cubism.editor-model.app-controller.set-edit-level", Host.class, "commandSetEditLevel", "(I)V"));
         return TestVerifiedResolvers.create(
-                "5.3.02",
-                "adapter.editor-model.readwrite",
-                capabilities,
-                List.of(
-                        StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)),
-                        StaticSelector.staticMethod(
-                                "cubism.editor-model.app-controller.instance",
-                                internal(Host.class),
-                                "instance",
-                                desc(Host.class),
-                                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
-                        method(
-                                "cubism.editor-model.app-controller.current-document",
-                                Host.class,
-                                "currentDocument",
-                                desc(Document.class)),
-                        method("cubism.editor-model.app-controller.edit-level", Host.class, "editLevel", "()I"),
-                        method(
-                                "cubism.editor-model.app-controller.set-edit-level",
-                                Host.class,
-                                "commandSetEditLevel",
-                                "(I)V"),
-                        StaticSelector.classSelector(
-                                "cubism.editor-model.modeling-document.class", internal(Document.class)),
-                        method(
-                                "cubism.editor-model.modeling-document.model-source",
-                                Document.class,
-                                "modelSource",
-                                desc(ModelSource.class)),
-                        StaticSelector.classSelector(
-                                "cubism.editor-model.model-source.class", internal(ModelSource.class)),
-                        method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
-                        method(
-                                "cubism.editor-model.model-source.current-instance",
-                                ModelSource.class,
-                                "currentInstance",
-                                desc(Model.class)),
-                        StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)),
-                        StaticSelector.classSelector("cubism.editor-model.guid.class", internal(Id.class)),
-                        method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;")),
-                Host.class.getClassLoader());
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String desc(final Class<?> type) {
-        return "()L" + internal(type) + ";";
+                "5.3.02", "adapter.editor-model.readwrite", capabilities, selectors, Host.class.getClassLoader());
     }
 
     static final class Fixture {
