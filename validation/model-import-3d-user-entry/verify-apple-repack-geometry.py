@@ -2,7 +2,6 @@
 """Compare all repacked source bytes against the accepted first native packing."""
 import hashlib
 import json
-from pathlib import Path
 import numpy as np
 
 

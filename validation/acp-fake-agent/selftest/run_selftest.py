@@ -21,7 +21,7 @@ import urllib.request
 
 SELFTEST_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(SELFTEST_DIR))
-import stub_mcp_server  # noqa: E402
+import stub_mcp_server  # noqa: E402,F401  (fail-fast import check)
 
 EXPECTED_ASSERTIONS = [
     "mcpServersStdio",

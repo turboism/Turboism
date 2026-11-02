@@ -1,6 +1,11 @@
 """Outer archive dispatch tests; lifecycle and semantic oracles substituted explicitly."""
 from pathlib import Path
-import importlib.util,io,json,tarfile,tempfile,unittest
+import importlib.util
+import io
+import json
+import tarfile
+import tempfile
+import unittest
 from unittest.mock import patch
 P=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('surface_admission',P/'verify-host.py')

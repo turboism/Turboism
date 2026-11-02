@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Compare nine Cat captures with original-face XYZ depth rendering, without a tolerance gate."""
-import argparse, hashlib, json, runpy, shutil, struct, subprocess
+import argparse
+import hashlib
+import json
+import runpy
+import shutil
+import struct
+import subprocess
 from pathlib import Path
 import numpy as np
 from PIL import Image

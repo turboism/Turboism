@@ -3,7 +3,10 @@
 
 This does not admit a GLB for production import or prove native visibility.
 """
-import argparse,hashlib,json,struct
+import argparse
+import hashlib
+import json
+import struct
 from pathlib import Path
 import numpy as np
 

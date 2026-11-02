@@ -5,7 +5,10 @@ Uses the frozen reference camera, all pixel centers, no boundary exclusions.
 Reports diagnostic depth in source units and pixel-equivalent scale; depth error
 is not projected-vertex error. Does not validate UV, native interpolation or materials.
 """
-import argparse,hashlib,importlib.util,json
+import argparse
+import hashlib
+import importlib.util
+import json
 from pathlib import Path
 import numpy as np
 from PIL import Image

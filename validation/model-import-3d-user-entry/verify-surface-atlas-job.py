@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Admit the exact frozen surface repack/packed save/export job, containment, artifacts and strict SDK report."""
-import argparse,hashlib,json,runpy,tarfile
+import argparse
+import hashlib
+import json
+import runpy
+import tarfile
 from pathlib import Path
 PREFIX='state/dev.turboism.validation.model-import-3d-user-entry/'
 def require(ok,why):

@@ -4,7 +4,10 @@
 Two or more front-facing hits must differ by >1e-5 source units; shared-edge and
 coplanar depth ties do not count. No image boundary mask or model reduction.
 """
-import argparse,hashlib,json,struct
+import argparse
+import hashlib
+import json
+import struct
 from pathlib import Path
 import numpy as np
 from PIL import Image

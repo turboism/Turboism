@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Classify missing coverage without excluding any pixels from existing metrics."""
-import argparse,hashlib,json
+import argparse
+import hashlib
+import json
 from pathlib import Path
 import numpy as np
 from PIL import Image

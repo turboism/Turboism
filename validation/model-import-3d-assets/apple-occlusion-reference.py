@@ -5,7 +5,11 @@ Diagnostic ownership colors are not materials or a Cubism render. No simplificat
 backface culling, or average-depth sorting is used. Each component is rasterized
 independently to measure visibility swaps that one whole-component order cannot express.
 """
-import argparse,hashlib,json,struct,time
+import argparse
+import hashlib
+import json
+import struct
+import time
 from pathlib import Path
 import numpy as np
 from PIL import Image

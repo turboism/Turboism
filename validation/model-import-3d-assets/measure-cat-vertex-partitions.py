@@ -2,7 +2,13 @@
 """Independent source-depth comparison of complete source-face painter candidates.
 Never native acceptance; every pixel center and original triangle is included.
 """
-import argparse,hashlib,json,struct,subprocess,io,shutil
+import argparse
+import hashlib
+import json
+import struct
+import subprocess
+import io
+import shutil
 from pathlib import Path
 import numpy as np
 from PIL import Image

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Finite chart26 bound edit/save evidence; full Apple editing and reopen remain separate gates."""
-import collections,hashlib,json,math,struct,sys
+import collections
+import hashlib
+import json
+import math
+import struct
+import sys
 from pathlib import Path
 
 def oriented(ix):

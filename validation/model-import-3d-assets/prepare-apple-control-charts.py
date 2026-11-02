@@ -4,7 +4,11 @@
 Texture UV and source position/index remain separate from chart coordinates. This
 is a sidecar for fitting; it does not replace the mesh or claim Cubism Warp fidelity.
 """
-import argparse,hashlib,importlib.util,json,struct
+import argparse
+import hashlib
+import importlib.util
+import json
+import struct
 from pathlib import Path
 import numpy as np
 OBJ_SHA='afbb79c4d618431ee505f1dbac4553401f36669b4a71b28336975768f73bca34'

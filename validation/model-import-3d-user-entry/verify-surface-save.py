@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """Independent surface menu/save content gate; process, reopen and export remain separate."""
-import argparse
 import hashlib
-import json
-import runpy
-from pathlib import Path
 
 MAX_BYTES = 64 * 1024 * 1024
 

@@ -2,7 +2,9 @@
 
 Does not fit captured coordinates; raster visibility is outside this geometry gate.
 """
-import argparse,hashlib,json,math,struct
+import argparse
+import hashlib
+import json
 from pathlib import Path
 import numpy as np
 import runpy

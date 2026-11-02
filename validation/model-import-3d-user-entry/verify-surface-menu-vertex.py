@@ -8,7 +8,11 @@ checks structure, source identity, bindings, history and frame protocol but
 does NOT reimplement the ellipse interpolation math, so exact stored-position
 and pixel oracles are marked NOT_VERIFIED.
 """
-import hashlib,json,math,re,runpy,struct,zlib
+import hashlib
+import json
+import re
+import runpy
+import struct
 from pathlib import Path
 
 HERE=Path(__file__).resolve().parent

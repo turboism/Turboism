@@ -8,7 +8,7 @@
   - `src/test/java/dev/turboism/tests/plugin/` — `*Probe` 探针与其 `*Test` verdict 配对测试。惯例：每个探针至少有一个测试覆盖其 verdict 判定核心路径；环境依赖用 `Assumptions` 门控。
   - `src/test/java/dev/turboism/tests/validation/` — `WorkspaceValidationAgent` / `WorkspaceValidationUi`：打包进 workspace-validation bundle、在真实 Cubism Editor 内运行的宿主探针 agent（例外：名字带 validation 但物理上属于本模块，历史遗留）。
 - `test-support/` — Gradle 模块 `:testing:test-support`，共享测试基础设施。
-- `host-validation/` — 宿主验证 agent 源码（`image-archive/src/...` 的 11 个 `Native*HostAgent`/`Observation`/`Audit`）与各场景的 `config.json`（`float-array`、`image-archive`、`mesa-gl-thread`、`mesa-gl-thread-off`、`texture-upload`），由 `scripts/preview/host_validation.py` 驱动，仅 Linux + Proton + 正版 Cubism Editor 环境可运行。`experiments/` 为一次性原型代码。
+- `host-validation/` — 宿主验证 agent 源码（`image-archive/src/...` 的 11 个 `Native*HostAgent`/`Observation`/`Audit`）与各场景的 `config.json`（`float-array`、`image-archive`、`mesa-gl-thread`、`mesa-gl-thread-off`、`texture-upload`），由 `scripts/preview/host_validation.py` 驱动，仅 Linux + Proton + 正版 Cubism Editor 环境可运行。
 
 ## 新代码放哪
 

@@ -3,7 +3,10 @@
 
 Does not route around production import admission: no host or importer is called.
 """
-import argparse,hashlib,json,struct
+import argparse
+import hashlib
+import json
+import struct
 from pathlib import Path
 import numpy as np
 SHA='54331e29af9a3ca07f11017712ce9156208a8ae8538b0a80b78e8c5eb8a894e0'

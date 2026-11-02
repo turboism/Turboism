@@ -1,5 +1,9 @@
 from pathlib import Path
-import runpy,copy,json,io,argparse
+import runpy
+import copy
+import json
+import io
+import argparse
 import numpy as np
 from PIL import Image
 parser=argparse.ArgumentParser(description='Synthetic strict checker regressions; no native or pixel acceptance')

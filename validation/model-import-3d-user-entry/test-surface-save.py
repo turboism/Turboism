@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Synthetic surface SAVE_AS receipt corruptions; no native acceptance claim."""
-import copy,hashlib,json,runpy,tempfile
+import copy
+import hashlib
+import json
+import runpy
+import tempfile
 from pathlib import Path
 V=runpy.run_path(str(Path(__file__).with_name('verify-surface-save.py')))
 with tempfile.TemporaryDirectory(prefix='mi3d-surface-save-') as tmp:

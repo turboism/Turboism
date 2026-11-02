@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Synthetic atlas/source/UV/persistence/export corruptions; never native acceptance."""
-import argparse,copy,hashlib,json,runpy,struct,tempfile
+import argparse
+import copy
+import json
+import runpy
+import struct
+import tempfile
 from pathlib import Path
 import numpy as np
 from PIL import Image

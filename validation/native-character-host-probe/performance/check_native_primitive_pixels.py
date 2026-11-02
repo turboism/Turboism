@@ -3,7 +3,11 @@
 Only stable 3x3 interiors are compared; filtered texture/AA boundaries are counted as excluded.
 Uses fixture plan exports once, never rebuilds or reruns import. Requires numpy and Pillow.
 """
-import argparse,csv,json,re,math
+import argparse
+import csv
+import json
+import re
+import math
 from pathlib import Path
 import numpy as np
 from PIL import Image

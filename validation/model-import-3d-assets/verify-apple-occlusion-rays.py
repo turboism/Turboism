@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Cross-check raster witnesses using independent Moller-Trumbore source-space rays."""
 from pathlib import Path
-import argparse,hashlib,json,struct
+import argparse
+import hashlib
+import json
+import struct
 import numpy as np
 
 def verify(source,reference):

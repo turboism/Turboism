@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Fresh-process persistence for the bounded chart26 replacement; not full Apple acceptance."""
-import hashlib,json,sys
+import hashlib
+import json
+import sys
 from pathlib import Path
 
 def digest(path):

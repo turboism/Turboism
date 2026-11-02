@@ -3,7 +3,12 @@
 
 Diagnostic only: include every pixel, retain AA differences; no acceptance tolerance.
 """
-import argparse, hashlib, json, runpy, shutil, subprocess
+import argparse
+import hashlib
+import json
+import runpy
+import shutil
+import subprocess
 from pathlib import Path
 import numpy as np
 from PIL import Image
