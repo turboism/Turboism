@@ -546,7 +546,17 @@ final class CoreWindows implements AutoCloseable {
         if (control instanceof SettingsControl.Note note) {
             final JLabel caption = new JLabel(note.label());
             caption.setFont(caption.getFont().deriveFont(caption.getFont().getSize2D() - 2.0f));
-            caption.setEnabled(false);
+            final boolean hasTooltip = CubismJvmSettingsContribution.tooltipKey(note.id())
+                    .filter(i18n::contains)
+                    .isPresent();
+            if (hasTooltip) {
+                // A disabled component does not deliver hover events; keep the
+                // recommendation note enabled but visually muted so its tooltip
+                // can be discovered.
+                caption.setForeground(javax.swing.UIManager.getColor("Label.disabledForeground"));
+            } else {
+                caption.setEnabled(false);
+            }
             applyControlTooltip(note.id(), caption);
             add(panel, row, caption, new JLabel());
             return () -> true;

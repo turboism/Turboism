@@ -407,6 +407,7 @@ class DeclarativeSettingsRendererTest {
                 .filter(label -> control.label().equals(label.getText()))
                 .findFirst()
                 .orElseThrow();
+        assertTrue(caption.isEnabled(), "the recommendation note must be hoverable");
         assertTrue(caption.getToolTipText() != null
                 && caption.getToolTipText().contains("settings.performance.recommendation.tooltip"));
     }
