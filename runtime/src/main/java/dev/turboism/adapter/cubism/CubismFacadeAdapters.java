@@ -238,6 +238,13 @@ final class CubismFacadeAdapters {
                     }
 
                     @Override
+                    public boolean isVisible() {
+                        // Plain visibility query: it must stay answerable so a polling
+                        // plugin can skip host reads, and it never touches host state.
+                        return panel.isVisible();
+                    }
+
+                    @Override
                     public void close() {
                         facade.requireActiveScope();
                         panel.close();
