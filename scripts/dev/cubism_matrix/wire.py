@@ -354,15 +354,112 @@ def _strip_marked(text: str, key: str) -> str:
     )
 
 
+def _method_name(name: str) -> str:
+    return name[0].lower() + name[1:]
+
+
 def _set_literal(name: str, values: list[str]) -> str:
-    # Emit a lazy method rather than a static Set.of field: seventeen ~860-item
-    # literal sets in one <clinit> exceeds the 64KB per-method bytecode limit.
+    # Emit a lazy method rather than a static Set.of field: every literal set in
+    # one <clinit> would exceed the 64KB per-method bytecode limit.
     items = ",\n            ".join(f'"{v}"' for v in values)
-    method = name[0].lower() + name[1:]
+    method = _method_name(name)
     return (
         f"    private static Set<String> {method}() {{\n"
         f"        return Set.of(\n            {items}\n        );\n    }}"
     )
+
+
+def _set_union(name: str, parent: str, values: list[str]) -> str:
+    """Emit a canonical set as a parent set plus the version-specific additions."""
+    items = ",\n            ".join(f'"{v}"' for v in values)
+    method = _method_name(name)
+    parent_method = _method_name(parent)
+    return (
+        f"    private static Set<String> {method}() {{\n"
+        f"        return union({parent_method}(), Set.of(\n"
+        f"            {items}\n"
+        "        ));\n"
+        "    }"
+    )
+
+
+def _set_delegate(name: str, canonical: str) -> str:
+    """Emit a backward-compatible version accessor for a shared canonical set."""
+    return (
+        f"    private static Set<String> {_method_name(name)}() {{\n"
+        f"        return {_method_name(canonical)}();\n"
+        "    }"
+    )
+
+
+def _shared_version_sets(
+    versions: list[str], values_by_version: dict[str, set[str]]
+) -> tuple[
+    list[tuple[frozenset[str], list[str]]],
+    dict[str, int],
+    list[int | None],
+]:
+    """Group versions by identical set content and pick each group's parent.
+
+    A group reuses the largest proper-subset group as its base and emits only
+    the additions. This keeps a nested evolution (for example 5.0 -> 5.3)
+    linear in the cumulative delta rather than copying every full set.
+    """
+    groups: list[tuple[frozenset[str], list[str]]] = []
+    by_value: dict[frozenset[str], int] = {}
+    version_group: dict[str, int] = {}
+    for version in versions:
+        value = frozenset(values_by_version[version])
+        index = by_value.get(value)
+        if index is None:
+            index = len(groups)
+            by_value[value] = index
+            groups.append((value, []))
+        groups[index][1].append(version)
+        version_group[version] = index
+    parents: list[int | None] = []
+    for index, (value, _members) in enumerate(groups):
+        candidates = [
+            (len(other), other_index)
+            for other_index, (other, _other_members) in enumerate(groups)
+            if other_index != index and other < value
+        ]
+        parents.append(
+            max(candidates, key=lambda candidate: (candidate[0], -candidate[1]))[1]
+            if candidates
+            else None
+        )
+    return groups, version_group, parents
+
+
+def _version_set_methods(
+    versions: list[str],
+    values_by_version: dict[str, set[str]],
+    suffix: str,
+) -> list[str]:
+    """Emit one accessor per version, sharing canonical sets through union deltas."""
+    groups, version_group, parents = _shared_version_sets(versions, values_by_version)
+    representatives = [members[0] for _value, members in groups]
+    methods = []
+    for version in versions:
+        index = version_group[version]
+        name = f"Cubism{vtag(version)}{suffix}"
+        canonical = f"Cubism{vtag(representatives[index])}{suffix}"
+        if version != representatives[index]:
+            methods.append(_set_delegate(name, canonical))
+        elif parents[index] is None:
+            methods.append(_set_literal(name, sorted(groups[index][0])))
+        else:
+            parent_index = parents[index]
+            parent = f"Cubism{vtag(representatives[parent_index])}{suffix}"
+            methods.append(
+                _set_union(
+                    name,
+                    parent,
+                    sorted(groups[index][0] - groups[parent_index][0]),
+                )
+            )
+    return methods
 
 
 def wire_editor_model(
@@ -416,14 +513,23 @@ def wire_editor_model(
         + "\n    );"
     )
     text = text[: match.start()] + repl + text[match.end() :]
-    # per-version literal sets + forArtifact arms
-    sets = []
-    for version in versions:
-        record = emitted_record("editor-model", version)
-        caps = sorted(record["capabilityIds"])
-        aliases = sorted(s["alias"] for s in record["selectors"])
-        sets.append(_set_literal(f"Cubism{vtag(version)}Capabilities", caps))
-        sets.append(_set_literal(f"Cubism{vtag(version)}Aliases", aliases))
+    # per-version accessors over canonical sets + forArtifact arms
+    records = {version: emitted_record("editor-model", version) for version in versions}
+    sets = _version_set_methods(
+        versions,
+        {version: set(record["capabilityIds"]) for version, record in records.items()},
+        "Capabilities",
+    )
+    sets.extend(
+        _version_set_methods(
+            versions,
+            {
+                version: {selector["alias"] for selector in record["selectors"]}
+                for version, record in records.items()
+            },
+            "Aliases",
+        )
+    )
     anchor = "    static PinnedVerifiedResolverWorkflow.Manifest forArtifact("
     idx = text.index(anchor)
     text = (
