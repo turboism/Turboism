@@ -215,6 +215,31 @@ public final class EditorSelectorCatalog {
                 method("cubism.editor-model.parameter.id", Parameter.class, "id", desc(Id.class)));
     }
 
+    /** Undo history entry identity, presentation name, and significance for one entry type. */
+    public static List<StaticSelector> historyEntrySelectors(final Class<?> entryType) {
+        return List.of(
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(entryType)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        entryType,
+                        "presentationName",
+                        "()Ljava/lang/String;"),
+                method("cubism.editor-history.entry.significant", entryType, "significant", "()Z"));
+    }
+
+    /** Drawable/deformer form colour routes for a specific host colour shim. */
+    public static List<StaticSelector> floatColorSelectors(final Class<?> floatColorType) {
+        return List.of(
+                method("cubism.editor-model.float-color.red", floatColorType, "getR", "()F"),
+                method("cubism.editor-model.float-color.green", floatColorType, "getG", "()F"),
+                method("cubism.editor-model.float-color.blue", floatColorType, "getB", "()F"),
+                method("cubism.editor-model.float-color.alpha", floatColorType, "getA", "()F"),
+                method("cubism.editor-model.float-color.set-red", floatColorType, "setR", "(F)V"),
+                method("cubism.editor-model.float-color.set-green", floatColorType, "setG", "(F)V"),
+                method("cubism.editor-model.float-color.set-blue", floatColorType, "setB", "(F)V"),
+                method("cubism.editor-model.float-color.set-alpha", floatColorType, "setA", "(F)V"));
+    }
+
     /**
      * Compact read-only baseline used by model edit-level tests: controller identity, document
      * model-source projection, model identity, and GUID access.

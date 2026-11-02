@@ -757,14 +757,6 @@ public class EditorInspectorDrawableWriteTest {
                         Form.class,
                         "screenColor",
                         desc(FloatColor.class)),
-                method("cubism.editor-model.float-color.red", FloatColor.class, "getR", "()F"),
-                method("cubism.editor-model.float-color.green", FloatColor.class, "getG", "()F"),
-                method("cubism.editor-model.float-color.blue", FloatColor.class, "getB", "()F"),
-                method("cubism.editor-model.float-color.alpha", FloatColor.class, "getA", "()F"),
-                method("cubism.editor-model.float-color.set-red", FloatColor.class, "setR", "(F)V"),
-                method("cubism.editor-model.float-color.set-green", FloatColor.class, "setG", "(F)V"),
-                method("cubism.editor-model.float-color.set-blue", FloatColor.class, "setB", "(F)V"),
-                method("cubism.editor-model.float-color.set-alpha", FloatColor.class, "setA", "(F)V"),
                 method(
                         "cubism.editor-model.art-mesh-source.set-color-composition",
                         ArtMeshSource.class,
@@ -874,6 +866,7 @@ public class EditorInspectorDrawableWriteTest {
                 StaticSelector.classSelector("cubism.editor-model.glue-source.class", internal(ObjectSource.class)),
                 method("cubism.editor-model.glue-source.target-art-mesh-a", ObjectSource.class, "id", desc(Id.class)),
                 method("cubism.editor-model.glue-source.target-art-mesh-b", ObjectSource.class, "id", desc(Id.class))));
+        selectors.addAll(EditorSelectorCatalog.floatColorSelectors(FloatColor.class));
         if (!"5.2.03".equals(version)) {
             selectors.add(StaticSelector.staticMethod(
                     "cubism.editor-model.alpha-composition.values",
