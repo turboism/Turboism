@@ -51,6 +51,7 @@ final class CubismJvmSettingsContribution {
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
                     case "cubism-memory-profile" -> "settings.cubism-jvm.memory-profile.tooltip";
+                    case "performance-recommendation" -> "settings.performance.recommendation.tooltip";
                     default -> null;
                 });
     }
@@ -216,6 +217,21 @@ final class CubismJvmSettingsContribution {
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
                 OptionalInt.of(60),
                 new SettingsControl.Note("performance-restart-note", i18n.text("settings.performance.restart-note")));
+    }
+
+    /**
+     * Recommended opt-in profile based on the large-model measurements. Defaults
+     * remain off; the note and its tooltip explain the two non-conflicting branches
+     * and the upload/uniform exclusion.
+     */
+    static SettingsContribution createPerformanceRecommendationNote(final PluginLocalization i18n) {
+        Objects.requireNonNull(i18n, "i18n");
+        return new SettingsContribution(
+                "performance-recommendation",
+                new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
+                OptionalInt.of(61),
+                new SettingsControl.Note(
+                        "performance-recommendation", i18n.text("settings.performance.recommendation")));
     }
 
     /**

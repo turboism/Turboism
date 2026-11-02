@@ -236,6 +236,11 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceRecommendationNote(
+                                localization(context))));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
                         .contributeSettings(MeshTriangulationSettingsContribution.create(
                                 localization(context), services.meshTriangulationSettings())));
         context.disposableScope()
