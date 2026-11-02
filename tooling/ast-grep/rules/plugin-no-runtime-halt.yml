@@ -1,0 +1,10 @@
+id: plugin-no-runtime-halt
+language: Java
+severity: error
+message: Plugins must not forcibly halt the Cubism JVM.
+files:
+  - plugins/**/src/main/java/**/*.java
+rule:
+  any:
+    - pattern: Runtime.getRuntime().halt($STATUS)
+    - pattern: java.lang.Runtime.getRuntime().halt($STATUS)
