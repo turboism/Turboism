@@ -98,6 +98,33 @@ final class TurboismAgentUploadElisionAdmissionTest {
     }
 
     @Test
+    void productionFlagInstallsNothingWhenUniformLocationCacheIsEnabled() throws Exception {
+        withProperty(
+                SkippedFrameUploadElisionBridge.ENABLE_PROPERTY,
+                "true",
+                () -> withProperty(
+                        dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge.ENABLE_PROPERTY,
+                        "true",
+                        () -> withProperty(
+                                dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge
+                                        .ENABLE_PROPERTY,
+                                "true",
+                                () -> {
+                                    final var contributor = new SkippedFrameUploadElisionHookContributor();
+                                    try {
+                                        assertNotNull(contributor.installAdmitted(environment(true)));
+                                    } catch (Exception failure) {
+                                        throw new AssertionError(failure);
+                                    }
+                                    assertFalse(
+                                            System.getProperties()
+                                                    .containsKey(SkippedFrameUploadElisionBridge.PREDICATE_PROPERTY),
+                                            "uniform-location frame invalidation makes upload elision unsafe");
+                                })));
+        dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge.setConfiguredDefault(false);
+    }
+
+    @Test
     void productionFlagOnWithoutHostFailsSafe() {
         withProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY, "true", () -> {
             final var contributor = new SkippedFrameUploadElisionHookContributor();

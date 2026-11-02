@@ -16,6 +16,7 @@ public final class PerformanceSettingsConfig {
     public enum Field {
         MODEL_UPDATE_SKIP("modelUpdateSkip", true, "false"),
         INCREMENTAL_UPDATE("incrementalUpdate", true, "false"),
+        INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters", true, "false"),
         UNIFORM_LOCATION_CACHE("uniformLocationCache", true, "false"),
         UPLOAD_ELISION("uploadElision", true, "false"),
         INPUT_PATH_ELISION("inputPathElision", true, "false"),

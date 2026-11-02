@@ -62,6 +62,11 @@ final class CanvasWheelWorkload {
     private UniformLocationTrial uniformTrial;
     private NarrowUniformTrial narrowTrial;
     private java.util.concurrent.Callable<String> viewMetadata;
+    private NativeInteractionHost cameraHost;
+    private NativeInteractionHost.Camera cameraBaseline;
+    private NativeInteractionHost.CameraTransform cameraTransformBaseline;
+    private String cameraMetadataBaseline;
+    private final boolean exactCamera = Boolean.getBoolean("turboism.validation.exactCameraBaseline");
     private long measuredQueueNanos, measuredHandlerNanos, measuredRepaintBarrierNanos,
         measuredResumeNanos;
 
@@ -89,6 +94,19 @@ final class CanvasWheelWorkload {
         final int warmupPairs = calibration ? 2 : WARMUP_PAIRS;
         final int measuredPairs = calibration ? 8 : MEASURED_PAIRS;
         Files.writeString(state.resolve("wheel-progress.txt"), "stage=canvas-ready\n");
+        onEdt(() -> {
+            // The model/appearance plugins can settle the canvas by one pixel
+            // after the initial discovery; bind the workload and camera
+            // baseline to the final layout.
+            width = canvas.getWidth();
+            height = canvas.getHeight();
+            cameraHost = new NativeInteractionHost(fixture, window, canvas);
+            cameraBaseline = cameraHost.camera();
+            cameraTransformBaseline = cameraHost.cameraTransform();
+            cameraMetadataBaseline = cameraHost.captureMetadata();
+            return null;
+        });
+        Files.writeString(state.resolve("camera-baseline.txt"), cameraMetadataBaseline);
         final String previous = System.getProperty(ENABLE);
         if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch", "uploadElision", "redundantState", "inputPath", "canvasComposite").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
@@ -207,12 +225,19 @@ final class CanvasWheelWorkload {
             final boolean diagnostic = probe || profile || gpuWait || glCalls || uniformShadow;
             if (factor.equals("uniformSuite") && diagnostic) throw new IllegalArgumentException("suite requires diagnostic profilers OFF");
             if (factor.equals("redundantState") && diagnostic) throw new IllegalArgumentException("redundantState requires diagnostic profilers OFF");
-            final int[] variants = factor.equals("uniformSuite") ? new int[]{0, 1, 2, 2, 1, 0}
+            final boolean nativeRepeat = Boolean.getBoolean("turboism.validation.nativeRepeatControl");
+            if (nativeRepeat && (!factor.equals("modelSkip") || diagnostic)) {
+                throw new IllegalArgumentException("native repeat control requires unprofiled modelSkip factor");
+            }
+            report.append("nativeRepeatControl=").append(nativeRepeat).append('\n');
+            final int[] variants = nativeRepeat ? new int[]{0, 0, 0, 0}
+                : factor.equals("uniformSuite") ? new int[]{0, 1, 2, 2, 1, 0}
                 : diagnostic ? new int[]{1} : new int[]{0, 1, 1, 0};
             final List<String> legFocusOwners = new ArrayList<>();
             final List<String> legCanvasCursors = new ArrayList<>();
             final List<String> legWindowDigests = new ArrayList<>();
             for (int leg = 0; leg < variants.length; leg++) {
+                if (exactCamera) onEdt(() -> { restoreExactCamera(); return null; });
                 final int variant = variants[leg];
                 final boolean enabled = variant != 0;
                 final String variantName = factor.equals("uniformSuite")
@@ -443,6 +468,16 @@ final class CanvasWheelWorkload {
                 // offscreen printAll render when Robot is unavailable (e.g.
                 // Wine GDI capture limitations) — printAll proves the Swing
                 // composite result but cannot see the real blit.
+                final int captureLeg = leg;
+                onEdt(() -> {
+                    Files.writeString(state.resolve("camera-leg-" + captureLeg + "-before-restore.txt"),
+                        cameraHost.captureMetadata());
+                    if (exactCamera) restoreExactCamera();
+                    Files.writeString(state.resolve("camera-leg-" + captureLeg + "-capture.txt"),
+                        cameraHost.captureMetadata());
+                    return null;
+                });
+                report.append(p).append("exactCameraBaseline=").append(exactCamera).append('\n');
                 final String[] windowShot = onEdt(this::windowSnapshot);
                 legWindowDigests.add(windowShot[0]);
                 report.append(p).append("windowDigest=").append(windowShot[0]).append('\n')
@@ -871,6 +906,17 @@ final class CanvasWheelWorkload {
         final Map<String, Long> result = new java.util.HashMap<>();
         raw.forEach((k, v) -> { if (k instanceof String key && v instanceof Number value) result.put(key, value.longValue()); });
         return result;
+    }
+
+    private void restoreExactCamera() throws Exception {
+        cameraHost.restoreCamera(cameraBaseline, cameraTransformBaseline);
+        canvas.paintImmediately(0, 0, width, height);
+        java.awt.Toolkit.getDefaultToolkit().sync();
+        final String restoredMetadata = cameraHost.captureMetadata();
+        if (!cameraMetadataBaseline.equals(restoredMetadata)) {
+            Files.writeString(state.resolve("camera-restoration-failed.txt"), restoredMetadata);
+            throw new IllegalStateException("exact camera/viewport restoration failed");
+        }
     }
 
     /**

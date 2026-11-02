@@ -31,7 +31,7 @@ def write_tree(root: Path) -> None:
         ("ja", "# 更新履歴", "- 日文 WIP。", "- 日文旧版。"),
         ("ko", "# 변경 기록", "- 韩文 WIP。", "- 韩文旧版。"),
     ):
-        (root / f"CHANGELOG_{lang}.md").write_text(
+        (root / rlc.LOCALE_CHANGELOGS[lang]).write_text(
             f"{head}\n\n## [Unreleased]\n\n### X\n\n{wip}\n\n"
             f"## [1.0.0] - 2030-01-01\n\n### X\n\n- {lang} hand-written.\n\n"
             f"## [0.9.0] - 2029-01-01\n\n### X\n\n{legacy}\n",
@@ -60,12 +60,12 @@ def main() -> int:
             if run_case(check=False) != 0:
                 print("FAIL: render returned nonzero")
                 return 1
-            zh = (root / "CHANGELOG_zh.md").read_text(encoding="utf-8")
+            zh = (root / rlc.LOCALE_CHANGELOGS["zh"]).read_text(encoding="utf-8")
             assert "- 中文一。" in zh, "JSON body not rendered for covered version"
             assert "- 中文 hand-written." not in zh, "committed body survived a covered version"
             assert "- 中文 WIP。" in zh, "unreleased section lost"
             assert "- 中文旧版。" in zh, "legacy pre-JSON section lost"
-            ko = (root / "CHANGELOG_ko.md").read_text(encoding="utf-8")
+            ko = (root / rlc.LOCALE_CHANGELOGS["ko"]).read_text(encoding="utf-8")
             assert "### 추가" in ko, "ko JSON body missing"
             if run_case(check=True) != 0:
                 print("FAIL: rendered output is not stable in --check")
@@ -76,7 +76,7 @@ def main() -> int:
             del notes["locales"]["ko"]
             (root / "release-notes" / "1.0.0.json").write_text(json.dumps(notes))
             assert run_case(check=False) == 0
-            ko = (root / "CHANGELOG_ko.md").read_text(encoding="utf-8")
+            ko = (root / rlc.LOCALE_CHANGELOGS["ko"]).read_text(encoding="utf-8")
             assert "- ko hand-written." in ko or "- 韩文旧版。" in ko, \
                 "ko fallback for locale-missing section lost"
 

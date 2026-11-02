@@ -297,6 +297,20 @@ public interface CubismJvmSettingsService {
     }
 
     /**
+     * Experimental launcher preference: admit glue-only affecter models to the
+     * incremental update. Only effective while {@link #incrementalUpdate()} is on;
+     * non-glue affecters and ArtPaths still force the native path. Off by default.
+     */
+    default boolean incrementalUpdateAffecters() {
+        return false;
+    }
+
+    /** Persists the glue-affecter admission preference for the next managed launch. */
+    default boolean saveIncrementalUpdateAffecters(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
      * @return whether {@link #graalVmJava()} currently resolves an executable
      */
     default boolean graalVmAvailable() {

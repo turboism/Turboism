@@ -185,6 +185,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean incrementalUpdateAffecters() {
+        return optimization("incrementalUpdateAffecters");
+    }
+
+    @Override
+    public boolean saveIncrementalUpdateAffecters(final boolean value) {
+        return saveOptimization("incrementalUpdateAffecters", value);
+    }
+
+    @Override
     public boolean uniformLocationCache() {
         return optimization("uniformLocationCache");
     }

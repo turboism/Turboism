@@ -849,7 +849,7 @@ final class ConfigMerge {
             "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
     private static final Set<String> LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
-            "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
+            "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision",
             "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch",
             "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection");
     private static final Set<String> TEXTURE_ATLAS_FIELDS = Set.of(
@@ -857,7 +857,7 @@ final class ConfigMerge {
     private static final Set<String> LEGACY_ROOT_LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
-            "zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
+            "zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision",
             "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch",
             "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection");
     private static final Set<String> MEMORY_PROFILES =

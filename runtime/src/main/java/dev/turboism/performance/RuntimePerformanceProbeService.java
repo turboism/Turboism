@@ -81,7 +81,7 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
     private long samplingGeneration;
     private boolean closed;
     private PerformanceFpsHook hook;
-    private long lastTickEpochMs = -1L;
+    private long lastTickNanos = -1L;
     private long lastRenderCalls = -1L;
     private long lastGcCollections = -1L;
     private long lastGcPauseMillis = -1L;
@@ -117,7 +117,7 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
         final long now = clock.millis();
         synchronized (lifecycle) {
             requireOpen();
-            return buildSnapshot(now, renderCalls());
+            return buildSnapshot(now, renderCalls(), System.nanoTime());
         }
     }
 
@@ -169,9 +169,6 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
         if (hook != null) {
             throw new IllegalStateException("Previous performance hook cleanup is incomplete");
         }
-        final long now = clock.millis();
-        lastTickEpochMs = now;
-        lastRenderCalls = renderCalls();
         final long[] gc = gcCounters();
         lastGcCollections = gc[0];
         lastGcPauseMillis = gc[1];
@@ -194,6 +191,9 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
             return thread;
         });
         lastRenderCalls = renderCalls();
+        // The first window starts after hook installation: retransformation time
+        // must never dilute the first FPS sample, and the window is monotonic.
+        lastTickNanos = System.nanoTime();
     }
 
     /** Changes collection cadence without changing the mounted hook's ownership. */
@@ -226,7 +226,7 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
             executor.shutdownNow();
         }
         final PerformanceFpsHook mounted = hook;
-        lastTickEpochMs = -1L;
+        lastTickNanos = -1L;
         lastRenderCalls = -1L;
         lastGcCollections = -1L;
         lastGcPauseMillis = -1L;
@@ -270,8 +270,8 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
                     due.add(subscription);
                 }
             }
-            snapshot = buildSnapshot(now, renderCalls());
-            lastTickEpochMs = now;
+            snapshot = buildSnapshot(now, renderCalls(), monotonicNow);
+            lastTickNanos = monotonicNow;
             lastRenderCalls = snapshot.renderedFrames();
             gcPauseWindowMillis = lastGcPauseMillis < 0L
                     ? 0.0
@@ -351,11 +351,11 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
         return active == null ? 0L : active.renderSceneCalls();
     }
 
-    private PerformanceSnapshot buildSnapshot(final long now, final long calls) {
+    private PerformanceSnapshot buildSnapshot(final long now, final long calls, final long monotonicNow) {
         final double fps;
         final long renderedFrames = calls;
-        if (lastTickEpochMs >= 0L && lastRenderCalls >= 0L) {
-            final double windowSeconds = Math.max(0.001, (now - lastTickEpochMs) / 1000.0);
+        if (lastTickNanos >= 0L && lastRenderCalls >= 0L) {
+            final double windowSeconds = Math.max(0.001, (monotonicNow - lastTickNanos) / 1_000_000_000.0);
             fps = Math.max(0.0, (calls - lastRenderCalls) / windowSeconds);
         } else {
             fps = 0.0;

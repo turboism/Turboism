@@ -50,6 +50,10 @@ final class NativeOptimizationPolicy {
         final boolean enabled =
                 requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.INCREMENTAL_UPDATE);
         IncrementalUpdateBridge.setConfiguredDefault(enabled);
+        if (enabled) {
+            IncrementalUpdateBridge.setAffecterConfiguredDefault(requested(
+                    environment, dev.turboism.config.NativeOptimizationConfig.Option.INCREMENTAL_UPDATE_AFFECTERS));
+        }
         return enabled;
     }
 

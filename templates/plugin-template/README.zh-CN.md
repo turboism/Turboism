@@ -1,6 +1,6 @@
 # Turboism 插件模板
 
-[EN / English](README.md) · [ZH / 简体中文](README_zh.md)
+[English](README.md) / [简体中文](README.zh-CN.md)
 
 用于构建 Turboism 插件的独立 Gradle 工程模板，**无需克隆或编译 Turboism 主仓库**。只需运行一次初始化脚本即可自动下载并校验 SDK 与 `@SubscribeEvent` 注解处理器、配置插件元数据，并打包出可直接放入 Turboism 安装目录的插件 JAR。
 

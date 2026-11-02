@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Renders localized CHANGELOG_<lang>.md files from release-notes JSON.
+"""Renders localized CHANGELOG.<locale>.md files from release-notes JSON.
 
 `release-notes/<version>.json` is the single reviewed source for localized
 release notes: each entry carries the reviewed zh/ja/ko bodies keyed to the
@@ -31,6 +31,11 @@ from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
 LOCALES = ("zh", "ja", "ko")
+LOCALE_CHANGELOGS = {
+    "zh": "CHANGELOG.zh-CN.md",
+    "ja": "CHANGELOG.ja.md",
+    "ko": "CHANGELOG.ko.md",
+}
 ENGLISH = ROOT / "CHANGELOG.md"
 NOTES_DIR = ROOT / "release-notes"
 
@@ -56,7 +61,7 @@ def load_notes(version):
 
 
 def render(lang, check=False, fail_on_drift=False):
-    target = ROOT / f"CHANGELOG_{lang}.md"
+    target = ROOT / LOCALE_CHANGELOGS[lang]
     committed = target.read_text(encoding="utf-8")
     committed_header, committed_sections = sections(committed)
     committed_by_version = {v: (h, b) for v, h, b in committed_sections}

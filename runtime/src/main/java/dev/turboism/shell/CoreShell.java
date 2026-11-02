@@ -171,6 +171,11 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createIncrementalUpdateAffectersToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createUniformLocationCacheToggle(
                                 localization(context), services.cubismJvmSettings())));
         context.disposableScope()

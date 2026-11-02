@@ -4,6 +4,15 @@
 
 运行：`./build.sh` 编译。需要真实 Cubism Editor 宿主。
 
+## 胶水 affecter 纳入增量更新（2026-11-02）
+
+`unsafe(model)` 仍拒绝 ArtPath 和非 `CGlue` affecter；仅在显式设置
+`-Dturboism.optimization.incrementalUpdateAffecters=true` 时允许只含胶水的模型复用。
+宿主每次更新都会清空 `affectedForm` 并从当前 `deformedForm` 重算胶水结果，因此被复用的
+状态仍然有效。探针 digest 同时覆盖 `getDeformedForm()` 与 `getAffectedForm()`。
+5.0.00/5.1.03/5.2.03/5.3.03/5.3.04 实机矩阵与限制见
+[acceptance-20261102-affecters.md](acceptance-20261102-affecters.md)。
+
 ## 撤销重建与版本兼容（2026-10-28）
 
 Warp 绿色手柄拖动后撤销可在不改变文档时间戳、不调用插值入口的情况下，通过
