@@ -349,7 +349,7 @@ function Assert-RuntimeConfigV1 {
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
         Assert-RuntimeAllowedProperties $launcher @(
-            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection"
+            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection"
         ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
@@ -361,7 +361,7 @@ function Assert-RuntimeConfigV1 {
             -or @("system", "balanced4g", "balanced4gFastSoft") -cnotcontains $memoryProfile.Value)) {
             throw "launcher.memoryProfile is invalid"
         }
-        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection")) {
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection")) {
             $property = $launcher.PSObject.Properties[$name]
             if ($null -ne $property -and $property.Value -isnot [bool]) {
                 throw "launcher.$name must be a boolean"
@@ -603,7 +603,7 @@ function Convert-RuntimeConfigToV1 {
             }
             else { [void]$dropped.Add("launcher.memoryProfile") }
         }
-        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate",
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters",
             "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection")) {
             $property = $source.PSObject.Properties[$name]
             if ($null -ne $property) {
@@ -613,7 +613,7 @@ function Convert-RuntimeConfigToV1 {
         }
         foreach ($property in $source.PSObject.Properties) {
             if (@("cubismJvm", "graalVmPath", "zgc", "memoryProfile",
-                "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache",
+                "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache",
                 "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection") -cnotcontains $property.Name) {
                 [void]$dropped.Add("launcher." + $property.Name)
             }

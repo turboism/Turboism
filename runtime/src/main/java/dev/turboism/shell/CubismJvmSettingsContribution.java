@@ -35,6 +35,7 @@ final class CubismJvmSettingsContribution {
                         "settings.mesh-triangulation.edge-index.tooltip";
                     case "model-update-skip" -> "settings.optimization.model-update-skip.tooltip";
                     case "incremental-update" -> "settings.optimization.incremental-update.tooltip";
+                    case "incremental-update-affecters" -> "settings.optimization.incremental-update-affecters.tooltip";
                     case "uniform-location-cache" -> "settings.optimization.uniform-location-cache.tooltip";
                     case "upload-elision" -> "settings.optimization.upload-elision.tooltip";
                     case "input-path-elision" -> "settings.optimization.input-path-elision.tooltip";
@@ -131,7 +132,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-disable-auto-backup",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(93),
+                OptionalInt.of(94),
                 new SettingsControl.Toggle(
                         "cubism-disable-auto-backup",
                         i18n.text("settings.cubism-jvm.disable-auto-backup"),
@@ -152,7 +153,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-zgc",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(94),
+                OptionalInt.of(95),
                 new SettingsControl.Toggle(
                         "cubism-zgc",
                         i18n.text("settings.cubism-jvm.zgc"),
@@ -248,6 +249,23 @@ final class CubismJvmSettingsContribution {
                 81);
     }
 
+    /**
+     * Sub-toggle of the incremental update: admits models whose only affecters are glue.
+     * The host recomputes glue output from the current deformed forms, so reused geometry
+     * stays valid; ArtPaths and non-glue affecters remain native.
+     */
+    static SettingsContribution createIncrementalUpdateAffectersToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "incremental-update-affecters",
+                "settings.optimization.incremental-update-affecters",
+                settings::incrementalUpdateAffecters,
+                settings::saveIncrementalUpdateAffecters,
+                82);
+    }
+
     /** Saved opt-in preference; unsupported hosts still use their native renderer. */
     static SettingsContribution createUniformLocationCacheToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
@@ -263,7 +281,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                82);
+                83);
     }
 
     /**
@@ -284,7 +302,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                83);
+                84);
     }
 
     /**
@@ -306,7 +324,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                84);
+                85);
     }
 
     /**
@@ -331,7 +349,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                85);
+                86);
     }
 
     /**
@@ -354,7 +372,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                86);
+                87);
     }
 
     static SettingsContribution createShaderUniformToggle(
@@ -371,7 +389,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                87);
+                88);
     }
 
     static SettingsContribution createMatrixScratchToggle(
@@ -388,7 +406,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                88);
+                89);
     }
 
     static SettingsContribution createImageArchiveReuseToggle(
@@ -405,7 +423,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                89);
+                90);
     }
 
     static SettingsContribution createFloatArrayParseCacheToggle(
@@ -422,7 +440,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                90);
+                91);
     }
 
     static SettingsContribution createTextureUploadPreparationToggle(
@@ -439,7 +457,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                91);
+                92);
     }
 
     static SettingsContribution createWarpPositionProjectionToggle(
@@ -456,7 +474,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                92);
+                93);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

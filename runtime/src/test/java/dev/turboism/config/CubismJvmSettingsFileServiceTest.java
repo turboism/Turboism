@@ -212,9 +212,11 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(service.uniformLocationCache());
             assertFalse(service.uploadElision(), "rendering optimizations require opt-in on every platform");
             assertFalse(service.incrementalUpdate());
+            assertFalse(service.incrementalUpdateAffecters(), "glue admission defaults off");
             assertFalse(service.inputPathElision(), "input-path elision defaults off natively");
             assertFalse(service.mesaGlThread(), "mesa glthread defaults off natively");
             assertTrue(service.saveIncrementalUpdate(true));
+            assertTrue(service.saveIncrementalUpdateAffecters(true));
             assertTrue(service.saveInputPathElision(true));
             assertTrue(service.saveMesaGlThread(true));
             assertFalse(service.saveUploadElision(false));
@@ -222,20 +224,24 @@ class CubismJvmSettingsFileServiceTest {
         try (CubismJvmSettingsFileService reopened =
                 new CubismJvmSettingsFileService(new RuntimeConfigRepository(home, ignored -> {}), home, Map.of())) {
             assertTrue(reopened.incrementalUpdate(), "explicit experimental opt-in survives restart");
+            assertTrue(reopened.incrementalUpdateAffecters(), "explicit glue admission survives restart");
             assertTrue(reopened.inputPathElision(), "explicit input-path opt-in survives restart");
             assertTrue(reopened.mesaGlThread(), "explicit mesa-glthread opt-in survives restart");
             assertFalse(reopened.uploadElision(), "explicit upload-elision opt-out survives restart");
             assertFalse(reopened.uniformLocationCache());
             reopened.saveIncrementalUpdate(false);
+            reopened.saveIncrementalUpdateAffecters(false);
             reopened.saveInputPathElision(false);
             reopened.saveMesaGlThread(false);
             reopened.saveUploadElision(true);
             assertFalse(reopened.incrementalUpdate());
+            assertFalse(reopened.incrementalUpdateAffecters());
             assertFalse(reopened.inputPathElision());
             assertFalse(reopened.mesaGlThread());
             assertTrue(reopened.uploadElision());
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("\"incrementalUpdate\" : false"));
+            assertTrue(saved.contains("\"incrementalUpdateAffecters\" : false"));
             assertTrue(saved.contains("\"uploadElision\" : true"));
             assertTrue(saved.contains("\"inputPathElision\" : false"));
             assertTrue(saved.contains("\"mesaGlThread\" : false"));
