@@ -38,6 +38,14 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
             debug(environment, id() + " installation=NOT_ADMITTED reason=modelUpdateSkip-disabled");
             return refused("modelUpdateSkip-disabled");
         }
+        if (production && !validation && NativeOptimizationPolicy.uniformLocationCacheEnabled(environment)) {
+            // The uniform lifecycle invalidates upload content at every render
+            // boundary by design, so no baseline can survive to the next frame.
+            // Installing here would only add the content-compare cost; fail
+            // closed until the two safety models are composed.
+            debug(environment, id() + " installation=NOT_ADMITTED reason=uniformLocationCache-enabled");
+            return refused("uniformLocationCache-enabled");
+        }
         final var host = environment.host().orElseThrow();
         if (production
                 && !validation
