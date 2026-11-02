@@ -1,33 +1,17 @@
 package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
-import dev.turboism.test.Stubs;
-import java.net.URLClassLoader;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class EditorPartNameSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
-
     @Test
     void exact5302RecordVerifiesTheCompletePartNameContract() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json"),
-                        artifact,
-                        loader(artifact));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver("5.3.02");
 
         assertTrue(resolver.authorizesFeature(
                 EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
@@ -53,16 +37,7 @@ class EditorPartNameSelectorContractTest {
 
     @Test
     void exact5203RecordAdvertisesPartNameReadAndWrite() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.2.03-editor-model.json"),
-                        artifact,
-                        loader(artifact));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver("5.2.03");
 
         assertTrue(resolver.authorizesFeature(
                 EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
@@ -84,9 +59,5 @@ class EditorPartNameSelectorContractTest {
                 EditorPartTreeSelectorContract.ADAPTER_SLICE_ID,
                 EditorPartTreeSelectorContract.CAPABILITY_ID,
                 EditorPartTreeSelectorContract.REQUIRED_ALIASES));
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        return Stubs.jarClassLoader(artifact);
     }
 }

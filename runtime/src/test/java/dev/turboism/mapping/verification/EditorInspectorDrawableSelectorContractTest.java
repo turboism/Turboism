@@ -2,32 +2,17 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
-import dev.turboism.test.Stubs;
-import java.net.URLClassLoader;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /** Reviewed-record trust-root tests for the Inspector Drawable write contracts. */
 class EditorInspectorDrawableSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
-
     @Test
     void exact5302RecordVerifiesTheCompleteInspectorDrawableWriteContract() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json"),
-                        LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
-                        loader(LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar")));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver("5.3.02");
 
         assertTrue(resolver.authorizesFeature(
                 EditorInspectorDrawableWriteSelectorContract.ADAPTER_SLICE_ID,
@@ -41,16 +26,7 @@ class EditorInspectorDrawableSelectorContractTest {
 
     @Test
     void exact5203RecordVerifiesThe52InspectorDrawableWriteContractWithoutAlpha() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.2.03-editor-model.json"),
-                        artifact,
-                        loader(artifact));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver("5.2.03");
 
         assertTrue(resolver.authorizesFeature(
                 EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.ADAPTER_SLICE_ID,
@@ -64,9 +40,6 @@ class EditorInspectorDrawableSelectorContractTest {
 
     @Test
     void setIdAliasesBindAsInstanceMethodsOnBothReviewedRecords() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         // Regression guard for the r2 real-host failure
         // ("Verified alias is not an instance method."): every setId alias in the
         // inspector write family must declare static access as forbidden so the
@@ -77,10 +50,7 @@ class EditorInspectorDrawableSelectorContractTest {
 
     private static void assertInstanceBindings(final String evidenceDirectory, final String recordName)
             throws Exception {
-        final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(PROJECT_ROOT.resolve("build/generated/verification/" + recordName), artifact, loader(artifact));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver(recordName, evidenceDirectory);
         final java.util.Set<String> instanceAliases = java.util.Set.of(
                 "cubism.editor-model.drawable-source.set-id",
                 "cubism.editor-model.deformer-source.set-id",
@@ -97,9 +67,5 @@ class EditorInspectorDrawableSelectorContractTest {
         for (final String alias : staticAliases) {
             assertTrue(resolver.bindStatic(alias) != null, alias + " must bind as a static method");
         }
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        return Stubs.jarClassLoader(artifact);
     }
 }

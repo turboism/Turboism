@@ -1,78 +1,41 @@
 package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
-import dev.turboism.test.Stubs;
-import java.net.URLClassLoader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class EditorParameterBindingSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
-
     @ParameterizedTest
     @CsvSource({"Cubism-5.2, cubism-5.2.03-editor-model.json", "Cubism-5.3.02, cubism-5.3.02-editor-model.json"})
     void exactRecordVerifiesTheCompleteParameterBindingContract(final String artifactDirectory, final String recordName)
             throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final Path artifact = LEGACY_EVIDENCE.resolve(artifactDirectory + "/jars/Live2D_Cubism.jar");
-        try (URLClassLoader loader = loader(artifact)) {
-            final VerifiedMemberResolver resolver = SliceRegistry.EDITOR_MODEL
-                    .resolverFactory()
-                    .create(PROJECT_ROOT.resolve("build/generated/verification/" + recordName), artifact, loader);
+        final VerifiedMemberResolver resolver =
+                EditorSelectorContractTestPaths.editorModelResolver(recordName, artifactDirectory);
+        assertTrue(resolver.authorizesFeature(
+                EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+                EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES));
+        for (String capability : java.util.List.of(
+                EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+                EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+                EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID)) {
             assertTrue(resolver.authorizesFeature(
-                    EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
-                    EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
-                    EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES));
-            for (String capability : java.util.List.of(
-                    EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
-                    EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
-                    EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID)) {
-                assertTrue(resolver.authorizesFeature(
-                        EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
-                        capability,
-                        EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES));
-            }
-            for (String capability : java.util.List.of(
-                    EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-                    EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID)) {
-                assertTrue(resolver.authorizesFeature(
-                        EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
-                        capability,
-                        EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES));
-            }
+                    EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
+                    capability,
+                    EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES));
         }
-    }
-
-    private static Path locateProjectRoot() {
-        return Stubs.locateProjectRoot();
-    }
-
-    /**
-     * Resolves the machine-local legacy Cubism evidence directory, or {@code null} when it is
-     * not staged on this machine; the exact-artifact tests skip in that case.
-     */
-    private static Path locateLegacyEvidence() {
-        Path current = PROJECT_ROOT;
-        while (current != null) {
-            final Path candidate = current.resolveSibling("turboism-legacy/cubism-ref");
-            if (Files.isDirectory(candidate)) return candidate;
-            current = current.getParent();
+        for (String capability : java.util.List.of(
+                EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID)) {
+            assertTrue(resolver.authorizesFeature(
+                    EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
+                    capability,
+                    EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES));
         }
-        return null;
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        return Stubs.jarClassLoader(artifact);
     }
 }
