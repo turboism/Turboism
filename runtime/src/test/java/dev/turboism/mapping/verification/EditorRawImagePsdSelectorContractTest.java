@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
-import dev.turboism.test.Stubs;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -19,7 +18,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Static and synthetic guard for reviewed exact raw-image PSD export/parse seams. */
 class EditorRawImagePsdSelectorContractTest {
-    private static final Path PROJECT_ROOT = locateProjectRoot();
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
     private static final Path RECORD_PATH =
             PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json");
     private static final Path DRAFT_PACK_PATH =
@@ -47,7 +46,7 @@ class EditorRawImagePsdSelectorContractTest {
                         .toList()
                         .toString());
 
-        try (final URLClassLoader loader = loader(artifact)) {
+        try (final URLClassLoader loader = EditorSelectorContractTestPaths.loader(artifact)) {
             final var resolver = SliceRegistry.EDITOR_MODEL.resolverFactory().create(recordPath, artifact, loader);
             assertTrue(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains(version));
             assertTrue(resolver.isExactCubismVersion(version));
@@ -262,13 +261,5 @@ class EditorRawImagePsdSelectorContractTest {
         assertEquals(descriptor, selector.descriptor(), alias);
         assertEquals(requiredAccessFlags, selector.requiredAccessFlags(), alias);
         assertEquals(forbiddenAccessFlags, selector.forbiddenAccessFlags(), alias);
-    }
-
-    private static Path locateProjectRoot() {
-        return Stubs.locateProjectRoot();
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        return Stubs.jarClassLoader(artifact);
     }
 }

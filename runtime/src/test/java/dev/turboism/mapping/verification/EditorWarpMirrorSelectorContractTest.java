@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
-import dev.turboism.test.Stubs;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,7 +21,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 final class EditorWarpMirrorSelectorContractTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final Path PROJECT_ROOT = locateProjectRoot();
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
@@ -96,9 +95,5 @@ final class EditorWarpMirrorSelectorContractTest {
             }
         }
         assertTrue(missing.isEmpty(), "draft pack entries missing on " + version + ": " + missing);
-    }
-
-    private static Path locateProjectRoot() {
-        return Stubs.locateProjectRoot();
     }
 }

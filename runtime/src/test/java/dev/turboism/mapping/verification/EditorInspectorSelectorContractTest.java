@@ -2,15 +2,11 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorIdWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
-import dev.turboism.test.Stubs;
-import java.net.URLClassLoader;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -19,21 +15,9 @@ import org.junit.jupiter.api.Test;
  */
 class EditorInspectorSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
-
     @Test
     void exact5302RecordVerifiesDeformerPartAndGlueInspectorContracts() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json"),
-                        artifact,
-                        loader(artifact));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver("5.3.02");
 
         assertTrue(resolver.authorizesFeature(
                 EditorDeformerInspectorSelectorContract.ADAPTER_SLICE_ID,
@@ -51,16 +35,7 @@ class EditorInspectorSelectorContractTest {
 
     @Test
     void exact5203RecordVerifiesDeformerGlueAndPartIdButRejectsPartMaskAndAlpha() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
-        final var resolver = SliceRegistry.EDITOR_MODEL
-                .resolverFactory()
-                .create(
-                        PROJECT_ROOT.resolve("build/generated/verification/cubism-5.2.03-editor-model.json"),
-                        artifact,
-                        loader(artifact));
+        final var resolver = EditorSelectorContractTestPaths.editorModelResolver("5.2.03");
 
         // Deformer and Glue Inspector entries exist in both versions.
         assertTrue(resolver.authorizesFeature(
@@ -82,9 +57,5 @@ class EditorInspectorSelectorContractTest {
                 EditorPartInspectorSelectorContract.ADAPTER_SLICE_ID,
                 EditorPartInspectorSelectorContract.CAPABILITY_ID,
                 EditorPartInspectorSelectorContract.REQUIRED_ALIASES));
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        return Stubs.jarClassLoader(artifact);
     }
 }
