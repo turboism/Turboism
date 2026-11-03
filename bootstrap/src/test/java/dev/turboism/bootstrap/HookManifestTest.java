@@ -36,6 +36,7 @@ final class HookManifestTest {
                         TextureUploadPreparationHookContributor.class,
                         WarpPositionProjectionHookContributor.class,
                         ModelUpdateSkipHookContributor.class,
+                        ModelInstanceCoalesceHookContributor.class,
                         IncrementalUpdateHookContributor.class,
                         GlGetErrorElisionHookContributor.class,
                         SkippedFrameUploadElisionHookContributor.class,

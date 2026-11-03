@@ -28,6 +28,7 @@ dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchArtifactTest
 dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionArtifactTest
 dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseArtifactTest
 dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationArtifactTest
+dev.turboism.adapter.cubism.optimization.modelinstances.ModelInstanceCoalesceArtifactTest
 dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipArtifactTest
 dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateArtifactTest
 dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseArtifactTest

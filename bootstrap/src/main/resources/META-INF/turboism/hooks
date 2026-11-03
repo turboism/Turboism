@@ -35,6 +35,8 @@ dev.turboism.bootstrap.FloatArrayParseCacheHookContributor
 dev.turboism.bootstrap.TextureUploadPreparationHookContributor
 dev.turboism.bootstrap.WarpPositionProjectionHookContributor
 dev.turboism.bootstrap.ModelUpdateSkipHookContributor
+# Coalesces duplicate native model-instance publications inside one edit group.
+dev.turboism.bootstrap.ModelInstanceCoalesceHookContributor
 dev.turboism.bootstrap.IncrementalUpdateHookContributor
 # Must install before the uniform-location cache: both transform
 # shader/A.a(GL,String,Z)I and retransformation replays the chain on original
