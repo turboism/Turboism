@@ -21,6 +21,15 @@ public final class ToolbarIconLoader {
 
     private static final String[] SCALE_SUFFIXES = {"125", "150", "175", "200"};
 
+    /**
+     * The name-based verdict is a constant of one installed look-and-feel instance, so it is
+     * memoized on that identity: building the signature string was the only allocation in the
+     * probe, and every bounded identity/theme observation used to pay it again.
+     */
+    private static volatile LookAndFeelTheme lookAndFeelTheme;
+
+    private record LookAndFeelTheme(LookAndFeel lookAndFeel, boolean dark) {}
+
     private ToolbarIconLoader() {}
 
     /** Loads a generation-zero plugin icon using the current Swing theme. */
@@ -92,13 +101,8 @@ public final class ToolbarIconLoader {
 
     /** Detects a dark Swing theme from the look-and-feel name or panel-background luminance. */
     public static boolean isDarkTheme() {
-        final LookAndFeel lookAndFeel = UIManager.getLookAndFeel();
-        if (lookAndFeel != null) {
-            final String signature =
-                    (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName()).toLowerCase(Locale.ROOT);
-            if (signature.contains("dark")) {
-                return true;
-            }
+        if (isDarkLookAndFeel(UIManager.getLookAndFeel())) {
+            return true;
         }
         final Color background = UIManager.getColor("Panel.background");
         if (background != null) {
@@ -107,6 +111,21 @@ public final class ToolbarIconLoader {
             return luma < 140;
         }
         return false;
+    }
+
+    /**
+     * Name-based dark verdict for one look-and-feel instance; package-private so tests can pin the
+     * per-instance memo without installing a global theme.
+     */
+    static boolean isDarkLookAndFeel(final LookAndFeel lookAndFeel) {
+        if (lookAndFeel == null) return false;
+        final LookAndFeelTheme memoized = lookAndFeelTheme;
+        if (memoized != null && memoized.lookAndFeel() == lookAndFeel) return memoized.dark();
+        final String signature =
+                (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName()).toLowerCase(Locale.ROOT);
+        final boolean dark = signature.contains("dark");
+        lookAndFeelTheme = new LookAndFeelTheme(lookAndFeel, dark);
+        return dark;
     }
 
     /**

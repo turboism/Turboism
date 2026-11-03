@@ -61,7 +61,7 @@ public final class NativeParameterLifecycleBridge {
         final NativeParameterLifecycleBridge bridge = INSTALLED.get();
         ParameterLifecycleCoordinator.NativeInvocation invocation = null;
         float effectiveValue = requestedValue;
-        if (bridge != null) {
+        if (bridge != null && bridge.coordinator.nativeWriteObservable()) {
             try {
                 final Parameter parameter =
                         bridge.modelAccess.active().parameters().find(new ParameterId(parameterId));
@@ -87,11 +87,10 @@ public final class NativeParameterLifecycleBridge {
     }
 
     private static void completeNativeFrame(final boolean succeeded) {
+        // The per-thread deque is kept (it is empty once balanced) instead of being removed and
+        // re-allocated on the next write; it retains no bridge or parameter state while empty.
         final ArrayDeque<NativeFrame> frames = NATIVE_FRAMES.get();
         final NativeFrame frame = frames.poll();
-        if (frames.isEmpty()) {
-            NATIVE_FRAMES.remove();
-        }
         if (frame == null || frame.bridge() == null || frame.invocation() == null) {
             return;
         }

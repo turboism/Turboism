@@ -42,6 +42,9 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
             abgr = new LongAdder();
     private final BiFunction<Object, Object, Object> callback = this::invoke;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
+    /** Last (profile, desktop) answer; the profile class is attested, so one probe per profile suffices. */
+    private volatile ProfileDecision lastProfile;
+
     private Properties installedProperties;
 
     /** Binds the exact profile class attested by the bootstrap installer, without initializing a GL context. */
@@ -82,7 +85,7 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
                     || source.getClass() != BufferedImage.class
                     || profile == null
                     || profile.getClass() != profileClass
-                    || !Boolean.TRUE.equals(desktopProfile.invoke(profile))) return null;
+                    || !isDesktopProfile(profile)) return null;
             if (source.getType() == BufferedImage.TYPE_INT_ARGB) argb.increment();
             if (source.getType() == BufferedImage.TYPE_4BYTE_ABGR) abgr.increment();
             BufferedImage result = CanonicalRgbaImage.prepare(source);
@@ -123,10 +126,24 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
                 abgr.sum());
     }
 
+    /**
+     * Whether {@code profile} is a desktop GL 2 / GL 3 profile, memoized per profile identity so a
+     * texture upload does not repeat the reflective call. Uploads normally share one long-lived
+     * profile, and the answer is a constant of that profile's capabilities.
+     */
+    private boolean isDesktopProfile(final Object profile) throws ReflectiveOperationException {
+        final ProfileDecision cached = lastProfile;
+        if (cached != null && cached.profile() == profile) return cached.desktop();
+        final boolean desktop = Boolean.TRUE.equals(desktopProfile.invoke(profile));
+        lastProfile = new ProfileDecision(profile, desktop);
+        return desktop;
+    }
+
     /** Makes outstanding callbacks inert and releases only this installation's JDK slots. */
     @Override
     public synchronized void close() {
         active.set(false);
+        lastProfile = null;
         Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null)
@@ -135,4 +152,6 @@ public final class TextureUploadPreparationBridge implements AutoCloseable {
                 properties.remove(STATS_PROPERTY, statistics);
             }
     }
+
+    private record ProfileDecision(Object profile, boolean desktop) {}
 }

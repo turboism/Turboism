@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: analysis
 tags: texture-atlas, metrics, inspection
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -31,12 +31,12 @@ Shows total and current-texture model-image counts in Cubism's native texture-at
 ## What it does
 
 - Attaches one localized statistics line to the active texture-atlas editor UI.
-- Refreshes total model-image and selected-texture image counts once per second.
+- Refreshes total model-image and selected-texture image counts once per second while the panel is visible; a hidden or closed editor view is not polled.
 - Displays an unavailable state instead of propagating read failures to the host UI.
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.68.1,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
@@ -58,7 +58,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 1. Open a model and launch Cubism's texture-atlas editor.
 2. Locate the statistics line contributed to the native editor window.
-3. Switch the selected texture to update the current-texture count; totals refresh once per second.
+3. Switch the selected texture to update the current-texture count; totals refresh once per second while the panel is on screen.
 
 ## Capabilities
 
@@ -99,7 +99,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Symptom | What to check |
 |---|---|
 | Statistics line is missing | Open the native texture-atlas editor and confirm the plugin is enabled on a reviewed host. |
-| Counts remain zero | Confirm a model and texture are active, then wait for the next one-second refresh. |
+| Counts remain zero | Confirm a model and texture are active and the panel is visible, then wait for the next one-second refresh. |
 | Unavailable text appears | Check the Turboism log for texture-atlas session read failure. |
 
 ## Changelog

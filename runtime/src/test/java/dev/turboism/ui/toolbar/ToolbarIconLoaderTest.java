@@ -123,6 +123,58 @@ class ToolbarIconLoaderTest {
     }
 
     @Test
+    void theLookAndFeelNameVerdictFollowsTheInstalledInstance() {
+        final javax.swing.LookAndFeel dark = new NamedLookAndFeel("Turboism Fixture Dark");
+        final javax.swing.LookAndFeel light = new NamedLookAndFeel("Turboism Fixture Light");
+
+        assertTrue(ToolbarIconLoader.isDarkLookAndFeel(dark), "a dark-named look-and-feel must be detected");
+        assertFalse(
+                ToolbarIconLoader.isDarkLookAndFeel(light),
+                "the memoized verdict must follow the installed look-and-feel instance, not a stale one");
+        assertTrue(ToolbarIconLoader.isDarkLookAndFeel(dark), "switching back must answer for that instance");
+        assertFalse(ToolbarIconLoader.isDarkLookAndFeel(null), "no look-and-feel is never dark by name");
+    }
+
+    /** Minimal look-and-feel fixture; only the name participates in the theme probe. */
+    private static final class NamedLookAndFeel extends javax.swing.LookAndFeel {
+        private final String name;
+
+        private NamedLookAndFeel(final String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public String getID() {
+            return name;
+        }
+
+        @Override
+        public String getDescription() {
+            return name;
+        }
+
+        @Override
+        public boolean isNativeLookAndFeel() {
+            return false;
+        }
+
+        @Override
+        public boolean isSupportedLookAndFeel() {
+            return true;
+        }
+
+        @Override
+        public javax.swing.UIDefaults getDefaults() {
+            return new javax.swing.UIDefaults();
+        }
+    }
+
+    @Test
     void isDarkThemeDetectsPanelBackgroundLuma() {
         final Object previous = UIManager.get("Panel.background");
         try {

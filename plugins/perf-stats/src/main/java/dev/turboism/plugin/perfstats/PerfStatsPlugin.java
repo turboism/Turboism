@@ -74,6 +74,9 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private UiScheduler uiScheduler;
     private Registration sampling;
     private Registration cpuStatus;
+    /** Last CPU text pushed to the status bar for the current generation; duplicates are skipped. */
+    private String publishedCpuStatus;
+
     private boolean initialized;
     private boolean enabled;
     private long generation;
@@ -234,6 +237,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             if (!initialized) return;
             enabled = false;
             generation++;
+            publishedCpuStatus = null;
             active = window.getAndSet(null);
         }
         // Always attempt window cleanup even when sampling restoration fails.
@@ -298,10 +302,17 @@ public final class PerfStatsPlugin implements TurboismPlugin {
      * one widget per ID and identity-checks stale closes, so closing a replaced
      * registration never removes a newer widget and the plugin DisposableScope
      * stays bounded instead of growing with every one-second sample.
+     *
+     * <p>The host adapter blocks on the EDT and refreshes the status region on every
+     * call, so a reading that renders to the same text as the live label is not
+     * re-published: an idle editor stops paying the per-second EDT round-trip while
+     * the CPU percentage stays at the same displayed value.</p>
      */
     private void publishCpuStatus(final String message, final long sampleGeneration) {
         synchronized (lifecycleLock) {
             if (!enabled || generation != sampleGeneration) return;
+            if (message.equals(publishedCpuStatus)) return;
+            publishedCpuStatus = message;
         }
         final Registration next = context.services()
                 .require(UiHostCapabilityService.class)

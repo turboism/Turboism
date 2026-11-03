@@ -68,6 +68,7 @@ public final class HistoryPanelService {
     private volatile TaskHandle pollTask;
     private volatile Registration panel;
     private volatile String fingerprint = "";
+    private volatile HistorySnapshot renderedSnapshot;
 
     public HistoryPanelService(
             final CubismHistory history,
@@ -149,9 +150,15 @@ public final class HistoryPanelService {
         }
     }
 
+    @SuppressWarnings("ReferenceEquality") // Reuse this exact immutable projection, not a value-equal copy.
     private void refresh() {
         try {
             final HistorySnapshot snapshot = history.snapshot();
+            // The verified provider hands back the identical immutable snapshot while the host
+            // history is unchanged; that identity check skips re-hashing every entry and detail.
+            if (snapshot == renderedSnapshot) {
+                return;
+            }
             final String nextFingerprint = fingerprint(snapshot);
             if (nextFingerprint.equals(fingerprint)) {
                 return;
@@ -160,6 +167,7 @@ public final class HistoryPanelService {
             // Only advance the fingerprint after the panel was re-contributed
             // successfully, so a transient EDT failure retries next poll.
             fingerprint = nextFingerprint;
+            renderedSnapshot = snapshot;
             onRefresh.run();
             logger.info("History panel refreshed: " + nextFingerprint
                     + " entries=" + snapshot.entries().size()

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.adapter.cubism.optimization.extendedinterpolation.ExtendedInterpolationSetupBridge;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.lang.ref.WeakReference;
@@ -252,6 +253,9 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
                 return;
             }
             notifications.increment();
+            // Undo and redo replay the same native edits; the setup fast path only needs to know
+            // that a history transition just happened on this thread.
+            ExtendedInterpolationSetupBridge.noteNativeEditIntent();
             pending.set(true);
             onNotification.run();
         } catch (Throwable failure) {

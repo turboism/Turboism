@@ -1766,3 +1766,82 @@ Merge preparation: main remains e5424ce5027d049f12be6613f7690550f9984500 and is 
 ### User disposition (2026-09-26)
 
 After disclosure of the pan p99 increase (78.14→84.97ms, about8.7%) and clarification of the pan workload, the user explicitly instructed “合并到main”. The deviation is accepted for this integration; its measured values and all other limitations remain recorded. This authorizes the local main merge, not a push, and does not turn the tail non-regression target into PASS.
+
+## Hierarchy-only incremental `CModelSource.setup()` (2026-11-03)
+
+**Problem.** Reordering a Part/Deformer (and Undo/Redo of that move) froze the
+Editor for about 1.2 s on large projects. A native Part move reaches
+`CModelSource.updateModelInstances()` twice, and each call runs
+`CModelSource.setup()` followed by `CModel.reinitModelInstance_exe()`.
+
+**Attribution (real host, 5.3.04, 763 MB fixture, EDT timers).** `setup()`
+averaged 2.26 s per call; `CExtendedInterpolationExtension.setupFormStructure$default`
+accounted for 20.37 s of the 20.36 s of total `setup()` time over nine calls
+(3069 invocations, avg 6.6 ms, max 332 ms). Every other `setup()` sub-step — the
+six source sets, texture manager, motion/alias/random-pose, visible/lock
+propagation — totalled about 0.1 s over the same nine calls.
+`reinitModelInstance_exe()` was 39–45 ms steady and is not the freeze.
+
+**Mechanism.** `setup()` ends with two forced
+`setupFormStructure$default(ext, false, false, 3, null)` calls, one looping over
+every drawable source and one over every deformer source. The forced call skips
+the extension's own per-keyform `editVersion` and binding-structure comparison,
+so a hierarchy-only refresh rebuilds every extended-interpolation form even
+though no form input changed. The new hook replaces exactly those two call sites
+(inlined, no schema change, so retransformation is legal) with a consult that
+only takes the host's public incremental `updateInterpolatedForms(false)` when:
+
+- a native edit intent was recorded on the current thread (native `beginEdit`,
+  the native undo/redo listener, or the runtime hierarchy write), and
+- the extension is enabled and primed, and
+- every keyform's `editVersion` still equals the version retained in the
+  extension's `keyformUpdateMap`, the owner bindings still match the copy the
+  extension retained at its last rebuild (same parameter, interpolation type,
+  insert-point count and resulting key count), and the extended morph-target set
+  reports no pending structure change.
+
+Anything else — no intent, disabled/unprimed extension, changed version,
+changed bindings, pending morph structure, an unexpected rebuild or any thrown
+error — runs the unmodified forced call. Admission is the reviewed artifact
+digest plus an install-time anchor proof on the artifact's own bytes (exactly
+two forced call sites inside `setup()`, each preceded by
+`ICONST_0 ICONST_0 ICONST_3 ACONST_NULL`); unsupported artifacts refuse the hook.
+Enabled by default; `-Dturboism.optimization.extendedInterpolationIncrementalSetup=false`
+opts out.
+
+**A/B on the native Windows host.** Cubism 5.3.02 official launcher, production
+agent `0.68.1-SNAPSHOT` dirty build, same 763 MB fixture as PERF-052, EDT
+microbenchmark of the real `CModelSource`/`CModel` instances, ZGC. "Native" legs
+clear the edit intent (patched class, no intent, so the forced call runs exactly
+as before); "fast" legs record intent as the runtime does before a hierarchy
+write. Times are single calls in ms.
+
+| Call | Native | Fast (incremental) |
+|---|---:|---:|
+| `CModelSource.setup()` | 1379 / 1381 | 268 / 248 / 241 |
+| `CModelSource.updateModelInstances()` | 1366 / 1326 | 295 / 286 |
+| reorder (`addChild` + `updateModelInstances`) | 1366 / 1326 | 292 / 294 |
+
+That is about **-81 %** on `setup()` and **-78 %** on the whole model refresh,
+and a hierarchy move drops from ~1.4 s to ~0.29 s on this fixture.
+
+**Correctness evidence.** The deterministic 256×256 thumbnail of the model
+(`getThumbnail(256, null)` → `BufferedImage` digest) is byte-identical between
+the native and fast legs (`47e48746fd41ec27`, 256×256). `unexpectedRebuilds=0`
+and `failures=0`; the host's own incremental call never reported a needed
+rebuild when the retained-state comparison said nothing changed. Fallbacks were
+all explained per consult: no intent on native/non-edit refreshes, extensions
+with extended interpolation disabled, and real state changes (5 form-version, 70
+binding, 105 morph-target mismatches over the run). The reorder leg restored the
+original child order (`ROOT_CHILDREN 4`). The same hook installs and weaves
+`sites=2` on 5.3.04; 5.1/5.2.03/5.3.04 carry byte-identical `setup()` anchors
+(BCI 231/391).
+
+**Limitations.** One model, one host version for the timed A/B (install-time
+weaving confirmed on 5.3.04; anchor shape checked against the installed 5.1,
+5.2.03 and 5.3.04 jars). The timed reorder leg records the intent explicitly
+through the same bridge entry the runtime uses; host-observed intent (the
+native `beginEdit` hook and the undo listener) is wired but was not exercised
+through a scripted palette drag. Calling `setup()` directly is not a user edit,
+so the frozen-time figure for a real palette move additionally includes the
+second `updateModelInstances()` call and the palette's own work.

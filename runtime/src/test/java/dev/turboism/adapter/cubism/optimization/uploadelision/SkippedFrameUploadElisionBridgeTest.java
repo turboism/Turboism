@@ -25,6 +25,10 @@ class SkippedFrameUploadElisionBridgeTest {
         final Object oldSkipped;
 
         Host() throws Exception {
+            this(true);
+        }
+
+        Host(final boolean publishSkippedFrame) throws Exception {
             var sources = Map.of(
                     "com/jogamp/opengl/GL.java", """
                         package com.jogamp.opengl;
@@ -82,8 +86,9 @@ class SkippedFrameUploadElisionBridgeTest {
             wrapper = loader.loadClass("com.live2d.graphics3d.mesh.a.b")
                     .getConstructor()
                     .newInstance();
-            oldSkipped =
-                    System.getProperties().put(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY, new AtomicBoolean(true));
+            oldSkipped = publishSkippedFrame
+                    ? System.getProperties().put(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY, new AtomicBoolean(true))
+                    : System.getProperties().get(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
             bridge = new SkippedFrameUploadElisionBridge(loader, true);
             bridge.install();
         }
@@ -140,6 +145,19 @@ class SkippedFrameUploadElisionBridgeTest {
             host.establish(); // Must upload again despite identical GL wrapper/name/content.
             SkippedFrameUploadElisionBridge.invalidateUploads();
             host.establish();
+        }
+    }
+
+    @Test
+    void skippedFrameSlotIsRememberedOnceThePublisherAppears() throws Exception {
+        try (var host = new Host(false)) {
+            assertFalse(host.consult());
+            host.returned();
+            SkippedFrameUploadElisionBridge.observeError(host.gl, 0);
+            System.getProperties().put(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY, new AtomicBoolean(true));
+            assertTrue(host.consult(), "a late publisher must be observed");
+            System.getProperties().remove(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
+            assertTrue(host.consult(), "the resolved slot object is reused instead of re-read per upload");
         }
     }
 

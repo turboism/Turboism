@@ -36,6 +36,7 @@ final class HookManifestTest {
                         TextureUploadPreparationHookContributor.class,
                         WarpPositionProjectionHookContributor.class,
                         ModelUpdateSkipHookContributor.class,
+                        ModelInstanceCoalesceHookContributor.class,
                         IncrementalUpdateHookContributor.class,
                         GlGetErrorElisionHookContributor.class,
                         SkippedFrameUploadElisionHookContributor.class,
@@ -47,6 +48,7 @@ final class HookManifestTest {
                         DeferredGlErrorCheckHookContributor.class,
                         RedundantStateElisionHookContributor.class,
                         MatrixScratchHookContributor.class,
+                        ReinitPairElisionHookContributor.class,
                         NativeEditBeginHookContributor.class,
                         EditApiDispatchHookContributor.class,
                         TextureAtlasDataModelHookContributor.class,
@@ -58,7 +60,14 @@ final class HookManifestTest {
                         ObjectContextMenuHookContributor.class,
                         PhysicsEditorHookContributor.class,
                         BoundingBoxOverlayHookContributor.class,
-                        ControlAppearanceHookContributor.class),
+                        ControlAppearanceHookContributor.class,
+                        // Measurement-only: no behaviour, no ordering constraints.
+                        ClipMaskProbeHookContributor.class,
+                        ClipMaskDeduplicationHookContributor.class,
+                        // Hierarchy-only incremental CModelSource.setup() form rebuilds.
+                        ExtendedInterpolationSetupHookContributor.class,
+                        // Inspector shader-only property changes skip the full rebuild.
+                        InspectorPropertyBypassHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

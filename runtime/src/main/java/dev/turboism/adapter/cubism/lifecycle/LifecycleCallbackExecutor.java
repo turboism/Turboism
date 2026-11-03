@@ -41,8 +41,18 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
                         new PluginTask("event.subscribe", id, operation, "none"),
                         Objects.requireNonNull(callback, "callback"));
         if (submission.accepted()) {
-            pending.add(submission.completion());
+            final CompletionStage<?> completion = submission.completion();
+            pending.add(completion);
+            // Each stage retires itself, so a long-lived coordinator tracks in-flight callbacks
+            // instead of every callback it ever accepted. Idempotent: whenComplete may run in the
+            // submitting thread when the stage is already complete.
+            completion.whenComplete((ignored, failure) -> pending.remove(completion));
         }
+    }
+
+    /** Number of accepted callbacks that have not completed yet; the tracked set must not grow. */
+    int pendingCallbacks() {
+        return pending.size();
     }
 
     void awaitIdle() {

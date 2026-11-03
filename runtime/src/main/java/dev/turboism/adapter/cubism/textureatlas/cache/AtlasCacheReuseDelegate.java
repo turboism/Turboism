@@ -77,12 +77,13 @@ public final class AtlasCacheReuseDelegate {
      * {@code CWritableImage} here lets a later instance whose draw signature matches a
      * recorded build receive a {@code CWritableImage.copyAs} duplicate of that exact
      * output (the same copy {@code CTextureAtlas.reinit} performs) instead of rebuilding.
-     * Entries are bounded by count and by retained pixel bytes, eldest-evicted.
+     * Entries are bounded by count and by retained pixel bytes, eldest-evicted, and the
+     * whole table is dropped with the document whose pages it holds
+     * ({@link #releaseRetainedOutputs()}).
      */
     private static final int MAX_OUTPUTS = 128;
 
-    private static final long MAX_RETAINED_BYTES = Long.parseLong(
-            System.getProperty("turboism.atlasCacheReuse.retainedImageBytes", String.valueOf(1024L * 1024L * 1024L)));
+    private static final long MAX_RETAINED_BYTES = retainedBudget();
     private static final Map<Object, Output> OUTPUTS = new LinkedHashMap<>(64, 0.75f, false);
     private static long retainedBytes;
 
@@ -242,8 +243,8 @@ public final class AtlasCacheReuseDelegate {
     /**
      * Records the output a build produced, retaining the {@code CWritableImage} so a
      * later instance with the same signature can be supplied a copy. Retained bytes are
-     * bounded by {@code turboism.atlasCacheReuse.retainedImageBytes}; an image that alone
-     * exceeds the budget is not retained (its digest still is).
+     * bounded by {@link #retainedBudget()}; an image that alone exceeds the budget is
+     * not retained (its digest still is).
      */
     private static void recordOutput(
             final Object signature, final String digest, final Object image, final long bytes) {
@@ -296,6 +297,32 @@ public final class AtlasCacheReuseDelegate {
         }
     }
 
+    /**
+     * Retained-pixel ceiling: an explicit {@code turboism.atlasCacheReuse.retainedImageBytes}
+     * wins; otherwise one eighth of the maximum heap, capped at 1 GiB. The retained pages
+     * only accelerate a rebuild that the host can always perform, so they must never be a
+     * meaningful share of the heap the document itself needs.
+     */
+    static long retainedBudget() {
+        final String override = System.getProperty("turboism.atlasCacheReuse.retainedImageBytes");
+        if (override != null) return Math.max(0L, Long.parseLong(override));
+        return Math.min(1024L * 1024L * 1024L, Runtime.getRuntime().maxMemory() / 8L);
+    }
+
+    /**
+     * Drops every retained page output. Retained pixels are per-document reuse state: the
+     * {@code CTextureAtlas} instances they were produced for are reachable only from the open
+     * document, so keeping the copies afterwards pins a closed document's images. Called
+     * when a model document closes and when the installation is closed; the per-instance
+     * signature records stay, so an atlas that is still alive keeps hitting its own cache.
+     */
+    public static void releaseRetainedOutputs() {
+        synchronized (OUTPUTS) {
+            OUTPUTS.clear();
+            retainedBytes = 0;
+        }
+    }
+
     /** Test-only visibility into the record table size. */
     static int recordCount() {
         return RECORDS.size();
@@ -309,10 +336,7 @@ public final class AtlasCacheReuseDelegate {
     /** Test-only removal of all recorded signatures. */
     static void clearRecords() {
         RECORDS.clear();
-        synchronized (OUTPUTS) {
-            OUTPUTS.clear();
-            retainedBytes = 0;
-        }
+        releaseRetainedOutputs();
     }
 
     /**
