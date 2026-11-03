@@ -27,7 +27,9 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 **Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
 
-On macOS and Linux, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support; Linux covers runtime behavior only and is not a supported Cubism host.
+On macOS, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support.
+
+Supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly. On Linux the same validation runs under Proton (Wine), while headless Gradle, lint and unit-test checks run under Xvfb. Both are supported environments for developing and validating Turboism; only Windows x64 is offered as an end-user Cubism host.
 
 ## Installation
 

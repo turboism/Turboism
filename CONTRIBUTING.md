@@ -91,6 +91,8 @@ generated subscriber-catalog verification, installer plugin-section freshness, A
 
 `scripts/preview/` holds the local host-validation machinery those `validate*Host` tasks invoke: the `host_validation.py` admission queue and containment, packaging/launch scripts, and per-feature probes. It is opt-in, uses one UID-scoped queue root and host-admission lock, and is never installed or started by Gradle; see `scripts/preview/README-host-validation-scheduling.md`.
 
+The supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly; on Linux the same validation runs through Proton (Wine), and headless Gradle, lint and unit-test checks run under Xvfb. The shared tooling modules (`scripts/preview/hvq/`, `scripts/preview/host_validation_containment.py`) import and run on both host classes — POSIX-only primitives are optional, and containment selects the host's backend. The queue entry point and the Runner admission gate still require Linux (systemd user scopes, unified cgroup v2, `/proc`), so a native Windows host runs the offline gates and the Windows Job Object containment backend, not the scheduled queue.
+
 ### Running the gates
 
 Verification is proportionate to the change. During implementation, run only the
@@ -222,6 +224,10 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
 ## Build requirements
 
 - **Java**: a JDK 17 toolchain is required (`java` and `javac` on `PATH`).
+- **Host platform**: development and verification run on **native Windows x64**
+  (full Cubism Editor host validation) and on **Linux** (the same validation
+  under Proton, plus headless Gradle/lint/test runs under `xvfb-run`). Use
+  `gradlew.bat` on Windows and `./gradlew` on Linux.
 - **CI workflow guard**: `test_ci_coverage.py` needs PyYAML; CI pins
   `python3 -m pip install 'PyYAML==6.0.3'`.
 - **Python lint**: `devCheck` runs `checkPythonLint` over `scripts/` and

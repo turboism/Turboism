@@ -27,7 +27,9 @@ Turboism 是面向 **Live2D Cubism Editor**、以 Windows 为主要平台的运�
 
 支持的 Cubism 宿主平台为 **Windows x64**。未列出的 Editor 版本不承诺兼容；缺少所需适配器或功能时会拒绝启用，而不是猜测兼容性。支持某个版本不代表每个插件功能都能在该版本上使用。
 
-在 macOS 和 Linux 上，可下载并解压便携式 ZIP 发行包（`turboism-<version>.zip`）。macOS 打包仅处于预览阶段，尚未验证 Cubism 宿主支持；Linux 仅覆盖运行时和文件部署行为，不是受支持的 Cubism 宿主平台。
+在 macOS 上，可下载并解压便携式 ZIP 发行包（`turboism-<version>.zip`）。macOS 打包仅处于预览阶段，尚未验证 Cubism 宿主支持。
+
+受支持的宿主与验证环境包括 **原生 Windows x64** 和 **Linux**。Windows x64 直接运行完整的 Cubism 宿主验证；在 Linux 上，同一套验证通过 Proton（Wine）运行，而无头的 Gradle、lint 与单元测试检查在 Xvfb 下运行。两者都是开发和验证 Turboism 的受支持环境；作为最终用户使用的 Cubism 宿主，仅提供 Windows x64。
 
 ## 安装
 

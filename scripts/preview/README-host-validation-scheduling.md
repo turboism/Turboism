@@ -5,6 +5,45 @@ feature catalogue and generic `run-cubism-host-validation.sh` lifecycle, but run
 on the development host itself. **No SSH server, key, SSH/SCP invocation, or
 localhost-SSH fallback is required.**
 
+## Supported host and validation environments
+
+Two host classes are supported, and the toolchain must stay usable on both:
+
+- **Native Windows x64** — the end-user Cubism host. It runs the full Cubism
+  Editor host validation directly, without Wine or a compatibility prefix.
+- **Linux** — runs the same Cubism host validation under **Proton** (Wine, in an
+  isolated CoW prefix), and runs headless Gradle, lint and unit-test checks under
+  **Xvfb** (`xvfb-run -a -s '-screen 0 1920x1080x24'`).
+
+`scripts/preview/hvq/common.py`, `scripts/preview/hvq/display.py` and
+`scripts/preview/host_validation_containment.py` import and behave correctly on
+both classes: `fcntl`/`pwd`/`msvcrt`, `os.getuid`, `O_NOFOLLOW`, `O_DIRECTORY`,
+`AF_UNIX`, `/proc` and cgroup access are all optional rather than assumed. The
+state root is the account home resolved for the current user (`pwd` on POSIX,
+the profile directory on Windows), so `HOME`/`XDG_STATE_HOME`/cwd still cannot
+split one user's lock domain; private-directory and lock ownership checks keep
+their exact POSIX semantics and fall back to ACL-backed privacy on Windows.
+
+Containment selects exactly one backend per host, and both write the same
+`containment.json` schema version 1 with `jobId`/`attemptId`/`runId`/`preparedDigest`
+and `entryIdentity`:
+
+- **Linux** — a random `systemd-run --user --scope` unit bound to its real
+  cgroup v2 directory; cleanup is proven from `cgroup.events`/`cgroup.kill` on
+  the held cgroup descriptor.
+- **Native Windows** — an anonymous Job Object created with
+  `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (`backend: "windows-job"`); the payload is
+  assigned before it can spawn, so descendants are lost with the job even if they
+  leave the console process group. Cleanup is proven from the kernel's
+  `ActiveProcesses` count after `TerminateJobObject`, and the proof carries
+  `exitCode`/`timedOut` alongside the shared identity fields.
+
+The scheduled queue itself (`serve`, admission locks, `/proc` session discovery,
+the Runner's cgroup membership gate) remains Linux-only: it needs a systemd user
+manager and delegated cgroup v2 scopes. On a native Windows host use the offline
+Gradle/lint gates and the Windows containment backend; the queue is not claimed
+to schedule Cubism runs there.
+
 ## Acceptance sequence
 
 1. **Choose the assertions and exact versions.** Use `list` and `plan` to select
