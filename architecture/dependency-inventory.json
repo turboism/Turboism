@@ -505,12 +505,6 @@
         "dev.turboism.ui.mesh",
         "dev.turboism.ui.palette",
         "dev.turboism.ui.toolbar"
-      ],
-      [
-        "dev.turboism.adapter.cubism.edit",
-        "dev.turboism.adapter.cubism.editor",
-        "dev.turboism.adapter.cubism.editor.history",
-        "dev.turboism.adapter.cubism.editor.transaction"
       ]
     ],
     "topPackageCycles": [

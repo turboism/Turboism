@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.editor;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
 
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
