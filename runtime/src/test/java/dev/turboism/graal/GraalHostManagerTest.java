@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -341,7 +342,10 @@ final class GraalHostManagerTest {
         try (GraalHostManager manager = manager(StartupBlockingHost.class, diagnostics, 300L)) {
             final GraalHostManager.Execution blocking =
                     manager.submit("blocking", "", Map.of(), (operation, payload) -> "{}");
-            awaitDiagnostic(diagnostics, "STARTUP_BLOCKED");
+            // The precondition is "no ready host": either the blocked host speaks first, or the
+            // 300 ms startup wait expires before the forked JVM reaches main() on a loaded runner.
+            // Waiting only for STARTUP_BLOCKED raced the fork and failed with no diagnostic at all.
+            awaitDiagnostic(diagnostics, "STARTUP_BLOCKED", "GRAAL_HOST_START_TIMEOUT");
             for (int index = 0; index < 64; index++) {
                 final GraalHostManager.Execution queued = manager.submit(
                         "queued-" + index,
@@ -609,11 +613,19 @@ final class GraalHostManagerTest {
     /** Child-JVM startups are slow on loaded CI runners; give the diagnostics a generous budget. */
     private static final Duration DIAGNOSTIC_WAIT = Duration.ofSeconds(60);
 
-    private static void awaitDiagnostic(final List<String> diagnostics, final String marker) {
-        Await.condition(
-                "Missing diagnostic " + marker + ": " + diagnostics,
-                () -> diagnostics.stream().anyMatch(message -> message.contains(marker)),
-                DIAGNOSTIC_WAIT);
+    private static void awaitDiagnostic(final List<String> diagnostics, final String... markers) {
+        final String wanted = String.join(" or ", markers);
+        try {
+            Await.condition(
+                    () -> diagnostics.stream()
+                            .anyMatch(message -> Arrays.stream(markers).anyMatch(message::contains)),
+                    DIAGNOSTIC_WAIT);
+        } catch (AssertionError timeout) {
+            // Report the diagnostics collected during the wait. Interpolating them into the
+            // description above froze the list as it was before polling, which printed ": []" even
+            // after the host had spoken.
+            throw new AssertionError("Missing diagnostic " + wanted + ": " + diagnostics, timeout);
+        }
     }
 
     private static void awaitProcessExit(final long pid) {
