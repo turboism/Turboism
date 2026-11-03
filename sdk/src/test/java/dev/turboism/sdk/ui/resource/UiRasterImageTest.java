@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class UiRasterImageTest {
@@ -36,14 +38,33 @@ class UiRasterImageTest {
         icons.put(0, image);
         final StateButtonContribution contribution = new StateButtonContribution("mirror", icons, 1, ignored -> {});
         icons.clear();
-        assertEquals(0, contribution.order());
         assertEquals(List.of(1, 0), List.copyOf(contribution.stateIcons().keySet()));
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> contribution.stateIcons().clear());
 
-        final StateButtonContribution ordered =
-                new StateButtonContribution("ordered", contribution.stateIcons(), 0, ignored -> {}, 7);
-        assertEquals(7, ordered.order());
+    }
+
+    @Test
+    void orderedRegistrationFailsClosedWhenTheHostDoesNotSupportOrdering() {
+        final AtomicInteger registrations = new AtomicInteger();
+        final ViewContextMenuRegistry olderHost = new ViewContextMenuRegistry() {
+            @Override
+            public dev.turboism.sdk.plugin.Registration contributeStateButtons(
+                    final StateButtonContribution contribution) {
+                registrations.incrementAndGet();
+                return () -> {};
+            }
+
+            @Override
+            public void updateButtonState(final String contributionId, final int axis) {}
+        };
+        final StateButtonContribution contribution = new StateButtonContribution(
+                "mirror", java.util.Map.of(0, new UiRasterImage(1, 1, new int[] {0xff123456})), 0, ignored -> {});
+
+        olderHost.contributeStateButtons(contribution, 0).close();
+        assertEquals(1, registrations.get());
+        assertThrows(UnsupportedOperationException.class, () -> olderHost.contributeStateButtons(contribution, 7));
+        assertEquals(1, registrations.get());
     }
 }
