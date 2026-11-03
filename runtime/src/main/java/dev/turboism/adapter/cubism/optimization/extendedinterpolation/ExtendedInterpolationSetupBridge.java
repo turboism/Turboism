@@ -58,6 +58,10 @@ public final class ExtendedInterpolationSetupBridge implements AutoCloseable {
     /** Consult slot the woven setup entry calls. */
     public static final String CONSULT_PROPERTY = "turboism.extended-interpolation-setup.consult";
 
+    /** General incremental switch; when true, admits fingerprint-proven unchanged extensions even without an edit intent. */
+    public static final String GENERAL_INCREMENTAL_PROPERTY =
+            "turboism.optimization.extendedInterpolationGeneralIncremental";
+
     /** Statistics slot. */
     public static final String STATS_PROPERTY = "turboism.extended-interpolation-setup.stats";
 
@@ -236,12 +240,16 @@ public final class ExtendedInterpolationSetupBridge implements AutoCloseable {
         return Collections.unmodifiableMap(values);
     }
 
+    private static boolean generalIncrementalEnabled() {
+        return Boolean.getBoolean(GENERAL_INCREMENTAL_PROPERTY);
+    }
+
     private Object onConsult(final Object extension) {
         if (!active.get() || extension == null || !extensionType.isInstance(extension)) {
             return Boolean.FALSE;
         }
         consults.increment();
-        if (!nativeEditInFlight()) {
+        if (!nativeEditInFlight() && !generalIncrementalEnabled()) {
             noIntent.increment();
             nativeFallbacks.increment();
             return Boolean.FALSE;

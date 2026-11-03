@@ -98,6 +98,18 @@ final class ExtendedInterpolationSetupBridgeTest {
     }
 
     @Test
+    void generalIncrementalModeAllowsFingerprintProvenExtensionsWithoutIntent() throws Exception {
+        primeUnchanged();
+        try {
+            System.setProperty(ExtendedInterpolationSetupBridge.GENERAL_INCREMENTAL_PROPERTY, "true");
+            assertEquals(Boolean.TRUE, consult(currentExtension()));
+            assertEquals(1, updates());
+        } finally {
+            System.clearProperty(ExtendedInterpolationSetupBridge.GENERAL_INCREMENTAL_PROPERTY);
+        }
+    }
+
+    @Test
     void disabledExtensionFallsBack() throws Exception {
         primeUnchanged();
         loader.setStatic(EXTENSION, "enabled", Boolean.FALSE);
