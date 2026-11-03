@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
 import dev.turboism.sdk.cubism.mesh.VertexSelection;

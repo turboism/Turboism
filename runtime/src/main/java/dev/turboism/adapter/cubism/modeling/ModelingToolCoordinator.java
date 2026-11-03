@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
+import static dev.turboism.mapping.selector.ModelingSelectionSelectorContract.*;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.verification.SelectorAdmission;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.modeling.ModelingBrush;
@@ -39,7 +40,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
             disconnectOnEdt();
             if (closed) return;
             generation = hostGeneration;
-            if (ModelingSelectionSelectorContract.authorizes(resolver)) {
+            if (SelectorAdmission.authorizesModelingSelection(resolver)) {
                 sessions = new NativeModelingToolSessionResolver(resolver);
                 final Object app = resolver.invokeStatic(APP);
                 final Object callbacks = resolver.invoke(VIEW_LISTENERS, app);
@@ -80,7 +81,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
                 () -> !closed
                         && lifecycleReady
                         && sessions != null
-                        && ModelingSelectionSelectorContract.authorizes(sessions.resolver()));
+                        && SelectorAdmission.authorizesModelingSelection(sessions.resolver()));
     }
 
     /** Reports whether ordinary mode contains a selected editable ArtMesh or Warp Deformer. */

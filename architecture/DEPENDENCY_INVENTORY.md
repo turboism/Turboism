@@ -40,7 +40,7 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`).
 - `:runtime`: 34 top-level `dev.turboism.*` packages, 121 top-level package
-  edges, 1 top-level cycle, 1 leaf-package cycle (6 before the `#70` step 3a
+  edges, 1 top-level cycle, **0 leaf-package cycles** (6 before the `#70` step 3a
   pilot; see below for how each was removed).
 - Production code has no dependency on `:plugins:*`; runtime test code does
   (`testImplementation` only), which the inventory keeps as a separate
@@ -48,12 +48,17 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
 
 ## Cycles to break before any extraction
 
-Recorded at leaf-package granularity; `--report` prints the current list when it
-changes. Candidate direction is a note, not a decision.
+None. At leaf-package granularity the `:runtime` package graph is **acyclic**, so
+the extraction steps of #70 no longer risk moving a cycle across a module
+boundary. The gate keeps it that way: any new cycle fails `checkDependencyInventory`.
 
-| Size | Cycle | Candidate direction |
-| --- | --- | --- |
-| 8 | `adapter.cubism.{mesh,modeling,optimization}`, `mapping.verification`, `ui.{filter,mesh,palette,toolbar}` | the adapter should expose an admission contract; `ui` must not be reachable from `mapping.verification` |
+The inventory still records one **top-level** cycle over ten packages (`adapter`,
+`config`, `core`, `hostread`, `mapping`, `recentfile`, `recentpreview`,
+`screenshot`, `task`, `ui`). That is an aggregation artifact, not an actionable
+cycle: different leaves of the same top-level package legitimately depend on each
+other in both directions (for example the UI surface uses adapter primitives while
+one adapter leaf consumes UI descriptors). Leaf-package granularity is the
+enforced one, and it is empty.
 
 ### Resolved
 
@@ -63,6 +68,7 @@ changes. Candidate direction is a note, not a decision.
 | `preview` ↔ `preview.report` | the runtime→document bridge moved up into `dev.turboism.preview`, leaving `report` a pure formatter | `architecture/MODULE_CONTRACTS.md` |
 | `runtime.log` → `core.*` (half of a 5-package cycle) | `CubismLogServiceHost` is a Cubism host adapter, not infrastructure; it moved to `dev.turboism.adapter.cubism.service.log`, leaving `runtime.log` strictly below `core` | `architecture/MODULE_CONTRACTS.md` |
 | `core.runtime` ↔ `core.runtime.sidecar` / `core.runtime.work` | `PluginTask` and `RuntimeCancellationToken` moved into `dev.turboism.core.runtime.contract`, below both the scheduler and the executors | `architecture/MODULE_CONTRACTS.md` |
+| `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔ `ui.*` (8 packages) | `LogPaletteHostStructure` moved into `ui.host`, the two mesh toolbar descriptors into `ui.contribution`, the two selector contracts into `mapping.selector` (the planned consolidation), and their resolver-dependent `authorizes(...)` helpers into `mapping.verification.SelectorAdmission` | `architecture/MODULE_CONTRACTS.md` |
 | `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | `EditorHostThread` moved into `adapter.cubism.editor.host`, and authoring transactions take an `AuthoringHistoryPort` instead of importing the recorder | `architecture/MODULE_CONTRACTS.md` |
 | `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` | the adapter→port bridge moved into the adapter layer (`ProjectWorkspaceReadSources`) and `CubismReadPermissionGate` moved up into `adapter.cubism`; `hostread` now imports no adapter package | `architecture/MODULE_CONTRACTS.md` |
 

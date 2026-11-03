@@ -1,7 +1,7 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract;
-import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
+import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
+import dev.turboism.mapping.selector.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
