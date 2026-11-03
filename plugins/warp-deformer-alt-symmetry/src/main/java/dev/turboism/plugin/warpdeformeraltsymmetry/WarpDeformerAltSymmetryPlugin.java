@@ -87,7 +87,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             context.disposableScope()
                     .register(registry.contributeStateButtons(
                             new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution(
-                                    AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis(), STRIP_ORDER)));
+                                    AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis()),
+                            STRIP_ORDER));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
