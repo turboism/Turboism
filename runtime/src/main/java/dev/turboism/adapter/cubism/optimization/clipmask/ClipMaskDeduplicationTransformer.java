@@ -29,7 +29,8 @@ import org.objectweb.asm.Opcodes;
  *       {@code BiPredicate<Object, Object>} slot. If {@code true}, skips mask FBO
  *       acquire, bind, clear and draws with {@code RETURN}. Before every normal
  *       {@code RETURN}, invokes {@code BiConsumer<Object, Object>} to record the
- *       newly rendered mask.</li>
+ *       newly rendered mask. The pass also reports its renderer/context and wraps
+ *       the mask {@code glClear} with scissor before/after consults.</li>
  *   <li>{@code a(AGRenderer, a)V} (endClipping): entry consults
  *       {@code Predicate<Object>} slot. If {@code true} (lease held in dedupe cache),
  *       suppresses releasing to pool and returns immediately.</li>
@@ -120,6 +121,14 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             checkShape(reference, bytes, name, ClipMaskDeduplicationTarget.RENDER_METHOD, renderMethodDescriptor);
 
             final ClassReader reader = new ClassReader(bytes);
+            final int maskPassMaxLocals = maxLocals(
+                    reader,
+                    ClipMaskDeduplicationTarget.MASK_PASS_METHOD,
+                    ClipMaskDeduplicationTarget.MASK_PASS_DESCRIPTOR);
+            if (maskPassMaxLocals < 4) {
+                failures.put(name, "mask pass locals unavailable: " + maskPassMaxLocals);
+                return null;
+            }
             final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
                 @Override
                 protected ClassLoader getClassLoader() {
@@ -143,7 +152,7 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
                             if (method.equals(ClipMaskDeduplicationTarget.MASK_PASS_METHOD)
                                     && descriptor.equals(ClipMaskDeduplicationTarget.MASK_PASS_DESCRIPTOR)) {
                                 woven[0]++;
-                                return new MaskPassVisitor(delegate);
+                                return new MaskPassVisitor(delegate, maskPassMaxLocals);
                             }
                             if (method.equals(ClipMaskDeduplicationTarget.END_CLIPPING_METHOD)
                                     && descriptor.equals(ClipMaskDeduplicationTarget.END_CLIPPING_DESCRIPTOR)) {
@@ -177,6 +186,30 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         }
     }
 
+    private static int maxLocals(final ClassReader reader, final String methodName, final String descriptor) {
+        final int[] result = {0};
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String method,
+                            final String desc,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (!methodName.equals(method) || !descriptor.equals(desc)) return null;
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitMaxs(final int stack, final int locals) {
+                                result[0] = locals;
+                            }
+                        };
+                    }
+                },
+                ClassReader.SKIP_FRAMES);
+        return result[0];
+    }
+
     private void checkShape(
             final byte[] ref, final byte[] target, final String owner, final String method, final String desc) {
         final List<String> expected = ReviewedMethodShape.read(ref, owner, method, desc);
@@ -199,8 +232,13 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
      */
     private static final class MaskPassVisitor extends MethodVisitor {
 
-        MaskPassVisitor(final MethodVisitor delegate) {
+        private final int tempGl;
+        private final int tempMask;
+
+        MaskPassVisitor(final MethodVisitor delegate, final int maskPassMaxLocals) {
             super(Opcodes.ASM9, delegate);
+            tempGl = maskPassMaxLocals;
+            tempMask = maskPassMaxLocals + 1;
         }
 
         @Override
@@ -245,6 +283,29 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             super.visitLabel(handler);
             super.visitInsn(Opcodes.POP);
             super.visitLabel(proceed);
+            emitBiConsumerCall(ClipMaskScissorBridge.BEGIN_PROPERTY, 0, 1);
+        }
+
+        @Override
+        public void visitMethodInsn(
+                final int opcode,
+                final String owner,
+                final String name,
+                final String descriptor,
+                final boolean isInterface) {
+            final boolean maskClear = opcode == Opcodes.INVOKEINTERFACE
+                    && "com/jogamp/opengl/GL3".equals(owner)
+                    && "glClear".equals(name)
+                    && "(I)V".equals(descriptor);
+            if (maskClear) {
+                super.visitVarInsn(Opcodes.ISTORE, tempMask);
+                super.visitVarInsn(Opcodes.ASTORE, tempGl);
+                emitScissorBeforeClear();
+                super.visitVarInsn(Opcodes.ALOAD, tempGl);
+                super.visitVarInsn(Opcodes.ILOAD, tempMask);
+            }
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+            if (maskClear) emitRunnableCall(ClipMaskScissorBridge.AFTER_PROPERTY);
         }
 
         @Override
@@ -287,8 +348,117 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
                 super.visitLabel(handler);
                 super.visitInsn(Opcodes.POP);
                 super.visitLabel(done);
+                emitRunnableCall(ClipMaskScissorBridge.END_PROPERTY);
             }
             super.visitInsn(opcode);
+        }
+
+        private void emitScissorBeforeClear() {
+            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+            super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
+            super.visitLabel(start);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(ClipMaskScissorBridge.BEFORE_PROPERTY);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
+            super.visitJumpInsn(Opcodes.IFEQ, done);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(ClipMaskScissorBridge.BEFORE_PROPERTY);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
+            super.visitVarInsn(Opcodes.ALOAD, 2); // render context
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept", "(Ljava/lang/Object;)V", true);
+            super.visitLabel(end);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(handler);
+            super.visitInsn(Opcodes.POP);
+            super.visitLabel(done);
+        }
+
+        private void emitBiConsumerCall(final String property, final int firstLocal, final int secondLocal) {
+            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+            super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
+            super.visitLabel(start);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(property);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiConsumer");
+            super.visitJumpInsn(Opcodes.IFEQ, done);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(property);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiConsumer");
+            super.visitVarInsn(Opcodes.ALOAD, firstLocal);
+            super.visitVarInsn(Opcodes.ALOAD, secondLocal);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE,
+                    "java/util/function/BiConsumer",
+                    "accept",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                    true);
+            super.visitLabel(end);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(handler);
+            super.visitInsn(Opcodes.POP);
+            super.visitLabel(done);
+        }
+
+        private void emitRunnableCall(final String property) {
+            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+            super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
+            super.visitLabel(start);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(property);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
+            super.visitJumpInsn(Opcodes.IFEQ, done);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            super.visitLdcInsn(property);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
+            super.visitLabel(end);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(handler);
+            super.visitInsn(Opcodes.POP);
+            super.visitLabel(done);
         }
     }
 

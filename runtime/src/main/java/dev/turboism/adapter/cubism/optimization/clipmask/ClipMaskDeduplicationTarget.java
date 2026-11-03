@@ -15,6 +15,10 @@ import java.util.Optional;
  * often reference identical ordered mask sets. On a dedupe hit, the expensive FBO
  * acquire, bind, full-canvas clear and mask mesh draws are skipped; the cached
  * mask texture and uniforms are applied to the material directly.</p>
+ *
+ * <p>The same transform wraps the remaining mask clears in
+ * {@link ClipMaskScissorBridge}, which narrows each clear to the union of the mask
+ * mesh screen bounds and the pooled texture's previous dirty rectangle.</p>
  */
 public final class ClipMaskDeduplicationTarget {
 
