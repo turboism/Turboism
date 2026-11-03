@@ -36,12 +36,13 @@ public final class ArtMeshMirrorPlugin implements TurboismPlugin {
         context.disposableScope()
                 .register(context.services()
                         .require(ViewContextMenuRegistry.class)
-                        .contributeStateButtons(new ViewContextMenuRegistry.StateButtonContribution(
-                                BUTTON,
-                                Map.of(0, icon(false), 1, icon(true)),
-                                mirror.isEnabled() ? 1 : 0,
-                                ignored -> toggle(),
-                                STRIP_ORDER)));
+                        .contributeStateButtons(
+                                new ViewContextMenuRegistry.StateButtonContribution(
+                                        BUTTON,
+                                        Map.of(0, icon(false), 1, icon(true)),
+                                        mirror.isEnabled() ? 1 : 0,
+                                        ignored -> toggle()),
+                                STRIP_ORDER));
         context.logger().info("ArtMesh mirror button installed independently of Warp Deformer symmetry");
     }
 
