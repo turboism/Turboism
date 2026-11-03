@@ -25,18 +25,27 @@ import org.objectweb.asm.Opcodes;
  * <p>Three methods on the render system ({@code rendering/e} or {@code rendering/d})
  * are modified:</p>
  * <ul>
- *   <li>{@code a(AGRenderer, a, CRect)V} (mask pass): entry consults
- *       {@code BiPredicate<Object, Object>} slot. If {@code true}, skips mask FBO
- *       acquire, bind, clear and draws with {@code RETURN}. Before every normal
- *       {@code RETURN}, invokes {@code BiConsumer<Object, Object>} to record the
- *       newly rendered mask. The pass also reports its renderer/context and wraps
- *       the mask {@code glClear} with scissor before/after consults.</li>
+ *   <li>{@code a(AGRenderer, a, CRect)V} (mask pass): entry consults the
+ *       {@code BiPredicate<Object, Object>} slot and returns immediately when it
+ *       reports a dedupe hit, skipping the mask FBO acquire, bind, clear and draws.
+ *       On a miss the same call starts the scissor pass. The mask {@code glClear} runs the
+ *       {@code Function<Object, Runnable>} slot before it, which returns the restore action
+ *       that runs after {@code glClear} — a clear that needs no narrowing therefore reads no
+ *       driver state at all. Every normal
+ *       {@code RETURN} runs the {@code BiConsumer<Object, Object>} exit consult, which
+ *       records the newly rendered mask and ends the scissor pass.</li>
  *   <li>{@code a(AGRenderer, a)V} (endClipping): entry consults
- *       {@code Predicate<Object>} slot. If {@code true} (lease held in dedupe cache),
+ *       {@code Predicate<Object>}. If {@code true} (lease held in dedupe cache),
  *       suppresses releasing to pool and returns immediately.</li>
  *   <li>{@code a(a, CRect, ...)V} (top-level render): exit invokes {@code Runnable}
- *       slot to release all held leases to the pool and clear the cache.</li>
+ *       to release all held leases to the pool and drop the per-frame caches.</li>
  * </ul>
+ *
+ * <p>Each woven site resolves its slot with a single {@code Properties.get}: the value is
+ * kept on the operand stack across the {@code instanceof} check instead of being looked up
+ * a second time for the cast. Together with the merged entry and exit consults this takes
+ * a mask pass from six slot lookups (twelve {@code Hashtable} reads) to three, which is
+ * the whole hook cost the camera pan and zoom path pays per clipped drawable.</p>
  */
 public final class ClipMaskDeduplicationTransformer implements ClassFileTransformer {
 
@@ -227,46 +236,45 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         }
     }
 
+    /** Emits a slot read and the guard that skips the call when the slot holds another type. */
+    private static void emitSlot(final MethodVisitor visitor, final String property, final String interfaceType) {
+        visitor.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+        visitor.visitLdcInsn(property);
+        visitor.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        // Keep the resolved value on the stack: one Hashtable read serves both the
+        // instanceof guard and the cast, instead of reading the slot twice per site.
+        visitor.visitInsn(Opcodes.DUP);
+        visitor.visitTypeInsn(Opcodes.INSTANCEOF, interfaceType);
+    }
+
     /**
-     * Injects dedupe consult at entry and record consult before RETURN.
+     * Injects the dedupe/scissor entry consult at entry, the scissor bracket around the mask
+     * clear, and the exit consult before RETURN.
      */
     private static final class MaskPassVisitor extends MethodVisitor {
 
         private final int tempGl;
         private final int tempMask;
+        private final int tempRestore;
 
         MaskPassVisitor(final MethodVisitor delegate, final int maskPassMaxLocals) {
             super(Opcodes.ASM9, delegate);
             tempGl = maskPassMaxLocals;
             tempMask = maskPassMaxLocals + 1;
+            tempRestore = maskPassMaxLocals + 2;
         }
 
         @Override
         public void visitCode() {
             super.visitCode();
-            final Label start = new Label(), end = new Label(), handler = new Label(), proceed = new Label();
+            final Label start = new Label(), end = new Label(), handler = new Label(), skip = new Label();
+            final Label proceed = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskDeduplicationBridge.DEDUPE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiPredicate");
-            super.visitJumpInsn(Opcodes.IFEQ, proceed);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskDeduplicationBridge.DEDUPE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            emitSlot(this, ClipMaskDeduplicationBridge.DEDUPE_PROPERTY, "java/util/function/BiPredicate");
+            super.visitJumpInsn(Opcodes.IFEQ, skip);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiPredicate");
             super.visitVarInsn(Opcodes.ALOAD, 0); // renderSystem
             super.visitVarInsn(Opcodes.ALOAD, 1); // renderer
@@ -282,8 +290,10 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             super.visitJumpInsn(Opcodes.GOTO, proceed);
             super.visitLabel(handler);
             super.visitInsn(Opcodes.POP);
+            super.visitJumpInsn(Opcodes.GOTO, proceed);
+            super.visitLabel(skip);
+            super.visitInsn(Opcodes.POP); // Drop the slot value that was not the expected type.
             super.visitLabel(proceed);
-            emitBiConsumerCall(ClipMaskScissorBridge.BEGIN_PROPERTY, 0, 1);
         }
 
         @Override
@@ -300,40 +310,25 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             if (maskClear) {
                 super.visitVarInsn(Opcodes.ISTORE, tempMask);
                 super.visitVarInsn(Opcodes.ASTORE, tempGl);
-                emitScissorBeforeClear();
+                super.visitInsn(Opcodes.ACONST_NULL);
+                super.visitVarInsn(Opcodes.ASTORE, tempRestore);
+                emitBeforeClear();
                 super.visitVarInsn(Opcodes.ALOAD, tempGl);
                 super.visitVarInsn(Opcodes.ILOAD, tempMask);
             }
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-            if (maskClear) emitRunnableCall(ClipMaskScissorBridge.AFTER_PROPERTY);
+            if (maskClear) emitAfterClear();
         }
 
         @Override
         public void visitInsn(final int opcode) {
             if (opcode == Opcodes.RETURN) {
-                final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+                final Label start = new Label(), end = new Label(), handler = new Label();
+                final Label skip = new Label(), done = new Label();
                 super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
                 super.visitLabel(start);
-                super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-                super.visitLdcInsn(ClipMaskDeduplicationBridge.RECORD_PROPERTY);
-                super.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL,
-                        "java/util/Properties",
-                        "get",
-                        "(Ljava/lang/Object;)Ljava/lang/Object;",
-                        false);
-                super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiConsumer");
-                super.visitJumpInsn(Opcodes.IFEQ, done);
-                super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-                super.visitLdcInsn(ClipMaskDeduplicationBridge.RECORD_PROPERTY);
-                super.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL,
-                        "java/util/Properties",
-                        "get",
-                        "(Ljava/lang/Object;)Ljava/lang/Object;",
-                        false);
+                emitSlot(this, ClipMaskDeduplicationBridge.RECORD_PROPERTY, "java/util/function/BiConsumer");
+                super.visitJumpInsn(Opcodes.IFEQ, skip);
                 super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiConsumer");
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitVarInsn(Opcodes.ALOAD, 1);
@@ -347,123 +342,69 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
                 super.visitJumpInsn(Opcodes.GOTO, done);
                 super.visitLabel(handler);
                 super.visitInsn(Opcodes.POP);
+                super.visitJumpInsn(Opcodes.GOTO, done);
+                super.visitLabel(skip);
+                super.visitInsn(Opcodes.POP);
                 super.visitLabel(done);
-                emitRunnableCall(ClipMaskScissorBridge.END_PROPERTY);
             }
             super.visitInsn(opcode);
         }
 
-        private void emitScissorBeforeClear() {
-            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+        /**
+         * Runs the clear bracket before {@code glClear} and keeps the returned restore action in
+         * {@code tempRestore}. A slot that is absent, holds another type, or throws leaves the
+         * clear untouched.
+         */
+        private void emitBeforeClear() {
+            final Label start = new Label(), end = new Label(), handler = new Label();
+            final Label skip = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskScissorBridge.BEFORE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
-            super.visitJumpInsn(Opcodes.IFEQ, done);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskScissorBridge.BEFORE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
+            emitSlot(this, ClipMaskScissorBridge.CLEAR_PROPERTY, "java/util/function/Function");
+            super.visitJumpInsn(Opcodes.IFEQ, skip);
+            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Function");
             super.visitVarInsn(Opcodes.ALOAD, 2); // render context
             super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept", "(Ljava/lang/Object;)V", true);
-            super.visitLabel(end);
-            super.visitJumpInsn(Opcodes.GOTO, done);
-            super.visitLabel(handler);
-            super.visitInsn(Opcodes.POP);
-            super.visitLabel(done);
-        }
-
-        private void emitBiConsumerCall(final String property, final int firstLocal, final int secondLocal) {
-            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
-            super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
-            super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(property);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiConsumer");
-            super.visitJumpInsn(Opcodes.IFEQ, done);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(property);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiConsumer");
-            super.visitVarInsn(Opcodes.ALOAD, firstLocal);
-            super.visitVarInsn(Opcodes.ALOAD, secondLocal);
-            super.visitMethodInsn(
                     Opcodes.INVOKEINTERFACE,
-                    "java/util/function/BiConsumer",
-                    "accept",
-                    "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                    "java/util/function/Function",
+                    "apply",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
                     true);
+            super.visitVarInsn(Opcodes.ASTORE, tempRestore);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(handler);
             super.visitInsn(Opcodes.POP);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(skip);
+            super.visitInsn(Opcodes.POP);
             super.visitLabel(done);
         }
 
-        private void emitRunnableCall(final String property) {
-            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+        /** Runs the restore action the clear bracket returned, right after {@code glClear}. */
+        private void emitAfterClear() {
+            final Label start = new Label(), end = new Label(), handler = new Label();
+            final Label skip = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(property);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            super.visitVarInsn(Opcodes.ALOAD, tempRestore);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
-            super.visitJumpInsn(Opcodes.IFEQ, done);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(property);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            super.visitJumpInsn(Opcodes.IFEQ, skip);
+            super.visitVarInsn(Opcodes.ALOAD, tempRestore);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(handler);
             super.visitInsn(Opcodes.POP);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(skip);
             super.visitLabel(done);
         }
     }
 
     /**
-     * Injects release consult at entry of endClipping.
+     * Injects the release consult at entry of endClipping.
      */
     private static final class EndClippingVisitor extends MethodVisitor {
 
@@ -474,29 +415,12 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         @Override
         public void visitCode() {
             super.visitCode();
-            final Label start = new Label(), end = new Label(), handler = new Label(), proceed = new Label();
+            final Label start = new Label(), end = new Label(), handler = new Label();
+            final Label skip = new Label(), proceed = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskDeduplicationBridge.RELEASE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
-            super.visitJumpInsn(Opcodes.IFEQ, proceed);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskDeduplicationBridge.RELEASE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            emitSlot(this, ClipMaskDeduplicationBridge.RELEASE_PROPERTY, "java/util/function/Predicate");
+            super.visitJumpInsn(Opcodes.IFEQ, skip);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Predicate");
             super.visitVarInsn(Opcodes.ALOAD, 0); // renderSystem
             super.visitMethodInsn(
@@ -507,12 +431,15 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             super.visitJumpInsn(Opcodes.GOTO, proceed);
             super.visitLabel(handler);
             super.visitInsn(Opcodes.POP);
+            super.visitJumpInsn(Opcodes.GOTO, proceed);
+            super.visitLabel(skip);
+            super.visitInsn(Opcodes.POP);
             super.visitLabel(proceed);
         }
     }
 
     /**
-     * Injects frame boundary cleanup at exit of the top-level render method.
+     * Injects the frame boundary cleanup at exit of the top-level render method.
      */
     private static final class FrameBoundaryVisitor extends MethodVisitor {
 
@@ -552,34 +479,20 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         }
 
         private void emitFrameCleanup() {
-            final Label start = new Label(), end = new Label(), handler = new Label(), done = new Label();
+            final Label start = new Label(), end = new Label(), handler = new Label();
+            final Label skip = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
-            super.visitJumpInsn(Opcodes.IFEQ, done);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            emitSlot(this, ClipMaskDeduplicationBridge.FRAME_PROPERTY, "java/lang/Runnable");
+            super.visitJumpInsn(Opcodes.IFEQ, skip);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(handler);
+            super.visitInsn(Opcodes.POP);
+            super.visitJumpInsn(Opcodes.GOTO, done);
+            super.visitLabel(skip);
             super.visitInsn(Opcodes.POP);
             super.visitLabel(done);
         }

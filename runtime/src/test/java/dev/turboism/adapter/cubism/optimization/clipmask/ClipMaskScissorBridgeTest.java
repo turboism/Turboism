@@ -8,8 +8,7 @@ import static org.objectweb.asm.Opcodes.*;
 
 import java.util.Map;
 import java.util.Properties;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -42,10 +41,7 @@ final class ClipMaskScissorBridgeTest {
         bridge.install();
 
         final Properties properties = System.getProperties();
-        assertTrue(properties.get(ClipMaskScissorBridge.BEGIN_PROPERTY) instanceof BiConsumer);
-        assertTrue(properties.get(ClipMaskScissorBridge.BEFORE_PROPERTY) instanceof Consumer);
-        assertTrue(properties.get(ClipMaskScissorBridge.AFTER_PROPERTY) instanceof Runnable);
-        assertTrue(properties.get(ClipMaskScissorBridge.END_PROPERTY) instanceof Runnable);
+        assertTrue(properties.get(ClipMaskScissorBridge.CLEAR_PROPERTY) instanceof Function);
         assertTrue(properties.get(ClipMaskScissorBridge.STATS_PROPERTY) instanceof Supplier);
         assertThrows(IllegalStateException.class, bridge::install);
 
@@ -55,10 +51,7 @@ final class ClipMaskScissorBridgeTest {
         assertTrue(stats.get("clearPasses") == 0L);
 
         bridge.close();
-        assertNull(properties.get(ClipMaskScissorBridge.BEGIN_PROPERTY));
-        assertNull(properties.get(ClipMaskScissorBridge.BEFORE_PROPERTY));
-        assertNull(properties.get(ClipMaskScissorBridge.AFTER_PROPERTY));
-        assertNull(properties.get(ClipMaskScissorBridge.END_PROPERTY));
+        assertNull(properties.get(ClipMaskScissorBridge.CLEAR_PROPERTY));
         assertNull(properties.get(ClipMaskScissorBridge.STATS_PROPERTY));
         assertFalse(bridge.snapshot().get("active") == 1L);
     }
