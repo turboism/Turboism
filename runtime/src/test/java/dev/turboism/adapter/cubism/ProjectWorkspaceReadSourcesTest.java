@@ -1,11 +1,11 @@
-package dev.turboism.hostread;
+package dev.turboism.adapter.cubism;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.hostread.ProjectWorkspaceHostReadResult;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.hostread.AsyncHostReadErrorCode;
@@ -14,11 +14,11 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-class ProjectWorkspaceHostReadSourceTest {
+class ProjectWorkspaceReadSourcesTest {
 
     @Test
     void readsAdapterResultsWithoutSynchronousFacadeFallback() {
-        final ProjectWorkspaceHostReadResult result = ProjectWorkspaceHostReadSource.from(
+        final ProjectWorkspaceHostReadResult result = ProjectWorkspaceReadSources.from(
                         ProjectWorkspaceAdapter.Impl.connected(new Host()))
                 .read();
 
@@ -53,7 +53,7 @@ class ProjectWorkspaceHostReadSourceTest {
             }
         };
 
-        final ProjectWorkspaceHostReadResult result = ProjectWorkspaceHostReadSource.from(
+        final ProjectWorkspaceHostReadResult result = ProjectWorkspaceReadSources.from(
                         ProjectWorkspaceAdapter.Impl.connected(host))
                 .read();
 
@@ -65,13 +65,13 @@ class ProjectWorkspaceHostReadSourceTest {
     void mapsSafeModeAndAdapterDiagnosticsIntoClosedErrors() {
         assertEquals(
                 AsyncHostReadErrorCode.CAPABILITY_UNAVAILABLE,
-                ProjectWorkspaceHostReadSource.from(ProjectWorkspaceAdapter.Impl.safeMode())
+                ProjectWorkspaceReadSources.from(ProjectWorkspaceAdapter.Impl.safeMode())
                         .read()
                         .errorCode()
                         .orElseThrow());
         assertEquals(
                 AsyncHostReadErrorCode.HOST_VERSION_UNSUPPORTED,
-                ProjectWorkspaceHostReadSource.from(ProjectWorkspaceAdapter.Impl.connected(new Host() {
+                ProjectWorkspaceReadSources.from(ProjectWorkspaceAdapter.Impl.connected(new Host() {
                             @Override
                             public String hostVersion() {
                                 return "0.0";
@@ -82,7 +82,7 @@ class ProjectWorkspaceHostReadSourceTest {
                         .orElseThrow());
         assertEquals(
                 AsyncHostReadErrorCode.MAPPING_NOT_VERIFIED,
-                ProjectWorkspaceHostReadSource.from(ProjectWorkspaceAdapter.Impl.connected(new Host() {
+                ProjectWorkspaceReadSources.from(ProjectWorkspaceAdapter.Impl.connected(new Host() {
                             @Override
                             public Optional<ProjectSnapshot> activeProject() {
                                 throw new AdapterHostException(

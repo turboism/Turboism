@@ -142,15 +142,43 @@ while the executors consumed `PluginTask` and `RuntimeCancellationToken` from
 reference `PluginTask`, so this was an ast-grep codemod over imports, not a
 hand-edited move. No production logic changed.
 
+## `:runtime` hostread ↔ adapter.cubism
+
+- **Owner**: host-read and Cubism adapter maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.hostread` is the **port** side of async host reads:
+  request/result types, the async service and the executor lane. It never knows
+  which adapter answers. `dev.turboism.adapter.cubism` implements the port.
+- **Allowed dependencies**: `adapter.cubism` (and every adapter) may depend on
+  `hostread`; `hostread` depends only on the SDK, `permissions`, `failure` and
+  `adapter.ui.SafeModeDiagnostic`-free primitives.
+- **Forbidden**: any `dev.turboism.hostread` import of `dev.turboism.adapter.*`.
+- **Public API**: `ProjectWorkspaceHostReadSource`, `ProjectWorkspaceHostReadResult`,
+  `RuntimeAsyncHostReadService`; the adapter-side bridge is
+  `ProjectWorkspaceReadSources.from(ProjectWorkspaceAdapter)`.
+- **Threading / IO**: reads run on the shared host-read lane, never on the caller
+  thread; results are immutable.
+- **Tests**: `runtime/src/test/java/dev/turboism/hostread/**` for the service and
+  lane; `ProjectWorkspaceReadSourcesTest` for the adapter bridge.
+- **Backward compatibility**: SDK-facing types live under `sdk.hostread`; the
+  runtime port is internal.
+- **Enforcement**: `checkDependencyInventory` plus the module-boundary rules.
+
+**What changed (`#70` step 3d)**: `ProjectWorkspaceHostReadSource.from(adapter)`
+lived in the port package and imported `ProjectWorkspaceAdapter` and
+`SafeModeDiagnostic`, so the port depended on an implementation. The bridge moved
+to `adapter.cubism.ProjectWorkspaceReadSources` and its test moved with it.
+`CubismReadPermissionGate` moved from `adapter.cubism.service.read` up into
+`adapter.cubism`, because the facade used it and the read service implements it —
+the remaining direction (composed service → adapter primitives) is the valid one.
+`hostread` now imports no adapter package at all.
+
 ## Next boundaries (not yet extracted)
 
-The three remaining cycles are all in the host-adapter/UI cluster and each needs
-its own contract before any file moves:
+The two remaining cycles are in the host-adapter/UI cluster and each needs its
+own contract before any file moves:
 
 1. `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔
    `ui.{filter,mesh,palette,toolbar}` (8 packages). The adapter should expose an
    admission contract, and `mapping.verification` must not be reachable from `ui`.
 2. `adapter.cubism.{edit,editor,editor.history,editor.transaction}` (4 packages).
    One of edit/transaction is the lower layer; split the history adapter first.
-3. `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` (3 packages).
-   `hostread` is a port: the adapter should depend on it, never the reverse.
