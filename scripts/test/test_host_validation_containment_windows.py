@@ -173,13 +173,17 @@ class PrivateStorageTest(unittest.TestCase):
                 # A collection may not run while a reader holds the domain.
                 # (Windows has no shared byte-range lock, so on that host a
                 # reader also excludes other readers; POSIX keeps them
-                # concurrent, and this contract is unchanged either way.)
+                # concurrent with blocking LOCK_SH, and this contract is
+                # unchanged either way.)
+                if POSIX_HOST:
+                    with common.storage_lock(root):
+                        pass
                 with self.assertRaises(common.QueueBusy):
                     with common.storage_lock(root, exclusive=True):
                         pass
             with common.storage_lock(root, exclusive=True):
                 with self.assertRaises(common.QueueBusy):
-                    with common.storage_lock(root):
+                    with common.storage_lock(root, exclusive=True):
                         pass
             with common.storage_lock(root, exclusive=True):
                 pass

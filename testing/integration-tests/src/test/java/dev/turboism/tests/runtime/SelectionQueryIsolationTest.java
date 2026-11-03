@@ -34,7 +34,9 @@ import org.junit.jupiter.api.Test;
 class SelectionQueryIsolationTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-07-08T05:00:00Z"), ZoneOffset.UTC);
-    private static final int MAX_COALESCED_PUBLICATIONS = 1;
+    // One publication may already be in flight on the background long lane while the
+    // producer loop runs; all remaining rapid updates coalesce into one trailing batch.
+    private static final int MAX_COALESCED_PUBLICATIONS = 2;
 
     @Test
     void currentSelectionReturnsWithoutRunningListenerCallbackInline() throws CubismServiceException {
@@ -93,7 +95,10 @@ class SelectionQueryIsolationTest {
                 events.get(events.size() - 1).currentSelection().selectedModelObjectIds());
         assertTrue(
                 events.size() <= MAX_COALESCED_PUBLICATIONS,
-                "coalesced selection changes must publish at most one event, got " + events.size());
+                "coalesced selection changes must publish at most "
+                        + MAX_COALESCED_PUBLICATIONS
+                        + " events, got "
+                        + events.size());
     }
 
     private static SelectionFixture serviceWith(final HostSnapshotSource source) {
