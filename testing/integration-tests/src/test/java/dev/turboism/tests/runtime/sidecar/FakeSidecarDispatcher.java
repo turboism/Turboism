@@ -1,6 +1,6 @@
 package dev.turboism.tests.runtime.sidecar;
 
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.test.fake.FakeSidecarProcess;

@@ -1,5 +1,7 @@
 package dev.turboism.core.runtime;
 
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
+
 /**
  * Thread-local context that holds the current cancellation token for the
  * executing plugin work item.

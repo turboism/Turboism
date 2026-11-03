@@ -39,10 +39,9 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
 - 43 Gradle modules, including convention-supplied edges (plugins declare
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`).
-- `:runtime`: 34 top-level `dev.turboism.*` packages, 122 top-level package
-  edges, 1 top-level cycle, 4 leaf-package cycles (6 before the `#70` step 3a
-  pilot, and the largest remaining cycle shrank from 5 packages to 3 in step 3b;
-  see below).
+- `:runtime`: 34 top-level `dev.turboism.*` packages, 121 top-level package
+  edges, 1 top-level cycle, 2 leaf-package cycles (6 before the `#70` step 3a
+  pilot; see below for how each was removed).
 - Production code has no dependency on `:plugins:*`; runtime test code does
   (`testImplementation` only), which the inventory keeps as a separate
   configuration instead of folding into the production graph.
@@ -55,9 +54,7 @@ changes. Candidate direction is a note, not a decision.
 | Size | Cycle | Candidate direction |
 | --- | --- | --- |
 | 8 | `adapter.cubism.{mesh,modeling,optimization}`, `mapping.verification`, `ui.{filter,mesh,palette,toolbar}` | the adapter should expose an admission contract; `ui` must not be reachable from `mapping.verification` |
-| 3 | `core.runtime`, `core.runtime.sidecar`, `core.runtime.work` | `RuntimeScheduler` composes the executors, so the shared contracts (`PluginTask`, the work-executor surfaces) belong in a package below both |
 | 4 | `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | one of edit/transaction is the lower layer; split the history adapter out first |
-| 3 | `adapter.cubism`, `adapter.cubism.service.read`, `hostread` | `hostread` is a port: the adapter should depend on it, never the reverse |
 
 ### Resolved
 
@@ -66,12 +63,15 @@ changes. Candidate direction is a note, not a decision.
 | `adapter` ↔ `adapter.host` | `HostVerificationEvidence` (shared input) moved down into `dev.turboism.adapter` | `architecture/MODULE_CONTRACTS.md` |
 | `preview` ↔ `preview.report` | the runtime→document bridge moved up into `dev.turboism.preview`, leaving `report` a pure formatter | `architecture/MODULE_CONTRACTS.md` |
 | `runtime.log` → `core.*` (half of a 5-package cycle) | `CubismLogServiceHost` is a Cubism host adapter, not infrastructure; it moved to `dev.turboism.adapter.cubism.service.log`, leaving `runtime.log` strictly below `core` | `architecture/MODULE_CONTRACTS.md` |
+| `core.runtime` ↔ `core.runtime.sidecar` / `core.runtime.work` | `PluginTask` and `RuntimeCancellationToken` moved into `dev.turboism.core.runtime.contract`, below both the scheduler and the executors | `architecture/MODULE_CONTRACTS.md` |
+| `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` | the adapter→port bridge moved into the adapter layer (`ProjectWorkspaceReadSources`) and `CubismReadPermissionGate` moved up into `adapter.cubism`; `hostread` now imports no adapter package | `architecture/MODULE_CONTRACTS.md` |
 
-At top-level granularity the remaining cycles merge into a single 10-package
-cycle (`adapter`, `config`, `core`, `hostread`, `mapping`, `recentfile`,
-`recentpreview`, `screenshot`, `task`, `ui`; `runtime` left that cycle once
-`runtime.log` stopped depending on core), so a "break one edge at the top level"
-reading is misleading — the leaf list above is the actionable one.
+Both remaining cycles are inside the adapter/UI/mapping cluster. At
+top-level granularity they merge into a single 10-package cycle (`adapter`,
+`config`, `core`, `hostread`, `mapping`, `recentfile`, `recentpreview`,
+`screenshot`, `task`, `ui`; `runtime` left that cycle once `runtime.log` stopped
+depending on core), so a "break one edge at the top level" reading is
+misleading — the leaf list above is the actionable one.
 
 ## Extraction order this inventory supports
 

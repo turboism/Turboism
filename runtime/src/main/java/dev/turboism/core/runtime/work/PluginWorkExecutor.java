@@ -1,7 +1,7 @@
 package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;

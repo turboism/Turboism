@@ -2,6 +2,7 @@ package dev.turboism.core.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.sdk.plugin.WorkBudget;
 import org.junit.jupiter.api.Test;
 

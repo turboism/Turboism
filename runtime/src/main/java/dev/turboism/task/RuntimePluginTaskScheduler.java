@@ -1,9 +1,9 @@
 package dev.turboism.task;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeSchedulerLease;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
