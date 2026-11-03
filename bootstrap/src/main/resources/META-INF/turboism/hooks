@@ -79,3 +79,7 @@ dev.turboism.bootstrap.ControlAppearanceHookContributor
 # -Dturboism.validation.clipMaskProbe=true selects it.
 dev.turboism.bootstrap.ClipMaskProbeHookContributor
 dev.turboism.bootstrap.ClipMaskDeduplicationHookContributor
+# Hierarchy-only incremental CModelSource.setup(): swaps the two forced
+# extended-interpolation form rebuilds for the host's own per-form incremental
+# update when a native edit just started and no form input changed.
+dev.turboism.bootstrap.ExtendedInterpolationSetupHookContributor
