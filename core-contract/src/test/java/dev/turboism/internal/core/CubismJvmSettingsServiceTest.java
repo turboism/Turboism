@@ -42,6 +42,7 @@ class CubismJvmSettingsServiceTest {
         assertFalse(service.clipMaskDeduplication());
         assertFalse(service.extendedInterpolationIncrementalSetup());
         assertFalse(service.modelInstanceCoalesce());
+        assertFalse(service.inspectorPropertyBypass());
     }
 
     @Test
@@ -64,6 +65,7 @@ class CubismJvmSettingsServiceTest {
         assertThrows(IllegalStateException.class, () -> service.saveTextureUploadPreparation(true));
         assertThrows(IllegalStateException.class, () -> service.saveReinitPairElision(true));
         assertThrows(IllegalStateException.class, () -> service.saveWarpPositionProjection(true));
+        assertThrows(IllegalStateException.class, () -> service.saveInspectorPropertyBypass(true));
         assertThrows(IllegalStateException.class, service::installManagedRuntime);
         assertThrows(IllegalStateException.class, service::removeManagedRuntime);
     }

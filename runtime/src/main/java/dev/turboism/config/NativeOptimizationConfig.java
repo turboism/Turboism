@@ -26,6 +26,7 @@ public final class NativeOptimizationConfig {
         CLIP_MASK_DEDUPLICATION("clipMaskDeduplication"),
         EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup"),
         MODEL_INSTANCE_COALESCE("modelInstanceCoalesce"),
+        INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex"),
         ATLAS_TILE_BBOX("atlasTileBbox"),

@@ -65,7 +65,9 @@ final class HookManifestTest {
                         ClipMaskProbeHookContributor.class,
                         ClipMaskDeduplicationHookContributor.class,
                         // Hierarchy-only incremental CModelSource.setup() form rebuilds.
-                        ExtendedInterpolationSetupHookContributor.class),
+                        ExtendedInterpolationSetupHookContributor.class,
+                        // Inspector shader-only property changes skip the full rebuild.
+                        InspectorPropertyBypassHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

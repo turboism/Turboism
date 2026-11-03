@@ -52,6 +52,7 @@ final class CubismJvmSettingsContribution {
                     case "extended-interpolation-incremental-setup" ->
                         "settings.optimization.extended-interpolation-incremental-setup.tooltip";
                     case "model-instance-coalesce" -> "settings.optimization.model-instance-coalesce.tooltip";
+                    case "inspector-property-bypass" -> "settings.optimization.inspector-property-bypass.tooltip";
                     case "cubism-disable-auto-backup" -> "settings.cubism-jvm.disable-auto-backup.tooltip";
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
@@ -551,6 +552,23 @@ final class CubismJvmSettingsContribution {
                     return value;
                 },
                 97);
+    }
+
+    static SettingsContribution createInspectorPropertyBypassToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "inspector-property-bypass",
+                "settings.optimization.inspector-property-bypass",
+                settings::inspectorPropertyBypass,
+                value -> {
+                    if (settings.saveInspectorPropertyBypass(value) != value) {
+                        throw new IllegalStateException("Inspector property bypass preference was not saved");
+                    }
+                    return value;
+                },
+                98);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

@@ -32,6 +32,7 @@ public final class PerformanceSettingsConfig {
         CLIP_MASK_DEDUPLICATION("clipMaskDeduplication", true, "false"),
         EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup", true, "false"),
         MODEL_INSTANCE_COALESCE("modelInstanceCoalesce", true, "false"),
+        INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass", true, "false"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "false"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "false"),
         ATLAS_TILE_BBOX("atlasTileBbox", false, "false"),
