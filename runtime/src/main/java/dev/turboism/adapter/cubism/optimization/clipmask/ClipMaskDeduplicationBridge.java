@@ -147,8 +147,13 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         final Class<?> gVector2Class = Class.forName("com.live2d.graphics3d.type.GVector2", false, loader);
 
         setTextureMethod = materialClass.getMethod("setTexture", String.class, textureClass);
-        setVector2Method = materialClass.getMethod("setVector2", String.class, gVector2Class, Integer.class);
-        setFloatMethod = materialClass.getMethod("setFloat", String.class, float.class, Integer.class);
+        if (isVersion53) {
+            setVector2Method = materialClass.getMethod("setVector2", String.class, gVector2Class, Integer.class);
+            setFloatMethod = materialClass.getMethod("setFloat", String.class, float.class, Integer.class);
+        } else {
+            setVector2Method = materialClass.getMethod("setVector2", String.class, gVector2Class);
+            setFloatMethod = materialClass.getMethod("setFloat", String.class, float.class);
+        }
 
         gVector2Constructor = gVector2Class.getConstructor(float.class, float.class);
         zeroOffsetVector = gVector2Constructor.newInstance(0.0f, 0.0f);
@@ -174,6 +179,18 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             poolInstance = poolFieldA.get(null);
             poolReleaseMethod = poolClass.getMethod("a", leaseClass);
         }
+    }
+
+    private void setVector2(final Object material, final String name, final Object value)
+            throws ReflectiveOperationException {
+        if (isVersion53) setVector2Method.invoke(material, name, value, null);
+        else setVector2Method.invoke(material, name, value);
+    }
+
+    private void setFloat(final Object material, final String name, final float value)
+            throws ReflectiveOperationException {
+        if (isVersion53) setFloatMethod.invoke(material, name, value, null);
+        else setFloatMethod.invoke(material, name, value);
     }
 
     public static boolean enabledByPreference() {
@@ -372,12 +389,12 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             throws ReflectiveOperationException {
         setTextureMethod.invoke(curMaterial, "_ClippingMaskTex", cached.renderTexture());
         setTextureMethod.invoke(curMaterial, "_MainTex", cached.renderTexture());
-        setVector2Method.invoke(curMaterial, "clippingMaskOffset", zeroOffsetVector, null);
-        setVector2Method.invoke(curMaterial, "clippingMaskScale", cached.scale(), null);
-        setFloatMethod.invoke(curMaterial, "clippingMaskMin", 0.0f, null);
+        setVector2(curMaterial, "clippingMaskOffset", zeroOffsetVector);
+        setVector2(curMaterial, "clippingMaskScale", cached.scale());
+        setFloat(curMaterial, "clippingMaskMin", 0.0f);
 
         final boolean invert = Boolean.TRUE.equals(getInvertMethod.invoke(clipping));
-        setFloatMethod.invoke(curMaterial, "invertClippingMask", invert ? 1.0f : 0.0f, null);
+        setFloat(curMaterial, "invertClippingMask", invert ? 1.0f : 0.0f);
     }
 
     static long digestOf(final List<?> masks) {
