@@ -9,7 +9,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Reviewed anchors for the hierarchy-only incremental {@code CModelSource.setup()} optimization.
+ * Reviewed anchors for the incremental {@code CModelSource.setup()} optimization.
  *
  * <p>{@code CModelSource.setup()} ends its whole-model rebuild with two forced
  * {@code CExtendedInterpolationExtension.setupFormStructure$default(ext, false, false, 3, null)}
