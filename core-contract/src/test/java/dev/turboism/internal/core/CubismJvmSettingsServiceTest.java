@@ -39,6 +39,9 @@ class CubismJvmSettingsServiceTest {
         assertFalse(service.textureUploadPreparation());
         assertFalse(service.warpPositionProjection());
         assertFalse(service.reinitPairElision());
+        assertFalse(service.clipMaskDeduplication());
+        assertFalse(service.extendedInterpolationIncrementalSetup());
+        assertFalse(service.modelInstanceCoalesce());
     }
 
     @Test

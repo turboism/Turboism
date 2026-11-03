@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelinstances.ModelInstanceCoalesceBridge;
-
 /**
  * Contributor for the verified duplicate model-instance update coalescer.
  *
@@ -17,7 +15,8 @@ final class ModelInstanceCoalesceHookContributor extends NativeOptimizationHookC
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!ModelInstanceCoalesceBridge.enabledByPreference()) {
+        final boolean production = NativeOptimizationPolicy.modelInstanceCoalesceEnabled(environment);
+        if (!production) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }
