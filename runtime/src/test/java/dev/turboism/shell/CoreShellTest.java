@@ -110,9 +110,14 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(25, context.uiHost().settingsContributions().size());
+        assertEquals(30, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
+                        "performance.section.model",
+                        "performance.section.rendering",
+                        "performance.section.upload",
+                        "performance.section.mesh",
+                        "performance.section.jvm",
                         "cubism-graalvm-path",
                         "cubism-jvm",
                         "cubism-disable-auto-backup",
