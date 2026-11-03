@@ -27,7 +27,9 @@ Turboism은 **Live2D Cubism Editor**를 위한 Windows 중심의 런타임 확�
 
 지원하는 Cubism 호스트 플랫폼은 **Windows x64**입니다. 목록에 없는 Editor 버전의 호환성은 보장하지 않습니다. 필요한 어댑터나 기능이 없으면 안전을 위해 실행을 거부합니다. 지원 버전이라고 해서 모든 플러그인 기능을 사용할 수 있는 것은 아닙니다.
 
-macOS와 Linux에서는 포터블 ZIP 압축 파일(`turboism-<version>.zip`)을 내려받아 압축을 풀어 사용할 수 있습니다. 다만 macOS 패키징은 미리 보기 단계이며 Cubism 호스트 지원은 검증되지 않았습니다. Linux는 파일 배포 및 런타임 동작만을 대상으로 하며 Cubism 호스트로는 지원하지 않습니다.
+macOS에서는 포터블 ZIP 압축 파일(`turboism-<version>.zip`)을 내려받아 압축을 풀어 사용할 수 있습니다. 다만 macOS 패키징은 미리 보기 단계이며 Cubism 호스트 지원은 검증되지 않았습니다.
+
+지원하는 호스트 및 검증 환경은 **네이티브 Windows x64**와 **Linux**입니다. Windows x64에서는 Cubism 호스트 검증을 그대로 실행합니다. Linux에서는 동일한 검증을 Proton(Wine)으로 실행하고, 헤드리스 Gradle·lint·단위 테스트 검사는 Xvfb에서 실행합니다. 두 환경 모두 Turboism 개발과 검증을 위한 지원 환경입니다. 최종 사용자용 Cubism 호스트로 제공되는 것은 Windows x64뿐입니다.
 
 ## 설치
 
