@@ -66,6 +66,8 @@ import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
+import dev.turboism.sdk.ui.settings.SettingsContribution;
+import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import java.awt.GraphicsEnvironment;
@@ -110,49 +112,8 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(37, context.uiHost().settingsContributions().size());
-        assertEquals(
-                List.of(
-                        "performance.section.heavy-model",
-                        "performance.section.model",
-                        "performance.section.rendering",
-                        "performance.section.upload",
-                        "performance.section.mesh",
-                        "performance.section.jvm",
-                        "cubism-graalvm-path",
-                        "cubism-jvm",
-                        "cubism-disable-auto-backup",
-                        "cubism-zgc",
-                        "cubism-memory-profile",
-                        "cubism-memory-profile-note",
-                        "model-update-skip",
-                        "incremental-update",
-                        "incremental-update-affecters",
-                        "uniform-location-cache",
-                        "upload-elision",
-                        "input-path-elision",
-                        "mesa-gl-thread",
-                        "mesh-interpolation",
-                        "shader-uniform",
-                        "matrix-scratch",
-                        "image-archive-reuse",
-                        "float-array-parse-cache",
-                        "texture-upload-preparation",
-                        "warp-position-projection",
-                        "clip-mask-deduplication",
-                        "clip-mask-scissor-clear",
-                        "extended-interpolation-incremental-setup",
-                        "reinit-pair-elision",
-                        "model-instance-coalesce",
-                        "inspector-property-bypass",
-                        "performance-recommendation",
-                        "mesh-triangulation-hash",
-                        "triangulation-edge-index",
-                        "atlas-tile-bbox",
-                        "atlas-cache-reuse"),
-                context.uiHost().settingsContributions().stream()
-                        .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
-                        .toList());
+        // Exact placement of every settings row lives in one reviewable snapshot; see
+        // settingsLayoutMatchesTheReviewedSnapshot. This test only keeps the structural invariants.
         int maxToggleIndex = context.uiHost().settingsContributions().stream()
                 .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Toggle)
                 .mapToInt(c -> c.index().orElseThrow())
@@ -809,6 +770,57 @@ class CoreShellTest {
      * a leaked non-modal settings window can otherwise be picked up as the active window by
      * a later dialog test in the same JVM.
      */
+    @Test
+    void settingsLayoutMatchesTheReviewedSnapshot() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        plugin().start(context);
+        final List<SettingsContribution> contributions =
+                new ArrayList<>(context.uiHost().settingsContributions());
+        contributions.sort(java.util.Comparator.comparing((SettingsContribution contribution) ->
+                        contribution.index().orElse(Integer.MAX_VALUE))
+                .thenComparing(SettingsContribution::id));
+        final StringBuilder rendered = new StringBuilder();
+        rendered.append("# Turboism settings layout: <tab> <index> <kind> <id>\n");
+        rendered.append("# Sorted by tab, then render index. Update this file deliberately when a row is\n");
+        rendered.append("# added, removed, reordered or retyped - it is the single place layout is pinned.\n");
+        for (final SettingsContribution contribution : contributions) {
+            rendered.append(contribution.tab().id())
+                    .append(' ')
+                    .append(contribution.index().orElseThrow())
+                    .append(' ')
+                    .append(kind(contribution.control()))
+                    .append(' ')
+                    .append(contribution.id())
+                    .append('\n');
+        }
+        final String actual = rendered.toString();
+        final String expected;
+        try (var stream = CoreShellTest.class.getResourceAsStream("settings-layout.txt")) {
+            assertTrue(stream != null, "settings layout snapshot is missing from test resources");
+            expected = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        if (!expected.equals(actual)) {
+            // Leave the rendered layout next to the report so a deliberate change is a copy away.
+            final java.nio.file.Path actualFile = java.nio.file.Path.of("build", "settings-layout-actual.txt");
+            java.nio.file.Files.createDirectories(actualFile.getParent());
+            java.nio.file.Files.writeString(actualFile, actual, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        assertEquals(
+                expected,
+                actual,
+                () -> "Settings layout changed. Review build/settings-layout-actual.txt, then update\n"
+                        + "runtime/src/test/resources/dev/turboism/shell/settings-layout.txt.");
+    }
+
+    private static String kind(final SettingsControl control) {
+        if (control instanceof SettingsControl.Toggle) return "toggle";
+        if (control instanceof SettingsControl.Choice) return "choice";
+        if (control instanceof SettingsControl.Text) return "text";
+        if (control instanceof SettingsControl.FilePath) return "file-path";
+        if (control instanceof SettingsControl.Note) return "note";
+        throw new AssertionError("Unhandled settings control: " + control.getClass());
+    }
+
     private static void closePluginScope(final RecordingPluginContext context) throws Exception {
         context.disposableScope().close();
         SwingUtilities.invokeAndWait(() -> {});
