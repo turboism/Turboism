@@ -17,7 +17,9 @@ final class ExtendedInterpolationSetupHookContributor extends NativeOptimization
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!ExtendedInterpolationSetupBridge.enabledByPreference()) {
+        final boolean validation = Boolean.getBoolean(ExtendedInterpolationSetupBridge.VALIDATION_PROPERTY);
+        final boolean production = NativeOptimizationPolicy.extendedInterpolationIncrementalSetupEnabled(environment);
+        if (!validation && !production) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }

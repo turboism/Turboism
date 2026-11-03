@@ -18,7 +18,7 @@ final class ClipMaskDeduplicationHookContributor extends NativeOptimizationHookC
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         final boolean validation = Boolean.getBoolean(ClipMaskDeduplicationBridge.VALIDATION_PROPERTY);
-        final boolean production = ClipMaskDeduplicationBridge.enabledByPreference();
+        final boolean production = NativeOptimizationPolicy.clipMaskDeduplicationEnabled(environment);
         if (!validation && !production) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");

@@ -315,6 +315,36 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean clipMaskDeduplication() {
+        return optimization("clipMaskDeduplication");
+    }
+
+    @Override
+    public boolean saveClipMaskDeduplication(final boolean value) {
+        return saveOptimization("clipMaskDeduplication", value);
+    }
+
+    @Override
+    public boolean extendedInterpolationIncrementalSetup() {
+        return optimization("extendedInterpolationIncrementalSetup");
+    }
+
+    @Override
+    public boolean saveExtendedInterpolationIncrementalSetup(final boolean value) {
+        return saveOptimization("extendedInterpolationIncrementalSetup", value);
+    }
+
+    @Override
+    public boolean modelInstanceCoalesce() {
+        return optimization("modelInstanceCoalesce");
+    }
+
+    @Override
+    public boolean saveModelInstanceCoalesce(final boolean value) {
+        return saveOptimization("modelInstanceCoalesce", value);
+    }
+
+    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }

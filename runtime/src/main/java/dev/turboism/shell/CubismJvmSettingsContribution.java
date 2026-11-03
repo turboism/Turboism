@@ -48,6 +48,10 @@ final class CubismJvmSettingsContribution {
                     case "texture-upload-preparation" -> "settings.optimization.texture-upload-preparation.tooltip";
                     case "warp-position-projection" -> "settings.optimization.warp-position-projection.tooltip";
                     case "reinit-pair-elision" -> "settings.optimization.reinit-pair-elision.tooltip";
+                    case "clip-mask-deduplication" -> "settings.optimization.clip-mask-deduplication.tooltip";
+                    case "extended-interpolation-incremental-setup" ->
+                        "settings.optimization.extended-interpolation-incremental-setup.tooltip";
+                    case "model-instance-coalesce" -> "settings.optimization.model-instance-coalesce.tooltip";
                     case "cubism-disable-auto-backup" -> "settings.cubism-jvm.disable-auto-backup.tooltip";
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
@@ -495,6 +499,58 @@ final class CubismJvmSettingsContribution {
                     return value;
                 },
                 94);
+    }
+
+    static SettingsContribution createClipMaskDeduplicationToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "clip-mask-deduplication",
+                "settings.optimization.clip-mask-deduplication",
+                settings::clipMaskDeduplication,
+                value -> {
+                    if (settings.saveClipMaskDeduplication(value) != value) {
+                        throw new IllegalStateException("Clip-mask deduplication preference was not saved");
+                    }
+                    return value;
+                },
+                95);
+    }
+
+    static SettingsContribution createExtendedInterpolationIncrementalSetupToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "extended-interpolation-incremental-setup",
+                "settings.optimization.extended-interpolation-incremental-setup",
+                settings::extendedInterpolationIncrementalSetup,
+                value -> {
+                    if (settings.saveExtendedInterpolationIncrementalSetup(value) != value) {
+                        throw new IllegalStateException(
+                                "Extended interpolation incremental setup preference was not saved");
+                    }
+                    return value;
+                },
+                96);
+    }
+
+    static SettingsContribution createModelInstanceCoalesceToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "model-instance-coalesce",
+                "settings.optimization.model-instance-coalesce",
+                settings::modelInstanceCoalesce,
+                value -> {
+                    if (settings.saveModelInstanceCoalesce(value) != value) {
+                        throw new IllegalStateException("Model instance coalescing preference was not saved");
+                    }
+                    return value;
+                },
+                97);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

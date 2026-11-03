@@ -119,4 +119,18 @@ final class NativeOptimizationPolicy {
     static boolean reinitPairElisionEnabled(final HookEnvironment environment) {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.REINIT_PAIR_ELISION);
     }
+
+    static boolean clipMaskDeduplicationEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.CLIP_MASK_DEDUPLICATION);
+    }
+
+    static boolean extendedInterpolationIncrementalSetupEnabled(final HookEnvironment environment) {
+        return requested(
+                environment,
+                dev.turboism.config.NativeOptimizationConfig.Option.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP);
+    }
+
+    static boolean modelInstanceCoalesceEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MODEL_INSTANCE_COALESCE);
+    }
 }

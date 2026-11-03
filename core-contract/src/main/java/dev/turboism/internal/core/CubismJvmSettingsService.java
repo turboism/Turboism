@@ -294,6 +294,36 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /** Launcher preference: deduplicate identical clipping-mask passes per frame. Off by default. */
+    default boolean clipMaskDeduplication() {
+        return false;
+    }
+
+    /** Persists the clipping-mask deduplication preference; installation changes require restart. */
+    default boolean saveClipMaskDeduplication(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: skip redundant extended-interpolation form rebuilds during setup. Off by default. */
+    default boolean extendedInterpolationIncrementalSetup() {
+        return false;
+    }
+
+    /** Persists the extended-interpolation incremental setup preference; installation changes require restart. */
+    default boolean saveExtendedInterpolationIncrementalSetup(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: coalesce duplicate updateModelInstances calls inside edit groups. Off by default. */
+    default boolean modelInstanceCoalesce() {
+        return false;
+    }
+
+    /** Persists the model instance coalescing preference; installation changes require restart. */
+    default boolean saveModelInstanceCoalesce(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /**
      * Experimental launcher preference: explicit true adds
      * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed
