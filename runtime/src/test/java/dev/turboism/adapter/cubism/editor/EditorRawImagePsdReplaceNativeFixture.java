@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;

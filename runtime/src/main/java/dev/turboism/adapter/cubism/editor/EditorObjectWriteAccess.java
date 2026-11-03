@@ -4,6 +4,7 @@ import static dev.turboism.adapter.cubism.editor.EditorObjectReadCore.*;
 
 import dev.turboism.adapter.cubism.editor.EditorObjectReadCore.*;
 import dev.turboism.adapter.cubism.editor.history.decoder.ArtMeshPropertyCapture;
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
