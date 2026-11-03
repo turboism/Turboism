@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
-import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry;

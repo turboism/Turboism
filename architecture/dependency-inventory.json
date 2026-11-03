@@ -511,11 +511,6 @@
         "dev.turboism.adapter.cubism.editor",
         "dev.turboism.adapter.cubism.editor.history",
         "dev.turboism.adapter.cubism.editor.transaction"
-      ],
-      [
-        "dev.turboism.adapter.cubism",
-        "dev.turboism.adapter.cubism.service.read",
-        "dev.turboism.hostread"
       ]
     ],
     "topPackageCycles": [
@@ -700,10 +695,6 @@
       [
         "dev.turboism.hook",
         "dev.turboism.core"
-      ],
-      [
-        "dev.turboism.hostread",
-        "dev.turboism.adapter"
       ],
       [
         "dev.turboism.hostread",

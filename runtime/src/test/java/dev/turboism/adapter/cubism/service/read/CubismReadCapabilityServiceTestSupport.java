@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.service.read;
 
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
+import dev.turboism.adapter.cubism.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
