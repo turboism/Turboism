@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Synthetic save/reopen content mutations using accepted surface import evidence."""
-import argparse,copy,json,runpy
+import argparse
+import copy
+import json
+import runpy
 from pathlib import Path
 V=runpy.run_path(str(Path(__file__).with_name('verify-surface-atlas-reopen.py')))
 p=argparse.ArgumentParser();p.add_argument('--save-artifacts',type=Path,required=True);a=p.parse_args()

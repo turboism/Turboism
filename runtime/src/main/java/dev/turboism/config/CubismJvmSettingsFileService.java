@@ -325,6 +325,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean clipMaskScissorClear() {
+        return optimization("clipMaskScissorClear");
+    }
+
+    @Override
+    public boolean saveClipMaskScissorClear(final boolean value) {
+        return saveOptimization("clipMaskScissorClear", value);
+    }
+
+    @Override
     public boolean extendedInterpolationIncrementalSetup() {
         return optimization("extendedInterpolationIncrementalSetup");
     }

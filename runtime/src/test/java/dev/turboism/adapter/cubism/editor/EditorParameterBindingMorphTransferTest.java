@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -341,11 +343,6 @@ class EditorParameterBindingMorphTransferTest {
                         descriptor(Undo.class, HostMorphTarget.class, HostParameterGuid.class, Float.class)));
     }
 
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
     private static String descriptor(final Class<?> returnType, final Class<?>... parameters) {
         return "("
                 + Arrays.stream(parameters)
@@ -359,10 +356,6 @@ class EditorParameterBindingMorphTransferTest {
         if (type == boolean.class) return "Z";
         if (type == float.class) return "F";
         return "L" + internal(type) + ";";
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
     }
 
     private static final class Fixture {

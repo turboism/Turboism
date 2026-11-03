@@ -12,6 +12,7 @@ import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.preview.LocalPluginRuntime;
+import dev.turboism.preview.PreviewReportSnapshotFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;

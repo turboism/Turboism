@@ -15,6 +15,7 @@ import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -211,18 +212,7 @@ final class McpRequestRegistryTest {
         final java.util.concurrent.CompletableFuture<String> pending = new java.util.concurrent.CompletableFuture<>();
         final CountDownLatch waiting = new CountDownLatch(1);
         final AtomicBoolean cancelled = new AtomicBoolean();
-        final McpExecutionBridge bridge = new McpExecutionBridge(new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                throw new UnsupportedOperationException();
-            }
-        });
+        final McpExecutionBridge bridge = new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater());
         final Thread worker = new Thread(() -> {
             try (McpRequestRegistry.Scope ignored = requests.enter("session", 8)) {
                 waiting.countDown();

@@ -11,6 +11,7 @@ import dev.turboism.sdk.ui.appearance.UiColor;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
+import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -367,31 +368,11 @@ class LabelStyleApplierTest {
     }
 
     private static IntSequence emptyInts() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException();
-            }
-        };
+        return Stubs.emptyIntsWithoutIndex();
     }
 
     private static FloatSequence emptyFloats() {
-        return new FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(final int index) {
-                throw new IndexOutOfBoundsException();
-            }
-        };
+        return Stubs.emptyFloatsWithoutIndex();
     }
 
     // ------------------------------------------------------------------ fakes

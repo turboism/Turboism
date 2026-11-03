@@ -550,3 +550,21 @@ val writeBootstrapReceiptTestClasspath by tasks.registering {
     }
 }
 
+// The complete byte-for-byte fixture inventory is evaluated in ordinary runtime:test
+// as well as by a focused offline development gate.
+val persistenceGoldenFixtures = rootProject.file("tests/fixtures/snapshots")
+tasks.withType<Test>().configureEach {
+    inputs.dir(persistenceGoldenFixtures)
+    systemProperty("turboism.goldenSnapshotRoot", persistenceGoldenFixtures.absolutePath)
+}
+tasks.register<Test>("persistenceGoldenSnapshotsTest") {
+    group = "verification"
+    description = "Replays every immutable persisted-data golden fixture without Cubism."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.config.PersistenceGoldenSnapshotsTest")
+        isFailOnNoMatchingTests = true
+    }
+}

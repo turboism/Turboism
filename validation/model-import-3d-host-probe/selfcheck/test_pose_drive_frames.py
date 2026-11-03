@@ -1,6 +1,9 @@
 """Actual Java control-flow reports + independent synthetic rasters; no native evidence."""
 from pathlib import Path
-import hashlib,json,runpy,unittest
+import hashlib
+import json
+import runpy
+import unittest
 ROOT=Path(__file__).resolve().parents[3]
 OLD=runpy.run_path(str(Path(__file__).with_name('test_planar_frames.py')))
 Base=OLD['PlanarFramesTest']

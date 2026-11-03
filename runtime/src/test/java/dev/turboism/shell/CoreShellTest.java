@@ -110,9 +110,15 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(30, context.uiHost().settingsContributions().size());
+        assertEquals(37, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
+                        "performance.section.model",
+                        "performance.section.rendering",
+                        "performance.section.upload",
+                        "performance.section.heavy-model",
+                        "performance.section.mesh",
+                        "performance.section.jvm",
                         "cubism-graalvm-path",
                         "cubism-jvm",
                         "cubism-disable-auto-backup",
@@ -133,12 +139,13 @@ class CoreShellTest {
                         "float-array-parse-cache",
                         "texture-upload-preparation",
                         "warp-position-projection",
-                        "reinit-pair-elision",
                         "clip-mask-deduplication",
+                        "clip-mask-scissor-clear",
                         "extended-interpolation-incremental-setup",
+                        "reinit-pair-elision",
                         "model-instance-coalesce",
                         "inspector-property-bypass",
-                        "performance-restart-note",
+                        "performance-recommendation",
                         "mesh-triangulation-hash",
                         "triangulation-edge-index",
                         "atlas-tile-bbox",

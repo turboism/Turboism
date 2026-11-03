@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasLayoutProvider;

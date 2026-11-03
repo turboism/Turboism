@@ -28,6 +28,7 @@ import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.test.Stubs;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -707,102 +708,7 @@ class EditorObjectLifecycleCoordinatorContractTest {
     }
 
     private static PluginDescriptor descriptor(final String id) {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String name() {
-                return id;
-            }
-
-            @Override
-            public String version() {
-                return "1.0.0";
-            }
-
-            @Override
-            public String description() {
-                return "test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of();
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "UNLICENSED";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.pluginDescriptor(id);
     }
 
     private static PluginLogger logger(final List<String> errors) {
@@ -1076,30 +982,10 @@ class EditorObjectLifecycleCoordinatorContractTest {
     }
 
     private static IntSequence ints() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyInts();
     }
 
     private static FloatSequence floats() {
-        return new FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyFloats();
     }
 }

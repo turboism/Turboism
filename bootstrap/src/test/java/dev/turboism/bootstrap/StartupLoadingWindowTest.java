@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.awt.AWTEvent;
@@ -142,6 +143,9 @@ class StartupLoadingWindowTest {
     void terminalMessageGrowsTheWindowWithoutMovingItsCenter() throws Exception {
         try (StartupLoadingWindow loading = StartupLoadingWindow.open()) {
             final Dialog window = awaitWindow();
+            // Placement is a request to the window server and may land after the map, so sample the
+            // window only once it reports the centred bounds the constructor asks for.
+            awaitCentered(window);
             final AtomicReference<Rectangle> before = new AtomicReference<>();
             EventQueue.invokeAndWait(() -> before.set(window.getBounds()));
             loading.phase(StartupLoadingWindow.Phase.FAILED);
@@ -252,6 +256,32 @@ class StartupLoadingWindowTest {
             Thread.sleep(20);
         }
         assertEquals(english, description.get(), "Expected startup phase was not rendered");
+    }
+
+    /**
+     * Waits, bounded, for the window server to apply the requested placement.
+     *
+     * <p>Setting a location before the window is mapped is only a request: without a window
+     * manager the map can happen first and the window stays at the origin until something
+     * re-places it. Sampling the pre-resize bounds before that settles compared an unplaced
+     * window with a placed one.</p>
+     */
+    private static void awaitCentered(final Dialog window) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        final AtomicReference<String> observed = new AtomicReference<>("");
+        while (System.nanoTime() < deadline) {
+            final AtomicReference<Rectangle> bounds = new AtomicReference<>();
+            final AtomicReference<Rectangle> screen = new AtomicReference<>();
+            EventQueue.invokeAndWait(() -> {
+                bounds.set(window.getBounds());
+                screen.set(window.getGraphicsConfiguration().getBounds());
+            });
+            final double expectedCenterX = screen.get().getCenterX();
+            if (Math.abs(bounds.get().getCenterX() - expectedCenterX) <= 1.0) return;
+            observed.set(bounds.get() + " on a screen of " + screen.get());
+            Thread.sleep(20);
+        }
+        fail("The loading window never settled on the requested centre: " + observed.get());
     }
 
     private static void assertNoWindow() throws Exception {

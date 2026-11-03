@@ -16,6 +16,7 @@ import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.Stubs;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -148,22 +149,7 @@ class ModelHierarchyQueryServiceImplTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id);
     }
 
     private static final class VersionedHierarchySource implements HostSnapshotSource {

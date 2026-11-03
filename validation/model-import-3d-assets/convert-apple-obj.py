@@ -5,7 +5,11 @@ This is an offline fixture converter, not a production importer or occlusion cla
 Only this source digest is accepted. OBJ numeric UVs and coordinate units are retained;
 no material is inferred from scene screenshots. Quads use their 0-2 diagonal.
 """
-import argparse,hashlib,json,math,struct
+import argparse
+import hashlib
+import json
+import math
+import struct
 from pathlib import Path
 SOURCE_SHA='afbb79c4d618431ee505f1dbac4553401f36669b4a71b28336975768f73bca34'
 

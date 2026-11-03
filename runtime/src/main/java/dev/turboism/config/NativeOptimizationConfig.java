@@ -24,6 +24,7 @@ public final class NativeOptimizationConfig {
         WARP_POSITION_PROJECTION("warpPositionProjection"),
         REINIT_PAIR_ELISION("reinitPairElision"),
         CLIP_MASK_DEDUPLICATION("clipMaskDeduplication"),
+        CLIP_MASK_SCISSOR_CLEAR("clipMaskScissorClear"),
         EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup"),
         MODEL_INSTANCE_COALESCE("modelInstanceCoalesce"),
         INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass"),

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Audit the actual production-menu import against frozen original-face planes."""
-import hashlib,json,runpy,struct,sys
+import hashlib
+import json
+import runpy
+import struct
+import sys
 from pathlib import Path
 PAIR=runpy.run_path(str(Path(__file__).with_name('analyze-derived-persistence.py')))
 

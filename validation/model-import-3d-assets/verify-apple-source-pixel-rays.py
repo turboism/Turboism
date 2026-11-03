@@ -3,7 +3,12 @@
 
 This does not validate a native image or prove continuous-domain visibility.
 """
-import argparse,hashlib,json,struct,io,math
+import argparse
+import hashlib
+import json
+import struct
+import io
+import math
 from pathlib import Path
 import numpy as np
 from PIL import Image

@@ -1,5 +1,7 @@
 """Fixed plane/seam profile checks against actual synthetic importer capture reports."""
-import json,runpy,unittest
+import json
+import runpy
+import unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3]
 API=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-surface-geometry.py'))

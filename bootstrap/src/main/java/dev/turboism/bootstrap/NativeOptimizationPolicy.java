@@ -124,6 +124,10 @@ final class NativeOptimizationPolicy {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.CLIP_MASK_DEDUPLICATION);
     }
 
+    static boolean clipMaskScissorClearEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.CLIP_MASK_SCISSOR_CLEAR);
+    }
+
     static boolean extendedInterpolationIncrementalSetupEnabled(final HookEnvironment environment) {
         return requested(
                 environment,

@@ -16,26 +16,18 @@ import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.sdk.cubism.model.Deformers;
-import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
-import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
-import dev.turboism.sdk.cubism.model.Parameters;
-import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
-import java.time.Duration;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -605,18 +597,7 @@ final class McpGlueDomainTest {
     }
 
     private static UiScheduler immediateScheduler() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                throw new UnsupportedOperationException();
-            }
-        };
+        return FakeDirectUiScheduler.immediateWithUnsupportedLater();
     }
 
     private static final class FakeFacade implements CubismFacade {
@@ -758,65 +739,11 @@ final class McpGlueDomainTest {
         }
     }
 
-    private static final class FakeModel implements CubismModel {
-        private final List<FakeGlue> glues;
-        private final java.util.function.Supplier<String> providerVersion;
-
-        private FakeModel(final List<FakeGlue> glues, final java.util.function.Supplier<String> providerVersion) {
-            this.glues = new ArrayList<>(glues);
-            this.providerVersion = providerVersion;
+    private static final class FakeModel extends dev.turboism.test.fake.FakeModel {
+        private FakeModel(final List<FakeGlue> glueList, final java.util.function.Supplier<String> providerVersion) {
+            glueList.forEach(this::addGlue);
+            withGlueProviderVersion(() -> Optional.of(providerVersion.get()));
         }
-
-        @Override
-        public ModelId id() {
-            return new ModelId("model-1");
-        }
-
-        @Override
-        public Parameters parameters() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Parts parts() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Drawables drawables() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Deformers deformers() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Glues glues() {
-            return new Glues() {
-                @Override
-                public List<Glue> all() {
-                    return List.copyOf(glues);
-                }
-
-                @Override
-                public Glue find(final GlueId id) {
-                    return glues.stream()
-                            .filter(glue -> glue.id().equals(id))
-                            .findFirst()
-                            .orElseThrow();
-                }
-
-                @Override
-                public Optional<String> providerVersion() {
-                    return Optional.of(providerVersion.get());
-                }
-            };
-        }
-
-        @Override
-        public void update() {}
     }
 
     private static final class FakeGlue implements Glue {

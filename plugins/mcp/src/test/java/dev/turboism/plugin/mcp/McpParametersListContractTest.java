@@ -47,6 +47,7 @@ import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.appearance.PaletteEntry;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -631,19 +632,7 @@ final class McpParametersListContractTest {
     }
 
     private static UiScheduler immediateUi() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                work.run();
-                return () -> {};
-            }
-        };
+        return FakeDirectUiScheduler.direct();
     }
 
     private static PluginLogger silentLogger() {

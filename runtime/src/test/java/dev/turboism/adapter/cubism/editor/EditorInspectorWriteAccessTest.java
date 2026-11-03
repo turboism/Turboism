@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.type;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -632,13 +636,7 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
         selectors.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
         selectors.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(UndoEntry.class)));
-        selectors.add(method(
-                "cubism.editor-history.entry.presentation-name",
-                UndoEntry.class,
-                "presentationName",
-                "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-history.entry.significant", UndoEntry.class, "significant", "()Z"));
+        selectors.addAll(EditorSelectorCatalog.historyEntrySelectors(UndoEntry.class));
         selectors.add(method(
                 "cubism.editor-model.edit-mode.begin",
                 EditMode.class,
@@ -728,7 +726,11 @@ class EditorInspectorWriteAccessTest {
                 PartSource.class,
                 "setAlphaComposition",
                 "(" + type(AlphaMode.class) + ")V"));
-        selectors.add(method("cubism.editor-model.part-id.create", Id.class, "<init>", "(Ljava/lang/String;)V", true));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.part-id.create",
+                internal(Id.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(method("cubism.editor-model.part-id.value", Id.class, "value", "()Ljava/lang/String;"));
         selectors.add(
                 StaticSelector.classSelector("cubism.editor-model.alpha-composition.class", internal(AlphaMode.class)));
@@ -762,8 +764,11 @@ class EditorInspectorWriteAccessTest {
                 "(" + type(Id.class) + ")V"));
         selectors.add(method(
                 "cubism.editor-model.deformer-source.guid", DeformerSource.class, "getGuid", desc(DeformerGuid.class)));
-        selectors.add(
-                method("cubism.editor-model.deformer-id.create", Id.class, "<init>", "(Ljava/lang/String;)V", true));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.deformer-id.create",
+                internal(Id.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(method(
                 "cubism.editor-model.deformer.source", HostDeformer.class, "source", desc(DeformerSource.class)));
         selectors.add(method(
@@ -781,14 +786,7 @@ class EditorInspectorWriteAccessTest {
                 DeformerForm.class,
                 "getScreenColor",
                 desc(FloatColor.class)));
-        selectors.add(method("cubism.editor-model.float-color.red", FloatColor.class, "getR", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.green", FloatColor.class, "getG", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.blue", FloatColor.class, "getB", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.alpha", FloatColor.class, "getA", "()F"));
-        selectors.add(method("cubism.editor-model.float-color.set-red", FloatColor.class, "setR", "(F)V"));
-        selectors.add(method("cubism.editor-model.float-color.set-green", FloatColor.class, "setG", "(F)V"));
-        selectors.add(method("cubism.editor-model.float-color.set-blue", FloatColor.class, "setB", "(F)V"));
-        selectors.add(method("cubism.editor-model.float-color.set-alpha", FloatColor.class, "setA", "(F)V"));
+        selectors.addAll(EditorSelectorCatalog.floatColorSelectors(FloatColor.class));
         selectors.add(method(
                 "cubism.editor-model.parameter-controllable-source.id", ParamSource.class, "id", desc(Id.class)));
         selectors.add(method(
@@ -866,7 +864,11 @@ class EditorInspectorWriteAccessTest {
                 GlueSource.class,
                 "setTargetArtMeshB_guid",
                 "(Ljava/lang/Object;)V"));
-        selectors.add(method("cubism.editor-model.glue-id.create", Id.class, "<init>", "(Ljava/lang/String;)V", true));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.glue-id.create",
+                internal(Id.class),
+                "(Ljava/lang/String;)V",
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(method(
                 "cubism.editor-model.glue.current-keyform", HostGlue.class, "getCurrentKeyform", desc(GlueForm.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.glue-form.class", internal(GlueForm.class)));
@@ -965,18 +967,6 @@ class EditorInspectorWriteAccessTest {
                 version, "adapter.editor-model.readwrite", capabilities, selectors, Fixture.class.getClassLoader());
     }
 
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor, final boolean ctor) {
-        return ctor
-                ? StaticSelector.constructor(alias, internal(owner), descriptor, StaticSelector.ACCESS_PUBLIC)
-                : method(alias, owner, name, descriptor);
-    }
-
     private static StaticSelector field(final String alias, final Class<?> owner, final String name) {
         return StaticSelector.field(
                 alias,
@@ -984,18 +974,6 @@ class EditorInspectorWriteAccessTest {
                 name,
                 "L" + internal(owner) + ";",
                 StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String type(final Class<?> type) {
-        return "L" + internal(type) + ";";
-    }
-
-    private static String desc(final Class<?> type) {
-        return "()" + type(type);
     }
 
     public static final class Host {

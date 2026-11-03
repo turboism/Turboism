@@ -4,7 +4,11 @@
 The 3D residual norm bounds projected residual under every orthogonal rotation.
 Native kernel replay is offline math, never host/model/export acceptance.
 """
-import argparse, hashlib, json, struct, subprocess
+import argparse
+import hashlib
+import json
+import struct
+import subprocess
 from pathlib import Path
 import numpy as np
 

@@ -2,7 +2,6 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorEditDeformerSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorEditParameterKeySelectorContract;
@@ -11,16 +10,11 @@ import dev.turboism.mapping.verification.selector.EditorEditPartObjectSelectorCo
 import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -44,9 +38,6 @@ import org.junit.jupiter.api.Test;
  * </ul>
  */
 final class EditorEditSelectorContractTest {
-
-    private static final Path PROJECT_ROOT = projectRoot();
-    private static final Path LEGACY_EVIDENCE = legacyEvidence();
 
     private static final List<VersionCase> VERSIONS = List.of(
             new VersionCase("5.2.03", "cubism-5.2.03-editor-model.json", "Cubism-5.2.03"),
@@ -327,20 +318,12 @@ final class EditorEditSelectorContractTest {
 
     @Test
     void realResolversAdmitEveryBoundRowAndTheVerifiedRevertRow() throws Exception {
-        assumeTrue(
-                LEGACY_EVIDENCE != null,
-                "legacy Cubism evidence is not staged on this machine; resolver admission skips");
         for (VersionCase version : VERSIONS) {
             if (version.artifactDir() == null) {
                 continue;
             }
-            final Path artifact = LEGACY_EVIDENCE.resolve(version.artifactDir()).resolve("jars/Live2D_Cubism.jar");
-            final VerifiedMemberResolver resolver = SliceRegistry.EDITOR_MODEL
-                    .resolverFactory()
-                    .create(
-                            PROJECT_ROOT.resolve("build/generated/verification/" + version.recordName()),
-                            artifact,
-                            loader(artifact));
+            final VerifiedMemberResolver resolver =
+                    EditorSelectorContractTestPaths.editorModelResolver(version.recordName(), version.artifactDir());
 
             for (Map.Entry<String, Set<String>> row : EDIT_ROWS.entrySet()) {
                 final boolean admitted = resolver.authorizesFeature(
@@ -364,7 +347,7 @@ final class EditorEditSelectorContractTest {
 
     private static StaticVerificationRecord loadRecord(final VersionCase version) throws Exception {
         return new StaticVerificationRecordLoader()
-                .load(PROJECT_ROOT.resolve("build/generated/verification/" + version.recordName()))
+                .load(EditorSelectorContractTestPaths.verificationRecord(version.recordName()))
                 .record();
     }
 
@@ -387,54 +370,6 @@ final class EditorEditSelectorContractTest {
         final Set<String> missing = new HashSet<>(required);
         missing.removeAll(recordAliases);
         assertEquals(Set.of(expectedMissing), missing);
-    }
-
-    private static Path projectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("project root is unavailable");
-        }
-        return current;
-    }
-
-    /**
-     * Resolves the machine-local legacy Cubism evidence directory, or {@code null} when it is
-     * neither configured nor staged on this machine; evidence-backed tests skip in that case.
-     */
-    private static Path legacyEvidence() {
-        final String configured = System.getenv("TURBOISM_LEGACY_CUBISM_REF");
-        if (configured != null && !configured.isBlank()) {
-            return Path.of(configured).toAbsolutePath().normalize();
-        }
-        Path current = PROJECT_ROOT;
-        while (current != null) {
-            final Path candidate = current.resolveSibling("turboism-legacy/cubism-ref");
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files.filter(
-                            path -> path.getFileName().toString().endsWith(".jar"))
-                    .sorted()
-                    .map(path -> {
-                        try {
-                            return path.toUri().toURL();
-                        } catch (java.net.MalformedURLException exception) {
-                            throw new IllegalArgumentException(exception);
-                        }
-                    })
-                    .toArray(URL[]::new);
-            return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
-        }
     }
 
     private record VersionCase(String version, String recordName, String artifactDir) {}

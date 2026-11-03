@@ -1,5 +1,6 @@
 package dev.turboism.adapter.host;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
@@ -113,7 +114,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.ui.palette.PaletteSurfaceCoordinator paletteSurfaceCoordinator =
             new dev.turboism.ui.palette.PaletteSurfaceCoordinator(editorUiPluginResources);
     private final dev.turboism.sdk.runtime.CubismLogService cubismLog =
-            new dev.turboism.runtime.log.CubismLogServiceHost();
+            new dev.turboism.adapter.cubism.service.log.CubismLogServiceHost();
     private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
             new dev.turboism.ui.workspace.WorkspaceCoordinator();
     private volatile dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
@@ -314,7 +315,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
 
             final HostInstanceDescriptor descriptor = available.orElseThrow();
-            if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
+            if (cubismLog instanceof dev.turboism.adapter.cubism.service.log.CubismLogServiceHost host) {
                 host.connect(
                         descriptor.verificationEvidence().projectWorkspace().hostClassLoader());
             }
@@ -914,7 +915,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         outcome = outcome.combine(runCoordinator(paletteSurfaceCoordinator::close));
         // close() keeps palette cleanup here (matching main's unified palette-surface path);
         // sceneTableHost.disconnect() runs exactly once inside cleanupOwnedResources() above.
-        if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
+        if (cubismLog instanceof dev.turboism.adapter.cubism.service.log.CubismLogServiceHost host) {
             outcome = outcome.combine(runCoordinator(host::close));
         }
         outcome = outcome.combine(runCoordinator(workspaceCoordinator::close));

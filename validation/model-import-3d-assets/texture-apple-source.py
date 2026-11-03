@@ -5,7 +5,11 @@ The archive has no OBJ materials. These are newly authored source textures, not
 recovered originals or Cubism colors. Original accessors and buffer bytes remain
 unchanged; no geometry simplification or UV remapping is performed.
 """
-import argparse,hashlib,json,math,struct
+import argparse
+import hashlib
+import json
+import math
+import struct
 from pathlib import Path
 import numpy as np
 from PIL import Image

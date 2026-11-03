@@ -13,6 +13,7 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.test.Stubs;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -264,22 +265,7 @@ class ProjectLifecycleHookRegistryTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static dev.turboism.core.runtime.RuntimeScheduler testScheduler() {

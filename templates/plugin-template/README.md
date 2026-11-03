@@ -1,6 +1,6 @@
 # Turboism Plugin Template
 
-[EN / English](README.md) · [ZH / 简体中文](README_zh.md)
+[English](README.md) / [简体中文](README.zh-CN.md)
 
 A standalone Gradle project for building a Turboism plugin **without cloning or
 building the Turboism monorepo**. Run one setup script to fetch and verify the

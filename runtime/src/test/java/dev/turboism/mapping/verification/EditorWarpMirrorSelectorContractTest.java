@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 final class EditorWarpMirrorSelectorContractTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final Path PROJECT_ROOT = locateProjectRoot();
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
@@ -95,16 +95,5 @@ final class EditorWarpMirrorSelectorContractTest {
             }
         }
         assertTrue(missing.isEmpty(), "draft pack entries missing on " + version + ": " + missing);
-    }
-
-    private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("project root is unavailable");
-        }
-        return current;
     }
 }

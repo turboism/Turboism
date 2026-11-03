@@ -45,6 +45,7 @@ import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.PhysicsSettings;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
+import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -933,31 +934,11 @@ final class DynamicCubismModelTestFixtures {
     }
 
     static IntSequence emptyInts() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyInts();
     }
 
     static dev.turboism.sdk.cubism.model.FloatSequence emptyFloats() {
-        return new dev.turboism.sdk.cubism.model.FloatSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public float get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
+        return Stubs.emptyFloats();
     }
 
     static void await(final CountDownLatch latch) {

@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -327,18 +330,6 @@ class EditorBackedCubismCombinedWriteTest {
                         StaticSelector.classSelector(
                                 "cubism.editor-model.undo-listener.class", internal(UndoListener.class))),
                 Host.class.getClassLoader());
-    }
-
-    private static StaticSelector method(String alias, Class<?> owner, String name, String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String desc(Class<?> type) {
-        return "()L" + internal(type) + ";";
     }
 
     public interface Copyable {

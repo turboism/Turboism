@@ -2,7 +2,6 @@
 """Verify actual native repack and typed packed SAVE_AS, separate from fresh reopen."""
 import hashlib
 import json
-from pathlib import Path
 
 
 def require(ok, why):

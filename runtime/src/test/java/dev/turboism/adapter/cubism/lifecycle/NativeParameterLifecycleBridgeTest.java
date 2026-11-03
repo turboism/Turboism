@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -314,21 +315,6 @@ class NativeParameterLifecycleBridgeTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 }

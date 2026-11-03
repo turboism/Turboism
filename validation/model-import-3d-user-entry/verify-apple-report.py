@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Strict source/layout/menu/history gate for the layered apple UI capture; no process or export claim."""
-import argparse,hashlib,json,re,runpy
+import argparse
+import hashlib
+import json
+import re
+import runpy
 from pathlib import Path
 import numpy as np
 C=runpy.run_path(str(Path(__file__).resolve().parents[1]/'model-import-3d-canonical-warp/verify-canonical-warp-layered.py'))

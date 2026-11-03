@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Read native CAFF image entries and compare preserved Cat diffuse texels to source GLB."""
-import argparse,hashlib,io,json,struct
+import argparse
+import hashlib
+import io
+import json
+import struct
 from pathlib import Path
 from PIL import Image
 SOURCE_SHA='4d0688298a366bfd5501918a7afac5dfd4f6aa35445a4f73077435045ba02ee7'

@@ -63,6 +63,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "warpPositionProjection",
             "reinitPairElision",
             "clipMaskDeduplication",
+            "clipMaskScissorClear",
             "extendedInterpolationIncrementalSetup",
             "modelInstanceCoalesce",
             "inspectorPropertyBypass");
@@ -92,6 +93,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "warpPositionProjection",
             "reinitPairElision",
             "clipMaskDeduplication",
+            "clipMaskScissorClear",
             "extendedInterpolationIncrementalSetup",
             "modelInstanceCoalesce",
             "inspectorPropertyBypass");

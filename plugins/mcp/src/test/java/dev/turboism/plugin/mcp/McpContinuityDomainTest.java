@@ -5,10 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.turboism.sdk.cubism.*;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
@@ -247,16 +245,7 @@ class McpContinuityDomainTest {
                     });
                 default -> throw new AssertionError(name);
             });
-            var bridge = new McpExecutionBridge(new UiScheduler() {
-                public Registration runOnUiThread(Runnable work) {
-                    work.run();
-                    return () -> {};
-                }
-
-                public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                    throw new AssertionError();
-                }
-            });
+            var bridge = new McpExecutionBridge(FakeDirectUiScheduler.immediateWithAssertionLater());
             tools = new McpContinuityDomain(
                             store, bridge, () -> new McpStoredAuthoringDomain.Context(model, Map.copyOf(binding)))
                     .tools();

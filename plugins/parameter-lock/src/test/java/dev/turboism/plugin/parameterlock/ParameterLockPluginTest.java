@@ -45,7 +45,6 @@ import dev.turboism.sdk.ui.appearance.PaletteEntry;
 import dev.turboism.sdk.ui.appearance.PaletteEntryState;
 import dev.turboism.sdk.ui.appearance.PaletteRowAction;
 import dev.turboism.sdk.ui.appearance.UiColor;
-import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution;
@@ -1215,55 +1214,14 @@ class ParameterLockPluginTest {
         }
     }
 
-    static final class FakeParameter implements Parameter {
-        private final String id;
-        private float value;
-        boolean viewScopeReady = true;
+    static final class FakeParameter extends dev.turboism.test.fake.FakeParameter {
         final FakePaletteEntry paletteEntry = new FakePaletteEntry();
+        boolean viewScopeReady = true;
 
         FakeParameter(final String id) {
-            this.id = id;
-            this.value = 0.0f;
-        }
-
-        @Override
-        public ParameterId id() {
-            return new ParameterId(id);
-        }
-
-        @Override
-        public ParameterAppearance ui() {
-            return new ParameterAppearance() {
-                @Override
-                public Optional<PaletteEntry> parameterPaletteEntry() {
-                    return viewScopeReady ? Optional.of(paletteEntry) : Optional.empty();
-                }
-            };
-        }
-
-        @Override
-        public float getValue() {
-            return value;
-        }
-
-        @Override
-        public void setValue(final float value) {
-            this.value = value;
-        }
-
-        @Override
-        public float getMinimumValue() {
-            return -30.0f;
-        }
-
-        @Override
-        public float getMaximumValue() {
-            return 30.0f;
-        }
-
-        @Override
-        public float getDefaultValue() {
-            return 0.0f;
+            super(id, id);
+            withRange(-30.0f, 30.0f);
+            withUi(() -> viewScopeReady ? Optional.of(paletteEntry) : Optional.empty());
         }
     }
 

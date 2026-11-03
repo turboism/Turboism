@@ -6,22 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
-import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Static and synthetic guard for reviewed exact raw-image PSD export/parse seams. */
 class EditorRawImagePsdSelectorContractTest {
-    private static final Path PROJECT_ROOT = locateProjectRoot();
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
     private static final Path RECORD_PATH =
             PROJECT_ROOT.resolve("build/generated/verification/cubism-5.3.02-editor-model.json");
     private static final Path DRAFT_PACK_PATH =
@@ -49,7 +46,7 @@ class EditorRawImagePsdSelectorContractTest {
                         .toList()
                         .toString());
 
-        try (final URLClassLoader loader = loader(artifact)) {
+        try (final URLClassLoader loader = EditorSelectorContractTestPaths.loader(artifact)) {
             final var resolver = SliceRegistry.EDITOR_MODEL.resolverFactory().create(recordPath, artifact, loader);
             assertTrue(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains(version));
             assertTrue(resolver.isExactCubismVersion(version));
@@ -264,31 +261,5 @@ class EditorRawImagePsdSelectorContractTest {
         assertEquals(descriptor, selector.descriptor(), alias);
         assertEquals(requiredAccessFlags, selector.requiredAccessFlags(), alias);
         assertEquals(forbiddenAccessFlags, selector.forbiddenAccessFlags(), alias);
-    }
-
-    private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
-    }
-
-    private static URLClassLoader loader(final Path artifact) throws Exception {
-        try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files.filter(
-                            path -> path.getFileName().toString().endsWith(".jar"))
-                    .sorted()
-                    .map(path -> {
-                        try {
-                            return path.toUri().toURL();
-                        } catch (java.net.MalformedURLException exception) {
-                            throw new IllegalArgumentException(exception);
-                        }
-                    })
-                    .toArray(URL[]::new);
-            return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
-        }
     }
 }

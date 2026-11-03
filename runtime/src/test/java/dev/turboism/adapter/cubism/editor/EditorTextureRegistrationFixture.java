@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.type;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
@@ -519,14 +521,6 @@ final class EditorTextureRegistrationFixture implements EditorAuthoringTransacti
         } catch (ReflectiveOperationException failure) {
             throw new AssertionError(failure);
         }
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String type(final Class<?> type) {
-        return "L" + internal(type) + ";";
     }
 
     // ---- Kotlin SAM substitutes -------------------------------------------------

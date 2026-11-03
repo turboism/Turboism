@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.adapter.host.HostSession;
-import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;

@@ -19,8 +19,8 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void exactJarsVerifyReplaceReceiverStateAndFiveArgumentEntry(final String version) throws Exception {
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
-        final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
-                .resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
+        final Path recordPath =
+                EditorSelectorContractTestPaths.verificationRecord("cubism-" + version + "-editor-model.json");
         final var record = new StaticVerificationRecordLoader().load(recordPath).record();
         assertTrue(Files.isRegularFile(artifact), "exact Cubism JAR is required: " + version);
         final List<StaticSelector> selectors = exactSelectors();
@@ -43,8 +43,8 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void verifiesNativeTransactionSignaturesWithoutAdmittingUnusedAliases(final String version) throws Exception {
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
-        final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
-                .resolve("build/generated/verification/cubism-" + version + "-editor-model.json");
+        final Path recordPath =
+                EditorSelectorContractTestPaths.verificationRecord("cubism-" + version + "-editor-model.json");
         final var record = new StaticVerificationRecordLoader().load(recordPath).record();
         final List<StaticSelector> selectors = transactionEvidenceSelectors();
         final StaticVerificationReport report =

@@ -28,7 +28,7 @@ final class AtlasTileBboxSettingsContribution {
         return new SettingsContribution(
                 CONTRIBUTION_ID,
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(71),
+                OptionalInt.of(103),
                 new SettingsControl.Toggle(
                         CONTRIBUTION_ID, i18n.text(LABEL_KEY), SettingsBinding.of(settings::read, settings::save)));
     }

@@ -10,6 +10,7 @@ import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.WorkBudget;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.fake.FakeCubismArtMesh;
 import dev.turboism.test.fake.FakeCubismDeformer;
 import dev.turboism.test.fake.FakeCubismDocument;
@@ -100,22 +101,7 @@ final class CubismQueryIntegrationSupport {
     }
 
     static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "integration test";
-            }
-        };
+        return Stubs.permission(id, "read", "integration test");
     }
 
     static RuntimeScheduler directRuntimeScheduler() {

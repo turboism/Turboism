@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exact packed surface CMO3 new-process authoring/layout/render pair."""
-import json,runpy
+import json
+import runpy
 from pathlib import Path
 BASE=runpy.run_path(str(Path(__file__).with_name('verify-surface-menu.py')))
 require=BASE['require']

@@ -30,6 +30,7 @@ public final class PerformanceSettingsConfig {
         WARP_POSITION_PROJECTION("warpPositionProjection", true, "false"),
         REINIT_PAIR_ELISION("reinitPairElision", true, "false"),
         CLIP_MASK_DEDUPLICATION("clipMaskDeduplication", true, "false"),
+        CLIP_MASK_SCISSOR_CLEAR("clipMaskScissorClear", true, "false"),
         EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup", true, "false"),
         MODEL_INSTANCE_COALESCE("modelInstanceCoalesce", true, "false"),
         INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass", true, "false"),

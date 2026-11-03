@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.type;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.mapping.verification.StaticSelector;
@@ -223,18 +226,6 @@ class EditorMocExportAccessTest {
                 "raster",
                 "()Ljava/awt/image/BufferedImage;"));
         return out;
-    }
-
-    private static StaticSelector method(String alias, Class<?> owner, String name, String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, 1);
-    }
-
-    private static String internal(Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String type(Class<?> type) {
-        return "L" + internal(type) + ";";
     }
 
     public enum Format {

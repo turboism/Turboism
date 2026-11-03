@@ -348,7 +348,6 @@ def verify_cube_atlas_report(report, run_id, input_path, frames, expected_mode="
 def verify_cube_export(report, artifacts, *, cube=None, texture=None):
     """Export capture integrity only. Real official Core evaluation is a separate gate."""
     import hashlib
-    import struct
     require(report['mi3dMode'] == 'cube-export', 'export mode')
     s = report['cubeExport']; atlas = report['cubeAtlas']
     require(s['schemaVersion'] == 'mi3d-official-export-v1'

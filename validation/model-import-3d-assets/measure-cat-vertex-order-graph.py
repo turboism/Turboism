@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Weighted front-layer graph experiment on frozen source faces; no native acceptance."""
-import argparse,hashlib,json,subprocess
+import argparse
+import hashlib
+import json
+import subprocess
 from pathlib import Path
 import numpy as np
 from PIL import Image

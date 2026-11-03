@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Verify four real-menu pre-authoring refusals; process admission remains separate."""
 import hashlib
-from pathlib import Path
 
 FIXTURES=(('intersecting-sheets.glb','dfae2a74e43fb58ac7faf76ab43230fa84293df8f1dc16017665a147da6232fc','closed oriented two-manifold edge required'),
           ('cyclic-sheets.glb','6374ee20102596be9f0d9fb25536b9631ccb0202471acf125ffedbd2002f474a','source Warp candidate requires single-sided primitives'))

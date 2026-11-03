@@ -1,0 +1,7 @@
+id: plugin-no-system-exit
+valid:
+  - 'class Plugin { void run() { System.gc(); } }'
+  - 'class Plugin { void run() { logger.info("exit"); } }'
+invalid:
+  - 'class Plugin { void run() { System.exit(1); } }'
+  - 'class Plugin { void run() { java.lang.System.exit(0); } }'

@@ -30,6 +30,7 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -317,22 +318,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
 
         @Override
         public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(String message) {}
-
-                @Override
-                public void info(String message) {}
-
-                @Override
-                public void warn(String message) {}
-
-                @Override
-                public void error(String message) {}
-
-                @Override
-                public void error(String message, Throwable throwable) {}
-            };
+            return Stubs.noopLogger();
         }
 
         @Override
@@ -385,17 +371,7 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
 
         @Override
         public DiagnosticReport diagnostics() {
-            return new DiagnosticReport() {
-                @Override
-                public Instant createdAt() {
-                    return Instant.EPOCH;
-                }
-
-                @Override
-                public List<Problem> problems() {
-                    return List.of();
-                }
-            };
+            return Stubs.diagnostics(Instant.EPOCH);
         }
 
         @Override

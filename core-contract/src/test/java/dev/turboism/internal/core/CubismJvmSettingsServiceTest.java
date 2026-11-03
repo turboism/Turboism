@@ -40,6 +40,7 @@ class CubismJvmSettingsServiceTest {
         assertFalse(service.warpPositionProjection());
         assertFalse(service.reinitPairElision());
         assertFalse(service.clipMaskDeduplication());
+        assertFalse(service.clipMaskScissorClear());
         assertFalse(service.extendedInterpolationIncrementalSetup());
         assertFalse(service.modelInstanceCoalesce());
         assertFalse(service.inspectorPropertyBypass());

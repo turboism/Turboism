@@ -49,6 +49,7 @@ final class CubismJvmSettingsContribution {
                     case "warp-position-projection" -> "settings.optimization.warp-position-projection.tooltip";
                     case "reinit-pair-elision" -> "settings.optimization.reinit-pair-elision.tooltip";
                     case "clip-mask-deduplication" -> "settings.optimization.clip-mask-deduplication.tooltip";
+                    case "clip-mask-scissor-clear" -> "settings.optimization.clip-mask-scissor-clear.tooltip";
                     case "extended-interpolation-incremental-setup" ->
                         "settings.optimization.extended-interpolation-incremental-setup.tooltip";
                     case "model-instance-coalesce" -> "settings.optimization.model-instance-coalesce.tooltip";
@@ -57,6 +58,12 @@ final class CubismJvmSettingsContribution {
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
                     case "cubism-memory-profile" -> "settings.cubism-jvm.memory-profile.tooltip";
+                    case "performance-recommendation" -> "settings.performance.recommendation.tooltip";
+                    case "performance.section.model" -> "settings.performance.section.model.tooltip";
+                    case "performance.section.rendering" -> "settings.performance.section.rendering.tooltip";
+                    case "performance.section.upload" -> "settings.performance.section.upload.tooltip";
+                    case "performance.section.mesh" -> "settings.performance.section.mesh.tooltip";
+                    case "performance.section.jvm" -> "settings.performance.section.jvm.tooltip";
                     default -> null;
                 });
     }
@@ -67,7 +74,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 PATH_CONTRIBUTION_ID,
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(100),
+                OptionalInt.of(114),
                 new SettingsControl.Text(
                         PATH_CONTRIBUTION_ID,
                         i18n.text("settings.cubism-jvm.graalvm-path"),
@@ -86,7 +93,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 CONTRIBUTION_ID,
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(110),
+                OptionalInt.of(113),
                 new SettingsControl.Choice(
                         CONTRIBUTION_ID,
                         i18n.text("settings.cubism-jvm"),
@@ -138,7 +145,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-disable-auto-backup",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(94),
+                OptionalInt.of(112),
                 new SettingsControl.Toggle(
                         "cubism-disable-auto-backup",
                         i18n.text("settings.cubism-jvm.disable-auto-backup"),
@@ -161,7 +168,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-zgc",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(95),
+                OptionalInt.of(111),
                 new SettingsControl.Toggle(
                         "cubism-zgc",
                         i18n.text("settings.cubism-jvm.zgc"),
@@ -185,7 +192,7 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-memory-profile",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(130),
+                OptionalInt.of(115),
                 new SettingsControl.Choice(
                         "cubism-memory-profile",
                         i18n.text("settings.cubism-jvm.memory-profile"),
@@ -211,19 +218,26 @@ final class CubismJvmSettingsContribution {
         return new SettingsContribution(
                 "cubism-memory-profile-note",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
-                OptionalInt.of(131),
+                OptionalInt.of(116),
                 new SettingsControl.Note(
                         "cubism-memory-profile-note", i18n.text("settings.cubism-jvm.memory-profile-note")));
     }
 
-    /** Small header note on the Performance tab; no binding, display only. */
-    static SettingsContribution createPerformanceNote(final PluginLocalization i18n) {
+    /**
+     * One header row on the Performance tab: the restart warning and the
+     * recommended combinations, separated by {@code |}. The tooltip shows the
+     * recommended combinations with line breaks.
+     */
+    static SettingsContribution createPerformanceRecommendationNote(final PluginLocalization i18n) {
         Objects.requireNonNull(i18n, "i18n");
+        final String label = i18n.text("settings.performance.restart-note")
+                + " | "
+                + i18n.text("settings.performance.recommendation");
         return new SettingsContribution(
-                "performance-restart-note",
+                "performance-recommendation",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
                 OptionalInt.of(60),
-                new SettingsControl.Note("performance-restart-note", i18n.text("settings.performance.restart-note")));
+                new SettingsControl.Note("performance-recommendation", label));
     }
 
     /**
@@ -233,6 +247,18 @@ final class CubismJvmSettingsContribution {
      * global preference for the next launch. Running hooks retain their startup
      * configuration so dependent optimizations cannot enter a partially switched state.
      */
+    /** Section header transported as a note; the settings renderer turns it into a collapsible box. */
+    static SettingsContribution createPerformanceSection(
+            final PluginLocalization i18n, final String id, final int index) {
+        Objects.requireNonNull(i18n, "i18n");
+        final String contributionId = "performance.section." + id;
+        return new SettingsContribution(
+                contributionId,
+                new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),
+                OptionalInt.of(index),
+                new SettingsControl.Note(contributionId, i18n.text("settings.performance.section." + id)));
+    }
+
     static SettingsContribution createModelUpdateSkipToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         Objects.requireNonNull(settings, "settings");
@@ -242,7 +268,7 @@ final class CubismJvmSettingsContribution {
                 "settings.optimization.model-update-skip",
                 settings::modelUpdateSkip,
                 settings::saveModelUpdateSkip,
-                80);
+                71);
     }
 
     static SettingsContribution createIncrementalUpdateToggle(
@@ -254,7 +280,7 @@ final class CubismJvmSettingsContribution {
                 "settings.optimization.incremental-update",
                 settings::incrementalUpdate,
                 settings::saveIncrementalUpdate,
-                81);
+                72);
     }
 
     /**
@@ -271,7 +297,7 @@ final class CubismJvmSettingsContribution {
                 "settings.optimization.incremental-update-affecters",
                 settings::incrementalUpdateAffecters,
                 settings::saveIncrementalUpdateAffecters,
-                82);
+                73);
     }
 
     /** Saved opt-in preference; unsupported hosts still use their native renderer. */
@@ -289,7 +315,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                83);
+                81);
     }
 
     /**
@@ -310,7 +336,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                84);
+                91);
     }
 
     /**
@@ -332,7 +358,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                85);
+                92);
     }
 
     /**
@@ -357,7 +383,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                86);
+                85);
     }
 
     /**
@@ -380,7 +406,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                87);
+                74);
     }
 
     static SettingsContribution createShaderUniformToggle(
@@ -397,7 +423,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                88);
+                82);
     }
 
     static SettingsContribution createMatrixScratchToggle(
@@ -414,7 +440,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                89);
+                83);
     }
 
     static SettingsContribution createImageArchiveReuseToggle(
@@ -431,7 +457,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                90);
+                105);
     }
 
     static SettingsContribution createFloatArrayParseCacheToggle(
@@ -448,7 +474,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                91);
+                106);
     }
 
     static SettingsContribution createTextureUploadPreparationToggle(
@@ -465,7 +491,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                92);
+                107);
     }
 
     static SettingsContribution createWarpPositionProjectionToggle(
@@ -482,24 +508,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                93);
-    }
-
-    static SettingsContribution createReinitPairElisionToggle(
-            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
-        Objects.requireNonNull(settings, "settings");
-        return createOptimizationToggle(
-                i18n,
-                "reinit-pair-elision",
-                "settings.optimization.reinit-pair-elision",
-                settings::reinitPairElision,
-                value -> {
-                    if (settings.saveReinitPairElision(value) != value) {
-                        throw new IllegalStateException("Reinit Pair-elision preference was not saved");
-                    }
-                    return value;
-                },
-                94);
+                84);
     }
 
     static SettingsContribution createClipMaskDeduplicationToggle(
@@ -513,6 +522,23 @@ final class CubismJvmSettingsContribution {
                 value -> {
                     if (settings.saveClipMaskDeduplication(value) != value) {
                         throw new IllegalStateException("Clip-mask deduplication preference was not saved");
+                    }
+                    return value;
+                },
+                94);
+    }
+
+    static SettingsContribution createClipMaskScissorClearToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "clip-mask-scissor-clear",
+                "settings.optimization.clip-mask-scissor-clear",
+                settings::clipMaskScissorClear,
+                value -> {
+                    if (settings.saveClipMaskScissorClear(value) != value) {
+                        throw new IllegalStateException("Clip-mask scissor-clear preference was not saved");
                     }
                     return value;
                 },
@@ -537,6 +563,23 @@ final class CubismJvmSettingsContribution {
                 96);
     }
 
+    static SettingsContribution createReinitPairElisionToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "reinit-pair-elision",
+                "settings.optimization.reinit-pair-elision",
+                settings::reinitPairElision,
+                value -> {
+                    if (settings.saveReinitPairElision(value) != value) {
+                        throw new IllegalStateException("Reinit Pair-elision preference was not saved");
+                    }
+                    return value;
+                },
+                97);
+    }
+
     static SettingsContribution createModelInstanceCoalesceToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         Objects.requireNonNull(settings, "settings");
@@ -551,7 +594,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                97);
+                98);
     }
 
     static SettingsContribution createInspectorPropertyBypassToggle(
@@ -568,7 +611,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                98);
+                99);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

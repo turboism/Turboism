@@ -19,15 +19,8 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.AuthorizedImageContent;
-import dev.turboism.sdk.cubism.model.BlendMode;
-import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.cubism.model.CubismModel;
-import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
-import dev.turboism.sdk.cubism.model.FloatSequence;
-import dev.turboism.sdk.cubism.model.Glues;
-import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.ModelImageBinding;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -35,7 +28,6 @@ import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
-import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
@@ -47,6 +39,8 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
+import dev.turboism.test.fake.FakeDrawable;
+import dev.turboism.test.fake.FakeParameter;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -123,7 +117,7 @@ class FrameAnimationImportServiceTest {
         }
     }
 
-    private static final class FakeModel implements CubismModel {
+    private static final class FakeModel extends dev.turboism.test.fake.FakeModel {
         final FakeParts parts = new FakeParts();
         final FakeDrawables drawables = new FakeDrawables();
         final FakeModelTextures textures = new FakeModelTextures();
@@ -134,34 +128,9 @@ class FrameAnimationImportServiceTest {
 
         final List<BindingCall> bindings = new ArrayList<>();
 
-        @Override
-        public ModelId id() {
-            return new ModelId("fake-model");
-        }
-
-        @Override
-        public Parts parts() {
-            return parts;
-        }
-
-        @Override
-        public Drawables drawables() {
-            return drawables;
-        }
-
-        @Override
-        public ModelTextures textures() {
-            return textures;
-        }
-
-        @Override
-        public Parameters parameters() {
-            return parameters;
-        }
-
-        @Override
-        public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
-            return new ParameterBindingOperations() {
+        FakeModel() {
+            withParts(parts).withDrawables(drawables).withTextures(textures);
+            withParameterBindings(parameterId -> new ParameterBindingOperations() {
                 @Override
                 public void bind(final ParameterBindingTarget target, final List<ParameterBindingPoint> points) {
                     bindings.add(new BindingCall(parameterId, target, points));
@@ -183,21 +152,13 @@ class FrameAnimationImportServiceTest {
 
                 @Override
                 public void unbind(final ParameterBindingTarget target) {}
-            };
+            });
         }
 
         @Override
-        public Deformers deformers() {
-            throw new UnsupportedOperationException();
+        public Parameters parameters() {
+            return parameters;
         }
-
-        @Override
-        public Glues glues() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void update() {}
     }
 
     private static final class FakeParts implements Parts {
@@ -299,121 +260,9 @@ class FrameAnimationImportServiceTest {
                 final int index,
                 final ArtMeshGeometry sourceGeometry,
                 final List<Point2> defaultPositions) {
-            final FakeDrawable d = new FakeDrawable(new ArtMeshId("Mesh_" + (counter++)), name);
+            final FakeDrawable d = new FakeDrawable("Mesh_" + (counter++), name);
             createdMeshes.add(d);
             return d;
-        }
-    }
-
-    private static final class FakeDrawable implements Drawable {
-        private final ArtMeshId id;
-        private final String name;
-        private float opacity = 1.0f;
-        private int drawOrder = 500;
-
-        FakeDrawable(final ArtMeshId id, final String name) {
-            this.id = id;
-            this.name = name;
-        }
-
-        @Override
-        public ArtMeshId id() {
-            return id;
-        }
-
-        @Override
-        public String name() {
-            return name;
-        }
-
-        @Override
-        public float getOpacity() {
-            return opacity;
-        }
-
-        @Override
-        public void setOpacity(final float opacity) {
-            this.opacity = opacity;
-        }
-
-        @Override
-        public int drawOrder() {
-            return drawOrder;
-        }
-
-        @Override
-        public void setDrawOrder(final int drawOrder) {
-            this.drawOrder = drawOrder;
-        }
-
-        @Override
-        public byte constantFlag() {
-            return 0;
-        }
-
-        @Override
-        public byte dynamicFlag() {
-            return 0;
-        }
-
-        @Override
-        public BlendMode blendMode() {
-            return BlendMode.NORMAL;
-        }
-
-        @Override
-        public int textureIndex() {
-            return 0;
-        }
-
-        @Override
-        public int renderOrder() {
-            return 0;
-        }
-
-        @Override
-        public IntSequence masks() {
-            return null;
-        }
-
-        @Override
-        public FloatSequence vertexPositions() {
-            return null;
-        }
-
-        @Override
-        public FloatSequence vertexUvs() {
-            return null;
-        }
-
-        @Override
-        public IntSequence indices() {
-            return null;
-        }
-
-        @Override
-        public Color multiplyColor() {
-            return null;
-        }
-
-        @Override
-        public Color screenColor() {
-            return null;
-        }
-
-        @Override
-        public int parentPartIndex() {
-            return 0;
-        }
-
-        @Override
-        public int parentDeformerIndex() {
-            return 0;
-        }
-
-        @Override
-        public IntSequence parameters() {
-            return null;
         }
     }
 
@@ -485,64 +334,9 @@ class FrameAnimationImportServiceTest {
         public Parameter create(
                 final ParameterDefinition definition,
                 final Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId) {
-            final FakeParameter p = new FakeParameter(definition);
+            final FakeParameter p = FakeParameter.fromDefinition(definition);
             list.add(p);
             return p;
-        }
-    }
-
-    private static final class FakeParameter implements Parameter {
-        private final ParameterDefinition def;
-        private float value;
-
-        FakeParameter(final ParameterDefinition def) {
-            this.def = def;
-            this.value = def.defaultValue();
-        }
-
-        @Override
-        public ParameterId id() {
-            return def.id();
-        }
-
-        @Override
-        public Optional<String> name() {
-            return Optional.of(def.name());
-        }
-
-        @Override
-        public ParameterType type() {
-            return def.type();
-        }
-
-        @Override
-        public Optional<Boolean> repeat() {
-            return Optional.of(def.repeat());
-        }
-
-        @Override
-        public float getValue() {
-            return value;
-        }
-
-        @Override
-        public void setValue(final float value) {
-            this.value = value;
-        }
-
-        @Override
-        public float getMinimumValue() {
-            return def.minimumValue();
-        }
-
-        @Override
-        public float getMaximumValue() {
-            return def.maximumValue();
-        }
-
-        @Override
-        public float getDefaultValue() {
-            return def.defaultValue();
         }
     }
 }

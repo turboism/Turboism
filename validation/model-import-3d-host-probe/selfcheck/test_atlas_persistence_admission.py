@@ -1,5 +1,8 @@
 """Archive dispatch only; native semantics and lifecycle deliberately substituted."""
-import io,json,tarfile,unittest
+import io
+import json
+import tarfile
+import unittest
 from unittest.mock import Mock,patch
 import test_surface_render_admission as surface
 V=surface.V

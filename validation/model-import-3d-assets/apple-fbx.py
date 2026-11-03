@@ -1,5 +1,7 @@
 """Read the pinned apple FBX 7.4 fixture; not a general FBX importer."""
-import hashlib,struct,zlib
+import hashlib
+import struct
+import zlib
 from pathlib import Path
 SHA='fe402a4631e1f6f387637b3ce477919bfa3008e0e8acd14f51957e67ce3d11db'
 def read(path):

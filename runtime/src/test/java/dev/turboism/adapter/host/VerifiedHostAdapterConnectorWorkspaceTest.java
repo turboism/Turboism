@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;

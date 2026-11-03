@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Validate exact source corners and real commits for one Apple chart, not full model acceptance."""
-import collections,hashlib,json,struct,sys
+import collections
+import hashlib
+import json
+import struct
+import sys
 from pathlib import Path
 
 def oriented(indices):

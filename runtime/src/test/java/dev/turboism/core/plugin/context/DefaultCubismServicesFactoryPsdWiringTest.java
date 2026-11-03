@@ -6,11 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.AtlasTexture;
@@ -23,12 +21,13 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.test.Stubs;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -321,22 +320,7 @@ class DefaultCubismServicesFactoryPsdWiringTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(String message) {}
-
-            @Override
-            public void info(String message) {}
-
-            @Override
-            public void warn(String message) {}
-
-            @Override
-            public void error(String message) {}
-
-            @Override
-            public void error(String message, Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static PluginPaths paths() {
@@ -364,40 +348,15 @@ class DefaultCubismServicesFactoryPsdWiringTest {
     }
 
     private static UiScheduler uiScheduler() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                return () -> {};
-            }
-        };
+        return FakeDirectUiScheduler.immediateOnly();
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, CLOCK),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
     }
 
     private static dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
-        return new dev.turboism.sdk.diagnostics.DiagnosticReport() {
-            @Override
-            public Instant createdAt() {
-                return CLOCK.instant();
-            }
-
-            @Override
-            public List<dev.turboism.sdk.diagnostics.DiagnosticReport.Problem> problems() {
-                return List.of();
-            }
-        };
+        return Stubs.diagnostics(CLOCK.instant());
     }
 
     @Test

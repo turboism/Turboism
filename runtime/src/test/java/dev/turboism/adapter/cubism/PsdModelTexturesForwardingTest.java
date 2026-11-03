@@ -22,6 +22,7 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.Stubs;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -227,22 +228,7 @@ class PsdModelTexturesForwardingTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "test";
-            }
-
-            @Override
-            public String reason() {
-                return "PSD forwarding test";
-            }
-        };
+        return Stubs.permission(id, "test", "PSD forwarding test");
     }
 
     private static PsdEditFile forbiddenFile() {

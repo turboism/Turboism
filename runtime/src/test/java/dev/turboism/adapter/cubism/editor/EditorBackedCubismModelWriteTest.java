@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -375,18 +378,6 @@ class EditorBackedCubismModelWriteTest {
         }
         return TestVerifiedResolvers.create(
                 "5.3.02", "adapter.editor-model.readwrite", capabilities, selectors, Host.class.getClassLoader());
-    }
-
-    private static StaticSelector method(String alias, Class<?> owner, String name, String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(Class<?> type) {
-        return type.getName().replace('.', '/');
-    }
-
-    private static String desc(Class<?> type) {
-        return "()L" + internal(type) + ";";
     }
 
     public static final class Host {

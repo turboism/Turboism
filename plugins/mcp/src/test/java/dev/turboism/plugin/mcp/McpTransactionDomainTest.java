@@ -11,9 +11,8 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
-import java.time.Duration;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -479,18 +478,7 @@ final class McpTransactionDomainTest {
     }
 
     private static UiScheduler immediateScheduler() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                throw new UnsupportedOperationException();
-            }
-        };
+        return FakeDirectUiScheduler.immediateWithUnsupportedLater();
     }
 
     private static Map<String, Object> envelope(final Map<String, Object> output) {

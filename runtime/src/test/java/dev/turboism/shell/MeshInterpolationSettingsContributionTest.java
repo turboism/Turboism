@@ -89,7 +89,7 @@ class MeshInterpolationSettingsContributionTest {
 
         assertEquals("mesh-interpolation", contribution.id());
         assertEquals("performance", contribution.tab().id());
-        assertEquals(86, contribution.index().orElseThrow());
+        assertEquals(74, contribution.index().orElseThrow());
         assertTrue(
                 contribution.control() instanceof SettingsControl.Toggle,
                 "the preference must render as an independent checkbox");

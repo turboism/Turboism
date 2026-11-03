@@ -1,6 +1,7 @@
 """Reference and synthetic pixel controls; no native raster evidence."""
 from pathlib import Path
-import runpy,unittest
+import runpy
+import unittest
 ROOT=Path(__file__).resolve().parents[3]
 API=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-sheet-pixels.py'))
 class SheetPixelsTest(unittest.TestCase):

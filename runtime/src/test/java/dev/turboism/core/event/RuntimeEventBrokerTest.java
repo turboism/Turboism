@@ -33,6 +33,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -872,11 +873,7 @@ class RuntimeEventBrokerTest {
     }
 
     private static RuntimeScheduler scheduler(final List<PluginWorkBudgetEvent> diagnostics) {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, diagnostics::add, CLOCK),
-                new NoOpSidecarDispatcher(),
-                diagnostics::add);
+        return RuntimeTestKit.scheduler(CLOCK, 1, 8, RuntimeTestKit.successfulSidecar(), diagnostics);
     }
 
     private static final class TestParameter implements Parameter {

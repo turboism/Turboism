@@ -22,6 +22,8 @@ import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.preview.PreviewLog;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.update.UpdatePreferencesStore;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -34,7 +36,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.time.Clock;
@@ -43,7 +44,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1123,15 +1123,11 @@ final class RuntimePluginAutoUpdaterTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8, SidecarDispatcher.noop());
     }
 
     private static String sha256Hex(final byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        return Stubs.sha256Hex(bytes);
     }
 
     private record BuiltArtifact(
