@@ -13,14 +13,17 @@ import java.util.function.Consumer;
  * strip (the bar hosting the "Lock Drawable Object" toggle and the
  * display-visibility buttons). Contributed buttons mount into the strip's own
  * button group and inherit its per-frame layout, mode visibility and
- * scene-graph hit testing.
+ * scene-graph hit testing. Their relative order is fixed by
+ * {@link StateButtonContribution#order()} and then by contribution id, so it
+ * does not depend on plugin load order.
  */
 public interface ViewContextMenuRegistry {
 
     /**
      * Adds a single icon toggle button to the strip whose icon cycles through
      * the provided state images on click. The host invokes the click consumer
-     * on every click.
+     * on every click. The button is placed by contribution order, with ties
+     * broken by contribution id, rather than by registration time.
      *
      * @param contribution descriptor of the state button
      */
@@ -82,7 +85,32 @@ public interface ViewContextMenuRegistry {
             String contributionId,
             Map<Integer, UiRasterImage> stateIcons,
             int initialState,
-            Consumer<Integer> onClick) {
+            Consumer<Integer> onClick,
+            int order) {
+        /**
+         * Creates a contribution with the default order ({@code 0}).
+         *
+         * @param contributionId plugin-scoped identity used at contribute time
+         * @param stateIcons state-to-icon map; must not be empty
+         * @param initialState state shown first
+         * @param onClick invoked with the state of the clicked button
+         */
+        public StateButtonContribution(
+                final String contributionId,
+                final Map<Integer, UiRasterImage> stateIcons,
+                final int initialState,
+                final Consumer<Integer> onClick) {
+            this(contributionId, stateIcons, initialState, onClick, 0);
+        }
+
+        /**
+         * @param contributionId plugin-scoped identity used at contribute time
+         * @param stateIcons state-to-icon map; must not be empty
+         * @param initialState state shown first
+         * @param onClick invoked with the state of the clicked button
+         * @param order relative strip position; lower values appear first, ties are
+         *     resolved by {@code contributionId}
+         */
         public StateButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
             stateIcons = Objects.requireNonNull(stateIcons, "stateIcons");

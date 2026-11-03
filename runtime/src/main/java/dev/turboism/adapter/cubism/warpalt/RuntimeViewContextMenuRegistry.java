@@ -12,6 +12,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
     private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
     private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
+    private static final Comparator<ViewContextMenuRegistry.StateButtonContribution> CONTRIBUTION_ORDER =
+            Comparator.comparingInt(ViewContextMenuRegistry.StateButtonContribution::order)
+                    .thenComparing(ViewContextMenuRegistry.StateButtonContribution::contributionId);
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
@@ -127,8 +131,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final int initialState = contribution.stateIcons().containsKey(contribution.initialState())
                     ? contribution.initialState()
                     : contribution.stateIcons().keySet().iterator().next();
+            final int targetIndex = insertionIndexFor(contribution);
             final BuiltButton built = createButton(contribution, initialImage, initialState);
-            insertIntoGroup(strip, built.button());
+            insertIntoGroup(strip, built.button(), targetIndex);
             entries.put(contribution.contributionId(), new Entry(contribution, built.button(), built.stateEntities()));
             applyInitialState(built.button(), built.stateEntities(), initialState);
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
@@ -371,29 +376,67 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     }
 
     /**
-     * Appends the contributed button at the END of the strip's left tool
-     * cluster (group E on 5.0–5.2, group H on 5.3+), after the last native button F — the position the
-     * operator picked among strip-first/cluster-end options. Disassembly-
-     * verified order on the reviewed artifacts: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
-     * laid out left-flow, followed by I, a divider, J and the right-aligned
-     * K view cluster (▼). Appending to H seats the button between F and the
-     * o/I segment, before the divider.
+     * Resolves the deterministic seat for a contribution among the buttons
+     * already mounted. Native entries stay before the contributed cluster; the
+     * contributed buttons are ordered by {@code order} and then id, never by
+     * the order in which plugins registered them.
      */
-    private static void insertIntoGroup(final Object stripInstance, final Object button)
+    private int insertionIndexFor(final ViewContextMenuRegistry.StateButtonContribution requested)
             throws ReflectiveOperationException {
-        insertIntoGroup(stripInstance, button, -1);
+        final List<Object> mounted = new ArrayList<>(entries.size());
+        final List<ViewContextMenuRegistry.StateButtonContribution> existing = new ArrayList<>(entries.size());
+        for (final Entry entry : entries.values()) {
+            mounted.add(entry.currentButton());
+            existing.add(entry.contribution());
+        }
+        return insertionIndex(groupList(strip), mounted, existing, requested);
     }
 
-    static void insertIntoGroup(final Object stripInstance, final Object button, final int preferIndex)
-            throws ReflectiveOperationException {
+    static int insertionIndex(
+            final List<?> group,
+            final List<?> mountedButtons,
+            final List<ViewContextMenuRegistry.StateButtonContribution> existingContributions,
+            final ViewContextMenuRegistry.StateButtonContribution requested) {
+        int firstContributed = group.size();
+        for (final Object button : mountedButtons) {
+            final int index = group.indexOf(button);
+            if (index >= 0) {
+                firstContributed = Math.min(firstContributed, index);
+            }
+        }
+        int rank = 0;
+        for (final ViewContextMenuRegistry.StateButtonContribution existing : existingContributions) {
+            if (CONTRIBUTION_ORDER.compare(existing, requested) < 0) {
+                rank++;
+            }
+        }
+        return Math.min(firstContributed + rank, group.size());
+    }
+
+    @SuppressWarnings("unchecked")
+    static List<Object> groupList(final Object stripInstance) throws ReflectiveOperationException {
         final Field groupField = groupField(stripInstance.getClass());
         final Object group = groupField.get(stripInstance);
         if (!(group instanceof List<?> list)) {
             throw new IllegalStateException("strip group " + groupField.getName() + " is not a list");
         }
-        if (list.contains(button)) return;
-        @SuppressWarnings("unchecked")
-        final List<Object> target = (List<Object>) group;
+        return (List<Object>) list;
+    }
+
+    /**
+     * Inserts the contributed button into the strip's left tool cluster (group
+     * E on 5.0–5.2, group H on 5.3+), after the native entries and at the
+     * deterministic slot owned by its contribution order. Disassembly-verified
+     * order on the reviewed artifacts: H=[Sep,l,Sep,j,Sep,k,Sep,q,Sep,(m),Sep,n,Sep,r,F]
+     * laid out left-flow, followed by I, a divider, J and the right-aligned
+     * K view cluster (▼). Contributed buttons are seated between F and the
+     * o/I segment, before the divider.
+     */
+    static void insertIntoGroup(final Object stripInstance, final Object button, final int preferIndex)
+            throws ReflectiveOperationException {
+        final Field groupField = groupField(stripInstance.getClass());
+        final List<Object> target = groupList(stripInstance);
+        if (target.contains(button)) return;
         if (preferIndex >= 0 && preferIndex <= target.size()) {
             target.add(preferIndex, button);
             diagnostic("BUTTON_INSERTED group=" + groupField.getName() + " index=" + preferIndex + " preferIndex="
@@ -594,7 +637,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final Entry entry = entries.get(contributionId);
             if (entry == null || strip == null) return;
             try {
-                final int preferIndex = indexOfInGroup(strip, entry.currentButton());
+                final int preferIndex = insertionIndexFor(entry.contribution());
                 removeFromGroup(strip, entry.currentButton());
                 removeButton(entry.currentButton());
                 final Map<Integer, UiRasterImage> icons = entry.contribution().stateIcons();

@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "6b149c5856893f255720f71d06e8f26343754472bd1127aa88e7c5d4601ba95d",
+  "surfaceSha256": "b19269f4c612d156a7aebd83ae4ce87f60361521a23fa723efcda42b2551f504",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
@@ -33,7 +33,6 @@
     "dev.turboism.sdk.cubism.model.ParameterGroup#orderedChildren:()Ljava/util/List;": "0.68.0",
     "dev.turboism.sdk.cubism.model.ParameterGroups#moveParameter:(Ldev/turboism/sdk/cubism/id/ParameterId;Ldev/turboism/sdk/cubism/id/ParameterGroupId;I)V": "0.68.0",
     "dev.turboism.sdk.cubism.psd.PsdEditFile#openInApplication:(Ljava/lang/String;)Ljava/util/concurrent/CompletionStage;": "0.67.2",
-    "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel#isVisible:()Z": "0.68.1",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem#<init>:(Ljava/lang/String;IILdev/turboism/sdk/cubism/textureatlas/TextureAtlasOutline;)V": "0.67.4",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem#outline:()Ldev/turboism/sdk/cubism/textureatlas/TextureAtlasOutline;": "0.67.4",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan#<init>:(IIILjava/util/List;Ljava/util/List;DLjava/util/List;)V": "0.67.2",
@@ -45,6 +44,8 @@
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
-    "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0"
+    "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",
+    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry$StateButtonContribution#<init>:(Ljava/lang/String;Ljava/util/Map;ILjava/util/function/Consumer;I)V": "0.68.1",
+    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry$StateButtonContribution#order:()I": "0.68.1"
   }
 }

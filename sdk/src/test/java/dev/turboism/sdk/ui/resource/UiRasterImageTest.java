@@ -36,9 +36,14 @@ class UiRasterImageTest {
         icons.put(0, image);
         final StateButtonContribution contribution = new StateButtonContribution("mirror", icons, 1, ignored -> {});
         icons.clear();
+        assertEquals(0, contribution.order());
         assertEquals(List.of(1, 0), List.copyOf(contribution.stateIcons().keySet()));
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> contribution.stateIcons().clear());
+
+        final StateButtonContribution ordered =
+                new StateButtonContribution("ordered", contribution.stateIcons(), 0, ignored -> {}, 7);
+        assertEquals(7, ordered.order());
     }
 }

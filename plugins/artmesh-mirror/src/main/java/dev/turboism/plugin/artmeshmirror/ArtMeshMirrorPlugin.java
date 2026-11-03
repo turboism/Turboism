@@ -17,6 +17,9 @@ import java.util.Map;
 /** Dedicated modeling-view entry for ArtMesh mirror editing. */
 public final class ArtMeshMirrorPlugin implements TurboismPlugin {
     private static final String BUTTON = "artmesh-mirror.toggle";
+    /** Stable strip position independent of plugin load order. */
+    private static final int STRIP_ORDER = 10;
+
     private PluginContext context;
     private ArtMeshMirrorService mirror;
     private CanvasHintHandle hint;
@@ -37,7 +40,8 @@ public final class ArtMeshMirrorPlugin implements TurboismPlugin {
                                 BUTTON,
                                 Map.of(0, icon(false), 1, icon(true)),
                                 mirror.isEnabled() ? 1 : 0,
-                                ignored -> toggle())));
+                                ignored -> toggle(),
+                                STRIP_ORDER)));
         context.logger().info("ArtMesh mirror button installed independently of Warp Deformer symmetry");
     }
 
