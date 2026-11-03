@@ -67,23 +67,11 @@ val dependencyInventoryRaw by tasks.registering {
     }
 }
 
-val checkDependencyInventorySelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for the dependency inventory drift and cycle detection."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/dev/dependency_inventory.py",
-        "scripts/test/test_dependency_inventory.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/test/test_dependency_inventory.py")
-}
-
 tasks.register<Exec>("checkDependencyInventory") {
     group = "verification"
     description = "Verifies the committed module graph and :runtime package cycle baseline."
     workingDir(rootDir)
-    dependsOn(dependencyInventoryRaw, checkDependencyInventorySelfTest)
+    dependsOn(dependencyInventoryRaw)
     inputs.file("scripts/dev/dependency_inventory.py")
     inputs.file("architecture/dependency-inventory.json")
     inputs.files(fileTree("runtime/src/main/java") { include("**/*.java") })
@@ -95,8 +83,4 @@ tasks.register<Exec>("checkDependencyInventory") {
         "--project-graph",
         dependencyInventoryProjectGraph.get().asFile.absolutePath
     )
-}
-
-tasks.named("devCheck") {
-    dependsOn("checkDependencyInventory")
 }

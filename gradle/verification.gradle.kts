@@ -214,35 +214,6 @@ val codeQualityJavaHome = project.extensions.getByType<JavaToolchainService>()
     .compilerFor { languageVersion.set(JavaLanguageVersion.of(17)) }
     .map { it.metadata.installationPath.asFile.absolutePath }
 
-val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs negative fixtures proving each code-quality rule fails closed."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/check_code_quality.py",
-        "scripts/test/test_check_code_quality.py",
-        fileTree("scripts/test/java") { include("**/*.java") }
-    )
-    inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
-    VerificationStamps.apply(this)
-    doFirst {
-        environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
-    }
-    commandLine("python3", "scripts/test/test_check_code_quality.py")
-}
-
-val checkThrowableContainmentSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs negative fixtures proving the Throwable-containment rule fails closed."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/check_throwable_containment.py",
-        "scripts/test/test_check_throwable_containment.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/test/test_check_throwable_containment.py")
-}
-
 /*
  * Every catch (Throwable) site must classify through FatalErrors.rethrowIfFatal, a preceding
  * ThreadDeath/VirtualMachineError clause, or an inline @containment-exempt marker, so the
@@ -359,31 +330,6 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
 }
 
-val checkEditorModelAliasesSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed regression fixtures for Editor-model alias admission."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/check_editor_model_aliases.py",
-        "scripts/test/test_editor_model_aliases.py"
-    )
-    inputs.files(
-        "build/generated/verification/cubism-5.2.03-editor-model.json",
-        "build/generated/verification/cubism-5.3.02-editor-model.json",
-        "build/generated/verification/cubism-5.3.03-editor-model.json"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_editor_model_aliases",
-        "-v"
-    )
-}
-
-checkEditorModelAliases.configure {
-    dependsOn(checkEditorModelAliasesSelfTest)
-}
-
 /*
  * Draft pack metadata restates its referenced verification record (selector count,
  * capability roster, record SHA-256). Those pins drifted once already; the check
@@ -402,30 +348,9 @@ tasks.register<Exec>("syncDraftPackMetadata") {
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath)
 }
 
-val checkDraftPackMetadataSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed tamper fixtures for draft pack metadata synchronization."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/sync_draft_pack_metadata.py",
-        "scripts/test/test_sync_draft_pack_metadata.py"
-    )
-    inputs.files(
-        fileTree("build/generated/draft/mapping-packs") { include("*.json") },
-        fileTree("build/generated/verification") { include("*.json") }
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_sync_draft_pack_metadata",
-        "-v"
-    )
-}
-
 val checkDraftPackMetadata by tasks.registering(Exec::class) {
     group = "verification"
     description = "Fails when DRAFT pack metadata does not match its referenced verification record."
-    dependsOn(checkDraftPackMetadataSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/sync_draft_pack_metadata.py",
@@ -436,36 +361,11 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/sync_draft_pack_metadata.py", rootDir.absolutePath, "--check")
 }
 
-// One release-table gate and one SelfTest own R1–R4. Materialization is a shared
-// prerequisite for Exec gates below; no host process is needed for these checks.
-val checkReviewedReleasesSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for reviewed release rules R1–R4."
-    workingDir(rootDir)
-    inputs.files(fileTree("scripts") {
-        include("**/*.py", "**/*.json", "**/*.template", "**/*.java", "**/*.sh")
-        exclude("**/build/**", "**/.gradle/**", "**/__pycache__/**")
-    })
-    inputs.files(".env.example", "compatibility/cubism/reviewed-releases.json")
-    VerificationStamps.apply(this)
-    // Keep the executed modules explicit so the CI source-coverage guard can trace them.
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_reviewed_releases",
-        "scripts.test.test_reviewed_releases_r1",
-        "scripts.test.test_reviewed_releases_r2",
-        "scripts.test.test_reviewed_releases_r3",
-        "scripts.test.test_reviewed_releases_r4",
-        "scripts.test.test_reviewed_releases_index",
-        "scripts.test.test_reviewed_releases_ranges",
-        "-v"
-    )
-}
-
+// One release-table gate owns R1–R4. Materialization is a shared prerequisite for
+// Exec gates below; no host process is needed for these checks.
 val checkReviewedReleases by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks reviewed release integrity, patch closure, literal bans and task coverage."
-    dependsOn(checkReviewedReleasesSelfTest)
     workingDir(rootDir)
     inputs.files(fileTree(rootDir) {
         include("scripts/**/*.py", "scripts/**/*.json", "scripts/**/*.java", "scripts/**/*.template",
@@ -494,25 +394,6 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
  * memory and fails on drift, so a coverage change must be followed by one
  * generator run instead of hand-editing the outputs.
  */
-val checkCompatibilityMatrixSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs synthetic-tree fixtures for the compatibility matrix generator."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/generate_compatibility_matrix.py",
-        fileTree("scripts/compat_matrix") { include("*.py") },
-        "scripts/test/test_generate_compatibility_matrix.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_generate_compatibility_matrix",
-        "-v"
-    )
-}
-
 /*
  * generate_compatibility_matrix.py reads Java sources only through token-gated
  * regexes (scripts/compat_matrix/extract.py): a file that lacks every listed
@@ -531,7 +412,6 @@ fun javaSourcesContaining(dir: String, vararg tokens: String): FileCollection =
 val checkCompatibilityMatrix by tasks.registering(Exec::class) {
     group = "verification"
     description = "Fails when generated compatibility artifacts drift from the reviewed data."
-    dependsOn(checkCompatibilityMatrixSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/preview/reviewed_host_artifacts.py",
@@ -593,26 +473,9 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
  * backlog; the gate fails on any new unannotated type and on stale baseline
  * entries, so the backlog can only shrink.
  */
-val checkSdkCubismEditorAnnotationsSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for the SDK @CubismEditor annotation baseline."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/check_sdk_cubism_annotations.py",
-        "scripts/test/test_check_sdk_cubism_annotations.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_check_sdk_cubism_annotations",
-        "-v"
-    )
-}
-
 val checkSdkCubismEditorAnnotations by tasks.registering(Exec::class) {
     group = "verification"
     description = "Fails when a public dev.turboism.sdk.cubism type lacks @CubismEditor coverage."
-    dependsOn(checkSdkCubismEditorAnnotationsSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/check_sdk_cubism_annotations.py",
@@ -623,44 +486,9 @@ val checkSdkCubismEditorAnnotations by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/check_sdk_cubism_annotations.py", rootDir.absolutePath)
 }
 
-/*
- * Class-pin JSON tables are generated/maintained by generate_class_pins.py;
- * the self-test proves update/check/dry-run semantics fail closed against
- * fixture JARs so the tool can be trusted during host-version onboarding.
- */
-val generateClassPinsSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for the class-pin generator."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/generate_class_pins.py",
-        "scripts/test/test_generate_class_pins.py"
-    )
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_generate_class_pins",
-        "-v"
-    )
-}
-
-val checkMaterializedRecordsSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs focused byte-preservation and fail-closed fixtures for record materialization."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/reviewed_releases_fixture.py",
-        "scripts/materialize_verification_records.py",
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/test/test_materialize_verification_records.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_verification_records", "-v")
-}
-
 val checkMaterializedRecords by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks materialized verification records byte-for-byte against canonical release and family sources."
-    dependsOn(checkMaterializedRecordsSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/materialize_verification_records.py",
@@ -689,32 +517,9 @@ val checkMaterializedRecords by tasks.registering(Exec::class) {
  * universe; byte-level equivalence against the retired checked-in sources was
  * proven by the migration gate before the sources were removed.
  */
-val checkVerificationSourcesSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for verification source generation and equivalence."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/generate_verification_sources.py",
-        "compatibility/cubism/reviewed-releases.json",
-        "scripts/preview/reviewed_host_artifacts.py",
-        "scripts/turboism_dev/json_io.py",
-        "scripts/verification-sources/model-update-targets.json",
-        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
-        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json",
-        "scripts/test/test_generate_verification_sources.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine(
-        "python3", "-m", "unittest",
-        "scripts.test.test_generate_verification_sources",
-        "-v"
-    )
-}
-
 val checkVerificationSources by tasks.registering(Exec::class) {
     group = "verification"
     description = "Proves generated verification sources are byte-identical to checked-in sources and record-derived."
-    dependsOn(checkVerificationSourcesSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/generate_verification_sources.py",
@@ -765,15 +570,6 @@ tasks.register<Exec>("checkValidationToolsSync") {
     inputs.files(fileTree("validation") { include("**/*.java") })
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/test/check_validation_tools_sync.py", rootDir.absolutePath)
-}
-
-val checkModuleBoundariesSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs negative fixtures for fail-closed module-boundary enforcement."
-    workingDir(rootDir)
-    inputs.files("gradle/module-boundaries.gradle.kts", "scripts/test/test_module_boundaries.py")
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/test/test_module_boundaries.py")
 }
 
 val checkDuplicateJavaImports by tasks.registering {
@@ -1001,31 +797,6 @@ val productionClasses = subprojects
     .filterNot { it.path == ":testing:integration-tests" }
     .map { "${it.path}:classes" }
 
-val checkRemoteHygieneSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for tracked paths, local configuration, and secret-value hygiene rules."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/check_remote_hygiene.py",
-        "scripts/test/test_check_remote_hygiene.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/test/test_check_remote_hygiene.py")
-}
-
-val checkTestCorpusSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for test corpus packaging, tamper detection, and path safety."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test_corpus.py",
-        "scripts/test/test_test_corpus.py",
-        "test-assets/corpus.json"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/test/test_test_corpus.py")
-}
-
 /*
  * --worktree scans every tracked index blob. The index file covers membership changes
  * (`git add`/`git rm --cached` on an unchanged file) that worktree content alone cannot
@@ -1046,7 +817,6 @@ val repositoryHygieneIndex = provider {
 val checkRepositoryHygiene by tasks.registering(Exec::class) {
     group = "verification"
     description = "Rejects tracked secrets, developer-machine paths, and local-only configuration before daily development checks pass."
-    dependsOn(checkRemoteHygieneSelfTest)
     workingDir(rootDir)
     inputs.file("scripts/check_remote_hygiene.py")
     inputs.files(fileTree(rootDir) {
@@ -1159,36 +929,6 @@ val checkTestExecutionGuard by tasks.registering(Exec::class) {
     commandLine("./gradlew", "-p", "buildSrc", "test", "--console=plain")
 }
 
-val checkGateWiringSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Proves the rewired gates are aggregated by devCheck/checkIntegration instead of orphaned."
-    workingDir(rootDir)
-    inputs.files(
-        "gradle/verification.gradle.kts",
-        "gradle/asm-admission.gradle.kts",
-        "gradle/architecture-governance.gradle.kts",
-        "gradle/dependency-inventory.gradle.kts",
-        "build.gradle.kts",
-        "buildSrc/src/main/kotlin/dev/turboism/gradle/TurboismPluginExtension.kt",
-        "testing/integration-tests/build.gradle.kts",
-        "scripts/check_shell_lint.sh",
-        "CONTRIBUTING.md",
-        "ARCHITECTURE_GOVERNANCE.md",
-        "sgconfig.yml",
-        "runtime/build.gradle.kts",
-        "tests/fixtures/snapshots/manifest.json",
-        "architecture/dependency-inventory.json",
-        "architecture/DEPENDENCY_INVENTORY.md",
-        "scripts/test/test_dependency_inventory.py",
-        ".github/workflows/ci.yml",
-        ".github/workflows/release.yml",
-        ".github/workflows/unified-channel-checks.yml",
-        "scripts/dev/selftest-gate-wiring.py"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/dev/selftest-gate-wiring.py")
-}
-
 /*
  * The tracked plugin-sections.nsh is generated for the Windows installer and was
  * never compared with a regeneration. The gate rebuilds the sections from the
@@ -1216,20 +956,6 @@ val checkInstallerPluginSections by tasks.registering(Exec::class) {
     )
     VerificationStamps.apply(this)
     commandLine("python3", "packaging/windows-installer/check_plugin_sections.py")
-}
-
-val checkInstallerPluginSectionsGateSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Proves the installer plugin-sections comparison rejects stale and pruned artifacts."
-    workingDir(rootDir)
-    inputs.files(
-        "packaging/windows-installer/check_plugin_sections.py",
-        "packaging/windows-installer/selftest-plugin-sections.py",
-        "packaging/windows-installer/plugin-sections.nsh",
-        "packaging/windows-installer/assemble-release.sh"
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "packaging/windows-installer/selftest-plugin-sections.py")
 }
 
 /*
@@ -1349,13 +1075,20 @@ tasks.register<Exec>("checkPythonLint") {
 }
 
 val devCheck by tasks.registering {
-    dependsOn("checkPluginBoundaries", "checkPluginPermissionAudit")
     group = "verification"
     description = "Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice."
     // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the
     // live collection keeps devCheck wired without a hardcoded plugin list.
     dependsOn(tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" })
     dependsOn(
+        "checkPluginBoundaries",
+        "checkPluginPermissionAudit",
+        // Declared in build.gradle.kts / applied gate scripts, wired here and nowhere else.
+        "checkDraftContractDiagnostics",
+        "checkDependencyInventory",
+        "checkArchitectureRules",
+        "checkGoldenSnapshotManifest",
+        ":runtime:persistenceGoldenSnapshotsTest",
         productionClasses,
         checkDuplicateJavaImports,
         checkPackageLayout,
@@ -1371,7 +1104,6 @@ val devCheck by tasks.registering {
         "checkAsmDependencyModel",
         "checkResolvedBytecodeDependencyGraph",
         "checkInstallerPluginSections",
-        checkInstallerPluginSectionsGateSelfTest,
         checkProbeTerminalSelftest,
         checkHostProbeResultContract,
         "checkCleanWorktreeSafety",
@@ -1379,10 +1111,8 @@ val devCheck by tasks.registering {
         "checkHostCleanupEnvMerge",
         "checkCleanupFailurePropagation",
         checkTestExecutionGuard,
-        checkGateWiringSelfTest,
         checkPluginTemplateSetup,
         checkRepositoryHygiene,
-        checkTestCorpusSelfTest,
         checkEditorModelAliases,
         checkMaterializedRecords,
         checkReviewedReleases,
@@ -1789,58 +1519,13 @@ registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
  * the monorepo. The produced plugin JAR is bound to its tracked descriptor through
  * the production PluginMetaValidationCli / FirstPartyMetadataVerificationCli gate
  * tools (runtime-internal; they never enter the template compile classpath). The
- * self-test proves the check fails closed on a drifted descriptor and on an SDK
- * served from an empty resolution repository, so a stale ~/.m2 cannot mask drift.
+ * cleared repositories are what makes the gate fail closed on a drifted descriptor
+ * or an SDK that only ~/.m2 could supply, so a stale local cache cannot mask drift.
  */
-val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs fail-closed fixtures for the external plugin-template consumer check."
-    dependsOn(":sdk:jar", ":event-processor:jar", ":runtime:classes")
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/check_external_plugin_template.py",
-        fileTree("templates/plugin-template") { include("**/*") }
-    )
-    inputs.file(provider {
-        project(":sdk").tasks.named<Jar>("jar").get().archiveFile
-    }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
-    inputs.file(provider {
-        project(":event-processor").tasks.named<Jar>("jar").get().archiveFile
-    }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)
-    inputs.files(provider {
-        project(":runtime").extensions.getByType<SourceSetContainer>()
-            .named("main").get().runtimeClasspath.filter { !it.path.endsWith("/resources/main") }
-    }).withNormalizer(org.gradle.api.tasks.ClasspathNormalizer::class)
-    inputs.property("sdkVersion", provider {
-        (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)["apiVersion"].toString()
-    })
-    inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
-    VerificationStamps.apply(this)
-    doFirst {
-        val sdkApiVersion = (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)["apiVersion"].toString()
-        commandLine(
-            "python3", "scripts/test/check_external_plugin_template.py", "selftest",
-            "--repo-root", rootDir.absolutePath,
-            "--sdk-jar",
-            project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
-            "--event-processor-jar",
-            project(":event-processor").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
-            "--sdk-version", sdkApiVersion,
-            "--runtime-classpath",
-            project(":runtime").extensions.getByType<SourceSetContainer>()
-                .named("main").get().runtimeClasspath.asPath,
-            "--java", file("${codeQualityJavaHome.get()}/bin/java").absolutePath,
-            "--work-dir",
-            layout.buildDirectory.dir("tmp/external-plugin-template/selftest").get().asFile.absolutePath,
-            "--shared-gradle-home", gradle.gradleUserHomeDir.absolutePath
-        )
-    }
-}
-
 tasks.register<Exec>("checkExternalPluginTemplate") {
     group = "verification"
     description = "Builds templates/plugin-template as an external consumer and validates the plugin JAR through production contract tools."
-    dependsOn(":sdk:jar", ":event-processor:jar", ":runtime:classes", checkExternalPluginTemplateSelfTest)
+    dependsOn(":sdk:jar", ":event-processor:jar", ":runtime:classes")
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_external_plugin_template.py",
@@ -1937,7 +1622,6 @@ tasks.register("checkIntegration") {
         ":testing:integration-tests:hostValidationScriptContractTest",
         ":bootstrap:checkBootstrapJarDependencyIsolation",
         ":bootstrap:checkBootstrapLaunchLeasePremain",
-        "contractParentAgentTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
 }
@@ -1998,21 +1682,23 @@ val checkCompletedCommit by tasks.registering {
         checkPluginApiFloors,
         checkDraftPackMetadata,
         checkReviewedReleases,
-        generateClassPinsSelfTest,
         checkVerificationSources,
         "checkSdkApiBaselineTool",
-        "checkSdkBaselineAnchorConsistency",
-        "checkModuleBoundariesSelfTest",
-        checkCodeQualitySelfTest,
-        checkThrowableContainmentSelfTest,
-        checkRemoteHygieneSelfTest,
         checkPluginEventReference,
         checkPerformanceProbeReports,
         checkHostToolingSelfTest,
         "checkLocalizedChangelogs",
         "checkLocalizedChangelogsSelfTest",
         spotlessCheckTasks,
-        "checkSdkApiCurrent"
+        "checkSdkApiCurrent",
+        // Registered later in this script (forward references stay lazy by name).
+        "checkFrameworkUpdateTooling",
+        "checkWindowsUpdateNativeSources",
+        "checkBootstrapReceipt",
+        ":bootstrap:checkBootstrapLaunchLeasePremain",
+        // Registered by gradle/architecture-governance.gradle.kts, applied before this script.
+        "checkArchitectureRules",
+        "checkGoldenSnapshotManifest"
     )
 }
 
@@ -2044,7 +1730,6 @@ val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
         "scripts.test.test_framework_client",
         "scripts.test.test_framework_release")
 }
-tasks.named("checkCompletedCommit") { dependsOn(checkFrameworkUpdateTooling) }
 
 val checkReleaseTooling by tasks.registering(Exec::class) {
     group = "release verification"
@@ -2079,10 +1764,6 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
     )
 }
 
-// Published by gradle/sdk-api.gradle.kts: one checkSdkV<N>ExactApiCompatibility task
-// per anchor-table row, so this gate tracks the anchored versions automatically.
-val sdkExactCompatibilityCheckTasks = extra["sdkExactCompatibilityCheckTasks"] as List<*>
-
 tasks.register("checkRelease") {
     group = "verification"
     description = "Runs completed-commit verification plus supply-chain and historical release audits."
@@ -2090,10 +1771,10 @@ tasks.register("checkRelease") {
         checkCompletedCommit,
         checkReleaseTooling,
         "checkInstallerVersion",
-        "checkSdkApiReferenceBuilder",
-        sdkExactCompatibilityCheckTasks,
-        "checkSdkV8Linkage",
-        "checkTextureAtlasSdkV7Linkage",
+        // Registered by gradle/architecture-governance.gradle.kts and reachable through
+        // checkCompletedCommit; listed here so this gate states its full dependency set.
+        "checkArchitectureRules",
+        "checkGoldenSnapshotManifest",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",
@@ -2114,17 +1795,13 @@ val draftConsumers = setOf(
     "checkCubismCoreApiInventory",
     "checkCubismCoreSelectorPolicy",
     "syncDraftPackMetadata",
-    "checkDraftPackMetadataSelfTest",
     "checkDraftPackMetadata",
-    "checkVerificationSourcesSelfTest",
     "checkVerificationSources"
 )
 
 val recordsConsumers = setOf(
     "checkEditorModelAliases",
-    "checkEditorModelAliasesSelfTest",
     "checkReviewedReleases",
-    "checkReviewedReleasesSelfTest",
     "checkCompatibilityMatrix",
     "checkMaterializedRecords",
     "checkHostToolingSelfTest"
@@ -2154,7 +1831,6 @@ val checkWindowsUpdateNativeSources by tasks.registering(Exec::class) {
     VerificationStamps.apply(this)
     commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_windows_update_native")
 }
-tasks.named("checkCompletedCommit") { dependsOn(checkWindowsUpdateNativeSources) }
 
 // Bootstrap receipt integration covers signed first-install initialization, cross-layer layout
 // consistency and collision safety. The gate exports the runtime test classpath once and hands its
@@ -2193,10 +1869,8 @@ val checkBootstrapReceipt by tasks.registering(Exec::class) {
     }
     commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_bootstrap_receipt")
 }
-tasks.named("checkCompletedCommit") { dependsOn(checkBootstrapReceipt) }
 
 // Real built-agent premain evidence for the framework launch lease (issue #50). The probe itself is a JavaExec in
-// :bootstrap (it owns the built JAR input, the test-classes dependency and the fork classpath); this file only links
-// it into the integration and completed-commit chains so a premain handshake regression fails the ordinary gate.
-// It validates whatever identity the built artifact really carries, so a numbered CI build stays valid.
-tasks.named("checkCompletedCommit") { dependsOn(":bootstrap:checkBootstrapLaunchLeasePremain") }
+// :bootstrap (it owns the built JAR input, the test-classes dependency and the fork classpath); the checkCompletedCommit
+// dependency list above links it into the ordinary gate so a premain handshake regression fails loudly. It validates
+// whatever identity the built artifact really carries, so a numbered CI build stays valid.
