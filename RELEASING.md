@@ -69,7 +69,7 @@ generated from a frozen published baseline; they take no reviewed file.
 
 `release-notes/<version>.json` is the single source for localized changelog
 text: `scripts/release/render_localized_changelogs.py` rewrites every
-JSON-covered section of `CHANGELOG_zh.md`/`CHANGELOG_ja.md`/`CHANGELOG_ko.md`
+JSON-covered section of `CHANGELOG.zh-CN.md`/`CHANGELOG.ja.md`/`CHANGELOG.ko.md`
 verbatim, keeps pre-JSON history and the `Unreleased` sections as committed,
 and `checkLocalizedChangelogs` fails on drift. Never hand-edit a
 JSON-covered section; sections predating the JSON scheme remain authored in

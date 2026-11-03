@@ -1,0 +1,37 @@
+{
+  "format": "turboism-persistence-golden-snapshots-v1",
+  "snapshots": [
+    {
+      "id": "runtime-config-v1",
+      "family": "runtime-config",
+      "origin": "synthetic-format-v1",
+      "path": "runtime-config/schema-v1/legacy-user.json",
+      "sha256": "05671886dcb079ba562ac62d9a4853a4200c8f4d64c7e3997d17b4f25676c463",
+      "expectation": "global-config-read-and-update-preserve-user-settings"
+    },
+    {
+      "id": "typed-config-v1-migrate",
+      "family": "typed-config",
+      "origin": "synthetic-format-v1",
+      "path": "typed-config/schema-v1/migration.cfg",
+      "sha256": "20f1d2e112bf0e9813f1ad1184c206892f89073e5d5ca579ca7c9eada67738fd",
+      "expectation": "migrate-v1-to-v2-idempotently"
+    },
+    {
+      "id": "typed-config-future-version",
+      "family": "typed-config",
+      "origin": "synthetic-format-v1",
+      "path": "typed-config/schema-v3/future.cfg",
+      "sha256": "12b845ec1bdd9a9d65b3fc02ae25650700cb5a0b9d9617ad1cd36f9800bfdfa9",
+      "expectation": "reject-future-schema-without-overwrite"
+    },
+    {
+      "id": "typed-config-migration-failure",
+      "family": "typed-config",
+      "origin": "synthetic-format-v1",
+      "path": "typed-config/schema-v1/migration-failed.cfg",
+      "sha256": "dfbcfcd2ba97b2499defa25f215beefbbc527fa023b2383be15555fe4f9eda1f",
+      "expectation": "migration-failure-preserves-original-bytes"
+    }
+  ]
+}

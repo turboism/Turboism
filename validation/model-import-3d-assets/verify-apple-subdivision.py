@@ -4,7 +4,11 @@
 Closed manifold Catmull-Clark only; no creases, UV or material reconstruction.
 Matching is bijective within a declared source-coordinate tolerance.
 """
-import argparse, hashlib, importlib.util, itertools, json
+import argparse
+import hashlib
+import importlib.util
+import itertools
+import json
 from pathlib import Path
 import numpy as np
 

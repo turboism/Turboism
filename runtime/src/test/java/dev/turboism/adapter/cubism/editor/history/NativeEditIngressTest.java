@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.editor.history;
 
-import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.internal;
-import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.method;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Audit full original-face bound native editing, not full Apple visual/export acceptance."""
-import collections,hashlib,json,math,struct,sys
+import collections
+import hashlib
+import json
+import math
+import struct
+import sys
 from pathlib import Path
 
 def oriented(indices):

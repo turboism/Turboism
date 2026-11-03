@@ -18,6 +18,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.script.ScriptDescriptor;
 import dev.turboism.sdk.script.ScriptId;
 import dev.turboism.sdk.script.ScriptLanguage;
+import dev.turboism.test.Stubs;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -358,22 +359,7 @@ final class RuntimeScriptHostBridgeTest {
         }
 
         private static PluginPermission permission(final String id) {
-            return new PluginPermission() {
-                @Override
-                public String id() {
-                    return id;
-                }
-
-                @Override
-                public String scope() {
-                    return "application";
-                }
-
-                @Override
-                public String reason() {
-                    return "test";
-                }
-            };
+            return Stubs.permission(id, "application", "test");
         }
 
         @Override

@@ -1,6 +1,8 @@
-# Python lint baseline for scripts/. Intentionally narrow: pycodestyle errors,
-# warnings and pyflakes only. Widen the select list deliberately, not by accident.
+# Python lint baseline for scripts/ and the validation/ probes. Intentionally narrow:
+# pycodestyle errors, warnings and pyflakes only. Widen the select list deliberately,
+# not by accident. validation/archive/ holds finished one-off experiments and is not linted.
 target-version = "py311"
+extend-exclude = ["validation/archive"]
 
 [lint]
 select = ["E", "F", "W"]
@@ -13,3 +15,10 @@ ignore = [
     # Standalone scripts bootstrap sys.path before importing sibling helpers.
     "E402",
 ]
+
+[lint.per-file-ignores]
+# validation/ probes are historical, host-driven evidence scripts: their results have
+# already been recorded, so the remaining 29 findings (13 F841 unused locals,
+# 11 E731 lambda assignments, 5 E741 names like `O`/`l`) are left as recorded instead
+# of rewriting evidence-producing code. Revisit only if a probe is revived.
+"validation/**/*.py" = ["F841", "E731", "E741"]

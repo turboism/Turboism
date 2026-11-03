@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """All-pixel native/source diagnostics. No tolerance gate, masking, or acceptance claim."""
-import argparse,hashlib,json
+import argparse
+import hashlib
+import json
 from pathlib import Path
 import numpy as np
 from PIL import Image

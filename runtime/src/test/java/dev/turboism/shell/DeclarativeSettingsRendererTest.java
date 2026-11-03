@@ -352,7 +352,7 @@ class DeclarativeSettingsRendererTest {
     }
 
     @Test
-    void noteRendersAsDisabledSmallCaptionWithNothingToSave() throws Exception {
+    void noteRendersAsDisabledCaptionWithNothingToSave() throws Exception {
         final CoreWindows windows = new CoreWindows(
                 localization(),
                 settings(),
@@ -379,8 +379,119 @@ class DeclarativeSettingsRendererTest {
         assertEquals(control.label(), caption.getText());
         assertTrue(!caption.isEnabled());
         assertTrue(caption.getFont().getSize2D()
-                < new javax.swing.JLabel().getFont().getSize2D());
+                >= new javax.swing.JLabel().getFont().getSize2D());
         assertTrue(saver.getAsBoolean());
+    }
+
+    @Test
+    void recommendationNoteCarriesTheRecommendedProfileTooltip() throws Exception {
+        final CoreWindows windows = new CoreWindows(
+                localization(),
+                settings(),
+                List::of,
+                plugins(),
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
+        final JPanel panel = new JPanel(new GridBagLayout());
+        final SettingsControl.Note control =
+                new SettingsControl.Note("performance-recommendation", "Recommended profile");
+        final Method render = CoreWindows.class.getDeclaredMethod(
+                "renderControl", JDialog.class, JPanel.class, int.class, SettingsControl.class);
+        render.setAccessible(true);
+
+        render.invoke(windows, null, panel, 0, control);
+
+        final javax.swing.JLabel caption = java.util.Arrays.stream(panel.getComponents())
+                .filter(javax.swing.JLabel.class::isInstance)
+                .map(javax.swing.JLabel.class::cast)
+                .filter(label -> control.label().equals(label.getText()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(caption.isEnabled(), "the recommendation note must be hoverable");
+        assertTrue(caption.getToolTipText() != null
+                && caption.getToolTipText().contains("settings.performance.recommendation.tooltip"));
+    }
+
+    @Test
+    void performanceSectionRendersAsCollapsibleTitledBoxWithTooltip() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final SettingsTab performanceTab = new SettingsTab("performance", "Performance", OptionalInt.of(200));
+            final SettingsSnapshot.Tab tab = new SettingsSnapshot.Tab(
+                    "performance",
+                    "Performance",
+                    OptionalInt.of(200),
+                    List.of(
+                            new SettingsSnapshot.Entry(
+                                    "turboism.core",
+                                    new SettingsContribution(
+                                            "performance.section.model",
+                                            performanceTab,
+                                            OptionalInt.of(70),
+                                            new SettingsControl.Note("performance.section.model", "Model updates"))),
+                            new SettingsSnapshot.Entry(
+                                    "turboism.core",
+                                    new SettingsContribution(
+                                            "model-toggle",
+                                            performanceTab,
+                                            OptionalInt.of(71),
+                                            new SettingsControl.Toggle(
+                                                    "model-toggle",
+                                                    "Model update",
+                                                    SettingsBinding.of(() -> false, ignored -> {}))))));
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    () -> List.of(tab),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = render(windows);
+                final JScrollPane scroll = (JScrollPane) rendered.tabs().getComponentAt(0);
+                final JPanel form = (JPanel) scroll.getViewport().getView();
+                final JPanel section = findCollapsibleSection(form);
+                assertTrue(section != null, "performance section must render as a collapsible box");
+                assertTrue(section.getToolTipText() != null
+                        && section.getToolTipText().contains("settings.performance.section.model.tooltip"));
+                assertTrue(
+                        findCheckBox(section, "Model update") != null, "the section content must contain its toggle");
+                try {
+                    final java.lang.reflect.Field delegate =
+                            section.getBorder().getClass().getDeclaredField("delegate");
+                    delegate.setAccessible(true);
+                    assertEquals(
+                            "Model updates",
+                            ((javax.swing.border.TitledBorder) delegate.get(section.getBorder())).getTitle());
+                } catch (ReflectiveOperationException failure) {
+                    throw new AssertionError(failure);
+                }
+            }
+        });
+    }
+
+    private static JPanel findCollapsibleSection(final Component root) {
+        if (root instanceof JPanel panel
+                && panel.getBorder() != null
+                && panel.getBorder().getClass().getName().contains("CollapsibleTitledBorder")) {
+            return panel;
+        }
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                final JPanel found = findCollapsibleSection(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private static JCheckBox findCheckBox(final Component root, final String text) {
+        if (root instanceof JCheckBox box && text.equals(box.getText())) return box;
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                final JCheckBox found = findCheckBox(child, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     @Test

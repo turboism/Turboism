@@ -29,6 +29,8 @@ import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Shared authority tests: plugin-scoped registry aggregation, immutable localized
@@ -214,8 +216,9 @@ class RuntimeExportSettingsAuthorityTest {
         otherBinding.close();
     }
 
-    @Test
-    void staleHostGenerationRejects() {
+    @ParameterizedTest
+    @ValueSource(strings = {"hostGeneration", "documentIdentity"})
+    void staleAuthorityStateRejectsTheSelectedPath(final String staleState) {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
@@ -223,22 +226,13 @@ class RuntimeExportSettingsAuthorityTest {
         final Object owner = new Object();
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
-        authority.hostGeneration(8L);
-        assertSame(Boolean.FALSE, authority.decide(owner), "a replaced host generation must reject the selected path");
-        assertEquals(0, context.callbackCalls.size());
-    }
-
-    @Test
-    void staleDocumentModelIdentityRejects() {
-        final TestContext context = new TestContext();
-        final RuntimeExportSettingsAuthority authority = context.authority();
-        authority.hostGeneration(7L);
-        final JPanel container = dialogContent();
-        final Object owner = new Object();
-        assertNullResult(authority.attach(owner, container));
-        checkbox(container, "Localized protect").setSelected(true);
-        context.identity = Optional.of(new ExportSettingsIdentity("doc-2", new ModelId(MODEL_ID)));
-        assertSame(Boolean.FALSE, authority.decide(owner), "a stale document identity must reject the selected path");
+        switch (staleState) {
+            case "hostGeneration" -> authority.hostGeneration(8L);
+            case "documentIdentity" ->
+                context.identity = Optional.of(new ExportSettingsIdentity("doc-2", new ModelId(MODEL_ID)));
+            default -> throw new IllegalArgumentException(staleState);
+        }
+        assertSame(Boolean.FALSE, authority.decide(owner), "a stale " + staleState + " must reject the selected path");
         assertEquals(0, context.callbackCalls.size());
     }
 
@@ -314,8 +308,9 @@ class RuntimeExportSettingsAuthorityTest {
         assertEquals(0, context.callbackCalls.size());
     }
 
-    @Test
-    void resetHostInvalidatesOpenDialogsForDelayedConfirmCallbacks() {
+    @ParameterizedTest
+    @ValueSource(strings = {"hostReset", "pluginUnregister"})
+    void dialogInvalidationRejectsDelayedConfirms(final String invalidation) {
         final TestContext context = new TestContext();
         final RuntimeExportSettingsAuthority authority = context.authority();
         authority.hostGeneration(7L);
@@ -324,38 +319,28 @@ class RuntimeExportSettingsAuthorityTest {
         assertNullResult(authority.attach(owner, container));
         checkbox(container, "Localized protect").setSelected(true);
 
-        authority.resetHost();
-        flushEdt();
-        assertEquals(
-                2,
-                optionsOf(container).getComponentCount(),
-                "reset must detach the owned panel, leaving the native options");
-        assertSame(
-                Boolean.FALSE,
-                authority.decide(owner),
-                "reset must not turn an open dialog into an unchecked native passthrough");
-        assertEquals(0, context.callbackCalls.size());
-    }
+        switch (invalidation) {
+            case "hostReset" -> {
+                authority.resetHost();
+                flushEdt();
+                assertEquals(
+                        2,
+                        optionsOf(container).getComponentCount(),
+                        "reset must detach the owned panel, leaving the native options");
+            }
+            case "pluginUnregister" -> context.binding.close();
+            default -> throw new IllegalArgumentException(invalidation);
+        }
 
-    @Test
-    void pluginUnregisterMarksOpenDialogsStale() {
-        final TestContext context = new TestContext();
-        final RuntimeExportSettingsAuthority authority = context.authority();
-        authority.hostGeneration(7L);
-        final JPanel container = dialogContent();
-        final Object owner = new Object();
-        assertNullResult(authority.attach(owner, container));
-        checkbox(container, "Localized protect").setSelected(true);
-        context.binding.close();
         assertSame(
                 Boolean.FALSE,
                 authority.decide(owner),
-                "a plugin disabled while its dialog is open must reject the confirm");
-        assertEquals(0, context.callbackCalls.size());
+                "an invalidated dialog must never become an unchecked native passthrough");
+        assertEquals(0, context.callbackCalls.size(), invalidation);
         assertSame(
                 Boolean.FALSE,
                 authority.decide(owner),
-                "a second delayed confirm after plugin removal must remain rejected");
+                "a second delayed confirm after the invalidation must remain rejected");
     }
 
     @Test
@@ -541,8 +526,9 @@ class RuntimeExportSettingsAuthorityTest {
                 RuntimeExportSettingsAuthority.STALE_HOST_KEY, vetoes.get(0).key());
     }
 
-    @Test
-    void armedOrchestrationHandoffReportsNoAuthorityVeto() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void orchestrationHandoffReportsThroughTheOwningReporter(final boolean seamInstalled) throws Exception {
         final TestContext context = new TestContext(
                 (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"));
         final RuntimeExportSettingsAuthority authority = context.authority();
@@ -553,50 +539,29 @@ class RuntimeExportSettingsAuthorityTest {
 
         final Object owner = new Object();
         final List<ExportSettingsVetoDiagnostic> sessionReports = new ArrayList<>();
-        final ProtectedExportOrchestrator orchestrator = orchestratorFixture(owner, true, sessionReports);
+        final ProtectedExportOrchestrator orchestrator = orchestratorFixture(owner, seamInstalled, sessionReports);
         orchestrator.refusalReporter(refusals::add);
-        authority.markProtectedExportRedirectSeamInstalled();
-        authority.protectedExportOrchestrator(orchestrator);
-        try {
-            final JPanel container = dialogContent();
-            assertNullResult(authority.attach(owner, container));
-            checkbox(container, "Localized protect").setSelected(true);
-
-            assertSame(Boolean.FALSE, authority.decide(owner), "an armed session still vetoes the outer export");
-            assertTrue(vetoes.isEmpty(), "the armed handoff stays silent at the authority: the session reports itself");
-        } finally {
-            orchestrator.close();
+        if (seamInstalled) {
+            authority.markProtectedExportRedirectSeamInstalled();
         }
-    }
-
-    @Test
-    void refusedOrchestrationSurfacesThroughTheOrchestratorReporter() throws Exception {
-        final TestContext context = new TestContext(
-                (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"));
-        final RuntimeExportSettingsAuthority authority = context.authority();
-        final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
-        final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
-        authority.vetoReporter(vetoes::add);
-        authority.hostGeneration(7L);
-
-        final Object owner = new Object();
-        final List<ExportSettingsVetoDiagnostic> sessionReports = new ArrayList<>();
-        final ProtectedExportOrchestrator orchestrator = orchestratorFixture(owner, false, sessionReports);
-        orchestrator.refusalReporter(refusals::add);
-        // The redirect seam is deliberately not marked installed.
+        // Without the redirect seam the handoff is deliberately refused by the orchestrator.
         authority.protectedExportOrchestrator(orchestrator);
         try {
             final JPanel container = dialogContent();
             assertNullResult(authority.attach(owner, container));
             checkbox(container, "Localized protect").setSelected(true);
 
-            assertSame(Boolean.FALSE, authority.decide(owner));
-            assertTrue(vetoes.isEmpty(), "a refused handoff reports through the orchestrator, not the authority");
-            assertEquals(1, refusals.size());
-            assertEquals(
-                    ProtectedExportOrchestrator.NOT_ADMITTED_KEY,
-                    refusals.get(0).key());
-            assertEquals("redirect-seam-missing", refusals.get(0).detail());
+            assertSame(Boolean.FALSE, authority.decide(owner), "the handoff still vetoes the outer export");
+            assertTrue(vetoes.isEmpty(), "the authority never reports the handoff itself");
+            if (seamInstalled) {
+                assertTrue(refusals.isEmpty(), "the armed session reports itself, not the orchestrator refusal sink");
+            } else {
+                assertEquals(1, refusals.size());
+                assertEquals(
+                        ProtectedExportOrchestrator.NOT_ADMITTED_KEY,
+                        refusals.get(0).key());
+                assertEquals("redirect-seam-missing", refusals.get(0).detail());
+            }
         } finally {
             orchestrator.close();
         }

@@ -1166,10 +1166,23 @@ val checkGateWiringSelfTest by tasks.registering(Exec::class) {
     inputs.files(
         "gradle/verification.gradle.kts",
         "gradle/asm-admission.gradle.kts",
+        "gradle/architecture-governance.gradle.kts",
+        "gradle/dependency-inventory.gradle.kts",
+        "build.gradle.kts",
         "buildSrc/src/main/kotlin/dev/turboism/gradle/TurboismPluginExtension.kt",
         "testing/integration-tests/build.gradle.kts",
         "scripts/check_shell_lint.sh",
         "CONTRIBUTING.md",
+        "ARCHITECTURE_GOVERNANCE.md",
+        "sgconfig.yml",
+        "runtime/build.gradle.kts",
+        "tests/fixtures/snapshots/manifest.json",
+        "architecture/dependency-inventory.json",
+        "architecture/DEPENDENCY_INVENTORY.md",
+        "scripts/test/test_dependency_inventory.py",
+        ".github/workflows/ci.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/unified-channel-checks.yml",
         "scripts/dev/selftest-gate-wiring.py"
     )
     VerificationStamps.apply(this)
@@ -1319,16 +1332,18 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
 }
 
 /*
- * scripts/ lint is part of the daily gate: ruff.toml pins the rule set and the
- * wrapper pins the ruff release, so the baseline cannot drift with ambient tools.
+ * scripts/ and validation/ probe lint is part of the daily gate: ruff.toml pins the
+ * rule set and the wrapper pins the ruff release, so the baseline cannot drift with
+ * ambient tools. validation/archive/ is excluded (see ruff.toml).
  */
 tasks.register<Exec>("checkPythonLint") {
     group = "verification"
-    description = "Lints scripts/ with the pinned ruff ruleset in ruff.toml."
+    description = "Lints scripts/ and validation/ with the pinned ruff ruleset in ruff.toml."
     workingDir(rootDir)
     inputs.file("ruff.toml")
     inputs.files("scripts/check_python_lint.py")
     inputs.files(fileTree("scripts") { include("**/*.py") })
+    inputs.files(fileTree("validation") { include("**/*.py"); exclude("archive/**") })
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_python_lint.py")
 }
@@ -1869,13 +1884,13 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
 
 tasks.register<Exec>("checkLocalizedChangelogs") {
     group = "verification"
-    description = "Verifies localized CHANGELOG_<lang>.md files render exactly from release-notes JSON."
+    description = "Verifies localized CHANGELOG.<locale>.md files render exactly from release-notes JSON."
     workingDir(rootDir)
     inputs.files(
         "CHANGELOG.md",
-        "CHANGELOG_zh.md",
-        "CHANGELOG_ja.md",
-        "CHANGELOG_ko.md",
+        "CHANGELOG.zh-CN.md",
+        "CHANGELOG.ja.md",
+        "CHANGELOG.ko.md",
         fileTree("release-notes") { include("*.json") },
         "scripts/release/render_localized_changelogs.py"
     )

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.core.CoreEvaluatedJoin;
 import dev.turboism.adapter.cubism.core.CoreProviderResult;
@@ -15,7 +16,7 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
-import java.nio.file.Files;
+import dev.turboism.test.Stubs;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -252,14 +253,7 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
     }
 
     private static Path locateProjectRoot() {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("could not locate Turboism project root");
-        }
-        return current;
+        return Stubs.locateProjectRoot();
     }
 
     /**

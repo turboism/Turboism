@@ -131,6 +131,36 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "model", 70)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "rendering", 80)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "upload", 90)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "heavy-model", 93)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "mesh", 100)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "jvm", 110)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createPath(
                                 localization(context), services.cubismJvmSettings())));
         context.disposableScope()
@@ -231,8 +261,6 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createReinitPairElisionToggle(
-                                localization(context), services.cubismJvmSettings())));
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
@@ -241,9 +269,19 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createClipMaskScissorClearToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
                         .contributeSettings(
                                 CubismJvmSettingsContribution.createExtendedInterpolationIncrementalSetupToggle(
                                         localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createReinitPairElisionToggle(
+                                localization(context), services.cubismJvmSettings())));
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
@@ -257,8 +295,8 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
-                        .contributeSettings(
-                                CubismJvmSettingsContribution.createPerformanceNote(localization(context))));
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceRecommendationNote(
+                                localization(context))));
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)

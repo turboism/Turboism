@@ -7,6 +7,7 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.fake.FakeCubismArtMesh;
 import dev.turboism.test.fake.FakeCubismDeformer;
 import dev.turboism.test.fake.FakeCubismDocument;
@@ -89,21 +90,6 @@ class SnapshotImmutabilityIntegrationTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id);
     }
 }

@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostSessionFailure;
-import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.test.concurrent.Await;
 import java.nio.file.Path;
 import java.time.Duration;

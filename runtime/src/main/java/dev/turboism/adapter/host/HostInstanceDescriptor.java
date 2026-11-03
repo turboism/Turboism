@@ -1,5 +1,6 @@
 package dev.turboism.adapter.host;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import java.util.Objects;
 
 /** Local-only inputs needed to connect one exact host session. */

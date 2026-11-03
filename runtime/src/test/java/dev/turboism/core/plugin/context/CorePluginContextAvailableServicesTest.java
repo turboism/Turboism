@@ -7,10 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
@@ -47,6 +44,9 @@ import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
+import dev.turboism.test.Stubs;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -584,22 +584,7 @@ class CorePluginContextAvailableServicesTest {
     }
 
     private static PluginLogger logger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(String message) {}
-
-            @Override
-            public void info(String message) {}
-
-            @Override
-            public void warn(String message) {}
-
-            @Override
-            public void error(String message) {}
-
-            @Override
-            public void error(String message, Throwable throwable) {}
-        };
+        return Stubs.noopLogger();
     }
 
     private static PluginPaths paths(Path dataDir) {
@@ -627,79 +612,19 @@ class CorePluginContextAvailableServicesTest {
     }
 
     private static UiScheduler uiScheduler() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                return () -> {};
-            }
-        };
+        return FakeDirectUiScheduler.immediateOnly();
     }
 
     private static RuntimeScheduler scheduler() {
-        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                (task, callback) -> {
-                    callback.run();
-                    return java.util.concurrent.CompletableFuture.completedFuture(
-                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-                },
-                events::add);
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4, RuntimeTestKit.callbackRunningSidecar());
     }
 
     private static DiagnosticReport diagnostics() {
-        return new DiagnosticReport() {
-            @Override
-            public Instant createdAt() {
-                return CLOCK.instant();
-            }
-
-            @Override
-            public List<Problem> problems() {
-                return List.of();
-            }
-        };
+        return Stubs.diagnostics(CLOCK.instant());
     }
 
     private static HostSnapshotSource noopHostSnapshotSource() {
-        return new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.empty();
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return false;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return 0;
-            }
-        };
+        return RuntimeTestKit.emptyHostSnapshotSource();
     }
 
     @TempDir

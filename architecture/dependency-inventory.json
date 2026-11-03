@@ -1,0 +1,1067 @@
+{
+  "format": "turboism-dependency-inventory-v1",
+  "modules": {
+    ":bootstrap": {
+      "implementation": [
+        ":core-contract",
+        ":runtime",
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":testing:test-support"
+      ]
+    },
+    ":core-contract": {
+      "api": [
+        ":sdk"
+      ]
+    },
+    ":event-processor": {
+      "implementation": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk"
+      ]
+    },
+    ":graal-host": {
+      "implementation": [
+        ":sdk"
+      ]
+    },
+    ":plugins:acp": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:artmesh-mirror": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:atlas-bitmask-nesting": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":plugins:atlas-maxrects-bssf",
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:atlas-dalsoo-polygon": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:atlas-folder-layout": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":plugins:atlas-bitmask-nesting",
+        ":plugins:atlas-dalsoo-polygon",
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:atlas-maxrects-bssf": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:boundingbox-warp-mirror": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:clipmask-viewer": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:command-palette": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:cubism-tab-filter": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:deformer-batch-rename": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:demo": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:external-psd-edit": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:frame-animation-import": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:geometric-mesh-layout": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:history-panel": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:mcp": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:mesh-edit-mirror-axis-enhance": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:model-import-3d": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:palette-label-style": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:parameter": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:parameter-batch-transfer": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:parameter-lock": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:parameter-sync": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:perf-stats": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:physics-editor": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:project-inspector": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:protected-export": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:psd-clip-mask-import": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:recent-preview": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:scene-palette-enhancer": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:selection-brush": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:texture-atlas-stats": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:ui-theme": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:warp-deformer-alt-symmetry": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":plugins:webdav-backup": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":runtime": {
+      "implementation": [
+        ":core-contract",
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":plugins:selection-brush",
+        ":testing:test-support"
+      ]
+    },
+    ":testing:integration-tests": {
+      "testImplementation": [
+        ":core-contract",
+        ":plugins:atlas-maxrects-bssf",
+        ":plugins:demo",
+        ":plugins:mesh-edit-mirror-axis-enhance",
+        ":plugins:parameter",
+        ":plugins:psd-clip-mask-import",
+        ":plugins:ui-theme",
+        ":runtime",
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
+    ":testing:test-support": {
+      "implementation": [
+        ":sdk"
+      ]
+    }
+  },
+  "runtime": {
+    "packageCycles": [
+      [
+        "dev.turboism.adapter.cubism.mesh",
+        "dev.turboism.adapter.cubism.modeling",
+        "dev.turboism.adapter.cubism.optimization",
+        "dev.turboism.mapping.verification",
+        "dev.turboism.ui.filter",
+        "dev.turboism.ui.mesh",
+        "dev.turboism.ui.palette",
+        "dev.turboism.ui.toolbar"
+      ],
+      [
+        "dev.turboism.adapter.cubism.edit",
+        "dev.turboism.adapter.cubism.editor",
+        "dev.turboism.adapter.cubism.editor.history",
+        "dev.turboism.adapter.cubism.editor.transaction"
+      ],
+      [
+        "dev.turboism.adapter.cubism",
+        "dev.turboism.adapter.cubism.service.read",
+        "dev.turboism.hostread"
+      ],
+      [
+        "dev.turboism.core.runtime",
+        "dev.turboism.core.runtime.sidecar",
+        "dev.turboism.core.runtime.work"
+      ]
+    ],
+    "topPackageCycles": [
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.config",
+        "dev.turboism.core",
+        "dev.turboism.hostread",
+        "dev.turboism.mapping",
+        "dev.turboism.recentfile",
+        "dev.turboism.recentpreview",
+        "dev.turboism.screenshot",
+        "dev.turboism.task",
+        "dev.turboism.ui"
+      ]
+    ],
+    "topPackageEdges": [
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.hostread"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.i18n"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.bootstrap",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.cleanup"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.home"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.config",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.diagnostics"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.recentfile"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.recentpreview"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.screenshot"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.core",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.distribution",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.exportsettings",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.exportsettings",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.exportsettings",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.exportsettings",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.exportsettings",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.filechooser",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.graal",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.hook",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.hostread",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.hostread",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.keybinding",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.keybinding",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.keybinding",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.mapping",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.mapping",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.mcp",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.performance",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.performance",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.performance",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.performance",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.permissions",
+        "dev.turboism.diagnostics"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.distribution"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.i18n"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.preview"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.update"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.bootstrap"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.cleanup"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.exportsettings"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.graal"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.home"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.hostread"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.i18n"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.performance"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.storage"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.preview",
+        "dev.turboism.userfile"
+      ],
+      [
+        "dev.turboism.recentfile",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.recentfile",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.recentfile",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.recentpreview",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.recentpreview",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.recentpreview",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.screenshot",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.screenshot",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.screenshot",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.script",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.script",
+        "dev.turboism.graal"
+      ],
+      [
+        "dev.turboism.script",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.shell",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.shell",
+        "dev.turboism.distribution"
+      ],
+      [
+        "dev.turboism.shell",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.shell",
+        "dev.turboism.keybinding"
+      ],
+      [
+        "dev.turboism.shell",
+        "dev.turboism.pluginmanagement"
+      ],
+      [
+        "dev.turboism.shell",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.storage",
+        "dev.turboism.cleanup"
+      ],
+      [
+        "dev.turboism.storage",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.storage",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.storage",
+        "dev.turboism.home"
+      ],
+      [
+        "dev.turboism.storage",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.task",
+        "dev.turboism.cleanup"
+      ],
+      [
+        "dev.turboism.task",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.task",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.i18n"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.ui",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.update",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.update",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.cleanup"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.task"
+      ]
+    ],
+    "topPackages": [
+      "dev.turboism.adapter",
+      "dev.turboism.bootstrap",
+      "dev.turboism.cleanup",
+      "dev.turboism.config",
+      "dev.turboism.core",
+      "dev.turboism.diagnostics",
+      "dev.turboism.distribution",
+      "dev.turboism.exportsettings",
+      "dev.turboism.failure",
+      "dev.turboism.filechooser",
+      "dev.turboism.graal",
+      "dev.turboism.home",
+      "dev.turboism.hook",
+      "dev.turboism.hostread",
+      "dev.turboism.i18n",
+      "dev.turboism.internal",
+      "dev.turboism.keybinding",
+      "dev.turboism.mapping",
+      "dev.turboism.mcp",
+      "dev.turboism.performance",
+      "dev.turboism.permissions",
+      "dev.turboism.pluginmanagement",
+      "dev.turboism.preview",
+      "dev.turboism.recentfile",
+      "dev.turboism.recentpreview",
+      "dev.turboism.runtime",
+      "dev.turboism.screenshot",
+      "dev.turboism.script",
+      "dev.turboism.shell",
+      "dev.turboism.storage",
+      "dev.turboism.task",
+      "dev.turboism.ui",
+      "dev.turboism.update",
+      "dev.turboism.userfile"
+    ]
+  }
+}

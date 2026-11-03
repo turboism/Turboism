@@ -4,7 +4,9 @@
 This is an offline fixture, not import admission or a Cubism document. Original
 geometry/UV and chart provenance remain alongside derived normalized Warp inputs.
 """
-import argparse, hashlib, json
+import argparse
+import hashlib
+import json
 from pathlib import Path
 import numpy as np
 

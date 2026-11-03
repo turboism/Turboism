@@ -12,6 +12,7 @@ import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
+import dev.turboism.test.Stubs;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -133,22 +134,7 @@ class ThemeStatusAdapterContractTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "read";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id);
     }
 
     private record FixedThemeSource() implements M12ReadSnapshotSource {

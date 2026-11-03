@@ -32,6 +32,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -2445,19 +2446,7 @@ final class McpHttpServerIntegrationTest {
     }
 
     private static UiScheduler immediateUi() {
-        return new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                work.run();
-                return () -> {};
-            }
-        };
+        return FakeDirectUiScheduler.direct();
     }
 
     @Test

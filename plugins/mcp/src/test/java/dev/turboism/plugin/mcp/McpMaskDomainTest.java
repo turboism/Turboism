@@ -8,10 +8,8 @@ import dev.turboism.sdk.cubism.history.*;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
@@ -390,16 +388,8 @@ class McpMaskDomainTest {
             if (name.equals("authoringTransactions")) return service;
             throw new AssertionError(name);
         });
-        final McpExecutionBridge execution = new McpExecutionBridge(new UiScheduler() {
-            public Registration runOnUiThread(Runnable r) {
-                r.run();
-                return () -> {};
-            }
-
-            public Registration runOnUiThreadLater(Runnable r, Duration d) {
-                throw new AssertionError();
-            }
-        });
+        final McpExecutionBridge execution =
+                new McpExecutionBridge(FakeDirectUiScheduler.immediateWithAssertionLater());
         final McpToolCatalog tools = new McpMaskDomain(
                         facade, execution, () -> new McpStoredAuthoringDomain.Context(model, binding()), () -> now)
                 .tools();

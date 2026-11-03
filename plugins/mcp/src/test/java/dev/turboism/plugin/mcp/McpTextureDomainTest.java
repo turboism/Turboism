@@ -24,10 +24,8 @@ import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.json.Json;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -907,18 +905,7 @@ final class McpTextureDomainTest {
         }
 
         McpExecutionBridge execution() {
-            return new McpExecutionBridge(new UiScheduler() {
-                @Override
-                public Registration runOnUiThread(final Runnable work) {
-                    work.run();
-                    return () -> {};
-                }
-
-                @Override
-                public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
-                    throw new UnsupportedOperationException();
-                }
-            });
+            return new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater());
         }
 
         Map<String, Object> state() {

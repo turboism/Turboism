@@ -13,6 +13,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
+import dev.turboism.test.Stubs;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Frame;
@@ -34,7 +35,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -1803,14 +1803,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     static String sha256Hex(final byte[] value) {
-        try {
-            final byte[] digest = MessageDigest.getInstance("SHA-256").digest(value);
-            final StringBuilder hex = new StringBuilder(64);
-            for (byte item : digest) hex.append(String.format(Locale.ROOT, "%02x", item));
-            return hex.toString();
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return Stubs.sha256Hex(value);
     }
 
     // --- robot / EDT plumbing ----------------------------------------------------------

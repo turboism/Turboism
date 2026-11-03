@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorDocumentTestFixtures.*;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.Id;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -1349,13 +1351,7 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
         values.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
         values.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
-        values.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(HistoryEntry.class)));
-        values.add(method(
-                "cubism.editor-history.entry.presentation-name",
-                HistoryEntry.class,
-                "presentationName",
-                "()Ljava/lang/String;"));
-        values.add(method("cubism.editor-history.entry.significant", HistoryEntry.class, "significant", "()Z"));
+        values.addAll(EditorSelectorCatalog.historyEntrySelectors(HistoryEntry.class));
         values.add(method(
                 "cubism.editor-model.attr.set-value-auto", Attr.class, "setValueAuto", "(ILjava/lang/Object;)V"));
         values.add(method("cubism.editor-model.attr.remove-value-auto", Attr.class, "removeValueAuto", "(I)V"));
@@ -1493,14 +1489,5 @@ class EditorDocumentReadAccessTest {
                 StaticSelector.ACCESS_PUBLIC));
         values.add(method("cubism.editor-model.parameter.value", ParameterHolder.class, "value", "()F"));
         return List.copyOf(values);
-    }
-
-    private static StaticSelector method(
-            final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
-    }
-
-    private static String internal(final Class<?> type) {
-        return type.getName().replace('.', '/');
     }
 }

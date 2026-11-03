@@ -304,6 +304,16 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /** Launcher preference: scissor-limit clipping-mask glClear to the mask bounding box. Off by default. */
+    default boolean clipMaskScissorClear() {
+        return false;
+    }
+
+    /** Persists the clip-mask scissor-clear preference; installation changes require restart. */
+    default boolean saveClipMaskScissorClear(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Launcher preference: skip redundant extended-interpolation form rebuilds during setup. Off by default. */
     default boolean extendedInterpolationIncrementalSetup() {
         return false;

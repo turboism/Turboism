@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Fixed source plane / discontinuous seam menu authoring and native raster oracle."""
-import hashlib,json,math,re,runpy,struct
+import hashlib
+import json
+import math
+import re
+import runpy
 from pathlib import Path
 
 HERE=Path(__file__).resolve().parent

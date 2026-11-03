@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Independent surface source/UV repack, pixels, typed SAVE_AS and exporter content."""
-import hashlib,io,json,runpy,struct
+import hashlib
+import io
+import json
+import runpy
+import struct
 from pathlib import Path
 import numpy as np
 from PIL import Image

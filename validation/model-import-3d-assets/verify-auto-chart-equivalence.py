@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Independent D4/corner/membership comparison; reference never feeds discovery."""
-import argparse,hashlib,itertools,json,struct
+import argparse
+import hashlib
+import itertools
+import json
+import struct
 from pathlib import Path
 import numpy as np
 

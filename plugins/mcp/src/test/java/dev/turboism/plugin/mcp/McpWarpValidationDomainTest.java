@@ -5,10 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.turboism.sdk.cubism.*;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
@@ -294,16 +292,8 @@ class McpWarpValidationDomainTest {
             throw new AssertionError(name);
         });
         final McpAuthoringSnapshotStore store = new McpAuthoringSnapshotStore(() -> now);
-        final McpExecutionBridge execution = new McpExecutionBridge(new UiScheduler() {
-            public Registration runOnUiThread(Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                throw new AssertionError();
-            }
-        });
+        final McpExecutionBridge execution =
+                new McpExecutionBridge(FakeDirectUiScheduler.immediateWithAssertionLater());
         final McpToolCatalog tools = new McpWarpValidationDomain(
                         store, execution, () -> new McpStoredAuthoringDomain.Context(model, Map.copyOf(binding)))
                 .tools();

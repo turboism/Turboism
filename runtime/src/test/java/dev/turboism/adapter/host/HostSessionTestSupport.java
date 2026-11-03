@@ -1,5 +1,6 @@
 package dev.turboism.adapter.host;
 
+import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.nio.file.Path;

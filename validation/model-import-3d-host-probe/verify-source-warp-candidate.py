@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Independent full-source candidate coordinates; not production visibility/material admission."""
-import hashlib,math,struct,runpy
+import hashlib
+import math
+import struct
+import runpy
 from pathlib import Path
 FIXTURE_SHA='9320e7ae7a44f905cfab5827fe84f334b370e7e0f3ea9057fe05c01e4bd69360'
 FIXTURE_BYTES=73575376

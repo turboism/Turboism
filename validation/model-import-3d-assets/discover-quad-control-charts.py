@@ -6,7 +6,10 @@ never merged or replaced. A closed oriented two-manifold and rectangular grid
 components are required; ambiguous/periodic/overlapping chart topology is refused.
 This diagnostic does not admit native visibility or production imports.
 """
-import argparse,json,struct,hashlib
+import argparse
+import json
+import struct
+import hashlib
 from collections import defaultdict,deque,Counter
 from pathlib import Path
 import numpy as np

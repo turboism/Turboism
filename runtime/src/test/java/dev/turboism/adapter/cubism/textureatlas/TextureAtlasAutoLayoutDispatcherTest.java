@@ -26,6 +26,7 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.concurrent.Await;
 import java.awt.geom.AffineTransform;
 import java.time.Clock;
@@ -377,22 +378,7 @@ final class TextureAtlasAutoLayoutDispatcherTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "test";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id, "test", "test");
     }
 
     /** Recording layout service: returns a fixed native-scope snapshot and counts applies. */

@@ -1,6 +1,9 @@
 """Export artifact gate using synthetic MOC header/atlas, not official Core proof."""
 from pathlib import Path
-import copy,hashlib,io,runpy,unittest
+import hashlib
+import io
+import runpy
+import unittest
 from PIL import Image
 ROOT=Path(__file__).resolve().parents[3]
 VERIFY=runpy.run_path(str(ROOT/'validation/model-import-3d-host-probe/verify-whole-import.py'))['verify_cube_export']

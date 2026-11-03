@@ -11,6 +11,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.Stubs;
 import java.awt.geom.AffineTransform;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -589,22 +590,7 @@ class TextureAtlasNativeInvocationCoordinatorTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "test";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id, "test", "test");
     }
 
     private static dev.turboism.mapping.verification.VerifiedMemberResolver resolver() {

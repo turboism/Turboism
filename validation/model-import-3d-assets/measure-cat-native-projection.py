@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Independent original-GLB projection for all native Cat partition slots; finite poses."""
-import argparse, hashlib, json, struct
+import argparse
+import hashlib
+import json
+import struct
 from pathlib import Path
 import numpy as np
 SOURCE_SHA='4d0688298a366bfd5501918a7afac5dfd4f6aa35445a4f73077435045ba02ee7'

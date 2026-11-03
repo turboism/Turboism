@@ -65,6 +65,9 @@ jobs:
       - name: Install the pinned scripts lint tool
         run: python3 -m pip install 'ruff==0.16.9'
 
+      - name: Install the pinned AST architecture tool
+        run: npm install --global '@ast-grep/cli@0.45.3'
+
       - name: Verify the CI coverage contract
         run: python3 scripts/test/test_ci_coverage.py
 

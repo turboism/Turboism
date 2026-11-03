@@ -6,10 +6,8 @@ import dev.turboism.sdk.cubism.*;
 import dev.turboism.sdk.cubism.history.*;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
-import java.time.Duration;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
@@ -387,20 +385,7 @@ final class McpStoredAuthoringDomainTest {
         });
         final McpAuthoringSnapshotStore store = new McpAuthoringSnapshotStore();
         final McpToolCatalog tools = new McpStoredAuthoringDomain(
-                        facade,
-                        new McpExecutionBridge(new UiScheduler() {
-                            @Override
-                            public Registration runOnUiThread(Runnable work) {
-                                work.run();
-                                return () -> {};
-                            }
-
-                            @Override
-                            public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                                throw new UnsupportedOperationException();
-                            }
-                        }),
-                        store)
+                        facade, new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater()), store)
                 .tools();
 
         OrdinaryKeyformWriteSupport writeSupport = OrdinaryKeyformWriteSupport.unknown();

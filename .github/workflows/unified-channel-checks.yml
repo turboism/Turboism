@@ -78,6 +78,9 @@ jobs:
             turboism-gradle-build-cache-v1-
       - name: Install the pinned scripts lint tool
         run: python3 -m pip install 'ruff==0.16.9'
+
+      - name: Install the pinned AST architecture tool
+        run: npm install --global '@ast-grep/cli@0.45.3'
       - name: Check local metadata and successive channel inputs without cleaning
         run: |
           ./gradlew --no-daemon -q printBuildInfo

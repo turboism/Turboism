@@ -22,6 +22,7 @@ import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileHandleState;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.test.Stubs;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
@@ -433,22 +434,7 @@ class RuntimeEditorCommandServiceTest {
     }
 
     private static PluginPermission permission(final String id) {
-        return new PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "plugin";
-            }
-
-            @Override
-            public String reason() {
-                return "test";
-            }
-        };
+        return Stubs.permission(id, "plugin", "test");
     }
 
     private static UserFileHandle handle(final UserFileMode mode) {

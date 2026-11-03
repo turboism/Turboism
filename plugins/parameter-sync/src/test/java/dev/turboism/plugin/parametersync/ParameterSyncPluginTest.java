@@ -42,6 +42,7 @@ import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.test.storage.InMemoryPluginStorage;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -224,19 +225,7 @@ class ParameterSyncPluginTest {
         private CubismModel activeModel;
         private String activeParamId = "ParamA";
 
-        final UiScheduler uiScheduler = new UiScheduler() {
-            @Override
-            public Registration runOnUiThread(final Runnable work) {
-                work.run();
-                return () -> {};
-            }
-
-            @Override
-            public Registration runOnUiThreadLater(final Runnable work, final java.time.Duration delay) {
-                work.run();
-                return () -> {};
-            }
-        };
+        final UiScheduler uiScheduler = FakeDirectUiScheduler.direct();
 
         final PluginLocalization localization = new PluginLocalization() {
             @Override
