@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.internal.core.CubismJvmSettingsService.CubismJvm;
 import dev.turboism.internal.core.CubismJvmSettingsService.ManagedRuntimeState;
 import dev.turboism.sdk.runtime.RuntimeSettings;
@@ -504,6 +505,111 @@ class RuntimeSettingsServiceTest {
                 IllegalArgumentException.class,
                 () -> service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "fr")));
         assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""));
+    }
+
+    @Test
+    void unrelatedUpdateKeepsAToleratedLocaleOnDisk() throws Exception {
+        Files.writeString(home.resolve("config.json"), tolerated("fr", null));
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
+
+        repository.update(root -> {
+            root.put("safeMode", true);
+            return root;
+        });
+
+        final var persisted = JSON.readTree(home.resolve("config.json").toFile());
+        assertEquals("fr", persisted.path("locale").asText(), "an unrelated edit must not drop the stored locale");
+        assertTrue(persisted.path("safeMode").asBoolean(), "the edit itself still applies");
+    }
+
+    @Test
+    void unrelatedUpdateKeepsAToleratedLauncherMemoryProfileOnDisk() throws Exception {
+        Files.writeString(home.resolve("config.json"), tolerated(null, "huge8g"));
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
+
+        repository.update(root -> {
+            root.put("safeMode", true);
+            return root;
+        });
+
+        final var persisted = JSON.readTree(home.resolve("config.json").toFile());
+        assertEquals(
+                "huge8g",
+                persisted.path("launcher").path("memoryProfile").asText(),
+                "an unrelated edit must not drop the stored memory profile");
+    }
+
+    @Test
+    void updateMayReplaceAToleratedValueWithASupportedOne() throws Exception {
+        Files.writeString(home.resolve("config.json"), tolerated("fr", "huge8g"));
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
+
+        repository.update(root -> {
+            root.put("locale", "ja");
+            root.withObject("launcher").put("memoryProfile", "balanced4g");
+            return root;
+        });
+
+        final var persisted = JSON.readTree(home.resolve("config.json").toFile());
+        assertEquals("ja", persisted.path("locale").asText());
+        assertEquals(
+                "balanced4g", persisted.path("launcher").path("memoryProfile").asText());
+    }
+
+    @Test
+    void updateRejectsReplacingAToleratedValueWithAnUnsupportedOne() throws Exception {
+        Files.writeString(home.resolve("config.json"), tolerated("fr", null));
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
+        final String before = Files.readString(home.resolve("config.json"));
+
+        final IllegalStateException rejected = assertThrows(
+                IllegalStateException.class,
+                () -> repository.update(root -> {
+                    root.put("locale", "fr-CA");
+                    return root;
+                }));
+
+        assertEquals("RUNTIME_CONFIG_WRITE_INVALID", rejected.getMessage());
+        assertEquals(before, Files.readString(home.resolve("config.json")), "a rejected write changes nothing");
+    }
+
+    @Test
+    void updateStillRemovesAToleratedFieldWhoseParentIsRemoved() throws Exception {
+        Files.writeString(home.resolve("config.json"), tolerated(null, "huge8g"));
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
+
+        repository.update(root -> {
+            root.remove("launcher");
+            return root;
+        });
+
+        final var persisted = JSON.readTree(home.resolve("config.json").toFile());
+        assertFalse(persisted.has("launcher"), "the tolerated value must not resurrect a removed parent");
+    }
+
+    /**
+     * A v1 document carrying an unsupported persisted locale and/or launcher memory profile, which
+     * read-mode tolerance drops while the bytes stay on disk.
+     */
+    private static String tolerated(final String locale, final String memoryProfile) throws Exception {
+        final ObjectNode root = JSON.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("worktreeId", "settings-tolerated");
+        root.putArray("pluginDirs").add("plugins");
+        root.put("logLevel", "INFO");
+        root.put("safeMode", false);
+        if (locale != null) {
+            root.put("locale", locale);
+        }
+        if (memoryProfile != null) {
+            root.putObject("launcher").put("memoryProfile", memoryProfile);
+        }
+        final ObjectNode hooks = root.putObject("hooks");
+        hooks.putArray("disabledIds");
+        hooks.putArray("denylistedClasses");
+        hooks.putObject("startup");
+        return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(root);
     }
 
     @Test
