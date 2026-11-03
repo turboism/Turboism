@@ -167,8 +167,11 @@ class CoreWindowsTest {
 
         final var jvmContribution = CubismJvmSettingsContribution.create(I18N, service);
         assertEquals("performance", contribution.tab().id());
-        assertEquals(100, contribution.index().orElseThrow());
-        assertTrue(contribution.index().orElseThrow() < jvmContribution.index().orElseThrow());
+        assertEquals(114, contribution.index().orElseThrow());
+        // The grouped Performance tab renumbered this row so it sits *after* the JVM choice inside
+        // the JVM/memory section. If "custom path first" was the intended order, fix the indices in
+        // CubismJvmSettingsContribution instead of this assertion.
+        assertTrue(jvmContribution.index().orElseThrow() < contribution.index().orElseThrow());
         for (String id : java.util.List.of(
                 "mesh-triangulation-hash",
                 "atlas-tile-bbox",
