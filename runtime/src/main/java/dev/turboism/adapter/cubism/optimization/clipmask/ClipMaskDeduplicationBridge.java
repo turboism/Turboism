@@ -193,12 +193,14 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         else setFloatMethod.invoke(material, name, value);
     }
 
+    /** {@return true when either the explicit system property or the validation flag is enabled} */
     public static boolean enabledByPreference() {
         final String explicit = System.getProperty(ENABLE_PROPERTY);
         if (explicit != null) return Boolean.parseBoolean(explicit);
         return Boolean.getBoolean(VALIDATION_PROPERTY);
     }
 
+    /** Rejects occupied slots rather than replacing another installation. */
     public synchronized void install() {
         if (!active.compareAndSet(false, true)) {
             throw new IllegalStateException("clip mask deduplication bridge already active");
@@ -238,10 +240,12 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (current == this) current = null;
     }
 
+    /** {@return the currently installed bridge, or {@code null}} */
     public static ClipMaskDeduplicationBridge current() {
         return current;
     }
 
+    /** {@return a point-in-time copy of counters} */
     public Map<String, Long> snapshot() {
         final Map<String, Long> map = new LinkedHashMap<>();
         map.put("active", active.get() ? 1L : 0L);
