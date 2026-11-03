@@ -45,7 +45,6 @@
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
     "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",
-    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry$StateButtonContribution#<init>:(Ljava/lang/String;Ljava/util/Map;ILjava/util/function/Consumer;I)V": "0.68.1",
-    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry$StateButtonContribution#order:()I": "0.68.1"
+    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry#contributeStateButtons:(Ldev/turboism/sdk/ui/viewcontext/ViewContextMenuRegistry$StateButtonContribution;I)Ldev/turboism/sdk/plugin/Registration;": "0.68.1"
   }
 }
