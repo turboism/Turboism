@@ -61,11 +61,11 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
         if (!instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("retransform unavailable");
         }
-        source = Class.forName(ModelInstanceCoalesceTarget.SOURCE_OWNER, false, loader);
-        document = Class.forName(DOCUMENT, false, loader);
-        editMode = Class.forName(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER, false, loader);
-        undoManager = Class.forName(ModelInstanceCoalesceTarget.UNDO_MANAGER_OWNER, false, loader);
-        undoGroup = Class.forName(UNDO_GROUP, false, loader);
+        source = Class.forName(ModelInstanceCoalesceTarget.SOURCE_OWNER.replace('/', '.'), false, loader);
+        document = Class.forName(DOCUMENT.replace('/', '.'), false, loader);
+        editMode = Class.forName(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER.replace('/', '.'), false, loader);
+        undoManager = Class.forName(ModelInstanceCoalesceTarget.UNDO_MANAGER_OWNER.replace('/', '.'), false, loader);
+        undoGroup = Class.forName(UNDO_GROUP.replace('/', '.'), false, loader);
 
         final Map<Class<?>, byte[]> observed = new HashMap<>();
         try (JarFile jar = new JarFile(artifact.toFile())) {

@@ -235,6 +235,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         try {
             poolInstance = ClipMaskHandles.field(poolClass, "a").get(null);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ReflectiveOperationException("mask lease pool unavailable", failure);
         }
         poolRelease = ClipMaskHandles.virtual(
@@ -272,10 +273,12 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         try {
             return (Object) constructor.invokeExact(x, y);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ReflectiveOperationException("GVector2 constructor refused", failure);
         }
     }
 
+    /** {@return true when either the explicit system property or the validation flag is enabled} */
     public static boolean enabledByPreference() {
         final String explicit = System.getProperty(ENABLE_PROPERTY);
         if (explicit != null) return Boolean.parseBoolean(explicit);
@@ -292,6 +295,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         this.scissor = scissorBridge;
     }
 
+    /** Rejects occupied slots rather than replacing another installation. */
     public synchronized void install() {
         if (!active.compareAndSet(false, true)) {
             throw new IllegalStateException("clip mask deduplication bridge already active");
@@ -332,10 +336,12 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (current == this) current = null;
     }
 
+    /** {@return the currently installed bridge, or {@code null}} */
     public static ClipMaskDeduplicationBridge current() {
         return current;
     }
 
+    /** {@return a point-in-time copy of counters} */
     public Map<String, Long> snapshot() {
         final Map<String, Long> map = new LinkedHashMap<>();
         map.put("active", active.get() ? 1L : 0L);
@@ -374,6 +380,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             if (scissorBridge != null) scissorBridge.beganPass(renderSystem, renderer);
             return false;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             reportFailure("onPassEntry", failure);
             return false;
         }

@@ -380,6 +380,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         try {
             prepareClear(renderSystem, renderer, context);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
             invalidatePending();
         }
@@ -449,6 +450,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
             rememberDirty();
             countClear(pending.clearPixels, !pending.fullClear, pending.baselinePixels);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
         }
     }
@@ -696,6 +698,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         try {
             restoreScissor();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
         }
     }

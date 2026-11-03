@@ -161,6 +161,11 @@ class PersistenceGoldenSnapshotsTest {
                     assertEquals(8L, migrated.revision());
                     assertEquals("true", migrated.encodedValues().get("enabled"));
                     final byte[] migratedBytes = Files.readAllBytes(file);
+                    // The destructive read-time migration must leave the immutable fixture bytes in
+                    // a recovery point, byte for byte, before it replaces the document.
+                    final var points = store.recoveryPoints("legacy.cfg");
+                    assertEquals(1, points.size(), "a read-time migration must retain one pre-migration image");
+                    assertArrayEquals(original, Files.readAllBytes(points.get(0)));
                     final ConfigReadResult<Boolean> repeated =
                             registry.read(enabled).toCompletableFuture().get(3, TimeUnit.SECONDS);
                     assertEquals(ConfigValueSource.STORED, repeated.value().source());

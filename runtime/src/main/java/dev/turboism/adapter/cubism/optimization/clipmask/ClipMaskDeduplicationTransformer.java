@@ -73,10 +73,12 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         this.references = Map.copyOf(references);
     }
 
+    /** {@return the number of rewritten call sites} */
     public int sites() {
         return sites;
     }
 
+    /** {@return the most recent rejection, or {@code null}} */
     public String failure() {
         if (failures.isEmpty()) return null;
         final StringBuilder text = new StringBuilder();

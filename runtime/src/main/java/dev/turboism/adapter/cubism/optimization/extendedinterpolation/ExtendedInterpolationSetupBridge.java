@@ -116,6 +116,7 @@ public final class ExtendedInterpolationSetupBridge implements AutoCloseable {
         try {
             EDIT_INTENT.get()[0] = System.nanoTime();
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Recording must never disturb the host.
         }
     }
