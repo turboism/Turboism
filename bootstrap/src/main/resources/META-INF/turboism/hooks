@@ -86,3 +86,7 @@ dev.turboism.bootstrap.ClipMaskDeduplicationHookContributor
 # form rebuilds for the host's own per-form edit-version/binding update, which is
 # the authoritative dirty set, when a native edit just started.
 dev.turboism.bootstrap.ExtendedInterpolationSetupHookContributor
+# Inspector visual-property bypass: replaces the full model-instance rebuild that
+# 5.3 inspector alpha/colour composition setters trigger unconditionally with the
+# affected drawable's own setupShader(null) refresh. Opt-in and exact-artifact gated.
+dev.turboism.bootstrap.InspectorPropertyBypassHookContributor

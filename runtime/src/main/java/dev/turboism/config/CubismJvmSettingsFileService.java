@@ -345,6 +345,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean inspectorPropertyBypass() {
+        return optimization("inspectorPropertyBypass");
+    }
+
+    @Override
+    public boolean saveInspectorPropertyBypass(final boolean value) {
+        return saveOptimization("inspectorPropertyBypass", value);
+    }
+
+    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }

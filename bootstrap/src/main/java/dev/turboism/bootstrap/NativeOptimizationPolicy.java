@@ -133,4 +133,11 @@ final class NativeOptimizationPolicy {
     static boolean modelInstanceCoalesceEnabled(final HookEnvironment environment) {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MODEL_INSTANCE_COALESCE);
     }
+
+    static boolean inspectorPropertyBypassEnabled(final HookEnvironment environment) {
+        final boolean enabled =
+                requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.INSPECTOR_PROPERTY_BYPASS);
+        dev.turboism.adapter.cubism.optimization.inspector.InspectorPropertyBypassBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
 }

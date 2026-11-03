@@ -64,7 +64,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "reinitPairElision",
             "clipMaskDeduplication",
             "extendedInterpolationIncrementalSetup",
-            "modelInstanceCoalesce");
+            "modelInstanceCoalesce",
+            "inspectorPropertyBypass");
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Set<String> ALLOWED_MEMORY_PROFILES = Set.of("system", "balanced4g", "balanced4gFastSoft");
 
@@ -92,7 +93,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "reinitPairElision",
             "clipMaskDeduplication",
             "extendedInterpolationIncrementalSetup",
-            "modelInstanceCoalesce");
+            "modelInstanceCoalesce",
+            "inspectorPropertyBypass");
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);

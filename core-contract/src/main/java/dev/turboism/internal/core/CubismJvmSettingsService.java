@@ -324,6 +324,16 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /** Launcher preference: bypass updateModelInstances for inspector shader-only property changes. Off by default. */
+    default boolean inspectorPropertyBypass() {
+        return false;
+    }
+
+    /** Persists the inspector visual-property bypass preference; installation changes require restart. */
+    default boolean saveInspectorPropertyBypass(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /**
      * Experimental launcher preference: explicit true adds
      * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed
