@@ -337,9 +337,11 @@ public final class ModelInstanceCoalesceBridge implements AutoCloseable {
             implements Host {
 
         static ReflectiveHost resolve(final ClassLoader loader) throws ReflectiveOperationException {
-            final Class<?> source = Class.forName(ModelInstanceCoalesceTarget.SOURCE_OWNER, false, loader);
+            final Class<?> source =
+                    Class.forName(ModelInstanceCoalesceTarget.SOURCE_OWNER.replace('/', '.'), false, loader);
             final Class<?> document = Class.forName("com.live2d.cubism.doc.modeling.CModelingDocument", false, loader);
-            final Class<?> editMode = Class.forName(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER, false, loader);
+            final Class<?> editMode =
+                    Class.forName(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER.replace('/', '.'), false, loader);
             final Class<?> undo = Class.forName("com.live2d.undo.GroupUndo", false, loader);
             return new ReflectiveHost(
                     handle(source, "getDocument", "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;"),
