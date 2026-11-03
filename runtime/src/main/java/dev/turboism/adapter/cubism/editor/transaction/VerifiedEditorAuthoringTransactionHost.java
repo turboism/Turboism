@@ -1,8 +1,6 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
-import dev.turboism.adapter.cubism.editor.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
-import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryAction;
@@ -30,7 +28,7 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<NativeBinding> current;
-    private final EditorHistorySnapshotProvider history;
+    private final AuthoringHistoryPort history;
     private final Object editLock = new Object();
     private final Map<Object, Object> editModes = new IdentityHashMap<>();
 
@@ -40,15 +38,18 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
      * @param resolver verified member resolver for the active connection
      * @param current generation-bound native binding supplier
      * @param generation current model binding generation supplier
+     * @param history recorder port supplied by the layer above; authoring transactions never
+     *     import the history package
      */
     public VerifiedEditorAuthoringTransactionHost(
             final VerifiedMemberResolver resolver,
             final Supplier<NativeBinding> current,
-            final LongSupplier generation) {
+            final LongSupplier generation,
+            final AuthoringHistoryPort history) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.current = Objects.requireNonNull(current, "current");
-        this.history = new EditorHistorySnapshotProvider(
-                () -> Optional.of(this.resolver), Objects.requireNonNull(generation, "generation"));
+        this.history = Objects.requireNonNull(history, "history");
+        Objects.requireNonNull(generation, "generation");
     }
 
     /**
@@ -260,9 +261,9 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
         final Object nativeLabel = resolver.invoke("cubism.editor-history.entry.presentation-name", nativeEntry);
         if (!label.equals(nativeLabel)) return Optional.empty();
         if (detail.isPresent()) {
-            EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId, detail.orElseThrow(), action);
+            history.registerTransaction(nativeEntry, transactionId, detail.orElseThrow(), action);
         } else {
-            EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId);
+            history.registerTransaction(nativeEntry, transactionId);
         }
         return Optional.of(appended.entryId().orElseThrow().value());
     }
@@ -288,8 +289,7 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
         synchronized (editLock) {
             if (!editModes.containsKey(edit)) throw new IllegalStateException("root edit is not owned");
         }
-        return Optional.of(EditorHistoryMetadataRegistry.prepareTransaction(edit, transactionId, detail, action)
-                .value());
+        return Optional.of(history.prepareTransaction(edit, transactionId, detail, action));
     }
 
     @Override

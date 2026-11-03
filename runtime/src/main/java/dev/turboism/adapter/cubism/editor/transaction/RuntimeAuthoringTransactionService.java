@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
-import dev.turboism.adapter.cubism.editor.EditorHostThread;
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;

@@ -40,7 +40,7 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`).
 - `:runtime`: 34 top-level `dev.turboism.*` packages, 121 top-level package
-  edges, 1 top-level cycle, 2 leaf-package cycles (6 before the `#70` step 3a
+  edges, 1 top-level cycle, 1 leaf-package cycle (6 before the `#70` step 3a
   pilot; see below for how each was removed).
 - Production code has no dependency on `:plugins:*`; runtime test code does
   (`testImplementation` only), which the inventory keeps as a separate
@@ -54,7 +54,6 @@ changes. Candidate direction is a note, not a decision.
 | Size | Cycle | Candidate direction |
 | --- | --- | --- |
 | 8 | `adapter.cubism.{mesh,modeling,optimization}`, `mapping.verification`, `ui.{filter,mesh,palette,toolbar}` | the adapter should expose an admission contract; `ui` must not be reachable from `mapping.verification` |
-| 4 | `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | one of edit/transaction is the lower layer; split the history adapter out first |
 
 ### Resolved
 
@@ -64,9 +63,10 @@ changes. Candidate direction is a note, not a decision.
 | `preview` ↔ `preview.report` | the runtime→document bridge moved up into `dev.turboism.preview`, leaving `report` a pure formatter | `architecture/MODULE_CONTRACTS.md` |
 | `runtime.log` → `core.*` (half of a 5-package cycle) | `CubismLogServiceHost` is a Cubism host adapter, not infrastructure; it moved to `dev.turboism.adapter.cubism.service.log`, leaving `runtime.log` strictly below `core` | `architecture/MODULE_CONTRACTS.md` |
 | `core.runtime` ↔ `core.runtime.sidecar` / `core.runtime.work` | `PluginTask` and `RuntimeCancellationToken` moved into `dev.turboism.core.runtime.contract`, below both the scheduler and the executors | `architecture/MODULE_CONTRACTS.md` |
+| `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | `EditorHostThread` moved into `adapter.cubism.editor.host`, and authoring transactions take an `AuthoringHistoryPort` instead of importing the recorder | `architecture/MODULE_CONTRACTS.md` |
 | `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` | the adapter→port bridge moved into the adapter layer (`ProjectWorkspaceReadSources`) and `CubismReadPermissionGate` moved up into `adapter.cubism`; `hostread` now imports no adapter package | `architecture/MODULE_CONTRACTS.md` |
 
-Both remaining cycles are inside the adapter/UI/mapping cluster. At
+The last remaining cycle is the adapter/UI/mapping cluster. At
 top-level granularity they merge into a single 10-package cycle (`adapter`,
 `config`, `core`, `hostread`, `mapping`, `recentfile`, `recentpreview`,
 `screenshot`, `task`, `ui`; `runtime` left that cycle once `runtime.log` stopped

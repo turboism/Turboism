@@ -172,13 +172,46 @@ to `adapter.cubism.ProjectWorkspaceReadSources` and its test moved with it.
 the remaining direction (composed service → adapter primitives) is the valid one.
 `hostread` now imports no adapter package at all.
 
+## `:runtime` editor / edit / editor.history / editor.transaction
+
+- **Owner**: editor adapter maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `adapter.cubism.editor` wraps the Editor-backed accessors,
+  `adapter.cubism.edit` owns edit sessions, `adapter.cubism.editor.transaction`
+  owns authoring transactions and `adapter.cubism.editor.history` captures undo
+  history. `adapter.cubism.editor.host` holds the host-thread primitives all of
+  them run on.
+- **Layering (low to high)**: `editor.host` → `editor.transaction` →
+  `editor.history` → `edit` → `editor`.
+- **Allowed dependencies**: `edit` and `editor` may depend on `history` and
+  `transaction`; `history` may depend on `transaction`; everything may depend on
+  `editor.host`. `transaction` depends on none of the others' implementations.
+- **Forbidden**: `transaction` importing `editor`, `edit` or `editor.history`;
+  `editor.host` importing anything above it (it depends only on `ui.host` and Swing).
+- **Public API**: `EditorHostThread` (host-thread primitives),
+  `EditorAuthoringTransactionCoordinator`, `VerifiedEditorAuthoringTransactionHost`,
+  `AuthoringHistoryPort` (what a transaction needs from the recorder),
+  `EditorHistoryPort` (the recorder side of that port).
+- **Threading / IO**: every authoring write asserts it runs on the host thread
+  through `EditorHostThread`; the history port is called on that same thread.
+- **Tests**: `runtime/src/test/java/dev/turboism/adapter/cubism/{edit,editor}/**`.
+- **Backward compatibility**: internal to `:runtime`; plugins never see these
+  types.
+- **Enforcement**: `checkDependencyInventory` plus the `adapter` rules in
+  `gradle/module-boundaries.gradle.kts`.
+
+**What changed (`#70` step 3e)**: `EditorHostThread` moved from
+`adapter.cubism.editor` into the new `adapter.cubism.editor.host` package, so the
+transaction package stopped depending on the editor package for it. The history
+coupling was inverted instead of moved: `VerifiedEditorAuthoringTransactionHost`
+now takes an `AuthoringHistoryPort` and no longer imports
+`EditorHistorySnapshotProvider` or `EditorHistoryMetadataRegistry`;
+`EditorHistoryPort` in the history package implements that port and is supplied
+by the two editor call sites. Leaf-package cycles went from 2 to 1.
+
 ## Next boundaries (not yet extracted)
 
-The two remaining cycles are in the host-adapter/UI cluster and each needs its
-own contract before any file moves:
-
-1. `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔
-   `ui.{filter,mesh,palette,toolbar}` (8 packages). The adapter should expose an
-   admission contract, and `mapping.verification` must not be reachable from `ui`.
-2. `adapter.cubism.{edit,editor,editor.history,editor.transaction}` (4 packages).
-   One of edit/transaction is the lower layer; split the history adapter first.
+One cycle remains, and it is the largest: `adapter.cubism.{mesh,modeling,
+optimization}` ↔ `mapping.verification` ↔ `ui.{filter,mesh,palette,toolbar}`
+(8 packages). It needs an admission contract between the adapter and
+`mapping.verification`, plus removing the `ui → mapping.verification`
+reach-through; that is a design step, not a file move.
