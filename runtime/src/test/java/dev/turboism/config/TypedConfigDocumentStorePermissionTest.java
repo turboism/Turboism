@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -143,6 +144,24 @@ class TypedConfigDocumentStorePermissionTest {
                 "replacement must have atomically replaced the file content");
         final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read("plugin/webdav.cfg");
         assertEquals("2", stored.orElseThrow().encodedValues().get("new"));
+    }
+
+    @Test
+    void recoveryPointsAreOwnerOnlyAndHoldTheExactDocumentBytes() throws Exception {
+        assumePosixAvailable(temporary);
+        final Path root = temporary.resolve("config");
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
+        store.writeAtomic("plugin/webdav.cfg", document("password=secret"));
+        final Path document = root.resolve("plugin/webdav.cfg");
+        final byte[] original = Files.readAllBytes(document);
+
+        final Path point = store.recordRecoveryPoint(
+                "plugin/webdav.cfg", store.read("plugin/webdav.cfg").orElseThrow());
+
+        assertArrayEquals(original, Files.readAllBytes(point), "a recovery point is the pre-migration document");
+        assertEquals(FILE_OWNER_ONLY, Files.getPosixFilePermissions(point), "recovery points carry the same secrets");
+        assertEquals(DIR_OWNER_ONLY, Files.getPosixFilePermissions(point.getParent()));
+        assertEquals(DIR_OWNER_ONLY, Files.getPosixFilePermissions(root));
     }
 
     @Test

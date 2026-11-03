@@ -285,6 +285,116 @@ class RuntimeTypedPluginConfigRegistryTest {
                 malformedResult.error().orElseThrow().code());
     }
 
+    /**
+     * Baseline hazard: the read-time migration replaced the stored document in place, so a crash or
+     * a failed migration had no image of what the user actually had. The pre-migration bytes must be
+     * retained as a recovery point before the destructive write.
+     */
+    @Test
+    void readTimeMigrationRetainsThePreMigrationBytesBeforeReplacingThem() throws Exception {
+        final Path configRoot = temporary.resolve("typed-config");
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(configRoot);
+        store.writeAtomic(
+                "recovered.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        final byte[] original = Files.readAllBytes(configRoot.resolve("recovered.cfg"));
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("recovered", "enabled", false, ConfigCodecs.booleanValue());
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
+        registry.registerSchema(
+                        new ConfigSchema("recovered", "recovered.cfg", 2, List.of(enabled)), List.of(versionOneToTwo()))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+
+        final ConfigReadResult<Boolean> migrated =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertTrue(migrated.value().value());
+        assertEquals(ConfigValueSource.STORED, migrated.value().source());
+        assertEquals(8, migrated.value().revision());
+        assertEquals(2, store.read("recovered.cfg").orElseThrow().schemaVersion(), "the migration must still land");
+        final List<Path> points = store.recoveryPoints("recovered.cfg");
+        assertEquals(1, points.size(), "one destructive migration must retain exactly one pre-migration image");
+        assertTrue(
+                points.get(0).getFileName().toString().startsWith("1-r7-"),
+                "the recovery point must name the schema version and revision it holds: " + points.get(0));
+        assertArrayEquals(original, Files.readAllBytes(points.get(0)));
+    }
+
+    /** A write that stores a migrated document is destructive too, so it captures the image first. */
+    @Test
+    void writeThroughAnOlderSchemaRetainsThePreMigrationBytesBeforeReplacingThem() throws Exception {
+        final Path configRoot = temporary.resolve("typed-config");
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(configRoot);
+        store.writeAtomic("upgraded.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        final byte[] original = Files.readAllBytes(configRoot.resolve("upgraded.cfg"));
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("upgraded", "enabled", true, ConfigCodecs.booleanValue());
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
+        registry.registerSchema(
+                        new ConfigSchema("upgraded", "upgraded.cfg", 2, List.of(enabled)), List.of(versionOneToTwo()))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+
+        final var written =
+                registry.write(enabled, false, 7).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertTrue(written.written());
+        assertEquals(8, written.revision());
+        assertEquals(2, store.read("upgraded.cfg").orElseThrow().schemaVersion());
+        final List<Path> points = store.recoveryPoints("upgraded.cfg");
+        assertEquals(1, points.size(), "one destructive write must retain exactly one pre-migration image");
+        assertArrayEquals(original, Files.readAllBytes(points.get(0)));
+    }
+
+    /**
+     * Fail-closed recovery: when the recovery area cannot accept the captured image, the migration
+     * must not run. The document keeps its original bytes instead of becoming an unrecoverable v2.
+     */
+    @Test
+    void unusableRecoveryAreaFailsTheMigrationWithoutRewritingTheDocument() throws Exception {
+        final Path configRoot = temporary.resolve("typed-config");
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(configRoot);
+        store.writeAtomic("blocked.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        final byte[] original = Files.readAllBytes(configRoot.resolve("blocked.cfg"));
+        // Portable IO fault: the recovery root exists but can never become a directory.
+        Files.write(configRoot.resolve(".recovery-points"), new byte[] {0x00});
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("blocked", "enabled", false, ConfigCodecs.booleanValue());
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
+        registry.registerSchema(
+                        new ConfigSchema("blocked", "blocked.cfg", 2, List.of(enabled)), List.of(versionOneToTwo()))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+
+        final ConfigReadResult<Boolean> failed =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertEquals(ConfigValueSource.DEFAULT_UNAVAILABLE, failed.value().source());
+        assertEquals(
+                ConfigErrorCode.PERSISTENCE_FAILED, failed.error().orElseThrow().code());
+        assertArrayEquals(
+                original,
+                Files.readAllBytes(configRoot.resolve("blocked.cfg")),
+                "a migration without a recovery point must not touch the document");
+        assertEquals(1, store.read("blocked.cfg").orElseThrow().schemaVersion());
+    }
+
+    private static ConfigMigration versionOneToTwo() {
+        return new ConfigMigration() {
+            @Override
+            public int fromVersion() {
+                return 1;
+            }
+
+            @Override
+            public int toVersion() {
+                return 2;
+            }
+
+            @Override
+            public ConfigDocument migrate(final ConfigDocument input) {
+                return new ConfigDocument(2, input.encodedValues());
+            }
+        };
+    }
+
     @Test
     void closedRegistryReturnsStructuredRuntimeUnavailable() throws Exception {
         final ConfigKey<Boolean> enabled = new ConfigKey<>("closed", "enabled", true, ConfigCodecs.booleanValue());
