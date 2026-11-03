@@ -454,7 +454,6 @@ class AutoBackupCoordinatorTest {
                         new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
                         new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
                                 1, 8, ignored -> {}, Clock.systemUTC()),
-                        dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
                         ignored -> {});
         final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks =
                 new dev.turboism.task.RuntimePluginTaskScheduler("dev.example.backup", runtimeScheduler, scope);
@@ -509,7 +508,6 @@ class AutoBackupCoordinatorTest {
                         new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
                         new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
                                 1, 8, ignored -> {}, Clock.systemUTC()),
-                        dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
                         ignored -> {});
         final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks =
                 new dev.turboism.task.RuntimePluginTaskScheduler("dev.example.backup", runtimeScheduler, scope);

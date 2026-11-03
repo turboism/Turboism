@@ -97,23 +97,24 @@ class PreviewPluginDiscoveryTest {
     }
 
     /**
-     * Drop-in contrast for the F2 managed-admission regression: discovery has always
-     * accepted a schema-v5 plugin whose descriptor declares its embedded contract
-     * artifact, so this stays green while the managed paths were fixed to match.
+     * Drop-in discovery matches managed admission: embedded public-event-contract
+     * artifacts were never shipped, so a schema-v5 plugin declaring one is rejected
+     * fail-closed during discovery instead of binding any artifact.
      */
     @Test
-    void acceptsSchemaV5PluginWithDeclaredContractArtifact() throws Exception {
+    void rejectsSchemaV5PluginWithDeclaredContractArtifact() throws Exception {
         final Path home = temporary.resolve("home");
         final Path plugins = home.resolve("plugins");
         writeContractedPlugin(plugins.resolve("provider.jar"));
         final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final PreviewPluginCandidate candidate =
-                    new PreviewPluginDiscovery(plugins, log).discover(failures).get("dev.example.provider");
+            final Map<String, PreviewPluginCandidate> candidates =
+                    new PreviewPluginDiscovery(plugins, log).discover(failures);
 
-            assertNotNull(candidate);
-            assertTrue(failures.isEmpty());
+            assertTrue(candidates.isEmpty());
+            assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", failures.get(0).code());
+            assertEquals("dev.example.provider", failures.get(0).pluginId());
         }
     }
 

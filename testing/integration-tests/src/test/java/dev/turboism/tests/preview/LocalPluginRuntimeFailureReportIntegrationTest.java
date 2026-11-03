@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.preview.report.PreviewReportValidator;
@@ -61,7 +60,6 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         return new RuntimeScheduler(
                 task -> dev.turboism.sdk.plugin.WorkBudget.REJECTED,
                 new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
     }
 

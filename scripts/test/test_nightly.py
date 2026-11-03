@@ -1,7 +1,6 @@
 """Nightly policy tests: changed sources, shared identity and fail-closed publishing."""
 import copy
 import json
-import re
 import sys
 import tempfile
 import unittest
@@ -262,20 +261,20 @@ class NightlyWorkflowTest(unittest.TestCase):
     def test_sdk_keeps_its_reviewed_bytes_while_product_jars_get_identity(self):
         text = (ROOT / 'gradle/common-java.gradle.kts').read_text()
         self.assertIn('project.path != ":sdk" && turboismBuildNumber.isNotEmpty()', text)
-        # This gate must still enforce exact artifact hashes, not just API shape. The
-        # live check is generated for the newest anchor-table row, so this test derives
-        # the version instead of naming it.
+        # The SDK surface is guarded by one reviewed snapshot that ships in the
+        # repository and is diffed on every check. The pre-1.0 per-version anchor
+        # table and its reconstruction machinery are gone, so the gate must be the
+        # snapshot diff and nothing else.
         verifier = (ROOT / 'gradle/sdk-api.gradle.kts').read_text()
-        anchors = [int(v) for v in re.findall(r'SdkBaselineAnchor\((\d+)', verifier)]
-        self.assertTrue(anchors)
-        self.assertEqual(len(set(anchors)), len(anchors))
-        baselines = {int(p.name.split('-v')[1].split('-')[0])
-                     for p in (ROOT / 'sdk/api-contracts/baselines').glob('sdk-api-v*-exact.json')}
-        self.assertEqual(set(anchors), baselines)
-        self.assertIn('sdkBaselineAnchors.maxBy', verifier)
-        self.assertIn('checkSdkV${', verifier)
-        self.assertIn('"verify-exact"', verifier)
-        self.assertIn('if (live) sdkJarArtifact', verifier)
+        self.assertIn('checkSdkApiCurrent', verifier)
+        self.assertIn('"verify-current"', verifier)
+        self.assertIn('sdk/api-contracts/current.txt', verifier)
+        self.assertTrue((ROOT / 'sdk/api-contracts/current.txt').is_file())
+        self.assertNotIn('SdkBaselineAnchor(', verifier)
+        self.assertNotIn('sdkBaselineAnchors', verifier)
+        self.assertNotIn('verify-exact', verifier)
+        self.assertFalse((ROOT / 'sdk/api-contracts/baselines').exists())
+        self.assertIn('sdkExactCompatibilityCheckTasks', verifier)
 
     def test_nightly_publishing_does_not_replace_stable_or_call_legacy(self):
         text=(ROOT/'scripts/release/turboism_release/prerelease.py').read_text()

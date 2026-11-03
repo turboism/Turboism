@@ -14,7 +14,6 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasAuthoringState;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.action.ActionRegistry;
@@ -919,7 +918,7 @@ class HostSessionPluginContextIntegrationTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static PluginDescriptor descriptor(final List<String> permissionIds) {

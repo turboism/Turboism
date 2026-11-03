@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
@@ -58,7 +57,6 @@ class RuntimePluginManagementInstallWorkflowTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(50L, 1, 8, events::add, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 events::add);
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final CountDownLatch completed = new CountDownLatch(1);
@@ -101,7 +99,6 @@ class RuntimePluginManagementInstallWorkflowTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(50L, 1, 8, events::add, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 events::add);
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final CountDownLatch completed = new CountDownLatch(1);

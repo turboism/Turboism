@@ -616,7 +616,7 @@ class CorePluginContextAvailableServicesTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, RuntimeTestKit.callbackRunningSidecar());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static DiagnosticReport diagnostics() {

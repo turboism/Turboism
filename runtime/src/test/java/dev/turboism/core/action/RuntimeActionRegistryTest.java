@@ -9,7 +9,6 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionInvocationEvent;
@@ -115,7 +114,6 @@ class RuntimeActionRegistryTest {
         scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-                SidecarDispatcher.noop(),
                 events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
@@ -151,7 +149,6 @@ class RuntimeActionRegistryTest {
         scheduler = new RuntimeScheduler(
                 task -> "action.handle".equals(task.taskType()) ? WorkBudget.REJECTED : WorkBudget.LIGHTWEIGHT,
                 new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-                SidecarDispatcher.noop(),
                 events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
@@ -207,7 +204,6 @@ class RuntimeActionRegistryTest {
         scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-                SidecarDispatcher.noop(),
                 events::add);
         return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, PermissionChecker.allowAll());
     }

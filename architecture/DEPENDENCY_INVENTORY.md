@@ -63,7 +63,7 @@ changes. Candidate direction is a note, not a decision.
 | `adapter` ↔ `adapter.host` | `HostVerificationEvidence` (shared input) moved down into `dev.turboism.adapter` | `architecture/MODULE_CONTRACTS.md` |
 | `preview` ↔ `preview.report` | the runtime→document bridge moved up into `dev.turboism.preview`, leaving `report` a pure formatter | `architecture/MODULE_CONTRACTS.md` |
 | `runtime.log` → `core.*` (half of a 5-package cycle) | `CubismLogServiceHost` is a Cubism host adapter, not infrastructure; it moved to `dev.turboism.adapter.cubism.service.log`, leaving `runtime.log` strictly below `core` | `architecture/MODULE_CONTRACTS.md` |
-| `core.runtime` ↔ `core.runtime.sidecar` / `core.runtime.work` | `PluginTask` and `RuntimeCancellationToken` moved into `dev.turboism.core.runtime.contract`, below both the scheduler and the executors | `architecture/MODULE_CONTRACTS.md` |
+| `core.runtime` ↔ `core.runtime.work` | `PluginTask` and `RuntimeCancellationToken` moved into `dev.turboism.core.runtime.contract`, below both the scheduler and the executors | `architecture/MODULE_CONTRACTS.md` |
 | `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` | the adapter→port bridge moved into the adapter layer (`ProjectWorkspaceReadSources`) and `CubismReadPermissionGate` moved up into `adapter.cubism`; `hostread` now imports no adapter package | `architecture/MODULE_CONTRACTS.md` |
 
 Both remaining cycles are inside the adapter/UI/mapping cluster. At

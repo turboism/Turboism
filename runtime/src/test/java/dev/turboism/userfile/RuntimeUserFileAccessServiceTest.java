@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -832,7 +831,6 @@ class RuntimeUserFileAccessServiceTest {
         runtimeScheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         tasks = new RuntimePluginTaskScheduler(PLUGIN_ID, runtimeScheduler, scope);
         scope.close();
@@ -889,7 +887,6 @@ class RuntimeUserFileAccessServiceTest {
             runtimeScheduler = new RuntimeScheduler(
                     new DefaultWorkBudgetPolicy(),
                     new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
-                    SidecarDispatcher.noop(),
                     ignored -> {});
             tasks = new RuntimePluginTaskScheduler(PLUGIN_ID, runtimeScheduler, scope);
         }

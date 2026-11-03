@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
@@ -36,7 +35,6 @@ class RuntimePluginManagementDuplicateActionTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(500L, 1, 8, events::add, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 events::add);
         final RuntimeActionRegistry actions =
                 new RuntimeActionRegistry(scheduler, ignored -> {}, "turboism.core", PermissionChecker.allowAll());
@@ -92,7 +90,6 @@ class RuntimePluginManagementDuplicateActionTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(500L, 1, 8, events::add, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 events::add);
         final RuntimeActionRegistry actions =
                 new RuntimeActionRegistry(scheduler, ignored -> {}, "turboism.core", PermissionChecker.allowAll());

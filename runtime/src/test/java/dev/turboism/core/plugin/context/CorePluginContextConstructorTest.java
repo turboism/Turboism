@@ -10,7 +10,6 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -799,7 +798,7 @@ class CorePluginContextConstructorTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static DiagnosticReport diagnostics() {

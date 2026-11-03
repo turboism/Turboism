@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -169,7 +168,6 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
     }
 

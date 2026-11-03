@@ -10,8 +10,7 @@ import java.util.Enumeration;
  * parent-first and the whole agent fat JAR — runtime implementation, adapters, management
  * contracts, shell UI and relocated private libraries — rides one Boot-Class-Path entry,
  * so without this filter a plugin could link against or read any class/resource on it.
- * The boundary therefore mirrors {@code dev.turboism.core.event.SdkContractParent} and
- * works from an allow-list instead of a prefix deny-list:
+ * The boundary works from an allow-list instead of a prefix deny-list:
  *
  * <ul>
  *   <li>{@code dev.turboism.sdk.*} resolves normally — the plugin-facing framework

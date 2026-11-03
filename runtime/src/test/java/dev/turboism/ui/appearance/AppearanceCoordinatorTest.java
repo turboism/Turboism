@@ -9,8 +9,6 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
@@ -201,7 +199,6 @@ class AppearanceCoordinatorTest {
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(
                         1, 8, ignored -> {}, Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)),
-                new NoOpSidecarDispatcher(),
                 ignored -> {});
     }
 
@@ -213,10 +210,4 @@ class AppearanceCoordinatorTest {
         assertEquals(expected, values.size());
     }
 
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-    }
 }

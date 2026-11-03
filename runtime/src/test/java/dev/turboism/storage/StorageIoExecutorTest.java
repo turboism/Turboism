@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.RuntimePluginTaskScheduler;
@@ -93,7 +92,6 @@ class StorageIoExecutorTest {
         runtimeScheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, event -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 event -> {});
         final RuntimePluginTaskScheduler taskScheduler =
                 new RuntimePluginTaskScheduler("dev.turboism.plugin.storage-io-test", runtimeScheduler, scope);

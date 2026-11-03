@@ -8,8 +8,6 @@ import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
 import dev.turboism.sdk.cubism.event.DrawableLockEvent;
 import dev.turboism.sdk.cubism.event.DrawableVisibilityEvent;
@@ -143,13 +141,6 @@ class DrawableStateLifecycleContractTest {
 
     private static RuntimeScheduler scheduler() {
         return RuntimeTestKit.scheduler();
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
     }
 
     private static ArtMeshGeometry geometry(final float value) {

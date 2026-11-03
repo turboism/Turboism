@@ -88,9 +88,6 @@ dev.turboism.core.runtime
 
 dev.turboism.core.runtime.work
   Per-plugin bounded execution, admission, backpressure, timeout and circuit breaking.
-
-dev.turboism.core.runtime.sidecar
-  Isolated heavy-work dispatch and supervision.
 ```
 
 Deprecated package shapes such as `sdk.event.cubism`, `sdk.cubism.callback`, feature-local
@@ -263,8 +260,6 @@ afterSetParameterValue(parameter, value)
 ```
 
 The same naming grammar should be applied across parts, drawables, deformers, project operations, selection, UI contributions, and semantic Editor commands.
-
-Third-party public event contracts (descriptor schema v5) let independently built plugins share an event type without editing the SDK: each plugin embeds the same published class-only contract JAR under `META-INF/turboism/contracts/` and declares it in `eventContracts`. The session binds one contract classloader per artifact hash, so provider and consumer resolve identical `Class` identity; the consumer's loader never parents to the provider's implementation loader. The reachable payload closure is restricted to JDK platform types, `dev.turboism.sdk.*`, and the artifact itself — verified at preflight before entrypoints run. See `sdk/public-event-contracts.md` for the authoring model.
 
 ## 7. Host-semantic operations
 

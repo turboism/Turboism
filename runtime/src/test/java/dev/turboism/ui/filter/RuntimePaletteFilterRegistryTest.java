@@ -10,7 +10,6 @@ import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -245,7 +244,6 @@ class RuntimePaletteFilterRegistryTest {
         scheduler = new RuntimeScheduler(
                 policy,
                 new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                SidecarDispatcher.noop(),
                 events::add);
         return scheduler;
     }

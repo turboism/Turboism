@@ -5,14 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
@@ -22,8 +19,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +38,7 @@ class RuntimeSchedulerTest {
     void lightweightTaskIsDispatchedToPluginExecutorAndRunsAsynchronously() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        RuntimeScheduler scheduler = scheduler(events);
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<String> workerThread = new AtomicReference<>();
         String callerThread = Thread.currentThread().getName();
@@ -65,7 +60,7 @@ class RuntimeSchedulerTest {
     void rejectedTaskIsNotExecutedAndEmitsDiagnosticEvent() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        RuntimeScheduler scheduler = scheduler(events);
         AtomicInteger executions = new AtomicInteger();
 
         // When
@@ -85,43 +80,34 @@ class RuntimeSchedulerTest {
     }
 
     @Test
-    void sidecarTaskIsHandedToSidecarDispatcher() {
+    void sidecarBudgetTaskIsRejectedBecauseNoHandOffLaneExists() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
-        RuntimeScheduler scheduler = scheduler(events, sidecar);
+        RuntimeScheduler scheduler = scheduler(events);
+        AtomicInteger executions = new AtomicInteger();
         PluginTask task = task("ai", "sidecar");
 
         // When
-        scheduler.dispatch(task, () -> {});
+        boolean accepted = scheduler.dispatch(task, executions::incrementAndGet);
 
         // Then
-        assertSame(task, sidecar.task.get());
-        assertNotNull(sidecar.callback.get());
-        assertTrue(events.isEmpty());
-        scheduler.shutdown();
-    }
-
-    @Test
-    void heavyTaskUsesAvailableSidecarAndNeverEntersPluginExecutor() {
-        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
-        final RuntimeScheduler scheduler = scheduler(events, sidecar);
-        final AtomicInteger executions = new AtomicInteger();
-        final PluginTask heavy = task("transaction.commit", "none");
-
-        scheduler.dispatch(heavy, executions::incrementAndGet);
-
-        assertSame(heavy, sidecar.task.get());
+        assertFalse(accepted);
         assertEquals(0, executions.get());
-        assertTrue(events.isEmpty());
+        assertEquals(
+                List.of(new PluginWorkBudgetEvent(
+                        PLUGIN_ID,
+                        "ai",
+                        PluginWorkBudgetEvent.Phase.REJECTED,
+                        PluginWorkBudgetEvent.Decision.REJECTED,
+                        PluginWorkBudgetEvent.Severity.WARNING)),
+                events);
         scheduler.shutdown();
     }
 
     @Test
-    void heavyTaskIsPolicyRejectedWhenSidecarIsUnavailable() {
+    void transactionCommitIsRejectedBecauseThereIsNoHandOffLane() {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
+        final RuntimeScheduler scheduler = scheduler(events);
         final AtomicInteger executions = new AtomicInteger();
 
         scheduler.dispatch(task("transaction.commit", "none"), executions::incrementAndGet);
@@ -134,7 +120,7 @@ class RuntimeSchedulerTest {
     @Test
     void globalTimerLimitRejectsOverflowWithoutBlockingAndReleasesPermitsExactlyOnce() {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final RuntimeScheduler scheduler = scheduler(events);
         final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
         for (int index = 0; index < 1024; index++) {
             final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> {});
@@ -159,7 +145,6 @@ class RuntimeSchedulerTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-                new RecordingSidecarDispatcher(),
                 events::add,
                 timer);
         final CountDownLatch executed = new CountDownLatch(1);
@@ -180,7 +165,7 @@ class RuntimeSchedulerTest {
     @Test
     void shutdownReleasesEveryActiveTimerPermitWithoutUnderflow() {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final RuntimeScheduler scheduler = scheduler(events);
         final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
         for (int index = 0; index < 1024; index++) {
             final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> {});
@@ -201,7 +186,7 @@ class RuntimeSchedulerTest {
     @Test
     void executedCancelAndShutdownRaceDoesNotUnderflowTimerPermits() throws Exception {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        final RuntimeScheduler scheduler = scheduler(events);
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final RuntimeTimerSubmission timer = scheduler.schedule(Duration.ZERO, () -> {
@@ -227,7 +212,7 @@ class RuntimeSchedulerTest {
     void shutdownDrainsAllPluginExecutors() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
+        RuntimeScheduler scheduler = scheduler(events);
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch completed = new CountDownLatch(2);
@@ -253,17 +238,15 @@ class RuntimeSchedulerTest {
     void cancellationContextIsClearedAfterCallbackFinishes() throws InterruptedException {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
-        RuntimeScheduler scheduler = scheduler(events, sidecar);
+        RuntimeScheduler scheduler = scheduler(events);
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<RuntimeCancellationToken> tokenDuringCallback = new AtomicReference<>();
 
         // When
-        scheduler.dispatch(task("ai", "sidecar"), () -> {
+        scheduler.dispatch(task("action.handle", "none"), () -> {
             tokenDuringCallback.set(CancellationContext.get());
             completed.countDown();
         });
-        sidecar.callback.get().run();
 
         // Then
         assertTrue(completed.await(1, TimeUnit.SECONDS));
@@ -274,126 +257,10 @@ class RuntimeSchedulerTest {
     }
 
     @Test
-    void sidecarCompletionCallbackRunsThroughPluginExecutor() throws InterruptedException {
-        // Given
-        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
-        RuntimeScheduler scheduler = scheduler(events, sidecar);
-        CountDownLatch completed = new CountDownLatch(1);
-        AtomicReference<String> callbackThread = new AtomicReference<>();
-        String sidecarThread = Thread.currentThread().getName();
-
-        // When
-        scheduler.dispatch(task("ai", "sidecar"), () -> {
-            callbackThread.set(Thread.currentThread().getName());
-            completed.countDown();
-        });
-        sidecar.callback.get().run();
-
-        // Then
-        assertTrue(completed.await(1, TimeUnit.SECONDS));
-        assertNotEquals(sidecarThread, callbackThread.get());
-        assertTrue(events.isEmpty());
-        scheduler.shutdown();
-    }
-
-    @Test
-    void sidecarFailureEmitsDiagnosticEvent() {
-        // Given
-        List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RecordingSidecarDispatcher sidecar =
-                new RecordingSidecarDispatcher(SidecarResult.error("SIDECAR_EXIT_FAILED", "boom"));
-        RuntimeScheduler scheduler = scheduler(events, sidecar);
-
-        // When
-        scheduler.dispatch(task("ai", "sidecar"), () -> {});
-
-        // Then
-        assertEquals(
-                List.of(new PluginWorkBudgetEvent(
-                        PLUGIN_ID,
-                        "ai",
-                        PluginWorkBudgetEvent.Phase.FAILED,
-                        PluginWorkBudgetEvent.Decision.SIDECAR,
-                        PluginWorkBudgetEvent.Severity.ERROR)),
-                events);
-        scheduler.shutdown();
-    }
-
-    @Test
-    void csvHeavyActionFallsBackToLongLaneWhenSidecarUnavailable() throws Exception {
-        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
-        final CountDownLatch ran = new CountDownLatch(1);
-        final AtomicReference<String> workerThread = new AtomicReference<>();
-        final PluginTask csvImport = new PluginTask("action.handle", PLUGIN_ID, "action:parameter.csv.import", "none");
-
-        final boolean accepted = scheduler.dispatch(csvImport, () -> {
-            workerThread.set(Thread.currentThread().getName());
-            ran.countDown();
-        });
-
-        assertTrue(accepted, "HEAVY non-transaction work falls back to the long lane");
-        assertTrue(ran.await(1, TimeUnit.SECONDS));
-        assertTrue(
-                workerThread.get().contains("-long-"), "expected a long-lane worker thread, got " + workerThread.get());
-        scheduler.shutdown();
-    }
-
-    @Test
-    void csvHeavyActionUsesSidecarWhenAvailable() {
-        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
-        final RuntimeScheduler scheduler = scheduler(events, sidecar);
-        final AtomicInteger executions = new AtomicInteger();
-        final PluginTask csvExport = new PluginTask("action.handle", PLUGIN_ID, "action:parameter.csv.export", "none");
-
-        scheduler.dispatch(csvExport, executions::incrementAndGet);
-
-        assertSame(csvExport, sidecar.task.get());
-        assertEquals(0, executions.get());
-        scheduler.shutdown();
-    }
-
-    @Test
-    void transactionRollbackIsRejectedWhenSidecarUnavailable() {
-        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
-        final AtomicInteger executions = new AtomicInteger();
-
-        scheduler.dispatch(task("transaction.rollback", "none"), executions::incrementAndGet);
-
-        assertEquals(0, executions.get());
-        assertEquals(PluginWorkBudgetEvent.Phase.REJECTED, events.get(0).phase());
-        scheduler.shutdown();
-    }
-
-    @Test
-    void explicitLongTaskRunsOnLongLaneEvenWhenSidecarAvailable() throws Exception {
-        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
-        final RuntimeScheduler scheduler = scheduler(events, sidecar);
-        final CountDownLatch ran = new CountDownLatch(1);
-        final AtomicReference<String> workerThread = new AtomicReference<>();
-
-        final boolean accepted = scheduler.dispatch(task("plugin.long.normal", "none"), () -> {
-            workerThread.set(Thread.currentThread().getName());
-            ran.countDown();
-        });
-
-        assertTrue(accepted);
-        assertTrue(ran.await(1, TimeUnit.SECONDS));
-        assertNull(sidecar.task.get(), "plugin.long.* never reaches the sidecar");
-        assertTrue(
-                workerThread.get().contains("-long-"), "expected a long-lane worker thread, got " + workerThread.get());
-        scheduler.shutdown();
-    }
-
-    @Test
     void longLaneTaskRunsPastLightweightTimeoutWithoutInterrupt() throws Exception {
         // The test registry carries the default 500ms task timeout; the long lane has none.
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
+        final RuntimeScheduler scheduler = scheduler(events);
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicBoolean interrupted = new AtomicBoolean();
@@ -435,12 +302,11 @@ class RuntimeSchedulerTest {
         scheduler.shutdown();
     }
 
-    private RuntimeScheduler scheduler(List<PluginWorkBudgetEvent> events, SidecarDispatcher sidecarDispatcher) {
+    private RuntimeScheduler scheduler(List<PluginWorkBudgetEvent> events) {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(
                         PluginWorkExecutorConfiguration.of(500, 1, 2, 50.0f), events::add, CLOCK, ignored -> timeouts),
-                sidecarDispatcher,
                 events::add);
     }
 
@@ -457,25 +323,4 @@ class RuntimeSchedulerTest {
         }
     }
 
-    private static final class RecordingSidecarDispatcher implements SidecarDispatcher {
-
-        private final AtomicReference<PluginTask> task = new AtomicReference<>();
-        private final AtomicReference<Runnable> callback = new AtomicReference<>();
-        private final SidecarResult result;
-
-        private RecordingSidecarDispatcher() {
-            this(SidecarResult.success(""));
-        }
-
-        private RecordingSidecarDispatcher(SidecarResult result) {
-            this.result = result;
-        }
-
-        @Override
-        public CompletionStage<SidecarResult> dispatch(PluginTask task, Runnable callback) {
-            this.task.set(task);
-            this.callback.set(callback);
-            return CompletableFuture.completedFuture(result);
-        }
-    }
 }

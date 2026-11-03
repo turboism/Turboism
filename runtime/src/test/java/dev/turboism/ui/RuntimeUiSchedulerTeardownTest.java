@@ -10,8 +10,6 @@ import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -49,7 +47,6 @@ class RuntimeUiSchedulerTeardownTest {
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(
                         500L, 1, 4, event -> {}, Clock.fixed(Instant.parse("2026-07-08T00:00:00Z"), ZoneOffset.UTC)),
-                new NoopSidecarDispatcher(),
                 (PluginWorkBudgetEvent event) -> {});
         uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
     }
@@ -193,10 +190,4 @@ class RuntimeUiSchedulerTeardownTest {
         assertTrue(drained.await(5, TimeUnit.SECONDS), "EDT must drain");
     }
 
-    private static final class NoopSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-    }
 }
