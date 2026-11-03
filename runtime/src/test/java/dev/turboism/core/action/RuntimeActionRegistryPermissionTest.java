@@ -68,9 +68,7 @@ class RuntimeActionRegistryPermissionTest {
     private RuntimeActionRegistry registry(dev.turboism.permissions.PermissionChecker permissionChecker) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         List<StartupReport.DiagnosticProblem> problems = new CopyOnWriteArrayList<>();
         return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, permissionChecker);
     }

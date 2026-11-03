@@ -24,6 +24,7 @@ final class PluginJarInspector {
     private static final String CONTRACT_DIRECTORY = "META-INF/turboism/contracts/";
     /** Rejection code for embedded public-event-contract artifacts (removed machinery). */
     private static final String CONTRACT_ARTIFACTS_REMOVED_CODE = "PLUGIN_CONTRACT_ARTIFACTS_REMOVED";
+
     private static final StrictZipArchive.Limits LIMITS = new StrictZipArchive.Limits(
             PluginArchiveLimits.RAW_MAX,
             PluginArchiveLimits.ENTRY_MAX,

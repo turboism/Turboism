@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.descriptor.CorePluginDescriptor;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.testkit.RuntimeTestKit;
@@ -16,8 +15,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -338,5 +335,4 @@ class PublicEventRouteCatalogTest {
     }
 
     public record PublicFixtureEvent(String value) implements TurboismEvent {}
-
 }

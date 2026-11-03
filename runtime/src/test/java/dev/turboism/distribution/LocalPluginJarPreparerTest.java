@@ -237,9 +237,7 @@ class LocalPluginJarPreparerTest {
         Files.write(
                 source,
                 v5ContractPluginJar(
-                        "dev.example.provider", null, null, Map.of("lib/helper.jar", new byte[] {
-                            1, 2, 3
-                        })));
+                        "dev.example.provider", null, null, Map.of("lib/helper.jar", new byte[] {1, 2, 3})));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
@@ -411,8 +409,7 @@ class LocalPluginJarPreparerTest {
             assertInstanceOf(
                     LocalPluginJarPreparer.PreparationRejected.class,
                     new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-            assertNull(
-                    System.getProperty(marker), "admission must never initialize embedded contract classes");
+            assertNull(System.getProperty(marker), "admission must never initialize embedded contract classes");
         } finally {
             System.clearProperty(marker);
         }

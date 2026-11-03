@@ -311,16 +311,12 @@ OPT_IN_GRADLE_TESTS = {
 # Test tasks that are deliberately only reachable through their own opt-in lane.
 OPT_IN_GRADLE_TEST_SOURCES = ('runtime/build.gradle.kts',)
 
-# Explicit opt-in host probes, the Gradle lifecycle alias, and retired pre-1.0 SDK
-# historical baseline gates. The SDK anchor/linkage checks below are still registered
-# by gradle/sdk-api.gradle.kts but are no longer part of checkRelease, so they run only
-# when a reviewed SDK anchor change asks for them by name.
+# Explicit opt-in host probes and the Gradle lifecycle alias.
 MANUAL_GATES = set("""check checkCubismHostValidationArguments
 checkCubismHostValidationJavaEvidence checkFloatArrayValidationBundle
 checkGraalPreviewLauncherContract checkGraalScriptHostValidation
 checkGraalScriptHostValidationDryRun checkImageArchiveValidationBundle
-checkResourceValidationBundle checkSdkApiReferenceBuilder
-checkSdkBaselineAnchorConsistency checkSdkV8Linkage checkTextureAtlasSdkV7Linkage
+checkResourceValidationBundle
 checkTextureUploadValidationBundle checkWarpPositionValidationBundle""".split())
 
 # Third-order meta-gates removed by the centralization slice: they proved the wiring
@@ -399,12 +395,9 @@ scripts/test/test_reviewed_releases_r2.py
 scripts/test/test_reviewed_releases_r3.py
 scripts/test/test_reviewed_releases_r4.py
 scripts/test/test_reviewed_releases_ranges.py
-scripts/test/test_sdk_api_reference_builder.sh
-scripts/test/test_sdk_v8_linkage.sh
 scripts/test/test_status_bar_host_probe_packaging.sh
 scripts/test/test_sync_draft_pack_metadata.py
 scripts/test/test_test_corpus.py
-scripts/test/test_texture_atlas_sdk_linkage.sh
 scripts/test/test_uniform_location_trial.sh
 scripts/test_corpus.py
 """

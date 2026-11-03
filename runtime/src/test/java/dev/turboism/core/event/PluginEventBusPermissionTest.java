@@ -102,9 +102,7 @@ class PluginEventBusPermissionTest {
     private PluginEventBus eventBus(dev.turboism.permissions.PermissionChecker permissionChecker) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         return new PluginEventBus(broker, broker.pluginOwner(PLUGIN_ID), permissionChecker);
     }

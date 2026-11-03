@@ -21,10 +21,8 @@ final class PublicEventRouteCatalog {
 
     void preflight(final PluginDescriptor descriptor) {
         final PluginDescriptor value = Objects.requireNonNull(descriptor, "descriptor");
-        value.eventExports()
-                .forEach(exported -> PublicEventAbi.resolve(exported.eventType(), exported.abiSha256()));
-        value.eventImports()
-                .forEach(imported -> PublicEventAbi.resolve(imported.eventType(), imported.abiSha256()));
+        value.eventExports().forEach(exported -> PublicEventAbi.resolve(exported.eventType(), exported.abiSha256()));
+        value.eventImports().forEach(imported -> PublicEventAbi.resolve(imported.eventType(), imported.abiSha256()));
     }
 
     synchronized void admit(final PluginEventOwnerKey owner, final PluginDescriptor descriptor) {

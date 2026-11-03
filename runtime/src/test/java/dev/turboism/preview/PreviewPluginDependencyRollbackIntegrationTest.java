@@ -214,8 +214,7 @@ class PreviewPluginDependencyRollbackIntegrationTest {
                 "[]");
         final PluginWorkExecutorRegistry registry =
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC());
-        final RuntimeScheduler scheduler =
-                new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, ignored -> {});
+        final RuntimeScheduler scheduler = new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);

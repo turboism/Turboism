@@ -173,7 +173,8 @@ class PluginPackageRaceRegressionTest {
         Files.write(input, contractFixture(true));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
+        assertEquals(
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
     @Test
@@ -183,8 +184,7 @@ class PluginPackageRaceRegressionTest {
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
-                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED",
-                rejected.problems().get(0).code());
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
     /** Any embedded contract artifact is unsupported; hash pinning no longer applies. */
@@ -206,8 +206,7 @@ class PluginPackageRaceRegressionTest {
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
-                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED",
-                rejected.problems().get(0).code());
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
     /** Payload-closure preflight no longer exists; embedded artifacts reject outright. */

@@ -223,8 +223,8 @@ final class PreviewPluginLoader {
 
         resources.entrypoints.addAll(instantiateAll(candidate.descriptor(), resources.classLoader));
         runtime.setEntrypoints(resources.entrypoints);
-        resources.eventSubscribers = new GeneratedSubscriberCatalogLoader()
-                .inspect(resources.entrypoints, resources.classLoader);
+        resources.eventSubscribers =
+                new GeneratedSubscriberCatalogLoader().inspect(resources.entrypoints, resources.classLoader);
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
         resources.scope = new DisposableScope();
