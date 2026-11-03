@@ -109,8 +109,14 @@ public final class RuntimeConfigRepository {
      *
      * <p>The operator is handed a deep copy of the current document and may mutate it freely. The
      * result is validated in strict write mode before any bytes are written, and the write itself
-     * is a temp-file-plus-atomic-move, so the file is never left partially written. Writes are
-     * strict where {@link #read()} is tolerant: an unsupported locale fails here.</p>
+     * is a temp-file-plus-atomic-move, so the file is never left partially written.</p>
+     *
+     * <p>Values that read-mode tolerance drops (an unsupported {@code locale} or
+     * {@code launcher.memoryProfile}) are written back unchanged when the change leaves them
+     * untouched, so an unrelated edit cannot destroy a stored value that this build merely does not
+     * understand. A change that replaces or removes such a field is treated like any other write:
+     * the new value must pass strict validation, and removing the field (including its parent
+     * object) still removes it from disk.</p>
      *
      * @param change transformation of the current document; must not return null
      * @return a detached copy of the document as persisted
@@ -120,15 +126,60 @@ public final class RuntimeConfigRepository {
      */
     public ObjectNode update(final UnaryOperator<ObjectNode> change) {
         synchronized (lock) {
+            final ToleratedValues tolerated = new ToleratedValues();
             final ObjectNode updated =
-                    Objects.requireNonNull(change.apply(readLocked().deepCopy()), "updated");
-            validate(updated, "RUNTIME_CONFIG_WRITE_INVALID");
+                    Objects.requireNonNull(change.apply(readLocked(tolerated).deepCopy()), "updated");
+            restoreToleratedValues(updated, tolerated);
+            validateUpdate(updated, tolerated);
             writeLocked(updated);
             return updated.deepCopy();
         }
     }
 
+    /**
+     * Writes back the values read-mode tolerance removed, unless the change replaced or removed
+     * them. The document handed to the caller never contains those values, so "left absent" and
+     * "explicitly removed" are indistinguishable here; preservation wins, because an unrelated edit
+     * silently deleting a stored value is the failure this guards against.
+     */
+    private static void restoreToleratedValues(final ObjectNode updated, final ToleratedValues tolerated) {
+        if (tolerated.locale != null && !updated.has("locale")) {
+            updated.set("locale", tolerated.locale);
+        }
+        if (tolerated.launcherMemoryProfile != null
+                && updated.path("launcher") instanceof ObjectNode launcher
+                && !launcher.has("memoryProfile")) {
+            launcher.set("memoryProfile", tolerated.launcherMemoryProfile);
+        }
+    }
+
+    /**
+     * Strict write validation, except that a value already on disk and written back unchanged is
+     * exempt: rejecting it would leave installations with a tolerated value unable to save
+     * anything. Every other field, including a tolerated field the change replaced, stays strict.
+     */
+    private void validateUpdate(final ObjectNode updated, final ToleratedValues tolerated) {
+        final ObjectNode strict = updated.deepCopy();
+        if (tolerated.locale != null && tolerated.locale.equals(strict.get("locale"))) {
+            strict.remove("locale");
+        }
+        if (tolerated.launcherMemoryProfile != null
+                && strict.path("launcher") instanceof ObjectNode launcher
+                && tolerated.launcherMemoryProfile.equals(launcher.get("memoryProfile"))) {
+            launcher.remove("memoryProfile");
+        }
+        validate(strict, "RUNTIME_CONFIG_WRITE_INVALID");
+    }
+
     private ObjectNode readLocked() {
+        return readLocked(null);
+    }
+
+    /**
+     * @param tolerated when non-null, collects the values that read-mode tolerance removes so an
+     *     update can write them back instead of destroying them
+     */
+    private ObjectNode readLocked(final ToleratedValues tolerated) {
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) return defaults();
         try {
             rejectSymlinkChain(configPath);
@@ -140,23 +191,29 @@ public final class RuntimeConfigRepository {
             final JsonNode parsed = JSON.readTree(bytes);
             if (!(parsed instanceof ObjectNode object)) throw failure("RUNTIME_CONFIG_INVALID");
             validateForRead(object);
-            // Read-mode locale tolerance: an unsupported persisted locale is treated as
-            // absent for the in-memory read (structured diagnostic only); the on-disk
-            // file stays untouched until an explicit save, and writes stay strict.
+            // Read-mode locale tolerance: an unsupported persisted locale reads as absent with a
+            // structured diagnostic and stays on disk. An update keeps it unless the change
+            // replaces or removes it; see restoreToleratedValues.
             if (object.has("locale")
                     && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator.isAllowedLocale(
                             object.path("locale").asText(""))) {
                 report("RUNTIME_CONFIG_BAD_LOCALE");
+                if (tolerated != null) {
+                    tolerated.locale = object.get("locale");
+                }
                 object.remove("locale");
             }
-            // Same read-mode tolerance for the launcher memory profile: an unsupported
-            // persisted tier reads as absent (fail-closed to the system default) with a
-            // structured diagnostic; the file stays untouched until an explicit save.
+            // Same read-mode tolerance for the launcher memory profile: an unsupported persisted
+            // tier reads as absent (fail-closed to the system default) with a structured
+            // diagnostic and stays on disk unless an update replaces or removes it.
             if (object.path("launcher") instanceof ObjectNode launcher
                     && launcher.has("memoryProfile")
                     && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator.isAllowedMemoryProfile(
                             launcher.path("memoryProfile").asText(""))) {
                 report("RUNTIME_CONFIG_BAD_MEMORY_PROFILE");
+                if (tolerated != null) {
+                    tolerated.launcherMemoryProfile = launcher.get("memoryProfile");
+                }
                 launcher.remove("memoryProfile");
             }
             return object.deepCopy();
@@ -183,6 +240,15 @@ public final class RuntimeConfigRepository {
             }
             throw failure("RUNTIME_CONFIG_WRITE_FAILED", failure);
         }
+    }
+
+    /**
+     * Values read-mode tolerance removed from a document. Kept for the duration of one update so
+     * the bytes on disk survive an unrelated edit; never persisted in this form.
+     */
+    private static final class ToleratedValues {
+        private JsonNode locale;
+        private JsonNode launcherMemoryProfile;
     }
 
     private void validate(final JsonNode root, final String code) {
