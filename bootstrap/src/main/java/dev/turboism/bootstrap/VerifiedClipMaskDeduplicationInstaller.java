@@ -72,12 +72,14 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
 
     synchronized void install() throws Exception {
         if (installed) return;
+        bridge.attachScissorBridge(scissorBridge);
         bridge.install();
         if (scissorBridge != null) {
             try {
                 scissorBridge.install();
             } catch (Exception | LinkageError refused) {
                 scissorFailure = refused.toString();
+                bridge.attachScissorBridge(null);
                 try {
                     scissorBridge.close();
                 } catch (Exception | LinkageError ignored) {

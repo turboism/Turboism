@@ -23,6 +23,7 @@ performance 85 toggle mesa-gl-thread
 performance 90 note performance.section.upload
 performance 91 toggle upload-elision
 performance 92 toggle input-path-elision
+performance 93 toggle mesh-setup-elision
 performance 100 note performance.section.mesh
 performance 101 toggle mesh-triangulation-hash
 performance 102 toggle triangulation-edge-index

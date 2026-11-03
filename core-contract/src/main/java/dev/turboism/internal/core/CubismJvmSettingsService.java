@@ -166,6 +166,21 @@ public interface CubismJvmSettingsService {
 
     /**
      * Launcher preference: when true the next managed Cubism launch enables
+     * the skipped-frame {@code GMesh2.setup} elision. The hook still requires
+     * model update skip and only suppresses a mesh whose own persistent
+     * buffers are already initialized and clean. Takes effect on the next launch.
+     */
+    default boolean meshSetupElision() {
+        return false;
+    }
+
+    /** Persists the mesh-setup elision preference; installation changes require restart. */
+    default boolean saveMeshSetupElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when true the next managed Cubism launch enables
      * the input-path elision hook (redundant focus/cursor forwards are
      * short-circuited before they reach the native query). The elided path
      * only exists under Wine/Proton; the unset default is off everywhere; an explicit value always wins. Takes effect on

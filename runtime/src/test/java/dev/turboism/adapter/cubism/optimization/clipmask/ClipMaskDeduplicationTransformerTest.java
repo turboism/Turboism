@@ -59,10 +59,7 @@ final class ClipMaskDeduplicationTransformerTest {
         System.getProperties().remove(ClipMaskDeduplicationBridge.RECORD_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.RELEASE_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
-        System.getProperties().remove(ClipMaskScissorBridge.BEGIN_PROPERTY);
-        System.getProperties().remove(ClipMaskScissorBridge.BEFORE_PROPERTY);
-        System.getProperties().remove(ClipMaskScissorBridge.AFTER_PROPERTY);
-        System.getProperties().remove(ClipMaskScissorBridge.END_PROPERTY);
+        System.getProperties().remove(ClipMaskScissorBridge.CLEAR_PROPERTY);
         try {
             Files.deleteIfExists(artifact);
         } catch (Exception ignored) {
@@ -146,7 +143,7 @@ final class ClipMaskDeduplicationTransformerTest {
     }
 
     @Test
-    void scissorConsultsWrapTheMaskClear() throws Exception {
+    void scissorClearBracketRunsOnceAroundTheMaskClear() throws Exception {
         loader.define(
                 "com/live2d/graphics3d/component/AGRenderer", plainClass("com/live2d/graphics3d/component/AGRenderer"));
         loader.define("com/live2d/graphics3d/a", plainClass("com/live2d/graphics3d/a"));
@@ -171,19 +168,21 @@ final class ClipMaskDeduplicationTransformerTest {
         maskMethod.setAccessible(true);
 
         final java.util.List<String> order = new java.util.ArrayList<>();
-        System.getProperties()
-                .put(ClipMaskScissorBridge.BEGIN_PROPERTY, (BiConsumer<Object, Object>) (systemArg, renderer) -> {
+        System.getProperties().put(ClipMaskDeduplicationBridge.DEDUPE_PROPERTY, (BiPredicate<Object, Object>)
+                (systemArg, renderer) -> {
                     assertNotNull(systemArg);
                     assertNotNull(renderer);
-                    order.add("begin");
+                    order.add("entry");
+                    return false;
                 });
         System.getProperties()
-                .put(ClipMaskScissorBridge.BEFORE_PROPERTY, (java.util.function.Consumer<Object>) context -> {
+                .put(ClipMaskScissorBridge.CLEAR_PROPERTY, (java.util.function.Function<Object, Runnable>) context -> {
                     assertNotNull(context);
                     order.add("before");
+                    return () -> order.add("after");
                 });
-        System.getProperties().put(ClipMaskScissorBridge.AFTER_PROPERTY, (Runnable) () -> order.add("after"));
-        System.getProperties().put(ClipMaskScissorBridge.END_PROPERTY, (Runnable) () -> order.add("end"));
+        System.getProperties().put(ClipMaskDeduplicationBridge.RECORD_PROPERTY, (BiConsumer<Object, Object>)
+                (systemArg, renderer) -> order.add("exit"));
 
         final Object renderer = loader.loadClass("com.live2d.graphics3d.component.AGRenderer")
                 .getConstructor()
@@ -192,7 +191,7 @@ final class ClipMaskDeduplicationTransformerTest {
                 loader.loadClass("com.live2d.graphics3d.a").getConstructor().newInstance();
         maskMethod.invoke(system, renderer, context, null);
 
-        assertEquals(java.util.List.of("begin", "before", "after", "end"), order);
+        assertEquals(java.util.List.of("entry", "before", "after", "exit"), order);
     }
 
     @Test
@@ -218,14 +217,13 @@ final class ClipMaskDeduplicationTransformerTest {
                 loader.loadClass("com.live2d.type.CRect"));
         maskMethod.setAccessible(true);
 
-        final AtomicInteger after = new AtomicInteger();
-        final AtomicInteger end = new AtomicInteger();
+        final AtomicInteger exit = new AtomicInteger();
         System.getProperties()
-                .put(ClipMaskScissorBridge.BEFORE_PROPERTY, (java.util.function.Consumer<Object>) context -> {
+                .put(ClipMaskScissorBridge.CLEAR_PROPERTY, (java.util.function.Function<Object, Runnable>) context -> {
                     throw new IllegalStateException("consult failed");
                 });
-        System.getProperties().put(ClipMaskScissorBridge.AFTER_PROPERTY, (Runnable) after::incrementAndGet);
-        System.getProperties().put(ClipMaskScissorBridge.END_PROPERTY, (Runnable) end::incrementAndGet);
+        System.getProperties().put(ClipMaskDeduplicationBridge.RECORD_PROPERTY, (BiConsumer<Object, Object>)
+                (systemArg, renderer) -> exit.incrementAndGet());
 
         final Object renderer = loader.loadClass("com.live2d.graphics3d.component.AGRenderer")
                 .getConstructor()
@@ -234,8 +232,7 @@ final class ClipMaskDeduplicationTransformerTest {
                 loader.loadClass("com.live2d.graphics3d.a").getConstructor().newInstance();
         maskMethod.invoke(system, renderer, context, null);
 
-        assertEquals(1, after.get(), "the clear still runs and its after consult executes");
-        assertEquals(1, end.get(), "the normal return still runs the end consult");
+        assertEquals(1, exit.get(), "the throw is contained and the normal return still runs the exit consult");
     }
 
     private static byte[] glInterface() {

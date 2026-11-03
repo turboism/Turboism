@@ -1535,11 +1535,29 @@ Before the mask pass clears its pooled grayscale attachment, the woven consult
 projects every mask mesh into the current viewport and unions the result with
 that texture's previous dirty rectangle. The clear is narrowed with
 `glEnable(GL_SCISSOR_TEST)` + `glScissor`, then the prior scissor state is
-restored immediately after `glClear`. A texture's first use, a GL-name/size
-change, an unusable transform, or any observer failure falls back to the
-original full clear. The dirty rectangle is updated only after the clear and is
-dropped when the pass cannot complete, so a pooled texture is never assumed
-clean.
+restored immediately after `glClear` through the `Runnable` the consult returns,
+so a clear that needs no narrowing touches no GL state at all. A texture's first
+use, a GL-name/size change, an unusable transform, or any observer failure falls
+back to the original full clear. The dirty rectangle is updated only after the
+clear and is dropped when the pass cannot complete, so a pooled texture is never
+assumed clean.
+
+The mask path runs once per clip-mask set per frame, including while the camera
+pans and zooms, so the bridge keeps its own cost off that path. Every reviewed
+host member is resolved once into a `MethodHandle`/`VarHandle` instead of
+`Method.invoke`, the driver's `GL_VIEWPORT` is read at most once per mask-texture
+size per frame instead of once per clear, and a mask silhouette's local bounds,
+its projected rectangle and the camera matrices are memoized for the duration of
+one frame — the host finishes its model update before it renders, so those values
+are fixed for that frame. The frame boundary drops all of it, so each panned or
+zoomed frame is measured against the current camera and never the previous one's
+geometry. The dedupe consult is memoized the same way: one component walk per
+renderer per frame, mask digests in a primitive-keyed table (no `Long` boxing per
+consult), and one property lookup at pass entry and one at pass exit. The
+material setters are resolved in both admitted shapes — 5.3 declares
+`setFloat(String, float, Integer)`/`setVector2(String, GVector2, Integer)` and
+5.0-5.2 declare them without the trailing render unit — so deduplication now
+engages on every family instead of being refused on 5.0-5.2.
 
 The performance probe report gains a `clipMaskScissor` block whenever the
 bridge is installed: `clearPasses`, `scissorPasses`, `fullClearPasses`,

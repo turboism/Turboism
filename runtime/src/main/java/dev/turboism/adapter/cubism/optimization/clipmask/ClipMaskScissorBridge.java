@@ -1,17 +1,17 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
 import dev.turboism.core.runtime.work.FatalErrors;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -25,10 +25,22 @@ import java.util.function.Supplier;
  * per {@code GRenderTexture} and invalidated when its GL name, size or context
  * changes; the first use of a texture therefore keeps the original full clear.</p>
  *
- * <p>The woven bytes are loader-neutral: the mask pass reports
- * {@code (renderSystem, renderer)} at entry, {@code (context)} immediately before the
- * clear, and runs restore/update callbacks after the clear and at every method exit.
- * All host objects stay inside this bridge.</p>
+ * <p>The woven bytes stay loader-neutral: {@code rendering/e|d.a(AGRenderer, a, CRect)}
+ * reports its pass through {@link ClipMaskDeduplicationBridge} before the mask clear,
+ * runs the {@code Function<Object, Runnable>} slot in {@link #CLEAR_PROPERTY} right
+ * before {@code glClear}, and runs the returned restore action right after it. All
+ * host objects stay inside this bridge.</p>
+ *
+ * <p>Camera zoom and pan change the projection every frame, so this bridge keeps its
+ * cost off the per-drawable path: host members are resolved once into
+ * {@link MethodHandle}s (see {@link ClipMaskHandles}), the viewport is read from the
+ * driver at most once per mask-texture size per frame instead of once per clear, and
+ * the mask silhouettes' local bounds, their projected rectangles and the camera
+ * matrices are memoized for the duration of one frame. Those memoized values are
+ * camera- and pose-invariant within a single scene render — the host updates the
+ * model before it renders and does not mutate mesh positions or component lists
+ * during the pass — and are dropped at every frame boundary, so a pan or zoom is
+ * never measured against a previous frame's geometry.</p>
  */
 public final class ClipMaskScissorBridge implements AutoCloseable {
 
@@ -38,70 +50,89 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
      */
     public static final String ENABLE_PROPERTY = "turboism.optimization.clipMaskScissorClear";
 
-    public static final String BEGIN_PROPERTY = "turboism.clip-mask-scissor.begin";
-    public static final String BEFORE_PROPERTY = "turboism.clip-mask-scissor.before-clear";
-    public static final String AFTER_PROPERTY = "turboism.clip-mask-scissor.after-clear";
-    public static final String END_PROPERTY = "turboism.clip-mask-scissor.end";
+    /**
+     * Slot for the {@code Function<Object, Runnable>} bracketing the mask {@code glClear}:
+     * the argument is the host render context, the result is the restore action to run
+     * after the clear, or {@code null} when nothing was changed and nothing is owed.
+     */
+    public static final String CLEAR_PROPERTY = "turboism.clip-mask-scissor.clear";
+
+    /** Payload-free statistics slot. */
     public static final String STATS_PROPERTY = "turboism.clip-mask-scissor.stats";
 
     private static final int GL_SCISSOR_BOX = 0x0C10;
     private static final int GL_SCISSOR_TEST = 0x0C11;
     private static final int GL_VIEWPORT = 0x0BA2;
     private static final int MAX_TEXTURE_STATES = 128;
+    private static final int MAX_FRAME_ENTRIES = 512;
 
     private static volatile boolean configuredDefault = true;
 
-    private final Field renderSystemLeaseField;
-    private final Method contextCameraMethod;
-    private final Method rendererEntityMethod;
-    private final Method entityComponentsMethod;
-    private final Method entityRendererMethod;
-    private final Method entityTransformMethod;
-    private final Method clippingValidMasksMethod;
-    private final Method transformLocalToWorldMethod;
-    private final Method meshContainerMethod;
-    private final Method meshMethod;
-    private final Method meshPositionsMethod;
-    private final Method meshStepMethod;
-    private final Method cameraProjectionMethod;
-    private final Method cameraWorldToCameraMethod;
-    private final Method matrixValuesMethod;
-    private final Method leaseGlMethod;
-    private final Method leaseTextureMethod;
-    private final Method textureWidthMethod;
-    private final Method textureHeightMethod;
-    private final Method textureGlNameMethod;
-    private final Method glGetIntegervMethod;
-    private final Method glIsEnabledMethod;
-    private final Method glEnableMethod;
-    private final Method glDisableMethod;
-    private final Method glScissorMethod;
+    private final ClipMaskHandles.FieldAccess renderSystemLease;
+    private final MethodHandle contextCamera;
+    private final MethodHandle rendererEntity;
+    private final MethodHandle entityComponents;
+    private final MethodHandle entityRenderer;
+    private final MethodHandle entityTransform;
+    private final MethodHandle clippingValidMasks;
+    private final MethodHandle transformLocalToWorld;
+    private final MethodHandle meshContainer;
+    private final MethodHandle mesh;
+    private final MethodHandle meshPositions;
+    private final MethodHandle meshStep;
+    private final MethodHandle cameraProjection;
+    private final MethodHandle cameraWorldToCamera;
+    private final MethodHandle matrixValues;
+    private final MethodHandle leaseGl;
+    private final MethodHandle leaseTexture;
+    private final MethodHandle textureWidth;
+    private final MethodHandle textureHeight;
+    private final MethodHandle textureGlName;
+    private final MethodHandle glGetIntegerv;
+    private final MethodHandle glIsEnabled;
+    private final MethodHandle glEnable;
+    private final MethodHandle glDisable;
+    private final MethodHandle glScissor;
 
     private final Class<?> clippingType;
     private final Class<?> meshRendererType;
 
+    /** Per-frame memo: mask mesh -> local-space bounds. */
+    private final Map<Object, float[]> localBoundsByMesh = new IdentityHashMap<>();
+    /** Per-frame memo: mask entity -> screen rectangle plus the camera it was projected with. */
+    private final Map<Object, ProjectedRect> rectByMaskEntity = new IdentityHashMap<>();
+    /** Per-frame memo: camera -> {projection, worldToCamera} values. */
+    private final Map<Object, float[][]> matricesByCamera = new IdentityHashMap<>();
+
     private final Map<Object, DirtyTexture> dirtyTextures = new IdentityHashMap<>();
     private final int[] viewport = new int[4];
+    private final int[] clearRect = new int[ClipMaskScissorGeometry.RECT_VALUES];
+    private final int[] currentRect = new int[ClipMaskScissorGeometry.RECT_VALUES];
+    private final int[] projectedRect = new int[ClipMaskScissorGeometry.RECT_VALUES];
     private final float[] localBounds = new float[6];
     private final float[] screenBox = new float[4];
 
     private final AtomicBoolean active = new AtomicBoolean();
-    private final AtomicLong clearPasses = new AtomicLong();
-    private final AtomicLong scissorPasses = new AtomicLong();
-    private final AtomicLong fullClearPasses = new AtomicLong();
-    private final AtomicLong clearedPixels = new AtomicLong();
-    private final AtomicLong baselinePixels = new AtomicLong();
-    private final AtomicLong failures = new AtomicLong();
+    private final LongAdder clearPasses = new LongAdder();
+    private final LongAdder scissorPasses = new LongAdder();
+    private final LongAdder fullClearPasses = new LongAdder();
+    private final LongAdder clearedPixels = new LongAdder();
+    private final LongAdder baselinePixels = new LongAdder();
+    private final LongAdder failures = new LongAdder();
 
-    private final BiConsumer<Object, Object> beginConsult = this::onBegin;
-    private final Consumer<Object> beforeClearConsult = this::onBeforeClear;
-    private final Runnable afterClearConsult = this::onAfterClear;
-    private final Runnable endConsult = this::onEnd;
+    private final Function<Object, Runnable> clearConsult = this::beforeClear;
+    private final Runnable afterClearAction = this::afterClear;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
 
+    private final PendingClear pending = new PendingClear();
     private Object currentRenderSystem;
     private Object currentRenderer;
-    private PendingClear pending;
+    private Object viewportGl;
+    private int viewportTextureWidth = -1;
+    private int viewportTextureHeight = -1;
+    private boolean viewportValid;
+    private boolean pendingActive;
+    private boolean enabled = configuredDefault;
     private Properties installedProperties;
     private boolean reportedFailure;
 
@@ -116,18 +147,18 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         final String renderSystemOwner = ClipMaskDeduplicationTarget.renderSystemOwner(cubismVersion);
         final Class<?> renderSystemType = Class.forName(renderSystemOwner.replace('/', '.'), false, loader);
-        renderSystemLeaseField = renderSystemType.getDeclaredField("f");
-        renderSystemLeaseField.setAccessible(true);
+        renderSystemLease = ClipMaskHandles.field(renderSystemType, "f");
 
         final Class<?> contextType = Class.forName("com.live2d.graphics3d.a", false, loader);
-        contextCameraMethod = contextType.getMethod("b");
+        contextCamera = ClipMaskHandles.virtual(contextType, "b", MethodType.methodType(Object.class, Object.class));
 
         final Class<?> rendererType = Class.forName("com.live2d.graphics3d.component.AGRenderer", false, loader);
-        rendererEntityMethod = rendererType.getMethod("getEntity");
+        rendererEntity =
+                ClipMaskHandles.virtual(rendererType, "getEntity", MethodType.methodType(Object.class, Object.class));
 
         final Class<?> entityType = Class.forName("com.live2d.graphics3d.entity.GEntity", false, loader);
-        Method componentsGetter = null;
-        for (final Method method : entityType.getMethods()) {
+        java.lang.reflect.Method componentsGetter = null;
+        for (final java.lang.reflect.Method method : entityType.getMethods()) {
             if (method.getName().equals("getComponents")
                     && method.getParameterCount() == 0
                     && !method.getReturnType().equals(java.util.List.class)) {
@@ -138,45 +169,71 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         if (componentsGetter == null) {
             throw new NoSuchMethodException("getComponents returning non-List Components on GEntity");
         }
-        entityComponentsMethod = componentsGetter;
-        entityRendererMethod = entityType.getMethod("getRenderer");
-        entityTransformMethod = entityType.getMethod("getTransform");
+        entityComponents = ClipMaskHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
+        entityRenderer =
+                ClipMaskHandles.virtual(entityType, "getRenderer", MethodType.methodType(Object.class, Object.class));
+        entityTransform =
+                ClipMaskHandles.virtual(entityType, "getTransform", MethodType.methodType(Object.class, Object.class));
 
         clippingType = Class.forName("com.live2d.graphics3d.component.GClipping", false, loader);
-        clippingValidMasksMethod = clippingType.getMethod("getClippingVaildMasks");
+        clippingValidMasks = ClipMaskHandles.virtual(
+                clippingType, "getClippingVaildMasks", MethodType.methodType(Object.class, Object.class));
 
         final Class<?> transformType = Class.forName("com.live2d.graphics3d.component.GTransform", false, loader);
-        transformLocalToWorldMethod = transformType.getMethod("getLocalToWorldMatrix");
+        transformLocalToWorld = ClipMaskHandles.virtual(
+                transformType, "getLocalToWorldMatrix", MethodType.methodType(Object.class, Object.class));
 
         meshRendererType = Class.forName("com.live2d.graphics3d.component.GMeshRenderer", false, loader);
-        meshContainerMethod = meshRendererType.getMethod("getMeshContainer");
+        meshContainer = ClipMaskHandles.virtual(
+                meshRendererType, "getMeshContainer", MethodType.methodType(Object.class, Object.class));
         final Class<?> meshContainerType =
                 Class.forName("com.live2d.graphics3d.component.GMeshContainer", false, loader);
-        meshMethod = meshContainerType.getMethod("getMesh");
+        mesh = ClipMaskHandles.virtual(meshContainerType, "getMesh", MethodType.methodType(Object.class, Object.class));
         final Class<?> meshType = Class.forName("com.live2d.graphics3d.mesh.a", false, loader);
-        meshPositionsMethod = meshType.getMethod("getPositions");
-        meshStepMethod = meshType.getMethod("getStep");
+        meshPositions =
+                ClipMaskHandles.virtual(meshType, "getPositions", MethodType.methodType(float[].class, Object.class));
+        meshStep = ClipMaskHandles.virtual(meshType, "getStep", MethodType.methodType(int.class, Object.class));
 
         final Class<?> cameraType = Class.forName("com.live2d.graphics3d.GCamera", false, loader);
-        cameraProjectionMethod = cameraType.getMethod("getProjectionMatrix");
-        cameraWorldToCameraMethod = cameraType.getMethod("getWorldToCameraMatrix");
+        cameraProjection = ClipMaskHandles.virtual(
+                cameraType, "getProjectionMatrix", MethodType.methodType(Object.class, Object.class));
+        cameraWorldToCamera = ClipMaskHandles.virtual(
+                cameraType, "getWorldToCameraMatrix", MethodType.methodType(Object.class, Object.class));
         final Class<?> matrixType = Class.forName("com.live2d.graphics3d.type.GMatrix44", false, loader);
-        matrixValuesMethod = matrixType.getMethod("a");
+        matrixValues = ClipMaskHandles.virtual(matrixType, "a", MethodType.methodType(float[].class, Object.class));
 
-        final Class<?> leaseType = renderSystemLeaseField.getType();
-        leaseGlMethod = leaseType.getMethod("a");
-        leaseTextureMethod = leaseType.getMethod("b");
+        final Class<?> leaseType = renderSystemLease.type();
+        leaseGl = ClipMaskHandles.virtual(leaseType, "a", MethodType.methodType(Object.class, Object.class));
+        leaseTexture = ClipMaskHandles.virtual(leaseType, "b", MethodType.methodType(Object.class, Object.class));
         final Class<?> textureType = Class.forName("com.live2d.graphics3d.texture.GRenderTexture", false, loader);
-        textureWidthMethod = textureType.getMethod("getWidth");
-        textureHeightMethod = textureType.getMethod("getHeight");
-        textureGlNameMethod = textureType.getMethod("getGlTextureName");
+        textureWidth = ClipMaskHandles.virtual(textureType, "getWidth", MethodType.methodType(int.class, Object.class));
+        textureHeight =
+                ClipMaskHandles.virtual(textureType, "getHeight", MethodType.methodType(int.class, Object.class));
+        textureGlName = ClipMaskHandles.virtual(
+                textureType, "getGlTextureName", MethodType.methodType(int.class, Object.class));
 
         final Class<?> glType = Class.forName("com.jogamp.opengl.GL", false, loader);
-        glGetIntegervMethod = glType.getMethod("glGetIntegerv", int.class, int[].class, int.class);
-        glIsEnabledMethod = glType.getMethod("glIsEnabled", int.class);
-        glEnableMethod = glType.getMethod("glEnable", int.class);
-        glDisableMethod = glType.getMethod("glDisable", int.class);
-        glScissorMethod = glType.getMethod("glScissor", int.class, int.class, int.class, int.class);
+        glGetIntegerv = ClipMaskHandles.virtual(
+                glType,
+                "glGetIntegerv",
+                MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class),
+                int.class,
+                int[].class,
+                int.class);
+        glIsEnabled = ClipMaskHandles.virtual(
+                glType, "glIsEnabled", MethodType.methodType(boolean.class, Object.class, int.class), int.class);
+        glEnable = ClipMaskHandles.virtual(
+                glType, "glEnable", MethodType.methodType(void.class, Object.class, int.class), int.class);
+        glDisable = ClipMaskHandles.virtual(
+                glType, "glDisable", MethodType.methodType(void.class, Object.class, int.class), int.class);
+        glScissor = ClipMaskHandles.virtual(
+                glType,
+                "glScissor",
+                MethodType.methodType(void.class, Object.class, int.class, int.class, int.class, int.class),
+                int.class,
+                int.class,
+                int.class,
+                int.class);
     }
 
     /** Sets the startup-configured default when the diagnostic property is absent. */
@@ -195,20 +252,14 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         if (!active.compareAndSet(false, true)) {
             throw new IllegalStateException("clip mask scissor bridge already active");
         }
+        enabled = enabledByPreference();
         final Properties properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(BEGIN_PROPERTY)
-                    || properties.containsKey(BEFORE_PROPERTY)
-                    || properties.containsKey(AFTER_PROPERTY)
-                    || properties.containsKey(END_PROPERTY)
-                    || properties.containsKey(STATS_PROPERTY)) {
+            if (properties.containsKey(CLEAR_PROPERTY) || properties.containsKey(STATS_PROPERTY)) {
                 active.set(false);
                 throw new IllegalStateException("clip mask scissor slots occupied");
             }
-            properties.put(BEGIN_PROPERTY, beginConsult);
-            properties.put(BEFORE_PROPERTY, beforeClearConsult);
-            properties.put(AFTER_PROPERTY, afterClearConsult);
-            properties.put(END_PROPERTY, endConsult);
+            properties.put(CLEAR_PROPERTY, clearConsult);
             properties.put(STATS_PROPERTY, statistics);
             installedProperties = properties;
         }
@@ -220,15 +271,13 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         abortPending();
         currentRenderSystem = null;
         currentRenderer = null;
-        dirtyTextures.clear();
+        dropFrameCaches();
+        if (!dirtyTextures.isEmpty()) dirtyTextures.clear();
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null) {
             synchronized (properties) {
-                properties.remove(BEGIN_PROPERTY, beginConsult);
-                properties.remove(BEFORE_PROPERTY, beforeClearConsult);
-                properties.remove(AFTER_PROPERTY, afterClearConsult);
-                properties.remove(END_PROPERTY, endConsult);
+                properties.remove(CLEAR_PROPERTY, clearConsult);
                 properties.remove(STATS_PROPERTY, statistics);
             }
         }
@@ -257,233 +306,320 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
     /** Work and bandwidth counters; no per-frame timing is inferred from them. */
     public Map<String, Long> snapshot() {
         final Map<String, Long> map = new LinkedHashMap<>();
-        final long baseline = baselinePixels.get();
-        final long cleared = clearedPixels.get();
+        final long baseline = baselinePixels.sum();
+        final long cleared = clearedPixels.sum();
         final long saved = Math.max(0L, baseline - cleared);
         map.put("active", active.get() ? 1L : 0L);
         map.put("enabled", enabledByPreference() ? 1L : 0L);
-        map.put("clearPasses", clearPasses.get());
-        map.put("scissorPasses", scissorPasses.get());
-        map.put("fullClearPasses", fullClearPasses.get());
+        map.put("clearPasses", clearPasses.sum());
+        map.put("scissorPasses", scissorPasses.sum());
+        map.put("fullClearPasses", fullClearPasses.sum());
         map.put("clearedPixels", cleared);
         map.put("baselinePixels", baseline);
         map.put("savedPixels", saved);
         map.put("savedPermille", baseline == 0L ? 0L : (saved * 1000L) / baseline);
         map.put("trackedTextures", (long) dirtyTextures.size());
-        map.put("failures", failures.get());
+        map.put("cachedMeshes", (long) localBoundsByMesh.size());
+        map.put("cachedRects", (long) rectByMaskEntity.size());
+        map.put("failures", failures.sum());
         return Map.copyOf(map);
     }
 
-    private void onBegin(final Object renderSystem, final Object renderer) {
+    /**
+     * Entry of the woven mask pass, called through
+     * {@link ClipMaskDeduplicationBridge} on a deduplication miss.
+     *
+     * @param renderSystem host render system owning the pooled mask attachment
+     * @param renderer     clipped renderer whose mask pass is about to run
+     */
+    void beganPass(final Object renderSystem, final Object renderer) {
         if (!active.get()) return;
-        if (!enabledByPreference()) {
-            abortPending();
-            dirtyTextures.clear();
-            currentRenderSystem = null;
-            currentRenderer = null;
-            return;
-        }
-        if (pending != null) abortPending();
+        abortPending();
         currentRenderSystem = renderSystem;
         currentRenderer = renderer;
     }
 
-    private void onBeforeClear(final Object context) {
-        if (!active.get()) return;
-        if (!enabledByPreference()) {
-            abortPending();
-            dirtyTextures.clear();
-            return;
-        }
-        final Object renderSystem = currentRenderSystem;
-        final Object renderer = currentRenderer;
-        if (renderSystem == null || renderer == null || context == null) return;
-        if (pending != null) abortPending();
-        viewport[0] = 0;
-        viewport[1] = 0;
-        viewport[2] = 0;
-        viewport[3] = 0;
-
-        final PendingClear clear = new PendingClear();
-        pending = clear;
-        try {
-            final Object lease = renderSystemLeaseField.get(renderSystem);
-            if (lease == null) {
-                clear.invalidate = true;
-                return;
-            }
-            final Object gl = leaseGlMethod.invoke(lease);
-            final Object texture = leaseTextureMethod.invoke(lease);
-            if (gl == null || texture == null) {
-                clear.invalidate = true;
-                return;
-            }
-            final int textureWidth = ((Number) textureWidthMethod.invoke(texture)).intValue();
-            final int textureHeight = ((Number) textureHeightMethod.invoke(texture)).intValue();
-            final int textureGlName = ((Number) textureGlNameMethod.invoke(texture)).intValue();
-            glGetIntegervMethod.invoke(gl, GL_VIEWPORT, viewport, 0);
-            if (viewport[2] <= 0 || viewport[3] <= 0) {
-                clear.invalidate = true;
-                return;
-            }
-
-            final int[] currentRect = maskBounds(context, renderer);
-            if (currentRect == null) {
-                clear.invalidate = true;
-                return;
-            }
-
-            final DirtyTexture previous = dirtyTextures.get(texture);
-            final boolean reusable =
-                    previous != null && previous.matches(gl, textureGlName, textureWidth, textureHeight);
-            final int[] clearRect = new int[ClipMaskScissorGeometry.RECT_VALUES];
-            if (reusable) {
-                ClipMaskScissorGeometry.union(previous.rect, currentRect, clearRect);
-            } else {
-                ClipMaskScissorGeometry.copy(currentRect, clearRect);
-            }
-            final boolean full = !reusable || ClipMaskScissorGeometry.coversViewport(clearRect, viewport);
-
-            clear.gl = gl;
-            clear.texture = texture;
-            clear.textureGlName = textureGlName;
-            clear.textureWidth = textureWidth;
-            clear.textureHeight = textureHeight;
-            clear.currentRect = currentRect;
-            clear.baselinePixels = (long) viewport[2] * viewport[3];
-            clear.fullClear = full;
-
-            if (!full) {
-                if (!applyScissor(clear, gl, clearRect)) {
-                    clear.invalidate = true;
-                    return;
-                }
-                clear.clearPixels = ClipMaskScissorGeometry.area(clearRect);
-            } else {
-                clear.clearPixels = clear.baselinePixels;
-                if (!disableScissorForFullClear(clear, gl)) clear.invalidate = true;
-            }
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observeFailure(failure);
-            clear.invalidate = true;
-        }
-    }
-
-    private void onAfterClear() {
-        final PendingClear completed = pending;
-        if (completed == null) return;
-        pending = null;
-        try {
-            restoreScissor(completed);
-            if (completed.invalidate) {
-                if (completed.texture != null) dirtyTextures.remove(completed.texture);
-                countClear(0L, false);
-                return;
-            }
-            if (completed.texture != null && completed.currentRect != null) {
-                dirtyTextures.put(
-                        completed.texture,
-                        new DirtyTexture(
-                                completed.gl,
-                                completed.textureGlName,
-                                completed.textureWidth,
-                                completed.textureHeight,
-                                completed.currentRect));
-                trimStates();
-            }
-            countClear(completed.clearPixels, !completed.fullClear);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observeFailure(failure);
-        }
-    }
-
-    private void onEnd() {
-        if (pending != null) abortPending();
+    /** Normal exit of the woven mask pass. */
+    void endedPass() {
+        abortPending();
         currentRenderSystem = null;
         currentRenderer = null;
     }
 
-    private void countClear(final long cleared, final boolean scissored) {
-        clearPasses.incrementAndGet();
-        if (scissored) {
-            scissorPasses.incrementAndGet();
-            clearedPixels.addAndGet(cleared);
-            baselinePixels.addAndGet((long) viewport[2] * viewport[3]);
-            return;
-        }
-        fullClearPasses.incrementAndGet();
-        final long full = (long) viewport[2] * viewport[3];
-        clearedPixels.addAndGet(full);
-        baselinePixels.addAndGet(full);
+    /**
+     * Frame boundary: everything measured in this frame is pose- and camera-specific, so the
+     * memoized silhouettes, projected rectangles, camera matrices and the cached viewport are
+     * dropped here rather than trusted into a pan, zoom or model update.
+     */
+    void endedFrame() {
+        abortPending();
+        dropFrameCaches();
+        enabled = enabledByPreference();
     }
 
-    private int[] maskBounds(final Object context, final Object renderer) throws Exception {
-        final Object clipping = findClipping(renderer);
-        if (clipping == null) return null;
-        final Object masksResult = clippingValidMasksMethod.invoke(clipping);
-        if (!(masksResult instanceof Iterable<?> masks)) return null;
-
-        final Object camera = contextCameraMethod.invoke(context);
-        if (camera == null) return null;
-        final float[] projection = (float[]) matrixValuesMethod.invoke(cameraProjectionMethod.invoke(camera));
-        final float[] worldToCamera = (float[]) matrixValuesMethod.invoke(cameraWorldToCameraMethod.invoke(camera));
-        if (projection == null || worldToCamera == null) return null;
-
-        final int[] union = new int[ClipMaskScissorGeometry.RECT_VALUES];
-        boolean any = false;
-        for (final Object mask : masks) {
-            if (mask == null) continue;
-            final Object maskRenderer = entityRendererMethod.invoke(mask);
-            if (maskRenderer == null || !meshRendererType.isInstance(maskRenderer)) return null;
-            final int[] rect = rendererBounds(maskRenderer, projection, worldToCamera);
-            if (rect == null) return null;
-            if (!any) {
-                ClipMaskScissorGeometry.copy(rect, union);
-                any = true;
-            } else {
-                ClipMaskScissorGeometry.union(union, rect, union);
-            }
-        }
-        return any ? union : null;
-    }
-
-    private int[] rendererBounds(final Object renderer, final float[] projection, final float[] worldToCamera)
-            throws Exception {
-        final Object entity = rendererEntityMethod.invoke(renderer);
-        if (entity == null) return null;
-        final Object transform = entityTransformMethod.invoke(entity);
-        final float[] localToWorld;
-        if (transform == null) {
-            localToWorld = identity();
-        } else {
-            final Object matrix = transformLocalToWorldMethod.invoke(transform);
-            if (matrix == null) return null;
-            localToWorld = (float[]) matrixValuesMethod.invoke(matrix);
-        }
-        if (localToWorld == null) return null;
-
-        final Object container = meshContainerMethod.invoke(renderer);
-        if (container == null) return null;
-        final Object mesh = meshMethod.invoke(container);
-        if (mesh == null) return null;
-        final float[] positions = (float[]) meshPositionsMethod.invoke(mesh);
-        final int step = ((Number) meshStepMethod.invoke(mesh)).intValue();
-        if (!ClipMaskScissorGeometry.localBounds(positions, step, localBounds)) return null;
-        if (!ClipMaskScissorGeometry.projectBox(
-                localBounds, localToWorld, worldToCamera, projection, viewport, screenBox)) {
+    /**
+     * Woven consult immediately before the mask attachment's {@code glClear}.
+     *
+     * @param context host render context carrying the camera
+     * @return the restore action to run right after the clear, or {@code null} when the clear
+     *     must stay untouched
+     */
+    private Runnable beforeClear(final Object context) {
+        if (!active.get()) return null;
+        if (!enabled) {
+            abortPending();
+            if (!dirtyTextures.isEmpty()) dirtyTextures.clear();
             return null;
         }
-        final int[] rect = new int[ClipMaskScissorGeometry.RECT_VALUES];
-        ClipMaskScissorGeometry.screenToRect(screenBox, rect, viewport);
-        return rect;
+        final Object renderSystem = currentRenderSystem;
+        final Object renderer = currentRenderer;
+        if (renderSystem == null || renderer == null || context == null) return null;
+        abortPending();
+        pending.reset();
+        pendingActive = true;
+        try {
+            prepareClear(renderSystem, renderer, context);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            observeFailure(failure);
+            invalidatePending();
+        }
+        return afterClearAction;
     }
 
-    private Object findClipping(final Object renderer) throws Exception {
-        final Object entity = rendererEntityMethod.invoke(renderer);
+    private void prepareClear(final Object renderSystem, final Object renderer, final Object context) throws Throwable {
+        final Object lease = renderSystemLease.get(renderSystem);
+        if (lease == null) {
+            invalidatePending();
+            return;
+        }
+        final Object gl = leaseGl.invokeExact(lease);
+        final Object texture = leaseTexture.invokeExact(lease);
+        if (gl == null || texture == null) {
+            invalidatePending();
+            return;
+        }
+        final int width = (int) textureWidth.invokeExact(texture);
+        final int height = (int) textureHeight.invokeExact(texture);
+        final int glName = (int) textureGlName.invokeExact(texture);
+        pending.gl = gl;
+        pending.texture = texture;
+        pending.textureGlName = glName;
+        pending.textureWidth = width;
+        pending.textureHeight = height;
+
+        if (!ensureViewport(gl, width, height)) {
+            invalidatePending();
+            return;
+        }
+        pending.baselinePixels = (long) viewport[2] * viewport[3];
+        final int[] bounds = maskBounds(context, renderer);
+        if (bounds == null) {
+            invalidatePending();
+            return;
+        }
+        ClipMaskScissorGeometry.copy(bounds, pending.currentRect);
+
+        final DirtyTexture previous = dirtyTextures.get(texture);
+        final boolean reusable = previous != null && previous.matches(gl, glName, width, height);
+        if (reusable) {
+            ClipMaskScissorGeometry.union(previous.rect, bounds, clearRect);
+        } else {
+            ClipMaskScissorGeometry.copy(bounds, clearRect);
+        }
+        pending.fullClear = !reusable || ClipMaskScissorGeometry.coversViewport(clearRect, viewport);
+        if (pending.fullClear) {
+            pending.clearPixels = pending.baselinePixels;
+            if (!disableScissorForFullClear(gl)) invalidatePending();
+            return;
+        }
+        pending.clearPixels = ClipMaskScissorGeometry.area(clearRect);
+        if (!applyScissor(gl)) invalidatePending();
+    }
+
+    private void afterClear() {
+        if (!pendingActive) return;
+        pendingActive = false;
+        try {
+            restoreScissor();
+            if (pending.invalid) {
+                dropDirty(pending);
+                countClear(0L, false, pending.baselinePixels);
+                return;
+            }
+            rememberDirty();
+            countClear(pending.clearPixels, !pending.fullClear, pending.baselinePixels);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            observeFailure(failure);
+        }
+    }
+
+    private void countClear(final long cleared, final boolean scissored, final long baseline) {
+        clearPasses.increment();
+        if (scissored) {
+            scissorPasses.increment();
+            clearedPixels.add(cleared);
+            baselinePixels.add(baseline);
+            return;
+        }
+        fullClearPasses.increment();
+        clearedPixels.add(baseline);
+        baselinePixels.add(baseline);
+    }
+
+    /**
+     * Reads the driver's viewport once per mask-texture size and GL context per frame.
+     *
+     * <p>The rect math assumes the mask attachment's viewport matches the attachment, so a
+     * different render target (or a resized one) always re-reads. The frame boundary drops the
+     * cache as well, bounding any stale value to the frame it was read in.</p>
+     */
+    private boolean ensureViewport(final Object gl, final int width, final int height) throws Throwable {
+        if (viewportValid && viewportGl == gl && viewportTextureWidth == width && viewportTextureHeight == height) {
+            return true;
+        }
+        viewportValid = false;
+        viewport[0] = 0;
+        viewport[1] = 0;
+        viewport[2] = 0;
+        viewport[3] = 0;
+        glGetIntegerv.invokeExact(gl, GL_VIEWPORT, viewport, 0);
+        if (viewport[2] <= 0 || viewport[3] <= 0) {
+            viewport[2] = 0;
+            viewport[3] = 0;
+            return false;
+        }
+        viewportGl = gl;
+        viewportTextureWidth = width;
+        viewportTextureHeight = height;
+        viewportValid = true;
+        return true;
+    }
+
+    /**
+     * Unions the projected screen bounds of every mask of this pass.
+     *
+     * @return the shared {@link #currentRect} scratch, or {@code null} when any mask cannot be
+     *     projected and the caller has to keep the full clear
+     */
+    private int[] maskBounds(final Object context, final Object renderer) throws Throwable {
+        final Object clipping = clippingOf(renderer);
+        if (clipping == null) return null;
+        final Object masksValue = clippingValidMasks.invokeExact(clipping);
+        if (!(masksValue instanceof List<?> masks) || masks.isEmpty()) return null;
+        final Object camera = contextCamera.invokeExact(context);
+        if (camera == null) return null;
+        final float[][] matrices = cameraMatrices(camera);
+        if (matrices == null) return null;
+
+        boolean any = false;
+        for (final Object mask : masks) {
+            if (mask == null) return null;
+            if (!projectMask(mask, camera, matrices)) return null;
+            if (!any) {
+                ClipMaskScissorGeometry.copy(projectedRect, currentRect);
+                any = true;
+            } else {
+                ClipMaskScissorGeometry.union(currentRect, projectedRect, currentRect);
+            }
+        }
+        return any ? currentRect : null;
+    }
+
+    /**
+     * Projects one mask entity, reusing the rectangle already computed for it in this frame.
+     *
+     * <p>Writes {@link #projectedRect}. A mask silhouette is shared by every clipped renderer
+     * that names it, so this memo removes the repeated vertex scan and matrix work for the
+     * second and later mask sets of the same frame.</p>
+     */
+    private boolean projectMask(final Object mask, final Object camera, final float[][] matrices) throws Throwable {
+        final Object maskRenderer = entityRenderer.invokeExact(mask);
+        if (maskRenderer == null || !meshRendererType.isInstance(maskRenderer)) return false;
+        final ProjectedRect memo = rectByMaskEntity.get(maskRenderer);
+        if (memo != null && memo.camera == camera) {
+            ClipMaskScissorGeometry.copy(memo.rect, projectedRect);
+            return true;
+        }
+        if (!projectRenderer(maskRenderer, matrices)) return false;
+        if (memo == null) {
+            if (rectByMaskEntity.size() >= MAX_FRAME_ENTRIES) rectByMaskEntity.clear();
+            rectByMaskEntity.put(maskRenderer, new ProjectedRect(camera, projectedRect));
+        } else {
+            memo.camera = camera;
+            ClipMaskScissorGeometry.copy(projectedRect, memo.rect);
+        }
+        return true;
+    }
+
+    /** Projects one mask mesh renderer into {@link #projectedRect}. */
+    private boolean projectRenderer(final Object renderer, final float[][] matrices) throws Throwable {
+        final Object entity = rendererEntity.invokeExact(renderer);
+        if (entity == null) return false;
+        final Object transform = entityTransform.invokeExact(entity);
+        final float[] localToWorld;
+        if (transform == null) {
+            localToWorld = IDENTITY;
+        } else {
+            final Object matrix = transformLocalToWorld.invokeExact(transform);
+            if (matrix == null) return false;
+            localToWorld = (float[]) matrixValues.invokeExact(matrix);
+            if (localToWorld == null) return false;
+        }
+
+        final Object container = meshContainer.invokeExact(renderer);
+        if (container == null) return false;
+        final Object meshObject = mesh.invokeExact(container);
+        if (meshObject == null) return false;
+        final float[] bounds = localBoundsOf(meshObject);
+        if (bounds == null) return false;
+        if (!ClipMaskScissorGeometry.projectBox(bounds, localToWorld, matrices[1], matrices[0], viewport, screenBox)) {
+            return false;
+        }
+        ClipMaskScissorGeometry.screenToRect(screenBox, projectedRect, viewport);
+        return true;
+    }
+
+    /**
+     * Local-space bounds of a mask mesh, scanned at most once per mesh per frame.
+     *
+     * <p>The host deforms meshes during its model update, which completes before the scene is
+     * rendered, so a mesh's positions are fixed for the frame and the scan result can be reused
+     * by every mask pass that draws it.</p>
+     */
+    private float[] localBoundsOf(final Object meshObject) throws Throwable {
+        final float[] cached = localBoundsByMesh.get(meshObject);
+        if (cached != null) return cached;
+        final float[] positions = (float[]) meshPositions.invokeExact(meshObject);
+        if (positions == null) return null;
+        final int step = (int) meshStep.invokeExact(meshObject);
+        if (!ClipMaskScissorGeometry.localBounds(positions, step, localBounds)) return null;
+        final float[] bounds = localBounds.clone();
+        if (localBoundsByMesh.size() >= MAX_FRAME_ENTRIES) localBoundsByMesh.clear();
+        localBoundsByMesh.put(meshObject, bounds);
+        return bounds;
+    }
+
+    private float[][] cameraMatrices(final Object camera) throws Throwable {
+        final float[][] cached = matricesByCamera.get(camera);
+        if (cached != null) return cached;
+        final Object projection = cameraProjection.invokeExact(camera);
+        final Object worldToCamera = cameraWorldToCamera.invokeExact(camera);
+        if (projection == null || worldToCamera == null) return null;
+        final float[] projectionValues = (float[]) matrixValues.invokeExact(projection);
+        final float[] viewValues = (float[]) matrixValues.invokeExact(worldToCamera);
+        if (projectionValues == null || viewValues == null) return null;
+        final float[][] entry = {projectionValues, viewValues};
+        if (matricesByCamera.size() >= MAX_FRAME_ENTRIES) matricesByCamera.clear();
+        matricesByCamera.put(camera, entry);
+        return entry;
+    }
+
+    private Object clippingOf(final Object renderer) throws Throwable {
+        final Object entity = rendererEntity.invokeExact(renderer);
         if (entity == null) return null;
-        final Object components = entityComponentsMethod.invoke(entity);
+        final Object components = entityComponents.invokeExact(entity);
         if (!(components instanceof Iterable<?> iterable)) return null;
         for (final Object component : iterable) {
             if (clippingType.isInstance(component)) return component;
@@ -491,78 +627,92 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         return null;
     }
 
-    private boolean applyScissor(final PendingClear clear, final Object gl, final int[] rect) {
-        try {
-            clear.previousScissorEnabled = (Boolean) glIsEnabledMethod.invoke(gl, GL_SCISSOR_TEST);
-            if (clear.previousScissorEnabled) {
-                glGetIntegervMethod.invoke(gl, GL_SCISSOR_BOX, clear.previousBox, 0);
-            }
-            glEnableMethod.invoke(gl, GL_SCISSOR_TEST);
-            clear.scissorChanged = true;
-            glScissorMethod.invoke(gl, rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]);
-            return true;
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observeFailure(failure);
-            return false;
-        }
+    private boolean applyScissor(final Object gl) throws Throwable {
+        pending.previousScissorEnabled = (boolean) glIsEnabled.invokeExact(gl, GL_SCISSOR_TEST);
+        if (pending.previousScissorEnabled) glGetIntegerv.invokeExact(gl, GL_SCISSOR_BOX, pending.previousBox, 0);
+        glEnable.invokeExact(gl, GL_SCISSOR_TEST);
+        pending.scissorChanged = true;
+        glScissor.invokeExact(gl, clearRect[0], clearRect[1], clearRect[2] - clearRect[0], clearRect[3] - clearRect[1]);
+        return true;
     }
 
-    private boolean disableScissorForFullClear(final PendingClear clear, final Object gl) {
-        try {
-            clear.previousScissorEnabled = (Boolean) glIsEnabledMethod.invoke(gl, GL_SCISSOR_TEST);
-            if (!clear.previousScissorEnabled) return true;
-            glGetIntegervMethod.invoke(gl, GL_SCISSOR_BOX, clear.previousBox, 0);
-            glDisableMethod.invoke(gl, GL_SCISSOR_TEST);
-            clear.scissorChanged = true;
-            return true;
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observeFailure(failure);
-            return false;
-        }
+    private boolean disableScissorForFullClear(final Object gl) throws Throwable {
+        pending.previousScissorEnabled = (boolean) glIsEnabled.invokeExact(gl, GL_SCISSOR_TEST);
+        if (!pending.previousScissorEnabled) return true;
+        glGetIntegerv.invokeExact(gl, GL_SCISSOR_BOX, pending.previousBox, 0);
+        glDisable.invokeExact(gl, GL_SCISSOR_TEST);
+        pending.scissorChanged = true;
+        return true;
     }
 
-    private void restoreScissor(final PendingClear completed) throws Exception {
-        if (!completed.scissorChanged) return;
-        if (completed.previousScissorEnabled) {
-            glEnableMethod.invoke(completed.gl, GL_SCISSOR_TEST);
-            glScissorMethod.invoke(
-                    completed.gl,
-                    completed.previousBox[0],
-                    completed.previousBox[1],
-                    completed.previousBox[2],
-                    completed.previousBox[3]);
+    private void restoreScissor() throws Throwable {
+        if (!pending.scissorChanged) return;
+        final Object gl = pending.gl;
+        if (pending.previousScissorEnabled) {
+            glEnable.invokeExact(gl, GL_SCISSOR_TEST);
+            glScissor.invokeExact(
+                    gl, pending.previousBox[0], pending.previousBox[1], pending.previousBox[2], pending.previousBox[3]);
         } else {
-            glDisableMethod.invoke(completed.gl, GL_SCISSOR_TEST);
+            glDisable.invokeExact(gl, GL_SCISSOR_TEST);
         }
+    }
+
+    private void rememberDirty() {
+        final Object texture = pending.texture;
+        if (texture == null) return;
+        final DirtyTexture previous = dirtyTextures.get(texture);
+        if (previous != null
+                && previous.matches(pending.gl, pending.textureGlName, pending.textureWidth, pending.textureHeight)) {
+            ClipMaskScissorGeometry.copy(pending.currentRect, previous.rect);
+            return;
+        }
+        if (dirtyTextures.size() >= MAX_TEXTURE_STATES) dirtyTextures.clear();
+        dirtyTextures.put(
+                texture,
+                new DirtyTexture(
+                        pending.gl,
+                        pending.textureGlName,
+                        pending.textureWidth,
+                        pending.textureHeight,
+                        pending.currentRect));
+    }
+
+    private void dropDirty(final PendingClear clear) {
+        if (clear.texture == null) return;
+        // We do not know how far the interrupted pass got; a full clear next
+        // time is cheaper than trusting a dirty rectangle we could not update.
+        dirtyTextures.remove(clear.texture);
+    }
+
+    private void invalidatePending() {
+        pending.invalid = true;
     }
 
     private void abortPending() {
-        final PendingClear aborted = pending;
-        pending = null;
-        if (aborted == null) return;
-        if (aborted.texture != null) {
-            // We do not know how far the interrupted pass got; a full clear next
-            // time is cheaper than trusting a dirty rectangle we could not update.
-            dirtyTextures.remove(aborted.texture);
-        }
+        if (!pendingActive) return;
+        pendingActive = false;
+        final boolean changed = pending.scissorChanged;
+        pending.scissorChanged = false;
+        dropDirty(pending);
+        if (!changed) return;
         try {
-            restoreScissor(aborted);
+            restoreScissor();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
         }
     }
 
-    private void trimStates() {
-        if (dirtyTextures.size() <= MAX_TEXTURE_STATES) return;
-        dirtyTextures.clear();
+    private void dropFrameCaches() {
+        viewportValid = false;
+        if (!localBoundsByMesh.isEmpty()) localBoundsByMesh.clear();
+        if (!rectByMaskEntity.isEmpty()) rectByMaskEntity.clear();
+        if (!matricesByCamera.isEmpty()) matricesByCamera.clear();
     }
 
     private void observeFailure(final Throwable failure) {
         FatalErrors.rethrowIfFatal(failure);
-        failures.incrementAndGet();
+        failures.increment();
         if (!reportedFailure) {
             reportedFailure = true;
             final Throwable cause = failure instanceof java.lang.reflect.InvocationTargetException invoked
@@ -574,13 +724,22 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         }
     }
 
-    private static float[] identity() {
-        return new float[] {
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        };
+    private static final float[] IDENTITY = {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    /** One projected mask rectangle plus the camera it was projected with. */
+    private static final class ProjectedRect {
+        private Object camera;
+        private final int[] rect = new int[ClipMaskScissorGeometry.RECT_VALUES];
+
+        ProjectedRect(final Object camera, final int[] source) {
+            this.camera = camera;
+            ClipMaskScissorGeometry.copy(source, rect);
+        }
     }
 
     private static final class DirtyTexture {
@@ -590,12 +749,13 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         final int height;
         final int[] rect;
 
-        DirtyTexture(final Object gl, final int glTextureName, final int width, final int height, final int[] rect) {
+        DirtyTexture(final Object gl, final int glTextureName, final int width, final int height, final int[] source) {
             this.gl = gl;
             this.glTextureName = glTextureName;
             this.width = width;
             this.height = height;
-            this.rect = rect;
+            this.rect = new int[ClipMaskScissorGeometry.RECT_VALUES];
+            ClipMaskScissorGeometry.copy(source, this.rect);
         }
 
         boolean matches(final Object gl, final int glTextureName, final int width, final int height) {
@@ -603,19 +763,34 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         }
     }
 
+    /** Reused scratch for one mask clear, so the mask path allocates nothing per pass. */
     private static final class PendingClear {
+        final int[] currentRect = new int[ClipMaskScissorGeometry.RECT_VALUES];
+        final int[] previousBox = new int[4];
         Object gl;
         Object texture;
         int textureGlName;
         int textureWidth;
         int textureHeight;
-        int[] currentRect;
         long baselinePixels;
         long clearPixels;
         boolean fullClear;
-        boolean invalidate;
+        boolean invalid;
         boolean scissorChanged;
         boolean previousScissorEnabled;
-        final int[] previousBox = new int[4];
+
+        void reset() {
+            gl = null;
+            texture = null;
+            textureGlName = 0;
+            textureWidth = 0;
+            textureHeight = 0;
+            baselinePixels = 0L;
+            clearPixels = 0L;
+            fullClear = false;
+            invalid = false;
+            scissorChanged = false;
+            previousScissorEnabled = false;
+        }
     }
 }

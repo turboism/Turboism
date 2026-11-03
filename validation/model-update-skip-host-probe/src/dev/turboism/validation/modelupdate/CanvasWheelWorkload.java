@@ -48,6 +48,7 @@ final class CanvasWheelWorkload {
     private static final String CLIPMASK_STATS = "turboism.clip-mask-probe.stats";
     private static final String CLIPMASK_DEDUPE_STATS = "turboism.clip-mask-dedupe.stats";
     private static final String CLIPMASK_SCISSOR_STATS = "turboism.clip-mask-scissor.stats";
+    private static final String MESH_SETUP_STATS = "turboism.mesh-setup-elision.stats";
     private static final int WARMUP_PAIRS = 12;
     private static final int MEASURED_PAIRS = 100;
     // Calibration is diagnostic only. Its smaller sample count never satisfies acceptance.
@@ -328,6 +329,7 @@ final class CanvasWheelWorkload {
                 final Map<String, Long> clipMaskBefore = statsSlot(CLIPMASK_STATS);
                 final Map<String, Long> clipMaskDedupeBefore = statsSlot(CLIPMASK_DEDUPE_STATS);
                 final Map<String, Long> clipMaskScissorBefore = statsSlot(CLIPMASK_SCISSOR_STATS);
+                final Map<String, Long> meshSetupBefore = statsSlot(MESH_SETUP_STATS);
                 final Map<String, Long> inputPathBefore = inputPathStats();
                 final Map<String, Long> compositeBefore = compositeStats();
                 final long[] nanos = new long[measuredPairs * 2];
@@ -526,6 +528,15 @@ final class CanvasWheelWorkload {
                 for (String key : clipMaskDedupeAfter.keySet().stream().sorted().toList()) {
                     report.append(p).append("clipMaskDedupe.").append(key).append('=')
                         .append(clipMaskDedupeAfter.get(key) - clipMaskDedupeBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                final Map<String, Long> meshSetupAfter = statsSlot(MESH_SETUP_STATS);
+                for (String key : meshSetupAfter.keySet().stream().sorted().toList()) {
+                    final boolean gauge = key.equals("active") || key.equals("generation") || key.equals("trackedMeshes");
+                    report.append(p).append("meshSetupElision.").append(key).append('=')
+                        .append(gauge
+                            ? meshSetupAfter.get(key)
+                            : meshSetupAfter.get(key) - meshSetupBefore.getOrDefault(key, 0L))
                         .append('\n');
                 }
                 final Map<String, Long> clipMaskScissorAfter = statsSlot(CLIPMASK_SCISSOR_STATS);

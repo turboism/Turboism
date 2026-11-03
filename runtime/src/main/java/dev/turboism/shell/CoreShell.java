@@ -132,7 +132,7 @@ public final class CoreShell implements ShellHandle {
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "heavy-model", 61)));
+                                localization(context), "heavy-model", 60)));
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
@@ -212,6 +212,11 @@ public final class CoreShell implements ShellHandle {
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createUploadElisionToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createMeshSetupElisionToggle(
                                 localization(context), services.cubismJvmSettings())));
         context.disposableScope()
                 .register(context.services()

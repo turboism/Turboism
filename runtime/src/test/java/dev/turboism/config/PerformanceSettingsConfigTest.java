@@ -57,7 +57,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(29, Field.values().length);
+        assertEquals(30, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(
@@ -90,7 +90,7 @@ class PerformanceSettingsConfigTest {
                     service.startupReduceAutoBackup(), "editing preferences must not mutate this session's request");
             var statuses = service.performanceStatuses().stream()
                     .collect(Collectors.toMap(CubismJvmSettingsService.PerformanceStatus::key, s -> s));
-            assertEquals(29, statuses.size());
+            assertEquals(30, statuses.size());
             var atlas = statuses.get("atlasCacheReuse");
             assertEquals("true", atlas.saved());
             assertEquals("false", atlas.requested());
