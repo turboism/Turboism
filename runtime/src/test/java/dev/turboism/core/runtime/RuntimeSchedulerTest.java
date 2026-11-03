@@ -322,5 +322,4 @@ class RuntimeSchedulerTest {
             throw new AssertionError(exception);
         }
     }
-
 }

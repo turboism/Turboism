@@ -29,6 +29,7 @@ final class PreviewPluginDiscovery {
     private static final String CUBISM_VERSIONS_PATH = "META-INF/turboism/cubism-versions.json";
     /** Never-shipped schema-v5 embedded contract artifact directory. */
     private static final String CONTRACT_DIRECTORY = "META-INF/turboism/contracts/";
+
     private static final PluginVersion TURBOISM_API_VERSION =
             FrameworkBuildInfo.current().apiVersion();
 

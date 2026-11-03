@@ -48,9 +48,7 @@ class RuntimeMenuRegistryPermissionTest {
     private RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return scheduler;
     }
 

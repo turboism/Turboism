@@ -112,9 +112,7 @@ class RuntimeActionRegistryTest {
         problems.clear();
         final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK), events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
         final AtomicReference<ActionInvocationEvent> observed = new AtomicReference<>();
@@ -202,9 +200,7 @@ class RuntimeActionRegistryTest {
         problems.clear();
         List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK), events::add);
         return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, PermissionChecker.allowAll());
     }
 

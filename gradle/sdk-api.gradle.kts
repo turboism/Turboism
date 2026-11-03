@@ -8,10 +8,6 @@ val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
 }
 
-// gradle/verification.gradle.kts iterates this list from the release gate. Historical
-// anchors were removed; the property stays (empty) so the release gate keeps evaluating.
-extensions.extraProperties["sdkExactCompatibilityCheckTasks"] = emptyList<Any>()
-
 val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs deterministic SDK API baseline mutation and compatibility selftests."

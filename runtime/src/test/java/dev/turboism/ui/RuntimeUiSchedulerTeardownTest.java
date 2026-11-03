@@ -9,14 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -189,5 +186,4 @@ class RuntimeUiSchedulerTeardownTest {
         SwingUtilities.invokeLater(drained::countDown);
         assertTrue(drained.await(5, TimeUnit.SECONDS), "EDT must drain");
     }
-
 }

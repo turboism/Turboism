@@ -12,7 +12,7 @@
 #
 # The paths that actually need care (persisted formats, migration gates, API
 # baselines, verification wiring) are named in ARCHITECTURE_GOVERNANCE.md and are
-# enforced by gates, not by a routing table: gate removal is caught by
-# `checkGateWiringSelfTest`, not by a reviewer ping.
+# enforced by gates, not by a routing table: centralized gate wiring is checked by
+# `scripts/test/test_ci_coverage.py`, not by a reviewer ping.
 
 *                                   @RainTrap341

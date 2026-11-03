@@ -544,8 +544,7 @@ class LocalPluginRuntimeCloseTest {
     void unloadReclaimsPluginExecutorAndNextExecutorIsFresh() throws Exception {
         final PluginWorkExecutorRegistry registry =
                 new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC());
-        final RuntimeScheduler scheduler =
-                new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, ignored -> {});
+        final RuntimeScheduler scheduler = new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, ignored -> {});
         final HostSession hostSession = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(temporary.resolve("exec-reclaim.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(temporary, scheduler, hostSession, log);

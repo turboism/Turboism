@@ -274,7 +274,7 @@ class NightlyWorkflowTest(unittest.TestCase):
         self.assertNotIn('sdkBaselineAnchors', verifier)
         self.assertNotIn('verify-exact', verifier)
         self.assertFalse((ROOT / 'sdk/api-contracts/baselines').exists())
-        self.assertIn('sdkExactCompatibilityCheckTasks', verifier)
+        self.assertNotIn('sdkExactCompatibilityCheckTasks', verifier)
 
     def test_nightly_publishing_does_not_replace_stable_or_call_legacy(self):
         text=(ROOT/'scripts/release/turboism_release/prerelease.py').read_text()

@@ -356,8 +356,7 @@ class RuntimePluginConfigRegistryTest {
             RuntimeFailureCollector failures,
             java.util.concurrent.ExecutorService io) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        scheduler = new RuntimeScheduler(
-                policy, new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
+        scheduler = new RuntimeScheduler(policy, new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return io == null
                 ? new RuntimePluginConfigRegistry(
                         permissionChecker,
@@ -380,9 +379,7 @@ class RuntimePluginConfigRegistryTest {
             final Path dataDir, final CountDownLatch reached, final CountDownLatch release) {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new RecordingPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                events::add);
+                new RecordingPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return new RuntimePluginConfigRegistry(
                 (permissionId, operation) -> {},
                 scheduler,

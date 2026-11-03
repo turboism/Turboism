@@ -36,7 +36,7 @@ past incident with a date. "It would be good practice" is not a citation, and a
 gate that cannot name its harm gets removed rather than maintained. All aggregate
 gates are wired in exactly one file, `gradle/verification.gradle.kts`; a new
 task registered anywhere else is either a leaf helper or a wiring mistake, and
-`checkGateWiringSelfTest` asserts the aggregate stays complete.
+`scripts/test/test_ci_coverage.py` asserts the centralized aggregate declarations stay complete.
 
 Review routing follows from the same reasoning: `.github/CODEOWNERS` is a single
 default rule because a per-path table of the same owner carries no information.
@@ -142,9 +142,8 @@ state and signed update receipts.
 `devCheck` runs `checkArchitectureRules`, `checkGoldenSnapshotManifest` and the
 focused JUnit golden test; `checkCompletedCommit` and `checkRelease` run
 the static checks as well, and the normal runtime test suite includes the golden
-JUnit class. Both static gates depend on their own fail-closed selftests, and
-`checkGateWiringSelfTest` asserts they stay aggregated and documented, so a gate
-cannot be dropped by deleting one `dependsOn` line.
+JUnit class. `scripts/test/test_ci_coverage.py` asserts they stay aggregated in
+`gradle/verification.gradle.kts`, so a gate cannot be dropped silently.
 
 `.github/CODEOWNERS` is a single default rule for the sole maintainer. Ownership
 of persistence formats, migrations, API baselines, verification wiring and the

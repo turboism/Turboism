@@ -243,10 +243,7 @@ class RuntimeMainToolbarRegistryTest {
 
     private RuntimeScheduler scheduler(RecordingPolicy policy) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        scheduler = new RuntimeScheduler(
-                policy,
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                events::add);
+        scheduler = new RuntimeScheduler(policy, new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return scheduler;
     }
 

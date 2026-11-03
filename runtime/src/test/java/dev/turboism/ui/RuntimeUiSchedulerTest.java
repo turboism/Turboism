@@ -17,8 +17,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -406,5 +404,4 @@ class RuntimeUiSchedulerTest {
         }
         throw new AssertionError("Missing plugin work budget event phase " + phase + " in " + events);
     }
-
 }
