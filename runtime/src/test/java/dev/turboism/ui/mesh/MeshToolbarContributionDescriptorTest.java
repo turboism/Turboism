@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
+import dev.turboism.ui.contribution.MeshToolbarContributionDescriptor;
+import dev.turboism.ui.contribution.MeshToolbarSliderContributionDescriptor;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;

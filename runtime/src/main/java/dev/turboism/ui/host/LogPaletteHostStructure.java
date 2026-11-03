@@ -1,4 +1,4 @@
-package dev.turboism.ui.palette;
+package dev.turboism.ui.host;
 
 import java.awt.BorderLayout;
 import java.awt.Component;

@@ -136,8 +136,8 @@ def contract_constants() -> dict[str, dict[str, object]]:
 
 
 _RUNTIME_CONTRACT_FILES = (
-    "dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
-    "dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java",
+    "dev/turboism/mapping/selector/MeshToolSessionSelectorContract.java",
+    "dev/turboism/mapping/selector/ModelingSelectionSelectorContract.java",
 )
 
 
