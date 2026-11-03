@@ -47,6 +47,7 @@ final class CanvasWheelWorkload {
     // these keys document the mask/group cost of the measured legs.
     private static final String CLIPMASK_STATS = "turboism.clip-mask-probe.stats";
     private static final String CLIPMASK_DEDUPE_STATS = "turboism.clip-mask-dedupe.stats";
+    private static final String CLIPMASK_SCISSOR_STATS = "turboism.clip-mask-scissor.stats";
     private static final int WARMUP_PAIRS = 12;
     private static final int MEASURED_PAIRS = 100;
     // Calibration is diagnostic only. Its smaller sample count never satisfies acceptance.
@@ -326,6 +327,7 @@ final class CanvasWheelWorkload {
                 final Map<String, Long> uniformHookBefore = statsSlot(UNIFORM_STATS);
                 final Map<String, Long> clipMaskBefore = statsSlot(CLIPMASK_STATS);
                 final Map<String, Long> clipMaskDedupeBefore = statsSlot(CLIPMASK_DEDUPE_STATS);
+                final Map<String, Long> clipMaskScissorBefore = statsSlot(CLIPMASK_SCISSOR_STATS);
                 final Map<String, Long> inputPathBefore = inputPathStats();
                 final Map<String, Long> compositeBefore = compositeStats();
                 final long[] nanos = new long[measuredPairs * 2];
@@ -525,6 +527,31 @@ final class CanvasWheelWorkload {
                     report.append(p).append("clipMaskDedupe.").append(key).append('=')
                         .append(clipMaskDedupeAfter.get(key) - clipMaskDedupeBefore.getOrDefault(key, 0L))
                         .append('\n');
+                }
+                final Map<String, Long> clipMaskScissorAfter = statsSlot(CLIPMASK_SCISSOR_STATS);
+                for (String key : clipMaskScissorAfter.keySet().stream().sorted().toList()) {
+                    if (key.equals("savedPermille")) continue;
+                    final boolean gauge = key.equals("active") || key.equals("enabled")
+                        || key.equals("trackedTextures");
+                    report.append(p).append("clipMaskScissor.").append(key).append('=')
+                        .append(gauge
+                            ? clipMaskScissorAfter.get(key)
+                            : clipMaskScissorAfter.get(key) - clipMaskScissorBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                final long scissorBaseline = clipMaskScissorAfter.getOrDefault("baselinePixels", 0L)
+                    - clipMaskScissorBefore.getOrDefault("baselinePixels", 0L);
+                final long scissorCleared = clipMaskScissorAfter.getOrDefault("clearedPixels", 0L)
+                    - clipMaskScissorBefore.getOrDefault("clearedPixels", 0L);
+                if (scissorBaseline > 0L) {
+                    report.append(p).append("clipMaskScissor.savedPermille=")
+                        .append((scissorBaseline - scissorCleared) * 1000L / scissorBaseline).append('\n');
+                    if (clipMaskFrames > 0L) {
+                        report.append(p).append("clipMaskScissor.clearedPixelsPerRenderedFrame=")
+                            .append((double) scissorCleared / clipMaskFrames).append('\n')
+                            .append(p).append("clipMaskScissor.savedPixelsPerRenderedFrame=")
+                            .append((double) (scissorBaseline - scissorCleared) / clipMaskFrames).append('\n');
+                    }
                 }
                 if (uniformTrial != null) {
                     long completed = uniformTrial.snapshot().get("completedDisplayFrames")

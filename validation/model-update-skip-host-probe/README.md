@@ -1486,7 +1486,9 @@ to `renderFramesPerSecond`, plus the derived
 `leg.N.clipMask.{maskPasses,maskPathNanos,groupPasses}PerRenderedFrame`. Counter
 keys are leg deltas; `clipMask.active` is the absolute gauge. When the probe is
 not installed the keys are simply absent. The generic performance probe also
-writes the same reading into its JSON report as a `clipMask` block.
+writes the same reading into its JSON report as a `clipMask` block. The wheel
+workload additionally emits `leg.N.clipMaskScissor.*` deltas and
+`clipMaskScissor.savedPermille` when the scissor bridge is installed.
 
 **Activation on native Windows.** The installed managed launcher builds its JVM
 option line from `config.json` and does not forward inherited
@@ -1518,6 +1520,33 @@ when both are present the property wins and the install marker records
 also reports `owners=` (already woven) and `pending=` (owners that load with the
 modeling document; they are woven on load, so a `pending` entry at install time is
 expected, not a failure).
+
+
+### Scissor-limited clipping-mask clears
+
+The production `cubism.render.clip-mask-dedupe` hook also carries the
+scissor-limited mask clear. It is admitted by the same
+`-Dturboism.optimization.clipMaskDeduplication=true` (or
+`-Dturboism.validation.clipMaskDeduplication=true`) request and is enabled by
+default with that hook. `-Dturboism.optimization.clipMaskScissorClear=false`
+keeps deduplication but restores the original full-attachment mask clear.
+
+Before the mask pass clears its pooled grayscale attachment, the woven consult
+projects every mask mesh into the current viewport and unions the result with
+that texture's previous dirty rectangle. The clear is narrowed with
+`glEnable(GL_SCISSOR_TEST)` + `glScissor`, then the prior scissor state is
+restored immediately after `glClear`. A texture's first use, a GL-name/size
+change, an unusable transform, or any observer failure falls back to the
+original full clear. The dirty rectangle is updated only after the clear and is
+dropped when the pass cannot complete, so a pooled texture is never assumed
+clean.
+
+The performance probe report gains a `clipMaskScissor` block whenever the
+bridge is installed: `clearPasses`, `scissorPasses`, `fullClearPasses`,
+`clearedPixels`, `baselinePixels`, `savedPixels` and `savedPermille` (saved
+mask-clear fill in parts per thousand). The same readings are logged at hook
+close as `scissor.*` keys. These are fill/bandwidth counters, not frame-time
+measurements; they prove the cleared texel area, not a wall-clock speedup.
 
 **Reading the result.** With a mask-heavy model on a large canvas,
 `dedupeSavings / maskPasses` is the same-frame dedupe headroom, and

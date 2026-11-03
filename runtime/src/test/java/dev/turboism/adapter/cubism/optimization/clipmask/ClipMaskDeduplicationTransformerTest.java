@@ -27,6 +27,8 @@ final class ClipMaskDeduplicationTransformerTest {
 
     private static final String RENDER_SYSTEM = "com/live2d/graphics3d/rendering/e";
     private static final String RENDER_DESC = "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;ZZ)V";
+    private static final String GL3 = "com/jogamp/opengl/GL3";
+    private static final String FAKE_GL = "com/live2d/test/FakeGl";
 
     private Path artifact;
     private TestLoader loader;
@@ -57,6 +59,10 @@ final class ClipMaskDeduplicationTransformerTest {
         System.getProperties().remove(ClipMaskDeduplicationBridge.RECORD_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.RELEASE_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
+        System.getProperties().remove(ClipMaskScissorBridge.BEGIN_PROPERTY);
+        System.getProperties().remove(ClipMaskScissorBridge.BEFORE_PROPERTY);
+        System.getProperties().remove(ClipMaskScissorBridge.AFTER_PROPERTY);
+        System.getProperties().remove(ClipMaskScissorBridge.END_PROPERTY);
         try {
             Files.deleteIfExists(artifact);
         } catch (Exception ignored) {
@@ -70,6 +76,8 @@ final class ClipMaskDeduplicationTransformerTest {
                 "com/live2d/graphics3d/component/AGRenderer", plainClass("com/live2d/graphics3d/component/AGRenderer"));
         loader.define("com/live2d/graphics3d/a", plainClass("com/live2d/graphics3d/a"));
         loader.define("com/live2d/type/CRect", plainClass("com/live2d/type/CRect"));
+        loader.define(GL3, glInterface());
+        loader.define(FAKE_GL, fakeGl());
 
         final byte[] renderSystemBytes = buildSyntheticRenderSystem();
         final Map<String, byte[]> references = Map.of(RENDER_SYSTEM, renderSystemBytes);
@@ -137,6 +145,127 @@ final class ClipMaskDeduplicationTransformerTest {
         assertTrue(frameEnded.get(), "Frame cleanup must be executed at exit of render method");
     }
 
+    @Test
+    void scissorConsultsWrapTheMaskClear() throws Exception {
+        loader.define(
+                "com/live2d/graphics3d/component/AGRenderer", plainClass("com/live2d/graphics3d/component/AGRenderer"));
+        loader.define("com/live2d/graphics3d/a", plainClass("com/live2d/graphics3d/a"));
+        loader.define("com/live2d/type/CRect", plainClass("com/live2d/type/CRect"));
+        loader.define(GL3, glInterface());
+        loader.define(FAKE_GL, fakeGl());
+
+        final byte[] renderSystemBytes = buildSyntheticRenderSystem();
+        final ClipMaskDeduplicationTransformer transformer = new ClipMaskDeduplicationTransformer(
+                loader, artifact, RENDER_SYSTEM, RENDER_DESC, Map.of(RENDER_SYSTEM, renderSystemBytes));
+        final byte[] transformedSystem =
+                transformer.transform(null, loader, RENDER_SYSTEM, null, loader.domain, renderSystemBytes);
+        assertNotNull(transformedSystem);
+
+        final Class<?> systemClass = loader.define(RENDER_SYSTEM, transformedSystem);
+        final Object system = systemClass.getConstructor().newInstance();
+        final java.lang.reflect.Method maskMethod = systemClass.getDeclaredMethod(
+                "a",
+                loader.loadClass("com.live2d.graphics3d.component.AGRenderer"),
+                loader.loadClass("com.live2d.graphics3d.a"),
+                loader.loadClass("com.live2d.type.CRect"));
+        maskMethod.setAccessible(true);
+
+        final java.util.List<String> order = new java.util.ArrayList<>();
+        System.getProperties()
+                .put(ClipMaskScissorBridge.BEGIN_PROPERTY, (BiConsumer<Object, Object>) (systemArg, renderer) -> {
+                    assertNotNull(systemArg);
+                    assertNotNull(renderer);
+                    order.add("begin");
+                });
+        System.getProperties()
+                .put(ClipMaskScissorBridge.BEFORE_PROPERTY, (java.util.function.Consumer<Object>) context -> {
+                    assertNotNull(context);
+                    order.add("before");
+                });
+        System.getProperties().put(ClipMaskScissorBridge.AFTER_PROPERTY, (Runnable) () -> order.add("after"));
+        System.getProperties().put(ClipMaskScissorBridge.END_PROPERTY, (Runnable) () -> order.add("end"));
+
+        final Object renderer = loader.loadClass("com.live2d.graphics3d.component.AGRenderer")
+                .getConstructor()
+                .newInstance();
+        final Object context =
+                loader.loadClass("com.live2d.graphics3d.a").getConstructor().newInstance();
+        maskMethod.invoke(system, renderer, context, null);
+
+        assertEquals(java.util.List.of("begin", "before", "after", "end"), order);
+    }
+
+    @Test
+    void throwingScissorConsultDoesNotSkipTheClearOrExit() throws Exception {
+        loader.define(
+                "com/live2d/graphics3d/component/AGRenderer", plainClass("com/live2d/graphics3d/component/AGRenderer"));
+        loader.define("com/live2d/graphics3d/a", plainClass("com/live2d/graphics3d/a"));
+        loader.define("com/live2d/type/CRect", plainClass("com/live2d/type/CRect"));
+        loader.define(GL3, glInterface());
+        loader.define(FAKE_GL, fakeGl());
+
+        final byte[] renderSystemBytes = buildSyntheticRenderSystem();
+        final ClipMaskDeduplicationTransformer transformer = new ClipMaskDeduplicationTransformer(
+                loader, artifact, RENDER_SYSTEM, RENDER_DESC, Map.of(RENDER_SYSTEM, renderSystemBytes));
+        final byte[] transformedSystem =
+                transformer.transform(null, loader, RENDER_SYSTEM, null, loader.domain, renderSystemBytes);
+        final Class<?> systemClass = loader.define(RENDER_SYSTEM, transformedSystem);
+        final Object system = systemClass.getConstructor().newInstance();
+        final java.lang.reflect.Method maskMethod = systemClass.getDeclaredMethod(
+                "a",
+                loader.loadClass("com.live2d.graphics3d.component.AGRenderer"),
+                loader.loadClass("com.live2d.graphics3d.a"),
+                loader.loadClass("com.live2d.type.CRect"));
+        maskMethod.setAccessible(true);
+
+        final AtomicInteger after = new AtomicInteger();
+        final AtomicInteger end = new AtomicInteger();
+        System.getProperties()
+                .put(ClipMaskScissorBridge.BEFORE_PROPERTY, (java.util.function.Consumer<Object>) context -> {
+                    throw new IllegalStateException("consult failed");
+                });
+        System.getProperties().put(ClipMaskScissorBridge.AFTER_PROPERTY, (Runnable) after::incrementAndGet);
+        System.getProperties().put(ClipMaskScissorBridge.END_PROPERTY, (Runnable) end::incrementAndGet);
+
+        final Object renderer = loader.loadClass("com.live2d.graphics3d.component.AGRenderer")
+                .getConstructor()
+                .newInstance();
+        final Object context =
+                loader.loadClass("com.live2d.graphics3d.a").getConstructor().newInstance();
+        maskMethod.invoke(system, renderer, context, null);
+
+        assertEquals(1, after.get(), "the clear still runs and its after consult executes");
+        assertEquals(1, end.get(), "the normal return still runs the end consult");
+    }
+
+    private static byte[] glInterface() {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(V17, ACC_PUBLIC | ACC_ABSTRACT | ACC_INTERFACE, GL3, null, "java/lang/Object", null);
+        final MethodVisitor clear = writer.visitMethod(ACC_PUBLIC | ACC_ABSTRACT, "glClear", "(I)V", null, null);
+        clear.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] fakeGl() {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(V17, ACC_PUBLIC | ACC_SUPER, FAKE_GL, null, "java/lang/Object", new String[] {GL3});
+        final MethodVisitor constructor = writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+        constructor.visitCode();
+        constructor.visitVarInsn(ALOAD, 0);
+        constructor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        constructor.visitInsn(RETURN);
+        constructor.visitMaxs(1, 1);
+        constructor.visitEnd();
+        final MethodVisitor clear = writer.visitMethod(ACC_PUBLIC, "glClear", "(I)V", null, null);
+        clear.visitCode();
+        clear.visitInsn(RETURN);
+        clear.visitMaxs(0, 2);
+        clear.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
     private static byte[] buildSyntheticRenderSystem() {
         final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         cw.visit(V17, ACC_PUBLIC, RENDER_SYSTEM, null, "java/lang/Object", null);
@@ -158,9 +287,13 @@ final class ClipMaskDeduplicationTransformerTest {
                 null,
                 null);
         mask.visitCode();
-        mask.visitInsn(NOP);
+        mask.visitTypeInsn(NEW, FAKE_GL);
+        mask.visitInsn(DUP);
+        mask.visitMethodInsn(INVOKESPECIAL, FAKE_GL, "<init>", "()V", false);
+        mask.visitIntInsn(SIPUSH, 16384);
+        mask.visitMethodInsn(INVOKEINTERFACE, GL3, "glClear", "(I)V", true);
         mask.visitInsn(RETURN);
-        mask.visitMaxs(1, 4);
+        mask.visitMaxs(3, 4);
         mask.visitEnd();
 
         // a(AGRenderer, a)V

@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationBridge;
+import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
 
 /**
  * Contributor for the zero-quality-loss clipping-mask deduplication optimization.
@@ -29,9 +30,14 @@ final class ClipMaskDeduplicationHookContributor extends NativeOptimizationHookC
         installer.install();
         log(
                 environment,
-                id() + " dedupe=ACTIVE sites=" + installer.sites()
+                id() + " dedupe=ACTIVE scissor="
+                        + (installer.scissorFailure() != null
+                                ? "REFUSED"
+                                : ClipMaskScissorBridge.enabledByPreference() ? "ACTIVE" : "DISABLED")
+                        + " sites=" + installer.sites()
                         + " version=" + installer.cubismVersion()
-                        + (installer.failure() == null ? "" : " refused=" + installer.failure()));
+                        + (installer.failure() == null ? "" : " refused=" + installer.failure())
+                        + (installer.scissorFailure() == null ? "" : " scissorRefused=" + installer.scissorFailure()));
         return () -> {
             final java.util.Map<String, Long> stats = installer.snapshot();
             installer.close();

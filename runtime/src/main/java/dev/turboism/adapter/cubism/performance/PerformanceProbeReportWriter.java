@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.performance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -108,6 +109,10 @@ public final class PerformanceProbeReportWriter {
         final Map<String, Long> clipMask = ClipMaskProbeBridge.installedSnapshot();
         if (!clipMask.isEmpty()) {
             report.put("clipMask", new LinkedHashMap<>(clipMask));
+        }
+        final Map<String, Long> clipMaskScissor = ClipMaskScissorBridge.installedSnapshot();
+        if (!clipMaskScissor.isEmpty()) {
+            report.put("clipMaskScissor", new LinkedHashMap<>(clipMaskScissor));
         }
         if (images)
             report.put(

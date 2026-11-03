@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationBridge;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTarget;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTransformer;
+import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.Instrumentation;
@@ -28,6 +29,8 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
     private final Set<String> owners;
     private final ClipMaskDeduplicationTransformer transformer;
     private final ClipMaskDeduplicationBridge bridge;
+    private ClipMaskScissorBridge scissorBridge;
+    private String scissorFailure;
     private final Set<Class<?>> retransformed = new LinkedHashSet<>();
     private boolean installed;
     private boolean restored;
@@ -60,11 +63,29 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
         transformer =
                 new ClipMaskDeduplicationTransformer(loader, artifact, renderSystemOwner, renderMethodDesc, references);
         bridge = new ClipMaskDeduplicationBridge(loader, cubismVersion);
+        try {
+            scissorBridge = new ClipMaskScissorBridge(loader, cubismVersion);
+        } catch (Exception | LinkageError refused) {
+            scissorFailure = refused.toString();
+        }
     }
 
     synchronized void install() throws Exception {
         if (installed) return;
         bridge.install();
+        if (scissorBridge != null) {
+            try {
+                scissorBridge.install();
+            } catch (Exception | LinkageError refused) {
+                scissorFailure = refused.toString();
+                try {
+                    scissorBridge.close();
+                } catch (Exception | LinkageError ignored) {
+                    // The bridge refused installation before owning any slot.
+                }
+                scissorBridge = null;
+            }
+        }
         try {
             instrumentation.addTransformer(transformer, true);
             retransformIfLoaded();
@@ -107,8 +128,18 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
         return transformer.failure();
     }
 
+    String scissorFailure() {
+        return scissorFailure;
+    }
+
     Map<String, Long> snapshot() {
-        return bridge.snapshot();
+        final Map<String, Long> merged = new LinkedHashMap<>(bridge.snapshot());
+        if (scissorBridge != null) {
+            scissorBridge.snapshot().forEach((key, value) -> merged.put("scissor." + key, value));
+        } else {
+            merged.put("scissor.active", 0L);
+        }
+        return Map.copyOf(merged);
     }
 
     @Override
@@ -122,8 +153,12 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
                 retransformed.clear();
             }
         } finally {
-            bridge.close();
-            installed = false;
+            try {
+                if (scissorBridge != null) scissorBridge.close();
+            } finally {
+                bridge.close();
+                installed = false;
+            }
         }
     }
 }
