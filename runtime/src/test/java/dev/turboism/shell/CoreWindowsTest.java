@@ -187,6 +187,7 @@ class CoreWindowsTest {
                 "float-array-parse-cache",
                 "texture-upload-preparation",
                 "warp-position-projection",
+                "reinit-pair-elision",
                 "cubism-disable-auto-backup",
                 "cubism-zgc",
                 "cubism-jvm",

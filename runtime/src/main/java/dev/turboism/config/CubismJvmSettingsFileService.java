@@ -305,6 +305,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean reinitPairElision() {
+        return optimization("reinitPairElision");
+    }
+
+    @Override
+    public boolean saveReinitPairElision(final boolean value) {
+        return saveOptimization("reinitPairElision", value);
+    }
+
+    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }

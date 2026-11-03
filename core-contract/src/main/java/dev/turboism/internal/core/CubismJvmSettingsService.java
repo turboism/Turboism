@@ -284,6 +284,16 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /** Launcher preference: remove transient Pair allocations during model reinitialization. Off by default. */
+    default boolean reinitPairElision() {
+        return false;
+    }
+
+    /** Persists the reinit Pair-elision preference; installation changes require restart. */
+    default boolean saveReinitPairElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /**
      * Experimental launcher preference: explicit true adds
      * {@code -Dturboism.optimization.incrementalUpdate=true} on the next managed

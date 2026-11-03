@@ -110,7 +110,7 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(24, context.uiHost().settingsContributions().size());
+        assertEquals(26, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
                         "cubism-graalvm-path",
@@ -121,6 +121,7 @@ class CoreShellTest {
                         "cubism-memory-profile-note",
                         "model-update-skip",
                         "incremental-update",
+                        "incremental-update-affecters",
                         "uniform-location-cache",
                         "upload-elision",
                         "input-path-elision",
@@ -132,6 +133,7 @@ class CoreShellTest {
                         "float-array-parse-cache",
                         "texture-upload-preparation",
                         "warp-position-projection",
+                        "reinit-pair-elision",
                         "performance-restart-note",
                         "mesh-triangulation-hash",
                         "triangulation-edge-index",

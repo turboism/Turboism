@@ -47,6 +47,7 @@ final class CubismJvmSettingsContribution {
                     case "float-array-parse-cache" -> "settings.optimization.float-array-parse-cache.tooltip";
                     case "texture-upload-preparation" -> "settings.optimization.texture-upload-preparation.tooltip";
                     case "warp-position-projection" -> "settings.optimization.warp-position-projection.tooltip";
+                    case "reinit-pair-elision" -> "settings.optimization.reinit-pair-elision.tooltip";
                     case "cubism-disable-auto-backup" -> "settings.cubism-jvm.disable-auto-backup.tooltip";
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
@@ -477,6 +478,23 @@ final class CubismJvmSettingsContribution {
                     return value;
                 },
                 93);
+    }
+
+    static SettingsContribution createReinitPairElisionToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "reinit-pair-elision",
+                "settings.optimization.reinit-pair-elision",
+                settings::reinitPairElision,
+                value -> {
+                    if (settings.saveReinitPairElision(value) != value) {
+                        throw new IllegalStateException("Reinit Pair-elision preference was not saved");
+                    }
+                    return value;
+                },
+                94);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

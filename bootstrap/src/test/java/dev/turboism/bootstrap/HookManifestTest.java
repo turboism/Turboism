@@ -47,6 +47,7 @@ final class HookManifestTest {
                         DeferredGlErrorCheckHookContributor.class,
                         RedundantStateElisionHookContributor.class,
                         MatrixScratchHookContributor.class,
+                        ReinitPairElisionHookContributor.class,
                         NativeEditBeginHookContributor.class,
                         EditApiDispatchHookContributor.class,
                         TextureAtlasDataModelHookContributor.class,

@@ -93,6 +93,7 @@ class NativeOptimizationPolicyTest {
         assertTrue(NativeOptimizationPolicy.floatArrayParseCacheEnabled(next));
         assertTrue(NativeOptimizationPolicy.textureUploadPreparationEnabled(next));
         assertTrue(NativeOptimizationPolicy.warpPositionProjectionEnabled(next));
+        assertTrue(NativeOptimizationPolicy.reinitPairElisionEnabled(next));
     }
 
     @Test
