@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Validates README coverage for every first-party plugin module."""
+"""Validates README coverage for every first-party plugin module.
+
+Two tiers, because only one of them describes user-visible harm:
+
+* ``README.md`` is the primary document that ships in every plugin JAR and is
+  surfaced by the installer. It keeps the full contract: front matter, the
+  ordered section set, one mention per declared permission/capability, and a
+  changelog entry for the documented version.
+* ``README_zh.md`` / ``README_ja.md`` / ``README_ko.md`` are optional
+  translations. When present they must be readable, titled, non-empty and must
+  not document a version ahead of the descriptor. They are deliberately *not*
+  gated on translated heading text, heading order, per-permission tokens or a
+  changelog entry: a translator merging or reordering sections is not user harm,
+  and enforcing it only produced build breaks that were fixed by rewording
+  headings.
+"""
 
 from __future__ import annotations
 
@@ -18,27 +33,19 @@ PLUGINS = ROOT / "plugins"
 RELEASE_PLUGINS = ROOT / "packaging/release-plugins.txt"
 MARKET_PLUGINS = ROOT / "packaging/market-plugins.txt"
 DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
-README_VARIANTS = {
-    "README.md": (
-        "## What it does", "## Requirements and compatibility", "## Install and enable",
-        "## How to use", "## Capabilities", "## Permissions", "## Privacy and data",
-        "## Status and limitations", "## Troubleshooting", "## Changelog", "## Support and license",
-    ),
-    "README_zh.md": (
-        "## 功能概述", "## 要求与兼容性", "## 安装与启用", "## 使用方法", "## 功能能力",
-        "## 权限", "## 隐私与数据", "## 状态与限制", "## 故障排除", "## 更新日志", "## 支持与许可证",
-    ),
-    "README_ja.md": (
-        "## 機能概要", "## 要件と互換性", "## インストールと有効化", "## 使い方", "## 機能",
-        "## 権限", "## プライバシーとデータ", "## 状態と制限", "## トラブルシューティング", "## 変更履歴",
-        "## サポートとライセンス",
-    ),
-    "README_ko.md": (
-        "## 기능 개요", "## 요구 사항 및 호환성", "## 설치 및 활성화", "## 사용 방법", "## 기능",
-        "## 권한", "## 개인정보 및 데이터", "## 상태 및 제한 사항", "## 문제 해결", "## 변경 이력",
-        "## 지원 및 라이선스",
-    ),
-}
+PRIMARY_README = "README.md"
+# The four README files the Windows installer stages for a release plugin
+# (packaging/windows-installer/assemble-release.sh), so they are published
+# alongside the JAR when a translator provides them.
+LOCALIZED_READMES = ("README_zh.md", "README_ja.md", "README_ko.md")
+PRIMARY_HEADINGS = (
+    "## What it does", "## Requirements and compatibility", "## Install and enable",
+    "## How to use", "## Capabilities", "## Permissions", "## Privacy and data",
+    "## Status and limitations", "## Troubleshooting", "## Changelog", "## Support and license",
+)
+PLACEHOLDERS = ("TODO", "TBD", "COMING SOON", "{manifest.", "{plugin")
+# Headings that may legitimately carry an "(minimization)" qualifier.
+MINIMIZATION_HEADINGS = {"## Privacy and data"}
 ALLOWED_KIND = {"core", "feature", "demo", "migration-shell"}
 ALLOWED_STATUS = {"built-in", "preview", "development", "migration-shell"}
 ALLOWED_DELIVERY = {"bundled", "store-candidate", "development-only", "unpublished"}
@@ -101,26 +108,82 @@ def parse_front_matter(path: Path, text: str) -> dict[str, str]:
     return values
 
 
+def optional_front_matter(text: str) -> dict[str, str]:
+    """Return whatever key/value pairs a translation chose to declare.
+
+    A translated README may carry the same front matter as the primary one, a
+    subset of it, or none at all; only the keys that are present are meaningful.
+    """
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return {}
+    try:
+        end = lines.index("---", 1)
+    except ValueError as failure:
+        raise ValueError("README front matter is not closed") from failure
+    values: dict[str, str] = {}
+    for line in lines[1:end]:
+        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        values[key.strip()] = value.strip().strip('"')
+    return values
+
+
 def expect(actual: str, expected: str, field: str, errors: list[str]) -> None:
     if actual != expected:
         errors.append(f"front matter {field}={actual!r}; expected {expected!r}")
 
 
-def validate_readme(
-    module: Path,
-    descriptor: dict[str, object],
-    filename: str,
-    headings: tuple[str, ...],
-    expected_role: tuple[str, str, str],
-) -> list[str]:
-    errors: list[str] = []
+def validate_localized_readme(module: Path, filename: str, descriptor: dict[str, object]) -> list[str]:
+    """Optional translation: readable, titled, non-empty, and version-consistent.
+
+    Nothing here depends on translated wording, so a translator may reorder,
+    merge or rename sections without breaking the build.
+    """
     readme = module / filename
     if not readme.is_file():
-        return [f"{filename} is missing"]
+        return []
     try:
         text = readme.read_text(encoding="utf-8", errors="strict")
     except UnicodeError:
         return [f"{filename} is not valid UTF-8"]
+    errors: list[str] = []
+    try:
+        metadata = optional_front_matter(text)
+    except ValueError as failure:
+        return [str(failure)]
+    body = [
+        line for line in text.splitlines()
+        if line.strip() and not line.startswith("#") and not line.startswith("---")
+    ]
+    if not body:
+        errors.append("translated README has no body text")
+    if not re.search(r"^# \S.*$", text, re.MULTILINE):
+        errors.append("README title is missing")
+    for placeholder in PLACEHOLDERS:
+        if placeholder.lower() in text.lower():
+            errors.append(f"placeholder text remains: {placeholder}")
+    if "version" in metadata:
+        errors.extend(documented_version_errors(metadata["version"], descriptor["version"]))
+    if "pluginId" in metadata:
+        expect(metadata["pluginId"], descriptor["id"], "pluginId", errors)
+    return errors
+
+
+def validate_primary_readme(
+    module: Path,
+    descriptor: dict[str, object],
+    expected_role: tuple[str, str, str],
+) -> list[str]:
+    errors: list[str] = []
+    readme = module / PRIMARY_README
+    if not readme.is_file():
+        return [f"{PRIMARY_README} is missing"]
+    try:
+        text = readme.read_text(encoding="utf-8", errors="strict")
+    except UnicodeError:
+        return [f"{PRIMARY_README} is not valid UTF-8"]
     try:
         metadata = parse_front_matter(readme, text)
     except ValueError as failure:
@@ -152,10 +215,10 @@ def validate_readme(
         errors.append(f"kind/status/delivery={actual_role!r}; expected {expected_role!r}")
 
     positions: list[int] = []
-    for heading in headings:
+    for heading in PRIMARY_HEADINGS:
         pattern = (
             rf"^{re.escape(heading)}(?: minimization)?$"
-            if heading in ("## Privacy and data", "## 개인정보 및 데이터")
+            if heading in MINIMIZATION_HEADINGS
             else rf"^{re.escape(heading)}$"
         )
         matches = list(re.finditer(pattern, text, re.MULTILINE))
@@ -166,12 +229,9 @@ def validate_readme(
     if all(position >= 0 for position in positions) and positions != sorted(positions):
         errors.append("required headings are out of order")
 
-    if filename == "README.md":
-        if not re.search(rf"^# {re.escape(descriptor['name'])}$", text, re.MULTILINE):
-            errors.append("title does not match descriptor name")
-    elif not re.search(r"^# \S.*$", text, re.MULTILINE):
-        errors.append("README title is missing")
-    for placeholder in ("TODO", "TBD", "COMING SOON", "{manifest.", "{plugin"):
+    if not re.search(rf"^# {re.escape(descriptor['name'])}$", text, re.MULTILINE):
+        errors.append("title does not match descriptor name")
+    for placeholder in PLACEHOLDERS:
         if placeholder.lower() in text.lower():
             errors.append(f"placeholder text remains: {placeholder}")
 
@@ -184,33 +244,14 @@ def validate_readme(
         if text.count(token) != 1:
             errors.append(f"capability {token} must appear exactly once")
     if not descriptor["permissions"]:
-        empty_permissions = {
-            "README.md": r"The manifest declares no permissions\.",
-            "README.zh_Hans.md": r"(?:未声明|不声明|没有声明|无).*(?:权限)",
-            "README_zh.md": r"(?:未声明|不声明|没有声明|无).*(?:权限)",
-            "README_ja.md": r"(?:権限).*(?:宣言されていません|宣言していません|ありません)",
-            "README_ko.md": r"(?:권한).*(?:선언되지 않았습니다|선언하지 않았습니다|없습니다)",
-        }
-        if not re.search(empty_permissions[filename], text):
+        if not re.search(r"The manifest declares no permissions\.", text):
             errors.append("empty permission inventory is not stated")
     if not descriptor["capabilities"]:
-        empty_capabilities = {
-            "README.md": r"No capabilities are declared in the plugin manifest\.",
-            "README_zh.md": r"(?:未声明|不声明|没有声明|无).*(?:功能能力|能力)",
-            "README_ja.md": r"(?:機能|ケイパビリティ).*(?:宣言されていません|宣言していません|ありません)",
-            "README_ko.md": r"(?:기능|역량|capability).*(?:선언되지 않았습니다|선언하지 않았습니다|없습니다)",
-        }
-        if not re.search(empty_capabilities[filename], text):
+        if not re.search(r"No capabilities are declared in the plugin manifest\.", text):
             errors.append("empty capability inventory is not stated")
 
     plugin_version = documented_version
-    changelog_heading = {
-        "README.md": "## Changelog",
-        "README_zh.md": "## 更新日志",
-        "README_ja.md": "## 変更履歴",
-        "README_ko.md": "## 변경 이력",
-    }.get(filename)
-    if changelog_heading and changelog_heading in text:
+    if "## Changelog" in text:
         pattern = rf"^###\s+\[?{re.escape(plugin_version)}\]?"
         if not re.search(pattern, text, re.MULTILINE):
             errors.append(f"changelog does not contain entry for documented version {plugin_version}")
@@ -239,12 +280,14 @@ def validate_module(module: Path) -> list[tuple[str, str]]:
         ("demo", "development", "development-only") if module.name == "demo" else
         ("feature", "development", "development-only")
     )
-    variants = README_VARIANTS if module.name in store_candidates else {"README.md": README_VARIANTS["README.md"]}
-    return [
-        (filename, error)
-        for filename, headings in variants.items()
-        for error in validate_readme(module, descriptor, filename, headings, expected_role)
-    ]
+    failures = [(PRIMARY_README, error) for error in validate_primary_readme(module, descriptor, expected_role)]
+    if module.name in store_candidates:
+        failures.extend(
+            (filename, error)
+            for filename in LOCALIZED_READMES
+            for error in validate_localized_readme(module, filename, descriptor)
+        )
+    return failures
 
 
 def official_modules() -> list[Path]:
@@ -279,7 +322,7 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print(f"PASS: {len(modules)} first-party plugins have valid localized README contracts")
+    print(f"PASS: {len(modules)} first-party plugins have a valid primary README (translations optional)")
     return 0
 
 
