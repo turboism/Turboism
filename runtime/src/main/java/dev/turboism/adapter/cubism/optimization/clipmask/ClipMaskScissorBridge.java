@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -116,8 +117,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         final String renderSystemOwner = ClipMaskDeduplicationTarget.renderSystemOwner(cubismVersion);
         final Class<?> renderSystemType = Class.forName(renderSystemOwner.replace('/', '.'), false, loader);
-        renderSystemLeaseField = renderSystemType.getDeclaredField("f");
-        renderSystemLeaseField.setAccessible(true);
+        renderSystemLeaseField = ReflectAccess.open(renderSystemType.getDeclaredField("f"));
 
         final Class<?> contextType = Class.forName("com.live2d.graphics3d.a", false, loader);
         contextCameraMethod = contextType.getMethod("b");
