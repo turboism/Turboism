@@ -1,5 +1,6 @@
 package dev.turboism.preview;
 
+import dev.turboism.adapter.cubism.ProjectWorkspaceReadSources;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.service.log.CubismLogServiceHost;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
@@ -16,7 +17,6 @@ import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.home.PluginHomePaths;
 import dev.turboism.home.TurboismHomeLayout;
-import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.CubismHostLocale;
@@ -497,7 +497,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         return new RuntimeAsyncHostReadService(
                 descriptor.id(),
                 permissions,
-                ProjectWorkspaceHostReadSource.from(hostAccess.adapters().projectWorkspace()),
+                ProjectWorkspaceReadSources.from(hostAccess.adapters().projectWorkspace()),
                 hostReadLane,
                 tasks,
                 scope);

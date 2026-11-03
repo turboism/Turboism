@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;

@@ -1,10 +1,10 @@
 package dev.turboism.task;
 
-import dev.turboism.core.runtime.PluginTask;
-import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
+import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;

@@ -1,6 +1,6 @@
 package dev.turboism.task;
 
-import dev.turboism.core.runtime.RuntimeCancellationToken;
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.sdk.plugin.TaskCanceledException;

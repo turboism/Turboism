@@ -112,11 +112,73 @@ packages. It moved to `dev.turboism.adapter.cubism.service.log`, matching
 `CubismClipMaskServiceImpl` and the other `adapter.cubism.service.*` adapters.
 `runtime.log` now only exposes `RuntimeDiagnostics` and imports nothing upward.
 
+## `:runtime` scheduler ↔ executors (core.runtime.contract)
+
+- **Owner**: runtime infrastructure maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.core.runtime.contract` holds the types shared by the
+  scheduler and the executor implementations: `PluginTask` (one submitted task)
+  and `RuntimeCancellationToken` (the cancellation handle a task runs under). It
+  depends on nothing above it — only the JDK and the SDK cancellation API.
+- **Allowed dependencies**: `core.runtime` may depend on `contract` and on the
+  executor packages (`core.runtime.work`, `core.runtime.sidecar`); the executors
+  may depend on `contract`; `contract` depends on neither.
+- **Forbidden**: imports from `contract` into `core.runtime`, `work` or
+  `sidecar`; and any executor importing `core.runtime` directly.
+- **Public API**: `PluginTask`, `RuntimeCancellationToken`.
+- **Threading / IO**: `PluginTask` is an immutable record; the token is
+  thread-safe and cancellation is observable from any thread.
+- **Tests**: `runtime/src/test/java/dev/turboism/core/runtime/**` covers the
+  budget policy and cancellation semantics; the executors' tests stay with their
+  packages.
+- **Backward compatibility**: none on disk; `PluginTask` is internal to
+  `:runtime` and reaches plugins only through `core-contract` types.
+- **Enforcement**: `checkDependencyInventory` plus the `core` rules in
+  `gradle/module-boundaries.gradle.kts`.
+
+**What changed (`#70` step 3c)**: `RuntimeScheduler` composes the executor set
+while the executors consumed `PluginTask` and `RuntimeCancellationToken` from
+`core.runtime`, closing a 3-package cycle. Both types moved into the new
+`dev.turboism.core.runtime.contract` package below both sides — 67 files
+reference `PluginTask`, so this was an ast-grep codemod over imports, not a
+hand-edited move. No production logic changed.
+
+## `:runtime` hostread ↔ adapter.cubism
+
+- **Owner**: host-read and Cubism adapter maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.hostread` is the **port** side of async host reads:
+  request/result types, the async service and the executor lane. It never knows
+  which adapter answers. `dev.turboism.adapter.cubism` implements the port.
+- **Allowed dependencies**: `adapter.cubism` (and every adapter) may depend on
+  `hostread`; `hostread` depends only on the SDK, `permissions`, `failure` and
+  `adapter.ui.SafeModeDiagnostic`-free primitives.
+- **Forbidden**: any `dev.turboism.hostread` import of `dev.turboism.adapter.*`.
+- **Public API**: `ProjectWorkspaceHostReadSource`, `ProjectWorkspaceHostReadResult`,
+  `RuntimeAsyncHostReadService`; the adapter-side bridge is
+  `ProjectWorkspaceReadSources.from(ProjectWorkspaceAdapter)`.
+- **Threading / IO**: reads run on the shared host-read lane, never on the caller
+  thread; results are immutable.
+- **Tests**: `runtime/src/test/java/dev/turboism/hostread/**` for the service and
+  lane; `ProjectWorkspaceReadSourcesTest` for the adapter bridge.
+- **Backward compatibility**: SDK-facing types live under `sdk.hostread`; the
+  runtime port is internal.
+- **Enforcement**: `checkDependencyInventory` plus the module-boundary rules.
+
+**What changed (`#70` step 3d)**: `ProjectWorkspaceHostReadSource.from(adapter)`
+lived in the port package and imported `ProjectWorkspaceAdapter` and
+`SafeModeDiagnostic`, so the port depended on an implementation. The bridge moved
+to `adapter.cubism.ProjectWorkspaceReadSources` and its test moved with it.
+`CubismReadPermissionGate` moved from `adapter.cubism.service.read` up into
+`adapter.cubism`, because the facade used it and the read service implements it —
+the remaining direction (composed service → adapter primitives) is the valid one.
+`hostread` now imports no adapter package at all.
+
 ## Next boundaries (not yet extracted)
 
-`core.runtime` ↔ `core.runtime.{sidecar,work}`: `RuntimeScheduler` composes the
-executor set while the executors consume `PluginTask` and
-`RuntimeCancellationToken` from `core.runtime`. Breaking it means relocating those
-shared contracts below both (63 files reference `PluginTask`), which is a real
-contract change rather than a file move — it gets its own PR. Then
-`adapter.cubism.{edit,editor,history,transaction}` (4-cycle).
+The two remaining cycles are in the host-adapter/UI cluster and each needs its
+own contract before any file moves:
+
+1. `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔
+   `ui.{filter,mesh,palette,toolbar}` (8 packages). The adapter should expose an
+   admission contract, and `mapping.verification` must not be reachable from `ui`.
+2. `adapter.cubism.{edit,editor,editor.history,editor.transaction}` (4 packages).
+   One of edit/transaction is the lower layer; split the history adapter first.

@@ -1,5 +1,6 @@
 package dev.turboism.core.runtime;
 
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.sdk.plugin.WorkBudget;
 
 /**

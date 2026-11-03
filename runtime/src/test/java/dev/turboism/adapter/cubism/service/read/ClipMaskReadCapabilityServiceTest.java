@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.adapter.cubism.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;

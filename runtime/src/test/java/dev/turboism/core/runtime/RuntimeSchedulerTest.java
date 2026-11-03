@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;

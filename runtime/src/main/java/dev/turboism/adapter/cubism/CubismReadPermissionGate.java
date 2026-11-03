@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.service.read;
+package dev.turboism.adapter.cubism;
 
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.CubismPermissionException;

@@ -175,7 +175,7 @@ record UiCapabilityBundle(
                         (contributionId, callback) -> dependencies
                                 .runtimeScheduler()
                                 .dispatch(
-                                        new dev.turboism.core.runtime.PluginTask(
+                                        new dev.turboism.core.runtime.contract.PluginTask(
                                                 "ui.overlay-button.click",
                                                 dependencies.descriptor().id(),
                                                 contributionId,
