@@ -211,6 +211,7 @@ class CubismJvmSettingsFileServiceTest {
             assertFalse(service.modelUpdateSkip());
             assertFalse(service.uniformLocationCache());
             assertFalse(service.uploadElision(), "rendering optimizations require opt-in on every platform");
+            assertFalse(service.meshSetupElision(), "mesh-setup elision requires opt-in on every platform");
             assertFalse(service.incrementalUpdate());
             assertFalse(service.incrementalUpdateAffecters(), "glue admission defaults off");
             assertFalse(service.inputPathElision(), "input-path elision defaults off natively");
@@ -228,21 +229,25 @@ class CubismJvmSettingsFileServiceTest {
             assertTrue(reopened.inputPathElision(), "explicit input-path opt-in survives restart");
             assertTrue(reopened.mesaGlThread(), "explicit mesa-glthread opt-in survives restart");
             assertFalse(reopened.uploadElision(), "explicit upload-elision opt-out survives restart");
+            assertFalse(reopened.meshSetupElision(), "explicit mesh-setup-elision opt-out survives restart");
             assertFalse(reopened.uniformLocationCache());
             reopened.saveIncrementalUpdate(false);
             reopened.saveIncrementalUpdateAffecters(false);
             reopened.saveInputPathElision(false);
             reopened.saveMesaGlThread(false);
             reopened.saveUploadElision(true);
+            reopened.saveMeshSetupElision(true);
             assertFalse(reopened.incrementalUpdate());
             assertFalse(reopened.incrementalUpdateAffecters());
             assertFalse(reopened.inputPathElision());
             assertFalse(reopened.mesaGlThread());
             assertTrue(reopened.uploadElision());
+            assertTrue(reopened.meshSetupElision());
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("\"incrementalUpdate\" : false"));
             assertTrue(saved.contains("\"incrementalUpdateAffecters\" : false"));
             assertTrue(saved.contains("\"uploadElision\" : true"));
+            assertTrue(saved.contains("\"meshSetupElision\" : true"));
             assertTrue(saved.contains("\"inputPathElision\" : false"));
             assertTrue(saved.contains("\"mesaGlThread\" : false"));
         }
@@ -253,6 +258,7 @@ class CubismJvmSettingsFileServiceTest {
         final Map<String, String> proton = Map.of(dev.turboism.runtime.env.ProtonEnvironment.MANAGED_MARKER, "1");
         try (CubismJvmSettingsFileService service = service(proton)) {
             assertFalse(service.uploadElision(), "rendering optimizations require opt-in on every platform");
+            assertFalse(service.meshSetupElision(), "mesh-setup elision requires opt-in on every platform");
             assertFalse(service.inputPathElision(), "rendering optimizations require opt-in on every platform");
             assertFalse(service.mesaGlThread(), "rendering optimizations require opt-in on every platform");
             assertFalse(service.incrementalUpdate(), "unrelated opt-in stays off");

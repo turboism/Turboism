@@ -181,6 +181,7 @@ class CoreWindowsTest {
                 "incremental-update",
                 "uniform-location-cache",
                 "upload-elision",
+                "mesh-setup-elision",
                 "input-path-elision",
                 "mesa-gl-thread",
                 "mesh-interpolation",

@@ -68,6 +68,10 @@ final class NativeOptimizationPolicy {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.UPLOAD_ELISION);
     }
 
+    static boolean meshSetupElisionEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MESH_SETUP_ELISION);
+    }
+
     static boolean inputPathElisionEnabled(final HookEnvironment environment) {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.INPUT_PATH_ELISION);
     }

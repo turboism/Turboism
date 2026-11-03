@@ -16,6 +16,7 @@ final class SortingInfoCacheHookContributor extends NativeOptimizationHookContri
         final boolean enabled = explicit != null
                 ? Boolean.parseBoolean(explicit)
                 : (NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)
+                        || NativeOptimizationPolicy.meshSetupElisionEnabled(environment)
                         || NativeOptimizationPolicy.clipMaskDeduplicationEnabled(environment));
         if (!enabled) {
             debug(environment, id() + " installation=NOT_ADMITTED");

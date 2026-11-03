@@ -333,6 +333,8 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
         "turboism.test.cubismEditorJar",
         "turboism.test.cubismCoreJar",
         "turboism.test.cubism5302Jar",
+        "turboism.test.cubism5304Jar",
+        "turboism.test.cubismRefDir",
         "turboism.test.verificationDir"
     ).forEach { name ->
         providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
@@ -363,6 +365,8 @@ tasks.named<Test>("test") {
         "turboism.test.cubismEditorJar",
         "turboism.test.cubismCoreJar",
         "turboism.test.cubism5302Jar",
+        "turboism.test.cubism5304Jar",
+        "turboism.test.cubismRefDir",
         "turboism.test.verificationDir"
     ).forEach { name ->
         providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
@@ -396,6 +400,8 @@ val admissionUnitTests by tasks.registering(Test::class) {
         "turboism.test.cubismEditorJar",
         "turboism.test.cubismCoreJar",
         "turboism.test.cubism5302Jar",
+        "turboism.test.cubism5304Jar",
+        "turboism.test.cubismRefDir",
         "turboism.test.verificationDir"
     ).forEach { name ->
         providers.systemProperty(name).orNull?.let { systemProperty(name, it) }

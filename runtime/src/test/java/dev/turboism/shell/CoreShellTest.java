@@ -110,7 +110,7 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(37, context.uiHost().settingsContributions().size());
+        assertEquals(38, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
                         "performance.section.heavy-model",
@@ -130,6 +130,7 @@ class CoreShellTest {
                         "incremental-update-affecters",
                         "uniform-location-cache",
                         "upload-elision",
+                        "mesh-setup-elision",
                         "input-path-elision",
                         "mesa-gl-thread",
                         "mesh-interpolation",

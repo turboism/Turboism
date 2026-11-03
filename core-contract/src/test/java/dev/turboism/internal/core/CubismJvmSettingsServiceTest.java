@@ -29,6 +29,7 @@ class CubismJvmSettingsServiceTest {
         assertFalse(service.uniformLocationCache());
         assertFalse(service.reduceAutoBackup());
         assertFalse(service.uploadElision());
+        assertFalse(service.meshSetupElision());
         assertFalse(service.inputPathElision());
         assertFalse(service.mesaGlThread());
         assertFalse(service.incrementalUpdate());
@@ -54,6 +55,7 @@ class CubismJvmSettingsServiceTest {
         assertThrows(IllegalStateException.class, () -> service.saveZgc(true));
         assertThrows(IllegalStateException.class, () -> service.saveMemoryProfile(MemoryProfile.SYSTEM));
         assertThrows(IllegalStateException.class, () -> service.saveUploadElision(true));
+        assertThrows(IllegalStateException.class, () -> service.saveMeshSetupElision(true));
         assertThrows(IllegalStateException.class, () -> service.saveInputPathElision(true));
         assertThrows(IllegalStateException.class, () -> service.saveMesaGlThread(true));
         assertThrows(IllegalStateException.class, () -> service.saveUniformLocationCache(true));

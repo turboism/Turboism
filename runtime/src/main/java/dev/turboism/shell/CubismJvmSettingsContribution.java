@@ -38,6 +38,7 @@ final class CubismJvmSettingsContribution {
                     case "incremental-update-affecters" -> "settings.optimization.incremental-update-affecters.tooltip";
                     case "uniform-location-cache" -> "settings.optimization.uniform-location-cache.tooltip";
                     case "upload-elision" -> "settings.optimization.upload-elision.tooltip";
+                    case "mesh-setup-elision" -> "settings.optimization.mesh-setup-elision.tooltip";
                     case "input-path-elision" -> "settings.optimization.input-path-elision.tooltip";
                     case "mesa-gl-thread" -> "settings.optimization.mesa-gl-thread.tooltip";
                     case "mesh-interpolation" -> "settings.optimization.mesh-interpolation.tooltip";
@@ -337,6 +338,28 @@ final class CubismJvmSettingsContribution {
                     return value;
                 },
                 91);
+    }
+
+    /**
+     * Skips the nine persistent buffer refreshes in {@code GMesh2.setup} on
+     * frames where the model update was skipped and every uploaded buffer
+     * wrapper is already clean. Requires the model-update-skip preference.
+     */
+    static SettingsContribution createMeshSetupElisionToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "mesh-setup-elision",
+                "settings.optimization.mesh-setup-elision",
+                settings::meshSetupElision,
+                value -> {
+                    if (settings.saveMeshSetupElision(value) != value) {
+                        throw new IllegalStateException("Mesh-setup-elision preference was not saved");
+                    }
+                    return value;
+                },
+                68);
     }
 
     /**

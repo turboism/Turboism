@@ -13,6 +13,7 @@ public final class NativeOptimizationConfig {
         INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters"),
         UNIFORM_LOCATION_CACHE("uniformLocationCache"),
         UPLOAD_ELISION("uploadElision"),
+        MESH_SETUP_ELISION("meshSetupElision"),
         INPUT_PATH_ELISION("inputPathElision"),
         MESA_GL_THREAD("mesaGlThread"),
         MESH_INTERPOLATION("meshInterpolation"),
