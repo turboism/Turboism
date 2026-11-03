@@ -61,7 +61,9 @@ final class HookManifestTest {
                         ControlAppearanceHookContributor.class,
                         // Measurement-only: no behaviour, no ordering constraints.
                         ClipMaskProbeHookContributor.class,
-                        ClipMaskDeduplicationHookContributor.class),
+                        ClipMaskDeduplicationHookContributor.class,
+                        // Hierarchy-only incremental CModelSource.setup() form rebuilds.
+                        ExtendedInterpolationSetupHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 
