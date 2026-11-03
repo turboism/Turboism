@@ -14,7 +14,7 @@ import java.util.function.Consumer;
  * display-visibility buttons). Contributed buttons mount into the strip's own
  * button group and inherit its per-frame layout, mode visibility and
  * scene-graph hit testing. Their relative order is fixed by
- * {@link StateButtonContribution#order()} and then by contribution id, so it
+ * the registration's explicit order and then by contribution id, so it
  * does not depend on plugin load order.
  */
 public interface ViewContextMenuRegistry {
@@ -28,6 +28,23 @@ public interface ViewContextMenuRegistry {
      * @param contribution descriptor of the state button
      */
     Registration contributeStateButtons(StateButtonContribution contribution);
+
+    /**
+     * Registers a button at a deterministic relative strip position.
+     * Lower orders appear first; ties are resolved by contribution id.
+     * Implementations that do not support ordering fail closed for nonzero
+     * orders rather than silently changing button placement.
+     *
+     * @param contribution descriptor of the state button
+     * @param order relative strip position (default {@code 0})
+     * @return registration whose close removes the button
+     */
+    default Registration contributeStateButtons(final StateButtonContribution contribution, final int order) {
+        if (order == 0) {
+            return contributeStateButtons(contribution);
+        }
+        throw new UnsupportedOperationException("viewContextMenu ordering is not supported");
+    }
 
     /**
      * Updates the button's visual state to match the armed axis.
@@ -85,31 +102,12 @@ public interface ViewContextMenuRegistry {
             String contributionId,
             Map<Integer, UiRasterImage> stateIcons,
             int initialState,
-            Consumer<Integer> onClick,
-            int order) {
-        /**
-         * Creates a contribution with the default order ({@code 0}).
-         *
-         * @param contributionId plugin-scoped identity used at contribute time
-         * @param stateIcons state-to-icon map; must not be empty
-         * @param initialState state shown first
-         * @param onClick invoked with the state of the clicked button
-         */
-        public StateButtonContribution(
-                final String contributionId,
-                final Map<Integer, UiRasterImage> stateIcons,
-                final int initialState,
-                final Consumer<Integer> onClick) {
-            this(contributionId, stateIcons, initialState, onClick, 0);
-        }
-
+            Consumer<Integer> onClick) {
         /**
          * @param contributionId plugin-scoped identity used at contribute time
          * @param stateIcons state-to-icon map; must not be empty
          * @param initialState state shown first
          * @param onClick invoked with the state of the clicked button
-         * @param order relative strip position; lower values appear first, ties are
-         *     resolved by {@code contributionId}
          */
         public StateButtonContribution {
             contributionId = Objects.requireNonNull(contributionId, "contributionId");
