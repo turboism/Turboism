@@ -138,10 +138,10 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
-LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection"}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass"}
 TEXTURE_ATLAS_FIELDS = {"algorithmId", "parallel"}
 LEGACY_ROOT_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
-BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection"}
+BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision", "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
     "meshTriangulationEdgeIndex",

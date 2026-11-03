@@ -115,4 +115,33 @@ final class NativeOptimizationPolicy {
         dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.setConfiguredDefault(enabled);
         return enabled;
     }
+
+    static boolean reinitPairElisionEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.REINIT_PAIR_ELISION);
+    }
+
+    static boolean clipMaskDeduplicationEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.CLIP_MASK_DEDUPLICATION);
+    }
+
+    static boolean clipMaskScissorClearEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.CLIP_MASK_SCISSOR_CLEAR);
+    }
+
+    static boolean extendedInterpolationIncrementalSetupEnabled(final HookEnvironment environment) {
+        return requested(
+                environment,
+                dev.turboism.config.NativeOptimizationConfig.Option.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP);
+    }
+
+    static boolean modelInstanceCoalesceEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MODEL_INSTANCE_COALESCE);
+    }
+
+    static boolean inspectorPropertyBypassEnabled(final HookEnvironment environment) {
+        final boolean enabled =
+                requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.INSPECTOR_PROPERTY_BYPASS);
+        dev.turboism.adapter.cubism.optimization.inspector.InspectorPropertyBypassBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
 }

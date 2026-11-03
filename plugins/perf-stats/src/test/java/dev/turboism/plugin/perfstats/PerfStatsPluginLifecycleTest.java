@@ -318,6 +318,56 @@ class PerfStatsPluginLifecycleTest {
     }
 
     @Test
+    void unchangedCpuTextIsNotRepublishedOnEverySample() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+        final int placeholderPublishes = fixture.statusNotifications.get();
+
+        fixture.sample(new PerformanceSnapshot(1L, 12.3, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L));
+        assertEquals(
+                placeholderPublishes + 1,
+                fixture.statusNotifications.get(),
+                "a changed CPU reading refreshes the status bar once");
+        fixture.sample(new PerformanceSnapshot(2L, 12.34, 1024L, 512L, 60.0, 120L, 0L, 0L, 4L, 300L));
+        assertEquals(
+                placeholderPublishes + 1,
+                fixture.statusNotifications.get(),
+                "the same displayed CPU value must not repeat the blocking status refresh");
+        assertEquals(1, fixture.statusCloses.get(), "unchanged text must not churn the status registration");
+        assertEquals(
+                2,
+                fixture.store().values(ChartStore.KEY_CPU).size(),
+                "chart history keeps advancing while the status text is stable");
+
+        fixture.sample(new PerformanceSnapshot(3L, 41.0, 1024L, 512L, 60.0, 120L, 0L, 0L, 5L, 350L));
+        assertEquals(placeholderPublishes + 2, fixture.statusNotifications.get(), "a changed reading publishes again");
+        assertEquals("CPU 41.0%", fixture.lastStatus.get().message());
+        assertEquals(1, fixture.statusOpen.get(), "exactly one CPU status registration may be live");
+        fixture.plugin.disable();
+    }
+
+    @Test
+    void reenableRepublishesThePlaceholderAfterTheLabelWasClosed() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context());
+        fixture.plugin.enable();
+        fixture.sample(new PerformanceSnapshot(1L, 12.3, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L));
+        final int publishes = fixture.statusNotifications.get();
+
+        fixture.plugin.disable();
+        fixture.plugin.enable();
+
+        assertEquals(
+                publishes + 1,
+                fixture.statusNotifications.get(),
+                "a fresh generation must publish the placeholder again instead of reusing stale text");
+        assertEquals("CPU --%", fixture.lastStatus.get().message());
+        assertEquals(1, fixture.statusOpen.get());
+        fixture.plugin.disable();
+    }
+
+    @Test
     void disableClosesCpuStatusAndLateSnapshotCannotReviveIt() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.plugin.init(fixture.context());

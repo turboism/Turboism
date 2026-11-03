@@ -855,6 +855,10 @@ final class EditorObjectHierarchyEditAccess {
         }
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
+        // The native palette refresh immediately after a hierarchy write rebuilds the whole model;
+        // the setup entry uses this window to keep the hierarchy-independent form rebuild.
+        dev.turboism.adapter.cubism.optimization.extendedinterpolation.ExtendedInterpolationSetupBridge
+                .noteNativeEditIntent();
         rejectCycle(nodeSource, parentSource, parentIsDeformer);
         if (!relationCaptureAvailable()) {
             writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);

@@ -1453,6 +1453,109 @@ viewport; full PNGs are retained because the surrounding GL tab contains each
 task's different fixture name. Same-run pixel equality still covers the full image.
 
 
+
+### Clipping-mask / transparent-group measurement probe (observation only)
+
+`TURBOISM_CLIP_MASK_PROBE` is a measurement-only agent hook: it counts what the
+mask and group path costs per rendered scene and changes no host behaviour. The
+woven bytes only consult JDK functional-interface slots in
+`System.getProperties()`, so an absent, mistyped or failing callback measures
+nothing and a refused install leaves the host byte-identical.
+
+**What it counts** (reviewed `com/live2d/graphics3d/rendering/{d,e}` mask dispatch
+and `GGroupRenderer.render`; `{d}` on 5.0.x-5.2.x, `{e}` on 5.3.x, identical bodies
+per family):
+
+- `maskPasses` — one per renderer whose `GClipping`/`GRemovableClipping` reached
+  `getClippingVaildMasks()`, i.e. real mask renders, not dispatch attempts;
+- `distinctMaskSets` — distinct mask-entity sets per frame, keyed on the ordered
+  mask-entity identities. `dedupeSavings = maskPasses - distinctMaskSets` is how
+  many mask renders a same-frame dedupe could have skipped;
+- `maskFboBinds` / `maskFboPixels` — pooled grayscale attachments bound during a
+  mask pass and the texels their unscissored `glClear` provisions;
+- `groupPasses` / `groupFboBinds` / `groupFboPixels` — the same for
+  `GGroupRenderer`'s offscreen ARGB attachment;
+- `maskPathNanos` / `groupPathNanos` — wall time of mask/group dispatches that
+  actually reached the mask/group work (the render loop's early returns for
+  unclipped renderers are excluded);
+- `frames` — rendered scenes, the normalisation denominator.
+
+**Where the numbers land.** Every leg of `wheel-benchmark.txt` (wheel workload)
+and `interaction-benchmark.txt` (pan / ArtMesh) gains `leg.N.clipMask.*` keys next
+to `renderFramesPerSecond`, plus the derived
+`leg.N.clipMask.{maskPasses,maskPathNanos,groupPasses}PerRenderedFrame`. Counter
+keys are leg deltas; `clipMask.active` is the absolute gauge. When the probe is
+not installed the keys are simply absent. The generic performance probe also
+writes the same reading into its JSON report as a `clipMask` block. The wheel
+workload additionally emits `leg.N.clipMaskScissor.*` deltas and
+`clipMaskScissor.savedPermille` when the scissor bridge is installed.
+
+**Activation on native Windows.** The installed managed launcher builds its JVM
+option line from `config.json` and does not forward inherited
+`JAVA_TOOL_OPTIONS`, so `--jvm-option '-Dturboism.validation.clipMaskProbe=true'`
+is not a reliable channel there. Use the home-relative marker file the runner can
+stage with `--home-file` (the same presence-only carrier the other exercisers use):
+
+```bash
+# 1. Build the agent and the exerciser plugin.
+./gradlew --no-watch-fs previewBundle buildModelUpdateSkipHostProbe
+
+# 2. Wheel leg on the native Windows host. The staged marker file activates the
+#    probe; production optimizations stay at their normal configuration so the
+#    mask cost is measured on the real render path.
+bash scripts/preview/run-model-update-skip-host-validation.sh on-wheel 5303 clipmask-wheel   --home-file "$PWD/testing/host-validation/clip-mask-probe/enabled.flag:state/dev.turboism.validation.clip-mask-probe/enabled.flag"   --jvm-option '-Dturboism.validation.modelUpdateFactor=uniformHook'   --ready-marker 'TURBOISM_CLIP_MASK_PROBE probe=ACTIVE'   --result-timeout 1200
+
+# 3. Continuous-drag legs (parameter sweep uses the same wheel entry; the plugin
+#    dispatches on nativeInteraction).
+bash scripts/preview/run-model-update-skip-host-validation.sh on-pan 5303 clipmask-pan   --home-file "$PWD/testing/host-validation/clip-mask-probe/enabled.flag:state/dev.turboism.validation.clip-mask-probe/enabled.flag"   --ready-marker 'TURBOISM_CLIP_MASK_PROBE probe=ACTIVE'   --result-timeout 1200
+
+bash scripts/preview/run-model-update-skip-host-validation.sh on-artmesh 5303 clipmask-artmesh   --home-file "$PWD/testing/host-validation/clip-mask-probe/enabled.flag:state/dev.turboism.validation.clip-mask-probe/enabled.flag"   --ready-marker 'TURBOISM_CLIP_MASK_PROBE probe=ACTIVE'   --result-timeout 1200
+```
+
+The probe is off in every run that does not stage the marker. On the Wine/Proton
+runner `--jvm-option '-Dturboism.validation.clipMaskProbe=true'` works as well;
+when both are present the property wins and the install marker records
+`via=property`. `probe=ACTIVE via=home-flag|property` is the activation evidence —
+`installation=COMPLETE` alone only proves the install attempt finished. The marker
+also reports `owners=` (already woven) and `pending=` (owners that load with the
+modeling document; they are woven on load, so a `pending` entry at install time is
+expected, not a failure).
+
+
+### Scissor-limited clipping-mask clears
+
+The production `cubism.render.clip-mask-dedupe` hook also carries the
+scissor-limited mask clear. It is admitted by the same
+`-Dturboism.optimization.clipMaskDeduplication=true` (or
+`-Dturboism.validation.clipMaskDeduplication=true`) request and is enabled by
+default with that hook. `-Dturboism.optimization.clipMaskScissorClear=false`
+keeps deduplication but restores the original full-attachment mask clear.
+
+Before the mask pass clears its pooled grayscale attachment, the woven consult
+projects every mask mesh into the current viewport and unions the result with
+that texture's previous dirty rectangle. The clear is narrowed with
+`glEnable(GL_SCISSOR_TEST)` + `glScissor`, then the prior scissor state is
+restored immediately after `glClear`. A texture's first use, a GL-name/size
+change, an unusable transform, or any observer failure falls back to the
+original full clear. The dirty rectangle is updated only after the clear and is
+dropped when the pass cannot complete, so a pooled texture is never assumed
+clean.
+
+The performance probe report gains a `clipMaskScissor` block whenever the
+bridge is installed: `clearPasses`, `scissorPasses`, `fullClearPasses`,
+`clearedPixels`, `baselinePixels`, `savedPixels` and `savedPermille` (saved
+mask-clear fill in parts per thousand). The same readings are logged at hook
+close as `scissor.*` keys. These are fill/bandwidth counters, not frame-time
+measurements; they prove the cleared texel area, not a wall-clock speedup.
+
+**Reading the result.** With a mask-heavy model on a large canvas,
+`dedupeSavings / maskPasses` is the same-frame dedupe headroom, and
+`maskFboPixels / frames` versus the canvas pixel count shows how much of each
+frame is spent clearing full-canvas mask attachments. `maskPathNanos /
+maskPathNanosPerRenderedFrame` versus the leg's frame time bounds the whole mask
+path; `groupPassesPerRenderedFrame > 0` means the transparent-group offscreen
+path is also live. This probe only reports — no pixel parity gate depends on it.
+
 ### PERF-052 final fixed-build campaign
 
 T29c (source407d37269, agent4818f859, probe890df24c) completed 12/12 exact
