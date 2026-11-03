@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;

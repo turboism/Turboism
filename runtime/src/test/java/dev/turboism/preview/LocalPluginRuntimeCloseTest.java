@@ -565,7 +565,7 @@ class LocalPluginRuntimeCloseTest {
 
             assertFalse(
                     before.submit(
-                                    new dev.turboism.core.runtime.PluginTask(
+                                    new dev.turboism.core.runtime.contract.PluginTask(
                                             "plugin.compute.normal", "dev.example.exec", "probe", "none"),
                                     () -> {})
                             .accepted(),

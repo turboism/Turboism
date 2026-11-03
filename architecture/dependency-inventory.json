@@ -516,11 +516,6 @@
         "dev.turboism.adapter.cubism",
         "dev.turboism.adapter.cubism.service.read",
         "dev.turboism.hostread"
-      ],
-      [
-        "dev.turboism.core.runtime",
-        "dev.turboism.core.runtime.sidecar",
-        "dev.turboism.core.runtime.work"
       ]
     ],
     "topPackageCycles": [

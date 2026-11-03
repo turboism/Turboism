@@ -1,4 +1,4 @@
-package dev.turboism.core.runtime;
+package dev.turboism.core.runtime.contract;
 
 import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.TaskCanceledException;

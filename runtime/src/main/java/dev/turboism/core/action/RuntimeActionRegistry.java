@@ -2,8 +2,8 @@ package dev.turboism.core.action;
 
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.action.ActionRegistry;
