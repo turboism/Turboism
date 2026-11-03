@@ -6500,7 +6500,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java:SUPPORTED_VERSIONS",
+     "source": "runtime/src/main/java/dev/turboism/mapping/selector/MeshToolSessionSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
       "5.0.00",
       "5.0.01",
@@ -6556,7 +6556,7 @@
    ],
    "narrowedBy": [
     {
-     "source": "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java:SUPPORTED_VERSIONS",
+     "source": "runtime/src/main/java/dev/turboism/mapping/selector/ModelingSelectionSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
       "5.2.00",
       "5.2.01",
@@ -14780,7 +14780,7 @@
       "cubism.modeling-tool.selection-brush"
      ],
      "sourceFiles": [
-      "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java"
+      "runtime/src/main/java/dev/turboism/mapping/selector/ModelingSelectionSelectorContract.java"
      ],
      "narrowed": true,
      "missingNature": {

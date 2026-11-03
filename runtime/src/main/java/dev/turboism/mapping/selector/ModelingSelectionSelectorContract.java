@@ -1,7 +1,6 @@
-package dev.turboism.adapter.cubism.modeling;
+package dev.turboism.mapping.selector;
 
 import dev.turboism.internal.ReviewedVersions;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Set;
 
 /** Independently admitted exact ordinary-modeling point selection and tool lifecycle surface. */
@@ -157,11 +156,4 @@ public final class ModelingSelectionSelectorContract {
             WARP_CLASS);
 
     private ModelingSelectionSelectorContract() {}
-
-    /** Requires the complete independent point-selection capability for a supported exact version. */
-    public static boolean authorizes(VerifiedMemberResolver resolver) {
-        return resolver != null
-                && SUPPORTED_VERSIONS.contains(resolver.cubismVersion())
-                && resolver.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, REQUIRED_ALIASES);
-    }
 }
