@@ -67,7 +67,9 @@ final class HookManifestTest {
                         // Hierarchy-only incremental CModelSource.setup() form rebuilds.
                         ExtendedInterpolationSetupHookContributor.class,
                         // Inspector shader-only property changes skip the full rebuild.
-                        InspectorPropertyBypassHookContributor.class),
+                        InspectorPropertyBypassHookContributor.class,
+                        // Skipped-frame sorting-info reuse and indexed GMeshContainer lookup.
+                        SortingInfoCacheHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

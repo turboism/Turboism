@@ -90,3 +90,5 @@ dev.turboism.bootstrap.ExtendedInterpolationSetupHookContributor
 # 5.3 inspector alpha/colour composition setters trigger unconditionally with the
 # affected drawable's own setupShader(null) refresh. Opt-in and exact-artifact gated.
 dev.turboism.bootstrap.InspectorPropertyBypassHookContributor
+# Skipped-frame sorting-info reuse and allocation-free GMeshRenderer.getMeshContainer().
+dev.turboism.bootstrap.SortingInfoCacheHookContributor
