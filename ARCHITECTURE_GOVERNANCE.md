@@ -56,8 +56,55 @@ fallback defaults and verify both repeated reads and byte-preservation on failur
 
 The next phase must cover actual release-generated documents, plugin-specific
 storage, installation journals and signed update receipts (without changing signed
-bytes). Add fault injection for crashes, disk errors, symlink attacks and rollback
-safety. Do not claim atomic replacement alone is a transactional backup.
+bytes). Do not claim atomic replacement alone is a transactional backup.
+
+## Recovery point contract
+
+A destructive migration may not replace the only copy of a user's stored bytes.
+`TypedConfigDocumentStore` therefore captures a **recovery point** immediately
+before the first read-time or write-time migration replaces a typed config
+document; `RuntimeTypedPluginConfigRegistry` calls it on both paths, and no other
+code path needs it.
+
+- **Location and shape**: `<config root>/.recovery-points/<document path>.recovery/`
+  holding `<schemaVersion>-r<revision>-<sha256>.bak`. The file *is* the document
+  bytes, byte for byte, in the existing `turboism-typed-config-v1` envelope; the
+  name records the state it holds and the SHA-256 of its content. No second
+  format is introduced and no document format changed.
+- **Atomic replace**: a point is written through the same owner-only temporary
+  file, fsync and atomic rename as a document, so it is either absent or
+  byte-identical — never partial. A crash before the rename leaves the old
+  document, a crash after it leaves the new one; both are complete images.
+- **Bounded retention**: at most `RECOVERY_POINT_RETENTION` (3) points per
+  document, oldest document state pruned first, never the point just captured.
+  Pruning runs only after a durable capture and is best effort: an extra retained
+  copy cannot lose bytes, so it must not turn a capture into a failure.
+- **Fail closed**: a capture that fails — unusable recovery area, unreadable
+  document, or a concurrent writer that changed the bytes since they were read —
+  aborts the migration with `PERSISTENCE_FAILED` and leaves the document
+  untouched. A migration never proceeds on the strength of an older point.
+- **Not a new single point of failure**: `read` never consults the recovery area,
+  so a damaged or unwritable recovery area cannot take readable documents
+  offline; it fails only the migrations that need it, and reports them. A damaged
+  point with a matching name is rewritten on retry, never trusted.
+- **Recovery**: restoring a point is a plain atomic write of those bytes back to
+  the document path, after which the production reader returns the pre-migration
+  schema version, revision and values. Recovery is deliberately not automatic:
+  an automatic rollback would need a policy decision that this contract does not
+  make.
+
+Fault-injection evidence lives in `TypedConfigRecoveryPointTest` (IO errors,
+interruption before and after the replacement rename, concurrent writers, symlink
+and path-replacement attacks, damaged points, retention) plus the migration
+regressions in `RuntimeTypedPluginConfigRegistryTest` and the immutable-fixture
+replay in `PersistenceGoldenSnapshotsTest`. Every case asserts that the
+pre-migration bytes stay recoverable. All of it runs offline, without a Cubism
+host or an installed Editor.
+
+Still open (requires evidence or an explicit release decision, tracked in `#69`):
+release-derived fixtures with provenance, the legacy global `config.json` path
+(it has no read-time migration yet), plugin install/enable journals, launcher
+state and signed update receipts.
 
 ## Delivery and merge policy
 

@@ -365,7 +365,14 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
         if (stored.isEmpty()) {
             return LoadedDocument.success(0, Map.of());
         }
-        return migrate(schema, stored.orElseThrow(), true);
+        final TypedConfigDocumentStore.StoredDocument document = stored.orElseThrow();
+        final LoadedDocument loaded = migrate(schema, document, true);
+        if (loaded.error == null && document.schemaVersion() < schema.schema.version()) {
+            // The pending write stores the migrated document, so the bytes it replaces are captured
+            // first. A capture failure propagates as PERSISTENCE_FAILED before anything is written.
+            store.recordRecoveryPoint(schema.schema.relativePath(), document);
+        }
+        return loaded;
     }
 
     private LoadedDocument loadCurrent(final RegisteredSchema schema) throws IOException {
@@ -383,6 +390,10 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
                 return LoadedDocument.failure(
                         document.revision(), ConfigValueSource.DEFAULT_UNAVAILABLE, ConfigErrorCode.PERSISTENCE_FAILED);
             }
+            // A read-time migration replaces the stored document with the migrated schema, so the
+            // pre-migration bytes become a recovery point first. A capture failure propagates as
+            // PERSISTENCE_FAILED and leaves the original bytes untouched.
+            store.recordRecoveryPoint(schema.schema.relativePath(), document);
             store.writeAtomic(
                     schema.schema.relativePath(),
                     new TypedConfigDocumentStore.StoredDocument(schema.schema.version(), revision, loaded.values));
