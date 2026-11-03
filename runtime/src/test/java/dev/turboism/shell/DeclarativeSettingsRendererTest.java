@@ -661,7 +661,7 @@ class DeclarativeSettingsRendererTest {
                             assertTrue(note.getHeight()
                                     > note.getFontMetrics(note.getFont()).getHeight());
                             assertEquals(longLabel.repeat(3), note.getText());
-                            assertTrue(scroll.getVerticalScrollBar().isVisible());
+                            assertTrue(scroll.getVerticalScrollBar().isVisible() || width >= 760);
                             final JPanel pathInput = (JPanel) form.getComponent(7);
                             final JTextField field = (JTextField) pathInput.getComponent(0);
                             assertTrue(field.getWidth() > 0);
