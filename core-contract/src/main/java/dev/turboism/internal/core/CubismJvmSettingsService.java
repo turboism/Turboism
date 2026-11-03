@@ -96,8 +96,11 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Launcher preference: when true the next managed Cubism launch
-     * adds {@code -XX:+UseZGC} to the managed JAVA_TOOL_OPTIONS block.
+     * Launcher preference: when true the next managed Cubism launch adds
+     * {@code -XX:+UseZGC} plus its companion {@code -XX:ZUncommitDelay=60} to
+     * the managed JVM options the launcher injects into the staged launch BAT.
+     * The shorter uncommit delay returns freed heap to the OS about a minute
+     * after editing stops instead of holding it for the 300 s ZGC default.
      * Launch-time flag — takes effect on the next launch only.
      * On by default; users disable it explicitly when startup speed
      * matters more than pause latency.
@@ -133,9 +136,9 @@ public interface CubismJvmSettingsService {
 
     /**
      * Launcher preference: when false the next managed Cubism launch adds
-     * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed
-     * JAVA_TOOL_OPTIONS block so the unchanged-frame skip hook is not
-     * installed. Off by default; takes effect on the next launch.
+     * {@code -Dturboism.optimization.modelUpdateSkip=false} to the managed JVM
+     * options so the unchanged-frame skip hook is not installed. Off by
+     * default; takes effect on the next launch.
      */
     default boolean modelUpdateSkip() {
         return false;
@@ -278,6 +281,66 @@ public interface CubismJvmSettingsService {
 
     /** Persists the warp-position projection preference; installation changes require restart. */
     default boolean saveWarpPositionProjection(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: remove transient Pair allocations during model reinitialization. Off by default. */
+    default boolean reinitPairElision() {
+        return false;
+    }
+
+    /** Persists the reinit Pair-elision preference; installation changes require restart. */
+    default boolean saveReinitPairElision(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: deduplicate identical clipping-mask passes per frame. Off by default. */
+    default boolean clipMaskDeduplication() {
+        return false;
+    }
+
+    /** Persists the clipping-mask deduplication preference; installation changes require restart. */
+    default boolean saveClipMaskDeduplication(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: scissor-limit clipping-mask glClear to the mask bounding box. Off by default. */
+    default boolean clipMaskScissorClear() {
+        return false;
+    }
+
+    /** Persists the clip-mask scissor-clear preference; installation changes require restart. */
+    default boolean saveClipMaskScissorClear(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: skip redundant extended-interpolation form rebuilds during setup. Off by default. */
+    default boolean extendedInterpolationIncrementalSetup() {
+        return false;
+    }
+
+    /** Persists the extended-interpolation incremental setup preference; installation changes require restart. */
+    default boolean saveExtendedInterpolationIncrementalSetup(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: coalesce duplicate updateModelInstances calls inside edit groups. Off by default. */
+    default boolean modelInstanceCoalesce() {
+        return false;
+    }
+
+    /** Persists the model instance coalescing preference; installation changes require restart. */
+    default boolean saveModelInstanceCoalesce(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** Launcher preference: bypass updateModelInstances for inspector shader-only property changes. Off by default. */
+    default boolean inspectorPropertyBypass() {
+        return false;
+    }
+
+    /** Persists the inspector visual-property bypass preference; installation changes require restart. */
+    default boolean saveInspectorPropertyBypass(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 

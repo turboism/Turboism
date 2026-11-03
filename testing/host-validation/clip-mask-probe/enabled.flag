@@ -1,0 +1,5 @@
+# Presence-only activation marker for the measurement-only clipping-mask probe.
+# Stage it into an isolated host-validation home; the probe only checks that this
+# path exists, it never reads the contents.
+#
+# target: state/dev.turboism.validation.clip-mask-probe/enabled.flag

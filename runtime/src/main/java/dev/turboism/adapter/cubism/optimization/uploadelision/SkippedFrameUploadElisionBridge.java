@@ -83,6 +83,14 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private final BiConsumer<Object, Integer> errorObserver = this::checkedError;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
     private volatile boolean armed;
+    /**
+     * Cached {@link ModelUpdateSkipBridge#SKIPPED_FRAME_PROPERTY} slot. The slot is one
+     * {@link AtomicBoolean} published once per model-update-skip installation, and this bridge is
+     * only admitted alongside that hook, so the per-upload system-properties lookup is resolved
+     * once. A missing slot is re-resolved until the publisher appears.
+     */
+    private volatile AtomicBoolean skippedFrameSlot;
+
     private Properties installedProperties;
 
     /**
@@ -269,8 +277,12 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
 
     private boolean frameSkipped() {
         try {
+            final AtomicBoolean flag = skippedFrameSlot;
+            if (flag != null) return flag.get();
             final Object slot = System.getProperties().get(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
-            return slot instanceof AtomicBoolean flag && flag.get();
+            if (!(slot instanceof AtomicBoolean published)) return false;
+            skippedFrameSlot = published;
+            return published.get();
         } catch (Throwable denied) {
             FatalErrors.rethrowIfFatal(denied);
             return false;
@@ -345,6 +357,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         armed = false;
+        skippedFrameSlot = null;
         lifecycleNotify();
         final Properties properties = installedProperties;
         installedProperties = null;

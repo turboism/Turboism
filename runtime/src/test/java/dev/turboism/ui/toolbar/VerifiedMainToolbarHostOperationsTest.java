@@ -266,6 +266,23 @@ class VerifiedMainToolbarHostOperationsTest {
     }
 
     @Test
+    void theToolbarWatchPollsOnlyOnASlowSafetyInterval() throws Exception {
+        final java.util.concurrent.atomic.AtomicReference<ToolbarLifecycleWatch> watch =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            watch.set(new ToolbarLifecycleWatch(Object::new, () -> false, () -> {}));
+            watch.get().start();
+        });
+        try {
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    watch.get().pollDelayMillis() >= 10_000,
+                    "idle toolbar observation must not wake the EDT sub-second");
+        } finally {
+            javax.swing.SwingUtilities.invokeAndWait(() -> watch.get().close());
+        }
+    }
+
+    @Test
     void toolbarReplacementAppearanceAndDisposalDoNotLeaveObservers() throws Exception {
         final java.util.concurrent.atomic.AtomicReference<Object> identity =
                 new java.util.concurrent.atomic.AtomicReference<>(new Object());

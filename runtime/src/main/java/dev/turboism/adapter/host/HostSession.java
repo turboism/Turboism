@@ -280,6 +280,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 paletteAppearanceCoordinator.removeContent(content.contentId());
                 if (content.kind() == dev.turboism.sdk.cubism.ProjectContentKind.MODEL) {
                     dynamicModelAccess.releaseUnboundBorrowedModel();
+                    // The closed document's atlas pages are the only instances the retained
+                    // page outputs could still serve; keep them no longer.
+                    dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseDelegate.releaseRetainedOutputs();
                 }
             });
         });

@@ -45,4 +45,21 @@ class LifecycleCallbackExecutorTest {
         callbacks.close();
         callbacks.close();
     }
+
+    @Test
+    void manyCompletedCallbacksLeaveNoResidueInThePendingSet() throws Exception {
+        final PluginWorkExecutorRegistry executors =
+                new PluginWorkExecutorRegistry(5_000L, 1, 1_024, ignored -> {}, Clock.systemUTC());
+        final LifecycleCallbackExecutor callbacks = new LifecycleCallbackExecutor(
+                "Test", executors, new dev.turboism.core.runtime.QuiescencePolicy(java.time.Duration.ofSeconds(5)));
+        final int submissions = 256;
+        final java.util.concurrent.atomic.AtomicInteger completed = new java.util.concurrent.atomic.AtomicInteger();
+        for (int i = 0; i < submissions; i++) {
+            callbacks.submit("plugin-a", "test.operation", completed::incrementAndGet);
+        }
+        callbacks.awaitIdle();
+        assertEquals(submissions, completed.get(), "every accepted callback must run");
+        assertEquals(0, callbacks.pendingCallbacks(), "completed callbacks must retire from the tracked set");
+        callbacks.close();
+    }
 }

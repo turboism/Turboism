@@ -161,10 +161,29 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
 
     private final class PanelHandle implements TextureAtlasEditorPanel {
         private final javax.swing.JLabel label;
+        private volatile boolean visible;
         private boolean closed;
 
         private PanelHandle(final javax.swing.JLabel label) {
             this.label = label;
+            // The renderer is Swing-owned, so show/hide transitions are observed on the host
+            // thread and published as one volatile flag. A polling plugin then reads a plain
+            // boolean instead of touching the host component from its own thread. detachPanels
+            // and close() remove the label, which reports SHOWING_CHANGED again, so a retired
+            // view never keeps reporting visible.
+            label.addHierarchyListener(event -> {
+                if ((event.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0) {
+                    visible = label.isShowing();
+                }
+            });
+        }
+
+        @Override
+        public boolean isVisible() {
+            synchronized (this) {
+                if (closed) return false;
+            }
+            return visible;
         }
 
         @Override

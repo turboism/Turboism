@@ -6,6 +6,8 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.FlowLayout;
+import java.awt.event.HierarchyListener;
+import java.beans.PropertyChangeListener;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -22,6 +24,7 @@ import javax.swing.JTextPane;
 import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.UIManager;
 
 /** Self-healing production host operations for toolbar buttons on the Cubism Log palette. */
 public final class VerifiedPaletteToolbarHostOperations implements PaletteToolbarHostOperations {
@@ -32,7 +35,13 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     static final String BUTTON_NAME = "turboismPaletteToolbarButton";
 
     private static final int FAST_POLL_DELAY_MS = 250;
-    private static final int IDLE_POLL_DELAY_MS = 2_000;
+    /**
+     * Unbound-phase safety interval. The palette root can appear with no event Turboism can
+     * observe, so the attach search keeps one slow poll; once the toolbar is attached the
+     * timer stops entirely and a host hierarchy/look-and-feel event re-arms it.
+     */
+    private static final int SAFETY_POLL_DELAY_MS = 10_000;
+
     private static final int FAST_POLL_ATTEMPTS = 300;
     private static final Set<String> WRAPPER_MARKERS =
             Set.of(WRAPPER_MARKER_KEY, LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY);
@@ -40,11 +49,21 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     private final EditorUiPluginResourceRegistry resources;
     private final LogPaletteRootResolver logPaletteRoot;
     private final Map<String, ButtonContribution> contributions = new LinkedHashMap<>();
+    /** Coalesced host structure/appearance demand; the pane identity is re-resolved by it. */
+    private final HierarchyListener structureWatch = ignored -> structureChanged();
+
+    private final PropertyChangeListener appearanceWatch = event -> {
+        if ("lookAndFeel".equals(event.getPropertyName())) requestReconcile();
+    };
     private Binding binding;
     private Timer pollTimer;
     private int pollAttempt;
     private int contributionsVersion;
     private int syncedVersion = -1;
+    private boolean watchingAppearance;
+    private volatile boolean reconcileQueued;
+    /** Set while this class mutates the host hierarchy, so its own events are not a demand. */
+    private boolean applying;
 
     public VerifiedPaletteToolbarHostOperations(final EditorUiPluginResourceRegistry resources) {
         this(resources, LogPaletteHostStructure::findLogTextPane);
@@ -76,13 +95,20 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             contributionsVersion++;
             if (contributions.isEmpty()) {
                 stopPolling();
+                unwatchAppearance();
                 resetBinding();
                 return null;
             }
+            watchAppearance();
             try {
                 reconcile();
             } finally {
-                startPolling();
+                // A successful reconcile is the event the attach search was waiting for.
+                if (binding != null) {
+                    stopPolling();
+                } else {
+                    startPolling();
+                }
             }
             return null;
         });
@@ -105,6 +131,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             contributions.clear();
             contributionsVersion++;
             stopPolling();
+            unwatchAppearance();
             resetBinding();
         });
     }
@@ -120,7 +147,8 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             return;
         }
         // resolve() is the only source of truth for pane identity — the host can swap the
-        // pane while the old structure still looks attached, so the poll must keep asking.
+        // pane while the old structure still looks attached, so every reconcile trigger
+        // (poll, host hierarchy event, look-and-feel event) must re-resolve it.
         final JTextPane pane = logPaletteRoot.resolve();
         if (binding != null && bindingIsCurrent(pane)) {
             if (syncedVersion != contributionsVersion || !buttonsIntact()) {
@@ -128,41 +156,47 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
             }
             return;
         }
-        resetBinding();
-        if (pane == null) {
-            throw new IllegalStateException("log-palette-root-not-found");
-        }
-        final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(pane);
-        if (viewport == null || viewport.getParent() == null) {
-            throw new IllegalStateException("log-palette-scroll-shell-not-found");
-        }
-        final Container scrollShell = viewport.getParent();
-        Container target = LogPaletteHostStructure.outermostMarkedWrapper(scrollShell, WRAPPER_MARKERS);
-        if (isToolbarWrapper(target)) {
-            target = unwrapStaleToolbarWrapper(target);
-        }
-        final Container originalParent = target.getParent();
-        if (originalParent == null) {
-            throw new IllegalStateException("log-palette-toolbar-host-not-attached");
-        }
+        applying = true;
+        try {
+            resetBinding();
+            if (pane == null) {
+                throw new IllegalStateException("log-palette-root-not-found");
+            }
+            final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(pane);
+            if (viewport == null || viewport.getParent() == null) {
+                throw new IllegalStateException("log-palette-scroll-shell-not-found");
+            }
+            final Container scrollShell = viewport.getParent();
+            Container target = LogPaletteHostStructure.outermostMarkedWrapper(scrollShell, WRAPPER_MARKERS);
+            if (isToolbarWrapper(target)) {
+                target = unwrapStaleToolbarWrapper(target);
+            }
+            final Container originalParent = target.getParent();
+            if (originalParent == null) {
+                throw new IllegalStateException("log-palette-toolbar-host-not-attached");
+            }
 
-        final JPanel left = buttonGroup(FlowLayout.LEFT);
-        final JPanel right = buttonGroup(FlowLayout.RIGHT);
-        final JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
-        row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-        row.putClientProperty(ROW_MARKER_KEY, Boolean.TRUE);
-        row.add(left, BorderLayout.WEST);
-        row.add(right, BorderLayout.EAST);
+            final JPanel left = buttonGroup(FlowLayout.LEFT);
+            final JPanel right = buttonGroup(FlowLayout.RIGHT);
+            final JPanel row = new JPanel(new BorderLayout());
+            row.setOpaque(false);
+            row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+            row.putClientProperty(ROW_MARKER_KEY, Boolean.TRUE);
+            row.add(left, BorderLayout.WEST);
+            row.add(right, BorderLayout.EAST);
 
-        final JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setOpaque(false);
-        wrapper.putClientProperty(WRAPPER_MARKER_KEY, Boolean.TRUE);
-        wrapper.add(row, BorderLayout.NORTH);
-        wrapper.add(target, BorderLayout.CENTER);
-        LogPaletteHostStructure.replaceComponent(originalParent, target, wrapper);
-        binding = new Binding(pane, scrollShell, target, originalParent, wrapper, row, left, right);
-        syncButtons();
+            final JPanel wrapper = new JPanel(new BorderLayout());
+            wrapper.setOpaque(false);
+            wrapper.putClientProperty(WRAPPER_MARKER_KEY, Boolean.TRUE);
+            wrapper.add(row, BorderLayout.NORTH);
+            wrapper.add(target, BorderLayout.CENTER);
+            LogPaletteHostStructure.replaceComponent(originalParent, target, wrapper);
+            binding = new Binding(pane, scrollShell, target, originalParent, wrapper, row, left, right);
+            watchStructure(binding);
+            syncButtons();
+        } finally {
+            applying = false;
+        }
     }
 
     private boolean bindingIsCurrent(final JTextPane currentPane) {
@@ -179,6 +213,16 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
     }
 
     private void syncButtons() {
+        final boolean outer = applying;
+        applying = true;
+        try {
+            placeButtons();
+        } finally {
+            applying = outer;
+        }
+    }
+
+    private void placeButtons() {
         final List<String> vanished = new ArrayList<>(binding.buttons.keySet());
         vanished.removeAll(contributions.keySet());
         for (String nativeId : vanished) {
@@ -203,7 +247,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         syncedVersion = contributionsVersion;
     }
 
-    /** Cheap per-poll check: every contributed button still sits in its anchor group. */
+    /** Cheap per-reconcile check: every contributed button still sits in its anchor group. */
     private boolean buttonsIntact() {
         for (ButtonContribution contribution : contributions.values()) {
             final ButtonState state =
@@ -235,6 +279,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         button.putClientProperty(BUTTON_MARKER_KEY, descriptor.nativeId());
         button.setToolTipText(descriptor.label());
         button.setFocusable(false);
+        button.addHierarchyListener(structureWatch);
         button.addActionListener(ignored -> contribution.action().run());
         return button;
     }
@@ -254,6 +299,7 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         if (binding == null) {
             return;
         }
+        unwatchStructure(binding);
         binding.buttons.clear();
         binding.row.removeAll();
         if (binding.wrapper.getParent() == binding.originalParent) {
@@ -296,15 +342,84 @@ public final class VerifiedPaletteToolbarHostOperations implements PaletteToolba
         try {
             reconcile();
         } catch (RuntimeException failure) {
-            System.getLogger(getClass().getName())
-                    .log(
-                            System.Logger.Level.WARNING,
-                            "Palette toolbar lifecycle reconcile failed: " + failure.getMessage());
+            reportReconcileFailure(failure);
+        }
+        if (binding != null) {
+            // Reconciled: the tree walk is over until a host structure/appearance event
+            // arrives or an explicit reconcile is requested.
+            stopPolling();
+            return;
         }
         pollAttempt++;
         if (pollAttempt == FAST_POLL_ATTEMPTS && pollTimer != null) {
-            pollTimer.setDelay(IDLE_POLL_DELAY_MS);
+            pollTimer.setDelay(SAFETY_POLL_DELAY_MS);
         }
+    }
+
+    /** Host structure event: a demand unless this class caused it. */
+    private void structureChanged() {
+        if (applying) return;
+        requestReconcile();
+    }
+
+    /** Coalesces host hierarchy/appearance events into one reconcile on the EDT. */
+    private void requestReconcile() {
+        if (reconcileQueued) return;
+        reconcileQueued = true;
+        SwingUtilities.invokeLater(() -> {
+            reconcileQueued = false;
+            if (contributions.isEmpty()) return;
+            try {
+                reconcile();
+            } catch (RuntimeException failure) {
+                reportReconcileFailure(failure);
+            }
+            if (binding != null) {
+                stopPolling();
+            } else {
+                startPolling();
+            }
+        });
+    }
+
+    private void reportReconcileFailure(final RuntimeException failure) {
+        System.getLogger(getClass().getName())
+                .log(
+                        System.Logger.Level.WARNING,
+                        "Palette toolbar lifecycle reconcile failed: " + failure.getMessage());
+    }
+
+    private void watchAppearance() {
+        if (watchingAppearance) return;
+        watchingAppearance = true;
+        UIManager.addPropertyChangeListener(appearanceWatch);
+    }
+
+    private void unwatchAppearance() {
+        if (!watchingAppearance) return;
+        watchingAppearance = false;
+        UIManager.removePropertyChangeListener(appearanceWatch);
+    }
+
+    /** Watches every component whose reparenting can invalidate the installed toolbar. */
+    private void watchStructure(final Binding current) {
+        current.pane.addHierarchyListener(structureWatch);
+        current.target.addHierarchyListener(structureWatch);
+        current.wrapper.addHierarchyListener(structureWatch);
+        current.row.addHierarchyListener(structureWatch);
+    }
+
+    private void unwatchStructure(final Binding current) {
+        current.pane.removeHierarchyListener(structureWatch);
+        current.target.removeHierarchyListener(structureWatch);
+        current.wrapper.removeHierarchyListener(structureWatch);
+        current.row.removeHierarchyListener(structureWatch);
+        current.buttons.values().forEach(state -> state.button.removeHierarchyListener(structureWatch));
+    }
+
+    /** Test visibility: whether the attach search is still polling for the palette root. */
+    boolean polling() {
+        return pollTimer != null;
     }
 
     private void stopPolling() {

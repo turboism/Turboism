@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 import javax.swing.UIManager;
 
 /** Exact-version mesh-toolbar operations restricted to verified aliases. */
@@ -117,28 +116,22 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         final Registration state = coordinator.onStateChanged(reconcile);
         final AtomicBoolean closed = new AtomicBoolean();
         final boolean[] previousDark = {ToolbarIconLoader.isDarkTheme()};
+        // The look-and-feel event is the only theme-change source: a polled duplicate of the
+        // same comparison only re-read the identical value four times a second.
         final PropertyChangeListener lafListener = event -> {
             if ("lookAndFeel".equals(event.getPropertyName())) {
                 SwingUtilities.invokeLater(() -> {
                     if (closed.get()) return;
-                    previousDark[0] = ToolbarIconLoader.isDarkTheme();
+                    final boolean currentDark = ToolbarIconLoader.isDarkTheme();
+                    if (currentDark == previousDark[0]) return;
+                    previousDark[0] = currentDark;
                     reconcile.run();
                 });
             }
         };
-        final Timer timer = new Timer(250, ignored -> {
-            if (closed.get()) return;
-            final boolean currentDark = ToolbarIconLoader.isDarkTheme();
-            if (currentDark != previousDark[0]) {
-                previousDark[0] = currentDark;
-                reconcile.run();
-            }
-        });
         UIManager.addPropertyChangeListener(lafListener);
-        timer.start();
         return () -> {
             if (!closed.compareAndSet(false, true)) return;
-            timer.stop();
             UIManager.removePropertyChangeListener(lafListener);
             state.close();
         };

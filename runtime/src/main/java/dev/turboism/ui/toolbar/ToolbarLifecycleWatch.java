@@ -13,6 +13,14 @@ import javax.swing.UIManager;
 
 /** Bounded native-widget identity observation. Runs only while a toolbar provider is applied. */
 final class ToolbarLifecycleWatch implements Registration {
+    /**
+     * Safety-observation interval. Widget replacement and detachment have no event source
+     * Turboism can subscribe to (the identity is resolved reflectively from host objects), so
+     * one slow identity check stays; theme changes arrive through the look-and-feel listener
+     * below, and the polled theme read is a cached lookup.
+     */
+    private static final int SAFETY_POLL_DELAY_MS = 10_000;
+
     private final Supplier<?> identity;
     private final BooleanSupplier detached;
     private final Runnable reconcile;
@@ -29,7 +37,7 @@ final class ToolbarLifecycleWatch implements Registration {
         this.reconcile = reconcile;
         previous = identity.get();
         previousDark = ToolbarIconLoader.isDarkTheme();
-        timer = new Timer(250, ignored -> poll());
+        timer = new Timer(SAFETY_POLL_DELAY_MS, ignored -> poll());
         appearance = event -> {
             if ("lookAndFeel".equals(event.getPropertyName())) {
                 SwingUtilities.invokeLater(this::appearanceChanged);
@@ -73,6 +81,11 @@ final class ToolbarLifecycleWatch implements Registration {
                 FatalErrors.rethrowIfFatal(failure);
             }
         });
+    }
+
+    /** Test visibility: the installed safety-observation interval. */
+    int pollDelayMillis() {
+        return timer.getDelay();
     }
 
     @Override

@@ -134,6 +134,24 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Whether a native palette write can still reach an observer: a registered plugin hook or a
+     * {@link ParameterValueEvent} subscriber. When this is false the native ingress can skip the
+     * whole lifecycle — it would only read the old value, run an empty interceptor pass and publish
+     * nothing — so nothing anyone can observe changes. Registration is not otherwise accounted for:
+     * the per-plugin intercept/observe flags only gate callbacks that already exist.
+     */
+    boolean nativeWriteObservable() {
+        if (!plugins.isEmpty()) {
+            return true;
+        }
+        final RuntimeEventBroker broker = eventBroker;
+        return broker != null
+                && (broker.hasObserversFor(ParameterValueEvent.Before.class)
+                        || broker.hasObserversFor(ParameterValueEvent.On.class)
+                        || broker.hasObserversFor(ParameterValueEvent.After.class));
+    }
+
     NativeInvocation beginNative(final Parameter parameter, final float requestedValue) {
         Objects.requireNonNull(parameter, "parameter");
         if (parameterWriteActive.get()) {

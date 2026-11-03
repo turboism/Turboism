@@ -74,6 +74,10 @@ class TextureUploadPreparationTransformerTest {
                         loader,
                         pair.getClass().getClassLoader(),
                         "kotlin.Pair must resolve to the temp fixture, not the parent classpath");
+                assertEquals(
+                        1,
+                        profileType.getField("desktopProbes").getInt(null),
+                        "the desktop-profile answer is memoized for the uploaded profile");
                 Object texture = pair.getClass().getField("first").get(pair);
                 BufferedImage actual =
                         (BufferedImage) texture.getClass().getField("image").get(texture);
@@ -124,7 +128,7 @@ class TextureUploadPreparationTransformerTest {
     private java.util.Set<String> compileFixture() throws Exception {
         Map<String, String> sources = Map.of(
                 "com.jogamp.opengl.GLProfile",
-                        "package com.jogamp.opengl; public class GLProfile { public final boolean desktop; public GLProfile(boolean d){desktop=d;} public boolean isGL2GL3(){return desktop;} }",
+                        "package com.jogamp.opengl; public class GLProfile { public static int desktopProbes; public final boolean desktop; public GLProfile(boolean d){desktop=d;} public boolean isGL2GL3(){desktopProbes++;return desktop;} }",
                 "com.live2d.graphics3d.a",
                         "package com.live2d.graphics3d; public class a { public final com.jogamp.opengl.GLProfile profile; public a(com.jogamp.opengl.GLProfile p){profile=p;} }",
                 "com.live2d.graphics.CWritableImage",

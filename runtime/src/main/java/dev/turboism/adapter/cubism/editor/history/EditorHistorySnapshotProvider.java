@@ -16,8 +16,10 @@ import dev.turboism.ui.host.EdtDispatch;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -33,6 +35,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private final BindingIdentityTracker documentIdentities;
     private final NativeHistoryDecoderRegistry nativeDecoders = new NativeHistoryDecoderRegistry();
     private final BindingIdentityTracker managerIdentities;
+    private final DecodedDetailMemo decodedDetails = new DecodedDetailMemo();
     private long revisionGeneration = -1;
     private long revision;
     private HistorySnapshot lastSnapshot;
@@ -266,6 +269,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         if (!(rawEntries instanceof List<?> values)) return HistorySnapshot.unavailable();
         final int position = number(resolver.invoke("cubism.editor-history.manager.position", manager));
         if (position < 0 || position > values.size()) return HistorySnapshot.unavailable();
+        decodedDetails.enterHistory(expectedGeneration, resolver, document, manager);
         final ArrayList<HistoryEntry> entries = new ArrayList<>(values.size());
         for (int index = 0; index < values.size(); index++) {
             final Object entry = values.get(index);
@@ -278,23 +282,10 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                 return HistorySnapshot.unavailable();
             }
             final EditorHistoryMetadataRegistry.EntryMetadata metadata = EditorHistoryMetadataRegistry.metadata(entry);
-            final HistoryEntryDetail detail;
-            if (metadata.detail().isPresent()) {
-                detail = metadata.detail().orElseThrow();
-            } else if (metadata.action().isPresent()) {
-                detail = HistoryEntryDetail.fromAction(
-                        text, metadata.action().orElseThrow(), HistoryOrigin.hostUnattributed());
-            } else if (observedUsable(resolver, entry, metadata.observedDetail())) {
-                // The commit-time decode is the only read that could still prove this entry's own
-                // post state; a fresh decode here could not read it, so the observed projection is
-                // reused instead of recomputing a poorer one.
-                detail = metadata.observedDetail().orElseThrow();
-            } else {
-                final NativeHistoryDecodeResult decoded = nativeDecoders.decode(resolver, entry, text);
-                detail = decoded.detail()
-                        .orElseGet(() -> HistoryEntryDetail.labelOnly(
-                                text, HistoryOrigin.hostUnattributed(), decoded.diagnosticId()));
-            }
+            // Entries below the undo tip are settled host history. The tip can still be coalesced
+            // in place (a list undo or a group keeps growing while the edit is open) and the host
+            // rewrites the redo tail on the next edit, so those entries are always projected fresh.
+            final HistoryEntryDetail detail = entryDetail(resolver, entry, text, flag, metadata, index < position - 1);
             entries.add(new HistoryEntry(
                     index,
                     text,
@@ -304,6 +295,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                     metadata.transactionId(),
                     detail));
         }
+        decodedDetails.finishProjection();
         final boolean canUndo = flag(resolver.invoke("cubism.editor-history.manager.can-undo", manager));
         final boolean canRedo = flag(resolver.invoke("cubism.editor-history.manager.can-redo", manager));
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();
@@ -315,6 +307,48 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                 canRedo,
                 documentBindingId(document),
                 managerBindingId(manager));
+    }
+
+    /**
+     * Projects one entry's detail from the most authoritative source available.
+     *
+     * <p>Only the native decode is memoized: it is the one read whose cost grows with the entry,
+     * and its inputs are the mutable host label, the significance flag and the entry's immutable
+     * metadata record. An unsupported or failed decode is never memoized, so a later admission or
+     * a transient native failure still changes the next projection.</p>
+     *
+     * @param settled whether the cursor already passed this entry, which is the only case a decode
+     *     is reused for; see {@link DecodedDetailMemo}
+     */
+    private HistoryEntryDetail entryDetail(
+            final VerifiedMemberResolver resolver,
+            final Object entry,
+            final String label,
+            final boolean significant,
+            final EditorHistoryMetadataRegistry.EntryMetadata metadata,
+            final boolean settled) {
+        if (metadata.detail().isPresent()) return metadata.detail().orElseThrow();
+        if (metadata.action().isPresent()) {
+            return HistoryEntryDetail.fromAction(
+                    label, metadata.action().orElseThrow(), HistoryOrigin.hostUnattributed());
+        }
+        if (observedUsable(resolver, entry, metadata.observedDetail())) {
+            // The commit-time decode is the only read that could still prove this entry's own
+            // post state; a fresh decode here could not read it, so the observed projection is
+            // reused instead of recomputing a poorer one.
+            return metadata.observedDetail().orElseThrow();
+        }
+        if (settled) {
+            final HistoryEntryDetail memoized = decodedDetails.detailFor(entry, label, significant, metadata);
+            if (memoized != null && observedUsable(resolver, entry, Optional.of(memoized))) return memoized;
+        }
+        final NativeHistoryDecodeResult decoded = nativeDecoders.decode(resolver, entry, label);
+        final Optional<HistoryEntryDetail> authoritative = decoded.detail();
+        if (authoritative.isEmpty()) {
+            return HistoryEntryDetail.labelOnly(label, HistoryOrigin.hostUnattributed(), decoded.diagnosticId());
+        }
+        if (settled) decodedDetails.remember(entry, label, significant, metadata, authoritative.orElseThrow());
+        return authoritative.orElseThrow();
     }
 
     /**
@@ -349,6 +383,10 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
 
     int trackedBindingIdentityCount() {
         return documentIdentities.size() + managerIdentities.size();
+    }
+
+    int memoizedDetailCount() {
+        return decodedDetails.size();
     }
 
     /**
@@ -451,6 +489,181 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                     documentId,
                     managerId);
             return lastSnapshot;
+        }
+    }
+
+    /**
+     * Memoizes the recursive native decode for settled entries whose projected inputs did not
+     * change.
+     *
+     * <p>The host can rename an entry in place, so every projection still re-reads each entry's
+     * label and significance flag; only the decode is reused. A memo is therefore keyed by the
+     * exact native entry plus the three inputs that can change its projection: the host label, the
+     * significance flag and the entry's immutable metadata values, which a registration in
+     * {@link EditorHistoryMetadataRegistry} replaces.</p>
+     *
+     * <p>A decode reads the entry's own recorded undo/redo data and the ids and display names of
+     * the targets it names, never the model state at the cursor, so appending an entry or moving the
+     * cursor cannot change an entry the cursor already passed. Those settled entries keep their
+     * memo; the undo tip and the redo tail do not, because the host coalesces the tip in place (a
+     * {@code ListUndo} or group keeps growing while the edit is open, which the group-count recheck
+     * below cannot see) and rewrites the tail on the next edit. Excluding the tail also covers the
+     * host filling in a {@code SimpleUndo}'s post state when that entry is undone. A settled row may
+     * still name a target by the display name the host had when it was projected, which is the same
+     * freeze a commit-time observed detail already has.</p>
+     *
+     * <p>Every memo is dropped when the generation, resolver, document or manager changes, and a
+     * memo the current projection did not read is pruned, so an entry the host dropped (a truncated
+     * redo tail) does not linger. The caller still re-checks group growth through
+     * {@code observedUsable}.</p>
+     *
+     * <p>Only decoded details are retained; they hold bounded scalars, never native objects. The
+     * native keys are weakly held so an entry the host released is never kept alive here. The memo
+     * is read and written only by one projection, which the provider always runs on the editor
+     * dispatch thread, so it needs no lock of its own.</p>
+     */
+    static final class DecodedDetailMemo {
+        private final ReferenceQueue<Object> collected = new ReferenceQueue<>();
+        private final Map<EntryKey, MemoizedDetail> details = new HashMap<>();
+        private WeakReference<Object> document = new WeakReference<>(null);
+        private WeakReference<Object> manager = new WeakReference<>(null);
+        private VerifiedMemberResolver resolver;
+        private long generation = Long.MIN_VALUE;
+        private long projection;
+
+        void enterHistory(
+                final long generation,
+                final VerifiedMemberResolver resolver,
+                final Object document,
+                final Object manager) {
+            projection++;
+            if (this.generation == generation
+                    && this.resolver == resolver
+                    && this.document.get() == document
+                    && this.manager.get() == manager) {
+                return;
+            }
+            details.clear();
+            this.generation = generation;
+            this.resolver = resolver;
+            this.document = new WeakReference<>(document);
+            this.manager = new WeakReference<>(manager);
+        }
+
+        /** Returns the memoized detail, or {@code null} when this entry has to be decoded again. */
+        HistoryEntryDetail detailFor(
+                final Object entry,
+                final String label,
+                final boolean significant,
+                final EditorHistoryMetadataRegistry.EntryMetadata metadata) {
+            removeCollected();
+            final EntryKey key = new EntryKey(entry, collected);
+            final MemoizedDetail memo = details.get(key);
+            if (memo == null) return null;
+            if (!memo.label().equals(label)
+                    || memo.significant() != significant
+                    || !memo.metadata().equals(metadata)) {
+                details.remove(key);
+                return null;
+            }
+            memo.seen = projection;
+            return memo.detail();
+        }
+
+        void remember(
+                final Object entry,
+                final String label,
+                final boolean significant,
+                final EditorHistoryMetadataRegistry.EntryMetadata metadata,
+                final HistoryEntryDetail detail) {
+            removeCollected();
+            details.put(
+                    new EntryKey(entry, collected),
+                    new MemoizedDetail(label, significant, metadata, detail, projection));
+        }
+
+        /** Drops every memo this projection did not read, including a truncated redo tail. */
+        void finishProjection() {
+            removeCollected();
+            final Iterator<MemoizedDetail> memos = details.values().iterator();
+            while (memos.hasNext()) {
+                if (memos.next().seen != projection) memos.remove();
+            }
+        }
+
+        int size() {
+            removeCollected();
+            return details.size();
+        }
+
+        private void removeCollected() {
+            for (Object expired; (expired = collected.poll()) != null; ) {
+                details.remove(expired);
+            }
+        }
+    }
+
+    /**
+     * Identifies one native entry by reference identity. A {@link java.util.WeakHashMap} is
+     * deliberately not used: host objects may override {@code equals}/{@code hashCode}, while a
+     * memo must belong to the exact instance.
+     */
+    private static final class EntryKey extends WeakReference<Object> {
+        private final int identityHash;
+
+        private EntryKey(final Object entry, final ReferenceQueue<Object> queue) {
+            super(entry, queue);
+            identityHash = System.identityHashCode(entry);
+        }
+
+        @Override
+        public int hashCode() {
+            return identityHash;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (this == other) return true;
+            final Object entry = get();
+            return entry != null && other instanceof EntryKey key && entry == key.get();
+        }
+    }
+
+    /** One memoized decode, stamped with the projection that last read it. */
+    private static final class MemoizedDetail {
+        private final String label;
+        private final boolean significant;
+        private final EditorHistoryMetadataRegistry.EntryMetadata metadata;
+        private final HistoryEntryDetail detail;
+        private long seen;
+
+        private MemoizedDetail(
+                final String label,
+                final boolean significant,
+                final EditorHistoryMetadataRegistry.EntryMetadata metadata,
+                final HistoryEntryDetail detail,
+                final long seen) {
+            this.label = Objects.requireNonNull(label, "label");
+            this.significant = significant;
+            this.metadata = Objects.requireNonNull(metadata, "metadata");
+            this.detail = Objects.requireNonNull(detail, "detail");
+            this.seen = seen;
+        }
+
+        private String label() {
+            return label;
+        }
+
+        private boolean significant() {
+            return significant;
+        }
+
+        private EditorHistoryMetadataRegistry.EntryMetadata metadata() {
+            return metadata;
+        }
+
+        private HistoryEntryDetail detail() {
+            return detail;
         }
     }
 

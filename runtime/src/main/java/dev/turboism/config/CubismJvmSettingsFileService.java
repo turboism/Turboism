@@ -305,6 +305,66 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean reinitPairElision() {
+        return optimization("reinitPairElision");
+    }
+
+    @Override
+    public boolean saveReinitPairElision(final boolean value) {
+        return saveOptimization("reinitPairElision", value);
+    }
+
+    @Override
+    public boolean clipMaskDeduplication() {
+        return optimization("clipMaskDeduplication");
+    }
+
+    @Override
+    public boolean saveClipMaskDeduplication(final boolean value) {
+        return saveOptimization("clipMaskDeduplication", value);
+    }
+
+    @Override
+    public boolean clipMaskScissorClear() {
+        return optimization("clipMaskScissorClear");
+    }
+
+    @Override
+    public boolean saveClipMaskScissorClear(final boolean value) {
+        return saveOptimization("clipMaskScissorClear", value);
+    }
+
+    @Override
+    public boolean extendedInterpolationIncrementalSetup() {
+        return optimization("extendedInterpolationIncrementalSetup");
+    }
+
+    @Override
+    public boolean saveExtendedInterpolationIncrementalSetup(final boolean value) {
+        return saveOptimization("extendedInterpolationIncrementalSetup", value);
+    }
+
+    @Override
+    public boolean modelInstanceCoalesce() {
+        return optimization("modelInstanceCoalesce");
+    }
+
+    @Override
+    public boolean saveModelInstanceCoalesce(final boolean value) {
+        return saveOptimization("modelInstanceCoalesce", value);
+    }
+
+    @Override
+    public boolean inspectorPropertyBypass() {
+        return optimization("inspectorPropertyBypass");
+    }
+
+    @Override
+    public boolean saveInspectorPropertyBypass(final boolean value) {
+        return saveOptimization("inspectorPropertyBypass", value);
+    }
+
+    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }
@@ -332,10 +392,7 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                 actual = switch (field) {
                     case CUBISM_JVM -> System.getProperty("java.vm.name") + " / " + System.getProperty("java.vendor");
                     case GRAAL_VM_PATH -> System.getProperty("java.home");
-                    case ZGC ->
-                        java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
-                                .map(java.lang.management.GarbageCollectorMXBean::getName)
-                                .collect(java.util.stream.Collectors.joining(", "));
+                    case ZGC -> zgcActual();
                     case MEMORY_PROFILE ->
                         "maxHeapBytes=" + Runtime.getRuntime().maxMemory() + "; JVM="
                                 + java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
@@ -355,6 +412,23 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                     root != null && request != null && !saved.equals(request.value())));
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * Reports the collectors actually in force plus the ZGC uncommit delay the
+     * managed launcher passed, so the Performance status row shows whether the
+     * shorter delay is active for this process and not only that ZGC is used.
+     */
+    private static String zgcActual() {
+        final String collectors = java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
+                .map(java.lang.management.GarbageCollectorMXBean::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
+        return collectors
+                + java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
+                        .filter(argument -> argument.startsWith("-XX:ZUncommitDelay="))
+                        .findFirst()
+                        .map(argument -> "; " + argument)
+                        .orElse("");
     }
 
     @Override

@@ -41,6 +41,7 @@ class NativeOptimizationPolicyTest {
         dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBridge.setConfiguredDefault(false);
         dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge.setConfiguredDefault(false);
         dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.setConfiguredDefault(false);
+        dev.turboism.adapter.cubism.optimization.inspector.InspectorPropertyBypassBridge.setConfiguredDefault(false);
     }
 
     private HookEnvironment environment() {
@@ -93,6 +94,7 @@ class NativeOptimizationPolicyTest {
         assertTrue(NativeOptimizationPolicy.floatArrayParseCacheEnabled(next));
         assertTrue(NativeOptimizationPolicy.textureUploadPreparationEnabled(next));
         assertTrue(NativeOptimizationPolicy.warpPositionProjectionEnabled(next));
+        assertTrue(NativeOptimizationPolicy.reinitPairElisionEnabled(next));
     }
 
     @Test

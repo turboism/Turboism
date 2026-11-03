@@ -10,13 +10,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import java.awt.BorderLayout;
+import java.awt.GraphicsEnvironment;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 class RuntimeTextureAtlasEditorUiTest {
@@ -139,6 +143,56 @@ class RuntimeTextureAtlasEditorUiTest {
 
         assertFalse(view.offEdtMutation.get());
         ui.close();
+    }
+
+    @Test
+    void panelReportsHiddenWhileTheHostViewIsNotOnScreen() {
+        final RuntimeTextureAtlasEditorUi ui = boundUi();
+        final JPanel view = new JPanel(new BorderLayout());
+        final var panel = ui.attach();
+        ui.ingress().accept(view);
+
+        assertFalse(panel.isVisible(), "a panel in a view that was never shown reports hidden");
+
+        panel.close();
+
+        assertFalse(panel.isVisible(), "a detached panel never reports visible");
+        ui.close();
+    }
+
+    @Test
+    void panelVisibilityFollowsTheShowingHostView() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "requires a displayable host window");
+        final RuntimeTextureAtlasEditorUi ui = boundUi();
+        final JPanel view = new JPanel(new BorderLayout());
+        ui.ingress().accept(view);
+        final var panel = ui.attach();
+        final JFrame frame = new JFrame("atlas host fixture");
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                frame.setContentPane(view);
+                frame.pack();
+                frame.setVisible(true);
+            });
+            assertTrue(awaitVisible(panel, true), "a panel in a showing host view reports visible");
+
+            SwingUtilities.invokeAndWait(() -> frame.setVisible(false));
+
+            assertTrue(awaitVisible(panel, false), "hiding the host view reports hidden again so polling stops");
+        } finally {
+            SwingUtilities.invokeAndWait(frame::dispose);
+            ui.close();
+        }
+    }
+
+    /** Drains queued EDT hierarchy events until the panel reports the expected visibility. */
+    private static boolean awaitVisible(final TextureAtlasEditorPanel panel, final boolean expected) throws Exception {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            if (panel.isVisible() == expected) return true;
+            SwingUtilities.invokeAndWait(() -> {});
+            Thread.sleep(10L);
+        }
+        return panel.isVisible() == expected;
     }
 
     @Test

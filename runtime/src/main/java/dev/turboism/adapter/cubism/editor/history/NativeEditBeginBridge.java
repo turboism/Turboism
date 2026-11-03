@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.adapter.cubism.optimization.extendedinterpolation.ExtendedInterpolationSetupBridge;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Objects;
 import java.util.Optional;
@@ -98,6 +99,9 @@ public final class NativeEditBeginBridge {
 
     static void accept(final String editName) {
         NOTIFICATIONS.incrementAndGet();
+        // Recording the edit window is neither a host read nor a publication: the setup fast path
+        // only uses it to tell "an edit just started" apart from load/import/switch rebuilds.
+        ExtendedInterpolationSetupBridge.noteNativeEditIntent();
         try {
             if (closed) {
                 // Terminal: no counter, because a closed bridge is a shutdown state and not a

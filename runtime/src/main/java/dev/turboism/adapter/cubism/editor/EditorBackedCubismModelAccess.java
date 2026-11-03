@@ -106,6 +106,18 @@ public final class EditorBackedCubismModelAccess
     private WeakReference<Object> activeSource;
     private WeakReference<Object> activeModel;
     private long generation;
+    /** Upper bound on retained parameter-position hints; an oversized table simply rescans. */
+    private static final int PARAMETER_INDEX_HINTS = 512;
+    /**
+     * Position hints for the parameter table, so a repeated {@code find} (a parameter-palette drag
+     * resolves the same id on every slider event) does not rescan every entry with two verified
+     * invokes each. A hint is only a hint: it is used for the bound model and generation only and
+     * its live id is re-checked before use, so a rebuilt, reordered or renamed table falls back to
+     * the scan and rewrites the entry.
+     */
+    private final java.util.concurrent.ConcurrentMap<String, ParameterIndexHint> parameterIndexHints =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
     private final EditorDocumentReadAccess documentReadAccess;
@@ -848,14 +860,38 @@ public final class EditorBackedCubismModelAccess
     }
 
     private ParameterBinding parameter(final Object model, final ParameterId id) {
+        final Iterable<?> iterable = nativeParameters(model);
+        final int hinted = hintedIndex(model, id.value());
+        if (hinted >= 0 && iterable instanceof List<?> list && hinted < list.size()) {
+            final Object candidate = list.get(hinted);
+            if (hasId(candidate, id.value())) return new ParameterBinding(id.value(), candidate, hinted);
+        }
         int index = 0;
-        for (Object parameter : nativeParameters(model)) {
-            final Object rawId = resolver.invoke("cubism.editor-model.parameter.id", parameter);
-            final String value = text(resolver.invoke("cubism.editor-model.id.value", rawId));
-            if (value.equals(id.value())) return new ParameterBinding(value, parameter, index);
+        for (Object parameter : iterable) {
+            if (hasId(parameter, id.value())) {
+                rememberIndex(model, id.value(), index);
+                return new ParameterBinding(id.value(), parameter, index);
+            }
             index++;
         }
         throw new NoSuchElementException("Cubism parameter is absent: " + id.value());
+    }
+
+    private boolean hasId(final Object parameter, final String id) {
+        final Object rawId = resolver.invoke("cubism.editor-model.parameter.id", parameter);
+        return id.equals(text(resolver.invoke("cubism.editor-model.id.value", rawId)));
+    }
+
+    /** @return a hinted position for {@code id} in {@code model}, or {@code -1} when there is none. */
+    private int hintedIndex(final Object model, final String id) {
+        final ParameterIndexHint hint = parameterIndexHints.get(id);
+        if (hint == null) return -1;
+        return hint.matches(model, authoringGeneration()) ? hint.index() : -1;
+    }
+
+    private void rememberIndex(final Object model, final String id, final int index) {
+        if (parameterIndexHints.size() >= PARAMETER_INDEX_HINTS) parameterIndexHints.clear();
+        parameterIndexHints.put(id, new ParameterIndexHint(new WeakReference<>(model), authoringGeneration(), index));
     }
 
     private static String text(final Object value) {
@@ -1483,6 +1519,13 @@ public final class EditorBackedCubismModelAccess
     record Binding(String identity, long generation, String modelId, Object document, Object source, Object model) {}
 
     private record ParameterBinding(String id, Object parameter, int index) {}
+
+    /** One bound parameter-table position; the model is held weakly so hints never pin a document. */
+    private record ParameterIndexHint(WeakReference<Object> model, long generation, int index) {
+        private boolean matches(final Object candidate, final long candidateGeneration) {
+            return generation == candidateGeneration && model.get() == candidate;
+        }
+    }
 
     private record CreateParent(Object source, boolean deformer) {}
 }
