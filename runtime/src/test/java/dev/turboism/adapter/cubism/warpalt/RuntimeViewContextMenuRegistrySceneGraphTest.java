@@ -205,8 +205,8 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
     @Test
     void insertsContributedButtonsByOrderNotRegistrationOrder() {
         final List<Object> group = new ArrayList<>(List.of("native-1", "native-2", "artmesh", "warp"));
-        final StateButtonContribution artMesh = contribution("artmesh-mirror.toggle", 10);
-        final StateButtonContribution warp = contribution("warp-deformer-alt-symmetry.axis", 20);
+        final RuntimeViewContextMenuRegistry.OrderedContribution artMesh = contribution("artmesh-mirror.toggle", 10);
+        final RuntimeViewContextMenuRegistry.OrderedContribution warp = contribution("warp-deformer-alt-symmetry.axis", 20);
 
         assertEquals(
                 2,
@@ -225,7 +225,7 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
     @Test
     void equalOrdersUseContributionIdAsTheStableTieBreaker() {
         final List<Object> group = new ArrayList<>(List.of("native", "z"));
-        final StateButtonContribution z = contribution("z", 10);
+        final RuntimeViewContextMenuRegistry.OrderedContribution z = contribution("z", 10);
 
         assertEquals(
                 1,
@@ -243,9 +243,11 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
                 2, RuntimeViewContextMenuRegistry.insertionIndex(group, List.of(), List.of(), contribution("only", 0)));
     }
 
-    private static StateButtonContribution contribution(final String id, final int order) {
-        return new StateButtonContribution(
-                id, Map.of(0, new UiRasterImage(1, 1, new int[] {0xff000000})), 0, ignored -> {}, order);
+    private static RuntimeViewContextMenuRegistry.OrderedContribution contribution(final String id, final int order) {
+        return new RuntimeViewContextMenuRegistry.OrderedContribution(
+                new StateButtonContribution(
+                        id, Map.of(0, new UiRasterImage(1, 1, new int[] {0xff000000})), 0, ignored -> {}),
+                order);
     }
 
     @Test
