@@ -6,6 +6,7 @@ import fnmatch
 import re
 import shlex
 import sys
+import unittest
 from pathlib import Path
 
 import yaml
@@ -138,7 +139,7 @@ def executable_commands(document: dict, release: bool = False) -> list[list[str]
 
 
 def check_workflow(root: Path) -> None:
-    workflow = yaml.safe_load((root / '.github/workflows/ci.yml').read_text())
+    workflow = yaml.safe_load((root / '.github/workflows/ci.yml').read_text(encoding='utf-8'))
     triggers = workflow.get('on', workflow.get(True, {}))
     assert 'pull_request' in triggers and 'push' in triggers, 'missing ordinary CI event'
     assert not triggers['pull_request'], 'pull requests must not be path/branch filtered'
@@ -155,14 +156,14 @@ def check_workflow(root: Path) -> None:
         assert not job.get('permissions'), 'job must inherit read-only permissions'
 
     for name in ('unified-channel-checks.yml', 'release.yml'):
-        document = yaml.safe_load((root / '.github/workflows' / name).read_text())
+        document = yaml.safe_load((root / '.github/workflows' / name).read_text(encoding='utf-8'))
         assert any('checkRelease' in command for command in executable_commands(document, release=True)), name + ' must execute checkRelease'
 
 
 def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     bodies = {}
     for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
-        for name, tokens in task_bodies(file.read_text()).items():
+        for name, tokens in task_bodies(file.read_text(encoding='utf-8')).items():
             bodies.setdefault(name, []).extend(tokens)
     graph = dependency_graph(bodies)
     covered = reachable(graph, {'devCheck', 'checkCompletedCommit'})
@@ -184,14 +185,40 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
         assert name not in reachable(graph, {'devCheck', 'checkIntegration', 'checkCompletedCommit'}), f'opt-in task became gated: {name}'
         assert '"host verification"' in bodies[name], f'opt-in task must be labelled: {name}'
     check_opt_in_gradle_tests(bodies, covered)
+    for name in RETIRED_META_GATE_SELFTESTS:
+        assert name not in bodies, f'retired meta-gate selftest is back: {name}'
     return bodies, covered
+
+
+def check_centralized_gates(root: Path) -> None:
+    """The four aggregate gates are declared once and never re-opened.
+
+    devCheck, checkIntegration, checkCompletedCommit and checkRelease each list their
+    full dependency set inline in gradle/verification.gradle.kts, so a gate member is
+    added in one place instead of being patched from whichever script owns the task.
+    """
+    aggregate = ('devCheck', 'checkIntegration', 'checkCompletedCommit', 'checkRelease')
+    reopen = re.compile(r'tasks\.(?:named|register|getByName)(?:<[^>]+>)?\(\s*"([\w:]+)"')
+    for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
+        if file.name == 'verification.gradle.kts':
+            continue
+        patched = sorted({name for name in reopen.findall(file.read_text(encoding='utf-8'))
+                          if name in aggregate})
+        assert not patched, f'{file.name} re-opens aggregate gates: {patched}'
+    verification = (root / 'gradle/verification.gradle.kts').read_text(encoding='utf-8')
+    for gate in aggregate:
+        declared = len(re.findall(
+            rf'(?:val\s+{gate}\s+by\s+tasks\.registering|tasks\.register\("{gate}"\))', verification))
+        assert declared == 1, f'{gate} must be declared exactly once in verification.gradle.kts: {declared}'
+        assert not re.search(rf'tasks\.(?:named|getByName)\("{gate}"\)', verification), \
+            f'{gate} must not be patched after its declaration'
 
 
 def check_opt_in_gradle_tests(bodies: dict[str, list[str]], covered: set[str]) -> None:
     """Opt-in host-evidence Test tasks must stay registered and stay ungated."""
     module_bodies: dict[str, list[str]] = {}
     for relative in OPT_IN_GRADLE_TEST_SOURCES:
-        for name, tokens in task_bodies((ROOT / relative).read_text()).items():
+        for name, tokens in task_bodies((ROOT / relative).read_text(encoding='utf-8')).items():
             module_bodies.setdefault(name, []).extend(tokens)
     gated_tokens = set()
     for name in covered:
@@ -233,7 +260,7 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
     assert opt_in_commands == OPT_IN_TESTS, 'missing or changed opt-in execution command'
     runner = root / 'scripts/test/run_host_tooling_selftest.py'
     assert runner.relative_to(root).as_posix() in selected, 'host tooling runner must execute'
-    selected.extend(re.findall(r'"(test_[^"\n]+\.(?:py|sh))"', runner.read_text()))
+    selected.extend(re.findall(r'"(test_[^"\n]+\.(?:py|sh))"', runner.read_text(encoding='utf-8')))
     # Existing manual/evidence tests are an explicit inventory, never a wildcard:
     # adding a new source requires routing it or deliberately reviewing an exemption.
     manual = set(MANUAL_TESTS.split())
@@ -250,8 +277,8 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
     # checkCompletedCommit discovers its ordinary Test task automatically.
     # buildSrc is a special Gradle build that settings.gradle.kts cannot list; its
     # tests run through the explicit `:buildSrc:test` CI step instead.
-    settings = (root / 'settings.gradle.kts').read_text()
-    ci_workflow = (root / '.github/workflows/ci.yml').read_text()
+    settings = (root / 'settings.gradle.kts').read_text(encoding='utf-8')
+    ci_workflow = (root / '.github/workflows/ci.yml').read_text(encoding='utf-8')
     for source in root.glob('**/src/test/java'):
         if 'build' in source.relative_to(root).parts:
             continue
@@ -284,14 +311,38 @@ OPT_IN_GRADLE_TESTS = {
 # Test tasks that are deliberately only reachable through their own opt-in lane.
 OPT_IN_GRADLE_TEST_SOURCES = ('runtime/build.gradle.kts',)
 
-# Explicit opt-in host probes and the Gradle lifecycle alias.
+# Explicit opt-in host probes, the Gradle lifecycle alias, and retired pre-1.0 SDK
+# historical baseline gates. The SDK anchor/linkage checks below are still registered
+# by gradle/sdk-api.gradle.kts but are no longer part of checkRelease, so they run only
+# when a reviewed SDK anchor change asks for them by name.
 MANUAL_GATES = set("""check checkCubismHostValidationArguments
 checkCubismHostValidationJavaEvidence checkFloatArrayValidationBundle
 checkGraalPreviewLauncherContract checkGraalScriptHostValidation
 checkGraalScriptHostValidationDryRun checkImageArchiveValidationBundle
-checkResourceValidationBundle checkTextureUploadValidationBundle
-checkWarpPositionValidationBundle""".split())
+checkResourceValidationBundle checkSdkApiReferenceBuilder
+checkSdkBaselineAnchorConsistency checkSdkV8Linkage checkTextureAtlasSdkV7Linkage
+checkTextureUploadValidationBundle checkWarpPositionValidationBundle""".split())
 
+# Third-order meta-gates removed by the centralization slice: they proved the wiring
+# and negative fixtures of other gates rather than the product. Keeping the names
+# here makes an accidental re-introduction a review decision instead of a silent
+# return of the task the slice deleted.
+RETIRED_META_GATE_SELFTESTS = frozenset("""
+checkAstGrepSelfTest checkCodeQualitySelfTest checkCompatibilityMatrixSelfTest
+checkDependencyInventorySelfTest checkDraftPackMetadataSelfTest
+checkEditorModelAliasesSelfTest checkExternalPluginTemplateSelfTest
+checkGateWiringSelfTest checkGoldenSnapshotManifestSelfTest
+checkInstallerPluginSectionsGateSelfTest checkMaterializedRecordsSelfTest
+checkModuleBoundariesSelfTest checkRemoteHygieneSelfTest checkReviewedReleasesSelfTest
+checkSdkCubismEditorAnnotationsSelfTest checkTestCorpusSelfTest
+checkThrowableContainmentSelfTest checkVerificationSourcesSelfTest
+generateClassPinsSelfTest
+""".split())
+
+# Negative-fixture suites whose meta-gate selftest task was retired above. The
+# checker each one exercises is still an executing gate; the fixtures stay an
+# explicit on-demand inventory so they can be re-wired deliberately rather than
+# reappearing inside devCheck/checkCompletedCommit by accident.
 MANUAL_TESTS = """
 scripts/monitor/test_release_api_monitor.py
 scripts/release/test_build_identity.py
@@ -301,22 +352,35 @@ scripts/test/test_atlas_image_host_validation.sh
 scripts/test/test_atlas_image_shadow_host_validation.sh
 scripts/test/test_backup_interactive_session_local.sh
 scripts/test/test_build_channels.py
+scripts/test/test_check_ast_grep.py
+scripts/test/test_check_code_quality.py
+scripts/test/test_check_golden_snapshots.py
+scripts/test/test_check_remote_hygiene.py
+scripts/test/test_check_sdk_cubism_annotations.py
+scripts/test/test_check_throwable_containment.py
 scripts/test/test_cubism_host_validation_arguments.sh
 scripts/test/test_cubism_host_validation_cleanup.sh
 scripts/test/test_cubism_host_validation_java_evidence.sh
 scripts/test/test_cubism_host_validation_local.sh
 scripts/test/test_cubism_host_validation_lock.sh
 scripts/test/test_cubism_host_validation_project_copy.sh
+scripts/test/test_dependency_inventory.py
+scripts/test/test_editor_model_aliases.py
 scripts/test/test_external_psd_edit_persist_driver.sh
 scripts/test/test_external_psd_performance_sampler.sh
 scripts/test/test_fps_resize_driver.sh
+scripts/test/test_generate_class_pins.py
+scripts/test/test_generate_compatibility_matrix.py
+scripts/test/test_generate_verification_sources.py
 scripts/test/test_graal_preview_launcher_contract.sh
 scripts/test/test_graal_script_host_validation_dry_run.sh
 scripts/test/test_host_memory_identity.py
 scripts/test/test_host_resource_counters.py
 scripts/test/test_host_validation_env.sh
 scripts/test/test_mapping_review_wrapper_args.sh
+scripts/test/test_materialize_verification_records.py
 scripts/test/test_mcp_host_validation_client.py
+scripts/test/test_module_boundaries.py
 scripts/test/test_nightly.py
 scripts/test/test_official_psd_fixture_preparation.sh
 scripts/test/test_official_psd_replacement_baseline.sh
@@ -328,9 +392,18 @@ scripts/test/test_release_details.py
 scripts/test/test_release_orchestrator.py
 scripts/test/test_release_promotion.py
 scripts/test/test_release_tooling.py
+scripts/test/test_reviewed_releases.py
+scripts/test/test_reviewed_releases_index.py
+scripts/test/test_reviewed_releases_r1.py
+scripts/test/test_reviewed_releases_r2.py
+scripts/test/test_reviewed_releases_r3.py
+scripts/test/test_reviewed_releases_r4.py
+scripts/test/test_reviewed_releases_ranges.py
 scripts/test/test_sdk_api_reference_builder.sh
 scripts/test/test_sdk_v8_linkage.sh
 scripts/test/test_status_bar_host_probe_packaging.sh
+scripts/test/test_sync_draft_pack_metadata.py
+scripts/test/test_test_corpus.py
 scripts/test/test_texture_atlas_sdk_linkage.sh
 scripts/test/test_uniform_location_trial.sh
 scripts/test_corpus.py
@@ -472,13 +545,25 @@ def self_test() -> None:
         raise AssertionError('non-install apt command accepted')
 
 
-def main() -> int:
-    root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT
+def contract(root: Path) -> None:
     self_test()
     check_workflow(root)
+    check_centralized_gates(root)
     bodies, covered = check_tasks(root)
     check_sources(root, bodies, covered)
-    print('PASS: CI aggregates, gate dependencies and test source coverage')
+
+
+class CiCoverageContractTest(unittest.TestCase):
+    """Runs the structural contract under `python3 -m unittest scripts/test/test_ci_coverage.py`."""
+
+    def test_ci_coverage_contract(self) -> None:
+        contract(ROOT)
+
+
+def main() -> int:
+    root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT
+    contract(root)
+    print('PASS: CI aggregates, centralized gate declarations, gate dependencies and test source coverage')
     return 0
 
 

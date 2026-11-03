@@ -211,10 +211,12 @@ val checkDraftContractDiagnostics by tasks.registering(Exec::class) {
     commandLine("python3", "-m", "unittest", "scripts.test.test_materialize_draft_contracts", "-v")
 }
 
-apply(from = "gradle/verification.gradle.kts")
+// Gate dependencies for the four aggregate verification gates live in exactly one
+// place (gradle/verification.gradle.kts), so the scripts that own their member tasks
+// must be applied before it and never re-open the aggregates themselves.
 apply(from = "gradle/architecture-governance.gradle.kts")
 apply(from = "gradle/dependency-inventory.gradle.kts")
-tasks.named("devCheck") { dependsOn(checkDraftContractDiagnostics) }
+apply(from = "gradle/verification.gradle.kts")
 apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")
 
