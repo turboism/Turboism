@@ -3,7 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.extendedinterpolation.ExtendedInterpolationSetupBridge;
 
 /**
- * Contributor for the hierarchy-only incremental {@code CModelSource.setup()} optimization.
+ * Contributor for the incremental {@code CModelSource.setup()} optimization.
  *
  * <p>Enabled by default; {@code -Dturboism.optimization.extendedInterpolationIncrementalSetup=false}
  * opts out and {@code -Dturboism.validation.extendedInterpolationIncrementalSetup=true} forces it

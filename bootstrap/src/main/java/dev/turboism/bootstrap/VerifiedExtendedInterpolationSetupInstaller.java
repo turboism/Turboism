@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.jar.JarFile;
 
 /**
- * Exact admission, weaving and restoration for the hierarchy-only incremental
+ * Exact admission, weaving and restoration for the incremental
  * {@code CModelSource.setup()} optimization.
  *
  * <p>Admission is the reviewed artifact digest plus the artifact's own anchor proof: exactly two
