@@ -286,11 +286,11 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             dedupeHits.incrementAndGet();
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (failures.get() == 0L) {
                 System.err.println("[ClipMaskDedupe] Failure in onDedupeConsult: " + failure);
                 failure.printStackTrace(System.err);
             }
-            FatalErrors.rethrowIfFatal(failure);
             failures.incrementAndGet();
             return false;
         }
