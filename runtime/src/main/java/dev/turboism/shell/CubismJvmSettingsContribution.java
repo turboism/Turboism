@@ -268,7 +268,7 @@ final class CubismJvmSettingsContribution {
                 "settings.optimization.model-update-skip",
                 settings::modelUpdateSkip,
                 settings::saveModelUpdateSkip,
-                71);
+                61);
     }
 
     static SettingsContribution createIncrementalUpdateToggle(
