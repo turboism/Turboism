@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -49,10 +48,7 @@ class RuntimeMenuRegistryPermissionTest {
     private RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                SidecarDispatcher.noop(),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return scheduler;
     }
 

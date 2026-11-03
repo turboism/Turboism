@@ -16,7 +16,6 @@ import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.RuntimePluginLocalization;
@@ -545,8 +544,7 @@ class LocalPluginRuntimeCloseTest {
     void unloadReclaimsPluginExecutorAndNextExecutorIsFresh() throws Exception {
         final PluginWorkExecutorRegistry registry =
                 new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC());
-        final RuntimeScheduler scheduler =
-                new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, SidecarDispatcher.noop(), ignored -> {});
+        final RuntimeScheduler scheduler = new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, ignored -> {});
         final HostSession hostSession = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(temporary.resolve("exec-reclaim.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(temporary, scheduler, hostSession, log);
@@ -598,7 +596,7 @@ class LocalPluginRuntimeCloseTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
     }
 
     private static DisposableScope scope(final String id, final List<String> order, final boolean fail) {

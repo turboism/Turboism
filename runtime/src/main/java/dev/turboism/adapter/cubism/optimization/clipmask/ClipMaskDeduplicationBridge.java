@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -115,8 +116,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         final String renderSystemOwner =
                 ClipMaskDeduplicationTarget.renderSystemOwner(Objects.requireNonNull(cubismVersion, "cubismVersion"));
         final Class<?> renderSystemClass = Class.forName(renderSystemOwner.replace('/', '.'), false, loader);
-        renderSystemFieldF = renderSystemClass.getDeclaredField("f");
-        renderSystemFieldF.setAccessible(true);
+        renderSystemFieldF = ReflectAccess.open(renderSystemClass.getDeclaredField("f"));
 
         clippingType = Class.forName("com.live2d.graphics3d.component.GClipping", false, loader);
         getValidMasksMethod = clippingType.getMethod("getClippingVaildMasks");
@@ -168,14 +168,12 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
 
         if (isVersion53) {
             final Class<?> poolClass = Class.forName("com.live2d.graphics3d.rendering.b", false, loader);
-            final Field poolFieldA = poolClass.getDeclaredField("a");
-            poolFieldA.setAccessible(true);
+            final Field poolFieldA = ReflectAccess.open(poolClass.getDeclaredField("a"));
             poolInstance = poolFieldA.get(null);
             poolReleaseMethod = poolClass.getMethod("a", leaseClass);
         } else {
             final Class<?> poolClass = Class.forName("com.live2d.graphics3d.rendering.a", false, loader);
-            final Field poolFieldA = poolClass.getDeclaredField("a");
-            poolFieldA.setAccessible(true);
+            final Field poolFieldA = ReflectAccess.open(poolClass.getDeclaredField("a"));
             poolInstance = poolFieldA.get(null);
             poolReleaseMethod = poolClass.getMethod("a", leaseClass);
         }

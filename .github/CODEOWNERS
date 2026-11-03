@@ -1,43 +1,18 @@
 # Architecture governance code owners.
 #
+# This repository has a single maintainer, so a per-path routing table adds no
+# information: every path below used to resolve to the same account. One default
+# rule keeps the file honest and removes the maintenance cost of re-listing paths
+# whenever a governance file moves.
+#
 # CODEOWNERS only blocks a merge when the protected ruleset enables
 # "Require review from Code Owners". Enabling that with a single owner would make
-# every PR author-approved-but-unreviewable, so configure the ruleset after a
-# second reviewer with write access exists. Until then this file stays the
-# reviewed routing record for the paths below.
+# every PR author-approved-but-unreviewable, so the ruleset stays without it until
+# a second reviewer with write access exists.
 #
-# Last matching pattern wins: the specific paths come after the broad ones.
+# The paths that actually need care (persisted formats, migration gates, API
+# baselines, verification wiring) are named in ARCHITECTURE_GOVERNANCE.md and are
+# enforced by gates, not by a routing table: centralized gate wiring is checked by
+# `scripts/test/test_ci_coverage.py`, not by a reviewer ping.
 
-# Repository-wide fallback.
 *                                   @RainTrap341
-
-# Persisted formats, codecs and read-time migrations.
-/runtime/src/main/java/dev/turboism/config/            @RainTrap341
-/runtime/src/main/java/dev/turboism/core/schema/runtimeconfig/  @RainTrap341
-/sdk/src/main/java/dev/turboism/sdk/config/            @RainTrap341
-
-# Immutable backwards-compatibility corpus and its gates.
-/tests/fixtures/snapshots/          @RainTrap341
-/scripts/check_golden_snapshots.py  @RainTrap341
-/runtime/src/test/java/dev/turboism/config/PersistenceGoldenSnapshotsTest.java  @RainTrap341
-
-# SDK/API baselines and exact-surface audits.
-/sdk/api-contracts/                 @RainTrap341
-
-# Verification wiring: gate removal must never look like a routine edit.
-/gradle/verification.gradle.kts     @RainTrap341
-/gradle/architecture-governance.gradle.kts  @RainTrap341
-/gradle/asm-admission.gradle.kts    @RainTrap341
-/build.gradle.kts                   @RainTrap341
-
-# AST guardrails and repository hygiene tooling.
-/sgconfig.yml                       @RainTrap341
-/tooling/ast-grep/                  @RainTrap341
-/scripts/check_ast_grep.py          @RainTrap341
-/scripts/check_remote_hygiene.py    @RainTrap341
-/scripts/dev/selftest-gate-wiring.py  @RainTrap341
-
-# Governance policy and the CI lanes that enforce it.
-/ARCHITECTURE_GOVERNANCE.md         @RainTrap341
-/.github/workflows/                 @RainTrap341
-/.github/CODEOWNERS                 @RainTrap341

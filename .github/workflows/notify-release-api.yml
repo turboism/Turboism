@@ -7,7 +7,9 @@ on:
     types: [completed]
   workflow_dispatch:
   schedule:
-    - cron: '3,13,23,33,43,53 * * * *'
+    # Once-daily catch-up refresh; release and workflow_run events still notify
+    # immediately, so this only covers a missed notification.
+    - cron: '23 6 * * *'
 permissions:
   contents: read
   id-token: write

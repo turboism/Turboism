@@ -13,47 +13,30 @@ import java.util.stream.Stream;
 
 /**
  * Computes a deterministic structural ABI digest for one shared public event payload type.
- * Payload types are either SDK-owned (resolved through the shared SDK loader) or
- * contract-owned (resolved through the session-bound contract loader for that type).
+ * Payload types are SDK-owned: they resolve through the shared SDK loader only.
  */
 final class PublicEventAbi {
 
     private PublicEventAbi() {}
 
     static Class<? extends EventBus.TurboismEvent> resolve(final String eventType, final String expectedSha256) {
-        return resolve(eventType, expectedSha256, null);
-    }
-
-    static Class<? extends EventBus.TurboismEvent> resolve(
-            final String eventType, final String expectedSha256, final PublicEventContractCatalog contracts) {
         final ClassLoader sdkLoader = EventBus.class.getClassLoader();
-        final ClassLoader contractLoader = contracts == null ? null : contracts.contractLoaderFor(eventType);
-        final ClassLoader resolvingLoader = contractLoader != null ? contractLoader : sdkLoader;
         final Class<?> type;
         try {
-            type = Class.forName(eventType, false, resolvingLoader);
+            type = Class.forName(eventType, false, sdkLoader);
         } catch (ClassNotFoundException failure) {
             throw new IllegalArgumentException(
-                    "Public event payload type is not available from the shared SDK or a" + " declared event contract: "
-                            + eventType,
-                    failure);
-        }
-        if (contractLoader != null && type.getClassLoader() != contractLoader) {
-            throw new IllegalArgumentException(
-                    "Public event payload type " + eventType + " was not defined by the bound contract class loader");
+                    "Public event payload type is not available from the shared SDK: " + eventType, failure);
         }
         if (!EventBus.TurboismEvent.class.isAssignableFrom(type)
                 || !type.isRecord()
                 || !Modifier.isFinal(type.getModifiers())) {
             throw new IllegalArgumentException(
-                    "Public event payload type must be a final shared SDK or contract event" + " record: " + eventType);
+                    "Public event payload type must be a final shared SDK event record: " + eventType);
         }
-        if (contractLoader == null && type.getClassLoader() != sdkLoader) {
+        if (type.getClassLoader() != sdkLoader) {
             throw new IllegalArgumentException(
                     "Public event payload type must be loaded by the shared SDK loader: " + eventType);
-        }
-        if (contractLoader != null) {
-            PublicEventContractClosure.verify(type);
         }
         final String actual = sha256(type);
         if (!actual.equals(expectedSha256)) {

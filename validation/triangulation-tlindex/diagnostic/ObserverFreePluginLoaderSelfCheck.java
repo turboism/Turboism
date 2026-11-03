@@ -1,9 +1,9 @@
 package dev.turboism.preview;
 
-import dev.turboism.core.event.PublicEventContractCatalog;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Path;
 
 /** Uses the exact production JAR's inspector and plugin loader; no Cubism startup. */
@@ -35,9 +35,8 @@ public final class ObserverFreePluginLoaderSelfCheck {
         Object descriptor = descriptorMethod.invoke(inspected);
         require(descriptor.getClass().getMethod("id").invoke(descriptor)
                 .equals("dev.turboism.validation.observerfreemesh"), "real inspector metadata");
-        try (var loader = new PluginContractClassLoader(new URL[] {jar.toUri().toURL()},
-                PreviewPluginLoader.resolvePluginParent(TurboismPlugin.class.getClassLoader()),
-                PublicEventContractCatalog.ContractLease.empty())) {
+        try (var loader = new URLClassLoader(new URL[] {jar.toUri().toURL()},
+                PreviewPluginLoader.resolvePluginParent(TurboismPlugin.class.getClassLoader()))) {
             Class<?> plugin = Class.forName("dev.turboism.validation.atlasimage.shadow.ObserverFreeMeshProbePlugin",
                     true, loader);
             require(plugin.getClassLoader() == loader && TurboismPlugin.class.isAssignableFrom(plugin),

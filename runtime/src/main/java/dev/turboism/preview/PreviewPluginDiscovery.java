@@ -27,6 +27,9 @@ final class PreviewPluginDiscovery {
 
     private static final String DESCRIPTOR_PATH = "META-INF/turboism/plugin.json";
     private static final String CUBISM_VERSIONS_PATH = "META-INF/turboism/cubism-versions.json";
+    /** Never-shipped schema-v5 embedded contract artifact directory. */
+    private static final String CONTRACT_DIRECTORY = "META-INF/turboism/contracts/";
+
     private static final PluginVersion TURBOISM_API_VERSION =
             FrameworkBuildInfo.current().apiVersion();
 
@@ -148,6 +151,20 @@ final class PreviewPluginDiscovery {
                         jar,
                         "PLUGIN_RESERVED_ID",
                         "External plugin packages cannot declare the Runtime-owned core ID."));
+                return null;
+            }
+            if (!descriptor.eventContracts().isEmpty()
+                    || archive.stream()
+                            .anyMatch(candidate -> !candidate.isDirectory()
+                                    && candidate.getName().startsWith(CONTRACT_DIRECTORY))) {
+                // Embedded public-event-contract artifacts were never shipped and are
+                // not supported: the descriptor declaration and any embedded artifact
+                // both fail discovery outright, same verdict as managed admission.
+                failures.add(new LocalPluginRuntime.PluginFailure(
+                        descriptor.id(),
+                        jar,
+                        "PLUGIN_CONTRACT_ARTIFACTS_REMOVED",
+                        "Embedded public-event-contract artifacts were never shipped and are not supported"));
                 return null;
             }
             try {

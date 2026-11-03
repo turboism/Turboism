@@ -202,7 +202,7 @@ final class PreviewPluginLoader {
                 // Dormant only once every stage that can still run plugin code — enable
                 // rollback, shutdown bodies, scope closers — has been attempted. A failed
                 // scope close is one-shot and stays dormant; later passes release only
-                // runtime bookkeeping (loader, contract lease).
+                // runtime bookkeeping (loader).
                 () -> resources.rolledBack && resources.shutdownCalled && resources.scopeAttempted,
                 () -> cleanupFailed(resources, pluginId, false)));
         log.warn(pluginId, "Plugin lifecycle: failed generation retained until lifecycle work quiesces");
@@ -214,24 +214,17 @@ final class PreviewPluginLoader {
             final LoadResources resources,
             final PluginLifecycleLease lease)
             throws Exception {
-        // Contract visibility must exist before constructor/generated-subscriber
-        // inspection: bind the declared contract artifacts, preflight the declared event
-        // types against them, then create the plugin loader with contract delegation.
-        resources.contractLease = contextFactory.acquireEventContracts(candidate.descriptor(), candidate.jar());
-        contextFactory.preflightEventContracts(candidate.descriptor(), resources.contractLease);
-        resources.classLoader = new PluginContractClassLoader(
+        // Public event payload types resolve through the shared SDK classloader; the
+        // plugin loader only isolates plugin classes behind the parent boundary.
+        resources.classLoader = new URLClassLoader(
                 new URL[] {candidate.jar().toUri().toURL()},
-                resolvePluginParent(TurboismPlugin.class.getClassLoader()),
-                resources.contractLease);
+                resolvePluginParent(TurboismPlugin.class.getClassLoader()));
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
 
         resources.entrypoints.addAll(instantiateAll(candidate.descriptor(), resources.classLoader));
         runtime.setEntrypoints(resources.entrypoints);
-        resources.eventSubscribers = new GeneratedSubscriberCatalogLoader()
-                .inspect(
-                        resources.entrypoints,
-                        resources.classLoader,
-                        resources.contractLease.delegates().values());
+        resources.eventSubscribers =
+                new GeneratedSubscriberCatalogLoader().inspect(resources.entrypoints, resources.classLoader);
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
         resources.scope = new DisposableScope();
@@ -475,19 +468,6 @@ final class PreviewPluginLoader {
         if (resources.scopeClosed && !resources.loaderAttempted) {
             resources.loaderAttempted = true;
             resources.loaderClosed = closeLoaderAfterFailure(resources.classLoader, pluginId);
-            if (resources.loaderClosed && resources.contractLease != null) {
-                // When the plugin loader exists it owns the lease and released it on a
-                // successful close; this call only matters when construction never
-                // produced a loader, and the release is idempotent otherwise.
-                try {
-                    resources.contractLease.close();
-                } catch (java.io.IOException failure) {
-                    // Unproven contract release is unproven cleanup: retain the
-                    // generation rather than reporting a false successful disposal.
-                    resources.loaderClosed = false;
-                    log.error(pluginId, "Plugin event contract release after load failure failed safely", failure);
-                }
-            }
         }
         // Executor release sits at the tail — past every deferral return — so late completion
         // submissions during scope close still land on the claimed set, and so the set dies on
@@ -594,7 +574,6 @@ final class PreviewPluginLoader {
      */
     private static final class LoadResources {
         volatile URLClassLoader classLoader;
-        volatile dev.turboism.core.event.PublicEventContractCatalog.ContractLease contractLease;
         final List<TurboismPlugin> entrypoints = new ArrayList<>();
         List<EventSubscriberDescriptor> eventSubscribers = List.of();
         volatile DisposableScope scope;

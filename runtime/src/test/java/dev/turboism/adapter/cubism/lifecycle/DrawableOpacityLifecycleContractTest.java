@@ -6,9 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
@@ -20,8 +17,6 @@ import dev.turboism.test.Stubs;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -209,13 +204,6 @@ class DrawableOpacityLifecycleContractTest {
 
     private static RuntimeScheduler scheduler() {
         return RuntimeTestKit.scheduler();
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
     }
 
     private static DrawableLifecycleCoordinator.PluginHooks plugin(

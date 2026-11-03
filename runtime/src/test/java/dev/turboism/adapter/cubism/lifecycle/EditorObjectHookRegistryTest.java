@@ -5,9 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
@@ -31,8 +28,6 @@ import dev.turboism.testkit.RuntimeTestKit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -295,13 +290,6 @@ class EditorObjectHookRegistryTest {
 
     private static RuntimeScheduler scheduler() {
         return RuntimeTestKit.scheduler();
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
     }
 
     private static final class StatefulDrawable extends MutableDrawable {

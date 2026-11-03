@@ -8,9 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
@@ -24,8 +21,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
@@ -201,7 +196,6 @@ class AppearanceCoordinatorTest {
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(
                         1, 8, ignored -> {}, Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)),
-                new NoOpSidecarDispatcher(),
                 ignored -> {});
     }
 
@@ -211,12 +205,5 @@ class AppearanceCoordinatorTest {
             Thread.onSpinWait();
         }
         assertEquals(expected, values.size());
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
     }
 }

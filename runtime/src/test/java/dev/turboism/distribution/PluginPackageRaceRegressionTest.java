@@ -164,14 +164,17 @@ class PluginPackageRaceRegressionTest {
     }
 
     /**
-     * F2 regression: the managed package path must accept a schema-v5 plugin JAR
-     * carrying a declared, correctly pinned contract artifact.
+     * Embedded public-event-contract artifacts were never shipped: a package whose
+     * plugin JAR declares a contract artifact now fails admission fail-closed.
      */
     @Test
-    void acceptsPackageCarryingDeclaredContractArtifact() throws Exception {
+    void rejectsPackageCarryingDeclaredContractArtifact() throws Exception {
         Path input = tempDir.resolve("contracted.tplugin");
         Files.write(input, contractFixture(true));
-        assertInstanceOf(PluginPackageInspector.Accepted.class, new LocalPluginPackageInspector().inspect(input));
+        PluginPackageInspector.Rejected rejected = assertInstanceOf(
+                PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
+        assertEquals(
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
     @Test
@@ -181,11 +184,10 @@ class PluginPackageRaceRegressionTest {
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
-                "PLUGIN_CONTRACT_ARTIFACT_UNDECLARED",
-                rejected.problems().get(0).code());
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
-    /** The package path must pin the declared artifact hash like the direct path. */
+    /** Any embedded contract artifact is unsupported; hash pinning no longer applies. */
     @Test
     void rejectsPackageCarryingContractArtifactWithWrongHash() throws Exception {
         byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(
@@ -204,11 +206,10 @@ class PluginPackageRaceRegressionTest {
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
-                "PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH",
-                rejected.problems().get(0).code());
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
-    /** A payload reference outside the contract/SDK/JDK closure fails admission. */
+    /** Payload-closure preflight no longer exists; embedded artifacts reject outright. */
     @Test
     void rejectsPackageCarryingContractArtifactWithBadPayload() throws Exception {
         Path foreign = LocalPluginJarPreparerTest.compileSources(tempDir, Map.of("com.evil.External", """
@@ -231,22 +232,16 @@ class PluginPackageRaceRegressionTest {
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
-                "PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.problems().get(0).code());
+                "PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.problems().get(0).code());
     }
 
     /** A nested JAR outside the contract directory stays contamination. */
     @Test
     void rejectsPackageCarryingNestedJarOutsideContractDirectory() throws Exception {
-        byte[] artifact = LocalPluginJarPreparerTest.contractArtifact(
-                tempDir, Map.of(LocalPluginJarPreparerTest.EVENT_TYPE, """
-                package com.acme.events;
-                public record Greeting(String payload)
-                    implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """));
-        String declaredSha256 = LocalPluginJarPreparerTest.sha256Hex(artifact);
+        byte[] nested = new byte[] {1, 2, 3};
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
-                "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of("lib/smuggled.jar", artifact));
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", declaredSha256)
+                "dev.turboism.plugin.sample", null, null, Map.of("lib/smuggled.jar", nested));
+        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", null)
                 .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("nestedlib.tplugin");
         Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));

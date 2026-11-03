@@ -373,19 +373,11 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         return value;
     }
 
+    /** Fail-closed field read: an absent or unopenable field stays a reflective failure. */
     private static Object field(final Object target, final String name) throws ReflectiveOperationException {
-        if (target == null) throw new NoSuchFieldException(name);
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                final Field field = type.getDeclaredField(name);
-                ReflectAccess.open(field);
-                return field.get(target);
-            } catch (NoSuchFieldException ignored) {
-                type = type.getSuperclass();
-            }
-        }
-        throw new NoSuchFieldException(name);
+        final Field field = ReflectAccess.findField(target == null ? null : target.getClass(), name);
+        if (field == null) throw new NoSuchFieldException(name);
+        return field.get(target);
     }
 
     private static Object instantiate(final ClassLoader loader, final String className, final Object... arguments)

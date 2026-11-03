@@ -11,6 +11,37 @@ by pure compatibility policy, but only after an import/dependency-cycle inventor
 No module should reference the composition layer or Cubism host to implement
 persistence. Keep the runtime/host adapter responsible for actual host IO.
 
+## Solo-Maintainer Governance Principles
+
+This repository is maintained by one person. Governance therefore optimises for
+*decisions that stay reviewable by their author tomorrow*, not for distributed
+ownership ceremony. Three consequences:
+
+1. **The Cubism version surface is the primary target.** Cubism Editor 5.2+ is
+the supported host line, and **5.2.03 and 5.3.02+** are the Tier-1 deep
+adaptation targets: they are where exact-version adapter work, host validation
+runs and SDK parity claims must be proven. The older 5.0.x/5.1.x adapters stay as
+shipped compatibility, not as places to invest new capability. Any claim about a
+version outside the listed set fails closed rather than degrading silently.
+2. **Third-party plugin ecosystem mechanisms are deferred.** Extension points,
+published plugin ABI guarantees, marketplace submission rules and sandboxing for
+external plugin authors stay unbuilt until an actual external plugin consumer
+exists. Speculating about a plugin ecosystem with no consumer produces API
+surface that cannot be validated, and API surface is the most expensive thing
+here to retract. The first-party plugin set under `plugins/` is the only
+supported consumer today.
+3. **Every verification gate must justify itself.** A new gate cites a concrete
+user-harm mode — what breaks for a user if the gate is absent — or a specific
+past incident with a date. "It would be good practice" is not a citation, and a
+gate that cannot name its harm gets removed rather than maintained. All aggregate
+gates are wired in exactly one file, `gradle/verification.gradle.kts`; a new
+task registered anywhere else is either a leaf helper or a wiring mistake, and
+`scripts/test/test_ci_coverage.py` asserts the centralized aggregate declarations stay complete.
+
+Review routing follows from the same reasoning: `.github/CODEOWNERS` is a single
+default rule because a per-path table of the same owner carries no information.
+The paths that need care are protected by the gates above, not by a routing list.
+
 ## ast-grep contract
 
 CLI pinned to `@ast-grep/cli@0.45.3` (required by `devCheck`).
@@ -111,12 +142,13 @@ state and signed update receipts.
 `devCheck` runs `checkArchitectureRules`, `checkGoldenSnapshotManifest` and the
 focused JUnit golden test; `checkCompletedCommit` and `checkRelease` run
 the static checks as well, and the normal runtime test suite includes the golden
-JUnit class. Both static gates depend on their own fail-closed selftests, and
-`checkGateWiringSelfTest` asserts they stay aggregated and documented, so a gate
-cannot be dropped by deleting one `dependsOn` line.
+JUnit class. `scripts/test/test_ci_coverage.py` asserts they stay aggregated in
+`gradle/verification.gradle.kts`, so a gate cannot be dropped silently.
 
-`.github/CODEOWNERS` records ownership of persistence formats, migrations, API
-baselines, verification wiring and the governance tooling.
+`.github/CODEOWNERS` is a single default rule for the sole maintainer. Ownership
+of persistence formats, migrations, API baselines, verification wiring and the
+governance tooling is recorded here and enforced by gates; see
+"Solo-Maintainer Governance Principles".
 
 Main is now enforced by the repository ruleset `protect-main` (id 26441981,
 `refs/heads/main`, active, no bypass actors):

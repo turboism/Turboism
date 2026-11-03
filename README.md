@@ -27,7 +27,9 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 **Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
 
-On macOS and Linux, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support; Linux covers runtime behavior only and is not a supported Cubism host.
+On macOS, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support.
+
+Supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly. On Linux the same validation runs under Proton (Wine), while headless Gradle, lint and unit-test checks run under Xvfb. Both are supported environments for developing and validating Turboism; only Windows x64 is offered as an end-user Cubism host.
 
 ## Installation
 
@@ -101,7 +103,7 @@ The demo is development-only, not part of the release bundle. Run focused tests 
 
 - [User and developer documentation](https://docs.turboism.dev)
 - [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
-- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v12 migration notes](sdk/api-contracts/sdk-api-v12-review.md), with the [v11](sdk/api-contracts/sdk-api-v11-review.md), [v10](sdk/api-contracts/sdk-api-v10-review.md) and [v7](sdk/api-contracts/sdk-api-v7-review.md) reviews kept as historical audits
+- [SDK API contracts and compatibility](sdk/api-contracts/) and [current public SDK surface](sdk/api-contracts/current.txt)
 - [Demo plugin](plugins/demo/README.md) and the standalone [plugin template](templates/plugin-template/)
 - [Java installer details](packaging/java-installer/README-java-installer.md)
 - [Release process](RELEASING.md) and [changelog](CHANGELOG.md)

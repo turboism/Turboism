@@ -70,7 +70,7 @@ Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never commi
 | Gate | What it checks | When to run it |
 | --- | --- | --- |
 | focused compile/test | the narrowest affected `:module:compileJava`, `:module:test --tests '<class>'` | during implementation |
-generated subscriber-catalog verification, installer plugin-section freshness, ASM dependency-model and resolved-bytecode-graph admission, AST architecture rules and their fail-closed selftests (`checkArchitectureRules`, `checkAstGrepSelfTest`), the immutable persistence golden-snapshot inventory and its replay (`checkGoldenSnapshotManifest`, `persistenceGoldenSnapshotsTest`), the module dependency inventory and `:runtime` package-cycle baseline (`checkDependencyInventory`), `scripts/` and `validation/` (excluding `validation/archive/`) ruff lint, shell lint
+generated subscriber-catalog verification, installer plugin-section freshness, ASM dependency-model and resolved-bytecode-graph admission, AST architecture rules (`checkArchitectureRules`), the immutable persistence golden-snapshot inventory and its replay (`checkGoldenSnapshotManifest`, `persistenceGoldenSnapshotsTest`), the module dependency inventory and `:runtime` package-cycle baseline (`checkDependencyInventory`), `scripts/` and `validation/` ruff lint, shell lint
 | `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, locale host-validation wrapper contract (`:testing:integration-tests:hostValidationScriptContractTest`), preview bootstrap bridge and plugin runtime, external plugin-template consumer check | when a change crosses module, packaging, or preview-agent seams |
 | `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, `spotlessCheck`, `checkThrowableContainment`, `checkLocalizedChangelogs`, official-plugin i18n completeness and README checks, SDK API baseline tool and current-surface check, module-boundary/code-quality/hygiene/architecture-governance selftests, plugin event reference determinism | once, when a coherent change is ready to land |
 | `checkRelease` | `checkCompletedCommit` plus supply-chain and release-artifact checks: ASM admission and resolved bytecode dependency graph, release tooling selftests, SDK exact-API audits for every anchored baseline — all historical baselines plus the newest live one — and linkage, market release metadata, Java/Windows installer and localization checks | release work only; requires `-PinstallerVersion=<release-version> -PturboismRelease=true` matching the framework version |
@@ -90,6 +90,8 @@ generated subscriber-catalog verification, installer plugin-section freshness, A
 - `image-archive-validation.gradle.kts` — builds the test-only native PNG/float validators and checks they stay out of product artifacts.
 
 `scripts/preview/` holds the local host-validation machinery those `validate*Host` tasks invoke: the `host_validation.py` admission queue and containment, packaging/launch scripts, and per-feature probes. It is opt-in, uses one UID-scoped queue root and host-admission lock, and is never installed or started by Gradle; see `scripts/preview/README-host-validation-scheduling.md`.
+
+The supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly; on Linux the same validation runs through Proton (Wine), and headless Gradle, lint and unit-test checks run under Xvfb. The shared tooling modules (`scripts/preview/hvq/`, `scripts/preview/host_validation_containment.py`) import and run on both host classes — POSIX-only primitives are optional, and containment selects the host's backend. The queue entry point and the Runner admission gate still require Linux (systemd user scopes, unified cgroup v2, `/proc`), so a native Windows host runs the offline gates and the Windows Job Object containment backend, not the scheduled queue.
 
 ### Running the gates
 
@@ -222,10 +224,14 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
 ## Build requirements
 
 - **Java**: a JDK 17 toolchain is required (`java` and `javac` on `PATH`).
+- **Host platform**: development and verification run on **native Windows x64**
+  (full Cubism Editor host validation) and on **Linux** (the same validation
+  under Proton, plus headless Gradle/lint/test runs under `xvfb-run`). Use
+  `gradlew.bat` on Windows and `./gradlew` on Linux.
 - **CI workflow guard**: `test_ci_coverage.py` needs PyYAML; CI pins
   `python3 -m pip install 'PyYAML==6.0.3'`.
 - **Python lint**: `devCheck` runs `checkPythonLint` over `scripts/` and
-  `validation/` (not `validation/archive/`), which needs the pinned ruff release
+  `validation/`, which needs the pinned ruff release
   (`python3 -m pip install "ruff==0.16.9"` or an equivalent `ruff` binary on
   `PATH`). The rule set lives in `ruff.toml`.
 - **AST architecture rules**: `devCheck` runs `checkArchitectureRules`, which needs the

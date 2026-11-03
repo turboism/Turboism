@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
@@ -26,7 +25,6 @@ class RuntimeToolbarRegistryPermissionDefaultsTest {
         RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 2, event -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 event -> {});
         RuntimeMainToolbarRegistry registry = new RuntimeMainToolbarRegistry(checker, scheduler, "plugin");
 
