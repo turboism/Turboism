@@ -228,8 +228,8 @@ class SkippedFrameMeshSetupElisionBridgeTest {
             assertFalse(host.consult(), "an uncurrent context cannot be elided");
             host.context.getClass().getField("current").set(null, host.context);
             assertTrue(host.consult());
-            host.context.getClass().getField("shared").setBoolean(host.context, true);
-            assertFalse(host.consult(), "a shared context is not a reviewed render generation");
+            host.context.getClass().getField("created").setBoolean(host.context, false);
+            assertFalse(host.consult(), "an uncreated context cannot be elided");
         }
     }
 

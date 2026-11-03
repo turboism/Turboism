@@ -62,6 +62,10 @@ final class ClipMaskHandles {
         return resolve(owner.getMethod(name, parameters)).asType(signature);
     }
 
+    static MethodHandle virtual(final Method method, final MethodType signature) throws ReflectiveOperationException {
+        return resolve(method).asType(signature);
+    }
+
     /**
      * Resolves a public host constructor and adapts it to the bridge's call shape.
      *

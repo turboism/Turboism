@@ -169,11 +169,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         if (componentsGetter == null) {
             throw new NoSuchMethodException("getComponents returning non-List Components on GEntity");
         }
-        entityComponents = ClipMaskHandles.virtual(
-                entityType,
-                componentsGetter.getName(),
-                MethodType.methodType(Object.class, Object.class),
-                componentsGetter.getParameterTypes());
+        entityComponents = ClipMaskHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
         entityRenderer =
                 ClipMaskHandles.virtual(entityType, "getRenderer", MethodType.methodType(Object.class, Object.class));
         entityTransform =

@@ -150,6 +150,8 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         }
     }
 
+    private static final ResolvedClip NO_CLIP = new ResolvedClip(null, true);
+
     private record CachedMaskEntry(Object lease, Object renderTexture, Object scale) {}
 
     public ClipMaskDeduplicationBridge(final ClassLoader loader, final String cubismVersion)
@@ -189,11 +191,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (componentsGetter == null) {
             throw new NoSuchMethodException("getComponents returning non-List Components on GEntity");
         }
-        getComponents = ClipMaskHandles.virtual(
-                entityClass,
-                componentsGetter.getName(),
-                MethodType.methodType(Object.class, Object.class),
-                componentsGetter.getParameterTypes());
+        getComponents = ClipMaskHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
 
         final Class<?> materialClass = Class.forName("com.live2d.graphics3d.material.GMaterial", false, loader);
         final Class<?> textureClass = Class.forName("com.live2d.graphics3d.texture.GTexture", false, loader);
@@ -387,13 +385,12 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (scissorBridge != null) scissorBridge.endedPass();
         if (!active.get() || renderSystem == null || renderer == null) return;
         try {
+            final Object lease = renderSystemLease.get(renderSystem);
+            if (lease == null) return;
             final ResolvedClip resolved = resolveRenderer(renderer);
             if (resolved == null || resolved.masks.isEmpty()) return;
             if (frameMask(resolved.digest) != null) return;
             if (heldLeases.size() >= MAX_HELD_LEASES) return;
-
-            final Object lease = renderSystemLease.get(renderSystem);
-            if (lease == null) return;
             final Object renderTexture = getRenderTexture.invokeExact(lease);
             if (renderTexture == null) return;
             final int width = (int) getTextureWidth.invokeExact(renderTexture);
@@ -466,12 +463,16 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         ResolvedClip resolved = resolvedRenderers.get(renderer);
         if (resolved == null) {
             final Object clipping = findClipping(renderer);
-            if (clipping == null) return null;
+            if (clipping == null) {
+                if (resolvedRenderers.size() >= MAX_FRAME_RENDERERS) resolvedRenderers.clear();
+                resolvedRenderers.put(renderer, NO_CLIP);
+                return null;
+            }
             resolved = new ResolvedClip(clipping, (boolean) isRemove.invokeExact(clipping));
             if (resolvedRenderers.size() >= MAX_FRAME_RENDERERS) resolvedRenderers.clear();
             resolvedRenderers.put(renderer, resolved);
         }
-        if (resolved.remove) return null;
+        if (resolved == NO_CLIP || resolved.remove) return null;
         final Object masksValue = getValidMasks.invokeExact(resolved.clipping);
         final List<?> masks = masksValue instanceof List<?> list ? list : List.of();
         if (!masks.equals(resolved.masks)) {

@@ -359,7 +359,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                68);
+                93);
     }
 
     /**

@@ -204,20 +204,18 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
                     passed++;
                     return false;
                 }
-                final IntBuffer names = (IntBuffer) nameHandle.invokeExact(wrapper);
-                if (names == null || names.capacity() < 1) {
-                    observerFailed();
-                    passed++;
-                    return false;
-                }
-                // A wrapper that was never uploaded (name 0) is either unused by
-                // this shader or still waiting for its first render upload. Its
-                // CPU-side payload was filled by the completed native setup, so
-                // it cannot block the elision; an uploaded wrapper must be clean.
-                if (names.get(0) > 0 && (boolean) dirtyHandle.invokeExact(wrapper)) {
-                    passDirty++;
-                    passed++;
-                    return false;
+                if ((boolean) dirtyHandle.invokeExact(wrapper)) {
+                    final IntBuffer names = (IntBuffer) nameHandle.invokeExact(wrapper);
+                    if (names == null || names.capacity() < 1) {
+                        observerFailed();
+                        passed++;
+                        return false;
+                    }
+                    if (names.get(0) > 0) {
+                        passDirty++;
+                        passed++;
+                        return false;
+                    }
                 }
             }
             elided++;
@@ -235,7 +233,10 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
         if (!active.get() || mesh == null) return;
         try {
             if (observedThread != null && observedThread != Thread.currentThread()) return;
-            generations.put(mesh, generation);
+            final Long existing = generations.get(mesh);
+            if (existing == null || existing.longValue() != generation) {
+                generations.put(mesh, generation);
+            }
             completions++;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -269,18 +270,21 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
         if (gl == null) return false;
         final Object context = (Object) glContext.invokeExact(gl);
         if (context == null || context != (Object) currentContext.invokeExact()) return false;
-        if (!(boolean) contextCreated.invokeExact(context) || (boolean) contextShared.invokeExact(context)) {
+        if (!(boolean) contextCreated.invokeExact(context)) {
             return false;
         }
         final long handle = (long) contextHandle.invokeExact(context);
         if (handle == 0L) return false;
         if (observedGl != gl || observedContext != context || observedHandle != handle) {
+            final boolean hadPrevious = observedGl != null;
             observedGl = gl;
             observedContext = context;
             observedHandle = handle;
-            generation++;
-            contextChanges++;
-            clearInstances();
+            if (hadPrevious) {
+                generation++;
+                contextChanges++;
+                clearInstances();
+            }
         }
         return true;
     }
