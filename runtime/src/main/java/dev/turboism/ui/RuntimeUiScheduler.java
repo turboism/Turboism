@@ -1,9 +1,9 @@
 package dev.turboism.ui;
 
 import dev.turboism.core.runtime.CancellationContext;
-import dev.turboism.core.runtime.PluginTask;
-import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.Registration;

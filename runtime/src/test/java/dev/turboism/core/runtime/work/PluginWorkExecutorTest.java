@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.test.concurrent.Await;
 import dev.turboism.test.concurrent.ManualScheduledExecutor;
 import java.time.Clock;

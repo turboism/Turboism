@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.QuiescencePolicy;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.time.Duration;
 import java.util.Arrays;

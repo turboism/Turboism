@@ -1,8 +1,8 @@
 package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.PluginTask;
-import dev.turboism.core.runtime.RuntimeCancellationToken;
+import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.time.Duration;
 import java.util.Objects;

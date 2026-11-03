@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.sdk.plugin.TaskCanceledException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;

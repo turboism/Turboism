@@ -232,7 +232,7 @@ class PreviewPluginDependencyRollbackIntegrationTest {
                         "the fixture plugin must fail at enable: " + report.failures());
                 assertFalse(
                         executor.submit(
-                                        new dev.turboism.core.runtime.PluginTask(
+                                        new dev.turboism.core.runtime.contract.PluginTask(
                                                 "plugin.compute.normal", failedId, "probe", "none"),
                                         () -> {})
                                 .accepted(),
