@@ -39,9 +39,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
     private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
     private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
-    private static final Comparator<ViewContextMenuRegistry.StateButtonContribution> CONTRIBUTION_ORDER =
-            Comparator.comparingInt(ViewContextMenuRegistry.StateButtonContribution::order)
-                    .thenComparing(ViewContextMenuRegistry.StateButtonContribution::contributionId);
+    private static final Comparator<OrderedContribution> CONTRIBUTION_ORDER =
+            Comparator.comparingInt(OrderedContribution::order)
+                    .thenComparing(item -> item.contribution().contributionId());
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
@@ -51,8 +51,12 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private record Entry(
             ViewContextMenuRegistry.StateButtonContribution contribution,
+            int order,
             Object currentButton,
             Map<Integer, Object> stateEntities) {}
+
+    /** Registration metadata is kept outside the SDK's stable four-field record. */
+    record OrderedContribution(ViewContextMenuRegistry.StateButtonContribution contribution, int order) {}
 
     /** Button plus the self-built per-state icon entities mounted inside it. */
     private record BuiltButton(Object button, Map<Integer, Object> stateEntities) {}
@@ -85,8 +89,14 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     @Override
     public Registration contributeStateButtons(final ViewContextMenuRegistry.StateButtonContribution contribution) {
+        return contributeStateButtons(contribution, 0);
+    }
+
+    @Override
+    public Registration contributeStateButtons(
+            final ViewContextMenuRegistry.StateButtonContribution contribution, final int order) {
         Objects.requireNonNull(contribution, "contribution");
-        final Runnable build = () -> buildAndMount(contribution);
+        final Runnable build = () -> buildAndMount(contribution, order);
         synchronized (lock) {
             if (mountAttempted && strip != null) {
                 build.run();
@@ -112,7 +122,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         };
     }
 
-    private void buildAndMount(final ViewContextMenuRegistry.StateButtonContribution contribution) {
+    private void buildAndMount(final ViewContextMenuRegistry.StateButtonContribution contribution, final int order) {
         try {
             if (strip == null) {
                 diagnostic("BUILD_SKIPPED reason=NO_STRIP");
@@ -131,10 +141,10 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final int initialState = contribution.stateIcons().containsKey(contribution.initialState())
                     ? contribution.initialState()
                     : contribution.stateIcons().keySet().iterator().next();
-            final int targetIndex = insertionIndexFor(contribution);
+            final int targetIndex = insertionIndexFor(contribution, order);
             final BuiltButton built = createButton(contribution, initialImage, initialState);
             insertIntoGroup(strip, built.button(), targetIndex);
-            entries.put(contribution.contributionId(), new Entry(contribution, built.button(), built.stateEntities()));
+            entries.put(contribution.contributionId(), new Entry(contribution, order, built.button(), built.stateEntities()));
             applyInitialState(built.button(), built.stateEntities(), initialState);
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                     + " state=" + initialState
@@ -381,22 +391,23 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * contributed buttons are ordered by {@code order} and then id, never by
      * the order in which plugins registered them.
      */
-    private int insertionIndexFor(final ViewContextMenuRegistry.StateButtonContribution requested)
+    private int insertionIndexFor(
+            final ViewContextMenuRegistry.StateButtonContribution requested, final int order)
             throws ReflectiveOperationException {
         final List<Object> mounted = new ArrayList<>(entries.size());
-        final List<ViewContextMenuRegistry.StateButtonContribution> existing = new ArrayList<>(entries.size());
+        final List<OrderedContribution> existing = new ArrayList<>(entries.size());
         for (final Entry entry : entries.values()) {
             mounted.add(entry.currentButton());
-            existing.add(entry.contribution());
+            existing.add(new OrderedContribution(entry.contribution(), entry.order()));
         }
-        return insertionIndex(groupList(strip), mounted, existing, requested);
+        return insertionIndex(groupList(strip), mounted, existing, new OrderedContribution(requested, order));
     }
 
     static int insertionIndex(
             final List<?> group,
             final List<?> mountedButtons,
-            final List<ViewContextMenuRegistry.StateButtonContribution> existingContributions,
-            final ViewContextMenuRegistry.StateButtonContribution requested) {
+            final List<OrderedContribution> existingContributions,
+            final OrderedContribution requested) {
         int firstContributed = group.size();
         for (final Object button : mountedButtons) {
             final int index = group.indexOf(button);
@@ -405,7 +416,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             }
         }
         int rank = 0;
-        for (final ViewContextMenuRegistry.StateButtonContribution existing : existingContributions) {
+        for (final OrderedContribution existing : existingContributions) {
             if (CONTRIBUTION_ORDER.compare(existing, requested) < 0) {
                 rank++;
             }
@@ -637,7 +648,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final Entry entry = entries.get(contributionId);
             if (entry == null || strip == null) return;
             try {
-                final int preferIndex = insertionIndexFor(entry.contribution());
+                final int preferIndex = insertionIndexFor(entry.contribution(), entry.order());
                 removeFromGroup(strip, entry.currentButton());
                 removeButton(entry.currentButton());
                 final Map<Integer, UiRasterImage> icons = entry.contribution().stateIcons();
@@ -646,7 +657,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                         icons.getOrDefault(axis, icons.values().iterator().next()),
                         axis);
                 insertIntoGroup(strip, built.button(), preferIndex);
-                entries.put(contributionId, new Entry(entry.contribution(), built.button(), built.stateEntities()));
+                entries.put(
+                        contributionId,
+                        new Entry(entry.contribution(), entry.order(), built.button(), built.stateEntities()));
                 applyInitialState(built.button(), built.stateEntities(), axis);
                 diagnostic("BUTTON_STATE_REBUILT axis=" + axis);
             } catch (Throwable failure) {
