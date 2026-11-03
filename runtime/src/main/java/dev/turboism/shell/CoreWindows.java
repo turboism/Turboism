@@ -12,6 +12,7 @@ import dev.turboism.sdk.ui.settings.SettingsChangeDecision;
 import dev.turboism.sdk.ui.settings.SettingsContributionSource;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsSnapshot;
+import dev.turboism.ui.panel.CollapsibleSection;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
@@ -382,10 +383,21 @@ final class CoreWindows implements AutoCloseable {
                         renderedTabs.add(created);
                         return created;
                     });
-            int row = rendered.panel().getComponentCount() / 2;
+            final JPanel outer = rendered.panel();
+            JPanel content = outer;
+            int row = 0;
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
-                saves.add(renderControl(
-                        owner, rendered.panel(), row++, entry.contribution().control()));
+                final SettingsControl control = entry.contribution().control();
+                if (control instanceof SettingsControl.Note note && note.id().startsWith("performance.section.")) {
+                    final JPanel sectionContent = form();
+                    final JPanel section = CollapsibleSection.create(note.label(), sectionContent, true, i18n.locale());
+                    applyControlTooltip(note.id(), section);
+                    addSection(outer, nextRow(outer), section);
+                    content = sectionContent;
+                    row = 0;
+                } else {
+                    saves.add(renderControl(owner, content, row++, control));
+                }
             }
         }
         if (plugins instanceof PluginAutoUpdateControl pluginUpdates && pluginUpdates.autoUpdateAvailable()) {
@@ -415,7 +427,7 @@ final class CoreWindows implements AutoCloseable {
                     owner,
                     text("settings.performance.status"),
                     CubismJvmSettingsContribution.optimizationStatusMessage(i18n, performanceSettings)));
-            add(performance, performance.getComponentCount() / 2, status, new JLabel());
+            add(performance, nextRow(performance), status, new JLabel());
         }
         renderedTabs.sort(java.util.Comparator.comparingInt(RenderedTab::index).thenComparing(RenderedTab::id));
         final JTabbedPane tabs = new JTabbedPane();
@@ -1458,6 +1470,27 @@ final class CoreWindows implements AutoCloseable {
         final JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         return panel;
+    }
+
+    private static int nextRow(final JPanel panel) {
+        if (!(panel.getLayout() instanceof GridBagLayout layout)) return panel.getComponentCount();
+        int row = 0;
+        for (java.awt.Component component : panel.getComponents()) {
+            row = Math.max(row, layout.getConstraints(component).gridy + 1);
+        }
+        return row;
+    }
+
+    private static void addSection(final JPanel panel, final int row, final JPanel section) {
+        final GridBagConstraints constraints = new GridBagConstraints();
+        constraints.gridy = row;
+        constraints.gridx = 0;
+        constraints.gridwidth = 2;
+        constraints.weightx = 1;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.anchor = GridBagConstraints.WEST;
+        constraints.insets = new Insets(6, 6, 6, 6);
+        panel.add(section, constraints);
     }
 
     private static void add(

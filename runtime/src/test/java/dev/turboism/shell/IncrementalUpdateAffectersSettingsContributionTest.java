@@ -60,7 +60,7 @@ class IncrementalUpdateAffectersSettingsContributionTest {
         var contribution = CubismJvmSettingsContribution.createIncrementalUpdateAffectersToggle(i18n(), settings);
         assertEquals("incremental-update-affecters", contribution.id());
         assertEquals("performance", contribution.tab().id());
-        assertEquals(OptionalInt.of(82), contribution.index());
+        assertEquals(OptionalInt.of(73), contribution.index());
         var toggle = assertInstanceOf(SettingsControl.Toggle.class, contribution.control());
         assertEquals("settings.optimization.incremental-update-affecters", toggle.label());
         assertEquals(Boolean.TRUE, toggle.binding().read());
