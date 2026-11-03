@@ -5,6 +5,8 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
+import dev.turboism.ui.contribution.MeshToolbarContributionDescriptor;
+import dev.turboism.ui.contribution.MeshToolbarSliderContributionDescriptor;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.ArrayList;
 import java.util.Comparator;

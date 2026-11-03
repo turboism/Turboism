@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
 import dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator;
+import dev.turboism.mapping.selector.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;

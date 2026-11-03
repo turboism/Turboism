@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
+import dev.turboism.mapping.verification.SelectorAdmission;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Objects;
@@ -50,7 +52,7 @@ public record MeshToolSessionHostProfile(
     /** Resolves and validates an exact-version host profile from verified selectors. */
     public static MeshToolSessionHostProfile from(final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!MeshToolSessionSelectorContract.authorizes(resolver)) {
+        if (!SelectorAdmission.authorizesMeshToolSession(resolver)) {
             throw new IllegalStateException("Exact mesh-tool session selectors are not authorized.");
         }
         final StaticSelector owner = resolver.verifiedSelector(MeshToolSessionSelectorContract.MESH_EDITOR_CLASS);

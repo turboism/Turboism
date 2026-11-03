@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.ui.palette.LogPaletteHostStructure;
+import dev.turboism.ui.host.LogPaletteHostStructure;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
