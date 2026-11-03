@@ -1,6 +1,6 @@
 package dev.turboism.core.runtime.work;
 
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 

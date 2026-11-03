@@ -1,7 +1,7 @@
 package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;

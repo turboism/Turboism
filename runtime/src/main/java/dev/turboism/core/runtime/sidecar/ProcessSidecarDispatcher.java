@@ -2,7 +2,7 @@ package dev.turboism.core.runtime.sidecar;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;

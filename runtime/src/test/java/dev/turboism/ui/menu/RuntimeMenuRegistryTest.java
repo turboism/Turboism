@@ -2,7 +2,7 @@ package dev.turboism.ui.menu;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.Registration;

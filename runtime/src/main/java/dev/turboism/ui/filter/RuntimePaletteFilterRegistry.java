@@ -1,7 +1,7 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
