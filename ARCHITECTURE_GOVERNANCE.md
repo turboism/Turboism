@@ -116,11 +116,34 @@ JUnit class. Both static gates depend on their own fail-closed selftests, and
 cannot be dropped by deleting one `dependsOn` line.
 
 `.github/CODEOWNERS` records ownership of persistence formats, migrations, API
-baselines, verification wiring and the governance tooling. It does not block a
-merge by itself: repository admins must configure a GitHub ruleset requiring the
-`CI / devCheck` check on protected `main`. Enable "Require review from Code
-Owners" in that ruleset only once a second reviewer with write access exists,
-otherwise the single owner's own pull requests become unmergeable.
+baselines, verification wiring and the governance tooling.
+
+Main is now enforced by the repository ruleset `protect-main` (id 26441981,
+`refs/heads/main`, active, no bypass actors):
+
+- merges must arrive through a pull request (`required_approving_review_count: 0`,
+  stale reviews dismissed on push, all merge methods allowed);
+- `devCheck` and `scan reachable history` must pass — both run on every pull
+  request, so a branch that carries a forbidden path or a failing gate cannot be
+  merged;
+- branch deletion and force push (non-fast-forward) are rejected.
+
+There are deliberately **no bypass actors**. Every account with write access is
+an administrator here, so a standing admin bypass would make the protection
+nominal. The emergency exception is therefore an explicit, audited admin action:
+edit or temporarily disable `protect-main` in the repository settings, land the
+one change, and re-enable it. Treat that as an incident, not a workflow — main
+stayed red for two hours on 2026-11-02 precisely because a direct push skipped
+the gates.
+
+Enabling "Require review from Code Owners" in the same ruleset is still pending a
+second reviewer with write access; turning it on today would make the sole
+owner's own pull requests unmergeable.
+
+Verified: a direct push to `main` is rejected with `GH013 ... Changes must be
+made through a pull request ... 2 of 2 required status checks are expected`.
+Not yet verified: the required-check behaviour for a non-administrator
+contributor (there is only one collaborator).
 
 This document is the initial governance baseline. Track intended module splits
 and follow-up evidence in issues rather than moving hundreds of classes blindly.
