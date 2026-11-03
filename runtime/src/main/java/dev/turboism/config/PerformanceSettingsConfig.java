@@ -28,6 +28,7 @@ public final class PerformanceSettingsConfig {
         FLOAT_ARRAY_PARSE_CACHE("floatArrayParseCache", true, "false"),
         TEXTURE_UPLOAD_PREPARATION("textureUploadPreparation", true, "false"),
         WARP_POSITION_PROJECTION("warpPositionProjection", true, "false"),
+        REINIT_PAIR_ELISION("reinitPairElision", true, "false"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "false"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "false"),
         ATLAS_TILE_BBOX("atlasTileBbox", false, "false"),

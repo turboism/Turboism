@@ -115,4 +115,8 @@ final class NativeOptimizationPolicy {
         dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.setConfiguredDefault(enabled);
         return enabled;
     }
+
+    static boolean reinitPairElisionEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.REINIT_PAIR_ELISION);
+    }
 }

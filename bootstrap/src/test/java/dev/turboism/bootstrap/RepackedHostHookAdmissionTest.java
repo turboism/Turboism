@@ -90,6 +90,7 @@ class RepackedHostHookAdmissionTest {
         admitted.put("texture-upload", VerifiedTextureUploadPreparationInstaller.admitted(artifact, POLICY, true, 17));
         admitted.put("warp-position", VerifiedWarpPositionProjectionInstaller.admitted(artifact, POLICY, true, 17));
         admitted.put("float-array", VerifiedFloatArrayParseCacheInstaller.admitted(artifact, POLICY, true));
+        admitted.put("reinit-pair", VerifiedReinitPairElisionInstaller.admitted(artifact, POLICY, true));
         admitted.put("image-archive", VerifiedImageArchiveReuseInstaller.admitted(artifact, POLICY, true));
         admitted.put(
                 "warp", WarpAltMirrorHookContributor.resolveProfile(artifact) instanceof ReviewedHostContract.Bound<?>);

@@ -61,6 +61,7 @@ dev.turboism.bootstrap.DeferredGlErrorCheckHookContributor
 # setters, which the lifecycle observer never touches.
 dev.turboism.bootstrap.RedundantStateElisionHookContributor
 dev.turboism.bootstrap.MatrixScratchHookContributor
+dev.turboism.bootstrap.ReinitPairElisionHookContributor
 dev.turboism.bootstrap.NativeEditBeginHookContributor
 dev.turboism.bootstrap.EditApiDispatchHookContributor
 dev.turboism.bootstrap.TextureAtlasDataModelHookContributor

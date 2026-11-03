@@ -22,6 +22,7 @@ public final class NativeOptimizationConfig {
         FLOAT_ARRAY_PARSE_CACHE("floatArrayParseCache"),
         TEXTURE_UPLOAD_PREPARATION("textureUploadPreparation"),
         WARP_POSITION_PROJECTION("warpPositionProjection"),
+        REINIT_PAIR_ELISION("reinitPairElision"),
         MESH_TRIANGULATION_HASH("meshTriangulationHashFix"),
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex"),
         ATLAS_TILE_BBOX("atlasTileBbox"),

@@ -281,7 +281,8 @@ $reorderNativeBaseline = @(
     "-Dturboism.optimization.uniformLocationCache=false",
     "-Dturboism.optimization.uploadElision=false",
     "-Dturboism.optimization.inputPathElision=false",
-    "-Dturboism.optimization.mesaGlThread=false"
+    "-Dturboism.optimization.mesaGlThread=false",
+    "-Dturboism.optimization.reinitPairElision=false"
 )
 
 $workloadOptions = New-Object System.Collections.Generic.List[string]

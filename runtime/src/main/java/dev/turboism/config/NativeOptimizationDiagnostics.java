@@ -78,6 +78,7 @@ public final class NativeOptimizationDiagnostics {
                     case "TURBOISM_FLOAT_ARRAY_PARSE_CACHE" -> Option.FLOAT_ARRAY_PARSE_CACHE;
                     case "TURBOISM_TEXTURE_UPLOAD_PREPARATION" -> Option.TEXTURE_UPLOAD_PREPARATION;
                     case "TURBOISM_WARP_POSITION_PROJECTION" -> Option.WARP_POSITION_PROJECTION;
+                    case "TURBOISM_REINIT_PAIR_ELISION" -> Option.REINIT_PAIR_ELISION;
                     default -> null;
                 };
         if (option == null) return;
