@@ -167,11 +167,17 @@ class CoreWindowsTest {
 
         final var jvmContribution = CubismJvmSettingsContribution.create(I18N, service);
         assertEquals("performance", contribution.tab().id());
-        assertEquals(114, contribution.index().orElseThrow());
-        // The grouped Performance tab renumbered this row so it sits *after* the JVM choice inside
-        // the JVM/memory section. If "custom path first" was the intended order, fix the indices in
-        // CubismJvmSettingsContribution instead of this assertion.
-        assertTrue(jvmContribution.index().orElseThrow() < contribution.index().orElseThrow());
+        // Decided order for the JVM/memory section: the JVM choice comes first, then the optional
+        // custom path, then the memory profile. Asserting the relation instead of the absolute
+        // ordinals keeps this test about the order; exact placement is pinned by the layout
+        // snapshot in CoreShellTest, so adding a row elsewhere no longer breaks this.
+        final var memoryProfile = CubismJvmSettingsContribution.createMemoryProfile(I18N, service);
+        assertTrue(
+                jvmContribution.index().orElseThrow() < contribution.index().orElseThrow(),
+                "the JVM choice must precede the custom GraalVM path");
+        assertTrue(
+                contribution.index().orElseThrow() < memoryProfile.index().orElseThrow(),
+                "the custom GraalVM path must precede the memory profile");
         for (String id : java.util.List.of(
                 "mesh-triangulation-hash",
                 "atlas-tile-bbox",

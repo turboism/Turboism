@@ -77,7 +77,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
 
     private boolean modelingAuthorized() {
         return modeling != null
-                && dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.authorizes(modelingResolver);
+                && dev.turboism.mapping.verification.SelectorAdmission.authorizesModelingSelection(modelingResolver);
     }
 
     @Override
@@ -111,7 +111,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         final Object frame = resolver.invoke(APP_MAIN_FRAME, app);
         final Object view = resolver.invoke(MAIN_FRAME_VIEW, frame);
         return modelingResolver.readField(
-                dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.BRUSH_ANCHOR, view);
+                dev.turboism.mapping.selector.ModelingSelectionSelectorContract.BRUSH_ANCHOR, view);
     }
 
     @Override
@@ -142,7 +142,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
                         ICON_CREATE,
                         ToolbarIconLoader.load(resources, descriptor.pluginId(), descriptor.pluginGeneration(), path)))
                 .toList();
-        final String create = dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.TOGGLE_CREATE;
+        final String create = dev.turboism.mapping.selector.ModelingSelectionSelectorContract.TOGGLE_CREATE;
         final Object callback = modelingResolver.createFunctionalConstructorArgumentProxy(create, 1, ignored -> {
             try {
                 modeling.toggle(descriptor.pluginId(), descriptor.pluginGeneration(), descriptor.toolId());
@@ -163,9 +163,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         resolver.invoke(prefix + "set-icon", button, icons.get(0));
         resolver.invoke(prefix + "set-pressed-icon", button, icons.get(1));
         modelingResolver.invoke(
-                dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.TOGGLE_ROLLOVER,
-                button,
-                icons.get(2));
+                dev.turboism.mapping.selector.ModelingSelectionSelectorContract.TOGGLE_ROLLOVER, button, icons.get(2));
         resolver.invoke(prefix + "set-selected-icon", button, icons.get(3));
         resolver.invoke(prefix + "set-disabled-icon", button, icons.get(4));
         resolver.invoke(prefix + "set-disabled-selected-icon", button, icons.get(5));
@@ -286,12 +284,12 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
     }
 
     private List<Object> nativeToolButtons() {
-        final Object app = modelingResolver.invokeStatic(
-                dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.APP);
+        final Object app =
+                modelingResolver.invokeStatic(dev.turboism.mapping.selector.ModelingSelectionSelectorContract.APP);
         final Object frame = modelingResolver.invoke(
-                dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.MAIN_FRAME, app);
+                dev.turboism.mapping.selector.ModelingSelectionSelectorContract.MAIN_FRAME, app);
         final Object raw = modelingResolver.invoke(
-                dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.NATIVE_TOOL_BUTTONS, frame);
+                dev.turboism.mapping.selector.ModelingSelectionSelectorContract.NATIVE_TOOL_BUTTONS, frame);
         if (!(raw instanceof java.util.Map<?, ?> peers))
             throw new IllegalStateException("native tool buttons are unavailable");
         final java.util.Set<Object> buttons = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -300,7 +298,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         // The animator registration overwrites the map entry, so clear the modeling peer directly.
         final Object view = resolver.invoke(MAIN_FRAME_VIEW, frame);
         final Object modelingArrow = modelingResolver.readField(
-                dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.ARROW_BUTTON, view);
+                dev.turboism.mapping.selector.ModelingSelectionSelectorContract.ARROW_BUTTON, view);
         buttons.add(modelingArrow);
         return List.copyOf(buttons);
     }

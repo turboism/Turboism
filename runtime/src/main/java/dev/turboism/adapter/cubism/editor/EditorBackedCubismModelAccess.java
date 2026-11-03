@@ -6,6 +6,8 @@ import dev.turboism.adapter.cubism.edit.RuntimeEditSessionManager;
 import dev.turboism.adapter.cubism.edit.RuntimeEditSessionProvider;
 import dev.turboism.adapter.cubism.edit.RuntimeEditSessionService;
 import dev.turboism.adapter.cubism.edit.VerifiedEditorEditSessionHost;
+import dev.turboism.adapter.cubism.editor.history.EditorHistoryPort;
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
@@ -138,7 +140,10 @@ public final class EditorBackedCubismModelAccess
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
         this.authoringHost = new VerifiedEditorAuthoringTransactionHost(
-                resolver, this::authoringNativeBinding, this::authoringGeneration);
+                resolver,
+                this::authoringNativeBinding,
+                this::authoringGeneration,
+                new EditorHistoryPort(() -> Optional.of(resolver), this::authoringGeneration));
         final java.util.concurrent.atomic.AtomicBoolean editScopeGate = new java.util.concurrent.atomic.AtomicBoolean();
         this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost, editScopeGate);
         this.editSessionHost =

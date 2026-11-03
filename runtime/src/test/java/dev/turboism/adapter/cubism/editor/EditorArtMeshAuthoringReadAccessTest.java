@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;

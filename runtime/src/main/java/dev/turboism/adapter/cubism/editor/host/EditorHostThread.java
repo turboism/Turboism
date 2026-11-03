@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.editor;
+package dev.turboism.adapter.cubism.editor.host;
 
 import dev.turboism.ui.host.EdtDispatch;
 import java.util.Objects;

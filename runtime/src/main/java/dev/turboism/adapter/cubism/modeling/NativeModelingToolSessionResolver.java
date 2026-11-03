@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
+import static dev.turboism.mapping.selector.ModelingSelectionSelectorContract.*;
 
+import dev.turboism.mapping.verification.SelectorAdmission;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Objects;
 import java.util.Optional;
@@ -13,7 +14,7 @@ public final class NativeModelingToolSessionResolver {
 
     public NativeModelingToolSessionResolver(VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        if (!ModelingSelectionSelectorContract.authorizes(resolver)) {
+        if (!SelectorAdmission.authorizesModelingSelection(resolver)) {
             throw new IllegalArgumentException("ordinary modeling brush selectors are not authorized");
         }
     }
@@ -24,7 +25,7 @@ public final class NativeModelingToolSessionResolver {
     }
 
     private Optional<Identity> resolve(boolean allowEditing) {
-        if (!ModelingSelectionSelectorContract.authorizes(resolver)) return Optional.empty();
+        if (!SelectorAdmission.authorizesModelingSelection(resolver)) return Optional.empty();
         final Object app = resolver.invokeStatic(APP);
         final Object document = resolver.invoke(DOCUMENT, app);
         if (!resolver.isInstance(DOCUMENT_CLASS, document)) return Optional.empty();

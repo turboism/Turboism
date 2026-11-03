@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.mapping.verification.VerifiedAccessException;

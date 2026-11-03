@@ -109,7 +109,7 @@ class RuntimeMeshToolRegistryTest {
             }
         });
 
-        var descriptor = (dev.turboism.ui.mesh.MeshToolbarSliderContributionDescriptor)
+        var descriptor = (dev.turboism.ui.contribution.MeshToolbarSliderContributionDescriptor)
                 authority.contributions(EditorUiFamily.MESH_TOOLBAR).get(0).descriptor();
         descriptor.changed(64);
         assertEquals(64, value.get());

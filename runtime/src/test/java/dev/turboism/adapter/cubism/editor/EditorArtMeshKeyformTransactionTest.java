@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.editor;
 import static dev.turboism.adapter.cubism.editor.EditorArtMeshAuthoringReadAccessTest.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;

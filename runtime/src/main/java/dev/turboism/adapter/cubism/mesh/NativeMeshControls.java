@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Objects;
 

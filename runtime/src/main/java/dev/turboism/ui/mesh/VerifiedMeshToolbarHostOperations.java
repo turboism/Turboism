@@ -4,6 +4,8 @@ import dev.turboism.adapter.cubism.mesh.MeshToolCoordinator;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.contribution.MeshToolbarContributionDescriptor;
+import dev.turboism.ui.contribution.MeshToolbarSliderContributionDescriptor;
 import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.ToolbarIconLoader;
