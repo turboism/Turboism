@@ -364,6 +364,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
                 if (!disableScissorForFullClear(clear, gl)) clear.invalidate = true;
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
             clear.invalidate = true;
         }
@@ -393,6 +394,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
             }
             countClear(completed.clearPixels, !completed.fullClear);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
         }
     }
@@ -500,6 +502,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
             glScissorMethod.invoke(gl, rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]);
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
             return false;
         }
@@ -514,6 +517,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
             clear.scissorChanged = true;
             return true;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
             return false;
         }
@@ -546,6 +550,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         try {
             restoreScissor(aborted);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             observeFailure(failure);
         }
     }
