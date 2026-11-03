@@ -525,7 +525,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                94);
+                62);
     }
 
     static SettingsContribution createClipMaskScissorClearToggle(
@@ -542,7 +542,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                95);
+                63);
     }
 
     static SettingsContribution createExtendedInterpolationIncrementalSetupToggle(
@@ -560,7 +560,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                96);
+                64);
     }
 
     static SettingsContribution createReinitPairElisionToggle(
@@ -577,7 +577,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                97);
+                65);
     }
 
     static SettingsContribution createModelInstanceCoalesceToggle(
@@ -594,7 +594,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                98);
+                66);
     }
 
     static SettingsContribution createInspectorPropertyBypassToggle(
@@ -611,7 +611,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                99);
+                67);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

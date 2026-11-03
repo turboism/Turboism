@@ -113,10 +113,10 @@ class CoreShellTest {
         assertEquals(37, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
+                        "performance.section.heavy-model",
                         "performance.section.model",
                         "performance.section.rendering",
                         "performance.section.upload",
-                        "performance.section.heavy-model",
                         "performance.section.mesh",
                         "performance.section.jvm",
                         "cubism-graalvm-path",
