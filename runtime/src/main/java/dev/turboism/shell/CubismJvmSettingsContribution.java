@@ -47,6 +47,13 @@ final class CubismJvmSettingsContribution {
                     case "float-array-parse-cache" -> "settings.optimization.float-array-parse-cache.tooltip";
                     case "texture-upload-preparation" -> "settings.optimization.texture-upload-preparation.tooltip";
                     case "warp-position-projection" -> "settings.optimization.warp-position-projection.tooltip";
+                    case "reinit-pair-elision" -> "settings.optimization.reinit-pair-elision.tooltip";
+                    case "clip-mask-deduplication" -> "settings.optimization.clip-mask-deduplication.tooltip";
+                    case "clip-mask-scissor-clear" -> "settings.optimization.clip-mask-scissor-clear.tooltip";
+                    case "extended-interpolation-incremental-setup" ->
+                        "settings.optimization.extended-interpolation-incremental-setup.tooltip";
+                    case "model-instance-coalesce" -> "settings.optimization.model-instance-coalesce.tooltip";
+                    case "inspector-property-bypass" -> "settings.optimization.inspector-property-bypass.tooltip";
                     case "cubism-disable-auto-backup" -> "settings.cubism-jvm.disable-auto-backup.tooltip";
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
@@ -148,8 +155,10 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Launch-time preference: appends {@code -XX:+UseZGC} to the managed
-     * JAVA_TOOL_OPTIONS block on the next Cubism launch. No live apply —
+     * Launch-time preference: appends {@code -XX:+UseZGC} and its companion
+     * {@code -XX:ZUncommitDelay=60} to the managed JVM options the launcher
+     * injects into the staged launch BAT on the next Cubism start, so freed
+     * heap returns to the OS a minute after editing stops. No live apply —
      * the current JVM cannot change collectors mid-process.
      */
     static SettingsContribution createZgcToggle(
@@ -500,6 +509,109 @@ final class CubismJvmSettingsContribution {
                     return value;
                 },
                 84);
+    }
+
+    static SettingsContribution createClipMaskDeduplicationToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "clip-mask-deduplication",
+                "settings.optimization.clip-mask-deduplication",
+                settings::clipMaskDeduplication,
+                value -> {
+                    if (settings.saveClipMaskDeduplication(value) != value) {
+                        throw new IllegalStateException("Clip-mask deduplication preference was not saved");
+                    }
+                    return value;
+                },
+                62);
+    }
+
+    static SettingsContribution createClipMaskScissorClearToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "clip-mask-scissor-clear",
+                "settings.optimization.clip-mask-scissor-clear",
+                settings::clipMaskScissorClear,
+                value -> {
+                    if (settings.saveClipMaskScissorClear(value) != value) {
+                        throw new IllegalStateException("Clip-mask scissor-clear preference was not saved");
+                    }
+                    return value;
+                },
+                63);
+    }
+
+    static SettingsContribution createExtendedInterpolationIncrementalSetupToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "extended-interpolation-incremental-setup",
+                "settings.optimization.extended-interpolation-incremental-setup",
+                settings::extendedInterpolationIncrementalSetup,
+                value -> {
+                    if (settings.saveExtendedInterpolationIncrementalSetup(value) != value) {
+                        throw new IllegalStateException(
+                                "Extended interpolation incremental setup preference was not saved");
+                    }
+                    return value;
+                },
+                64);
+    }
+
+    static SettingsContribution createReinitPairElisionToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "reinit-pair-elision",
+                "settings.optimization.reinit-pair-elision",
+                settings::reinitPairElision,
+                value -> {
+                    if (settings.saveReinitPairElision(value) != value) {
+                        throw new IllegalStateException("Reinit Pair-elision preference was not saved");
+                    }
+                    return value;
+                },
+                65);
+    }
+
+    static SettingsContribution createModelInstanceCoalesceToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "model-instance-coalesce",
+                "settings.optimization.model-instance-coalesce",
+                settings::modelInstanceCoalesce,
+                value -> {
+                    if (settings.saveModelInstanceCoalesce(value) != value) {
+                        throw new IllegalStateException("Model instance coalescing preference was not saved");
+                    }
+                    return value;
+                },
+                66);
+    }
+
+    static SettingsContribution createInspectorPropertyBypassToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "inspector-property-bypass",
+                "settings.optimization.inspector-property-bypass",
+                settings::inspectorPropertyBypass,
+                value -> {
+                    if (settings.saveInspectorPropertyBypass(value) != value) {
+                        throw new IllegalStateException("Inspector property bypass preference was not saved");
+                    }
+                    return value;
+                },
+                67);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

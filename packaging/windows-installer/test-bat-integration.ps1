@@ -89,7 +89,7 @@ try {
         $nextBat = New-CubismManagedOptionsBat -OfficialBat $syntheticBat -CubismRoot $syntheticRoot -TurboismHome $homePath -Agent $syntheticAgent
         $nextText = [System.IO.File]::ReadAllText($nextBat)
         Assert-BatRegression ($nextText -notmatch 'launch-cubism-turboism\.ps1|TURBOISM MANAGED BEGIN') "staging removes delegation without recursion: $enabled"
-        foreach ($token in @('-XX:+DisableAttachMechanism', '-XX:+UseZGC', '-Xmx4g', '-Dturboism.optimization.incrementalUpdate=true')) {
+        foreach ($token in @('-XX:+DisableAttachMechanism', '-XX:+UseZGC', '-XX:ZUncommitDelay=60', '-Xmx4g', '-Dturboism.optimization.incrementalUpdate=true')) {
             Assert-BatRegression ($nextText.Contains($token) -eq $enabled) "next launch reads current preference $token : $enabled"
         }
         foreach ($name in @('uniformLocationCache', 'modelUpdateSkip', 'uploadElision')) {

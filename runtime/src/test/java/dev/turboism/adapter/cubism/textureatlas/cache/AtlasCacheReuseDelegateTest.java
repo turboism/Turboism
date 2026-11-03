@@ -243,6 +243,44 @@ final class AtlasCacheReuseDelegateTest {
                 "the supplied instance now has a same-instance record");
     }
 
+    @Test
+    void releasingRetainedOutputsDropsThemButKeepsTheLiveInstanceHit() {
+        buildAndRecord();
+        assertEquals(1, AtlasCacheReuseDelegate.outputCount(), "a recorded build retains its produced page");
+
+        AtlasCacheReuseDelegate.releaseRetainedOutputs();
+
+        assertEquals(0, AtlasCacheReuseDelegate.outputCount(), "a document close must release the retained pages");
+        assertEquals(1, AtlasCacheReuseDelegate.recordCount(), "the live atlas keeps its own signature record");
+        assertTrue(
+                AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, atlas, true),
+                "reuse within the session is unchanged by releasing the retained copies");
+    }
+
+    @Test
+    void aReleasedOutputIsNeverSuppliedToALaterInstance() {
+        buildAndRecord();
+        AtlasCacheReuseDelegate.releaseRetainedOutputs();
+
+        final CTextureAtlas copy = new CTextureAtlas(source, 64, 64);
+        copy.addEntry(image.getGuid(), new CAffine(AffineTransform.getTranslateInstance(4, 4)));
+        assertFalse(
+                AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, copy, true),
+                "a closed document's page cannot be supplied; the host rebuild is the correct path");
+        assertNull(copy.getCachedAtlasImage(), "a declined reuse must not install any cache");
+    }
+
+    @Test
+    void theRetainedPageBudgetNeverExceedsOneEighthOfTheHeap() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                System.getProperty("turboism.atlasCacheReuse.retainedImageBytes") == null,
+                "an explicit budget override is authoritative");
+        final long eighth = Runtime.getRuntime().maxMemory() / 8L;
+        final long budget = AtlasCacheReuseDelegate.retainedBudget();
+        assertTrue(budget <= 1024L * 1024L * 1024L, "the default budget is capped at the historical 1 GiB ceiling");
+        assertTrue(budget <= eighth, "retained pages must stay below one eighth of the maximum heap");
+    }
+
     private static String pixelHash(final BufferedImage image) {
         final StringBuilder hash = new StringBuilder();
         for (int y = 0; y < image.getHeight(); y++) {

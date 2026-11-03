@@ -95,6 +95,39 @@ class NativeParameterLifecycleBridgeTest {
         NativeParameterLifecycleBridge.afterNative();
     }
 
+    @Test
+    void instrumentedStaticBridgeSkipsTheModelLookupWhileNoObserverIsRegistered() {
+        final java.util.concurrent.atomic.AtomicInteger lookups = new java.util.concurrent.atomic.AtomicInteger();
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        final MutableParameter parameter = new MutableParameter();
+        final NativeParameterLifecycleBridge bridge = new NativeParameterLifecycleBridge(coordinator, () -> {
+            lookups.incrementAndGet();
+            return model(parameter);
+        });
+        NativeParameterLifecycleBridge.install(bridge);
+        try {
+            assertEquals(2.0F, NativeParameterLifecycleBridge.beforeNative("ParamA", 2.0F));
+            NativeParameterLifecycleBridge.afterNative();
+            assertEquals(0, lookups.get(), "an unobserved native write must not resolve the parameter");
+
+            coordinator.register(new ParameterLifecycleCoordinator.PluginHooks(
+                    descriptor(),
+                    List.of(new CubismPlugin() {
+                        @Override
+                        public float beforeSetParameterValue(final Parameter parameter, final float value) {
+                            return value + 1.0F;
+                        }
+                    }),
+                    logger()));
+            assertEquals(3.0F, NativeParameterLifecycleBridge.beforeNative("ParamA", 2.0F));
+            NativeParameterLifecycleBridge.afterNative();
+            assertEquals(1, lookups.get(), "a registered interceptor must resolve the parameter");
+        } finally {
+            NativeParameterLifecycleBridge.uninstall(bridge);
+            coordinator.close();
+        }
+    }
+
     private static dev.turboism.sdk.cubism.model.CubismModel model(final Parameter parameter) {
         return new dev.turboism.sdk.cubism.model.CubismModel() {
             @Override

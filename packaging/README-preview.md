@@ -89,6 +89,13 @@ silently chooses a first result. Every launch calls the selected installation's
 official Cubism BAT, passes process-scoped Turboism JVM options, and restores
 the caller's environment after the BAT exits.
 
+The performance setting `launcher.zgc` defaults on and makes the managed
+launcher pass `-XX:+UseZGC` together with `-XX:ZUncommitDelay=60`. ZGC holds
+freed heap committed for 300 s by default; the shorter delay returns it to the
+OS about a minute after editing stops, so an idle editor stops reporting the
+post-edit resident set. The two options are emitted as a pair and never for a
+non-ZGC launch.
+
 The performance setting `meshTriangulationEdgeIndex` defaults on. Managed
 launches with that setting enabled pass `-XX:+DisableAttachMechanism`, as the
 guarded lazy-edge optimization requires exclusive premain definition ownership.

@@ -2093,7 +2093,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -2109,6 +2109,11 @@ function Get-CubismManagedJdkOptionTokens {
     $tokens = @("-Djava.locale.providers=CLDR,SPI")
     if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
         $tokens += "-XX:+UseZGC"
+        # ZGC keeps freed heap committed for its 300 s default, so an idle editor
+        # still reports the post-edit resident set. One minute absorbs the burst
+        # after an edit and then returns the pages; the option is ZGC-only, so it
+        # is never emitted for another collector.
+        $tokens += "-XX:ZUncommitDelay=60"
     }
     # Lazy edge materialization requires sole-premain definition ownership.
     # The saved edge-index setting owns this startup requirement; turning it
@@ -2144,6 +2149,24 @@ function Get-CubismManagedJdkOptionTokens {
     }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision")) {
         $tokens += "-Dturboism.optimization.uploadElision=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "reinitPairElision")) {
+        $tokens += "-Dturboism.optimization.reinitPairElision=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "clipMaskDeduplication")) {
+        $tokens += "-Dturboism.optimization.clipMaskDeduplication=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "clipMaskScissorClear")) {
+        $tokens += "-Dturboism.optimization.clipMaskScissorClear=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "extendedInterpolationIncrementalSetup")) {
+        $tokens += "-Dturboism.optimization.extendedInterpolationIncrementalSetup=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "modelInstanceCoalesce")) {
+        $tokens += "-Dturboism.optimization.modelInstanceCoalesce=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "inspectorPropertyBypass")) {
+        $tokens += "-Dturboism.optimization.inspectorPropertyBypass=false"
     }
     # inputPathElision/mesaGlThread are Proton-scoped: the Linux launcher is
     # the only emitter of their =true flags. This native-Windows path never
@@ -2183,7 +2206,7 @@ function Read-CubismOptimizationPreference {
     # Proton-scoped options default off on this native-Windows path.
     # inputPathElision/mesaGlThread default on only under Wine/Proton, which
     # the Linux launcher resolves — this script never runs there.
-    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "incrementalUpdateAffecters" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread"
+    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "incrementalUpdateAffecters" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread" -and $Name -ne "reinitPairElision"
     if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }

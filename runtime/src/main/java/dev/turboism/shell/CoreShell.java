@@ -132,6 +132,11 @@ public final class CoreShell implements ShellHandle {
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
+                                localization(context), "heavy-model", 61)));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
                                 localization(context), "model", 70)));
         context.disposableScope()
                 .register(context.services()
@@ -252,6 +257,37 @@ public final class CoreShell implements ShellHandle {
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createWarpPositionProjectionToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createClipMaskDeduplicationToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createClipMaskScissorClearToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(
+                                CubismJvmSettingsContribution.createExtendedInterpolationIncrementalSetupToggle(
+                                        localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createReinitPairElisionToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createModelInstanceCoalesceToggle(
+                                localization(context), services.cubismJvmSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(CubismJvmSettingsContribution.createInspectorPropertyBypassToggle(
                                 localization(context), services.cubismJvmSettings())));
         context.disposableScope()
                 .register(context.services()

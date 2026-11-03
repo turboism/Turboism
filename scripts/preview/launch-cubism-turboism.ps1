@@ -417,6 +417,9 @@ switch (Read-PreviewMemoryProfile -TurboismHome $previewRoot) {
 }
 if (Read-PreviewZgcPreference -TurboismHome $previewRoot) {
     $javaArgs += "-XX:+UseZGC"
+    # Mirror the managed launcher: ZGC returns uncommitted heap one minute
+    # after activity stops instead of holding it for the 300 s default.
+    $javaArgs += "-XX:ZUncommitDelay=60"
 }
 if (-not [string]::IsNullOrWhiteSpace($graalHostJava)) {
     $javaArgs += "-Dturboism.graal.enabled=true"

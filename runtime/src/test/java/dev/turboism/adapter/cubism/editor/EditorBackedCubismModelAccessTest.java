@@ -393,6 +393,25 @@ class EditorBackedCubismModelAccessTest {
         assertEquals(2.0F, model.parameters().find(new ParameterId("ParamA")).getValue());
     }
 
+    @Test
+    void repeatedParameterLookupReusesTheRememberedPosition() {
+        final CountingParameters values = new CountingParameters();
+        for (int i = 0; i < 64; i++) values.values.add(new Parameter("Param" + i, i));
+        final var model = installParameters(values);
+        assertEquals(63.0F, model.parameters().find(new ParameterId("Param63")).getValue());
+        values.visits = 0;
+        for (int i = 0; i < 8; i++) {
+            assertEquals(
+                    63.0F, model.parameters().find(new ParameterId("Param63")).getValue());
+        }
+        assertTrue(
+                values.visits <= 3L * 8,
+                "a repeated lookup must not rescan the table (one read for the hint, one for the live value): "
+                        + values.visits);
+        values.values.set(63, new Parameter("Param63", 7.0F));
+        assertEquals(7.0F, model.parameters().find(new ParameterId("Param63")).getValue());
+    }
+
     private static dev.turboism.sdk.cubism.model.CubismModel installParameters(final List<Parameter> values) {
         final Model nativeModel = new Model(new ParameterSet(values));
         final ModelSource source = new ModelSource("performance-model", nativeModel);

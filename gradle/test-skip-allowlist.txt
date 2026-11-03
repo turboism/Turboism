@@ -26,6 +26,7 @@ dev.turboism.bootstrap.VerifiedImageArchiveReuseInstallerTest.* # exact referenc
 dev.turboism.bootstrap.VerifiedIncrementalUpdateInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedMatrixScratchInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedModelUpdateSkipInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedReinitPairElisionInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedTextureUploadPreparationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedUniformLocationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpPositionProjectionInstallerTest.* # exact reference artifact not supplied
