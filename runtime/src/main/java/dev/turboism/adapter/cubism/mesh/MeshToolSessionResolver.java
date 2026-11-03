@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
+import dev.turboism.mapping.verification.SelectorAdmission;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
@@ -18,7 +20,7 @@ public final class MeshToolSessionResolver {
     public MeshToolSessionResolver(final VerifiedMemberResolver resolver, final CubismModelAccess modelAccess) {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(modelAccess, "modelAccess");
-        if (!MeshToolSessionSelectorContract.authorizes(resolver)) {
+        if (!SelectorAdmission.authorizesMeshToolSession(resolver)) {
             throw new IllegalArgumentException("Exact mesh-tool session selectors are not authorized.");
         }
         this.resolver = resolver;

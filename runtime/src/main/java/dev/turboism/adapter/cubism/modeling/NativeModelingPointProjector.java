@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
+import static dev.turboism.mapping.selector.ModelingSelectionSelectorContract.*;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.Point2;

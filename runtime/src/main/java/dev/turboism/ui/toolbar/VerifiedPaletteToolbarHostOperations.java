@@ -1,7 +1,7 @@
 package dev.turboism.ui.toolbar;
 
 import dev.turboism.ui.host.EdtDispatch;
-import dev.turboism.ui.palette.LogPaletteHostStructure;
+import dev.turboism.ui.host.LogPaletteHostStructure;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;

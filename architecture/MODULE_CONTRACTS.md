@@ -208,10 +208,50 @@ now takes an `AuthoringHistoryPort` and no longer imports
 `EditorHistoryPort` in the history package implements that port and is supplied
 by the two editor call sites. Leaf-package cycles went from 2 to 1.
 
+## `:runtime` UI surfaces and selector contracts
+
+- **Owner**: UI surface and host-verification maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `ui.host` holds toolkit-level host primitives (EDT dispatch, families,
+  snapshots, palette host layout); `ui.contribution` holds the descriptor/authority
+  vocabulary every surface shares; `ui.filter`, `ui.mesh`, `ui.palette` and
+  `ui.toolbar` are surfaces. `mapping.verification` owns host-artifact verification,
+  and `mapping.selector` owns the per-slice selector contracts (ids,
+  aliases, supported versions) as a pure leaf.
+- **Allowed dependencies**: surfaces may depend on `ui.host`, `ui.contribution` and
+  on adapter primitives; adapter packages may depend on `ui.contribution` and
+  `mapping.verification*`; `mapping.selector` depends on the SDK and
+  `internal.ReviewedVersions` only.
+- **Forbidden**: `mapping.selector` importing anything above it
+  (notably `VerifiedMemberResolver` — that is why the admission checks live in
+  `mapping.verification.SelectorAdmission`); `ui.palette` being reachable from
+  `ui.filter`/`ui.toolbar` for a shared record; `adapter.*` importing `ui.mesh`.
+- **Public API**: `LogPaletteHostStructure`, `MeshToolbarContributionDescriptor`,
+  `MeshToolbarSliderContributionDescriptor`, `SelectorAdmission`, and the selector
+  contracts themselves.
+- **Threading / IO**: `LogPaletteHostStructure` builds Swing components and is
+  host-thread only; the selector contracts are immutable data.
+- **Tests**: `runtime/src/test/java/dev/turboism/ui/**`,
+  `runtime/src/test/java/dev/turboism/mapping/**`.
+- **Backward compatibility**: selector contracts feed the compatibility matrix
+  (`compatibility/cubism/compatibility-matrix.json`) and the generated
+  verification manifest, both regenerated in the same commit.
+- **Enforcement**: `checkDependencyInventory`, the `mapping`/`adapter`/`ui` rules in
+  `gradle/module-boundaries.gradle.kts` (waiver map is now empty), and the
+  compatibility-matrix freshness gate.
+
+**What changed (`#70` step 3f)**: the 8-package cluster was broken by moving shared
+vocabulary down instead of inventing new seams — `LogPaletteHostStructure` to
+`ui.host`, the two mesh toolbar descriptors to `ui.contribution`, and the mesh/
+modeling selector contracts to `mapping.selector`, deleting the last
+module-boundary waiver. The contracts' resolver-dependent `authorizes(...)` helpers
+became `SelectorAdmission`, because leaving them in the contract classes was the one
+edge that made the selector package depend on the resolver. Leaf-package cycles:
+1 → **0**.
+
 ## Next boundaries (not yet extracted)
 
-One cycle remains, and it is the largest: `adapter.cubism.{mesh,modeling,
-optimization}` ↔ `mapping.verification` ↔ `ui.{filter,mesh,palette,toolbar}`
-(8 packages). It needs an admission contract between the adapter and
-`mapping.verification`, plus removing the `ui → mapping.verification`
-reach-through; that is a design step, not a file move.
+None at package granularity. The next step in #70's sequence is not another move but
+the extraction itself (step 3): pull the pure persistence codec/migration kernel out
+of `:runtime` behind the contracts already recorded here, then the compatibility
+policy, each as its own reviewable PR with module contracts and the existing
+bytecode/ABI gates ratcheting the direction.

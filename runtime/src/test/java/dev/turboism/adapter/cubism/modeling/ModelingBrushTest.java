@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
+import static dev.turboism.mapping.selector.ModelingSelectionSelectorContract.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.mapping.verification.StaticSelector;

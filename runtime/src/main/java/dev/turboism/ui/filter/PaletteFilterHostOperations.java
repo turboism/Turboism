@@ -6,7 +6,7 @@ import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.ui.host.EdtDispatch;
-import dev.turboism.ui.palette.LogPaletteHostStructure;
+import dev.turboism.ui.host.LogPaletteHostStructure;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
 import java.awt.Container;

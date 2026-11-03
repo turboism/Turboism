@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.mesh;
+package dev.turboism.mapping.selector;
 
 import dev.turboism.internal.ReviewedVersions;
 import java.util.Set;
@@ -145,13 +145,6 @@ public final class MeshToolSessionSelectorContract {
             "cubism.editor-model.editable-mesh.coord-type");
 
     private MeshToolSessionSelectorContract() {}
-
-    /** Returns true only when the resolver admits the complete exact feature contract. */
-    public static boolean authorizes(final dev.turboism.mapping.verification.VerifiedMemberResolver resolver) {
-        return resolver != null
-                && SUPPORTED_VERSIONS.contains(resolver.cubismVersion())
-                && resolver.authorizesFeature(ADAPTER_SLICE_ID, CAPABILITY_ID, REQUIRED_ALIASES);
-    }
 
     /** Returns true only for a supported exact version and a complete admitted record. */
     public static boolean isAdmitted(

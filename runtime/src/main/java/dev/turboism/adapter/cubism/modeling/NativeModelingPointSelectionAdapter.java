@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.modeling;
 
-import static dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.*;
 import static dev.turboism.adapter.cubism.modeling.NativeModelingPointProjector.*;
+import static dev.turboism.mapping.selector.ModelingSelectionSelectorContract.*;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;

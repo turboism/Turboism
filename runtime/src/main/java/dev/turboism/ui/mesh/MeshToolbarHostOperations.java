@@ -1,6 +1,8 @@
 package dev.turboism.ui.mesh;
 
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.contribution.MeshToolbarContributionDescriptor;
+import dev.turboism.ui.contribution.MeshToolbarSliderContributionDescriptor;
 import java.util.function.IntConsumer;
 
 /** Toolkit-neutral native mesh-toolbar materialization seam. */

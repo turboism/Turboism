@@ -1,7 +1,5 @@
-package dev.turboism.ui.mesh;
+package dev.turboism.ui.contribution;
 
-import dev.turboism.ui.contribution.EditorUiContribution;
-import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;

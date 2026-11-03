@@ -3,8 +3,8 @@ package dev.turboism.mapping.verification;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract;
-import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
+import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
+import dev.turboism.mapping.selector.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.ui.mesh.MeshToolbarSelectorContract;
 import java.nio.file.Files;
