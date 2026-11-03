@@ -32,11 +32,11 @@ import org.junit.jupiter.api.Test;
 class ClipMaskBridgeArtifactTest {
 
     @Test
-    void everyConfiguredReviewedArtifactResolvesBridgesAndWeavesTheRenderSystem() throws Exception {
+    void dedupeBridgeResolvesEveryConfiguredReviewedArtifact() throws Exception {
         final Path root = referenceRoot();
         final Path jogl = joglArtifact(root);
-        int dedupeVersions = 0;
-        int scissorVersions = 0;
+        assumeTrue(jogl != null, "JOGL artifact not configured; host class loading needs its GL types");
+        int resolved = 0;
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
             final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
             if (!Files.isRegularFile(artifact)) continue;
@@ -44,22 +44,44 @@ class ClipMaskBridgeArtifactTest {
                     ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact))
                             .isPresent(),
                     version + " is not a reviewed artifact");
+            final List<URL> urls = classpath(artifact.getParent());
+            urls.add(jogl.toUri().toURL());
+            try (URLClassLoader loader =
+                    new URLClassLoader(urls.toArray(URL[]::new), ClassLoader.getPlatformClassLoader())) {
+                try (ClipMaskDeduplicationBridge dedupe = new ClipMaskDeduplicationBridge(loader, version)) {
+                    assertNotNull(dedupe.snapshot(), version);
+                }
+            }
+            resolved++;
+            System.out.println("CLIP_MASK dedupe bridge PASS version=" + version);
+        }
+        assertTrue(resolved > 0, "no reviewed exact artifact found under " + root);
+    }
+
+    @Test
+    void everyConfiguredReviewedArtifactResolvesTheScissorBridgeAndWeavesTheRenderSystem() throws Exception {
+        final Path root = referenceRoot();
+        final Path jogl = joglArtifact(root);
+        assumeTrue(jogl != null, "JOGL artifact not configured; the bytecode weave needs its GL interface");
+        int dedupeVersions = 0;
+        int scissorVersions = 0;
+        for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
+            final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
+            if (!Files.isRegularFile(artifact)) continue;
             final String owner = ClipMaskDeduplicationTarget.renderSystemOwner(version);
             final String descriptor = ClipMaskDeduplicationTarget.renderMethodDescriptor(version);
             final List<URL> urls = classpath(artifact.getParent());
-            if (jogl != null) urls.add(jogl.toUri().toURL());
+            urls.add(jogl.toUri().toURL());
             try (URLClassLoader loader =
                     new URLClassLoader(urls.toArray(URL[]::new), ClassLoader.getPlatformClassLoader())) {
                 try (ClipMaskDeduplicationBridge dedupe = new ClipMaskDeduplicationBridge(loader, version)) {
                     assertNotNull(dedupe.snapshot(), version);
                 }
                 dedupeVersions++;
-                if (jogl != null) {
-                    try (ClipMaskScissorBridge scissor = new ClipMaskScissorBridge(loader, version)) {
-                        assertNotNull(scissor.snapshot(), version);
-                    }
-                    scissorVersions++;
+                try (ClipMaskScissorBridge scissor = new ClipMaskScissorBridge(loader, version)) {
+                    assertNotNull(scissor.snapshot(), version);
                 }
+                scissorVersions++;
 
                 final byte[] reference = bytes(artifact, owner);
                 final ClipMaskDeduplicationTransformer transformer = new ClipMaskDeduplicationTransformer(
@@ -71,13 +93,10 @@ class ClipMaskBridgeArtifactTest {
                 assertEquals(3, transformer.sites(), version);
                 assertNull(transformer.failure(), version);
             }
-            System.out.println(
-                    "CLIP_MASK artifact bridge/transform PASS version=" + version + " jogl=" + (jogl != null));
+            System.out.println("CLIP_MASK scissor/transform PASS version=" + version);
         }
         assertTrue(dedupeVersions > 0, "no reviewed exact artifact found under " + root);
-        assertTrue(
-                scissorVersions == 0 || scissorVersions == dedupeVersions,
-                "jogl was supplied but a version was skipped");
+        assertEquals(dedupeVersions, scissorVersions, "a version was skipped");
     }
 
     private static List<URL> classpath(final Path directory) throws Exception {

@@ -39,6 +39,8 @@ dev.turboism.adapter.cubism.ScreenshotCaptureHostOperationsTest.capturesCurrentP
 # gates do not ship. Each one names an explicit, separately reviewed opt-in lane.
 dev.turboism.adapter.cubism.warpalt.WarpAltMirrorActionContextTest.configuredHostHasPinnedReadOnlyActionView() # requires a locally supplied licensed Cubism JAR (-Dturboism.cubismHostJar).
 dev.turboism.adapter.cubism.optimization.meshsetup.SkippedFrameMeshSetupElisionArtifactTest.* # requires -Dturboism.test.cubism5302Jar / TURBOISM_CUBISM_REF exact-host evidence.
+dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskBridgeArtifactTest.* # requires TURBOISM_CUBISM_REF and TURBOISM_CUBISM_JOGL exact-host evidence.
+dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:warpAltMirrorArtifactTest lane owns this evidence.
 dev.turboism.mapping.verification.ParameterLockReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:parameterLockArtifactTest lane owns this evidence.
 dev.turboism.tests.mapping.ExactArtifactRecordVerificationTest.everyPackagedProductionRecordVerifiesAgainstTheExactArtifact() # requires TURBOISM_EXACT_ARTIFACTS_DIR with the reviewed exact-artifact jars.
