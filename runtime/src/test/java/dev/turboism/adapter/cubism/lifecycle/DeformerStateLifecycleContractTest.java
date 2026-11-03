@@ -9,8 +9,6 @@ import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.cubism.event.DeformerLockEvent;
 import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -110,13 +108,6 @@ class DeformerStateLifecycleContractTest {
 
     private static RuntimeScheduler scheduler() {
         return RuntimeTestKit.scheduler();
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
     }
 
     private static final class MutableWarp implements WarpDeformer {

@@ -10,8 +10,6 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.event.ParameterValueEvent;
@@ -577,15 +575,7 @@ class ParameterLifecycleCoordinatorTest {
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(
                         1, 8, ignored -> {}, Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)),
-                new NoOpSidecarDispatcher(),
                 ignored -> {});
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
     }
 
     private static final class MutableParameter implements Parameter {

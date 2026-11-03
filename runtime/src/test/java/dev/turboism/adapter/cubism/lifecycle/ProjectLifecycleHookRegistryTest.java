@@ -273,7 +273,6 @@ class ProjectLifecycleHookRegistryTest {
                 new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
                 new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
                         1, 8, ignored -> {}, java.time.Clock.systemUTC()),
-                dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
                 ignored -> {});
     }
 }

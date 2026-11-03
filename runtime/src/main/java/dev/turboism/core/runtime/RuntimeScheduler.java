@@ -3,8 +3,6 @@ package dev.turboism.core.runtime;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginExecutorSet;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkResult;
@@ -28,9 +26,8 @@ import java.util.function.Consumer;
  * The runtime's single dispatch point for plugin work and delayed callbacks.
  *
  * <p>Every submission is first classified by the {@link WorkBudgetPolicy}: lightweight work goes
- * to the plugin's own executor, sidecar work is handed to the {@link SidecarDispatcher}, heavy
- * work prefers the sidecar and falls back to the plugin's long-task lane when none is available
- * (except {@code transaction.*}, which keeps strict sidecar-or-reject routing), and rejected
+ * to the plugin's own executor, heavy work runs on the plugin's long-task lane (except
+ * {@code transaction.*}, which is rejected because there is no hand-off lane), and rejected
  * work is dropped after a diagnostic event. Rejection is reported as a return value,
  * never as an exception, so one misbehaving plugin cannot abort the caller.
  *
@@ -47,7 +44,6 @@ public final class RuntimeScheduler {
 
     private final WorkBudgetPolicy policy;
     private final PluginWorkExecutorRegistry executorRegistry;
-    private final SidecarDispatcher sidecarDispatcher;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final ScheduledExecutorService timer;
     private final Semaphore timerPermits = new Semaphore(GLOBAL_TIMER_LIMIT);
@@ -59,21 +55,18 @@ public final class RuntimeScheduler {
     public RuntimeScheduler(
             WorkBudgetPolicy policy,
             PluginWorkExecutorRegistry executorRegistry,
-            SidecarDispatcher sidecarDispatcher,
             Consumer<PluginWorkBudgetEvent> diagnosticSink) {
-        this(policy, executorRegistry, sidecarDispatcher, diagnosticSink, createTimer());
+        this(policy, executorRegistry, diagnosticSink, createTimer());
     }
 
     /** Creates a scheduler that owns and shuts down the supplied delayed-callback timer. */
     public RuntimeScheduler(
             WorkBudgetPolicy policy,
             PluginWorkExecutorRegistry executorRegistry,
-            SidecarDispatcher sidecarDispatcher,
             Consumer<PluginWorkBudgetEvent> diagnosticSink,
             ScheduledExecutorService timer) {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.executorRegistry = Objects.requireNonNull(executorRegistry, "executorRegistry");
-        this.sidecarDispatcher = Objects.requireNonNull(sidecarDispatcher, "sidecarDispatcher");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.timer = Objects.requireNonNull(timer, "timer");
     }
@@ -95,8 +88,8 @@ public final class RuntimeScheduler {
      * @param task the work to classify and run
      * @param callback the body to execute once a lane accepts it
      * @return {@code true} if some lane accepted the work; {@code false} when the scheduler is
-     *     closed, the policy rejected the task, no sidecar is available, or the sidecar dispatch
-     *     threw — a diagnostic event is emitted in each of those cases
+     *     closed or the policy rejected the task — a diagnostic event is emitted in each of
+     *     those cases
      * @throws NullPointerException if either argument is {@code null}
      */
     public boolean dispatch(PluginTask task, Runnable callback) {
@@ -129,7 +122,10 @@ public final class RuntimeScheduler {
                         .submit(task, bindCancellation(callback), timeoutAction)
                         .accepted();
             case HEAVY -> dispatchHeavy(task, callback);
-            case SIDECAR -> dispatchSidecar(task, callback);
+            case SIDECAR -> {
+                emitRejected(task);
+                yield false;
+            }
             case REJECTED -> {
                 emitRejected(task);
                 yield false;
@@ -141,7 +137,7 @@ public final class RuntimeScheduler {
      * Submits work that the caller already believes is lightweight, under a cancellation token
      * the caller owns and can trip later.
      *
-     * <p>Unlike {@link #dispatch}, this does not fall back to the sidecar: a task the policy does
+     * <p>Unlike {@link #dispatch}, this does not fall back to the long lane: a task the policy does
      * not classify as {@link WorkBudget#LIGHTWEIGHT} is refused outright — except an explicit
      * {@code plugin.long.*} task, which is rerouted to the plugin's long-task lane (bounded,
      * interrupt-free, cooperatively cancelled).
@@ -378,16 +374,13 @@ public final class RuntimeScheduler {
 
     /**
      * Routes heavy work. An explicit {@code plugin.long.*} task always runs on the plugin's
-     * long-task lane. Other heavy work prefers the sidecar; when no sidecar is available it
-     * falls back to the long lane instead of being refused — except {@code transaction.*},
-     * which keeps its strict sidecar-or-reject routing (a host-write lane is a separate wave).
+     * long-task lane, and so does every other heavy task — except {@code transaction.*}, which is
+     * rejected: host-write transactions have no hand-off lane and must never degrade onto the
+     * plugin's own long lane (a dedicated host-write lane is a separate wave).
      */
     private boolean dispatchHeavy(PluginTask task, Runnable callback) {
         if (isLongLaneTask(task)) {
             return submitToLongLane(task, callback);
-        }
-        if (sidecarDispatcher.isAvailable()) {
-            return dispatchSidecar(task, callback);
         }
         if (isTransactionTask(task)) {
             emitRejected(task);
@@ -412,58 +405,6 @@ public final class RuntimeScheduler {
     private static boolean isTransactionTask(PluginTask task) {
         final String type = task.taskType();
         return type != null && type.startsWith("transaction.");
-    }
-
-    private boolean dispatchSidecar(PluginTask task, Runnable callback) {
-        if (!sidecarDispatcher.isAvailable()) {
-            emitRejected(task);
-            return false;
-        }
-        try {
-            CompletionStage<SidecarResult> stage =
-                    sidecarDispatcher.dispatch(task, () -> enqueueSidecarCompletion(task, callback));
-            if (stage == null) {
-                emitRejected(task);
-                return false;
-            }
-            stage.whenComplete((result, failure) -> emitSidecarResult(task, result, failure));
-            return true;
-        } catch (RuntimeException exception) {
-            emit(
-                    task,
-                    PluginWorkBudgetEvent.Phase.FAILED,
-                    PluginWorkBudgetEvent.Decision.SIDECAR,
-                    PluginWorkBudgetEvent.Severity.ERROR);
-            return false;
-        }
-    }
-
-    private void enqueueSidecarCompletion(PluginTask originalTask, Runnable callback) {
-        PluginTask completionTask = new PluginTask(
-                SIDECAR_COMPLETION_TASK_TYPE,
-                originalTask.pluginId(),
-                originalTask.payloadDescription(),
-                originalTask.declaredCapability());
-        executorRegistry.get(originalTask.pluginId()).execute(completionTask, bindCancellation(callback));
-    }
-
-    private void emitSidecarResult(PluginTask task, SidecarResult result, Throwable failure) {
-        if (failure != null) {
-            emit(
-                    task,
-                    PluginWorkBudgetEvent.Phase.FAILED,
-                    PluginWorkBudgetEvent.Decision.SIDECAR,
-                    PluginWorkBudgetEvent.Severity.ERROR);
-            return;
-        }
-        if (result == null || result.kind() == SidecarResult.Kind.SUCCESS) {
-            return;
-        }
-        emit(
-                task,
-                PluginWorkBudgetEvent.Phase.FAILED,
-                PluginWorkBudgetEvent.Decision.SIDECAR,
-                PluginWorkBudgetEvent.Severity.ERROR);
     }
 
     private Runnable bindCancellation(Runnable callback) {

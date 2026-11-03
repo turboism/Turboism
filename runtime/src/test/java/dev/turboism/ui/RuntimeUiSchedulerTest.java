@@ -10,8 +10,6 @@ import dev.turboism.core.runtime.CancellationContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.plugin.Registration;
 import java.time.Clock;
@@ -369,7 +367,6 @@ class RuntimeUiSchedulerTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(timeoutMillis, 1, 4, events::add, CLOCK),
-                new NoopSidecarDispatcher(),
                 events::add);
     }
 
@@ -410,11 +407,4 @@ class RuntimeUiSchedulerTest {
         throw new AssertionError("Missing plugin work budget event phase " + phase + " in " + events);
     }
 
-    private static final class NoopSidecarDispatcher implements SidecarDispatcher {
-
-        @Override
-        public CompletionStage<SidecarResult> dispatch(PluginTask task, Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-    }
 }

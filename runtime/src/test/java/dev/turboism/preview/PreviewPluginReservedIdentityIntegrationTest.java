@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.charset.StandardCharsets;
@@ -127,7 +126,7 @@ class PreviewPluginReservedIdentityIntegrationTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 
     private static void writePlugin(

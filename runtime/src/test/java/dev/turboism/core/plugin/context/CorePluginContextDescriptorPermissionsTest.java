@@ -17,7 +17,6 @@ import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -636,16 +635,8 @@ class CorePluginContextDescriptorPermissionsTest {
                 defaults.clock());
     }
 
-    private static SidecarDispatcher availableSidecar() {
-        return (task, callback) -> {
-            callback.run();
-            return java.util.concurrent.CompletableFuture.completedFuture(
-                    dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-        };
-    }
-
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, availableSidecar());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static PluginLocalization localization(final Map<String, String> catalog) {

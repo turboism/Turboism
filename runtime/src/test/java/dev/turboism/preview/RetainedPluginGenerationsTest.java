@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.test.concurrent.Await;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.file.Path;
@@ -180,7 +179,7 @@ class RetainedPluginGenerationsTest {
     }
 
     private static dev.turboism.core.runtime.RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
     }
 
     private static final class GuardedServiceFixtureHolder implements dev.turboism.sdk.plugin.GuardedServiceFixture {

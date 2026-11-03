@@ -12,7 +12,6 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
@@ -94,7 +93,6 @@ class RuntimePluginTaskSchedulerTest {
                         ignored -> {},
                         Clock.systemUTC(),
                         ignored -> timeouts),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
         scheduler =
@@ -153,7 +151,6 @@ class RuntimePluginTaskSchedulerTest {
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
                         Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
         scheduler =
@@ -662,7 +659,6 @@ class RuntimePluginTaskSchedulerTest {
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
                         Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
@@ -719,7 +715,6 @@ class RuntimePluginTaskSchedulerTest {
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
                         Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
@@ -816,7 +811,6 @@ class RuntimePluginTaskSchedulerTest {
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
                         Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
@@ -906,7 +900,6 @@ class RuntimePluginTaskSchedulerTest {
                                 .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                         ignored -> {},
                         Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         scope = new DisposableScope();
         scheduler = new RuntimePluginTaskScheduler("plugin.tasks", runtimeScheduler, scope, evidence);
@@ -1468,9 +1461,9 @@ class RuntimePluginTaskSchedulerTest {
     private static RuntimeScheduler runtimeScheduler(
             WorkBudgetPolicy policy, PluginWorkExecutorRegistry registry, ManualScheduledExecutor delays) {
         if (delays == null) {
-            return new RuntimeScheduler(policy, registry, SidecarDispatcher.noop(), ignored -> {});
+            return new RuntimeScheduler(policy, registry, ignored -> {});
         }
-        return new RuntimeScheduler(policy, registry, SidecarDispatcher.noop(), ignored -> {}, delays);
+        return new RuntimeScheduler(policy, registry, ignored -> {}, delays);
     }
 
     private static int scopedRegistrationCount(final DisposableScope target) throws Exception {

@@ -35,8 +35,6 @@ Start from the template's
 [plugin.json](../templates/plugin-template/src/main/resources/META-INF/turboism/plugin.json).
 Keep `id`, entrypoint class names, localization keys and Cubism sidecar identity
 in sync. Declare resources outside `META-INF/` under allowed `resources` prefixes.
-The template uses schema v3; shared event-contract artifacts require v5 (see
-[public event contracts](public-event-contracts.md)).
 
 Declare each permission with its scope and reason. The canonical catalog is
 [PermissionIds](src/main/java/dev/turboism/sdk/permission/PermissionIds.java);
@@ -179,8 +177,7 @@ and register the returned handle for cleanup, as in the template. Alternatively,
 `@SubscribeEvent` uses the event processor's generated subscriber catalog;
 without that processor use imperative subscriptions. See
 [event coverage](event-coverage.md) for domain permissions, origins and delivery
-semantics, and [public event contracts](public-event-contracts.md) for sharing
-event types between independently built plugins.
+semantics.
 
 Ordinary observations are asynchronous. Runtime-owned events match supertype
 subscriptions subject to concrete-event permissions; plugin-published events

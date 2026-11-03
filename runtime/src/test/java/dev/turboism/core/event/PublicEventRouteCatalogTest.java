@@ -7,8 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.descriptor.CorePluginDescriptor;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.testkit.RuntimeTestKit;
@@ -336,15 +334,9 @@ class PublicEventRouteCatalogTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 8, RuntimeTestKit.successfulSidecar());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 8);
     }
 
     public record PublicFixtureEvent(String value) implements TurboismEvent {}
 
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-    }
 }

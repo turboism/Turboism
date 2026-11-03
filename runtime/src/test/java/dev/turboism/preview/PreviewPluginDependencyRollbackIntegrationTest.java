@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.EventBus;
 import java.nio.charset.StandardCharsets;
@@ -216,7 +215,7 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         final PluginWorkExecutorRegistry registry =
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC());
         final RuntimeScheduler scheduler =
-                new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, SidecarDispatcher.noop(), ignored -> {});
+                new RuntimeScheduler(new DefaultWorkBudgetPolicy(), registry, ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
@@ -438,7 +437,6 @@ class PreviewPluginDependencyRollbackIntegrationTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
     }
 

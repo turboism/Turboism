@@ -8,7 +8,6 @@ import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.home.LegacyHomeMigration;
@@ -1176,7 +1175,6 @@ public final class PreviewRuntime implements AutoCloseable {
                 // history panel's undo/redo actions out and tripped the circuit
                 // breaker (CIRCUIT_OPEN rejected every later action).
                 new PluginWorkExecutorRegistry(5_000L, 1, 64, diagnosticSink, clock),
-                SidecarDispatcher.noop(),
                 diagnosticSink);
     }
 

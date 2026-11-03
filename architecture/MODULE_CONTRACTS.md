@@ -120,10 +120,10 @@ packages. It moved to `dev.turboism.adapter.cubism.service.log`, matching
   and `RuntimeCancellationToken` (the cancellation handle a task runs under). It
   depends on nothing above it — only the JDK and the SDK cancellation API.
 - **Allowed dependencies**: `core.runtime` may depend on `contract` and on the
-  executor packages (`core.runtime.work`, `core.runtime.sidecar`); the executors
-  may depend on `contract`; `contract` depends on neither.
-- **Forbidden**: imports from `contract` into `core.runtime`, `work` or
-  `sidecar`; and any executor importing `core.runtime` directly.
+  executor package (`core.runtime.work`); the executors may depend on `contract`;
+  `contract` depends on neither.
+- **Forbidden**: imports from `contract` into `core.runtime` or `work`; and any
+  executor importing `core.runtime` directly.
 - **Public API**: `PluginTask`, `RuntimeCancellationToken`.
 - **Threading / IO**: `PluginTask` is an immutable record; the token is
   thread-safe and cancellation is observable from any thread.

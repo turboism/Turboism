@@ -10,8 +10,6 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
@@ -133,13 +131,6 @@ final class RuntimeSceneTableServiceTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 4, ignored -> {}, clock),
-                new SidecarDispatcher() {
-                    @Override
-                    public java.util.concurrent.CompletionStage<SidecarResult> dispatch(
-                            final PluginTask task, final Runnable callback) {
-                        return CompletableFuture.completedFuture(SidecarResult.success(""));
-                    }
-                },
                 ignored -> {});
     }
 

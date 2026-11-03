@@ -106,13 +106,8 @@ final class CubismQueryIntegrationSupport {
 
     static RuntimeScheduler directRuntimeScheduler() {
         return new RuntimeScheduler(
-                task -> "event.subscribe".equals(task.taskType()) ? WorkBudget.LIGHTWEIGHT : WorkBudget.SIDECAR,
+                task -> "event.subscribe".equals(task.taskType()) ? WorkBudget.LIGHTWEIGHT : WorkBudget.HEAVY,
                 new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
-                (task, callback) -> {
-                    callback.run();
-                    return CompletableFuture.completedFuture(
-                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-                },
                 event -> {});
     }
 

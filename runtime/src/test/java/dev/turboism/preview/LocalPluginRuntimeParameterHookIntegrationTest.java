@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.testkit.RuntimeTestKit;
@@ -64,7 +63,7 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 
     private static final class MutableParameter implements Parameter {

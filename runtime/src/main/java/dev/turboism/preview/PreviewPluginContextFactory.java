@@ -110,17 +110,6 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         servicesFactory.preflightEventContracts(descriptor);
     }
 
-    void preflightEventContracts(
-            final PluginDescriptor descriptor,
-            final dev.turboism.core.event.PublicEventContractCatalog.ContractLease lease) {
-        servicesFactory.preflightEventContracts(descriptor, lease);
-    }
-
-    dev.turboism.core.event.PublicEventContractCatalog.ContractLease acquireEventContracts(
-            final PluginDescriptor descriptor, final java.nio.file.Path pluginJar) {
-        return servicesFactory.acquireEventContracts(descriptor, pluginJar);
-    }
-
     /**
      * Resolves the file-chooser history view one context receives: the shell's reserved identity
      * keeps the writable surface, every plugin gets the read-only view.

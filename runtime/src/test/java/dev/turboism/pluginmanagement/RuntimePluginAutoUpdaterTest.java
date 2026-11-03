@@ -11,7 +11,6 @@ import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.internal.core.CorePluginManagement;
@@ -785,7 +784,6 @@ final class RuntimePluginAutoUpdaterTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         return new LocalPluginRuntime(
@@ -1123,7 +1121,7 @@ final class RuntimePluginAutoUpdaterTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
     }
 
     private static String sha256Hex(final byte[] bytes) throws Exception {

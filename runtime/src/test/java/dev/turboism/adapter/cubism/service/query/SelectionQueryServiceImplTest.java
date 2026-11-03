@@ -148,11 +148,6 @@ class SelectionQueryServiceImplTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
-                (task, callback) -> {
-                    callback.run();
-                    return CompletableFuture.completedFuture(
-                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-                },
                 event -> {});
     }
 

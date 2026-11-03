@@ -8,8 +8,6 @@ import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
@@ -409,7 +407,6 @@ class RuntimeEventDeliveryPermissionTest {
         scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                new NoOpSidecarDispatcher(),
                 events::add);
         return scheduler;
     }
@@ -503,11 +500,4 @@ class RuntimeEventDeliveryPermissionTest {
     /** Private exact-type event used only to prove an owner mailbox drained. */
     public record Barrier() implements EventBus.TurboismEvent {}
 
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-    }
 }

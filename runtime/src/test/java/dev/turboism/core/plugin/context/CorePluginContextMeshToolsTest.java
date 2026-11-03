@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.mesh.MeshTool;
 import dev.turboism.sdk.cubism.mesh.MeshToolContext;
 import dev.turboism.sdk.cubism.mesh.MeshToolRegistry;
@@ -334,6 +333,6 @@ class CorePluginContextMeshToolsTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 }

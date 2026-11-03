@@ -7,7 +7,6 @@ import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -71,7 +70,6 @@ class RuntimeActionRegistryPermissionTest {
         scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                SidecarDispatcher.noop(),
                 events::add);
         List<StartupReport.DiagnosticProblem> problems = new CopyOnWriteArrayList<>();
         return new RuntimeActionRegistry(scheduler, problems::add, PLUGIN_ID, permissionChecker);

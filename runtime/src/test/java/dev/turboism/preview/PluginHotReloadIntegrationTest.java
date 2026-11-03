@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.io.ByteArrayOutputStream;
@@ -477,7 +476,6 @@ class PluginHotReloadIntegrationTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
         final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));

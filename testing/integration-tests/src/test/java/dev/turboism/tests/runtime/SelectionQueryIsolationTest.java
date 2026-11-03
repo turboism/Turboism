@@ -10,9 +10,6 @@ import dev.turboism.adapter.cubism.SelectionObservation;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -30,8 +27,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -39,14 +34,13 @@ import org.junit.jupiter.api.Test;
 class SelectionQueryIsolationTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-07-08T05:00:00Z"), ZoneOffset.UTC);
-    private static final int MAX_COALESCED_DISPATCHES = 1;
+    private static final int MAX_COALESCED_PUBLICATIONS = 1;
 
     @Test
     void currentSelectionReturnsWithoutRunningListenerCallbackInline() throws CubismServiceException {
         // Given
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
-        final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
-        final SelectionFixture fixture = serviceWith(source, dispatcher);
+        final SelectionFixture fixture = serviceWith(source);
         final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
         final AtomicReference<String> subscriberThread = new AtomicReference<>();
         final String callerThread = Thread.currentThread().getName();
@@ -62,7 +56,6 @@ class SelectionQueryIsolationTest {
         fixture.service().currentSelection();
 
         // Then
-        dispatcher.drain();
         waitFor(() -> events.size() == 1, Duration.ofSeconds(1));
         assertEquals(1, events.size());
         assertNotEquals(callerThread, subscriberThread.get());
@@ -75,8 +68,7 @@ class SelectionQueryIsolationTest {
     void rapidSelectionChangesAreCoalescedAndListenerReceivesLatestSelection() throws CubismServiceException {
         // Given
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
-        final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
-        final SelectionFixture fixture = serviceWith(source, dispatcher);
+        final SelectionFixture fixture = serviceWith(source);
         final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
         fixture.broker().subscribe(fixture.observer().key(), SelectionChangedEvent.class, events::add);
         fixture.observer().activate();
@@ -89,8 +81,6 @@ class SelectionQueryIsolationTest {
         }
 
         // Then
-        assertTrue(dispatcher.dispatchCount() <= MAX_COALESCED_DISPATCHES);
-        dispatcher.drain();
         waitFor(
                 () -> !events.isEmpty()
                         && events.get(events.size() - 1)
@@ -101,10 +91,12 @@ class SelectionQueryIsolationTest {
         assertEquals(
                 List.of(new ModelObjectId("deformer-root")),
                 events.get(events.size() - 1).currentSelection().selectedModelObjectIds());
+        assertTrue(
+                events.size() <= MAX_COALESCED_PUBLICATIONS,
+                "coalesced selection changes must publish at most one event, got " + events.size());
     }
 
-    private static SelectionFixture serviceWith(
-            final HostSnapshotSource source, final RecordingSidecarDispatcher dispatcher) {
+    private static SelectionFixture serviceWith(final HostSnapshotSource source) {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
                 "plugin.selection-tests",
@@ -112,9 +104,8 @@ class SelectionQueryIsolationTest {
                 auditEvents::add,
                 FIXED_CLOCK);
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-                task -> "event.subscribe".equals(task.taskType()) ? WorkBudget.LIGHTWEIGHT : WorkBudget.SIDECAR,
+                task -> "event.subscribe".equals(task.taskType()) ? WorkBudget.LIGHTWEIGHT : WorkBudget.HEAVY,
                 new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
-                dispatcher,
                 event -> {});
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.selection-observer");
@@ -134,26 +125,6 @@ class SelectionQueryIsolationTest {
 
     private static PluginPermission permission(final String id) {
         return Stubs.permission(id, "read", "selection isolation test");
-    }
-
-    private static final class RecordingSidecarDispatcher implements SidecarDispatcher {
-        private final List<Runnable> callbacks = new ArrayList<>();
-
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            callbacks.add(callback);
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-
-        int dispatchCount() {
-            return callbacks.size();
-        }
-
-        void drain() {
-            final List<Runnable> pending = List.copyOf(callbacks);
-            callbacks.clear();
-            pending.forEach(Runnable::run);
-        }
     }
 
     private static final class MutableSelectionSource implements HostSnapshotSource {

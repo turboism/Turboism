@@ -11,8 +11,6 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.permissions.PermissionChecker;
@@ -604,7 +602,6 @@ class RuntimeEventBrokerTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(50, 1, 8, ignored -> {}, CLOCK),
-                new NoOpSidecarDispatcher(),
                 ignored -> {});
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 64, diagnostics::add);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
@@ -644,7 +641,6 @@ class RuntimeEventBrokerTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(500, 1, 1, ignored -> {}, CLOCK),
-                new NoOpSidecarDispatcher(),
                 ignored -> {});
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
@@ -685,7 +681,6 @@ class RuntimeEventBrokerTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(50, 1, 8, workDiagnostics::add, CLOCK),
-                new NoOpSidecarDispatcher(),
                 workDiagnostics::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
@@ -733,7 +728,7 @@ class RuntimeEventBrokerTest {
         final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker =
-                new RuntimeEventBroker(scheduler, 64, diagnostics::add, ignored -> {}, null, Duration.ofMillis(30));
+                new RuntimeEventBroker(scheduler, 64, diagnostics::add, ignored -> {}, Duration.ofMillis(30));
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
         final CountDownLatch delivered = new CountDownLatch(2);
@@ -774,7 +769,7 @@ class RuntimeEventBrokerTest {
         final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker =
-                new RuntimeEventBroker(scheduler, 64, diagnostics::add, ignored -> {}, null, Duration.ofMillis(30));
+                new RuntimeEventBroker(scheduler, 64, diagnostics::add, ignored -> {}, Duration.ofMillis(30));
         final RuntimeEventBroker.Owner slow = broker.admit("dev.example.slow-transform");
         final RuntimeEventBroker.Owner fast = broker.admit("dev.example.fast-transform");
         final AtomicInteger slowTransformations = new AtomicInteger();
@@ -873,7 +868,7 @@ class RuntimeEventBrokerTest {
     }
 
     private static RuntimeScheduler scheduler(final List<PluginWorkBudgetEvent> diagnostics) {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 8, RuntimeTestKit.successfulSidecar(), diagnostics);
+        return RuntimeTestKit.scheduler(CLOCK, 1, 8, diagnostics);
     }
 
     private static final class TestParameter implements Parameter {
@@ -945,11 +940,4 @@ class RuntimeEventBrokerTest {
         public void close() {}
     }
 
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
-        }
-    }
 }
