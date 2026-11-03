@@ -10931,7 +10931,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java"
+   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelinstances/ModelInstanceCoalesceTarget.java"
   },
   {
    "name": "reinit-pair-elision",
