@@ -69,6 +69,7 @@ public final class NativeOptimizationDiagnostics {
                     case "TURBOISM_INCREMENTAL_UPDATE" -> Option.INCREMENTAL_UPDATE;
                     case "TURBOISM_UNIFORM_LOCATION" -> Option.UNIFORM_LOCATION_CACHE;
                     case "TURBOISM_UPLOAD_ELISION" -> Option.UPLOAD_ELISION;
+                    case "TURBOISM_LINE_RENDERER_UPLOAD_SPLIT" -> Option.UPLOAD_ELISION;
                     case "TURBOISM_MESH_SETUP_ELISION" -> Option.MESH_SETUP_ELISION;
                     case "TURBOISM_INPUT_PATH" -> Option.INPUT_PATH_ELISION;
                     case "TURBOISM_DEFERRED_GL_ERROR_CHECK" -> Option.MESA_GL_THREAD;

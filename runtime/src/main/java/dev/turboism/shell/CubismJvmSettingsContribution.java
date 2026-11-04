@@ -320,8 +320,11 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Default-on: skips provably unchanged buffer uploads on frames where
-     * the model update was skipped (verified Editor versions only).
+     * Default-on: skips provably unchanged buffer uploads on frames where the
+     * model update was skipped (verified Editor versions only). The same
+     * preference also enables the independent line-overlay dirty split, which
+     * remains active with Uniform Location Cache because it retains no GL
+     * payload baseline.
      */
     static SettingsContribution createUploadElisionToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
