@@ -60,15 +60,14 @@ class ExportSettingsHostWiringTest {
         final RuntimeExportSettingsAuthority authority = new RuntimeExportSettingsAuthority(() -> Optional.empty());
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
-            try {
-                final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                        home,
-                        KernelRuntimeTestSupport.rejectedScheduler(),
-                        session.adapterAccess(),
-                        lane,
-                        log,
-                        new RuntimeFailureCollector(),
-                        FileChooserHistoryService.unavailable());
+            try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                    home,
+                    KernelRuntimeTestSupport.rejectedScheduler(),
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable())) {
                 factory.bindExportSettingsAuthority(authority);
                 final DisposableScope scope = new DisposableScope();
                 try {
@@ -108,15 +107,14 @@ class ExportSettingsHostWiringTest {
         final RuntimeExportSettingsAuthority authority = new RuntimeExportSettingsAuthority(() -> Optional.empty());
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
-            try {
-                final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                        home,
-                        KernelRuntimeTestSupport.rejectedScheduler(),
-                        session.adapterAccess(),
-                        lane,
-                        log,
-                        new RuntimeFailureCollector(),
-                        FileChooserHistoryService.unavailable());
+            try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                    home,
+                    KernelRuntimeTestSupport.rejectedScheduler(),
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable())) {
                 final DisposableScope scope = new DisposableScope();
                 try {
                     current.set(HostSessionTestSupport.descriptor("unbound"));
@@ -171,15 +169,14 @@ class ExportSettingsHostWiringTest {
             try {
                 final HostSession session = HostSessionTestSupport.connectedSession(
                         Optional::empty, descriptor -> adapters(descriptor.sessionId()));
-                try {
-                    final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                            home,
-                            KernelRuntimeTestSupport.rejectedScheduler(),
-                            session.adapterAccess(),
-                            lane,
-                            log,
-                            new RuntimeFailureCollector(),
-                            FileChooserHistoryService.unavailable());
+                try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                        home,
+                        KernelRuntimeTestSupport.rejectedScheduler(),
+                        session.adapterAccess(),
+                        lane,
+                        log,
+                        new RuntimeFailureCollector(),
+                        FileChooserHistoryService.unavailable())) {
                     factory.bindExportSettingsAuthority(authority());
                     assertThrows(IllegalStateException.class, () -> factory.bindExportSettingsAuthority(authority()));
                 } finally {

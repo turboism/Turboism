@@ -344,10 +344,10 @@ class RuntimePerformanceProbeServiceTest {
         Thread.sleep(150L);
         assertEquals(settled, received.size(), "callbacks must stop after close");
         assertTrue(hookClosed.get(), "FPS hook must be unmounted when sampling stops");
-        await(() -> !ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU)
-                .isPresent());
-        await(() ->
-                !ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC).isPresent());
+        assertFalse(
+                ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU).isPresent());
+        assertFalse(
+                ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC).isPresent());
     }
 
     @Test

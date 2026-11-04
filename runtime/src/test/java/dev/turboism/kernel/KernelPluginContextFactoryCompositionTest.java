@@ -83,38 +83,47 @@ class KernelPluginContextFactoryCompositionTest {
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
                 SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
                 DisposableScope scope = new DisposableScope()) {
-            final var factory = new KernelPluginContextFactory(
+            try (final var factory = new KernelPluginContextFactory(
                     home,
                     scheduler,
                     session.adapterAccess(),
                     lane,
                     log,
                     new RuntimeFailureCollector(),
-                    FileChooserHistoryService.unavailable());
-            final CorePluginContext context = factory.create(
-                            descriptor(), KernelPluginContextFactoryCompositionTest.class.getClassLoader(), scope)
-                    .context();
-            assertTrue(
-                    context.cubism().runtime().selection().selectedObjectIds().isEmpty());
+                    FileChooserHistoryService.unavailable())) {
+                final CorePluginContext context = factory.create(
+                                descriptor(), KernelPluginContextFactoryCompositionTest.class.getClassLoader(), scope)
+                        .context();
+                assertTrue(context.cubism()
+                        .runtime()
+                        .selection()
+                        .selectedObjectIds()
+                        .isEmpty());
 
-            SelectionHost.selectedId = "MeshA";
-            current.set(HostSessionTestSupport.descriptor("selection-session"));
-            assertEquals(HostSession.State.ACTIVE, session.refresh());
-            assertEquals(
-                    List.of("MeshA"), context.cubism().runtime().selection().selectedObjectIds());
-            assertEquals(
-                    context.cubism().runtime().selection(), context.cubismRead().selection());
+                SelectionHost.selectedId = "MeshA";
+                current.set(HostSessionTestSupport.descriptor("selection-session"));
+                assertEquals(HostSession.State.ACTIVE, session.refresh());
+                assertEquals(
+                        List.of("MeshA"), context.cubism().runtime().selection().selectedObjectIds());
+                assertEquals(
+                        context.cubism().runtime().selection(),
+                        context.cubismRead().selection());
 
-            SelectionHost.selectedId = "MeshB";
-            assertEquals(
-                    List.of("MeshB"), context.cubism().runtime().selection().selectedObjectIds());
-            assertEquals(
-                    context.cubism().runtime().selection(), context.cubismRead().selection());
+                SelectionHost.selectedId = "MeshB";
+                assertEquals(
+                        List.of("MeshB"), context.cubism().runtime().selection().selectedObjectIds());
+                assertEquals(
+                        context.cubism().runtime().selection(),
+                        context.cubismRead().selection());
 
-            current.set(null);
-            assertEquals(HostSession.State.SAFE_MODE, session.refresh());
-            assertTrue(
-                    context.cubism().runtime().selection().selectedObjectIds().isEmpty());
+                current.set(null);
+                assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+                assertTrue(context.cubism()
+                        .runtime()
+                        .selection()
+                        .selectedObjectIds()
+                        .isEmpty());
+            }
         } finally {
             SelectionHost.selectedId = null;
             session.close();
@@ -134,15 +143,14 @@ class KernelPluginContextFactoryCompositionTest {
         final Path home = tempDir.resolve("home");
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
-            try {
-                final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                        home,
-                        scheduler,
-                        session.adapterAccess(),
-                        lane,
-                        log,
-                        new RuntimeFailureCollector(),
-                        FileChooserHistoryService.unavailable());
+            try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                    home,
+                    scheduler,
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable())) {
                 final DisposableScope scope = new DisposableScope();
                 try {
                     final CorePluginContext context = factory.create(
@@ -255,15 +263,14 @@ class KernelPluginContextFactoryCompositionTest {
         final Path home = tempDir.resolve("home");
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
-            try {
-                final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                        home,
-                        scheduler,
-                        session.adapterAccess(),
-                        lane,
-                        log,
-                        new RuntimeFailureCollector(),
-                        FileChooserHistoryService.unavailable());
+            try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                    home,
+                    scheduler,
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable())) {
                 final DisposableScope scope = new DisposableScope();
                 try {
                     final CorePluginContext context = factory.create(
@@ -689,30 +696,33 @@ class KernelPluginContextFactoryCompositionTest {
                 written.add(dir);
             }
         });
-        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
-            final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
-            final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                    home, scheduler, session.adapterAccess(), lane, log, new RuntimeFailureCollector(), shared);
-            final DisposableScope scope = new DisposableScope();
-            try {
-                final CorePluginContext context = factory.create(
-                                descriptor(), KernelPluginContextFactoryCompositionTest.class.getClassLoader(), scope)
-                        .context();
-                current.set(HostSessionTestSupport.descriptor("history-project"));
-                assertEquals(HostSession.State.ACTIVE, session.refresh());
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
+                SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8)) {
+            try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                    home, scheduler, session.adapterAccess(), lane, log, new RuntimeFailureCollector(), shared)) {
+                final DisposableScope scope = new DisposableScope();
+                try {
+                    final CorePluginContext context = factory.create(
+                                    descriptor(),
+                                    KernelPluginContextFactoryCompositionTest.class.getClassLoader(),
+                                    scope)
+                            .context();
+                    current.set(HostSessionTestSupport.descriptor("history-project"));
+                    assertEquals(HostSession.State.ACTIVE, session.refresh());
 
-                final FileChooserHistoryService history =
-                        context.services().find(FileChooserHistoryService.class).orElseThrow();
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> history.setProjectRecentDirectory(Path.of("/tmp/plugin-chosen")));
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> history.setExportRecentDirectory(Path.of("/tmp/plugin-chosen")));
-                assertEquals(List.of(), written, "a plugin context must never reach the shared writer");
-            } finally {
-                scope.close();
-                lane.close();
+                    final FileChooserHistoryService history = context.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElseThrow();
+                    assertThrows(
+                            UnsupportedOperationException.class,
+                            () -> history.setProjectRecentDirectory(Path.of("/tmp/plugin-chosen")));
+                    assertThrows(
+                            UnsupportedOperationException.class,
+                            () -> history.setExportRecentDirectory(Path.of("/tmp/plugin-chosen")));
+                    assertEquals(List.of(), written, "a plugin context must never reach the shared writer");
+                } finally {
+                    scope.close();
+                }
             }
         } finally {
             session.close();
@@ -734,15 +744,14 @@ class KernelPluginContextFactoryCompositionTest {
 
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
-            try {
-                final KernelPluginContextFactory factory = new KernelPluginContextFactory(
-                        home,
-                        scheduler,
-                        session.adapterAccess(),
-                        lane,
-                        log,
-                        new RuntimeFailureCollector(),
-                        FileChooserHistoryService.unavailable());
+            try (final KernelPluginContextFactory factory = new KernelPluginContextFactory(
+                    home,
+                    scheduler,
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable())) {
                 final DisposableScope scope = new DisposableScope();
                 try {
                     // Must throw IOException (specifically FileAlreadyExistsException), not IllegalStateException
