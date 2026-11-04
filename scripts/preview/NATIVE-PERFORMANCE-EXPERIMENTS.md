@@ -1927,3 +1927,79 @@ native Windows installs the deferred frame-end check (Mesa threading itself is
 still Linux/Proton-only). Users who need smooth deformer/vertex interaction on
 Windows should enable `launcher.mesaGlThread`; the measured deformation gain is
 about 2× on this fixture and host.
+
+**Follow-up inspection: `GLineRenderer` uploads and `warp.o.a` (2026-11-04).**
+
+`GLineRenderer.updateMeshData()` is a three-line method that marks the
+positions, colors and indices buffers dirty. The deformation callers do not
+change all three:
+
+- `GSimpleLinesEntity` calls `setIndices` only when the line/topology count
+  changed, then always `setPositions` and `positionsBuffer.l()`; it never sets
+  colors in that path.
+- `WarpDeformer_Draw` has the same split: the topology branch rebuilds indices
+  and calls `updateMeshData`, while the position-only branch calls
+  `setPositions` and `updateMeshData`; the colors array is not touched by the
+  per-frame path.
+- Deployment always calls `setup()`, which copies positions, colors and indices
+  into their direct buffers, but only a dirty wrapper reaches
+  `glBufferSubData`.
+
+So each deformation update re-uploads colors and indices even though only
+positions changed. The measured upload samples are 18 `GLineRenderer`
+`glBufferSubData` calls in the 5 s deformation window (one sample from a real
+`GMeshRenderer`). A dirty split — positions always, colors/indices only after
+their source array content changed — would remove roughly two thirds of those
+uploads (~6–7 % of EDT samples). The safe design is a content check against the
+last marked arrays (or setter hooks if in-place mutation is ruled out), not a
+blanket removal: selection colors and topology edits must still reach the GPU.
+`uploadElision` cannot cover this today because the production hook is refused
+when `uniformLocationCache` is enabled (the uniform lifecycle invalidates
+upload content at every render boundary), and it only considers skipped frames.
+
+`warp.o.a` is a ~3 KB pure-float routine (bilinear/affine warp projection) with
+no object allocation in the reviewed 5.3.04 body. Its samples are the actual
+per-vertex transform for deformers whose forms changed; incremental update
+already leaves unchanged deformers native/clean, so the remaining ~10 % is the
+required changed-set work. The historical pure-Java rewrite was slower (P07),
+and there is no safe skip without changing the deformation result. The
+remaining lever is reducing the changed-deformer set (incremental-update
+coverage), not the math itself.
+
+**Line-renderer split implementation (2026-11-04).** The opt-in
+`GLineRenderer.updateMeshData()` entry guard is now implemented under the
+existing upload-elision preference (it no longer shares the skipped-frame mesh
+elision's uniform-cache refusal). It marks positions unconditionally and marks
+colors/indices only when their source arrays differ from the last marked
+content. On the 5.3.04 763 MB fixture a QUICK run recorded:
+
+| Counter | Value |
+|---|---:|
+| `calls` | 6,098 |
+| `colorMarks` / `colorSkips` | 2 / 6,095 |
+| `indexMarks` / `indexSkips` | 3,037 / 3,060 |
+| `indexElements` | 129,966 |
+| `failures` | 0 |
+
+The empty/default colors array is now recognized and never dirtied; almost all
+remaining marks are the first sighting of each renderer's index array. The
+actual GL upload samples are still dominated by positions
+(`GLineRenderer.render → bindFloatBuffer`), which must change during
+deformation, so the FPS delta on this fixture is within the noise band. The
+hook is a low-risk reduction of redundant index dirty/upload calls for
+color/index-bearing overlays; it is not a fix for the dominant position upload.
+
+**`warp.o.a` algorithm check.** The native routine is a single ~3 KB,
+allocation-free float loop with an inside-grid interpolation branch and an
+outside-grid extrapolation branch; there is no per-vertex object or collection
+allocation to remove. The incremental-update counters on the same QUICK run
+were `meshDeformed=64,119` versus `meshSkipped=1,221` across 54 epochs (about
+1.9 % skipped), so nearly every ArtMesh is in the changed set and the warp math
+is required work, not a duplicate. A faster implementation would have to come
+from outside the loop: a deformer-level dirty gate that skips
+`CWarpDeformer.transformDeformer_testImpl` when both the local form and the
+parent-to-canvas transform are unchanged, or a parallel/GPU rewrite. The former
+is the only credible small step (the incremental bridge already retains the
+required form/parent state); the latter needs a new concurrency or rendering
+architecture and was not attempted after P07's pure-Java rewrite measured
+slower.
