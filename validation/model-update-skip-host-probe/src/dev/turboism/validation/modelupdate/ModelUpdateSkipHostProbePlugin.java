@@ -106,10 +106,31 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
             + " hostVersion=" + hostVersion
             + " modelId=" + modelId.orElseThrow()
             + " mode=" + mode);
+        final String recordPath = System.getProperty("turboism.validation.recordHumanTrace", "").strip();
+        if (!recordPath.isEmpty()) {
+            runHumanRecord(hostVersion, modelId.orElseThrow(), recordPath);
+            return;
+        }
         if ("wheel".equals(System.getProperty("turboism.validation.modelUpdateWorkload"))) {
             runWheelBenchmark(hostVersion, modelId.orElseThrow(), mode);
         } else {
             runSampling(hostVersion, modelId.orElseThrow(), mode);
+        }
+    }
+
+    private void runHumanRecord(final String hostVersion, final String modelId, final String path) {
+        try {
+            Thread.sleep(WARMUP_MILLIS);
+            final long seconds = Long.parseLong(
+                System.getProperty("turboism.validation.recordSeconds", "30"));
+            new CanvasWheelWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir)
+                .record(java.nio.file.Path.of(path), seconds);
+            finish(true, "human trace recorded; inspect wheel-benchmark.txt", "record",
+                hostVersion, modelId, statsSnapshot(), null, 0L, List.of(), "none");
+        } catch (Throwable failure) {
+            logger.warn("MODEL_UPDATE_SKIP_HUMAN_RECORD_FAILURE " + failure);
+            finish(false, "human trace recording failed: " + failure, "record", hostVersion,
+                modelId, statsSnapshot(), null, 0L, List.of(), failure.toString());
         }
     }
 
@@ -122,6 +143,8 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
                     .run("probe".equals(mode));
             } else if ("deformer".equals(interaction)) {
                 new NativeDeformerWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir).run();
+            } else if ("reorder".equals(interaction)) {
+                new PaletteReorderWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir).run();
             } else {
                 if ("probe".equals(mode)) throw new IllegalArgumentException("native interaction does not run model digest probes");
                 new NativeInteractionWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir, interaction).run();

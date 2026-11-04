@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet("reorder", "wheel", "pan", "artmesh")]
+    [ValidateSet("reorder", "wheel", "pan", "artmesh", "record")]
     [string]$Workload = "reorder",
     [string]$CubismRoot = "C:\Program Files\Live2D Cubism 5.3.04",
     [string]$ProjectPath = "F:\Live2D\Projects\矢车菊机械未来1.cmo3",
@@ -9,6 +9,10 @@ param(
     [ValidateSet("native", "installed")]
     [string]$Variant = "native",
     [int]$Iterations = 24,
+    [int]$RecordSeconds = 30,
+    [ValidateSet("wheel", "pan", "artmesh")]
+    [string]$RecordKind = "wheel",
+    [string]$RecordOutput = "",
     [string]$Legs = "apply,undoRedo,attribution",
     [switch]$Calibration,
     [string[]]$JvmOption = @(),
@@ -26,12 +30,17 @@ param(
 # Chinese fixture path survives PowerShell's ANSI default for script files.
 #
 # Workloads:
-#   reorder  - reorder/undo cost attribution; options and request file as the
-#              exerciser's NativeReorderWorkload documents (default).
+#   reorder  - real OS Robot drag in the native Parts palette (default); the
+#              current isolated layout keeps that palette undocked and the run
+#              fails with an explicit "not showing" diagnostic.
 #   wheel    - the AWT-wheel workload, JVM options mirrored from
 #              scripts/preview/run-model-update-skip-host-validation.sh on-wheel.
+#              Add -Dturboism.validation.humanTrace=<tsv> to replay a recorded
+#              human wheel/pan/ArtMesh gesture through the system EventQueue.
 #   pan      - the continuous pan drag, mirrored from on-pan.
 #   artmesh  - the single-ArtMesh drag, mirrored from on-artmesh.
+#   record   - records a real human trace (-RecordKind wheel|pan|artmesh,
+#              -RecordSeconds, -RecordOutput); no benchmark result is produced.
 #
 # Isolation contract (same shape as launch-cubism-parameter-validation.ps1):
 #   * disposable Turboism home under %TEMP%, never the user's real home;
@@ -287,10 +296,26 @@ $reorderNativeBaseline = @(
 
 $workloadOptions = New-Object System.Collections.Generic.List[string]
 $workloadOptions.Add("-Dturboism.validation.fixtureName=$(Split-Path -Leaf $sourceProject)")
+$recordOutputFull = ""
 switch ($Workload) {
     "wheel" {
         $workloadOptions.Add("-Dturboism.optimization.modelUpdateSkip=true")
         $workloadOptions.Add("-Dturboism.validation.modelUpdateWorkload=wheel")
+    }
+    "record" {
+        if ([string]::IsNullOrWhiteSpace($RecordOutput)) {
+            throw "-RecordOutput is required for the record workload"
+        }
+        if ($RecordSeconds -lt 3 -or $RecordSeconds -gt 600) {
+            throw "-RecordSeconds must be 3..600"
+        }
+        $recordOutputFull = [System.IO.Path]::GetFullPath($RecordOutput)
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $recordOutputFull) | Out-Null
+        $workloadOptions.Add("-Dturboism.optimization.modelUpdateSkip=true")
+        $workloadOptions.Add("-Dturboism.validation.modelUpdateWorkload=wheel")
+        $workloadOptions.Add("-Dturboism.validation.recordHumanTrace=$recordOutputFull")
+        $workloadOptions.Add("-Dturboism.validation.recordSeconds=$RecordSeconds")
+        $workloadOptions.Add("-Dturboism.validation.recordKind=$RecordKind")
     }
     "pan" {
         $workloadOptions.Add("-Dturboism.optimization.modelUpdateSkip=true")
@@ -303,13 +328,9 @@ switch ($Workload) {
         $workloadOptions.Add("-Dturboism.validation.nativeInteraction=artmesh")
     }
     default {
-        if ($Variant -eq "native") {
-            $workloadOptions.Add("-Dturboism.optimization.modelUpdateSkip=false")
-            foreach ($option in $reorderNativeBaseline) {
-                if ($option -ne "-Dturboism.optimization.modelUpdateSkip=false") { $workloadOptions.Add($option) }
-            }
-        }
-        $workloadOptions.Add("-Dturboism.validation.modelUpdateWorkload=reorder")
+        $workloadOptions.Add("-Dturboism.optimization.modelUpdateSkip=true")
+        $workloadOptions.Add("-Dturboism.validation.modelUpdateWorkload=wheel")
+        $workloadOptions.Add("-Dturboism.validation.nativeInteraction=reorder")
     }
 }
 foreach ($option in $mirroredBaseline) { $workloadOptions.Add($option) }
@@ -378,6 +399,7 @@ $consoleLog = Join-Path $logsRoot "cubism-console.log"
 $reportName = switch ($Workload) {
     "reorder" { "reorder-benchmark.txt" }
     "wheel" { "wheel-benchmark.txt" }
+    "record" { "wheel-benchmark.txt" }
     default { "interaction-benchmark.txt" }
 }
 $reportPath = Join-Path $pluginStateRoot $reportName
@@ -626,16 +648,27 @@ finally {
     if (Test-Path -LiteralPath $logsRoot -PathType Container) {
         Copy-Item -LiteralPath $logsRoot -Destination (Join-Path $evidencePath "logs") -Recurse -Force
     }
+    if (-not [string]::IsNullOrWhiteSpace($recordOutputFull) -and
+        (Test-Path -LiteralPath $recordOutputFull -PathType Leaf)) {
+        Copy-Item -LiteralPath $recordOutputFull -Destination (Join-Path $evidencePath "human-trace.tsv") -Force
+    }
 
     $sourceHashAfter = if ([string]::IsNullOrEmpty($sourceHash)) {
         "not-computed"
     }
     else { (Get-FileHash -Algorithm SHA256 -LiteralPath $sourceProject).Hash.ToLowerInvariant() }
     $sourceUnchanged = [string]::IsNullOrEmpty($sourceHash) -or ($sourceHashAfter -eq $sourceHash)
+    $recordHash = if (-not [string]::IsNullOrWhiteSpace($recordOutputFull) -and
+        (Test-Path -LiteralPath $recordOutputFull -PathType Leaf)) {
+        (Get-FileHash -Algorithm SHA256 -LiteralPath $recordOutputFull).Hash.ToLowerInvariant()
+    }
+    else { "not-computed" }
     $runEnvelope = @(
         "runId=$runId",
         "workload=$Workload",
         "variant=$Variant",
+        "recordOutput=$recordOutputFull",
+        "recordOutputSha256=$recordHash",
         ("iterations=" + $effectiveIterations),
         ("calibration=" + $Calibration.ToString().ToLowerInvariant()),
         ("legs=" + ($legNames -join ",")),

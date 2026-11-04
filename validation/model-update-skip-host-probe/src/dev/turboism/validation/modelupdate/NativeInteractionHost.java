@@ -50,14 +50,23 @@ final class NativeInteractionHost {
 
     void check() throws Exception {
         requireEdt();
-        if (!window.isShowing() || !window.getTitle().contains(fixture)
-            || !canvas.isShowing() || SwingUtilities.getWindowAncestor(canvas) != window
-            || canvas.getWidth() != width || canvas.getHeight() != height
-            || call(app, "getCurrentDoc") != doc || call(app, "getCurrentViewContext") != view
-            || call(view, "getDoc") != doc || call(view, "getModel") != model
-            || list(call(app, "getAllDocs")).size() != 1
-            || !(call(doc, "getFile") instanceof java.io.File file) || !file.getName().equals(fixture)) {
-            throw new IllegalStateException("task document/window identity changed");
+        final boolean windowShowing = window.isShowing() && window.getTitle().contains(fixture);
+        final boolean canvasShowing = canvas.isShowing()
+            && SwingUtilities.getWindowAncestor(canvas) == window;
+        final boolean size = canvas.getWidth() == width && canvas.getHeight() == height;
+        final boolean docIdentity = call(app, "getCurrentDoc") == doc
+            && call(app, "getCurrentViewContext") == view
+            && call(view, "getDoc") == doc && call(view, "getModel") == model;
+        final boolean docCount = list(call(app, "getAllDocs")).size() == 1;
+        final Object file = call(doc, "getFile");
+        final boolean fileName = file instanceof java.io.File value && value.getName().equals(fixture);
+        if (!windowShowing || !canvasShowing || !size || !docIdentity || !docCount || !fileName) {
+            throw new IllegalStateException("task document/window identity changed: windowShowing="
+                + windowShowing + " canvasShowing=" + canvasShowing + " size=" + size
+                + " actualSize=" + canvas.getWidth() + "x" + canvas.getHeight()
+                + " expectedSize=" + width + "x" + height + " docIdentity=" + docIdentity
+                + " docCount=" + docCount + " fileName=" + fileName
+                + " file=" + file + " fixture=" + fixture);
         }
     }
 
