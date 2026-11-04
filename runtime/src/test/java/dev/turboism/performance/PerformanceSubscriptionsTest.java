@@ -22,8 +22,10 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 /** Regression coverage for real sampler subscription identity and independent delivery cadence. */
+@ResourceLock("chart-data-registry")
 class PerformanceSubscriptionsTest {
     private final AtomicInteger installs = new AtomicInteger();
     private final AtomicInteger closes = new AtomicInteger();

@@ -60,12 +60,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 /**
  * Covers {@link CorePluginContext#services()}'s {@code installed()}: the reported set must reflect what the
  * context installed — null-installed and {@code unavailable()}-sentinel slots are absent even
  * behind the version-gating proxy, and late installs become visible on the next call.
  */
+@ResourceLock("chart-data-registry")
 class CorePluginContextAvailableServicesTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-12T00:00:00Z"), ZoneOffset.UTC);
