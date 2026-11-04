@@ -89,7 +89,8 @@ public final class AsyncReadbackBridge {
             fallbacks.increment();
             try {
                 GlCalls.bindBuffer(gl, GL_PIXEL_PACK_BUFFER, 0);
-            } catch (final Throwable ignored) {
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 // The fallback read below is the last resort; a broken unbind must not mask it.
             }
             nativeRead(gl, x, y, width, height, format, type, destination);
@@ -211,7 +212,8 @@ public final class AsyncReadbackBridge {
         if (sameContext && reference != null && reference.get() != null && previous.names[0] != 0) {
             try {
                 GlCalls.deleteBuffers(reference.get(), previous.names);
-            } catch (final Throwable ignored) {
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 // A context change may already have dropped the names; they are recreated below.
             }
         }
