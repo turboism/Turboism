@@ -1,5 +1,7 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.runtime.work.FatalErrors;
+
 /**
  * Contributor for the opt-in pipelined canvas readback ({@code launcher.asyncReadback}).
  *
@@ -28,6 +30,7 @@ final class AsyncReadbackHookContributor extends NativeOptimizationHookContribut
             log(environment, id() + " pipelined=ACTIVE oneFrameLatency=true");
             return installer;
         } catch (Exception | Error failure) {
+            FatalErrors.rethrowIfFatal(failure);
             if (environment.runtime().isPresent()) {
                 environment.runtime().get().warn("bootstrap", id() + " pipelined=INACTIVE reason=installation-failed");
             }
