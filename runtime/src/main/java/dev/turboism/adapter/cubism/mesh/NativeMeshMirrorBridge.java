@@ -576,10 +576,10 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
+    /** Fail-closed field read: an absent or unopenable field stays a reflective failure. */
     private static Object field(final Object target, final String name) throws ReflectiveOperationException {
-        if (target == null) throw new NoSuchFieldException(name);
-        final Field field = MethodHandleCache.declaredFieldUp(target.getClass(), name);
-        ReflectAccess.open(field);
+        final Field field = ReflectAccess.findField(target == null ? null : target.getClass(), name);
+        if (field == null) throw new NoSuchFieldException(name);
         return field.get(target);
     }
 
@@ -594,11 +594,7 @@ public final class NativeMeshMirrorBridge {
     }
 
     private static Object tryInvoke(final Object target, final String name) {
-        try {
-            return invoke(target, name);
-        } catch (ReflectiveOperationException ignored) {
-            return null;
-        }
+        return ReflectAccess.tryInvokeZeroArg(target, name);
     }
 
     private static Object invokeEither(final Object target, final String first, final String second)

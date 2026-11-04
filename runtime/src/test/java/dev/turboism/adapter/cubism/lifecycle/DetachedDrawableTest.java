@@ -7,9 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.BlendMode;
@@ -19,8 +16,6 @@ import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.test.Stubs;
 import java.time.Clock;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,7 +54,6 @@ class DetachedDrawableTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                new NoOpSidecarDispatcher(),
                 ignored -> {});
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
@@ -362,13 +356,6 @@ class DetachedDrawableTest {
         @Override
         public IntSequence parameters() {
             return emptyInts();
-        }
-    }
-
-    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
-        @Override
-        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
-            return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
 

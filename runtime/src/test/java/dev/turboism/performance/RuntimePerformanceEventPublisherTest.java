@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
@@ -79,7 +78,6 @@ final class RuntimePerformanceEventPublisherTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 4, ignored -> {}, clock),
-                SidecarDispatcher.noop(),
                 ignored -> {});
     }
 

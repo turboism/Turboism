@@ -153,18 +153,8 @@ families stay runtime-owned and are not plugin-exportable contract types.
 Their structural ABI digests change because the digest includes the event's
 declared interfaces and inheritance surface. The digest algorithm is
 unchanged: it records member type signatures but does not recursively hash
-the structure of referenced payload types. Payload-closure verification is
-a separate admission check. Referencing one of these SDK records from a
-custom payload therefore does not by itself change that custom event's pin.
+the structure of referenced payload types. Referencing one of these SDK
+records from a custom payload therefore does not by itself change that
+custom event's pin.
 
-Inspect a changed SDK event's digest against the matching runtime/SDK with:
-
-```bash
-java -cp path/to/turboism-agent.jar dev.turboism.core.event.PublicEventAbiCli \
-    dev.turboism.sdk.action.ActionInvocationEvent
-```
-
-For plugin-exportable contracts, recompute `abiSha256` after changing the
-event's ABI and update `eventContracts[].sha256` whenever the artifact bytes
-change; see [public-event-contracts.md](public-event-contracts.md) §2.
 Historical SDK release baselines remain unchanged.

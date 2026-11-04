@@ -2,7 +2,7 @@
 
 各 `validation/<probe>/build.sh` 在编译期直接 `javac` 本目录源码，替代曾经的每目录副本（RelocateJar 曾四副本分叉）。
 
-- `src/dev/turboism/validation/shared/tools/RelocateJar.java` — ASM jar 重定位工具。调用：`java -cp <asm jars> dev.turboism.validation.shared.tools.RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`。含 module-info 剥离与输出名归一注释（以 validation/archive/atlas-image-timing 最全副本为准）。
+- `src/dev/turboism/validation/shared/tools/RelocateJar.java` — ASM jar 重定位工具。调用：`java -cp <asm jars> dev.turboism.validation.shared.tools.RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`。含 module-info 剥离与输出名归一注释。
 - `src/dev/turboism/validation/shared/fixture/FixtureLoader.java` — child-first `URLClassLoader`；run.sh 以 `-D<prop>.expectLoader=dev.turboism.validation.shared.fixture.FixtureLoader` 断言。
 - `src/dev/turboism/validation/shared/fixture/CodeSourceUrl.java` — 打印目录 URL 的外部形式，推导期望 codeSource。
 - `src/dev/turboism/validation/shared/verdict/ProbeTerminal.java` — 探针终态集合与判定规则（`PASS`/`FAIL`/`BLOCKED`/`SKIPPED`）。

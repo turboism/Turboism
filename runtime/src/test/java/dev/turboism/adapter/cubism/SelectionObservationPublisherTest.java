@@ -28,7 +28,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -374,11 +373,6 @@ class SelectionObservationPublisherTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
-                (task, callback) -> {
-                    callback.run();
-                    return CompletableFuture.completedFuture(
-                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-                },
                 event -> {});
     }
 

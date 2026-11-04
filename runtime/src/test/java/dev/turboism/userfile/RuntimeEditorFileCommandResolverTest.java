@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
@@ -39,7 +38,6 @@ class RuntimeEditorFileCommandResolverTest {
         RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         try {
             RuntimeUserFileAccessService service = new RuntimeUserFileAccessService(
@@ -80,7 +78,6 @@ class RuntimeEditorFileCommandResolverTest {
         RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         try {
             RuntimeUserFileAccessService service = new RuntimeUserFileAccessService(
@@ -229,7 +226,6 @@ class RuntimeEditorFileCommandResolverTest {
             RuntimeScheduler scheduler = new RuntimeScheduler(
                     new DefaultWorkBudgetPolicy(),
                     new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
-                    SidecarDispatcher.noop(),
                     ignored -> {});
             this.service = new RuntimeUserFileAccessService(
                     "test.plugin",

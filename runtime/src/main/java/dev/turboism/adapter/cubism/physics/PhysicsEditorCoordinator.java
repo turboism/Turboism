@@ -456,16 +456,11 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         return MethodHandleCache.declaredByArity(type, name, parameterCount);
     }
 
+    /** Fail-closed field read: an absent or unopenable field stays a reflective failure. */
     private static Object field(final Object target, final String name) throws Exception {
-        for (Class<?> current = target.getClass(); current != null; current = current.getSuperclass()) {
-            try {
-                final Field field = current.getDeclaredField(name);
-                ReflectAccess.open(field);
-                return field.get(target);
-            } catch (NoSuchFieldException ignored) {
-            }
-        }
-        throw new NoSuchFieldException(target.getClass().getName() + "#" + name);
+        final Field field = ReflectAccess.findField(target == null ? null : target.getClass(), name);
+        if (field == null) throw new NoSuchFieldException(name);
+        return field.get(target);
     }
 
     private static void runOnEdt(final Runnable action) {

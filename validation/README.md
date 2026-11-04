@@ -8,7 +8,7 @@
 - `<probe>/run.sh` — 场景驱动脚本；产出 `work/` 下证据与 verdict 日志。
 - `<probe>/tools/`、`fixture/`、`selfcheck/` — 场景私有源码。**共享工具一律用 `validation/shared/src/`**（见下）。
 - 证据文件（日期化 `*.md`/`*.json`/日志）随目录入库；`triangulation-tlindex/` 另见 `INDEX.md` 的保留/归档策略。
-- `archive/` — 已结束的一次性实验/探针，保留历史证据，不再被构建/CI 直接引用，也不参与 Python lint；清单与归档原因见 `validation/archive/README.md`。新探针一律放在 `validation/<probe>/`，不要放进这里。
+- 一次性实验结束后删除，不新建归档目录：只保留仍被 build.sh/run.sh、`scripts/`、`gradle/` 或文档引用的文件。新探针一律放在 `validation/<probe>/`。
 
 ## shared/ — 单一源工具箱
 

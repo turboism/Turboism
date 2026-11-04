@@ -1,8 +1,8 @@
 # Python lint baseline for scripts/ and the validation/ probes. Intentionally narrow:
 # pycodestyle errors, warnings and pyflakes only. Widen the select list deliberately,
-# not by accident. validation/archive/ holds finished one-off experiments and is not linted.
+# not by accident. Every tracked Python file under scripts/ and validation/ is linted.
 target-version = "py311"
-extend-exclude = ["validation/archive"]
+extend-exclude = []
 
 [lint]
 select = ["E", "F", "W"]

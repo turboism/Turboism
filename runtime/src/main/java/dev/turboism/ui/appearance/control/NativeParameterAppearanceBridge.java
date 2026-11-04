@@ -1,9 +1,9 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -331,9 +331,8 @@ public final class NativeParameterAppearanceBridge {
         return method.invoke(target);
     }
 
-    private static Object field(final Object target, final String fieldName) throws ReflectiveOperationException {
-        final Field field = MethodHandleCache.declaredField(target.getClass(), fieldName);
-        if (!field.canAccess(target) && !field.trySetAccessible()) return null;
-        return field.get(target);
+    /** Null-tolerant field read; the caller's fail-closed boundary treats a miss as "no label". */
+    private static Object field(final Object target, final String fieldName) {
+        return ReflectAccess.readField(target, fieldName);
     }
 }

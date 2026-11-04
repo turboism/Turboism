@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.preview.PreviewLog;
@@ -138,7 +137,6 @@ final class McpPluginRuntimeIntegrationTest {
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
     }
 }

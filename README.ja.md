@@ -27,7 +27,9 @@ Turboism は **Live2D Cubism Editor** 向けの、Windows を主な対象とす�
 
 Cubism のホスト環境として対応しているのは **Windows x64** です。記載のない Editor バージョンとの互換性は保証しません。必要なアダプターや機能が利用できない場合は、安全のため動作を拒否します。対応バージョンであっても、すべてのプラグイン機能が利用できるとは限りません。
 
-macOS と Linux ではポータブル ZIP アーカイブ（`turboism-<version>.zip`）を展開して使用できます。ただし、macOS のパッケージングはプレビュー段階で、Cubism ホストとしての動作は未検証です。Linux はファイル配置とランタイム動作のみを対象としており、Cubism ホストとしては非対応です。
+macOS ではポータブル ZIP アーカイブ（`turboism-<version>.zip`）を展開して使用できます。ただし、macOS のパッケージングはプレビュー段階で、Cubism ホストとしての動作は未検証です。
+
+対応するホスト環境および検証環境は **ネイティブ Windows x64** と **Linux** です。Windows x64 では Cubism ホスト検証をそのまま実行します。Linux では同じ検証を Proton（Wine）経由で実行し、ヘッドレスの Gradle・lint・ユニットテスト検査は Xvfb 上で実行します。どちらも Turboism の開発と検証に対応した環境です。エンドユーザー向けの Cubism ホストとして提供するのは Windows x64 のみです。
 
 ## インストール
 
@@ -101,7 +103,7 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
 - [アーキテクチャ](ARCHITECTURE.md)と[ロードマップ](ROADMAP.md)
-- [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v12 移行ガイド](sdk/api-contracts/sdk-api-v12-review.md)、[v11](sdk/api-contracts/sdk-api-v11-review.md)・[v10](sdk/api-contracts/sdk-api-v10-review.md)・[v7](sdk/api-contracts/sdk-api-v7-review.md) レビューは履歴監査として保持
+- [SDK API 契約と互換性](sdk/api-contracts/)と[現在の公開 SDK サーフェス](sdk/api-contracts/current.txt)
 - [デモプラグイン](plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](templates/plugin-template/)
 - [Java インストーラーの詳細](packaging/java-installer/README-java-installer.md)
 - [リリース手順](RELEASING.md)と[変更履歴](CHANGELOG.md)

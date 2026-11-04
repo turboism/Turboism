@@ -7,7 +7,6 @@ import com.sun.net.httpserver.HttpServer;
 import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
@@ -317,7 +316,6 @@ final class FrameworkInstallationReceiptLoaderTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         final var settings = new Settings();
         final var response =

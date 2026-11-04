@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.config.ConfigCodecs;
@@ -319,7 +318,6 @@ class EarlyThemeAppearanceBootstrapTest {
         final RuntimeScheduler scheduler = new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
                 ignored -> {});
         final DisposableScope scope = new DisposableScope();
         try {
