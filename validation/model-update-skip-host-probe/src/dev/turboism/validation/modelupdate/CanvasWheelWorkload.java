@@ -72,7 +72,16 @@ final class CanvasWheelWorkload {
     private NativeInteractionHost.Camera cameraBaseline;
     private NativeInteractionHost.CameraTransform cameraTransformBaseline;
     private String cameraMetadataBaseline;
-    private final boolean exactCamera = Boolean.getBoolean("turboism.validation.exactCameraBaseline");
+    private final String humanTracePath = System.getProperty("turboism.validation.humanTrace", "").strip();
+    private final boolean humanIdleResume = Boolean.getBoolean("turboism.validation.humanIdleResume");
+    // Exact camera restoration is the default: the inverse wheel only restores
+    // the displayed rounded zoom, so the cross-leg window digest otherwise
+    // compares slightly different camera states. Opt out explicitly with
+    // -Dturboism.validation.exactCameraBaseline=false.
+    private final boolean exactCamera = Boolean.parseBoolean(
+        System.getProperty("turboism.validation.exactCameraBaseline", "true"))
+        || !humanTracePath.isEmpty();
+    private HumanTrace humanTrace;
     private long measuredQueueNanos, measuredHandlerNanos, measuredRepaintBarrierNanos,
         measuredResumeNanos;
 
@@ -80,6 +89,39 @@ final class CanvasWheelWorkload {
         if (fixture == null || fixture.isBlank()) throw new IllegalArgumentException("fixture absent");
         this.fixture = fixture;
         this.state = state;
+    }
+
+    /**
+     * Records a real human session. The user should zoom, pan and pause as they
+     * normally do; the resulting trace is replayed by the human workload.
+     */
+    void record(final Path output, final long seconds) throws Exception {
+        if (output == null) throw new IllegalArgumentException("trace output absent");
+        awaitCanvasReady(() -> {
+            discover();
+            return null;
+        });
+        onEdt(() -> {
+            width = canvas.getWidth();
+            height = canvas.getHeight();
+            return null;
+        });
+        Files.writeString(state.resolve("ui-tables.txt"), dumpUiTables(window));
+        Files.writeString(state.resolve("wheel-benchmark.txt"),
+            "schemaVersion=1\nstatus=RECORDING\nstage=recording\nseconds=" + seconds
+                + "\ntrace=" + output + "\n");
+        final String kind = System.getProperty("turboism.validation.recordKind", "wheel").strip();
+        if (!List.of("wheel", "pan", "artmesh").contains(kind)) {
+            throw new IllegalArgumentException("unsupported record kind: " + kind);
+        }
+        final HumanTrace trace = HumanTrace.record(output, seconds, kind, canvas, window,
+            zoom::getText, state.resolve("wheel-progress.txt"));
+        Files.writeString(state.resolve("wheel-benchmark.txt"),
+            "schemaVersion=1\nstatus=PASS\nworkload=human-trace-recording\nkind=" + trace.kind()
+                + "\nevents=" + trace.events().size()
+                + "\ndurationNanos=" + trace.durationNanos()
+                + "\nwheelNotches=" + trace.wheelNotches()
+                + "\ntrace=" + output + "\n");
     }
 
     void run(final boolean probe) throws Exception {
@@ -117,12 +159,31 @@ final class CanvasWheelWorkload {
         if (!List.of("modelSkip", "canvasBuffering", "swingBuffering", "uniformCache", "uniformValues", "uniformSuite", "uniformHook", "matrixScratch", "uploadElision", "redundantState", "inputPath", "canvasComposite").contains(factor)) {
             throw new IllegalArgumentException("unknown benchmark factor");
         }
+        if (!humanTracePath.isEmpty()) {
+            humanTrace = HumanTrace.read(Path.of(humanTracePath));
+            if (!List.of("wheel", "pan", "artmesh").contains(humanTrace.kind())) {
+                throw new IllegalArgumentException("unsupported human trace kind: " + humanTrace.kind());
+            }
+            if (!factor.equals("modelSkip")) {
+                throw new IllegalArgumentException("human trace supports only the modelSkip factor");
+            }
+            if (humanTrace.canvasWidth() > 0 && humanTrace.canvasWidth() != width) {
+                throw new IllegalArgumentException("trace canvas width " + humanTrace.canvasWidth() + " != " + width);
+            }
+            if (humanTrace.canvasHeight() > 0 && humanTrace.canvasHeight() != height) {
+                throw new IllegalArgumentException("trace canvas height " + humanTrace.canvasHeight() + " != " + height);
+            }
+        }
         final StringBuilder report = new StringBuilder("schemaVersion=1\n")
             .append("readinessNanos=").append(readinessNanos).append('\n')
             .append("calibration=").append(calibration).append('\n')
             .append("performanceAccepted=false\n")
-            .append("workload=awt-wheel-native-repaint-barrier\n")
-            .append("latencyDefinition=wheel-to-EDT-barrier-with-native-repaint-not-presentation\n")
+            .append("workload=").append(humanTrace == null
+                ? "awt-wheel-native-repaint-barrier"
+                : "awt-human-" + humanTrace.kind() + "-trace").append('\n')
+            .append("latencyDefinition=").append(humanTrace == null
+                ? "wheel-to-EDT-barrier-with-native-repaint-not-presentation"
+                : "human-input-to-first-completed-display").append('\n')
             .append("graphicsConfiguration=").append(canvas.getGraphicsConfiguration().getClass().getName()).append('\n')
             .append("java2dOpenGLRequested=").append(System.getProperty("sun.java2d.opengl", "unset")).append('\n')
             .append("factor=").append(factor).append('\n')
@@ -130,6 +191,15 @@ final class CanvasWheelWorkload {
             .append("originalSwingBuffering=").append(originalSwingBuffering).append('\n')
             .append("width=").append(width).append("\nheight=").append(height)
             .append("\nzoomBefore=").append(originalZoom).append('\n');
+        if (humanTrace != null) {
+            report.append("human.trace=").append(humanTracePath).append('\n')
+                .append("human.traceKind=").append(humanTrace.kind()).append('\n')
+                .append("human.traceEvents=").append(humanTrace.events().size()).append('\n')
+                .append("human.traceDurationNanos=").append(humanTrace.durationNanos()).append('\n')
+                .append("human.traceWheelNotches=").append(humanTrace.wheelNotches()).append('\n')
+                .append("human.idleResume=").append(humanIdleResume).append('\n')
+                .append("human.speed=1.0\n");
+        }
         try {
             final boolean allocations = Boolean.getBoolean("turboism.validation.allocationProfile");
             final boolean profile = Boolean.getBoolean("turboism.validation.modelUpdateJfr") || allocations;
@@ -314,6 +384,10 @@ final class CanvasWheelWorkload {
                 final String afterPixels = "modelSkip".equals(factor) ? "not-requested" : capturePixels(null);
                 if (!beforePixels.equals(afterPixels)) {
                     throw new IllegalStateException("buffering change altered canvas pixels");
+                }
+                if (humanTrace != null) {
+                    runHumanLeg(leg, enabled, report, legFocusOwners, legCanvasCursors, legWindowDigests);
+                    continue;
                 }
                 Files.writeString(state.resolve("wheel-progress.txt"),
                     "stage=warmup\nleg=" + leg + "\nenabled=" + enabled + "\n");
@@ -711,6 +785,804 @@ final class CanvasWheelWorkload {
         onEdt(() -> { uniformTrial.requestReadback(); canvas.repaint(); return null; });
         onEdt(() -> null);
         return onEdt(() -> uniformTrial.takeReadback());
+    }
+
+    private record HumanMetrics(
+        int postedEvents, int deliveredEvents, int frames,
+        long inputToFirstFrameNanos, long settleNanos,
+        double frameRate, long frameIntervalP50, long frameIntervalP95, long frameIntervalP99,
+        double maxLagNotches, double p95LagNotches, double maxZoomStepNotches,
+        double multiNotchFrameRatio, int maxEventsPerFrame,
+        double sustainableRatePerSecond, boolean sustainableLagOne,
+        long idleResumeNanos) { }
+
+    /**
+     * Human-trace leg. Input is posted to the real system event queue at the
+     * recorded pacing and never drained between events; the metrics describe what
+     * a person sees: time to the first completed display, time to catch up after
+     * the last input, frame pacing, per-frame zoom jumps and residual lag.
+     */
+    private void runHumanLeg(final int leg, final boolean enabled, final StringBuilder report,
+                             final List<String> legFocusOwners, final List<String> legCanvasCursors,
+                             final List<String> legWindowDigests) throws Exception {
+        if (!"wheel".equals(humanTrace.kind())) {
+            runHumanPointerLeg(leg, enabled, report, legFocusOwners, legCanvasCursors, legWindowDigests);
+            return;
+        }
+        final HumanTrace.FrameTimeline frames = onEdt(() -> HumanTrace.FrameTimeline.attach(canvas, zoom::getText));
+        final HumanTrace.WheelObserver observer = onEdt(() -> HumanTrace.WheelObserver.attach(canvas, zoom::getText));
+        try {
+            final int warmups = calibration ? 0 : 1;
+            for (int replay = 0; replay < warmups; replay++) {
+                Files.writeString(state.resolve("wheel-progress.txt"),
+                    "stage=human-warmup\nleg=" + leg + "\nenabled=" + enabled
+                        + "\nreplay=" + replay + "\n");
+                resetHumanState(frames, observer);
+                replayHumanTrace(1.0d);
+                awaitHumanQuiescence(frames, observer, 0, 400L, 20_000L);
+            }
+            resetHumanState(frames, observer);
+            final long idleResume = humanIdleResume ? measureHumanIdleResume(frames, observer) : -1L;
+            resetHumanState(frames, observer);
+
+            final Map<String, Long> modelBefore = snapshot();
+            final Map<String, Long> clipBefore = statsSlot(CLIPMASK_STATS);
+            final Map<String, Long> dedupeBefore = statsSlot(CLIPMASK_DEDUPE_STATS);
+            final Map<String, Long> scissorBefore = statsSlot(CLIPMASK_SCISSOR_STATS);
+            final Map<String, Long> meshBefore = statsSlot(MESH_SETUP_STATS);
+            Files.writeString(state.resolve("wheel-progress.txt"),
+                "stage=human-measuring\nleg=" + leg + "\nenabled=" + enabled + "\n");
+            final List<HumanTrace.Posted> posted = replayHumanTrace(1.0d);
+            final long replayEnd = System.nanoTime();
+            final int wheelPosted = (int) posted.stream()
+                .filter(entry -> entry.source().kind() == HumanTrace.Kind.WHEEL).count();
+            awaitHumanQuiescence(frames, observer, wheelPosted, 400L, 25_000L);
+            final Map<String, Long> modelAfter = snapshot();
+            final List<HumanTrace.FrameTimeline.Frame> frameList = frames.snapshot();
+            final List<HumanTrace.WheelObserver.Applied> applied = observer.snapshot();
+            final HumanMetrics metrics = measureHumanWheel(posted, applied, frameList, idleResume);
+            final String p = "leg." + leg + ".";
+            report.append(p).append("enabled=").append(enabled).append('\n')
+                .append(p).append("variant=").append(enabled ? "human-on" : "human-off").append('\n')
+                .append(p).append("human.posted=").append(metrics.postedEvents()).append('\n')
+                .append(p).append("human.delivered=").append(metrics.deliveredEvents()).append('\n')
+                .append(p).append("human.frames=").append(metrics.frames()).append('\n')
+                .append(p).append("human.inputToFirstFrameNanos=").append(metrics.inputToFirstFrameNanos()).append('\n')
+                .append(p).append("human.settleNanos=").append(metrics.settleNanos()).append('\n')
+                .append(p).append("human.frameRate=").append(metrics.frameRate()).append('\n')
+                .append(p).append("human.frameIntervalP50Nanos=").append(metrics.frameIntervalP50()).append('\n')
+                .append(p).append("human.frameIntervalP95Nanos=").append(metrics.frameIntervalP95()).append('\n')
+                .append(p).append("human.frameIntervalP99Nanos=").append(metrics.frameIntervalP99()).append('\n')
+                .append(p).append("human.maxLagNotches=").append(metrics.maxLagNotches()).append('\n')
+                .append(p).append("human.p95LagNotches=").append(metrics.p95LagNotches()).append('\n')
+                .append(p).append("human.maxZoomStepNotches=").append(metrics.maxZoomStepNotches()).append('\n')
+                .append(p).append("human.multiNotchFrameRatio=").append(metrics.multiNotchFrameRatio()).append('\n')
+                .append(p).append("human.maxEventsPerFrame=").append(metrics.maxEventsPerFrame()).append('\n')
+                .append(p).append("human.sustainableRatePerSecond=").append(metrics.sustainableRatePerSecond()).append('\n')
+                .append(p).append("human.sustainableLagOne=").append(metrics.sustainableLagOne()).append('\n')
+                .append(p).append("human.idleResumeNanos=").append(metrics.idleResumeNanos()).append('\n')
+                .append(p).append("human.replayWallNanos=").append(replayEnd - posted.get(0).postNanos()).append('\n');
+            for (String key : modelAfter.keySet().stream().sorted().toList()) {
+                if (key.equals("active") || key.equals("parameterCount") || key.endsWith("MaxNanos")) continue;
+                report.append(p).append("modelUpdate.").append(key).append('=')
+                    .append(modelAfter.get(key) - modelBefore.getOrDefault(key, 0L)).append('\n');
+            }
+            appendSlotDelta(report, p, "clipMask", statsSlot(CLIPMASK_STATS), clipBefore,
+                java.util.Set.of("active"));
+            appendSlotDelta(report, p, "clipMaskDedupe", statsSlot(CLIPMASK_DEDUPE_STATS), dedupeBefore,
+                java.util.Set.of("active", "entries", "capacity", "peakEntries", "heldPeak"));
+            appendSlotDelta(report, p, "clipMaskScissor", statsSlot(CLIPMASK_SCISSOR_STATS), scissorBefore,
+                java.util.Set.of("active", "enabled", "savedPermille", "trackedTextures"));
+            appendSlotDelta(report, p, "meshSetupElision", statsSlot(MESH_SETUP_STATS), meshBefore,
+                java.util.Set.of("active", "generation", "trackedMeshes"));
+            writeHumanRaw(leg, posted, applied, frameList);
+
+            // Return to the shared baseline before the cross-leg screenshot gate.
+            onEdt(() -> {
+                restoreExactCamera();
+                zoom.setText(originalZoom);
+                forceParentPaint();
+                return null;
+            });
+            Thread.sleep(150L);
+            report.append(p).append("exactCameraBaseline=true\n");
+            final String[] windowShot = onEdt(this::windowSnapshot);
+            legWindowDigests.add(windowShot[0]);
+            report.append(p).append("windowDigest=").append(windowShot[0]).append('\n')
+                .append(p).append("windowDigestMethod=").append(windowShot[1]).append('\n')
+                .append(p).append("windowDistinctColors=").append(windowShot[2]).append('\n');
+            final String legFocusOwner = onEdt(CanvasWheelWorkload::focusOwnerFingerprint);
+            final String legCanvasCursor = onEdt(this::canvasCursorFingerprint);
+            legFocusOwners.add(legFocusOwner);
+            legCanvasCursors.add(legCanvasCursor);
+            report.append(p).append("focusOwner=").append(legFocusOwner).append('\n')
+                .append(p).append("canvasCursor=").append(legCanvasCursor).append('\n');
+            Files.writeString(state.resolve("wheel-progress.txt"),
+                "stage=human-done\nleg=" + leg + "\nenabled=" + enabled + "\n");
+            Files.writeString(state.resolve("wheel-benchmark.txt"), report);
+        } finally {
+            onEdt(() -> {
+                frames.close();
+                observer.close();
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Pan and ArtMesh legs replay the same recorded gesture without per-event
+     * drains. Pan must move only the camera; an ArtMesh drag must change exactly
+     * the selected mesh and survive native Undo/Redo.
+     */
+    private void runHumanPointerLeg(final int leg, final boolean enabled, final StringBuilder report,
+                                    final List<String> legFocusOwners, final List<String> legCanvasCursors,
+                                    final List<String> legWindowDigests) throws Exception {
+        final boolean mesh = "artmesh".equals(humanTrace.kind());
+        final HumanTrace.FrameTimeline frames = onEdt(() -> HumanTrace.FrameTimeline.attach(canvas, zoom::getText));
+        final HumanTrace.MouseObserver observer = onEdt(() -> HumanTrace.MouseObserver.attach(canvas));
+        try {
+            ensureCanvasFocus();
+            final int warmups = calibration ? 0 : 1;
+            for (int replay = 0; replay < warmups; replay++) {
+                final NativeInteractionHost.Geometry before = onEdt(cameraHost::geometry);
+                Files.writeString(state.resolve("wheel-progress.txt"),
+                    "stage=human-warmup\nleg=" + leg + "\nenabled=" + enabled
+                        + "\nkind=" + humanTrace.kind() + "\nreplay=" + replay + "\n");
+                resetPointerState(frames, observer, mesh);
+                replayHumanTrace(1.0d);
+                awaitPointerQuiescence(frames, observer, 400L, 25_000L);
+                if (mesh) undoPointerChanges(before);
+                else restorePointerCamera();
+            }
+            resetPointerState(frames, observer, mesh);
+            final NativeInteractionHost.Camera cameraBefore = onEdt(cameraHost::camera);
+            final NativeInteractionHost.Geometry geometryBefore = onEdt(cameraHost::geometry);
+            final String undoBefore = onEdt(cameraHost::undoState);
+            final int undoPositionBefore = onEdt(cameraHost::undoPosition);
+            final boolean modifiedBefore = onEdt(cameraHost::modified);
+            final String actionBefore = mesh ? "not-required" : onEdt(cameraHost::actionState);
+            final Map<String, Long> modelBefore = snapshot();
+            final Map<String, Long> clipBefore = statsSlot(CLIPMASK_STATS);
+            final Map<String, Long> dedupeBefore = statsSlot(CLIPMASK_DEDUPE_STATS);
+            final Map<String, Long> scissorBefore = statsSlot(CLIPMASK_SCISSOR_STATS);
+            final Map<String, Long> meshBefore = statsSlot(MESH_SETUP_STATS);
+            Files.writeString(state.resolve("wheel-progress.txt"),
+                "stage=human-measuring\nleg=" + leg + "\nenabled=" + enabled
+                    + "\nkind=" + humanTrace.kind() + "\n");
+            final List<HumanTrace.Posted> posted = replayHumanTrace(1.0d);
+            final long replayEnd = System.nanoTime();
+            awaitPointerQuiescence(frames, observer, 400L, 30_000L);
+            final Map<String, Long> modelAfter = snapshot();
+            final List<HumanTrace.FrameTimeline.Frame> frameList = frames.snapshot();
+            final List<HumanTrace.MouseObserver.Moved> moved = observer.snapshot();
+            final HumanMetrics metrics = measureHumanPointer(posted, moved, frameList);
+            final String p = "leg." + leg + ".";
+            report.append(p).append("enabled=").append(enabled).append('\n')
+                .append(p).append("variant=").append(mesh
+                    ? (enabled ? "human-artmesh-on" : "human-artmesh-off")
+                    : (enabled ? "human-pan-on" : "human-pan-off")).append('\n')
+                .append(p).append("human.kind=").append(humanTrace.kind()).append('\n')
+                .append(p).append("human.posted=").append(metrics.postedEvents()).append('\n')
+                .append(p).append("human.delivered=").append(metrics.deliveredEvents()).append('\n')
+                .append(p).append("human.frames=").append(metrics.frames()).append('\n')
+                .append(p).append("human.inputToFirstFrameNanos=").append(metrics.inputToFirstFrameNanos()).append('\n')
+                .append(p).append("human.settleNanos=").append(metrics.settleNanos()).append('\n')
+                .append(p).append("human.frameRate=").append(metrics.frameRate()).append('\n')
+                .append(p).append("human.frameIntervalP50Nanos=").append(metrics.frameIntervalP50()).append('\n')
+                .append(p).append("human.frameIntervalP95Nanos=").append(metrics.frameIntervalP95()).append('\n')
+                .append(p).append("human.frameIntervalP99Nanos=").append(metrics.frameIntervalP99()).append('\n')
+                .append(p).append("human.maxEventsPerFrame=").append(metrics.maxEventsPerFrame()).append('\n')
+                .append(p).append("human.eventsPerFrameP95=").append(metrics.p95LagNotches()).append('\n')
+                .append(p).append("human.sustainableRatePerSecond=").append(metrics.sustainableRatePerSecond()).append('\n')
+                .append(p).append("human.sustainableLagOne=").append(metrics.sustainableLagOne()).append('\n')
+                .append(p).append("human.replayWallNanos=").append(replayEnd - posted.get(0).postNanos()).append('\n');
+            final int pointerPosted = countKind(posted, HumanTrace.Kind.MOUSE);
+            int changedCount = 0;
+            int movedVertices = 0;
+            boolean wholeMeshMoved = true;
+            boolean undoRestored = false;
+            if (mesh) {
+                if (!onEdt(cameraHost::adoptSelectedTarget)) {
+                    final List<Point> candidates = onEdt(cameraHost::candidatePoints);
+                    Files.writeString(state.resolve("human-artmesh-candidates.txt"),
+                        "candidates=" + candidates + "\n");
+                    throw new IllegalStateException("recorded ArtMesh drag did not select exactly one editable ArtMesh"
+                        + "; candidates=" + candidates);
+                }
+                final int target = cameraHost.targetIndex();
+                final NativeInteractionHost.Geometry movedGeometry = onEdt(cameraHost::geometry);
+                final List<Integer> changed = NativeInteractionHost.changed(geometryBefore, movedGeometry);
+                changedCount = changed.size();
+                if (!changed.equals(List.of(target))) {
+                    throw new IllegalStateException("ArtMesh drag changed meshes " + changed + " target=" + target);
+                }
+                movedVertices = movedCount(geometryBefore.calculated().get(target),
+                    movedGeometry.calculated().get(target));
+                wholeMeshMoved = NativeInteractionHost.wholeMeshChanged(geometryBefore, movedGeometry, target);
+                if (movedVertices == 0) {
+                    throw new IllegalStateException("ArtMesh drag did not move any target vertex");
+                }
+                // A human ArtMesh gesture can be a point edit (one vertex) or a
+                // whole-mesh drag. Both are valid authoring input; record which
+                // one the trace produced and keep the exact-one-mesh gate.
+                Files.writeString(state.resolve("human-artmesh-geometry.txt"),
+                    describeGeometryChange(geometryBefore, movedGeometry, target));
+                if (!cameraBefore.equals(onEdt(cameraHost::camera))) {
+                    throw new IllegalStateException("ArtMesh drag moved the camera");
+                }
+                onEdt(() -> { cameraHost.undo(); return null; });
+                onEdt(() -> null);
+                Thread.sleep(100L);
+                undoRestored = NativeInteractionHost.changed(geometryBefore, onEdt(cameraHost::geometry)).isEmpty();
+                if (!undoRestored) throw new IllegalStateException("native Undo did not restore ArtMesh geometry");
+                onEdt(() -> { cameraHost.redo(); return null; });
+                onEdt(() -> null);
+                Thread.sleep(100L);
+                if (!NativeInteractionHost.changed(movedGeometry, onEdt(cameraHost::geometry)).isEmpty()) {
+                    throw new IllegalStateException("native Redo did not replay the ArtMesh drag");
+                }
+                onEdt(() -> { cameraHost.undo(); return null; });
+                onEdt(() -> null);
+                Thread.sleep(100L);
+            } else {
+                if (cameraBefore.equals(onEdt(cameraHost::camera))) {
+                    throw new IllegalStateException("recorded pan did not move the camera");
+                }
+                if (!NativeInteractionHost.changed(geometryBefore, onEdt(cameraHost::geometry)).isEmpty()) {
+                    throw new IllegalStateException("recorded pan changed mesh geometry");
+                }
+                if (!undoBefore.equals(onEdt(cameraHost::undoState))) {
+                    throw new IllegalStateException("recorded pan changed the Undo state");
+                }
+                if (modifiedBefore != onEdt(cameraHost::modified)) {
+                    throw new IllegalStateException("recorded pan changed the modified flag");
+                }
+                if (!actionBefore.equals(onEdt(cameraHost::actionState))) {
+                    throw new IllegalStateException("recorded pan left the host action state");
+                }
+            }
+            report.append(p).append("human.pointerPosted=").append(pointerPosted).append('\n')
+                .append(p).append("human.cameraChanged=").append(!cameraBefore.equals(onEdt(cameraHost::camera))).append('\n')
+                .append(p).append("human.changedMeshCount=").append(changedCount).append('\n')
+                .append(p).append("human.movedVertexCount=").append(movedVertices).append('\n')
+                .append(p).append("human.wholeMeshMoved=").append(wholeMeshMoved).append('\n')
+                .append(p).append("human.undoRestored=").append(mesh ? undoRestored : "not-required").append('\n')
+                .append(p).append("human.undoPositionBefore=").append(undoPositionBefore).append('\n')
+                .append(p).append("human.undoPositionAfter=").append(onEdt(cameraHost::undoPosition)).append('\n')
+                .append(p).append("human.modifiedBefore=").append(modifiedBefore).append('\n')
+                .append(p).append("human.modifiedAfter=").append(onEdt(cameraHost::modified)).append('\n');
+            for (String key : modelAfter.keySet().stream().sorted().toList()) {
+                if (key.equals("active") || key.equals("parameterCount") || key.endsWith("MaxNanos")) continue;
+                report.append(p).append("modelUpdate.").append(key).append('=')
+                    .append(modelAfter.get(key) - modelBefore.getOrDefault(key, 0L)).append('\n');
+            }
+            appendSlotDelta(report, p, "clipMask", statsSlot(CLIPMASK_STATS), clipBefore,
+                java.util.Set.of("active"));
+            appendSlotDelta(report, p, "clipMaskDedupe", statsSlot(CLIPMASK_DEDUPE_STATS), dedupeBefore,
+                java.util.Set.of("active", "entries", "capacity", "peakEntries", "heldPeak"));
+            appendSlotDelta(report, p, "clipMaskScissor", statsSlot(CLIPMASK_SCISSOR_STATS), scissorBefore,
+                java.util.Set.of("active", "enabled", "savedPermille", "trackedTextures"));
+            appendSlotDelta(report, p, "meshSetupElision", statsSlot(MESH_SETUP_STATS), meshBefore,
+                java.util.Set.of("active", "generation", "trackedMeshes"));
+            writeHumanPointerRaw(leg, posted, moved, frameList);
+
+            if (mesh) undoPointerChanges(geometryBefore);
+            else restorePointerCamera();
+            onEdt(() -> { cameraHost.restoreSelection(); return null; });
+            onEdt(() -> {
+                restoreExactCamera();
+                zoom.setText(originalZoom);
+                forceParentPaint();
+                return null;
+            });
+            Thread.sleep(150L);
+            final String[] windowShot = onEdt(this::windowSnapshot);
+            legWindowDigests.add(windowShot[0]);
+            report.append(p).append("exactCameraBaseline=true\n")
+                .append(p).append("windowDigest=").append(windowShot[0]).append('\n')
+                .append(p).append("windowDigestMethod=").append(windowShot[1]).append('\n')
+                .append(p).append("windowDistinctColors=").append(windowShot[2]).append('\n');
+            final String legFocusOwner = onEdt(CanvasWheelWorkload::focusOwnerFingerprint);
+            final String legCanvasCursor = onEdt(this::canvasCursorFingerprint);
+            legFocusOwners.add(legFocusOwner);
+            legCanvasCursors.add(legCanvasCursor);
+            report.append(p).append("focusOwner=").append(legFocusOwner).append('\n')
+                .append(p).append("canvasCursor=").append(legCanvasCursor).append('\n');
+            Files.writeString(state.resolve("wheel-progress.txt"),
+                "stage=human-done\nleg=" + leg + "\nenabled=" + enabled
+                    + "\nkind=" + humanTrace.kind() + "\n");
+            Files.writeString(state.resolve("wheel-benchmark.txt"), report);
+        } finally {
+            onEdt(() -> {
+                frames.close();
+                observer.close();
+                return null;
+            });
+        }
+    }
+
+    private static int countKind(final List<HumanTrace.Posted> posted, final HumanTrace.Kind kind) {
+        int count = 0;
+        for (HumanTrace.Posted entry : posted) if (entry.source().kind() == kind) count++;
+        return count;
+    }
+
+    private void ensureCanvasFocus() throws Exception {
+        onEdt(() -> {
+            window.toFront();
+            window.requestFocus();
+            return null;
+        });
+        for (int attempt = 0; attempt < 40; attempt++) {
+            if (onEdt(() -> NativeInteractionFocus.owns(canvas, window))) return;
+            onEdt(() -> {
+                canvas.requestFocusInWindow();
+                return null;
+            });
+            Thread.sleep(50L);
+        }
+        throw new IllegalStateException("canvas focus was not acquired for the recorded pointer trace");
+    }
+
+    private void resetPointerState(final HumanTrace.FrameTimeline frames,
+                                   final HumanTrace.MouseObserver observer,
+                                   final boolean mesh) throws Exception {
+        onEdt(() -> {
+            if (mesh) {
+                cameraHost.clearSelection();
+            } else {
+                restoreExactCamera();
+            }
+            return null;
+        });
+        Thread.sleep(150L);
+        onEdt(() -> {
+            frames.clear();
+            observer.clear();
+            return null;
+        });
+    }
+
+    private void restorePointerCamera() throws Exception {
+        onEdt(() -> {
+            restoreExactCamera();
+            return null;
+        });
+    }
+
+    private void undoPointerChanges(final NativeInteractionHost.Geometry baseline) throws Exception {
+        for (int attempt = 0; attempt < 16; attempt++) {
+            if (NativeInteractionHost.changed(baseline, onEdt(cameraHost::geometry)).isEmpty()) return;
+            onEdt(() -> {
+                cameraHost.undo();
+                return null;
+            });
+            onEdt(() -> null);
+            Thread.sleep(80L);
+        }
+        if (!NativeInteractionHost.changed(baseline, onEdt(cameraHost::geometry)).isEmpty()) {
+            throw new IllegalStateException("could not undo the recorded ArtMesh gesture");
+        }
+    }
+
+    private void awaitPointerQuiescence(final HumanTrace.FrameTimeline frames,
+                                        final HumanTrace.MouseObserver observer,
+                                        final long quietMillis, final long timeoutMillis) throws Exception {
+        final long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
+        long lastCount = -1L;
+        long lastChange = System.nanoTime();
+        while (System.nanoTime() < deadline) {
+            final long count = frames.count();
+            if (count != lastCount) {
+                lastCount = count;
+                lastChange = System.nanoTime();
+            }
+            if (count > 0L && System.nanoTime() - lastChange >= quietMillis * 1_000_000L) return;
+            Thread.sleep(10L);
+        }
+        throw new IllegalStateException("human pointer workload did not quiesce: frames=" + frames.count()
+            + " delivered=" + observer.snapshot().size());
+    }
+
+    private static String describeGeometryChange(final NativeInteractionHost.Geometry before,
+                                                 final NativeInteractionHost.Geometry after,
+                                                 final int target) {
+        final StringBuilder text = new StringBuilder("target=").append(target).append('\n');
+        text.append("interpolatedMoved=").append(movedCount(before.interpolated().get(target),
+            after.interpolated().get(target))).append('/')
+            .append(before.interpolated().get(target).length / 2).append('\n');
+        text.append("sourceMoved=").append(movedCount(before.source().get(target),
+            after.source().get(target))).append('/')
+            .append(before.source().get(target).length / 2).append('\n');
+        text.append("calculatedMoved=").append(movedCount(before.calculated().get(target),
+            after.calculated().get(target))).append('/')
+            .append(before.calculated().get(target).length / 2).append('\n');
+        for (int i = 0; i < before.keyforms().get(target).size(); i++) {
+            text.append("keyform").append(i).append("Moved=")
+                .append(movedCount(before.keyforms().get(target).get(i),
+                    after.keyforms().get(target).get(i))).append('/')
+                .append(before.keyforms().get(target).get(i).length / 2).append('\n');
+        }
+        return text.toString();
+    }
+
+    private static int movedCount(final float[] before, final float[] after) {
+        int moved = 0;
+        for (int i = 0; i + 1 < before.length; i += 2) {
+            if (Float.floatToRawIntBits(before[i]) != Float.floatToRawIntBits(after[i])
+                || Float.floatToRawIntBits(before[i + 1]) != Float.floatToRawIntBits(after[i + 1])) {
+                moved++;
+            }
+        }
+        return moved;
+    }
+
+    private HumanMetrics measureHumanPointer(final List<HumanTrace.Posted> posted,
+                                             final List<HumanTrace.MouseObserver.Moved> moved,
+                                             final List<HumanTrace.FrameTimeline.Frame> frames) {
+        final List<HumanTrace.Posted> pointer = new ArrayList<>();
+        for (HumanTrace.Posted entry : posted) {
+            if (entry.source().kind() == HumanTrace.Kind.MOUSE) pointer.add(entry);
+        }
+        if (pointer.isEmpty() || frames.isEmpty()) {
+            throw new IllegalStateException("human pointer trace produced no pointer/display observation");
+        }
+        final long firstPost = pointer.get(0).postNanos();
+        final long lastPost = pointer.get(pointer.size() - 1).postNanos();
+        final List<HumanTrace.FrameTimeline.Frame> valid = new ArrayList<>();
+        for (HumanTrace.FrameTimeline.Frame frame : frames) {
+            if (frame.nanoTime() >= firstPost) valid.add(frame);
+        }
+        if (valid.isEmpty()) throw new IllegalStateException("human pointer trace produced no display");
+        final HumanTrace.FrameTimeline.Frame firstFrame = valid.get(0);
+        HumanTrace.FrameTimeline.Frame settleFrame = valid.get(valid.size() - 1);
+        for (HumanTrace.FrameTimeline.Frame frame : valid) {
+            if (frame.nanoTime() >= lastPost) settleFrame = frame;
+        }
+        final List<HumanTrace.FrameTimeline.Frame> window = new ArrayList<>();
+        for (HumanTrace.FrameTimeline.Frame frame : valid) {
+            if (frame.nanoTime() >= firstFrame.nanoTime() && frame.nanoTime() <= settleFrame.nanoTime()) {
+                window.add(frame);
+            }
+        }
+        final long[] intervals = new long[Math.max(0, window.size() - 1)];
+        for (int i = 1; i < window.size(); i++) {
+            intervals[i - 1] = Math.max(0L, window.get(i).nanoTime() - window.get(i - 1).nanoTime());
+        }
+        final long[] sorted = intervals.clone();
+        Arrays.sort(sorted);
+        final int[] eventsPerFrame = new int[window.size()];
+        for (int i = 1; i < window.size(); i++) {
+            int count = 0;
+            for (HumanTrace.MouseObserver.Moved entry : moved) {
+                if (entry.nanoTime() > window.get(i - 1).nanoTime()
+                    && entry.nanoTime() <= window.get(i).nanoTime()) count++;
+            }
+            eventsPerFrame[i] = count;
+        }
+        int maxEventsPerFrame = 0;
+        for (int count : eventsPerFrame) maxEventsPerFrame = Math.max(maxEventsPerFrame, count);
+        final double frameSeconds = Math.max(1e-9d, (settleFrame.nanoTime() - firstFrame.nanoTime())
+            / 1_000_000_000.0d);
+        final double elapsedSeconds = Math.max(1e-9d, (lastPost - firstPost)
+            / 1_000_000_000.0d);
+        return new HumanMetrics(pointer.size(), moved.size(), window.size(),
+            Math.max(0L, firstFrame.nanoTime() - firstPost),
+            Math.max(0L, settleFrame.nanoTime() - lastPost),
+            window.size() / frameSeconds,
+            sorted.length == 0 ? 0L : percentile(sorted, 0.50d),
+            sorted.length == 0 ? 0L : percentile(sorted, 0.95d),
+            sorted.length == 0 ? 0L : percentile(sorted, 0.99d),
+            0d, eventsPerFrameP95(eventsPerFrame), 0d, 0d, maxEventsPerFrame,
+            pointer.size() / elapsedSeconds, maxEventsPerFrame <= 2, -1L);
+    }
+
+    private static double eventsPerFrameP95(final int[] counts) {
+        if (counts.length == 0) return 0d;
+        final long[] sorted = new long[counts.length];
+        for (int i = 0; i < counts.length; i++) sorted[i] = counts[i];
+        Arrays.sort(sorted);
+        return percentile(sorted, 0.95d);
+    }
+
+    private void writeHumanPointerRaw(final int leg, final List<HumanTrace.Posted> posted,
+                                      final List<HumanTrace.MouseObserver.Moved> moved,
+                                      final List<HumanTrace.FrameTimeline.Frame> frames) throws Exception {
+        final StringBuilder events = new StringBuilder(
+            "index\tpostNanos\ttargetNanos\tdeliveredNanos\tid\tx\ty\tmodifiers\n");
+        int row = 0;
+        for (HumanTrace.Posted entry : posted) {
+            if (entry.source().kind() != HumanTrace.Kind.MOUSE) continue;
+            final HumanTrace.MouseObserver.Moved observed = row < moved.size() ? moved.get(row) : null;
+            events.append(row).append('\t')
+                .append(entry.postNanos()).append('\t')
+                .append(entry.targetNanos()).append('\t')
+                .append(observed == null ? "-1" : observed.nanoTime()).append('\t')
+                .append(entry.source().id()).append('\t')
+                .append(entry.source().x()).append('\t')
+                .append(entry.source().y()).append('\t')
+                .append(entry.source().modifiers()).append('\n');
+            row++;
+        }
+        Files.writeString(state.resolve("human-events-leg-" + leg + ".tsv"), events.toString());
+        final StringBuilder timeline = new StringBuilder("index\tnanoTime\tzoom\n");
+        for (int i = 0; i < frames.size(); i++) {
+            timeline.append(i).append('\t').append(frames.get(i).nanoTime()).append('\t')
+                .append(frames.get(i).zoom()).append('\n');
+        }
+        Files.writeString(state.resolve("human-frames-leg-" + leg + ".tsv"), timeline.toString());
+    }
+
+    private static String dumpUiTables(final Frame window) {
+        final StringBuilder text = new StringBuilder();
+        collectTables(window, text, 0);
+        return text.toString();
+    }
+
+    private static void collectTables(final Component component, final StringBuilder text, final int depth) {
+        if (component == null || depth > 40) return;
+        if (component instanceof javax.swing.JTable table) {
+            text.append("JTable class=").append(table.getClass().getName())
+                .append(" rows=").append(table.getRowCount())
+                .append(" cols=").append(table.getColumnCount())
+                .append(" bounds=").append(table.getBounds()).append('\n');
+            for (int column = 0; column < Math.min(8, table.getColumnCount()); column++) {
+                text.append("  column").append(column).append('=')
+                    .append(table.getColumnName(column)).append('\n');
+            }
+            for (int row = 0; row < Math.min(6, table.getRowCount()); row++) {
+                text.append("  row").append(row).append('=')
+                    .append(String.valueOf(table.getValueAt(row, 0))).append('\n');
+            }
+        }
+        if (component instanceof java.awt.Container container) {
+            for (Component child : container.getComponents()) collectTables(child, text, depth + 1);
+        }
+    }
+
+    private List<HumanTrace.Posted> replayHumanTrace(final double speed) throws Exception {
+        final java.util.concurrent.atomic.AtomicReference<List<HumanTrace.Posted>> result =
+            new java.util.concurrent.atomic.AtomicReference<>(List.of());
+        final Thread thread = new Thread(() -> result.set(HumanTrace.replay(humanTrace, canvas,
+            50_000_000L, speed, null, null)), "turboism-human-replay");
+        thread.setDaemon(true);
+        thread.start();
+        thread.join(180_000L);
+        if (thread.isAlive()) throw new IllegalStateException("human replay did not finish");
+        if (result.get().isEmpty()) throw new IllegalStateException("human replay posted no events");
+        return result.get();
+    }
+
+    private void resetHumanState(final HumanTrace.FrameTimeline frames,
+                                 final HumanTrace.WheelObserver observer) throws Exception {
+        onEdt(() -> {
+            restoreExactCamera();
+            zoom.setText(originalZoom);
+            forceParentPaint();
+            return null;
+        });
+        Thread.sleep(150L);
+        onEdt(() -> {
+            frames.clear();
+            observer.clear();
+            return null;
+        });
+    }
+
+    private void forceParentPaint() {
+        final Component parent = canvas.getParent();
+        if (parent instanceof JComponent jparent && parent.getWidth() > 0 && parent.getHeight() > 0) {
+            jparent.paintImmediately(0, 0, parent.getWidth(), parent.getHeight());
+        } else {
+            canvas.paintImmediately(0, 0, width, height);
+        }
+    }
+
+    private void awaitHumanQuiescence(final HumanTrace.FrameTimeline frames,
+                                      final HumanTrace.WheelObserver observer,
+                                      final int expectedDelivered,
+                                      final long quietMillis, final long timeoutMillis) throws Exception {
+        final long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
+        long lastCount = -1L;
+        long lastChange = System.nanoTime();
+        while (System.nanoTime() < deadline) {
+            final long count = frames.count();
+            if (count != lastCount) {
+                lastCount = count;
+                lastChange = System.nanoTime();
+            }
+            final int delivered = observer == null ? Integer.MAX_VALUE : observer.snapshot().size();
+            if (count > 0L && delivered >= expectedDelivered
+                && System.nanoTime() - lastChange >= quietMillis * 1_000_000L) return;
+            Thread.sleep(10L);
+        }
+        throw new IllegalStateException("human workload did not quiesce: frames=" + frames.count()
+            + " delivered=" + (observer == null ? "n/a" : observer.snapshot().size())
+            + " expected=" + expectedDelivered);
+    }
+
+    private long measureHumanIdleResume(final HumanTrace.FrameTimeline frames,
+                                        final HumanTrace.WheelObserver observer) throws Exception {
+        onEdt(() -> {
+            restoreExactCamera();
+            zoom.setText(originalZoom);
+            return null;
+        });
+        Thread.sleep(1_500L);
+        awaitHumanQuiescence(frames, observer, 0, 150L, 3_000L);
+        onEdt(() -> {
+            frames.clear();
+            observer.clear();
+            return null;
+        });
+        final Point origin = onEdt(canvas::getLocationOnScreen);
+        final MouseWheelEvent event = new MouseWheelEvent(canvas, MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(), 0, width / 2, height / 2,
+            origin.x + width / 2, origin.y + height / 2, 0, false,
+            MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, -1);
+        final long post = System.nanoTime();
+        java.awt.Toolkit.getDefaultToolkit().getSystemEventQueue().postEvent(event);
+        awaitHumanQuiescence(frames, observer, 1, 300L, 6_000L);
+        final List<HumanTrace.FrameTimeline.Frame> list = frames.snapshot();
+        if (list.isEmpty()) throw new IllegalStateException("idle resume produced no display");
+        return Math.max(0L, list.get(0).nanoTime() - post);
+    }
+
+    private HumanMetrics measureHumanWheel(final List<HumanTrace.Posted> posted,
+                                           final List<HumanTrace.WheelObserver.Applied> applied,
+                                           final List<HumanTrace.FrameTimeline.Frame> frames,
+                                           final long idleResumeNanos) {
+        final List<HumanTrace.Posted> wheels = new ArrayList<>();
+        for (HumanTrace.Posted entry : posted) {
+            if (entry.source().kind() == HumanTrace.Kind.WHEEL) wheels.add(entry);
+        }
+        if (wheels.isEmpty() || applied.isEmpty() || frames.isEmpty()) {
+            throw new IllegalStateException("human wheel trace produced no wheel/display observation");
+        }
+        final long firstPost = wheels.get(0).postNanos();
+        final long lastPost = wheels.get(wheels.size() - 1).postNanos();
+        final List<HumanTrace.FrameTimeline.Frame> valid = new ArrayList<>();
+        for (HumanTrace.FrameTimeline.Frame frame : frames) {
+            if (frame.nanoTime() >= firstPost && !Double.isNaN(parseZoom(frame.zoom()))) valid.add(frame);
+        }
+        if (valid.isEmpty()) throw new IllegalStateException("human wheel trace produced no parseable display");
+        HumanTrace.FrameTimeline.Frame firstFrame = valid.get(0);
+        final String finalZoom = applied.get(applied.size() - 1).zoom();
+        final double finalValue = parseZoom(finalZoom);
+        HumanTrace.FrameTimeline.Frame settleFrame = valid.get(valid.size() - 1);
+        for (HumanTrace.FrameTimeline.Frame frame : valid) {
+            if (frame.nanoTime() >= lastPost && Math.abs(parseZoom(frame.zoom()) - finalValue) < 0.051d) {
+                settleFrame = frame;
+            }
+        }
+        final List<HumanTrace.FrameTimeline.Frame> window = new ArrayList<>();
+        for (HumanTrace.FrameTimeline.Frame frame : valid) {
+            if (frame.nanoTime() >= firstFrame.nanoTime() && frame.nanoTime() <= settleFrame.nanoTime()) {
+                window.add(frame);
+            }
+        }
+        final long[] intervals = new long[Math.max(0, window.size() - 1)];
+        for (int i = 1; i < window.size(); i++) {
+            intervals[i - 1] = Math.max(0L, window.get(i).nanoTime() - window.get(i - 1).nanoTime());
+        }
+        final long[] sorted = intervals.clone();
+        Arrays.sort(sorted);
+        final double[] lags = new double[window.size()];
+        final int[] eventsPerFrame = new int[window.size()];
+        // Backlog is input the user has already produced but the screen has not
+        // applied yet. It is not the same as "latest applied zoom vs frame zoom",
+        // which is always zero immediately before a paint.
+        int postedIndex = 0;
+        int appliedIndex = 0;
+        int postedRotation = 0;
+        int appliedRotation = 0;
+        for (int i = 0; i < window.size(); i++) {
+            final HumanTrace.FrameTimeline.Frame frame = window.get(i);
+            while (postedIndex < wheels.size()
+                && wheels.get(postedIndex).postNanos() <= frame.nanoTime()) {
+                postedRotation += wheels.get(postedIndex).source().wheelRotation();
+                postedIndex++;
+            }
+            while (appliedIndex < applied.size()
+                && applied.get(appliedIndex).nanoTime() <= frame.nanoTime()) {
+                appliedRotation += applied.get(appliedIndex).rotation();
+                appliedIndex++;
+            }
+            lags[i] = Math.abs(postedRotation - appliedRotation);
+            if (i > 0) {
+                int count = 0;
+                for (HumanTrace.WheelObserver.Applied entry : applied) {
+                    if (entry.nanoTime() > window.get(i - 1).nanoTime()
+                        && entry.nanoTime() <= frame.nanoTime()) count++;
+                }
+                eventsPerFrame[i] = count;
+            }
+        }
+        Arrays.sort(lags);
+        double maxZoomStep = 0d;
+        int multiNotch = 0;
+        for (int i = 1; i < window.size(); i++) {
+            final double before = parseZoom(window.get(i - 1).zoom());
+            final double after = parseZoom(window.get(i).zoom());
+            if (before > 0d && after > before) {
+                final double notches = Math.log(after / before) / Math.log(Math.sqrt(2.0d));
+                maxZoomStep = Math.max(maxZoomStep, notches);
+                if (notches > 1.5d) multiNotch++;
+            }
+        }
+        int maxEventsPerFrame = 0;
+        for (int count : eventsPerFrame) maxEventsPerFrame = Math.max(maxEventsPerFrame, count);
+        final double maxLag = lags.length == 0 ? 0d : lags[lags.length - 1];
+        final double p95Lag = lags.length == 0 ? 0d : percentileDouble(lags, 0.95d);
+        final double elapsedSeconds = Math.max(1e-9d, (lastPost - firstPost) / 1_000_000_000.0d);
+        final double frameSeconds = Math.max(1e-9d, (settleFrame.nanoTime() - firstFrame.nanoTime())
+            / 1_000_000_000.0d);
+        return new HumanMetrics(wheels.size(), applied.size(), window.size(),
+            Math.max(0L, firstFrame.nanoTime() - firstPost),
+            Math.max(0L, settleFrame.nanoTime() - lastPost),
+            window.size() / frameSeconds,
+            sorted.length == 0 ? 0L : percentile(sorted, 0.50d),
+            sorted.length == 0 ? 0L : percentile(sorted, 0.95d),
+            sorted.length == 0 ? 0L : percentile(sorted, 0.99d),
+            maxLag, p95Lag, maxZoomStep,
+            window.size() <= 1 ? 0d : (double) multiNotch / (window.size() - 1),
+            maxEventsPerFrame,
+            wheels.size() / elapsedSeconds, maxLag <= 1.0d, idleResumeNanos);
+    }
+
+    private static double percentileDouble(final double[] sorted, final double fraction) {
+        if (sorted.length == 0) return 0d;
+        final int index = Math.max(0, Math.min(sorted.length - 1,
+            (int) Math.ceil(sorted.length * fraction) - 1));
+        return sorted[index];
+    }
+
+    private static double parseZoom(final String text) {
+        if (text == null) return Double.NaN;
+        final String value = text.strip().replace("%", "").replace(',', '.');
+        if (value.isEmpty()) return Double.NaN;
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException ignored) {
+            return Double.NaN;
+        }
+    }
+
+    private static void appendSlotDelta(final StringBuilder report, final String legPrefix,
+                                        final String name, final Map<String, Long> after,
+                                        final Map<String, Long> before,
+                                        final java.util.Set<String> gauges) {
+        for (String key : after.keySet().stream().sorted().toList()) {
+            if (key.equals("armed") || key.equals("savedPermille")) continue;
+            report.append(legPrefix).append(name).append('.').append(key).append('=')
+                .append(gauges.contains(key) ? after.get(key)
+                    : after.get(key) - before.getOrDefault(key, 0L)).append('\n');
+        }
+    }
+
+    private void writeHumanRaw(final int leg, final List<HumanTrace.Posted> posted,
+                               final List<HumanTrace.WheelObserver.Applied> applied,
+                               final List<HumanTrace.FrameTimeline.Frame> frames) throws Exception {
+        final StringBuilder events = new StringBuilder(
+            "index\tpostNanos\ttargetNanos\tdeliveredNanos\tzoomAfter\trotation\tscrollAmount\n");
+        for (int i = 0; i < posted.size(); i++) {
+            final HumanTrace.Posted entry = posted.get(i);
+            final HumanTrace.WheelObserver.Applied observed = i < applied.size() ? applied.get(i) : null;
+            events.append(i).append('\t')
+                .append(entry.postNanos()).append('\t')
+                .append(entry.targetNanos()).append('\t')
+                .append(observed == null ? "-1" : observed.nanoTime()).append('\t')
+                .append(observed == null ? "" : observed.zoom()).append('\t')
+                .append(entry.source().wheelRotation()).append('\t')
+                .append(entry.source().scrollAmount()).append('\n');
+        }
+        Files.writeString(state.resolve("human-events-leg-" + leg + ".tsv"), events.toString());
+        final StringBuilder timeline = new StringBuilder("index\tnanoTime\tzoom\n");
+        for (int i = 0; i < frames.size(); i++) {
+            timeline.append(i).append('\t').append(frames.get(i).nanoTime()).append('\t')
+                .append(frames.get(i).zoom()).append('\n');
+        }
+        Files.writeString(state.resolve("human-frames-leg-" + leg + ".tsv"), timeline.toString());
     }
 
     private void runPair(final long[] timings, final int offset) throws Exception {
