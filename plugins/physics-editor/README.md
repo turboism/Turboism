@@ -84,6 +84,7 @@ No capabilities are declared in the plugin manifest.
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
+| `turboism.action.register` | `application` | Registers GIF recording, pause, stop and discard actions with configurable shortcuts. |
 | `turboism.cubism.model.write` | `application` | Atomically enables or disables Physics Settings groups through the verified Editor transaction path. |
 
 ## Privacy and data
@@ -94,7 +95,7 @@ Makes no network connections.
 
 ### Local data
 
-Does not write plugin-owned files or alter project files on disk. State retention is stored strictly in-memory during the active model session and discarded upon closing the model or exiting Cubism.
+GIF recording writes temporary files and the selected output GIF, and remembers the last successful export directory in local preferences. Group state retention stays in memory during the active model session; project files are unchanged.
 
 ### Telemetry
 
@@ -106,7 +107,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 - **Status:** Preview.
 - Requires a supported Physics Editor contribution service in the active Cubism host.
-- **Workflow-only scope:** The plugin is intentionally limited to group table select-all and in-session reopen retention. It is not an alternative physics simulator and does not alter pendulum physical calculations, reaction times, gravity, wind forces, or motion sync parameters.
+- **Workflow-only scope:** The plugin provides group table select-all, in-session reopen retention and preview GIF recording. It is not an alternative physics simulator and does not alter pendulum physical calculations, reaction times, gravity, wind forces, or motion sync parameters.
 - **Session-scoped retention:** Retention operates within the active model session memory and does not serialize custom tags into the `.cmo3` model file.
 - Disabling the plugin while the dialog is open safely restores the native header renderer without affecting current model state.
 
