@@ -8,7 +8,7 @@
   "entrypoints": [
     "dev.turboism.plugin.physicseditor.PhysicsEditorPlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.1,1.0.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
@@ -21,6 +21,11 @@
   },
   "dependencies": [],
   "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register GIF recording, pause, stop, and discard actions with configurable shortcuts."
+    },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",

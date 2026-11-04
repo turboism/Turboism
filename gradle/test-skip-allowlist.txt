@@ -88,3 +88,8 @@ dev.turboism.update.FrameworkUpdateApplierTest.replacedFileThatBecomesLockedRepo
 dev.turboism.update.FrameworkUpdateNextLaunchTest.prepareLaunchWhenApplyFailsAndRollsBackReturnsExitRolledBackAndDiscardsTask() # Windows file-lock rollback only (os.name assumption).
 dev.turboism.update.FrameworkUpdateE2E.realWindowsLifecycle() # opt-in real Windows lifecycle; requires TURBOISM_E2E_DIR.
 dev.turboism.update.SignTestStage.sign() # opt-in staging signer; requires TURBOISM_SIGN_STAGE.
+
+# Optional native GIF optimizer checks; CI provisions Gifsicle and always runs these.
+dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.realGifsicleHonorsLimitAndPreservesCountAndTiming() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
+dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.realGifsiclePreservesIdenticalFramesAndSupportsUnlockedPixelScaling() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
+dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.rejectsImpossibleLimitAndMissingExecutable() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.

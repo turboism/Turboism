@@ -67,4 +67,10 @@ public final class PluginScopedPhysicsEditorService implements PhysicsEditorServ
         }
         return handle::close;
     }
+
+    @Override
+    public void gifCommand(final GifCommand command) {
+        if (!scopeActive.getAsBoolean()) throw new IllegalStateException("Physics editor plugin is disabled");
+        delegate.gifCommand(Objects.requireNonNull(command, "command"));
+    }
 }

@@ -44,6 +44,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     private final Object lock = new Object();
     private PhysicsEditorContribution contribution;
     private final List<Controller> controllers = new ArrayList<>();
+    private final List<PhysicsGifRecorder> recorders = new ArrayList<>();
     private Map<String, Boolean> retained = Map.of();
     private boolean closed;
 
@@ -81,6 +82,27 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         runOnEdt(() -> install(panel, profile, active));
     }
 
+    /** Attaches recording controls to the exact native preview surface. */
+    public void onPreviewConstructed(final Object panel) {
+        runOnEdt(() -> {
+            synchronized (lock) {
+                if (closed || contribution == null) return;
+                try {
+                    final PhysicsGifRecorder recorder = PhysicsGifRecorder.install(panel, () -> {
+                        synchronized (lock) {
+                            recorders.removeIf(PhysicsGifRecorder::isClosed);
+                        }
+                    });
+                    if (recorder != null) recorders.add(recorder);
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
+                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                            "physics-editor", "GIF controls could not be attached", failure);
+                }
+            }
+        });
+    }
+
     @Override
     public boolean isAvailable() {
         synchronized (lock) {
@@ -89,8 +111,25 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     }
 
     @Override
+    public void gifCommand(final GifCommand command) {
+        Objects.requireNonNull(command, "command");
+        runOnEdt(() -> {
+            final List<PhysicsGifRecorder> current;
+            synchronized (lock) {
+                if (closed || contribution == null) return;
+                current = List.copyOf(recorders);
+            }
+            current.stream()
+                    .filter(PhysicsGifRecorder::isFocused)
+                    .findFirst()
+                    .ifPresent(recorder -> recorder.command(command));
+        });
+    }
+
+    @Override
     public void close() {
         final List<Controller> stale;
+        final List<PhysicsGifRecorder> staleRecorders;
         synchronized (lock) {
             if (closed) return;
             closed = true;
@@ -98,22 +137,33 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             retained = Map.of();
             stale = List.copyOf(controllers);
             controllers.clear();
+            staleRecorders = List.copyOf(recorders);
+            recorders.clear();
         }
-        runOnEdt(() -> stale.forEach(Controller::close));
+        runOnEdt(() -> {
+            stale.forEach(Controller::close);
+            staleRecorders.forEach(PhysicsGifRecorder::close);
+        });
     }
 
     // Contribution clearing is scoped to the exact instance that registered it.
     @SuppressWarnings("ReferenceEquality")
     private void clearContribution(final PhysicsEditorContribution expected) {
         final List<Controller> stale;
+        final List<PhysicsGifRecorder> staleRecorders;
         synchronized (lock) {
             if (contribution != expected) return;
             contribution = null;
             retained = Map.of();
             stale = List.copyOf(controllers);
             controllers.clear();
+            staleRecorders = List.copyOf(recorders);
+            recorders.clear();
         }
-        runOnEdt(() -> stale.forEach(Controller::close));
+        runOnEdt(() -> {
+            stale.forEach(Controller::close);
+            staleRecorders.forEach(PhysicsGifRecorder::close);
+        });
     }
 
     // The active contribution is a handle: a replaced instance invalidates the deferred install.

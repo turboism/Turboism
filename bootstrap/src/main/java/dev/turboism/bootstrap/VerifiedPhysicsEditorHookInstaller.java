@@ -42,6 +42,10 @@ final class VerifiedPhysicsEditorHookInstaller implements AutoCloseable {
         instrumentation.addTransformer(transformer, true);
         try {
             VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
+            VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation,
+                    PhysicsEditorConstructorTransformer.PREVIEW_OWNER.replace('/', '.'),
+                    hostClassLoader);
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
                     "physics-editor", "Installed verified physics editor hook");
         } catch (Throwable failure) {
