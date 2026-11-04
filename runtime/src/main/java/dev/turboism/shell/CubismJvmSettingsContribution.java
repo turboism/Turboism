@@ -385,12 +385,12 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Platform-defaulted, Linux/Mesa only: on under Wine/Proton the launch
-     * exports {@code mesa_glthread=true} and installs the deferred GL
-     * error-check hook so the shader helper's per-call {@code glGetError} no
-     * longer flushes the threaded submitter; off on native Windows, where
-     * launches ignore it entirely. An explicit saved value overrides the
-     * platform default.
+     * Platform-defaulted, opt-in on native Windows. Under Wine/Proton the
+     * launch exports {@code mesa_glthread=true} and installs the deferred GL
+     * error-check hook; on native Windows it installs only the deferred
+     * frame-end check (Mesa threading does not apply). In both cases the
+     * shader helper's per-call {@code glGetError} no longer stalls the render
+     * thread per draw. An explicit saved value overrides the platform default.
      */
     static SettingsContribution createMesaGlThreadToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {

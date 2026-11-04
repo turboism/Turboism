@@ -11,10 +11,11 @@ import java.util.function.Supplier;
 
 /**
  * Contributor for the combined {@code launcher.mesaGlThread} option, default
- * on under Wine/Proton. Deferred checks require the verified uniform lifecycle
- * and report path. Only {@code deferred=ACTIVE}, not installation=COMPLETE,
- * proves both reviewed rewrites were admitted. A requested but inactive hook
- * emits a warning because Mesa alone can regress performance.
+ * on under Wine/Proton and opt-in on native Windows. Deferred checks require
+ * the verified uniform lifecycle and report path. Only
+ * {@code deferred=ACTIVE}, not installation=COMPLETE, proves both reviewed
+ * rewrites were admitted. A requested but inactive hook emits a warning
+ * because Mesa alone can regress performance.
  */
 final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookContributor {
 
