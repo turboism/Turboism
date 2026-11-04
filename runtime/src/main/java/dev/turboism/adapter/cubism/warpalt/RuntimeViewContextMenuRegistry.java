@@ -39,9 +39,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static final String ICON_SET_CLASS = "com.live2d.cubism.view.context.guiEntity.q";
     private static final String RESOURCE_CLASS = "com.live2d.graphics.CImageResource";
     private static final String FUNCTION3_CLASS = "kotlin.jvm.functions.Function3";
-    private static final Comparator<OrderedContribution> CONTRIBUTION_ORDER =
-            Comparator.comparingInt(OrderedContribution::order)
-                    .thenComparing(item -> item.contribution().contributionId());
+    private static final Comparator<OrderedContribution> CONTRIBUTION_ORDER = Comparator.comparingInt(
+                    OrderedContribution::order)
+            .thenComparing(item -> item.contribution().contributionId());
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
@@ -144,7 +144,9 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             final int targetIndex = insertionIndexFor(contribution, order);
             final BuiltButton built = createButton(contribution, initialImage, initialState);
             insertIntoGroup(strip, built.button(), targetIndex);
-            entries.put(contribution.contributionId(), new Entry(contribution, order, built.button(), built.stateEntities()));
+            entries.put(
+                    contribution.contributionId(),
+                    new Entry(contribution, order, built.button(), built.stateEntities()));
             applyInitialState(built.button(), built.stateEntities(), initialState);
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                     + " state=" + initialState
@@ -391,8 +393,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
      * contributed buttons are ordered by {@code order} and then id, never by
      * the order in which plugins registered them.
      */
-    private int insertionIndexFor(
-            final ViewContextMenuRegistry.StateButtonContribution requested, final int order)
+    private int insertionIndexFor(final ViewContextMenuRegistry.StateButtonContribution requested, final int order)
             throws ReflectiveOperationException {
         final List<Object> mounted = new ArrayList<>(entries.size());
         final List<OrderedContribution> existing = new ArrayList<>(entries.size());

@@ -206,7 +206,8 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
     void insertsContributedButtonsByOrderNotRegistrationOrder() {
         final List<Object> group = new ArrayList<>(List.of("native-1", "native-2", "artmesh", "warp"));
         final RuntimeViewContextMenuRegistry.OrderedContribution artMesh = contribution("artmesh-mirror.toggle", 10);
-        final RuntimeViewContextMenuRegistry.OrderedContribution warp = contribution("warp-deformer-alt-symmetry.axis", 20);
+        final RuntimeViewContextMenuRegistry.OrderedContribution warp =
+                contribution("warp-deformer-alt-symmetry.axis", 20);
 
         assertEquals(
                 2,
