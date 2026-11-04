@@ -1,10 +1,10 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
 import dev.turboism.adapter.cubism.modeling.ModelingToolHostProfile;
 import dev.turboism.adapter.cubism.modeling.NativeModelingToolBridge;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.verification.SelectorAdmission;
 import java.util.Set;
 
 /** Adds ordinary-tool switching after the existing mesh/document lifecycle hook is admitted. */
@@ -35,7 +35,7 @@ final class ModelingToolHookContributor implements HookContributor {
                 && environment.runtimeSliceAdmitted("editor-model")
                 && environment
                         .runtime()
-                        .map(runtime -> ModelingSelectionSelectorContract.authorizes(runtime.editorModelResolver()))
+                        .map(runtime -> SelectorAdmission.authorizesModelingSelection(runtime.editorModelResolver()))
                         .orElse(false);
     }
 

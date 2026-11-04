@@ -495,24 +495,7 @@
     }
   },
   "runtime": {
-    "packageCycles": [
-      [
-        "dev.turboism.adapter.cubism.mesh",
-        "dev.turboism.adapter.cubism.modeling",
-        "dev.turboism.adapter.cubism.optimization",
-        "dev.turboism.mapping.verification",
-        "dev.turboism.ui.filter",
-        "dev.turboism.ui.mesh",
-        "dev.turboism.ui.palette",
-        "dev.turboism.ui.toolbar"
-      ],
-      [
-        "dev.turboism.adapter.cubism.edit",
-        "dev.turboism.adapter.cubism.editor",
-        "dev.turboism.adapter.cubism.editor.history",
-        "dev.turboism.adapter.cubism.editor.transaction"
-      ]
-    ],
+    "packageCycles": [],
     "topPackageCycles": [
       [
         "dev.turboism.adapter",
@@ -714,11 +697,11 @@
       ],
       [
         "dev.turboism.mapping",
-        "dev.turboism.adapter"
+        "dev.turboism.core"
       ],
       [
         "dev.turboism.mapping",
-        "dev.turboism.core"
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.mcp",

@@ -2,8 +2,11 @@ name: Release API health monitor
 
 on:
   schedule:
-    # Every ten minutes, away from the hourly scheduling peak (UTC).
-    - cron: '4,14,24,34,44,54 * * * *'
+    # Once daily, away from the hourly scheduling peak (UTC). The monitor keeps
+    # one issue per incident and deduplicates, so a ten-minute cadence bought no
+    # detection quality worth ~144 runs/day; workflow_dispatch covers a manual
+    # re-check after an incident.
+    - cron: '24 6 * * *'
   workflow_dispatch:
   push:
     branches: [main]

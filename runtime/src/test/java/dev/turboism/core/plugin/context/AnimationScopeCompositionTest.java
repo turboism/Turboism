@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -702,7 +701,7 @@ class AnimationScopeCompositionTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {

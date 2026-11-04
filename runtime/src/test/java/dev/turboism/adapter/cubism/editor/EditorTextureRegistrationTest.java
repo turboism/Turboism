@@ -104,7 +104,9 @@ class EditorTextureRegistrationTest {
                     () ->
                             new dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost
                                     .NativeBinding("model:1", 1, f.document, f.source, f.model),
-                    () -> 1);
+                    () -> 1,
+                    new dev.turboism.adapter.cubism.editor.history.EditorHistoryPort(
+                            () -> java.util.Optional.of(f.resolver), () -> 1));
             host.refresh(
                     host.binding("import-test").orElseThrow(),
                     java.util.EnumSet.of(

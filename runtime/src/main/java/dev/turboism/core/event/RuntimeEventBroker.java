@@ -45,8 +45,7 @@ public final class RuntimeEventBroker {
     private final RuntimeScheduler scheduler;
     private final Object subscriptionLock = new Object();
     private final RuntimeEventContractCatalog contractCatalog = new RuntimeEventContractCatalog();
-    private final PublicEventRouteCatalog publicRoutes;
-    private final PublicEventContractCatalog publicContracts;
+    private final PublicEventRouteCatalog publicRoutes = new PublicEventRouteCatalog();
     private final int mailboxCapacity;
     private final AtomicLong sequence = new AtomicLong();
     private final ConcurrentMap<String, AtomicLong> generations = new ConcurrentHashMap<>();
@@ -90,16 +89,7 @@ public final class RuntimeEventBroker {
             final int mailboxCapacity,
             final Consumer<DeliveryDiagnostic> diagnosticSink,
             final Consumer<SubscriberFailure> subscriberFailureSink) {
-        this(scheduler, mailboxCapacity, diagnosticSink, subscriberFailureSink, null);
-    }
-
-    public RuntimeEventBroker(
-            final RuntimeScheduler scheduler,
-            final int mailboxCapacity,
-            final Consumer<DeliveryDiagnostic> diagnosticSink,
-            final Consumer<SubscriberFailure> subscriberFailureSink,
-            final PublicEventContractCatalog publicContracts) {
-        this(scheduler, mailboxCapacity, diagnosticSink, subscriberFailureSink, publicContracts, DEFAULT_SLOW_DELIVERY);
+        this(scheduler, mailboxCapacity, diagnosticSink, subscriberFailureSink, DEFAULT_SLOW_DELIVERY);
     }
 
     RuntimeEventBroker(
@@ -107,7 +97,6 @@ public final class RuntimeEventBroker {
             final int mailboxCapacity,
             final Consumer<DeliveryDiagnostic> diagnosticSink,
             final Consumer<SubscriberFailure> subscriberFailureSink,
-            final PublicEventContractCatalog publicContracts,
             final Duration slowDeliveryThreshold) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         if (mailboxCapacity < 1) {
@@ -116,23 +105,12 @@ public final class RuntimeEventBroker {
         this.mailboxCapacity = mailboxCapacity;
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.subscriberFailureSink = Objects.requireNonNull(subscriberFailureSink, "subscriberFailureSink");
-        this.publicContracts = publicContracts;
-        this.publicRoutes = new PublicEventRouteCatalog(publicContracts);
         this.slowDeliveryThreshold = Objects.requireNonNull(slowDeliveryThreshold, "slowDeliveryThreshold");
     }
 
     /** Validates shared public event payload classes before plugin code is initialized. */
     public void preflight(final PluginDescriptor descriptor) {
         publicRoutes.preflight(descriptor);
-    }
-
-    /**
-     * Validates shared public event payload classes before plugin code is initialized,
-     * resolving contract-owned types through the plugin's bound contract lease.
-     */
-    public void preflight(
-            final PluginDescriptor descriptor, final PublicEventContractCatalog.ContractLease contractLease) {
-        publicRoutes.preflight(descriptor, contractLease);
     }
 
     /**

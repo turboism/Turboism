@@ -21,11 +21,19 @@ if TYPE_CHECKING:
 
 
 def wake(store: Store) -> None:
-    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as client:
+    # AF_UNIX datagrams do not exist on Windows, and Windows only implements
+    # AF_UNIX for SOCK_STREAM; a wake-up hint is optional everywhere.
+    if not hasattr(socket, "AF_UNIX"):
+        return
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    except OSError:
+        return
+    with client:
         client.setblocking(False)
         try:
             client.sendto(b"wake", str(store.root / "wake.sock"))
-        except (FileNotFoundError, ConnectionRefusedError, BlockingIOError):
+        except OSError:
             pass  # Durable state, not a datagram, is authoritative.
 
 
@@ -122,6 +130,11 @@ def task_owned_session(command: bytes, environ: bytes, owned_markers: set[str]) 
 def external_sessions(owned_markers: set[str] | frozenset[str] = frozenset(),
                       proc_root: Path = Path("/proc")) -> list[int]:
     """Read-only conservative check; never kill or adopt an unknown session."""
+    # A host without /proc (native Windows) cannot host a Cubism session the
+    # queue would recognize, so there is nothing foreign to report. Unit tests
+    # still pass a synthetic proc_root, which is always honoured.
+    if not proc_root.exists():
+        return []
     found = []
     for path in proc_root.iterdir():
         if not path.name.isdigit():

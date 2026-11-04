@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorConfiguration;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
@@ -401,7 +400,6 @@ class RuntimeAsyncHostReadServiceTest {
                                     .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                             ignored -> {},
                             Clock.systemUTC()),
-                    SidecarDispatcher.noop(),
                     ignored -> {});
             lane = new SharedAsyncHostReadLane(32, deadlines);
         }
@@ -470,7 +468,6 @@ class RuntimeAsyncHostReadServiceTest {
                                     .withShutdownTimeout(java.time.Duration.ofMillis(20)),
                             ignored -> {},
                             Clock.systemUTC()),
-                    SidecarDispatcher.noop(),
                     ignored -> {});
             lane = new SharedAsyncHostReadLane(capacity, deadlines);
         }

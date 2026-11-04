@@ -9,7 +9,6 @@ import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.WorkBudgetPolicy;
 import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.config.PluginConfigException;
@@ -357,8 +356,7 @@ class RuntimePluginConfigRegistryTest {
             RuntimeFailureCollector failures,
             java.util.concurrent.ExecutorService io) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        scheduler = new RuntimeScheduler(
-                policy, new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), availableSidecar(), events::add);
+        scheduler = new RuntimeScheduler(policy, new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return io == null
                 ? new RuntimePluginConfigRegistry(
                         permissionChecker,
@@ -381,10 +379,7 @@ class RuntimePluginConfigRegistryTest {
             final Path dataDir, final CountDownLatch reached, final CountDownLatch release) {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new RecordingPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                availableSidecar(),
-                events::add);
+                new RecordingPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         return new RuntimePluginConfigRegistry(
                 (permissionId, operation) -> {},
                 scheduler,
@@ -401,14 +396,6 @@ class RuntimePluginConfigRegistryTest {
                         Thread.currentThread().interrupt();
                     }
                 });
-    }
-
-    private static SidecarDispatcher availableSidecar() {
-        return (task, callback) -> {
-            callback.run();
-            return java.util.concurrent.CompletableFuture.completedFuture(
-                    dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-        };
     }
 
     private static dev.turboism.permissions.PermissionChecker denied() {

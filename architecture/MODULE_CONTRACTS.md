@@ -120,10 +120,10 @@ packages. It moved to `dev.turboism.adapter.cubism.service.log`, matching
   and `RuntimeCancellationToken` (the cancellation handle a task runs under). It
   depends on nothing above it — only the JDK and the SDK cancellation API.
 - **Allowed dependencies**: `core.runtime` may depend on `contract` and on the
-  executor packages (`core.runtime.work`, `core.runtime.sidecar`); the executors
-  may depend on `contract`; `contract` depends on neither.
-- **Forbidden**: imports from `contract` into `core.runtime`, `work` or
-  `sidecar`; and any executor importing `core.runtime` directly.
+  executor package (`core.runtime.work`); the executors may depend on `contract`;
+  `contract` depends on neither.
+- **Forbidden**: imports from `contract` into `core.runtime` or `work`; and any
+  executor importing `core.runtime` directly.
 - **Public API**: `PluginTask`, `RuntimeCancellationToken`.
 - **Threading / IO**: `PluginTask` is an immutable record; the token is
   thread-safe and cancellation is observable from any thread.
@@ -172,13 +172,86 @@ to `adapter.cubism.ProjectWorkspaceReadSources` and its test moved with it.
 the remaining direction (composed service → adapter primitives) is the valid one.
 `hostread` now imports no adapter package at all.
 
+## `:runtime` editor / edit / editor.history / editor.transaction
+
+- **Owner**: editor adapter maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `adapter.cubism.editor` wraps the Editor-backed accessors,
+  `adapter.cubism.edit` owns edit sessions, `adapter.cubism.editor.transaction`
+  owns authoring transactions and `adapter.cubism.editor.history` captures undo
+  history. `adapter.cubism.editor.host` holds the host-thread primitives all of
+  them run on.
+- **Layering (low to high)**: `editor.host` → `editor.transaction` →
+  `editor.history` → `edit` → `editor`.
+- **Allowed dependencies**: `edit` and `editor` may depend on `history` and
+  `transaction`; `history` may depend on `transaction`; everything may depend on
+  `editor.host`. `transaction` depends on none of the others' implementations.
+- **Forbidden**: `transaction` importing `editor`, `edit` or `editor.history`;
+  `editor.host` importing anything above it (it depends only on `ui.host` and Swing).
+- **Public API**: `EditorHostThread` (host-thread primitives),
+  `EditorAuthoringTransactionCoordinator`, `VerifiedEditorAuthoringTransactionHost`,
+  `AuthoringHistoryPort` (what a transaction needs from the recorder),
+  `EditorHistoryPort` (the recorder side of that port).
+- **Threading / IO**: every authoring write asserts it runs on the host thread
+  through `EditorHostThread`; the history port is called on that same thread.
+- **Tests**: `runtime/src/test/java/dev/turboism/adapter/cubism/{edit,editor}/**`.
+- **Backward compatibility**: internal to `:runtime`; plugins never see these
+  types.
+- **Enforcement**: `checkDependencyInventory` plus the `adapter` rules in
+  `gradle/module-boundaries.gradle.kts`.
+
+**What changed (`#70` step 3e)**: `EditorHostThread` moved from
+`adapter.cubism.editor` into the new `adapter.cubism.editor.host` package, so the
+transaction package stopped depending on the editor package for it. The history
+coupling was inverted instead of moved: `VerifiedEditorAuthoringTransactionHost`
+now takes an `AuthoringHistoryPort` and no longer imports
+`EditorHistorySnapshotProvider` or `EditorHistoryMetadataRegistry`;
+`EditorHistoryPort` in the history package implements that port and is supplied
+by the two editor call sites. Leaf-package cycles went from 2 to 1.
+
+## `:runtime` UI surfaces and selector contracts
+
+- **Owner**: UI surface and host-verification maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `ui.host` holds toolkit-level host primitives (EDT dispatch, families,
+  snapshots, palette host layout); `ui.contribution` holds the descriptor/authority
+  vocabulary every surface shares; `ui.filter`, `ui.mesh`, `ui.palette` and
+  `ui.toolbar` are surfaces. `mapping.verification` owns host-artifact verification,
+  and `mapping.selector` owns the per-slice selector contracts (ids,
+  aliases, supported versions) as a pure leaf.
+- **Allowed dependencies**: surfaces may depend on `ui.host`, `ui.contribution` and
+  on adapter primitives; adapter packages may depend on `ui.contribution` and
+  `mapping.verification*`; `mapping.selector` depends on the SDK and
+  `internal.ReviewedVersions` only.
+- **Forbidden**: `mapping.selector` importing anything above it
+  (notably `VerifiedMemberResolver` — that is why the admission checks live in
+  `mapping.verification.SelectorAdmission`); `ui.palette` being reachable from
+  `ui.filter`/`ui.toolbar` for a shared record; `adapter.*` importing `ui.mesh`.
+- **Public API**: `LogPaletteHostStructure`, `MeshToolbarContributionDescriptor`,
+  `MeshToolbarSliderContributionDescriptor`, `SelectorAdmission`, and the selector
+  contracts themselves.
+- **Threading / IO**: `LogPaletteHostStructure` builds Swing components and is
+  host-thread only; the selector contracts are immutable data.
+- **Tests**: `runtime/src/test/java/dev/turboism/ui/**`,
+  `runtime/src/test/java/dev/turboism/mapping/**`.
+- **Backward compatibility**: selector contracts feed the compatibility matrix
+  (`compatibility/cubism/compatibility-matrix.json`) and the generated
+  verification manifest, both regenerated in the same commit.
+- **Enforcement**: `checkDependencyInventory`, the `mapping`/`adapter`/`ui` rules in
+  `gradle/module-boundaries.gradle.kts` (waiver map is now empty), and the
+  compatibility-matrix freshness gate.
+
+**What changed (`#70` step 3f)**: the 8-package cluster was broken by moving shared
+vocabulary down instead of inventing new seams — `LogPaletteHostStructure` to
+`ui.host`, the two mesh toolbar descriptors to `ui.contribution`, and the mesh/
+modeling selector contracts to `mapping.selector`, deleting the last
+module-boundary waiver. The contracts' resolver-dependent `authorizes(...)` helpers
+became `SelectorAdmission`, because leaving them in the contract classes was the one
+edge that made the selector package depend on the resolver. Leaf-package cycles:
+1 → **0**.
+
 ## Next boundaries (not yet extracted)
 
-The two remaining cycles are in the host-adapter/UI cluster and each needs its
-own contract before any file moves:
-
-1. `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔
-   `ui.{filter,mesh,palette,toolbar}` (8 packages). The adapter should expose an
-   admission contract, and `mapping.verification` must not be reachable from `ui`.
-2. `adapter.cubism.{edit,editor,editor.history,editor.transaction}` (4 packages).
-   One of edit/transaction is the lower layer; split the history adapter first.
+None at package granularity. The next step in #70's sequence is not another move but
+the extraction itself (step 3): pull the pure persistence codec/migration kernel out
+of `:runtime` behind the contracts already recorded here, then the compatibility
+policy, each as its own reviewable PR with module contracts and the existing
+bytecode/ABI gates ratcheting the direction.

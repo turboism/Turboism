@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.history.EditorHistoryPort;
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
@@ -360,7 +362,8 @@ final class EditorTextureRegistrationBindingAccess {
                 resolver,
                 () -> new VerifiedEditorAuthoringTransactionHost.NativeBinding(
                         identity, generation, resolveBoundDocument(source, model), source, model),
-                () -> generation);
+                () -> generation,
+                new EditorHistoryPort(() -> Optional.of(resolver), () -> generation));
     }
 
     private long generationOf(final String identity) {

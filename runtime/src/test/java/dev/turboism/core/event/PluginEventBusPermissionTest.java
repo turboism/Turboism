@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.event.EventBus;
@@ -103,10 +102,7 @@ class PluginEventBusPermissionTest {
     private PluginEventBus eventBus(dev.turboism.permissions.PermissionChecker permissionChecker) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-                SidecarDispatcher.noop(),
-                events::add);
+                new DefaultWorkBudgetPolicy(), new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK), events::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         return new PluginEventBus(broker, broker.pluginOwner(PLUGIN_ID), permissionChecker);
     }

@@ -31,6 +31,14 @@ containment = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(containment)
 
 
+# POSIX ownership, mode-bit and O_DIRECTORY fixtures have no Windows analogue;
+# skip them there instead of asserting Linux-only kernel semantics. Every one
+# of these tests still runs on Linux exactly as before.
+POSIX_ONLY = unittest.skipUnless(
+    hasattr(os, "getuid") and hasattr(os, "O_DIRECTORY"),
+    "BLOCKED: POSIX ownership/mode/descriptor fixture requires POSIX")
+
+
 IDENTITY = {
     "jobId": "job-containment-test",
     "attemptId": "attempt-containment-test",
@@ -53,6 +61,7 @@ class _FakeProcess:
 
 
 class PureContainmentTests(unittest.TestCase):
+    @POSIX_ONLY
     def test_private_directory_rejects_symlinks_and_public_mode(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -100,6 +109,7 @@ class PureContainmentTests(unittest.TestCase):
         with self.assertRaises(containment.ContainmentError):
             containment._validate_cgroup_path(f"/user.slice/../{unit}", unit)
 
+    @POSIX_ONLY
     def test_finish_fake_events_is_safe_without_real_kernel_access(self) -> None:
         with tempfile.TemporaryDirectory(prefix="containment-fake-") as raw:
             root = Path(raw)
@@ -151,6 +161,7 @@ class PureContainmentTests(unittest.TestCase):
                     except OSError:
                         pass
 
+    @POSIX_ONLY
     def test_finish_fake_malformed_events_is_unknown(self) -> None:
         with tempfile.TemporaryDirectory(prefix="containment-fake-unknown-") as raw:
             root = Path(raw)

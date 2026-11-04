@@ -1,7 +1,7 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-import dev.turboism.ui.palette.LogPaletteHostStructure;
+import dev.turboism.ui.host.LogPaletteHostStructure;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
 import java.awt.BorderLayout;
 import java.awt.Color;

@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.modeling;
 
+import dev.turboism.mapping.selector.ModelingSelectionSelectorContract;
+import dev.turboism.mapping.verification.SelectorAdmission;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -18,7 +20,7 @@ public record ModelingToolHostProfile(
 
     /** Derives the exact tool-setter owner and descriptor from independently admitted selectors. */
     public static ModelingToolHostProfile from(VerifiedMemberResolver resolver) {
-        if (!ModelingSelectionSelectorContract.authorizes(resolver))
+        if (!SelectorAdmission.authorizesModelingSelection(resolver))
             throw new IllegalStateException("modeling selectors are unavailable");
         final var selector = resolver.verifiedSelector(ModelingSelectionSelectorContract.SETUP_TOOL);
         if (selector.kind() != StaticSelector.Kind.METHOD)

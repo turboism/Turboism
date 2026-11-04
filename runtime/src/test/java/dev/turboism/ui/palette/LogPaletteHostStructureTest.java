@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import dev.turboism.ui.host.LogPaletteHostStructure;
 import java.awt.BorderLayout;
 import java.awt.Container;
 import java.util.Set;

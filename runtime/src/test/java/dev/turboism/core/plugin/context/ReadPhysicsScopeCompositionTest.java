@@ -22,7 +22,6 @@ import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
@@ -872,7 +871,7 @@ class ReadPhysicsScopeCompositionTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static DiagnosticReport diagnostics() {

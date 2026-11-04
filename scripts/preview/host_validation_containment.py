@@ -1,18 +1,28 @@
-"""Private systemd/cgroup containment helper for host-validation attempts.
+"""Private kernel containment helper for host-validation attempts.
 
-This module deliberately exposes one small backend seam, ``start``.  It is not
-an alternate queue or a general shell runner.  A started attempt enters a
-random, user-owned systemd scope, waits for the parent to bind the scope's
-actual cgroup, and only then execs the requested argv.  Cleanup is safe only
-when the original cgroup reports ``populated=0`` or the original cgroup has
-been destroyed while its held identity remains verifiable.
+Two backends share one seam, ``start``.  It is not an alternate queue or a
+general shell runner.
+
+Linux (default): a started attempt enters a random, user-owned systemd scope,
+waits for the parent to bind the scope's actual cgroup, and only then execs the
+requested argv.  Cleanup is safe only when the original cgroup reports
+``populated=0`` or the original cgroup has been destroyed while its held
+identity remains verifiable.
+
+Native Windows x64: a started attempt enters an anonymous kill-on-close Job
+Object as soon as it is created, so no descendant - including one that leaves
+the console process group - survives.  Cleanup is safe only when the Job
+Object reports zero active processes after termination.  The proof keeps the
+identity fields ``hvq.runner`` and ``host_validation_evidence`` consume
+(``schemaVersion``, ``cleanup``, job/attempt/run IDs, ``entryIdentity``) and
+adds ``backend: "windows-job"`` plus ``exitCode``/``timedOut``.  The cgroup-only
+read-back validator stays Linux-specific by design.
 """
 
 from __future__ import annotations
 
 import argparse
 import errno
-import fcntl
 import hashlib
 import json
 import os
@@ -29,6 +39,11 @@ import time
 from datetime import datetime, timezone
 from typing import IO, Any, Mapping, Sequence
 
+try:  # POSIX descriptor helper; absent on Windows.
+    import fcntl
+except ImportError:  # pragma: no cover - platform dependent
+    fcntl = None  # type: ignore[assignment]
+
 SCHEMA_VERSION = 1
 _SCOPE_PREFIX = "turboism-queue-"
 _SCOPE_RE = re.compile(r"^turboism-queue-[0-9a-f]{32}\.scope$")
@@ -36,6 +51,27 @@ _REQUIRED_IDENTITY = ("jobId", "attemptId", "runId", "preparedDigest")
 _CGROUP_ROOT = Path("/sys/fs/cgroup")
 _HANDSHAKE_TIMEOUT_SECONDS = 10.0
 _MAX_HANDSHAKE_BYTES = 64 * 1024
+
+# Optional POSIX open flags: Windows has no O_NOFOLLOW/O_DIRECTORY/O_CLOEXEC.
+_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+
+# Windows Job Object constants and process access rights.
+_WINDOWS_BACKEND = "windows-job"
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+_JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION = 1
+_PROCESS_TERMINATE = 0x0001
+_PROCESS_SET_QUOTA = 0x0100
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_WINDOWS_BOOT_ID = "windows"
+
+
+def _current_uid() -> int:
+    """Effective uid on POSIX; Windows has no numeric owner, so report 0."""
+    getuid = getattr(os, "getuid", None)
+    return int(getuid()) if getuid is not None else 0
 
 
 class ContainmentError(RuntimeError):
@@ -325,6 +361,449 @@ class ContainedProcess:
         return {"kind": "same", "populated": populated, "events": text}
 
 
+class _WindowsJobBackend:
+    """ctypes surface for kill-on-close Job Objects; instantiated on Windows only."""
+
+    def __init__(self) -> None:
+        import ctypes
+        import ctypes.wintypes as wintypes
+
+        self.ctypes = ctypes
+        self.wintypes = wintypes
+
+        class BasicLimitInformation(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("LimitFlags", wintypes.DWORD),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD),
+            ]
+
+        class IoCounters(ctypes.Structure):
+            _fields_ = [
+                ("ReadOperationCount", ctypes.c_uint64),
+                ("WriteOperationCount", ctypes.c_uint64),
+                ("OtherOperationCount", ctypes.c_uint64),
+                ("ReadTransferCount", ctypes.c_uint64),
+                ("WriteTransferCount", ctypes.c_uint64),
+                ("OtherTransferCount", ctypes.c_uint64),
+            ]
+
+        class ExtendedLimitInformation(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", BasicLimitInformation),
+                ("IoInfo", IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        class BasicAccountingInformation(ctypes.Structure):
+            _fields_ = [
+                ("TotalUserTime", ctypes.c_int64),
+                ("TotalKernelTime", ctypes.c_int64),
+                ("ThisPeriodTotalUserTime", ctypes.c_int64),
+                ("ThisPeriodTotalKernelTime", ctypes.c_int64),
+                ("TotalPageFaultCount", wintypes.DWORD),
+                ("TotalProcesses", wintypes.DWORD),
+                ("ActiveProcesses", wintypes.DWORD),
+                ("TotalTerminatedProcesses", wintypes.DWORD),
+            ]
+
+        self.ExtendedLimitInformation = ExtendedLimitInformation
+        self.BasicAccountingInformation = BasicAccountingInformation
+
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+        kernel32.SetInformationJobObject.restype = wintypes.BOOL
+        kernel32.SetInformationJobObject.argtypes = [
+            wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD]
+        kernel32.QueryInformationJobObject.restype = wintypes.BOOL
+        kernel32.QueryInformationJobObject.argtypes = [
+            wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD, wintypes.LPVOID]
+        kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel32.TerminateJobObject.restype = wintypes.BOOL
+        kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.GetProcessTimes.restype = wintypes.BOOL
+        kernel32.GetProcessTimes.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+        ]
+        self.kernel32 = kernel32
+
+    def create_job(self) -> int:
+        """Create an anonymous job that kills every member when the handle closes."""
+        ctypes = self.ctypes
+        handle = self.kernel32.CreateJobObjectW(None, None)
+        if not handle:
+            raise ctypes.WinError()
+        info = self.ExtendedLimitInformation()
+        info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        try:
+            if not self.kernel32.SetInformationJobObject(
+                    handle, _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                    ctypes.byref(info), ctypes.sizeof(info)):
+                raise ctypes.WinError()
+            return int(handle)
+        except BaseException:
+            self.kernel32.CloseHandle(handle)
+            raise
+
+    def assign(self, job: int, pid: int) -> None:
+        ctypes = self.ctypes
+        process = self.kernel32.OpenProcess(
+            _PROCESS_SET_QUOTA | _PROCESS_TERMINATE | _PROCESS_QUERY_LIMITED_INFORMATION,
+            False, int(pid))
+        if not process:
+            raise ctypes.WinError()
+        try:
+            if not self.kernel32.AssignProcessToJobObject(job, process):
+                raise ctypes.WinError()
+        finally:
+            self.kernel32.CloseHandle(process)
+
+    def active_processes(self, job: int) -> int:
+        ctypes = self.ctypes
+        info = self.BasicAccountingInformation()
+        if not self.kernel32.QueryInformationJobObject(
+                job, _JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION,
+                ctypes.byref(info), ctypes.sizeof(info), None):
+            raise ctypes.WinError()
+        return int(info.ActiveProcesses)
+
+    def terminate(self, job: int, exit_code: int = 1) -> None:
+        if not self.kernel32.TerminateJobObject(job, exit_code):
+            raise self.ctypes.WinError()
+
+    def close(self, job: int) -> None:
+        self.kernel32.CloseHandle(job)
+
+    def process_creation_ticks(self, pid: int) -> int | None:
+        """Kernel creation time in FILETIME ticks: the Windows PID-reuse fence."""
+        ctypes = self.ctypes
+        wintypes = self.wintypes
+        handle = self.kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            return None
+        try:
+            created, exited = wintypes.FILETIME(), wintypes.FILETIME()
+            kernel_time, user_time = wintypes.FILETIME(), wintypes.FILETIME()
+            if not self.kernel32.GetProcessTimes(
+                    handle, ctypes.byref(created), ctypes.byref(exited),
+                    ctypes.byref(kernel_time), ctypes.byref(user_time)):
+                return None
+            return (int(created.dwHighDateTime) << 32) | int(created.dwLowDateTime)
+        finally:
+            self.kernel32.CloseHandle(handle)
+
+
+_WINDOWS_JOB_BACKEND_INSTANCE: _WindowsJobBackend | None = None
+
+
+def _windows_job_backend() -> _WindowsJobBackend:
+    global _WINDOWS_JOB_BACKEND_INSTANCE
+    if _WINDOWS_JOB_BACKEND_INSTANCE is None:
+        _WINDOWS_JOB_BACKEND_INSTANCE = _WindowsJobBackend()
+    return _WINDOWS_JOB_BACKEND_INSTANCE
+
+
+def _windows_containment_supported() -> bool:
+    """True only for a real native Windows host, never a synthetic fixture."""
+    return os.name == "nt" and _CGROUP_ROOT == Path("/sys/fs/cgroup")
+
+
+class WindowsJobContainedProcess:
+    """A process tree bound to a kill-on-close Windows Job Object.
+
+    ``finish`` terminates the job and reports the kernel's own active-process
+    count; it never infers cleanup from a PID list.
+    """
+
+    def __init__(
+        self,
+        *,
+        process: subprocess.Popen[bytes],
+        metadata: dict[str, Any],
+        containment_path: Path,
+        job_handle: int,
+        backend: _WindowsJobBackend,
+    ) -> None:
+        self.process = process
+        self.metadata = metadata
+        self._containment_path = containment_path
+        self._job_handle = job_handle
+        self._backend = backend
+        self._finished = False
+        self._closed = False
+        self._finish_result: dict[str, Any] | None = None
+
+    @property
+    def entry_identity(self) -> dict[str, Any]:
+        """The launched payload's identity, captured when it joined the job."""
+        return dict(self.metadata["entryIdentity"])
+
+    def finish(self, timeout_seconds: float = 30.0) -> dict[str, Any]:
+        if self._finish_result is not None:
+            return dict(self._finish_result)
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        if self._closed:
+            raise ContainmentError("containment handles are already closed")
+
+        started_at = _utc_now()
+        deadline = time.monotonic() + float(timeout_seconds)
+        errors: list[str] = []
+        process_timed_out = False
+        observations: list[dict[str, Any]] = []
+
+        # Give the launched payload its own chance to exit first; finish is
+        # normally called after the Runner has already returned.
+        while self.process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        if self.process.poll() is None:
+            process_timed_out = True
+
+        terminated = False
+        try:
+            self._backend.terminate(self._job_handle, 1)
+            terminated = True
+        except OSError as error:
+            errors.append(f"TerminateJobObject failed: {error}")
+
+        try:
+            process_returncode = self.process.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            process_timed_out = True
+            process_returncode = self.process.poll()
+
+        active: int | None = None
+        population_deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                active = self._backend.active_processes(self._job_handle)
+            except OSError as error:
+                message = f"QueryInformationJobObject failed: {error}"
+                if message not in errors:
+                    errors.append(message)
+                active = None
+                break
+            observations.append({"activeProcesses": active, "at": _utc_now()})
+            if active == 0 or time.monotonic() >= population_deadline:
+                break
+            time.sleep(0.05)
+        if isinstance(active, int) and active != 0:
+            errors.append(f"job object still hosts {active} process(es)")
+
+        empty = active == 0
+        final_reading = (
+            {"kind": "same", "populated": 0}
+            if empty
+            else {"kind": "unknown", "populated": None}
+        )
+        kernel_proof = {
+            "backend": _WINDOWS_BACKEND,
+            "jobObjectName": self.metadata.get("jobObjectName"),
+            "originalJobBound": True,
+            "jobObjectTerminated": terminated,
+            "jobActiveProcesses": active,
+            "bootId": self.metadata["bootId"],
+            "cgroupPath": None,
+            "cgroupDevice": None,
+            "cgroupInode": None,
+            "observations": observations[-8:],
+            "finalReading": final_reading,
+            "cleanupMethod": "job-terminate" if terminated else "job-empty",
+            "processReturncode": process_returncode,
+            "processTimedOut": process_timed_out,
+            "errors": errors,
+        }
+        safe = (
+            not errors
+            and not process_timed_out
+            and process_returncode is not None
+            and empty
+        )
+        result = {
+            "schemaVersion": SCHEMA_VERSION,
+            "backend": _WINDOWS_BACKEND,
+            "jobId": self.metadata["jobId"],
+            "attemptId": self.metadata["attemptId"],
+            "runId": self.metadata["runId"],
+            "preparedDigest": self.metadata["preparedDigest"],
+            "identity": dict(self.metadata["identity"]),
+            "cleanup": "safe" if safe else "unknown",
+            "scopeUnit": self.metadata["scopeUnit"],
+            "bootId": self.metadata["bootId"],
+            "cgroupPath": None,
+            "cgroupDevice": None,
+            "cgroupInode": None,
+            "entryIdentity": self.entry_identity,
+            "kernelProof": kernel_proof,
+            "exitCode": process_returncode,
+            "timedOut": process_timed_out,
+            "startedAt": started_at,
+            "finishedAt": _utc_now(),
+        }
+        self.metadata.update(
+            {
+                "state": "FINISHED",
+                "cleanup": result["cleanup"],
+                "kernelProof": kernel_proof,
+                "exitCode": process_returncode,
+                "timedOut": process_timed_out,
+                "finishedAt": result["finishedAt"],
+            }
+        )
+        try:
+            _atomic_write_json(self._containment_path, self.metadata)
+        except OSError as error:
+            result["cleanup"] = "unknown"
+            result["kernelProof"] = dict(kernel_proof, evidenceWriteError=str(error))
+            self.metadata["cleanup"] = "unknown"
+            self.metadata["kernelProof"] = result["kernelProof"]
+            try:
+                _atomic_write_json(self._containment_path, self.metadata)
+            except OSError:
+                pass
+        self._finished = True
+        self._finish_result = result
+        return dict(result)
+
+    def close(self) -> None:
+        """Close the job handle; kill-on-close is the last-resort safety net."""
+        if self._closed:
+            return
+        self._closed = True
+        job_handle, self._job_handle = self._job_handle, None
+        if job_handle:
+            try:
+                self._backend.close(job_handle)
+            except OSError:
+                pass
+
+
+def _start_windows_job(
+    command: list[str],
+    *,
+    directory: Path,
+    environment: dict[str, str],
+    admission_fd: int,
+    identity: dict[str, Any],
+    output: IO[Any],
+) -> WindowsJobContainedProcess:
+    """Start ``command`` inside an anonymous kill-on-close Job Object."""
+    work_dir = _prepare_directory(Path(directory))
+    containment_path = work_dir / "containment.json"
+    if containment_path.exists():
+        raise ContainmentStartError(f"containment record already exists: {containment_path}")
+
+    backend = _windows_job_backend()
+    token = secrets.token_hex(16)
+    metadata: dict[str, Any] = {
+        "schemaVersion": SCHEMA_VERSION,
+        "backend": _WINDOWS_BACKEND,
+        "identity": dict(identity),
+        "jobId": identity["jobId"],
+        "attemptId": identity["attemptId"],
+        "runId": identity["runId"],
+        "preparedDigest": identity["preparedDigest"],
+        "cleanup": "unknown",
+        "state": "STARTING",
+        "scopeUnit": f"{_SCOPE_PREFIX}job-{token}",
+        "jobObjectName": None,
+        "scopePath": None,
+        "cgroupPath": None,
+        "cgroupDevice": None,
+        "cgroupInode": None,
+        "bootId": _WINDOWS_BOOT_ID,
+        "entryIdentity": None,
+        "directory": str(work_dir),
+        "commandSha256": _sha256_json(command),
+        "environmentKeys": sorted(environment),
+        "admissionFdInherited": False,
+        "createdAt": _utc_now(),
+    }
+    _atomic_write_json(containment_path, metadata)
+
+    job_handle: int | None = None
+    process: subprocess.Popen[bytes] | None = None
+    try:
+        job_handle = backend.create_job()
+        # Windows job creation precedes the payload, so a child can never be
+        # observed outside the job; a handle-wide kill then covers descendants.
+        process = subprocess.Popen(
+            command,
+            cwd=str(work_dir),
+            env=dict(environment),
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            close_fds=True,
+        )
+        backend.assign(job_handle, process.pid)
+        entry_identity = {
+            "pid": int(process.pid),
+            "startTicks": backend.process_creation_ticks(process.pid),
+            "bootId": _WINDOWS_BOOT_ID,
+            "uid": _current_uid(),
+            "gid": _current_uid(),
+        }
+        if entry_identity["startTicks"] is None:
+            raise ContainmentStartError(
+                "entry process identity could not be read after job assignment",
+                metadata=metadata, process=process)
+        metadata.update(
+            {
+                "state": "BOUND",
+                "jobObjectName": f"anonymous-job-{token}",
+                "entryIdentity": entry_identity,
+                "kernelReadings": {"initial": {"activeProcesses": backend.active_processes(job_handle)}},
+                "boundAt": _utc_now(),
+            }
+        )
+        _atomic_write_json(containment_path, metadata)
+        return WindowsJobContainedProcess(
+            process=process,
+            metadata=metadata,
+            containment_path=containment_path,
+            job_handle=job_handle,
+            backend=backend,
+        )
+    except ContainmentStartError as error:
+        _mark_start_failure(containment_path, metadata, str(error))
+        if job_handle:
+            try:
+                backend.terminate(job_handle, 1)
+            except OSError:
+                pass
+            backend.close(job_handle)
+        raise
+    except Exception as error:
+        _mark_start_failure(containment_path, metadata, str(error))
+        if job_handle:
+            try:
+                backend.terminate(job_handle, 1)
+            except OSError:
+                pass
+            backend.close(job_handle)
+        raise ContainmentStartError(str(error), metadata=metadata, process=process) from error
+
+
 def start(
     command: list[str],
     *,
@@ -333,13 +812,17 @@ def start(
     admission_fd: int,
     identity: dict[str, Any],
     output: IO[Any],
-) -> ContainedProcess:
-    """Start ``command`` behind a bound, delegated systemd user scope.
+) -> ContainedProcess | WindowsJobContainedProcess:
+    """Start ``command`` inside the strongest containment this host provides.
 
-    The parent writes ``containment.json`` only after SO_PEERCRED and the
-    child's actual cgroup have been checked.  The child waits for that ACK
+    On Linux the parent writes ``containment.json`` only after SO_PEERCRED and
+    the child's actual cgroup have been checked.  The child waits for that ACK
     before ``execvpe``; the admission FD is passed through systemd-run and is
     checked in the child before the ACK is accepted.
+
+    On native Windows the payload is placed in an anonymous kill-on-close Job
+    Object before it can spawn, and the parent records ``backend:
+    "windows-job"`` in the same ``containment.json`` schema.
     """
     _validate_command(command)
     _validate_environment(environment)
@@ -347,6 +830,16 @@ def start(
     _validate_fd(admission_fd, "admission_fd")
     if not hasattr(output, "fileno"):
         raise TypeError("output must be a file object accepted by subprocess.Popen")
+
+    if _windows_containment_supported():
+        return _start_windows_job(
+            command,
+            directory=Path(directory),
+            environment=environment,
+            admission_fd=admission_fd,
+            identity=identity,
+            output=output,
+        )
 
     work_dir = _prepare_directory(Path(directory))
     containment_path = work_dir / "containment.json"
@@ -558,7 +1051,7 @@ def _enter_main(request_path: Path) -> int:
             "token": request["token"],
             "scopeUnit": request["scopeUnit"],
             "pid": os.getpid(),
-            "uid": os.getuid(),
+            "uid": _current_uid(),
             "startTicks": _read_proc_start_ticks(os.getpid()),
             "bootId": _read_boot_id(),
             "admissionFdOpen": admission_fd_open,
@@ -626,10 +1119,12 @@ def _prepare_directory(directory: Path) -> Path:
     info = resolved.stat()
     if not stat.S_ISDIR(info.st_mode):
         raise ValueError(f"containment directory is not a directory: {directory}")
-    if info.st_uid != os.getuid():
-        raise PermissionError(f"containment directory is not owned by current uid: {directory}")
-    if info.st_mode & 0o077:
-        raise PermissionError(f"containment directory must be private to current uid: {directory}")
+    if hasattr(os, "getuid"):
+        if info.st_uid != _current_uid():
+            raise PermissionError(f"containment directory is not owned by current uid: {directory}")
+        if info.st_mode & 0o077:
+            raise PermissionError(f"containment directory must be private to current uid: {directory}")
+    # Windows takes directory privacy from ACLs, not from POSIX mode bits.
     return resolved
 
 
@@ -669,15 +1164,15 @@ def _validate_cgroup_path(cgroup_path: str, unit: str) -> None:
 
 
 def _open_cgroup_handles(cgroup_dir: Path) -> tuple[int, int, int]:
-    no_follow = getattr(os, "O_NOFOLLOW", 0)
+    no_follow = _NOFOLLOW
     dir_fd = events_fd = kill_fd = -1
     try:
-        dir_fd = os.open(str(cgroup_dir), os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | no_follow)
+        dir_fd = os.open(str(cgroup_dir), os.O_RDONLY | _DIRECTORY | _CLOEXEC | no_follow)
         events_fd = os.open(
-            "cgroup.events", os.O_RDONLY | os.O_CLOEXEC | no_follow, dir_fd=dir_fd
+            "cgroup.events", os.O_RDONLY | _CLOEXEC | no_follow, dir_fd=dir_fd
         )
         kill_fd = os.open(
-            "cgroup.kill", os.O_WRONLY | os.O_CLOEXEC | no_follow, dir_fd=dir_fd
+            "cgroup.kill", os.O_WRONLY | _CLOEXEC | no_follow, dir_fd=dir_fd
         )
         return dir_fd, events_fd, kill_fd
     except OSError:
@@ -738,7 +1233,7 @@ def _validate_handshake(
     peer_uid: int,
     boot_id: str,
 ) -> None:
-    if peer_uid != os.getuid():
+    if peer_uid != _current_uid():
         raise ContainmentError("containment peer is not owned by the current UID")
     if payload.get("schemaVersion") != SCHEMA_VERSION:
         raise ContainmentError("containment handshake schema mismatch")
@@ -809,7 +1304,7 @@ def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
     temporary = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(6)}.tmp")
     fd = os.open(
         str(temporary),
-        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | _CLOEXEC,
         0o600,
     )
     try:
@@ -820,11 +1315,12 @@ def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
-        directory_fd = os.open(str(path.parent), os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        if _DIRECTORY:
+            directory_fd = os.open(str(path.parent), os.O_RDONLY | _DIRECTORY | _CLOEXEC)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
     finally:
         if fd >= 0:
             os.close(fd)

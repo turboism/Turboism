@@ -7,7 +7,7 @@ service account or stored secret.
 
 ## Checks
 
-- Every ten minutes (UTC minutes 4, 14, 24, 34, 44, 54), and after monitor changes
+- Once daily (UTC 06:24), and after monitor changes
   reach `main`. Actions also offers **Run workflow** for a manual check.
 - GET `/health` and `/v1/releases/{stable,beta,nightly}.json` in parallel. No
   software downloads, synchronization POSTs, counter changes or deployments.

@@ -20,7 +20,7 @@ src="validation/model-update-skip-host-probe/src"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
-javac --release 17 -cp "$sdk_jar" -d "$out" \
+javac --release 17 -encoding UTF-8 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/modelupdate/ModelUpdateSkipHostProbePlugin.java" \
   "$src/dev/turboism/validation/modelupdate/CanvasWheelWorkload.java" \
   "$src/dev/turboism/validation/modelupdate/HumanTrace.java" \

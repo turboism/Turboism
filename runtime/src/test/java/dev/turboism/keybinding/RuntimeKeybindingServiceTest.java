@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.internal.core.KeybindingService;
 import dev.turboism.permissions.PermissionChecker;
@@ -62,7 +61,6 @@ class RuntimeKeybindingServiceTest {
             scheduler = new RuntimeScheduler(
                     new DefaultWorkBudgetPolicy(),
                     new PluginWorkExecutorRegistry(1, 2, ignored -> {}, CLOCK),
-                    SidecarDispatcher.noop(),
                     ignored -> {});
             registry = new RuntimeActionRegistry(scheduler, ignored -> {}, PLUGIN_ID, PermissionChecker.allowAll());
             router = new RuntimeEditorUiActionRouter();

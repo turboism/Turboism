@@ -11,9 +11,8 @@ Requires an idle host-validation queue (the script waits for it).
 Dependencies (compile/runtime only, resolved from Gradle cache or env
 overrides `TLI_ASM_JAR`/`TLI_KOTLIN_STDLIB`): ASM 9.7.1 (sha-pinned) for
 `TliWeave`, kotlin-stdlib for the own fixture's Intrinsics preamble.
-Official-host probing is static-only via
-`validation/archive/triangulation-weave-ab/OfficialShapeProbe` — no official class is
-executed. See DESIGN.md for the bytecode-verified facts, invariants,
+Official-host probing is static-only, using the (since deleted) one-off
+`triangulation-weave-ab/OfficialShapeProbe` — no official class is executed. See DESIGN.md for the bytecode-verified facts, invariants,
 weave shape, integrated A/B status, and the historical host plan.
 
 ## Production continuation (T029-TLPROD)

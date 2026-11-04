@@ -14,7 +14,6 @@ import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
@@ -393,7 +392,7 @@ class EditorCommandServiceLifecycleCompositionTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4, SidecarDispatcher.noop());
+        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {

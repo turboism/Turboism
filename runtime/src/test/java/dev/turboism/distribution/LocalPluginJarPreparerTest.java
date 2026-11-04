@@ -117,13 +117,11 @@ class LocalPluginJarPreparerTest {
     }
 
     /**
-     * The inner contract-artifact surface keeps the malformed-content verdict:
-     * a declared, correctly pinned artifact whose bytes are shorter than an
-     * EOCD record rejects as {@code PLUGIN_CONTRACT_ARTIFACT_INVALID}, proving
-     * the outer size-gate restoration does not leak into the inner codes.
+     * Embedded contract artifacts are unsupported: even a truncated one rejects
+     * with the fail-closed verdict at entry scan, before any content rules apply.
      */
     @Test
-    void rejectsTruncatedDeclaredContractArtifactAsInvalid() throws Exception {
+    void rejectsTruncatedDeclaredContractArtifactAsRemoved() throws Exception {
         final byte[] artifact = new byte[21];
         final Path source = root.resolve("truncated-contract.jar");
         Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
@@ -131,17 +129,17 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     /**
-     * The F2 regression: a schema-v5 plugin embedding a declared, correctly pinned,
-     * class-only contract artifact must be accepted by managed direct installation,
-     * exactly as drop-in discovery already accepts it.
+     * A schema-v5 plugin embedding a declared contract artifact is no longer
+     * admissible: the embedded contract machinery never shipped and admission
+     * fails closed instead of binding any artifact.
      */
     @Test
-    void stagesSchemaV5PluginWithDeclaredContractArtifact() throws Exception {
+    void rejectsSchemaV5PluginWithDeclaredContractArtifact() throws Exception {
         final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(com.acme.events.GreetingPayload payload)
@@ -153,23 +151,21 @@ class LocalPluginJarPreparerTest {
         final Path source = root.resolve("contracted.jar");
         Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
-        final LocalPluginJarPreparer.Prepared result = assertInstanceOf(
-                LocalPluginJarPreparer.Prepared.class,
+        final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
+                LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
 
-        assertEquals("dev.example.provider", result.value().descriptor().id());
-        assertTrue(Files.isRegularFile(result.value().stagedJar()));
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
+        assertFalse(hasJar(root.resolve("staging")));
     }
 
     /**
-     * Amendment A-1.R ordering evidence: the declared-contract count is bounded
-     * before any artifact bytes are materialized. 33 contracts all pin a
-     * deliberately wrong sha256 — if the count check ran after per-artifact
-     * verification, HASH_MISMATCH would fire first; TOO_LARGE proves the
-     * declaration bound precedes reads.
+     * Any embedded contract artifact rejects at entry scan, so the declared-count
+     * bound and per-artifact verification no longer apply: the first scanned
+     * contract entry fails admission with the fail-closed verdict.
      */
     @Test
-    void rejectsOversizedContractDeclarationCountBeforeReadingArtifacts() throws Exception {
+    void rejectsOversizedContractDeclarationCountAsRemoved() throws Exception {
         final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
@@ -214,7 +210,7 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
@@ -231,24 +227,17 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_UNDECLARED", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsNestedJarOutsideContractsDirectory() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
-                package com.acme.events;
-                public record Greeting(String payload)
-                    implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """));
         final Path source = root.resolve("nested-outside.jar");
         Files.write(
                 source,
                 v5ContractPluginJar(
-                        "dev.example.provider", artifact, sha256Hex(artifact), Map.of("lib/helper.jar", new byte[] {
-                            1, 2, 3
-                        })));
+                        "dev.example.provider", null, null, Map.of("lib/helper.jar", new byte[] {1, 2, 3})));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
@@ -270,13 +259,14 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     /**
      * A contract event type whose payload references a class that is neither part of
-     * the artifact nor reachable through the SDK/JDK closure must fail admission.
+     * the artifact nor reachable through the SDK/JDK closure used to fail admission;
+     * embedded artifacts are now rejected outright before any payload inspection.
      */
     @Test
     void rejectsContractArtifactViolatingPayloadClosure() throws Exception {
@@ -295,7 +285,7 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
@@ -315,7 +305,7 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
@@ -335,14 +325,13 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsOversizedContractArtifact() throws Exception {
-        // The 8 MiB bound applies to the embedded artifact JAR bytes, so the padding
-        // must be incompressible to inflate the archive past the limit.
+        // The embedded artifact bytes are rejected before any size rule applies.
         final byte[] padding = new byte[9 * 1024 * 1024];
         new java.util.Random(7).nextBytes(padding);
         final byte[] artifact =
@@ -357,14 +346,13 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     /**
-     * A loose plugin class shadowing a contract member that is not the declared
-     * event type must still fail admission — the payload companion is not an
-     * eventType, so the public-event-API embedding rule does not fire first.
+     * A loose plugin class shadowing a contract member used to fail admission;
+     * embedded artifacts now reject before any collision analysis.
      */
     @Test
     void rejectsLoosePluginClassShadowingContractMember() throws Exception {
@@ -388,14 +376,14 @@ class LocalPluginJarPreparerTest {
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
                 LocalPluginJarPreparer.PreparationRejected.class,
                 new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-        assertEquals("PLUGIN_CONTRACT_ARTIFACT_CLASS_COLLISION", rejected.code());
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     /**
-     * Admission must never define, initialize, or execute contract classes. The
-     * fixture arms a static initializer that flips a system property; a passing
-     * prepare with the flag untouched is the targeted no-execution evidence.
+     * Admission must never define, initialize, or execute contract classes — and it
+     * no longer inspects embedded artifact bytes at all, so the armed initializer
+     * stays untouched while the JAR rejects fail-closed.
      */
     @Test
     void contractPreflightDoesNotInitializeContractClasses() throws Exception {
@@ -419,10 +407,9 @@ class LocalPluginJarPreparerTest {
             Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
             assertInstanceOf(
-                    LocalPluginJarPreparer.Prepared.class,
+                    LocalPluginJarPreparer.PreparationRejected.class,
                     new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
-            assertNull(
-                    System.getProperty(marker), "admission must inspect contract bytes without initializing classes");
+            assertNull(System.getProperty(marker), "admission must never initialize embedded contract classes");
         } finally {
             System.clearProperty(marker);
         }

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -52,7 +53,7 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
                 || !background.getType().getName().equals("kotlin.Lazy")) {
             throw new IllegalArgumentException("Off-canvas lazy color contract changed");
         }
-        background.setAccessible(true);
+        ReflectAccess.open(background);
         final Class<?> app = type("com.live2d.cubism.CEAppCtrl", loader, source);
         final Class<?> pack = type("com.live2d.cubism.pack.CECompletePack", loader, source);
         final Class<?> view = type("com.live2d.cubism.view.context.CEViewContext", loader, source);
@@ -146,10 +147,9 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
         if (cached.getType() != Object.class || !Modifier.isVolatile(cached.getModifiers())) {
             throw new IllegalArgumentException("Off-canvas color Lazy storage contract changed");
         }
-        lock.setAccessible(true);
-        cached.setAccessible(true);
-        final Method getValue = type.getMethod("getValue");
-        getValue.setAccessible(true);
+        ReflectAccess.open(lock);
+        ReflectAccess.open(cached);
+        final Method getValue = ReflectAccess.open(type.getMethod("getValue"));
         // Use Kotlin's own lock and finish normal initialization before replacing its volatile value.
         // This avoids racing a first scene construction and leaves its initializer lifecycle intact.
         synchronized (lock.get(lazy)) {
