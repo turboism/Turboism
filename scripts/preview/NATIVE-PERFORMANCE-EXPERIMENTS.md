@@ -2040,10 +2040,23 @@ every deformer transform leaves a hard ceiling of roughly 3–5 % wall time.
 The A/B FPS runs confirm that the effect is below machine noise. One pair had
 the skip run faster (`wheel` 6.39 → 11.90 FPS, `param` 4.62 → 8.80 FPS), the
 next pair had the count run faster (`wheel` 12.74 → 8.49 FPS, `param` 8.64 →
-6.30 FPS). EDT allocation dropped consistently with skipping, but wall time did
-not. The conclusion is to leave `transformDeformer_testImpl` alone: the 94 %
-redundancy is cheap work, and a production hook would add snapshot state and
-admission risk for no demonstrable frame-time gain.
+6.30 FPS). The conclusion is to leave `transformDeformer_testImpl` alone: the
+94 % redundancy is cheap work, and a production hook would add snapshot state
+and admission risk for no demonstrable frame-time gain.
+
+The apparent EDT allocation drop in the skip runs is not a memory saving from
+the gate. JFR allocation samples attribute **no allocation** to
+`transformDeformer_testImpl` (or to the ArtMesh deform path) in either phase;
+the transform is allocation-free. `edtAllocatedBytes` is cumulative churn, the
+runs processed different event/frame counts, and the diagnostic agent itself
+allocates `Pending` snapshots and array clones only on non-skipped calls.
+`heapUsedEnd` and process working set showed no consistent reduction: the
+`deform` heap was 3.50 GB in the count run versus 3.32 GB in the skip run, and
+one pair's median working set moved in the opposite direction. The real
+allocation churn is in the render path: `GMatrix44.<init>` through
+`GTransform.getLocalToParentMatrix`/`getLocalToWorldMatrix` (~28 % of sampled
+allocation weight in `deform`), `Arrays.copyOf` (~17 %), `ArrayList` iterators,
+`Float.valueOf` and morph-target lookup.
 
 If content-equality reuse is revisited, the higher-leverage site is the
 ArtMesh deform call (`CArtMeshForm.transform` / the incremental bridge's
