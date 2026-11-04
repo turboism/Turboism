@@ -22,6 +22,7 @@ public final class PerformanceSettingsConfig {
         MESH_SETUP_ELISION("meshSetupElision", true, "false"),
         INPUT_PATH_ELISION("inputPathElision", true, "false"),
         MESA_GL_THREAD("mesaGlThread", true, "false"),
+        ASYNC_READBACK("asyncReadback", true, "false"),
         MESH_INTERPOLATION("meshInterpolation", true, "false"),
         SHADER_UNIFORM("shaderUniform", true, "false"),
         MATRIX_SCRATCH("matrixScratch", true, "false"),

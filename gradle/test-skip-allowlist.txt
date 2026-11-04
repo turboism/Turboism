@@ -43,6 +43,7 @@ dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskBridgeArtifactTest.* #
 dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
+dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackArtifactTest.* # requires TURBOISM_UNIFORM_HOST_JAR (bundled JOGL) exact-host evidence.
 dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:warpAltMirrorArtifactTest lane owns this evidence.
 dev.turboism.mapping.verification.ParameterLockReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:parameterLockArtifactTest lane owns this evidence.
 dev.turboism.tests.mapping.ExactArtifactRecordVerificationTest.everyPackagedProductionRecordVerifiesAgainstTheExactArtifact() # requires TURBOISM_EXACT_ARTIFACTS_DIR with the reviewed exact-artifact jars.

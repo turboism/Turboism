@@ -11,6 +11,7 @@ performance 65 toggle extended-interpolation-incremental-setup
 performance 66 toggle reinit-pair-elision
 performance 67 toggle model-instance-coalesce
 performance 68 toggle inspector-property-bypass
+performance 69 toggle async-readback
 performance 70 note performance.section.model
 performance 72 toggle incremental-update
 performance 73 toggle incremental-update-affecters
