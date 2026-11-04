@@ -293,17 +293,11 @@ final class EditorRawImagePsdReplaceAccess {
 
     private static List<Object> snapshotTargets(final List<?> oldLayeredImages) {
         final List<Object> snapshot = new ArrayList<>();
-        try {
-            for (final Object target : oldLayeredImages) {
-                if (target == null) {
-                    throw new TargetSnapshotException("old CLayeredImage target list must not contain null");
-                }
-                snapshot.add(target);
+        for (final Object target : oldLayeredImages) {
+            if (target == null) {
+                throw new TargetSnapshotException("old CLayeredImage target list must not contain null");
             }
-        } catch (TargetSnapshotException failure) {
-            throw failure;
-        } catch (RuntimeException failure) {
-            throw new TargetSnapshotException("old CLayeredImage target list could not be snapshotted", failure);
+            snapshot.add(target);
         }
         return List.copyOf(snapshot);
     }

@@ -327,12 +327,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             launchSpec = spec;
             activeHarnessId = settings.agentId();
             context.logger().info("ACP connection: starting agent process");
-            final AcpClient connected;
-            try {
-                connected = startClient(spec);
-            } catch (IOException | AcpException | RuntimeException failure) {
-                throw failure;
-            }
+            final AcpClient connected = startClient(spec);
             context.logger().info("ACP connection: ACP initialized");
             if (closed.get()) {
                 connected.close();

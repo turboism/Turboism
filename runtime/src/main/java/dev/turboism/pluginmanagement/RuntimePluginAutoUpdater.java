@@ -830,11 +830,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics are best-effort.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     private static boolean dependenciesSatisfied(

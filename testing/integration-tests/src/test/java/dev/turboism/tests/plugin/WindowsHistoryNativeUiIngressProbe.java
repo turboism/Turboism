@@ -837,6 +837,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                             try {
                                 raiseHostWindow();
                             } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
                                 throw interrupted;
                             } catch (Throwable ignored) {
                                 // A missed raise only costs the next interval.

@@ -37,8 +37,6 @@ final class StrictZipParser {
             End end = end(channel, label, limits, policy);
             List<Central> central = central(channel, end, limits, policy, label);
             return locals(channel, central, end.centralOffset());
-        } catch (ArchiveStructureException exception) {
-            throw exception;
         } catch (IOException exception) {
             throw new ArchiveStructureException("ARCHIVE_INVALID", "Invalid ZIP archive", label);
         }

@@ -2,6 +2,7 @@ package dev.turboism.graal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -1137,10 +1138,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     private void requireOpen() {

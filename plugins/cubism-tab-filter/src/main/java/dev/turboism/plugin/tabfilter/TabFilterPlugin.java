@@ -49,9 +49,8 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
                 rollback.register(() -> {
                     throw failure;
                 });
-            } catch (RuntimeException rollbackFailure) {
-                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
+                if (rollbackFailure instanceof RuntimeException runtime) throw runtime;
                 throw new IllegalStateException("TabFilter startup rollback failed", rollbackFailure);
             }
         }
@@ -67,9 +66,8 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
         enabled = false;
         try {
             super.disable();
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e) {
+            if (e instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Tab filter disposal failed", e);
         }
         logger.info("TabFilterPlugin disabled");
@@ -80,9 +78,8 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
         disable();
         try {
             super.shutdown();
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e) {
+            if (e instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Tab filter shutdown failed", e);
         }
         logger.info("TabFilterPlugin shutdown");

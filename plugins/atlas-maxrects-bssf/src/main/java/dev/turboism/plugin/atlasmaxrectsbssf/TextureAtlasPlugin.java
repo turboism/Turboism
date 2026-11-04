@@ -92,9 +92,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
                                     : new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel);
                         }
                     }));
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
         }
     }

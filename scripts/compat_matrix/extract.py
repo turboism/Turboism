@@ -485,7 +485,7 @@ def load_official_timeline(root: Path) -> list[dict]:
     try:
         doc = read_json(path)
         return doc.get("features", [])
-    except Exception:
+    except (OSError, ValueError, KeyError):
         return []
 
 

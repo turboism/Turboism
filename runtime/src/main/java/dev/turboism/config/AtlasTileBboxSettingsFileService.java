@@ -24,14 +24,7 @@ public final class AtlasTileBboxSettingsFileService implements AtlasTileBboxSett
 
     @Override
     public boolean read() {
-        try {
-            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
-                    config.read(),
-                    PerformanceSettingsConfig.Field.ATLAS_TILE_BBOX,
-                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
-        } catch (RuntimeException invalid) {
-            return false;
-        }
+        return PerformanceSettingsConfig.readSavedBoolean(config, PerformanceSettingsConfig.Field.ATLAS_TILE_BBOX);
     }
 
     @Override

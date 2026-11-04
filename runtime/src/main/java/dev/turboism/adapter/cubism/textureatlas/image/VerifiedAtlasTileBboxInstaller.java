@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas.image;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -133,10 +134,6 @@ public final class VerifiedAtlasTileBboxInstaller {
     }
 
     private static void report(final Consumer<String> diagnostic, final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // A diagnostic sink must never be able to block agent startup.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 }

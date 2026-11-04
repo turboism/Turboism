@@ -425,6 +425,7 @@ final class OfficialPluginCatalogCompleteness {
             String pluginId, Map<String, Map<String, String>> catalogs, List<String> problems) {
         Map<String, String> base = catalogs.get("messages.properties");
         if (base == null) {
+            problems.add(pluginId + ": missing messages.properties");
             return;
         }
         Map<String, Set<Integer>> expectedIndexes = new LinkedHashMap<>();
@@ -449,6 +450,7 @@ final class OfficialPluginCatalogCompleteness {
             String pluginId, Map<String, Map<String, String>> catalogs, List<String> problems) {
         Map<String, String> english = catalogs.get("messages_en.properties");
         if (english == null) {
+            problems.add(pluginId + ": missing messages_en.properties");
             return;
         }
         catalogs.forEach((catalogFile, catalog) -> {

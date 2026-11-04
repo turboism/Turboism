@@ -169,12 +169,14 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         if (changed) notifyChange();
     }
 
-    AutoCloseable onChange(final Runnable listener) {
+    Registration onChange(final Runnable listener) {
         final Runnable value = Objects.requireNonNull(listener, "listener");
         synchronized (monitor) {
             requireOpen();
             listeners.add(value);
         }
+        // Registration, not AutoCloseable: listener removal cannot fail, so owners can close the
+        // subscription during teardown without a checked-exception wrapper.
         return () -> listeners.remove(value);
     }
 

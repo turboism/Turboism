@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -164,11 +165,7 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
     }
 
     private static void report(final Consumer<String> diagnostic, final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // A diagnostic sink must never be able to block agent startup.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** Exposed so the transformer can be exercised directly by tests without an Instrumentation. */

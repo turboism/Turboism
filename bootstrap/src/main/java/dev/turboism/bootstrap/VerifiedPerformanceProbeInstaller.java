@@ -258,6 +258,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                         try {
                             Thread.sleep(TRIGGER_POLL_INTERVAL.toMillis());
                         } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
                             return;
                         }
                     }

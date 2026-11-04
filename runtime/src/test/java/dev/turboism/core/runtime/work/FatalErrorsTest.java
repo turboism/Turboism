@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class FatalErrorsTest {
@@ -150,5 +152,34 @@ class FatalErrorsTest {
             throw FatalErrors.propagate(checked);
         });
         assertSame(checked, wrapped.getCause());
+    }
+
+    @Test
+    void reportSafelyDeliversTheCodeAndSwallowsSinkRuntimeFailures() {
+        final List<String> delivered = new ArrayList<>();
+
+        FatalErrors.reportSafely(delivered::add, "PROBE_CODE");
+        assertDoesNotThrow(() -> FatalErrors.reportSafely(
+                ignored -> {
+                    throw new IllegalStateException("sink failure");
+                },
+                "PROBE_CODE"));
+
+        assertEquals(List.of("PROBE_CODE"), delivered);
+    }
+
+    @Test
+    void reportSafelyPropagatesFatalErrorsInsteadOfHidingThem() {
+        final OutOfMemoryError fatal = new OutOfMemoryError("sink failure");
+
+        assertSame(
+                fatal,
+                assertThrows(
+                        OutOfMemoryError.class,
+                        () -> FatalErrors.reportSafely(
+                                ignored -> {
+                                    throw fatal;
+                                },
+                                "PROBE_CODE")));
     }
 }

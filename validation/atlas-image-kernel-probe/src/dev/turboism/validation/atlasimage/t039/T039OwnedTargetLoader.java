@@ -29,15 +29,11 @@ public final class T039OwnedTargetLoader extends ClassLoader {
                 bytes = input.readAllBytes();
             }
         }
-        try {
-            final URL source = fixtureJar.toUri().toURL();
-            final CodeSource codeSource = new CodeSource(
-                source, (java.security.cert.Certificate[]) null);
-            final ProtectionDomain domain = new ProtectionDomain(codeSource, null, this, null);
-            return defineClass(
-                T039ShadowAgent.ownedInternalName().replace('/', '.'), bytes, 0, bytes.length, domain);
-        } catch (final IOException exception) {
-            throw exception;
-        }
+        final URL source = fixtureJar.toUri().toURL();
+        final CodeSource codeSource = new CodeSource(
+            source, (java.security.cert.Certificate[]) null);
+        final ProtectionDomain domain = new ProtectionDomain(codeSource, null, this, null);
+        return defineClass(
+            T039ShadowAgent.ownedInternalName().replace('/', '.'), bytes, 0, bytes.length, domain);
     }
 }

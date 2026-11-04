@@ -236,19 +236,19 @@ public interface ProjectWorkspaceAdapter {
 
         @Override
         public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
-            return host.map(ops -> callIfSupported(ops, PROJECT_CAPABILITY_ID, ops::activeProject))
+            return host.map(ops -> callProjectWorkspace(ops, PROJECT_CAPABILITY_ID, ops::activeProject))
                     .orElseGet(unavailable(PROJECT_CAPABILITY_ID));
         }
 
         @Override
         public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
-            return host.map(ops -> callIfSupported(ops, DOCUMENT_CAPABILITY_ID, ops::activeDocument))
+            return host.map(ops -> callProjectWorkspace(ops, DOCUMENT_CAPABILITY_ID, ops::activeDocument))
                     .orElseGet(unavailable(DOCUMENT_CAPABILITY_ID));
         }
 
         @Override
         public AdapterResult<Optional<WorkspaceSnapshot>> workspace() {
-            return host.map(ops -> callIfSupported(ops, WORKSPACE_CAPABILITY_ID, ops::workspace))
+            return host.map(ops -> callProjectWorkspace(ops, WORKSPACE_CAPABILITY_ID, ops::workspace))
                     .orElseGet(unavailable(WORKSPACE_CAPABILITY_ID));
         }
 
@@ -267,44 +267,29 @@ public interface ProjectWorkspaceAdapter {
         }
 
         private AdapterResult<ActiveProjectDocument> readProjectAndDocument(final HostOperations operations) {
-            try {
-                if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
-                    return AdapterResult.unavailable(
-                            SafeModeDiagnostic.hostVersionUnsupported(PROJECT_CAPABILITY_ID, operations.hostVersion()));
-                }
-                if (!operations.supportsProjectWorkspaceRead()) {
-                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID));
-                }
-                return AdapterResult.available(operations.activeProjectAndDocument());
-            } catch (AdapterHostException exception) {
-                return AdapterResult.unavailable(exception.diagnostic());
-            } catch (RuntimeException exception) {
-                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                        PROJECT_CAPABILITY_ID, "Host project/workspace adapter call failed safely."));
-            }
+            return callProjectWorkspace(operations, PROJECT_CAPABILITY_ID, operations::activeProjectAndDocument);
         }
 
         private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {
-            try {
-                if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
-                    return AdapterResult.unavailable(
-                            SafeModeDiagnostic.hostVersionUnsupported(PROJECT_CAPABILITY_ID, operations.hostVersion()));
-                }
-                if (!operations.supportsProjectWorkspaceRead()) {
-                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID));
-                }
-                return AdapterResult.available(
-                        new ProjectWorkspaceSnapshot(operations.activeProject(), operations.workspace()));
-            } catch (AdapterHostException exception) {
-                return AdapterResult.unavailable(exception.diagnostic());
-            } catch (RuntimeException exception) {
-                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                        PROJECT_CAPABILITY_ID, "Host project/workspace adapter call failed safely."));
-            }
+            return callProjectWorkspace(
+                    operations,
+                    PROJECT_CAPABILITY_ID,
+                    () -> new ProjectWorkspaceSnapshot(operations.activeProject(), operations.workspace()));
         }
 
-        private <T> AdapterResult<Optional<T>> callIfSupported(
-                final HostOperations operations, final String capabilityId, final Supplier<Optional<T>> supplier) {
+        /**
+         * Admits one project/workspace host read: the reviewed contract version and the project-read
+         * capability gate {@code supplier}, and both host faults and unexpected runtime failures
+         * become unavailable results instead of escaping the adapter.
+         *
+         * @param operations the live host operations; never null
+         * @param capabilityId the capability named in the diagnostic when the call is refused
+         * @param supplier the gated read to perform once admission succeeds
+         * @param <T> the observed value type
+         * @return the read result, or the reason the read was not admitted
+         */
+        private <T> AdapterResult<T> callProjectWorkspace(
+                final HostOperations operations, final String capabilityId, final Supplier<T> supplier) {
             try {
                 if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
                     return AdapterResult.unavailable(

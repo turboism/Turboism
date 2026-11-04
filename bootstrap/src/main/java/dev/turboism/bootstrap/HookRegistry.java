@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -35,9 +36,7 @@ final class HookRegistry {
      * @param handle the close handle; never {@code null}
      */
     void enroll(final HookContributor contributor, final AutoCloseable handle) {
-        if (handle == null) {
-            return;
-        }
+        Objects.requireNonNull(handle, "handle");
         entries.add(new Entry(contributor.id(), handle, contributor.closesOnProcessExit(), contributor.phase()));
     }
 
