@@ -16,6 +16,7 @@ class PluginLifecycleLaneTest {
             1,
             2,
             Duration.ofMillis(200),
+            Duration.ofSeconds(5),
             Duration.ofMillis(100),
             Duration.ofMillis(200),
             Duration.ofMillis(20),

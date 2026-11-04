@@ -24,6 +24,7 @@ class CoreShellRuntimeTest {
             1,
             4,
             Duration.ofSeconds(5),
+            Duration.ofSeconds(5),
             Duration.ofSeconds(1),
             Duration.ofSeconds(1),
             Duration.ofMillis(100),
@@ -55,6 +56,14 @@ class CoreShellRuntimeTest {
     void anchorSource_passesThroughNonJarUrls() throws Exception {
         final URL fileUrl = new URL("file:/opt/turboism/classes/");
         assertEquals(fileUrl, CoreShellRuntime.anchorSource(fileUrl));
+    }
+
+    @Test
+    void productionShellDeadlineOutlastsPluginLoads() {
+        final PluginLifecyclePolicy production = PluginLifecyclePolicy.production();
+        assertTrue(
+                production.shellLoadTimeout().compareTo(production.loadTimeout()) > 0,
+                "the shell builds host UI synchronously and needs a wider deadline than a plugin load");
     }
 
     @Test

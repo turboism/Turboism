@@ -26,10 +26,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * identity), constructs the shell through the composition-supplied {@link ShellAdmission},
  * and closes everything through staged, idempotent cleanup.</p>
  *
- * <p>Admission runs on the bounded lifecycle lane under {@link PluginLifecyclePolicy#loadTimeout},
- * exactly like external plugin loads: a shell that exceeds its deadline is fenced — its event
- * owner stops delivering, its scope is sealed, its context's admitted SDK calls are fenced — and
- * a late worker completion cannot resurrect the timed-out generation. Generations whose cleanup
+ * <p>Admission runs on the bounded lifecycle lane under {@link
+ * PluginLifecyclePolicy#shellLoadTimeout}, exactly like external plugin loads: a shell that exceeds
+ * its deadline is fenced — its event owner stops delivering, its scope is sealed, its context's
+ * admitted SDK calls are fenced — and a late worker completion cannot resurrect the timed-out
+ * generation. Generations whose cleanup
  * cannot be proven complete are retained in {@link RetainedPluginGenerations} and re-driven on
  * the lane until their resources are actually released.</p>
  */
@@ -118,7 +119,7 @@ final class CoreShellRuntime implements AutoCloseable {
                     }
                 });
         final PluginLifecycleLane.AwaitResult<CoreShellRuntime> result =
-                lane.await(invocation, policy.loadTimeout(), lease);
+                lane.await(invocation, policy.shellLoadTimeout(), lease);
         switch (result.outcome) {
             case SUCCEEDED -> {
                 if (result.value != null) {
@@ -129,7 +130,7 @@ final class CoreShellRuntime implements AutoCloseable {
                 fence(state, log);
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
                 throw new IllegalStateException(
-                        "Shell startup exceeded " + policy.loadTimeout(),
+                        "Shell startup exceeded " + policy.shellLoadTimeout(),
                         new TimeoutException("shell lifecycle deadline expired"));
             }
             case FAILED -> {
@@ -144,7 +145,7 @@ final class CoreShellRuntime implements AutoCloseable {
                 fence(state, log);
                 retainIfIncomplete(state, hookCleanup, log, policy, retention, invocation);
                 throw new IllegalStateException(
-                        "Shell startup exceeded " + policy.loadTimeout(),
+                        "Shell startup exceeded " + policy.shellLoadTimeout(),
                         new TimeoutException("shell lifecycle deadline expired"));
             }
         }
@@ -156,7 +157,7 @@ final class CoreShellRuntime implements AutoCloseable {
      * command-line document load or first-run shader compilation can occupy the EDT for tens
      * of seconds. The lane deadline exists to bound the shell's own lifecycle work, not to
      * expire while every dispatch queues behind host startup, so contention is waited out
-     * here and {@link PluginLifecyclePolicy#loadTimeout} keeps measuring only the shell. When
+     * here and {@link PluginLifecyclePolicy#shellLoadTimeout} keeps measuring only the shell. When
      * the queue stays saturated past the wait budget the lane is still entered and the legacy
      * deadline behavior applies.
      */
@@ -252,36 +253,44 @@ final class CoreShellRuntime implements AutoCloseable {
             final ShellLoad state,
             final PluginLifecycleLease lease)
             throws Exception {
-        state.resources = shellResourceLoader();
-        state.scope = new DisposableScope();
-        state.context = contexts.create(
-                ShellManifest.descriptor(), state.resources, state.scope, () -> !state.guard.isFenced());
-        log.info(ShellManifest.ID, "Shell startup: begin");
-        state.context.eventOwner().beginInitializing();
-        state.shell = admission.create(services);
-        if (state.shell == null) {
-            throw new IllegalStateException("Shell admission returned no shell");
+        try (var ignored = EdtDispatch.defaultAcceptTimeoutScope(policy.shellLoadTimeout())) {
+            final long startupStartedAt = System.nanoTime();
+            state.resources = shellResourceLoader();
+            state.scope = new DisposableScope();
+            state.context = contexts.create(
+                    ShellManifest.descriptor(), state.resources, state.scope, () -> !state.guard.isFenced());
+            log.info(ShellManifest.ID, "Shell startup: begin");
+            state.context.eventOwner().beginInitializing();
+            state.shell = admission.create(services);
+            if (state.shell == null) {
+                throw new IllegalStateException("Shell admission returned no shell");
+            }
+            state.context.eventOwner().registerAnnotated(List.of(), List.of(state.shell));
+            lease.checkpoint();
+            state.shell.start(state.guard.wrap(state.context.context()));
+            state.context.eventOwner().beginEnabling();
+            lease.checkpoint();
+            return lease.commit(() -> {
+                state.context.eventOwner().activate();
+                log.info(
+                        ShellManifest.ID,
+                        "Shell startup: ready after "
+                                + java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                                        System.nanoTime() - startupStartedAt)
+                                + " ms");
+                return new CoreShellRuntime(
+                        state.shell,
+                        state.scope,
+                        state.context,
+                        state.resources,
+                        hookCleanup,
+                        policy,
+                        lane,
+                        retention,
+                        log,
+                        state);
+            });
         }
-        state.context.eventOwner().registerAnnotated(List.of(), List.of(state.shell));
-        lease.checkpoint();
-        state.shell.start(state.guard.wrap(state.context.context()));
-        state.context.eventOwner().beginEnabling();
-        lease.checkpoint();
-        return lease.commit(() -> {
-            state.context.eventOwner().activate();
-            log.info(ShellManifest.ID, "Shell startup: ready");
-            return new CoreShellRuntime(
-                    state.shell,
-                    state.scope,
-                    state.context,
-                    state.resources,
-                    hookCleanup,
-                    policy,
-                    lane,
-                    retention,
-                    log,
-                    state);
-        });
     }
 
     /**
