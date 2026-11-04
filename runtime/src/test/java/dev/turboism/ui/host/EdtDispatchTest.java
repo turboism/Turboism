@@ -443,6 +443,33 @@ class EdtDispatchTest {
     }
 
     @Test
+    void scopedDefaultAcceptTimeoutBypassesTheUnresponsiveCircuit() throws Exception {
+        EdtDispatch.breakerTripBoundForTesting(SHORT_ACCEPT);
+        final CountDownLatch wedged = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            wedged.countDown();
+            await(release);
+        });
+        assertTrue(wedged.await(5, TimeUnit.SECONDS));
+        try {
+            assertThrows(EdtDispatchException.class, () -> EdtDispatch.call("trip-circuit", SHORT_ACCEPT, () -> null));
+            assertTrue(EdtDispatch.edtUnresponsiveForTesting(), "the circuit must be tripped");
+
+            // Inside the scope the default call owns a patient bound instead of inheriting the
+            // 1s unresponsive bound, and its timeout must not be blamed on the EDT breaker.
+            try (var ignored = EdtDispatch.defaultAcceptTimeoutScope(SHORT_ACCEPT)) {
+                final EdtDispatchException scoped =
+                        assertThrows(EdtDispatchException.class, () -> EdtDispatch.call("scoped-default", () -> null));
+                assertEquals(EdtDispatchException.Reason.ACCEPT_TIMEOUT, scoped.reason());
+            }
+        } finally {
+            release.countDown();
+            drainEdt();
+        }
+    }
+
+    @Test
     void shortAcceptTimeoutsNeverTripTheUnresponsiveCircuit() throws Exception {
         // A caller racing its own short bound only proves the EDT was busy for that long;
         // it must not degrade every other dispatch onto the unresponsive bound.

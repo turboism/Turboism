@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Runtime-owned shell startup has its own lifecycle deadline and waits out host event-queue startup work, so a briefly busy editor no longer produces an intermittent `Runtime-owned shell failed to start` failure.
+
 ## [0.68.1] - 2026-10-30
 
 0.68.0 was published only as beta builds (`0.68.0-beta.1`, `0.68.0-beta.2`). This release includes every change from those betas.

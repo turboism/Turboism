@@ -26,6 +26,7 @@ class RetainedPluginGenerationsTest {
             1,
             8,
             Duration.ofSeconds(5),
+            Duration.ofSeconds(5),
             Duration.ofSeconds(2),
             Duration.ofSeconds(5),
             Duration.ofMillis(20),

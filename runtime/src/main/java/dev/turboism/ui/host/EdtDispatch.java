@@ -68,6 +68,13 @@ public final class EdtDispatch {
     private static final AtomicBoolean EXITING = new AtomicBoolean();
 
     /**
+     * Per-thread widening of the default acceptance bound. The runtime-owned shell uses a scope
+     * while it builds host UI during editor startup: its work must wait out host startup tasks
+     * and must not inherit the unresponsive circuit tripped by an unrelated background dispatch.
+     */
+    private static final ThreadLocal<Duration> DEFAULT_ACCEPT_TIMEOUT_OVERRIDE = new ThreadLocal<>();
+
+    /**
      * Caller acceptance bound at or above which an acceptance timeout marks the EDT
      * unresponsive. A short-bounded caller that times out only proves the EDT was busy for a
      * few seconds, so tripping the breaker on it would degrade every unrelated dispatch.
@@ -96,7 +103,45 @@ public final class EdtDispatch {
      * @throws EdtDispatchException when the task never started (acceptance timeout/interrupt)
      */
     public static <T> T call(final String label, final Callable<T> task) {
-        return call(label, DEFAULT_ACCEPT_TIMEOUT, task, null);
+        final Duration override = DEFAULT_ACCEPT_TIMEOUT_OVERRIDE.get();
+        return dispatch(
+                label, override == null ? DEFAULT_ACCEPT_TIMEOUT : override, task, null, false, override != null);
+    }
+
+    /**
+     * Widens the acceptance bound used by default-bound {@link #call} dispatches on the calling
+     * thread until the returned scope is closed. Explicitly bounded calls keep their own bound,
+     * nested scopes restore the previous value, and a timeout inside the scope never trips the
+     * global unresponsive circuit — the scope's caller owns the longer wait.
+     *
+     * <p>The runtime-owned shell uses this while the host is still completing startup work, so
+     * shell construction waits for the host instead of failing on an unrelated background task's
+     * timeout or on the circuit that timeout would otherwise trip for every caller.</p>
+     *
+     * @param bound acceptance bound for default-bound dispatches inside the scope
+     * @return a closeable scope; closing it restores the previous bound
+     */
+    public static AutoCloseable defaultAcceptTimeoutScope(final Duration bound) {
+        Objects.requireNonNull(bound, "bound");
+        if (bound.isNegative() || bound.isZero()) {
+            throw new IllegalArgumentException("bound must be positive");
+        }
+        final Duration previous = DEFAULT_ACCEPT_TIMEOUT_OVERRIDE.get();
+        DEFAULT_ACCEPT_TIMEOUT_OVERRIDE.set(bound);
+        return new AutoCloseable() {
+            private boolean closed;
+
+            @Override
+            public void close() {
+                if (closed) return;
+                closed = true;
+                if (previous == null) {
+                    DEFAULT_ACCEPT_TIMEOUT_OVERRIDE.remove();
+                } else {
+                    DEFAULT_ACCEPT_TIMEOUT_OVERRIDE.set(previous);
+                }
+            }
+        };
     }
 
     /** {@link #call(String, Callable)} with an explicit acceptance bound. */
@@ -117,7 +162,7 @@ public final class EdtDispatch {
             final Duration acceptTimeout,
             final Callable<T> task,
             final Runnable abandonCompensation) {
-        return dispatch(label, acceptTimeout, task, abandonCompensation, false);
+        return dispatch(label, acceptTimeout, task, abandonCompensation, false, false);
     }
 
     /**
@@ -129,7 +174,7 @@ public final class EdtDispatch {
      */
     public static <T> T callExact(final String label, final Duration acceptTimeout, final Callable<T> task)
             throws Exception {
-        return dispatch(label, acceptTimeout, task, null, true);
+        return dispatch(label, acceptTimeout, task, null, true, false);
     }
 
     private static <T> T dispatch(
@@ -137,7 +182,8 @@ public final class EdtDispatch {
             final Duration acceptTimeout,
             final Callable<T> task,
             final Runnable abandonCompensation,
-            final boolean exact) {
+            final boolean exact,
+            final boolean scopedDefault) {
         Objects.requireNonNull(label, "label");
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(acceptTimeout, "acceptTimeout");
@@ -146,13 +192,13 @@ public final class EdtDispatch {
         }
         final Queued<T> queued = new Queued<>(label, task);
         SwingUtilities.invokeLater(queued);
-        final boolean shortBound = EXITING.get() || EDT_UNRESPONSIVE.get();
+        final boolean shortBound = EXITING.get() || (!scopedDefault && EDT_UNRESPONSIVE.get());
         final Duration bound = shortBound ? UNRESPONSIVE_ACCEPT_TIMEOUT : acceptTimeout;
         boolean interrupted = false;
         try {
             if (!queued.awaitStart(bound)) {
                 if (tryAbandon(queued.state)) {
-                    if (!shortBound && acceptTimeout.compareTo(breakerTripBound) >= 0) {
+                    if (!shortBound && !scopedDefault && acceptTimeout.compareTo(breakerTripBound) >= 0) {
                         markEdtUnresponsive(label);
                     }
                     throw new EdtDispatchException(
@@ -287,6 +333,7 @@ public final class EdtDispatch {
         EDT_UNRESPONSIVE.set(false);
         EXITING.set(false);
         breakerTripBound = DEFAULT_ACCEPT_TIMEOUT;
+        DEFAULT_ACCEPT_TIMEOUT_OVERRIDE.remove();
     }
 
     private static <T> T runInline(final String label, final Callable<T> task, final boolean exact) {
