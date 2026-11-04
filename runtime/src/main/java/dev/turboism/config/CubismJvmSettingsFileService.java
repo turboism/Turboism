@@ -245,6 +245,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean asyncReadback() {
+        return optimization("asyncReadback");
+    }
+
+    @Override
+    public boolean saveAsyncReadback(final boolean value) {
+        return saveOptimization("asyncReadback", value);
+    }
+
+    @Override
     public boolean meshInterpolation() {
         return optimization("meshInterpolation");
     }

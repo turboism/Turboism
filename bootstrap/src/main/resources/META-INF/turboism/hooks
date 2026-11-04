@@ -24,6 +24,7 @@ dev.turboism.bootstrap.AtlasCacheReuseHookContributor
 # exactly the composed shape ShaderUniformTransformer.composedShape() derives
 # from the attested reference bytes before taking the seam over.
 dev.turboism.bootstrap.MeshInterpolationHookContributor
+dev.turboism.bootstrap.AsyncReadbackHookContributor
 dev.turboism.bootstrap.ShaderUniformHookContributor
 dev.turboism.bootstrap.FpsHookContributor
 dev.turboism.bootstrap.ParameterHookContributor

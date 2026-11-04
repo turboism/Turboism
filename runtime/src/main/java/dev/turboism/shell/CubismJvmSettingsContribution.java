@@ -413,6 +413,30 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
+     * Opt-in pipelined canvas readback. When enabled the JOGL offscreen readback is rewritten to
+     * read into a pixel-pack buffer and hand the panel the frame that was read one paint earlier,
+     * so the EDT no longer waits for the GPU to finish the frame it just queued. Pixels are
+     * identical; the canvas trails the UI by one frame. Measured ~15-20 % higher deformation frame
+     * rate on the heavy-model fixture. Default off, persists for the next launch.
+     */
+    static SettingsContribution createAsyncReadbackToggle(
+            final PluginLocalization i18n, final CubismJvmSettingsService settings) {
+        Objects.requireNonNull(settings, "settings");
+        return createOptimizationToggle(
+                i18n,
+                "async-readback",
+                "settings.optimization.async-readback",
+                settings::asyncReadback,
+                value -> {
+                    if (settings.saveAsyncReadback(value) != value) {
+                        throw new IllegalStateException("Pipelined-readback preference was not saved");
+                    }
+                    return value;
+                },
+                69);
+    }
+
+    /**
      * Launch-time preference for verified extended interpolation: when enabled,
      * accelerates ArtMesh, Warp deformer, and Rotation deformer keyform
      * interpolation under Ellipse and SNS curves. Persists for the next launch;

@@ -214,6 +214,22 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /**
+     * Launcher preference: when enabled, the canvas readback is pipelined through a pixel-pack
+     * buffer so the EDT no longer waits for the GPU to finish the frame it just queued. Pixels are
+     * unchanged, but the canvas paints the frame read one paint earlier, so the image trails the
+     * UI by one frame. Off by default; requires the reviewed JOGL build and takes effect on the
+     * next launch.
+     */
+    default boolean asyncReadback() {
+        return false;
+    }
+
+    /** Persists the pipelined-readback preference; installation changes require restart. */
+    default boolean saveAsyncReadback(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     /** Persists the uniform-location cache preference; installation changes require restart. */
     default boolean saveUniformLocationCache(final boolean value) {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
