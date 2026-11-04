@@ -142,8 +142,12 @@ class VerifiedPaletteToolbarHostOperationsTest {
         final JButton button = findButton(fixture.root, "plugin-a:toggle");
         assertNotNull(button);
 
-        onEdt(() -> button.getParent().remove(button));
-        assertEquals(0, countButtons(fixture.root));
+        // Assert the temporary removal on the same EDT turn: the hierarchy
+        // listener can legitimately queue self-healing before the caller resumes.
+        onEdt(() -> {
+            button.getParent().remove(button);
+            assertEquals(0, countButtons(fixture.root));
+        });
 
         host.reconcileNow();
         assertSame(

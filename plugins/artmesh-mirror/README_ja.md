@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing, symmetry
-turboismApi: "[0.68.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,7 @@ interface: none
 
 ## 要件と互換性
 
-Turboism API: `[0.68.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.1,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
@@ -66,7 +66,7 @@ Turboism の公式配布に同梱されます。プラグイン管理で有効�
 
 ### 0.68.1
 
-- 実際に使用する SDK メンバーに合わせて、必要な Turboism API の下限を 0.68.0 に引き上げました。
+- キャンバス上部のボタン位置をプラグインの読み込み順に依存しない固定順序にするため、必要な Turboism API の下限を 0.68.1 に引き上げました。
 
 ### 0.1.0
 
