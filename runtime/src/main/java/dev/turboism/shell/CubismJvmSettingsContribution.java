@@ -269,7 +269,7 @@ final class CubismJvmSettingsContribution {
                 "settings.optimization.model-update-skip",
                 settings::modelUpdateSkip,
                 settings::saveModelUpdateSkip,
-                61);
+                62);
     }
 
     static SettingsContribution createIncrementalUpdateToggle(
@@ -406,7 +406,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                85);
+                61);
     }
 
     /**
@@ -548,7 +548,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                62);
+                63);
     }
 
     static SettingsContribution createClipMaskScissorClearToggle(
@@ -565,7 +565,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                63);
+                64);
     }
 
     static SettingsContribution createExtendedInterpolationIncrementalSetupToggle(
@@ -583,7 +583,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                64);
+                65);
     }
 
     static SettingsContribution createReinitPairElisionToggle(
@@ -600,7 +600,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                65);
+                66);
     }
 
     static SettingsContribution createModelInstanceCoalesceToggle(
@@ -617,7 +617,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                66);
+                67);
     }
 
     static SettingsContribution createInspectorPropertyBypassToggle(
@@ -634,7 +634,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                67);
+                68);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

@@ -1927,3 +1927,41 @@ native Windows installs the deferred frame-end check (Mesa threading itself is
 still Linux/Proton-only). Users who need smooth deformer/vertex interaction on
 Windows should enable `launcher.mesaGlThread`; the measured deformation gain is
 about 2× on this fixture and host.
+
+**Follow-up inspection: `GLineRenderer` uploads and `warp.o.a` (2026-11-04).**
+
+`GLineRenderer.updateMeshData()` is a three-line method that marks the
+positions, colors and indices buffers dirty. The deformation callers do not
+change all three:
+
+- `GSimpleLinesEntity` calls `setIndices` only when the line/topology count
+  changed, then always `setPositions` and `positionsBuffer.l()`; it never sets
+  colors in that path.
+- `WarpDeformer_Draw` has the same split: the topology branch rebuilds indices
+  and calls `updateMeshData`, while the position-only branch calls
+  `setPositions` and `updateMeshData`; the colors array is not touched by the
+  per-frame path.
+- Deployment always calls `setup()`, which copies positions, colors and indices
+  into their direct buffers, but only a dirty wrapper reaches
+  `glBufferSubData`.
+
+So each deformation update re-uploads colors and indices even though only
+positions changed. The measured upload samples are 18 `GLineRenderer`
+`glBufferSubData` calls in the 5 s deformation window (one sample from a real
+`GMeshRenderer`). A dirty split — positions always, colors/indices only after
+their source array content changed — would remove roughly two thirds of those
+uploads (~6–7 % of EDT samples). The safe design is a content check against the
+last marked arrays (or setter hooks if in-place mutation is ruled out), not a
+blanket removal: selection colors and topology edits must still reach the GPU.
+`uploadElision` cannot cover this today because the production hook is refused
+when `uniformLocationCache` is enabled (the uniform lifecycle invalidates
+upload content at every render boundary), and it only considers skipped frames.
+
+`warp.o.a` is a ~3 KB pure-float routine (bilinear/affine warp projection) with
+no object allocation in the reviewed 5.3.04 body. Its samples are the actual
+per-vertex transform for deformers whose forms changed; incremental update
+already leaves unchanged deformers native/clean, so the remaining ~10 % is the
+required changed-set work. The historical pure-Java rewrite was slower (P07),
+and there is no safe skip without changing the deformation result. The
+remaining lever is reducing the changed-deformer set (incremental-update
+coverage), not the math itself.
