@@ -3,9 +3,9 @@ package dev.turboism.bootstrap;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
+import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.kernel.KernelRuntime;
 
 /**
  * Declarative contributor for the verified export-settings hook and its

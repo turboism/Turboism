@@ -96,8 +96,7 @@ class PluginClassLoaderParentTest {
             assertThrows(
                     ClassNotFoundException.class,
                     () -> loader.loadClass("dev.turboism.userfile.RuntimeUserFileAccessService"));
-            assertThrows(
-                    ClassNotFoundException.class, () -> loader.loadClass("dev.turboism.kernel.PluginClassLoader"));
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass("dev.turboism.kernel.PluginClassLoader"));
         }
     }
 

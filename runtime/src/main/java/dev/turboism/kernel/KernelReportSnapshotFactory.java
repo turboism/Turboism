@@ -6,10 +6,10 @@ import dev.turboism.adapter.host.HostSession;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.kernel.report.KernelReportDocuments;
 import dev.turboism.kernel.report.KernelReportType;
 import dev.turboism.kernel.report.KernelReportValidator;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -303,8 +303,7 @@ public final class KernelReportSnapshotFactory {
                         neutralFailures,
                         stopped,
                         shutdownAttempted));
-        reports.put(
-                KernelReportType.PLUGIN_LOAD, pluginLoad(runtimeId, createdAt, home, loadReport, neutralSummaries));
+        reports.put(KernelReportType.PLUGIN_LOAD, pluginLoad(runtimeId, createdAt, home, loadReport, neutralSummaries));
         reports.put(
                 KernelReportType.CAPABILITY,
                 capability(runtimeId, createdAt, home, hostState, verificationRecord, neutralSummaries, stopped));
@@ -422,8 +421,7 @@ public final class KernelReportSnapshotFactory {
             final Path home,
             final LocalPluginRuntime.LoadReport loadReport,
             final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
-        final ObjectNode report =
-                KernelReportDocuments.emptyReport(KernelReportType.PLUGIN_LOAD, runtimeId, createdAt);
+        final ObjectNode report = KernelReportDocuments.emptyReport(KernelReportType.PLUGIN_LOAD, runtimeId, createdAt);
         final ArrayNode plugins = (ArrayNode) report.path("payload").path("plugins");
         for (LocalPluginRuntime.LoadedPluginSummary summary : summaries.stream()
                 .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
@@ -514,8 +512,7 @@ public final class KernelReportSnapshotFactory {
             final Path verificationRecord,
             final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
             final boolean stopped) {
-        final ObjectNode report =
-                KernelReportDocuments.emptyReport(KernelReportType.CAPABILITY, runtimeId, createdAt);
+        final ObjectNode report = KernelReportDocuments.emptyReport(KernelReportType.CAPABILITY, runtimeId, createdAt);
         final ArrayNode entries = (ArrayNode) report.path("payload").path("capabilities");
         final String recordPath = relativeArtifact(home, verificationRecord);
         final String recordDigest =
@@ -597,8 +594,7 @@ public final class KernelReportSnapshotFactory {
                     snapshot.fallbackChain());
             final ArrayNode catalogs = (ArrayNode) entry.get("catalogs");
             for (RuntimePluginLocalization.CatalogSnapshot catalog : snapshot.catalogs()) {
-                catalogs.add(
-                        KernelReportDocuments.catalogEntry(catalog.locale(), catalog.state(), catalog.keyCount()));
+                catalogs.add(KernelReportDocuments.catalogEntry(catalog.locale(), catalog.state(), catalog.keyCount()));
             }
             final ArrayNode missing = (ArrayNode) entry.get("missingKeys");
             for (RuntimePluginLocalization.MissingKeySnapshot value : snapshot.missingKeys()) {

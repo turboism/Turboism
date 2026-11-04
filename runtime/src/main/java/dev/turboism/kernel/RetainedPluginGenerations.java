@@ -34,8 +34,7 @@ final class RetainedPluginGenerations {
     private Runnable whenDrained;
     private boolean drainedFired;
 
-    RetainedPluginGenerations(
-            final PluginLifecycleLane lane, final PluginLifecyclePolicy policy, final KernelLog log) {
+    RetainedPluginGenerations(final PluginLifecycleLane lane, final PluginLifecyclePolicy policy, final KernelLog log) {
         this.lane = Objects.requireNonNull(lane, "lane");
         this.log = Objects.requireNonNull(log, "log");
         this.retryIntervalNanos = Objects.requireNonNull(policy, "policy")

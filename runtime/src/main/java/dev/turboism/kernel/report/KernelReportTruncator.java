@@ -67,8 +67,7 @@ final class KernelReportTruncator {
             final ArrayNode array = target.array();
             final int removable = Math.max(0, array.size() - target.minimumSize());
             for (int offset = 0; offset < removable && samples < SAMPLE_LIMIT; offset++) {
-                bytes +=
-                        KernelReportDocuments.JSON.writeValueAsBytes(array.get(array.size() - 1 - offset)).length + 1L;
+                bytes += KernelReportDocuments.JSON.writeValueAsBytes(array.get(array.size() - 1 - offset)).length + 1L;
                 samples++;
             }
             if (samples == SAMPLE_LIMIT) {

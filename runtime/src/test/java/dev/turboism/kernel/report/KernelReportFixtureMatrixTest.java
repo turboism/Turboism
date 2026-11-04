@@ -22,8 +22,7 @@ class KernelReportFixtureMatrixTest {
         final EnumMap<KernelReportType, byte[]> reports = new EnumMap<>(KernelReportType.class);
         for (Map.Entry<KernelReportType, String> fixture : VALID.entrySet()) {
             final byte[] bytes = resource("valid/" + fixture.getValue());
-            assertEquals(
-                    fixture.getKey(), KernelReportValidator.validate(bytes).reportType(), fixture.getValue());
+            assertEquals(fixture.getKey(), KernelReportValidator.validate(bytes).reportType(), fixture.getValue());
             reports.put(fixture.getKey(), bytes);
         }
         assertEquals(4, KernelReportValidator.validateSet(reports).size());
@@ -47,8 +46,7 @@ class KernelReportFixtureMatrixTest {
         assertEquals(
                 "MIXED_RUNTIME_ID",
                 org.junit.jupiter.api.Assertions.assertThrows(
-                                KernelReportValidationException.class,
-                                () -> KernelReportValidator.validateSet(reports))
+                                KernelReportValidationException.class, () -> KernelReportValidator.validateSet(reports))
                         .code());
     }
 

@@ -321,8 +321,7 @@ public final class KernelLog implements AutoCloseable, RuntimeLogReader, Runtime
 
     /** Publishes one intentional multiline startup record without console duplication. */
     synchronized void banner(final String message) {
-        final String safeMessage =
-                KernelLogFormatter.safeMultiline(message, KernelLogFormatter.MAX_MESSAGE_CHARS * 4);
+        final String safeMessage = KernelLogFormatter.safeMultiline(message, KernelLogFormatter.MAX_MESSAGE_CHARS * 4);
         final String[] lines = safeMessage.split("\\n", -1);
         final List<String> lineList = List.of(lines);
         long linesBytes = 0L;

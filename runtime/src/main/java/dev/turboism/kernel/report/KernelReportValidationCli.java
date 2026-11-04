@@ -45,8 +45,7 @@ public final class KernelReportValidationCli {
         }
         final Map<KernelReportType, KernelReportValidator.ValidatedReport> validated =
                 KernelReportValidator.validateSet(reports);
-        final String runtimeId =
-                validated.get(KernelReportType.PREVIEW_RUNTIME).runtimeId();
+        final String runtimeId = validated.get(KernelReportType.PREVIEW_RUNTIME).runtimeId();
         System.out.println("preview report contract: PASS runtimeId=" + runtimeId + " reports=" + validated.size());
     }
 }

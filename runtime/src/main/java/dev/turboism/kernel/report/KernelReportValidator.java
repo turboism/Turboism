@@ -120,8 +120,7 @@ public final class KernelReportValidator {
         try {
             parsed = JSON.readTree(bytes);
         } catch (JsonProcessingException exception) {
-            throw new KernelReportValidationException(
-                    "MALFORMED_JSON", "Preview report JSON is malformed.", exception);
+            throw new KernelReportValidationException("MALFORMED_JSON", "Preview report JSON is malformed.", exception);
         } catch (java.io.IOException exception) {
             throw new KernelReportValidationException(
                     "MALFORMED_JSON", "Preview report JSON could not be read.", exception);

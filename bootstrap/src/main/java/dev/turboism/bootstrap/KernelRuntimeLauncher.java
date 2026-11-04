@@ -1,10 +1,10 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.CubismHostCompatibilityResolver;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.kernel.KernelRuntime;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Files;

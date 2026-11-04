@@ -219,8 +219,7 @@ final class KernelPluginShutdown {
      * ordered disable/shutdown/scope/classloader stages.
      */
     private CloseOutcome closeLoadedPlugin(
-            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-            final KernelPluginShutdownStages.CloseProgress progress)
+            final LocalPluginRuntime.LoadedPlugin loadedPlugin, final KernelPluginShutdownStages.CloseProgress progress)
             throws Throwable {
         final String id = loadedPlugin.runtime().id();
         // Teardown is deliberately outside the EventBus lifecycle: once closing begins,

@@ -52,8 +52,7 @@ public final class KernelReportDocuments {
      * @throws NullPointerException if any argument is {@code null}
      * @throws IllegalArgumentException if {@code runtimeId} is blank
      */
-    public static ObjectNode emptyReport(
-            final KernelReportType type, final String runtimeId, final Instant createdAt) {
+    public static ObjectNode emptyReport(final KernelReportType type, final String runtimeId, final Instant createdAt) {
         return envelope(
                 type,
                 runtimeId,

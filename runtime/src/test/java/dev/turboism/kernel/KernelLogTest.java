@@ -39,8 +39,7 @@ class KernelLogTest {
     void createsOneLogFilePerSessionUnderTheUtcDate() throws Exception {
         final Clock clock = Clock.fixed(Instant.parse("2026-01-02T03:04:05.006Z"), ZoneOffset.UTC);
 
-        try (KernelLog log =
-                KernelLog.openSession(temporary, clock, 42L, (level, component, message, failure) -> {})) {
+        try (KernelLog log = KernelLog.openSession(temporary, clock, 42L, (level, component, message, failure) -> {})) {
             final Path file = log.snapshot().currentFile().orElseThrow();
             assertEquals(temporary.resolve("2026-01-02"), file.getParent());
             assertTrue(file.getFileName().toString().matches("turboism-03-04-05\\.006-p42-.*\\.log"));

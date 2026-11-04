@@ -2,9 +2,9 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.kernel.KernelRuntime;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.Objects;
