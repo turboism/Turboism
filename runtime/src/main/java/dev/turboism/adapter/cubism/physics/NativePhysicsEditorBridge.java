@@ -50,7 +50,14 @@ public final class NativePhysicsEditorBridge {
         final Binding binding = INSTALLED.get();
         if (binding == null || panel == null) return;
         try {
-            binding.coordinator().onPanelConstructed(panel, binding.profile());
+            if (panel.getClass()
+                    .getName()
+                    .replace('.', '/')
+                    .equals(PhysicsEditorConstructorTransformer.PREVIEW_OWNER)) {
+                binding.coordinator().onPreviewConstructed(panel);
+            } else {
+                binding.coordinator().onPanelConstructed(panel, binding.profile());
+            }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(

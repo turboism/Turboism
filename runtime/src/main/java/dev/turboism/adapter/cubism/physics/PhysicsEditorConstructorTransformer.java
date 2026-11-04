@@ -11,6 +11,10 @@ import org.objectweb.asm.Opcodes;
 
 /** Exact-owner constructor transformer for the Physics Settings group-list panel. */
 public final class PhysicsEditorConstructorTransformer implements ClassFileTransformer {
+    /** Stable native drawing surface; admitted only alongside a reviewed physics host profile. */
+    public static final String PREVIEW_OWNER =
+            "com/live2d/cubism/doc/modeling/ui/viewer/ViewerUI_Panel$DirectModelDrawingPanel";
+
     private static final String BRIDGE = "dev/turboism/adapter/cubism/physics/NativePhysicsEditorBridge";
 
     private final String ownerInternalName;
@@ -29,7 +33,7 @@ public final class PhysicsEditorConstructorTransformer implements ClassFileTrans
             final Class<?> classBeingRedefined,
             final ProtectionDomain protectionDomain,
             final byte[] classfileBuffer) {
-        if (!ownerInternalName.equals(className)
+        if ((!ownerInternalName.equals(className) && !PREVIEW_OWNER.equals(className))
                 || classfileBuffer == null
                 || (expectedClassLoader != null && loader != expectedClassLoader)) return null;
         final boolean[] transformed = {false};

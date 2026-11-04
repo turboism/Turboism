@@ -1,2 +1,6 @@
+gif.discard
+gif.pause
+gif.record-pause
+gif.stop
 plugin.description
 plugin.name

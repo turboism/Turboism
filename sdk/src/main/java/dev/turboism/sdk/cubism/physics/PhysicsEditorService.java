@@ -14,6 +14,21 @@ public interface PhysicsEditorService {
      */
     Registration contribute(PhysicsEditorContribution contribution);
 
+    /** Recording commands for the focused native Physics Settings preview. */
+    enum GifCommand {
+        /** Starts recording, pauses it, or resumes a paused recording. */
+        RECORD_PAUSE,
+        /** Pauses an active recording. */
+        PAUSE,
+        /** Finishes the recording and opens export settings. */
+        STOP,
+        /** Discards the recording without exporting. */
+        DISCARD
+    }
+
+    /** Dispatches to the focused physics preview; does nothing when none is focused. */
+    default void gifCommand(final GifCommand command) {}
+
     /**
      * Reports whether a live runtime surface backs this instance.
      *

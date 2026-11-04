@@ -18,6 +18,14 @@ interface: swing
 
 Adds select-all behavior and reopen retention to Cubism's native Physics / Scene Blending Settings group list.
 
+## GIF recording
+
+Use the red **Record** icon in the transparent, icon-only toolbar above the right preview (1–50 FPS). Hover over an icon to see its action. It becomes **Pause** during recording; press it again to resume. **Stop** opens export settings, and **Discard** deletes the recording without exporting. There is no frame-count input. Default registered shortcuts: **F7** record/pause/resume, **Shift+F7** pause, **F8** stop/export, **F9** discard. They can be changed in the shortcut settings and only operate on the focused Physics Settings preview. Paused time adds no frames. Recording reads the model framebuffer, excluding the settings and toolbar. When recording finishes, the export dialog provides percentage scaling, pixel width/height, and an aspect-ratio lock. **Optimize to target size** is checked by default with a **20 MB** limit (1 MB = 1,000,000 bytes). Optimization may reduce colors and dimensions while preserving all frames and playback timing. Uncheck it to export at the selected dimensions without a size target.
+
+Confirm export settings, then choose a save location. The last successful GIF export directory is remembered across sessions, independently of project saves. Export failures preserve the recording so you can adjust settings and retry. Cancellation, closing the preview, or disabling the plugin cleans up temporary recordings.
+
+GIF export requires **Gifsicle** installed locally: make `gifsicle` available on `PATH`, enter its executable path in the export dialog, or set `-Dturboism.gifsicle.path=<path>`. No executable is downloaded automatically. Keep the preview open and its size unchanged while recording.
+
 | Detail | Value |
 |---|---|
 | Version | `0.1.0` |

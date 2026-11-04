@@ -22,6 +22,11 @@
   "dependencies": [],
   "permissions": [
     {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register GIF recording, pause, stop, and discard actions with configurable shortcuts."
+    },
+    {
       "id": "turboism.cubism.model.write",
       "scope": "application",
       "reason": "Atomically enables or disables Physics Settings groups through the verified Editor transaction path."

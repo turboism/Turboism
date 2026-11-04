@@ -19,6 +19,15 @@ class PhysicsEditorConstructorTransformerTest {
         assertNotNull(transformer.transform(null, null, "fixture/Panel", null, null, fixture("fixture/Panel")));
     }
 
+    @Test
+    void instrumentsTheExactDrawingSurfaceAndRejectsForeignClassLoaders() {
+        final String owner = PhysicsEditorConstructorTransformer.PREVIEW_OWNER;
+        final ClassLoader hostLoader = getClass().getClassLoader();
+        final var transformer = new PhysicsEditorConstructorTransformer("fixture/Panel", hostLoader);
+        assertNull(transformer.transform(null, null, owner, null, null, fixture(owner)));
+        assertNotNull(transformer.transform(null, hostLoader, owner, null, null, fixture(owner)));
+    }
+
     private static byte[] fixture(final String owner) {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
