@@ -361,7 +361,8 @@ final class StartupLoadingWindow implements AutoCloseable {
                 graphics.addRenderingHints(hints);
                 hasTextAntialiasingHint = hints.containsKey(RenderingHints.KEY_TEXT_ANTIALIASING);
             }
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
+            // Desktop font hints are optional; retain the default antialiasing fallback.
         }
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         if (!hasTextAntialiasingHint) {
