@@ -56,7 +56,7 @@ final class DynamicRuntimeHostAdapters {
                 final String diagnostic =
                         "adapter-diag:preview-rebind:" + failure.getClass().getSimpleName();
                 if (emittedRecentPreviewDiagnostics.add(diagnostic)) {
-                    dev.turboism.preview.RecentPreviewDiagnostics.emit(diagnostic);
+                    dev.turboism.kernel.RecentPreviewDiagnostics.emit(diagnostic);
                 }
             }
         }

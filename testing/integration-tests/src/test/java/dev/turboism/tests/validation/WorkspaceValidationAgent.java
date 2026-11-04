@@ -4,7 +4,7 @@ import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.preview.PreviewRuntime;
+import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
@@ -178,7 +178,7 @@ public final class WorkspaceValidationAgent {
     }
 
     /** The exact runtime/state pair that passed admission; the state is never re-read later. */
-    private record AdmittedRuntime(PreviewRuntime runtime, dev.turboism.adapter.host.HostSession.State state) {}
+    private record AdmittedRuntime(KernelRuntime runtime, dev.turboism.adapter.host.HostSession.State state) {}
 
     private static void run(final Options options, final Instrumentation instrumentation) {
         final Evidence evidence = new Evidence(options.home().resolve("state"), EVIDENCE_FILE);
@@ -188,7 +188,7 @@ public final class WorkspaceValidationAgent {
             if (admitted == null) {
                 return;
             }
-            final PreviewRuntime runtime = admitted.runtime();
+            final KernelRuntime runtime = admitted.runtime();
             final dev.turboism.adapter.host.HostSession.State admittedState = admitted.state();
             // Actual degraded mode is defined by the admitted state, never by the option flag:
             // an ACTIVE run with allowDegradedRuntime=true is recorded as a normal ACTIVE run.
@@ -244,7 +244,7 @@ public final class WorkspaceValidationAgent {
         final long deadline = System.nanoTime() + options.timeout().toNanos();
         dev.turboism.adapter.host.HostSession.State lastObserved = null;
         do {
-            final PreviewRuntime runtime = runtimeOrNull();
+            final KernelRuntime runtime = runtimeOrNull();
             if (runtime != null) {
                 final dev.turboism.adapter.host.HostSession.State state = runtime.hostState();
                 lastObserved = state;
@@ -270,13 +270,13 @@ public final class WorkspaceValidationAgent {
      * Sole reflective access: Turboism's own private static runtime holder. Reading it fails
      * closed (reported, never silently skipped).
      */
-    private static PreviewRuntime runtimeOrNull() {
+    private static KernelRuntime runtimeOrNull() {
         try {
             final Class<?> agentClass = Class.forName("dev.turboism.bootstrap.TurboismAgent");
             final java.lang.reflect.Field field = agentClass.getDeclaredField("RUNTIME");
             field.setAccessible(true);
             @SuppressWarnings("unchecked")
-            final AtomicReference<PreviewRuntime> holder = (AtomicReference<PreviewRuntime>) field.get(null);
+            final AtomicReference<KernelRuntime> holder = (AtomicReference<KernelRuntime>) field.get(null);
             return holder.get();
         } catch (ReflectiveOperationException | ClassCastException exception) {
             throw new IllegalStateException(

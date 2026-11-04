@@ -310,7 +310,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         try {
             assertThrows(
                     IllegalStateException.class,
-                    () -> PreviewRuntimeLauncher.startPreviewRuntime(candidate, null, () -> {
+                    () -> KernelRuntimeLauncher.startKernelRuntime(candidate, null, () -> {
                         throw new IllegalStateException("preview start failed");
                     }));
             assertFalse(candidate.isInstalled());
@@ -326,7 +326,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
             try {
                 assertThrows(
                         IllegalStateException.class,
-                        () -> PreviewRuntimeLauncher.startPreviewRuntime(different, null, () -> {
+                        () -> KernelRuntimeLauncher.startKernelRuntime(different, null, () -> {
                             throw new IllegalStateException("preview start failed");
                         }));
                 assertTrue(prior.isInstalled());
@@ -344,7 +344,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
     }
 
     @Test
-    void startPreviewRuntimeRestoresInterruptFlagWhenInterruptedAndCleanupSucceeds() throws Exception {
+    void startKernelRuntimeRestoresInterruptFlagWhenInterruptedAndCleanupSucceeds() throws Exception {
         final VerifiedMeshMirrorHookInstaller candidate = new VerifiedMeshMirrorHookInstaller(
                 instrumentation(new ArrayList<>()), getClass().getClassLoader(), null, null, profile());
         candidate.install();
@@ -353,7 +353,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         try {
             final InterruptedException observed = assertThrows(
                     InterruptedException.class,
-                    () -> PreviewRuntimeLauncher.startPreviewRuntime(candidate, null, () -> {
+                    () -> KernelRuntimeLauncher.startKernelRuntime(candidate, null, () -> {
                         throw interrupted;
                     }));
             assertSame(interrupted, observed);
@@ -444,7 +444,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         try {
             final var observed = assertThrows(
                     IllegalArgumentException.class,
-                    () -> PreviewRuntimeLauncher.startPreviewRuntime(mesh, warp, () -> {
+                    () -> KernelRuntimeLauncher.startKernelRuntime(mesh, warp, () -> {
                         throw startupFailure;
                     }));
 
@@ -470,7 +470,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         MeshMirrorHookContributor.CURRENT.set(candidate);
         final boolean[] runtimeClosed = {false};
 
-        PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(() -> runtimeClosed[0] = true, candidate, null);
+        KernelRuntimeLauncher.closeDuplicateRuntimeAndHooks(() -> runtimeClosed[0] = true, candidate, null);
 
         assertTrue(runtimeClosed[0]);
         assertFalse(candidate.isInstalled());
@@ -505,7 +505,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         try {
             final var observed = assertThrows(
                     IllegalArgumentException.class,
-                    () -> PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
+                    () -> KernelRuntimeLauncher.closeDuplicateRuntimeAndHooks(
                             () -> {
                                 throw runtimeFailure;
                             },
@@ -532,7 +532,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         try {
             assertThrows(
                     IllegalStateException.class,
-                    () -> PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(
+                    () -> KernelRuntimeLauncher.closeDuplicateRuntimeAndHooks(
                             () -> {
                                 throw new IllegalStateException("runtime close failed");
                             },

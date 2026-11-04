@@ -19,8 +19,8 @@ import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.MeshTriangulationSettingsService;
 import dev.turboism.internal.core.ShellServices;
 import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
-import dev.turboism.preview.LocalPluginRuntime;
-import dev.turboism.preview.PreviewLog;
+import dev.turboism.kernel.LocalPluginRuntime;
+import dev.turboism.kernel.KernelLog;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -294,7 +294,7 @@ class CoreShellTest {
                 new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
                 ignored -> {});
         final HostSession host = new HostSession(Optional::empty);
-        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime =
                     new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, services -> {
                         final CoreShell shell = new CoreShell(services);

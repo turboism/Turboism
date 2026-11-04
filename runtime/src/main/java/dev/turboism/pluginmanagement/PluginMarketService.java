@@ -15,7 +15,7 @@ import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadControl;
 import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadFailure;
 import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadProgress;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
-import dev.turboism.preview.PluginHotReloadCoordinator;
+import dev.turboism.kernel.PluginHotReloadCoordinator;
 import dev.turboism.update.UpdateFileSupport;
 import java.io.IOException;
 import java.nio.file.Files;

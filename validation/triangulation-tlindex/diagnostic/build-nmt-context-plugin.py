@@ -77,7 +77,7 @@ def main():
     for number, agent in enumerate(agents):
         guard.guarded([*common, '-XX:NativeMemoryTracking=summary', '-Djava.awt.headless=true', '-cp',
                        str(agent) + os.pathsep + str(original / 'base/check-classes'),
-                       'dev.turboism.preview.ObserverFreePluginLoaderSelfCheck', str(jar)], out / f'loader-{number}.log', env)
+                       'dev.turboism.kernel.ObserverFreePluginLoaderSelfCheck', str(jar)], out / f'loader-{number}.log', env)
     report = dict(status='PASS_OFFLINE_IN_PROCESS_NMT_AND_HEAP_RANGE_NOT_HOST_VALIDATED', pluginSha256=base.sha(jar),
                   productionPerformanceAcceptance='NOT_GRANTED', productionAgentsChanged=False, hostSubmitted=False,
                   inputPins={str(p): base.sha(p) for p in [Path(__file__), helper, HERE / check.name, args.sdk.resolve(), *agents]},

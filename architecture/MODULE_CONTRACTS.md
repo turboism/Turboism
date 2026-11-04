@@ -21,36 +21,36 @@ surface contracts stay in `sdk/api-contracts/` and the SDK ABI gates.
 - **Enforcement**: the gate that fails when the contract is violated.
 ```
 
-## `:runtime` preview ↔ preview report
+## `:runtime` kernel ↔ kernel report
 
-- **Owner**: preview runtime maintainers (see `.github/CODEOWNERS`).
-- **Purpose**: `dev.turboism.preview.report` renders neutral documents
+- **Owner**: kernel runtime maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.kernel.report` renders neutral documents
   (capability/warning/verification/config reports) from evidence it is given. It
   does not read runtime state, plugin state or the host.
 - **Allowed dependencies**: `report` may depend on `adapter.host`, `failure`,
-  `i18n`, `mapping.verification` and the SDK. `preview` may depend on `report`.
-- **Forbidden**: `report` importing anything from `dev.turboism.preview`
+  `i18n`, `mapping.verification` and the SDK. `kernel` may depend on `report`.
+- **Forbidden**: `report` importing anything from `dev.turboism.kernel`
   (including nested `LocalPluginRuntime` types), and any `report` type reading
   files or runtime state on its own initiative.
-- **Public API**: `PreviewReportSnapshotFactory`, `PreviewReportType`,
-  `PreviewReportDocuments`, `PreviewReportWriter`, the validators. Consumers pass
+- **Public API**: `KernelReportSnapshotFactory`, `KernelReportType`,
+  `KernelReportDocuments`, `KernelReportWriter`, the validators. Consumers pass
   runtime evidence in.
 - **Threading / IO**: documents are built on the calling thread; `report` writes
-  only through `PreviewReportWriter` and never schedules work.
-- **Tests**: `runtime/src/test/java/dev/turboism/preview/report/*` for the
-  document contract; `PreviewCapabilityCatalogRegistryTest` pins the canonical
+  only through `KernelReportWriter` and never schedules work.
+- **Tests**: `runtime/src/test/java/dev/turboism/kernel/report/*` for the
+  document contract; `KernelCapabilityCatalogRegistryTest` pins the canonical
   capability closure (69 entries) next to the factory it validates.
 - **Backward compatibility**: report documents are a closed set consumed by the
-  preview agent; adding a document type is a reviewed change.
+  runtime agent; adding a document type is a reviewed change.
 - **Enforcement**: `checkDependencyInventory` (no cycle) plus the runtime package
   rules in `gradle/module-boundaries.gradle.kts`.
 
-**What changed (pilot, #70 step 3a)**: `PreviewReportSnapshotFactory` read
-`LocalPluginRuntime` state directly, which made `report` depend on `preview`.
+**What changed (pilot, #70 step 3a)**: `KernelReportSnapshotFactory` read
+`LocalPluginRuntime` state directly, which made `report` depend on `kernel`.
 The factory is the bridge between runtime evidence and report documents, so it
-moved to `dev.turboism.preview`; `PreviewReportDocuments` gained a public
+moved to `dev.turboism.kernel`; `KernelReportDocuments` gained a public
 `json()` accessor so the factory keeps the shared deterministic mapper instead of
-the package-private field. `PreviewCapabilityCatalogRegistryTest` moved with it,
+the package-private field. `KernelCapabilityCatalogRegistryTest` moved with it,
 because it calls the factory's package-private `canonicalCapabilityIds()`.
 
 ## `:runtime` adapter ↔ adapter host

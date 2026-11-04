@@ -473,7 +473,7 @@ def verify_build(run):
         require('dev/turboism/validation/modelimport3d/host/MorphOrderProbe.class' in classes, 'N4b class missing')
         require('dev/turboism/validation/modelimport3d/host/ImageBindingProbe.class' in classes, 'N5a class missing')
         require('dev/turboism/validation/modelimport3d/host/PixelSamplingProbe.class' in classes, 'T008 class missing')
-        require(runtime.read('dev/turboism/preview/ValidationFileGrants.class'),
+        require(runtime.read('dev/turboism/kernel/ValidationFileGrants.class'),
                 'T014 grant seam class missing from the bundled runtime')
         if stage:
             require('dev/turboism/validation/modelimport3d/host/CubeGeometryProbe.class' in classes, 'cube producer missing')

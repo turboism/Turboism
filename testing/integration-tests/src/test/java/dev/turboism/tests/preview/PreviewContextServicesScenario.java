@@ -7,8 +7,8 @@ import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.preview.LocalPluginRuntime;
-import dev.turboism.preview.PreviewLog;
+import dev.turboism.kernel.LocalPluginRuntime;
+import dev.turboism.kernel.KernelLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +37,7 @@ final class PreviewContextServicesScenario {
 
     private static void loadAndAssert(final Path home, final Path markerDirectory, final Path temporaryDirectory)
             throws Exception {
-        final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
+        final KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
         final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
@@ -70,7 +70,7 @@ final class PreviewContextServicesScenario {
             final LocalPluginRuntime runtime,
             final HostRuntimeIngress hostIngress,
             final RuntimeScheduler scheduler,
-            final PreviewLog log)
+            final KernelLog log)
             throws IOException {
         try {
             runtime.close();

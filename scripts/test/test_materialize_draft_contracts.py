@@ -38,7 +38,7 @@ class DraftDeclarationDiagnosticTest(unittest.TestCase):
                 self.assertIn(alias, message)
                 self.assertIn(f'version {version}', message)
                 self.assertIn(f'add entries.{alias} with a template index', message)
-                self.assertIn(declaration, message)
+                self.assertIn(str(Path(declaration)), message)
 
 
 if __name__ == '__main__':

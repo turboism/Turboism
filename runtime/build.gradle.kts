@@ -454,7 +454,7 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
     dependsOn(headlessRuntimeJar, "compileHeadlessProbeJava")
     classpath = sourceSets["headlessProbe"].output + files(headlessRuntimeJar) +
         configurations.runtimeClasspath.get()
-    mainClass.set("dev.turboism.preview.HeadlessRuntimeProbeMain")
+    mainClass.set("dev.turboism.kernel.HeadlessRuntimeProbeMain")
     jvmArgs("-Djava.awt.headless=true")
     // The probe verdict is a pure function of the classpath above; the stamp gives
     // Gradle a persistent output so a passing run is not repeated unchanged.

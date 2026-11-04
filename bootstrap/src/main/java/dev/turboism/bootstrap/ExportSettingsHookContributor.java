@@ -5,7 +5,7 @@ import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.preview.PreviewRuntime;
+import dev.turboism.kernel.KernelRuntime;
 
 /**
  * Declarative contributor for the verified export-settings hook and its
@@ -60,7 +60,7 @@ final class ExportSettingsHookContributor implements HookContributor {
 
     @Override
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
-        final PreviewRuntime runtime = environment.runtime().orElseThrow();
+        final KernelRuntime runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final var profile = ExportSettingsHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
                 .orElseThrow(() -> new IllegalStateException("Unsupported export-settings host artifact"));
@@ -96,7 +96,7 @@ final class ExportSettingsHookContributor implements HookContributor {
      * is refused because the staging redirect cannot be proven.</p>
      */
     private static VerifiedProtectedExportHookInstaller installProtectedExportChooserHook(
-            final HookEnvironment environment, final PreviewRuntime runtime, final HostClassLocator.LocatedHost host) {
+            final HookEnvironment environment, final KernelRuntime runtime, final HostClassLocator.LocatedHost host) {
         VerifiedProtectedExportHookInstaller installer = null;
         try {
             final var profile = ProtectedExportChooserProfile.forArtifact(HostArtifactDigest.from(host.artifact()))

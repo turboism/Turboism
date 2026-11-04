@@ -1,0 +1,314 @@
+package dev.turboism.kernel;
+
+import dev.turboism.core.plugin.context.SdkCarrierTraversal;
+import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
+import dev.turboism.sdk.ui.UiScheduler;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+
+/**
+ * Per-generation admission gate wrapped around the {@link PluginContext} handed to entrypoints.
+ *
+ * <p>While the generation is live, every delegated SDK call is counted so retention can wait for
+ * admitted work to settle. {@link #fence()} — invoked when a lifecycle deadline fences the
+ * generation or teardown begins — makes every later call fail fast with {@link IllegalStateException},
+ * including calls on service handles the plugin acquired earlier, because returned
+ * {@code dev.turboism.sdk.*} interfaces are wrapped recursively.</p>
+ *
+ * <p>Two method classes bypass the fence:</p>
+ * <ul>
+ *   <li>Diagnostic accessors on the context ({@code descriptor}, {@code logger},
+ *       {@code localization}, {@code permissions}, {@code diagnostics}) so fenced cleanup and
+ *       operator-visible logging keep working.</li>
+ *   <li>Terminal release operations ({@code close}, {@code cancel}, {@code dispose},
+ *       {@code release}, {@code unregister}) on any wrapped interface. Plugins commonly hand
+ *       guarded registrations
+ *       back to their own scope via {@code scope.register(registration)}; teardown must still be
+ *       able to detach and close them — including blocking closers such as atlas
+ *       {@code Registration.close()} — or the generation could never release its resources.
+ *       Terminal calls are still counted in-flight so retention waits for a slow close.</li>
+ *   <li>{@code UiScheduler.runUiTeardown(Runnable, Duration)}, the only argument-taking
+ *       exemption (exact declaring type and name), because plugin UI teardown always runs after
+ *       the fence and needs a bounded synchronous EDT hop. It is counted in-flight too.</li>
+ * </ul>
+ *
+ * <p>{@code disposableScope()} is gated here and additionally fenced by
+ * {@code DisposableScope.seal()} for scopes obtained before the fence.</p>
+ */
+final class PluginGenerationGuard {
+
+    private static final Set<String> DIAGNOSTIC_ACCESSORS =
+            Set.of("descriptor", "logger", "localization", "permissions", "diagnostics");
+
+    // Idempotent detach/release verbs used across the SDK surface (Registration.close,
+    // FileChooserHistoryService.Registration.unregister, task cancel, handle release/dispose).
+    //
+    // The match is intentionally name + zero-arity only, never widened further: the SDK's
+    // terminal surface spans dozens of interfaces with heterogeneous return types (void,
+    // boolean, EditSessionCloseResult), so no signature- or type-based allowlist can express
+    // it without risking a missed release — and a missed terminal call leaks a resource,
+    // which is a worse failure than over-admitting a coincidental same-named no-arg method.
+    // A method taking any argument is never terminal and stays fenced.
+    private static final Set<String> TERMINAL_OPERATIONS =
+            Set.of("close", "cancel", "dispose", "release", "unregister");
+
+    // The one admitted exception to the zero-arity rule: UiScheduler.runUiTeardown carries
+    // arguments, but it exists precisely so disable()/shutdown()/scope closers (which always
+    // run after the fence) can release UI resources. It is matched by exact declaring type and
+    // name, so no other method can ride on it.
+    private static final String UI_TEARDOWN_OPERATION = "runUiTeardown";
+
+    // Package and interface shape are immutable for a loaded class; avoid repeating the
+    // package lookup for every carrier element traversed on a hot SDK call.
+    private static final ClassValue<Boolean> GATABLE_SDK_INTERFACE = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(final Class<?> type) {
+            return computeGatableSdkInterface(type);
+        }
+    };
+
+    private final String pluginId;
+    private final AtomicBoolean open = new AtomicBoolean(true);
+    private final AtomicInteger inFlight = new AtomicInteger();
+    // Both sides must be weak: a strongly cached proxy retains its delegate through Handler,
+    // and a strong map would retain every SDK handle ever returned for the plugin's lifetime.
+    private final ReferenceQueue<Object> collectedDelegates = new ReferenceQueue<>();
+    private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies = new LinkedHashMap<>();
+    private final SdkCarrierTraversal.InterfaceWrapper interfaceWrapper = this::wrapInterface;
+    private final Function<Object, Object> ownedProxyUnwrapper = this::unwrapOwnedProxy;
+
+    PluginGenerationGuard(final String pluginId) {
+        this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
+    }
+
+    /** Returns the gated plugin-facing view of one plugin context. */
+    PluginContext wrap(final PluginContext delegate) {
+        return (PluginContext) wrapInterface(Objects.requireNonNull(delegate, "delegate"), PluginContext.class);
+    }
+
+    /** Test seam mirroring CubismEditorApiAvailabilityInterceptor.wrapForTesting. */
+    <T> T wrapForTesting(final T value, final Class<T> sdkInterface) {
+        return sdkInterface.cast(wrapInterface(value, sdkInterface));
+    }
+
+    /**
+     * Denies new SDK admission for this generation. In-flight calls and terminal release
+     * operations finish normally; retention waits for them through {@link #drained()}.
+     */
+    void fence() {
+        open.set(false);
+    }
+
+    boolean isFenced() {
+        return !open.get();
+    }
+
+    /** @return {@code true} when no admitted SDK call is currently executing */
+    boolean drained() {
+        return inFlight.get() == 0;
+    }
+
+    int inFlightCalls() {
+        return inFlight.get();
+    }
+
+    private void enter() {
+        if (!open.get()) {
+            throw fenced();
+        }
+        inFlight.incrementAndGet();
+        if (!open.get()) {
+            inFlight.decrementAndGet();
+            throw fenced();
+        }
+    }
+
+    private void enterTerminal() {
+        inFlight.incrementAndGet();
+    }
+
+    private void exit() {
+        inFlight.decrementAndGet();
+    }
+
+    private IllegalStateException fenced() {
+        return new IllegalStateException("Plugin generation is closed for new work: " + pluginId);
+    }
+
+    private Object wrapInterface(final Object value, final Class<?> sdkInterface) {
+        // Deformers.all/find declare the base interface. Preserve this closed SDK union
+        // before proxying, while keeping every subtype method behind the same guard.
+        if (sdkInterface == dev.turboism.sdk.cubism.model.Deformer.class) {
+            if (value instanceof dev.turboism.sdk.cubism.model.WarpDeformer)
+                return wrapInterface(value, dev.turboism.sdk.cubism.model.WarpDeformer.class);
+            if (value instanceof dev.turboism.sdk.cubism.model.RotationDeformer)
+                return wrapInterface(value, dev.turboism.sdk.cubism.model.RotationDeformer.class);
+        }
+        if (value == null || !isGatableSdkInterface(sdkInterface)) {
+            return value;
+        }
+        if (Proxy.isProxyClass(value.getClass())
+                && Proxy.getInvocationHandler(value) instanceof Handler handler
+                && handler.owner == this) {
+            return value;
+        }
+        synchronized (proxies) {
+            for (Reference<?> collected; (collected = collectedDelegates.poll()) != null; ) {
+                proxies.remove(collected);
+            }
+            final IdentityWeakReference lookup = new IdentityWeakReference(value, null);
+            Map<Class<?>, WeakReference<Object>> byInterface = proxies.get(lookup);
+            if (byInterface == null) {
+                byInterface = new LinkedHashMap<>();
+                proxies.put(new IdentityWeakReference(value, collectedDelegates), byInterface);
+            }
+            final WeakReference<Object> cached = byInterface.get(sdkInterface);
+            final Object existing = cached == null ? null : cached.get();
+            if (existing != null) {
+                return existing;
+            }
+            final Object created = Proxy.newProxyInstance(
+                    sdkInterface.getClassLoader(), new Class<?>[] {sdkInterface}, new Handler(value, sdkInterface));
+            byInterface.put(sdkInterface, new WeakReference<>(created));
+            return created;
+        }
+    }
+
+    private static final class IdentityWeakReference extends WeakReference<Object> {
+        private final int identityHash;
+
+        private IdentityWeakReference(final Object value, final ReferenceQueue<Object> queue) {
+            super(value, queue);
+            identityHash = System.identityHashCode(value);
+        }
+
+        @Override
+        public int hashCode() {
+            return identityHash;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            if (this == other) {
+                return true;
+            }
+            final Object value = get();
+            return value != null && other instanceof IdentityWeakReference reference && value == reference.get();
+        }
+    }
+
+    private Object wrapMethodReturnValue(final Method method, final Object result) {
+        return SdkCarrierTraversal.wrapMethodReturnValue(method, result, interfaceWrapper);
+    }
+
+    private Object[] unwrapArguments(final Object[] arguments) {
+        return SdkCarrierTraversal.unwrapArguments(arguments, ownedProxyUnwrapper);
+    }
+
+    private Object unwrapOwnedProxy(final Object value) {
+        if (Proxy.isProxyClass(value.getClass())
+                && Proxy.getInvocationHandler(value) instanceof Handler handler
+                && handler.owner == this) {
+            return handler.delegate;
+        }
+        return value;
+    }
+
+    private static boolean isGatableSdkInterface(final Class<?> type) {
+        return GATABLE_SDK_INTERFACE.get(type);
+    }
+
+    private static boolean computeGatableSdkInterface(final Class<?> type) {
+        if (!type.isInterface()) {
+            return false;
+        }
+        final Package typePackage = type.getPackage();
+        return typePackage != null && typePackage.getName().startsWith("dev.turboism.sdk.");
+    }
+
+    private final class Handler implements InvocationHandler {
+        private final PluginGenerationGuard owner = PluginGenerationGuard.this;
+        private final Object delegate;
+        private final Class<?> sdkInterface;
+
+        private Handler(final Object delegate, final Class<?> sdkInterface) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+            this.sdkInterface = Objects.requireNonNull(sdkInterface, "sdkInterface");
+        }
+
+        @Override
+        public Object invoke(final Object proxy, final Method method, final Object[] arguments) throws Throwable {
+            if (method.getDeclaringClass() == Object.class) {
+                return switch (method.getName()) {
+                    case "equals" -> proxy == arguments[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> "PluginGenerationGuard[" + sdkInterface.getName() + "]";
+                    default -> throw new IllegalStateException("Unexpected Object method: " + method);
+                };
+            }
+            // Diagnostic accessors stay available while fenced so cleanup and operator-visible
+            // logging keep working.
+            if (method.getDeclaringClass() == PluginContext.class
+                    && DIAGNOSTIC_ACCESSORS.contains(method.getName())
+                    && method.getParameterCount() == 0) {
+                try {
+                    return method.invoke(delegate, arguments);
+                } catch (InvocationTargetException failure) {
+                    throw failure.getCause();
+                }
+            }
+            // Terminal release operations bypass the fence: teardown must be able to detach and
+            // close handles acquired before fencing, but they still count toward in-flight work
+            // so retention waits for a blocking close to actually return.
+            final boolean terminal = (method.getParameterCount() == 0 && TERMINAL_OPERATIONS.contains(method.getName()))
+                    || isUiTeardown(method);
+            if (terminal) {
+                enterTerminal();
+            } else {
+                enter();
+            }
+            try {
+                final Object result = method.invoke(delegate, unwrapArguments(arguments));
+                return wrapInvocationResult(method, arguments, result);
+            } catch (InvocationTargetException failure) {
+                throw failure.getCause();
+            } finally {
+                exit();
+            }
+        }
+
+        private static boolean isUiTeardown(final Method method) {
+            return method.getDeclaringClass() == UiScheduler.class && UI_TEARDOWN_OPERATION.equals(method.getName());
+        }
+
+        private Object wrapInvocationResult(final Method method, final Object[] arguments, final Object result) {
+            if (arguments != null
+                    && arguments.length == 1
+                    && arguments[0] instanceof Class<?> serviceType
+                    && (PluginServiceDirectory.class.isAssignableFrom(sdkInterface)
+                            || PluginServiceDirectory.class.isAssignableFrom(method.getDeclaringClass()))) {
+                if ("find".equals(method.getName()) && result instanceof Optional<?> optional) {
+                    return optional.map(service -> wrapInterface(service, serviceType));
+                }
+                if ("require".equals(method.getName())) {
+                    return wrapInterface(result, serviceType);
+                }
+            }
+            return wrapMethodReturnValue(method, result);
+        }
+    }
+}
