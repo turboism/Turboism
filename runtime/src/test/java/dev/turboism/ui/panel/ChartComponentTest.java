@@ -8,7 +8,9 @@ import java.awt.Dimension;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
+@ResourceLock("chart-data-registry")
 class ChartComponentTest {
 
     @Test
