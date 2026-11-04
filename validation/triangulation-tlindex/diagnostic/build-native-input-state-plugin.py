@@ -97,7 +97,7 @@ def main():
     guard.guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', str(accepted), '-d', str(check_classes),
                    str(loader_source)], out / 'loader-compile.log', env)
     guard.guarded(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp', str(accepted) + os.pathsep + str(check_classes),
-                   'dev.turboism.preview.ObserverFreePluginLoaderSelfCheck', str(jar)], out / 'loader-check.log', env)
+                   'dev.turboism.kernel.ObserverFreePluginLoaderSelfCheck', str(jar)], out / 'loader-check.log', env)
     report = {'status': 'PASS_OFFLINE_INPUT_STATE_PLUGIN_NOT_HOST_VALIDATED', 'pluginSha256': sha(jar),
               'performanceAcceptance': 'NOT_GRANTED', 'hostPreparedOrSubmitted': False,
               'inputs': json.loads((template / 'build.json').read_text())['inputs'],

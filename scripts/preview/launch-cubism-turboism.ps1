@@ -301,7 +301,7 @@ if ($ProbeOnly) {
 if ($ProbeAgent) {
     $probeArgs = @(
         "-Dturboism.home=$previewRoot",
-        "-javaagent:$agent=hostClass=dev.turboism.preview.DoesNotExist;timeoutSeconds=1",
+        "-javaagent:$agent=hostClass=dev.turboism.kernel.DoesNotExist;timeoutSeconds=1",
         "-classpath", $agent,
         "dev.turboism.bootstrap.PreviewAgentProbeMain"
     )

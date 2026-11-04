@@ -1,0 +1,1424 @@
+package dev.turboism.kernel;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.adapter.HostVerificationEvidence;
+import dev.turboism.adapter.host.HostInstanceDescriptor;
+import dev.turboism.adapter.host.HostSession;
+import dev.turboism.bootstrap.HostRuntimeIngress;
+import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.home.LegacyHomeMigration;
+import dev.turboism.home.TurboismHomeLayout;
+import dev.turboism.kernel.report.KernelReportType;
+import dev.turboism.kernel.report.KernelReportWriter;
+import dev.turboism.mapping.verification.CompatibilityResolution;
+import dev.turboism.mapping.verification.CubismEditorReleaseDeclaration;
+import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/** Owns the complete Turboism 0.1 runtime inside one Cubism process. */
+public final class KernelRuntime implements AutoCloseable {
+
+    private static final StartupBanner STARTUP_BANNER = new StartupBanner();
+
+    private final Path home;
+    private final KernelLog log;
+    private final RuntimeScheduler scheduler;
+    private final HostRuntimeIngress hostIngress;
+    private final LocalPluginRuntime pluginRuntime;
+    private volatile LocalPluginRuntime.LoadReport loadReport;
+    private final KernelReportWriter reportWriter;
+    private final String runtimeId;
+    private final Path verificationRecord;
+    private final Path hostArtifact;
+    private final java.util.Locale effectiveLocale;
+    private final ShutdownLifecycle shutdownLifecycle;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean pluginsStarted = new AtomicBoolean(false);
+    private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
+    private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
+    private volatile dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExportOrchestrator;
+    private volatile List<ShutdownFailure> shutdownFailures = List.of();
+
+    /** Package-private test composition seam; production startup uses {@link #start}. */
+    KernelRuntime(
+            final Path home,
+            final KernelLog log,
+            final RuntimeScheduler scheduler,
+            final HostRuntimeIngress hostIngress,
+            final LocalPluginRuntime pluginRuntime,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final KernelReportWriter reportWriter,
+            final String runtimeId,
+            final Path verificationRecord,
+            final Path hostArtifact) {
+        this(
+                home,
+                log,
+                scheduler,
+                hostIngress,
+                pluginRuntime,
+                loadReport,
+                reportWriter,
+                runtimeId,
+                verificationRecord,
+                hostArtifact,
+                java.util.Locale.getDefault());
+    }
+
+    KernelRuntime(
+            final Path home,
+            final KernelLog log,
+            final RuntimeScheduler scheduler,
+            final HostRuntimeIngress hostIngress,
+            final LocalPluginRuntime pluginRuntime,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final KernelReportWriter reportWriter,
+            final String runtimeId,
+            final Path verificationRecord,
+            final Path hostArtifact,
+            final java.util.Locale effectiveLocale) {
+        this.home = home;
+        this.log = log;
+        this.scheduler = scheduler;
+        this.hostIngress = hostIngress;
+        this.pluginRuntime = pluginRuntime;
+        this.loadReport = loadReport;
+        this.reportWriter = reportWriter;
+        this.runtimeId = runtimeId;
+        this.verificationRecord = verificationRecord;
+        this.hostArtifact = hostArtifact;
+        this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        this.shutdownLifecycle = new ShutdownLifecycle() {
+            @Override
+            public void logStopping() {
+                log.info("runtime", "Stopping Turboism Developer Preview");
+            }
+
+            @Override
+            public HostSession.State hostState() {
+                return hostIngress.state();
+            }
+
+            @Override
+            public void closePluginRuntime() {
+                pluginRuntime.close();
+            }
+
+            @Override
+            public void closeHostIngress() {
+                hostIngress.close();
+            }
+
+            @Override
+            public void shutdownScheduler() {
+                scheduler.shutdown();
+            }
+
+            @Override
+            public boolean writeFinalReport(
+                    final HostSession.State observedHostState, final boolean shutdownAttempted) {
+                return writeReportsOnce(observedHostState, true, shutdownAttempted);
+            }
+
+            @Override
+            public void logDegradedShutdown() {
+                log.warn("runtime", "RUNTIME_SHUTDOWN_DEGRADED: one or more shutdown stages failed safely.");
+            }
+
+            @Override
+            public void closeLog() throws IOException {
+                dev.turboism.runtime.log.RuntimeDiagnostics.clear();
+                log.close();
+            }
+        };
+    }
+
+    /** Package-private shutdown-lifecycle seam for focused runtime tests. */
+    KernelRuntime(final ShutdownLifecycle shutdownLifecycle) {
+        this.home = null;
+        this.log = null;
+        this.scheduler = null;
+        this.hostIngress = null;
+        this.pluginRuntime = null;
+        this.loadReport = null;
+        this.reportWriter = null;
+        this.runtimeId = null;
+        this.verificationRecord = null;
+        this.hostArtifact = null;
+        this.effectiveLocale = java.util.Locale.getDefault();
+        this.shutdownLifecycle = Objects.requireNonNull(shutdownLifecycle, "shutdownLifecycle");
+    }
+
+    /**
+     * Starts the preview runtime without a status-bar verification record, leaving the status
+     * slice unconnected. Convenience overload that delegates to the full {@code start}.
+     *
+     * @param requestedHome Turboism home directory; normalized before use
+     * @param verificationRecord exact-version verification record for the host mapping
+     * @param editorModelVerificationRecord verification record for the editor-model slice
+     * @param mainToolbarVerificationRecord verification record for the main-toolbar slice
+     * @param embeddedPanelVerificationRecord verification record for the embedded-panel slice
+     * @param topMenuVerificationRecord verification record for the top-menu slice
+     * @param boundingBoxOverlayVerificationRecord verification record for the bounding-box overlay
+     * @param hostArtifact the Cubism host artifact the records were verified against; only
+     *     Cubism 5.2.03, 5.3.02, and 5.3.03 are admitted
+     * @param hostClassLoader classloader through which host classes are resolved
+     * @return a started runtime with plugins loaded and initial reports written
+     * @throws IOException if the home directory or its log and report files cannot be prepared
+     */
+    public static KernelRuntime start(
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader)
+            throws IOException {
+        return start(
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                null,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                Optional.empty(),
+                Optional.empty(),
+                null,
+                Optional.empty(),
+                hostArtifact,
+                null,
+                hostClassLoader);
+    }
+
+    /**
+     * Starts the preview with an optional exact-version status-bar verification record.
+     * The status slice is only connected when the record is present.
+     */
+    public static KernelRuntime start(
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader)
+            throws IOException {
+        return start(
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
+                clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
+                protectedExportVerificationRecord,
+                hostArtifact,
+                coreArtifact,
+                hostClassLoader,
+                null,
+                runtime -> {},
+                runtime -> {});
+    }
+
+    /**
+     * Starts the preview under an already-computed host compatibility
+     * resolution.
+     *
+     * <p>{@code hostResolution == null} preserves the legacy exact-review
+     * contract: the artifact must be a byte-identical reviewed release. A
+     * {@code COMPATIBLE} resolution binds admitted slices structurally without
+     * claiming reviewed status; a {@code REJECTED} resolution fails closed.
+     * Every record argument a compat resolution did not admit is ignored only
+     * when it is {@code null}; passing a record for a non-admitted slice throws,
+     * so callers cannot smuggle unadmitted adapters into a degraded host.</p>
+     */
+    public static KernelRuntime start(
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution)
+            throws IOException {
+        return start(
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
+                clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
+                hostArtifact,
+                coreArtifact,
+                hostClassLoader,
+                hostResolution,
+                runtime -> {});
+    }
+
+    /**
+     * Prepares the host services, runs trusted bootstrap installation, then loads plugins.
+     * A failed bootstrap callback prevents plugin initialization and tears down the prepared
+     * runtime. The caller owns any hook handles installed by its callback and must close them
+     * if this method fails.
+     *
+     * @param requestedHome runtime home directory
+     * @param verificationRecord project/workspace mapping record
+     * @param editorModelVerificationRecord editor-model mapping record
+     * @param coreRuntimeVerificationRecord optional Core mapping record
+     * @param mainToolbarVerificationRecord optional main-toolbar mapping record
+     * @param embeddedPanelVerificationRecord optional embedded-panel mapping record
+     * @param topMenuVerificationRecord optional top-menu mapping record
+     * @param boundingBoxOverlayVerificationRecord optional overlay mapping record
+     * @param statusBarVerificationRecord optional status-bar mapping record
+     * @param clipMaskVerificationRecord optional clip-mask mapping record
+     * @param autoBackupVerificationRecord optional auto-backup mapping record
+     * @param hostArtifact actual Editor artifact
+     * @param coreArtifact actual Core artifact when present
+     * @param hostClassLoader loader owning the host classes
+     * @param hostResolution admission decision, or null for the legacy exact path
+     * @param beforePlugins trusted bootstrap work that must finish before plugin code runs
+     * @return the started runtime
+     * @throws IOException if runtime files cannot be prepared
+     */
+    public static KernelRuntime start(
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution,
+            final java.util.function.Consumer<KernelRuntime> beforePlugins)
+            throws IOException {
+        return start(
+                requestedHome,
+                verificationRecord,
+                editorModelVerificationRecord,
+                coreRuntimeVerificationRecord,
+                mainToolbarVerificationRecord,
+                embeddedPanelVerificationRecord,
+                topMenuVerificationRecord,
+                boundingBoxOverlayVerificationRecord,
+                statusBarVerificationRecord,
+                clipMaskVerificationRecord,
+                autoBackupVerificationRecord,
+                Optional.empty(),
+                hostArtifact,
+                coreArtifact,
+                hostClassLoader,
+                hostResolution,
+                beforePlugins,
+                runtime -> {});
+    }
+
+    /** Starts an admitted runtime with an optional exact-review protected-export record. */
+    public static KernelRuntime start(
+            final Path requestedHome,
+            final Path verificationRecord,
+            final Path editorModelVerificationRecord,
+            final Path coreRuntimeVerificationRecord,
+            final Path mainToolbarVerificationRecord,
+            final Path embeddedPanelVerificationRecord,
+            final Path topMenuVerificationRecord,
+            final Path boundingBoxOverlayVerificationRecord,
+            final Optional<Path> statusBarVerificationRecord,
+            final Optional<Path> clipMaskVerificationRecord,
+            final Path autoBackupVerificationRecord,
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path hostArtifact,
+            final Path coreArtifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution,
+            final java.util.function.Consumer<KernelRuntime> beforePlugins,
+            final java.util.function.Consumer<KernelRuntime> afterPlugins)
+            throws IOException {
+        Objects.requireNonNull(beforePlugins, "beforePlugins");
+        Objects.requireNonNull(afterPlugins, "afterPlugins");
+        Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
+        Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
+        Objects.requireNonNull(protectedExportVerificationRecord, "protectedExportVerificationRecord");
+        final Path normalizedHostArtifact = Objects.requireNonNull(hostArtifact, "hostArtifact")
+                .toAbsolutePath()
+                .normalize();
+        requireAdmittedEditorRelease(normalizedHostArtifact, hostResolution);
+        final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
+        final Path home = layout.home();
+        LegacyHomeMigration.migrate(home);
+        final var pendingPlugins = new dev.turboism.pluginmanagement.PendingPluginOperations(home).apply();
+        requireSafePendingPlugins(pendingPlugins);
+
+        final ClassLoader verifiedHostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        final KernelLog log = KernelLog.openSession(
+                layout.runtimeLogsDir(),
+                Clock.systemUTC(),
+                ProcessHandle.current().pid(),
+                KernelLog.Sink.NONE);
+        final var runtimeConfig = new dev.turboism.config.RuntimeConfigRepository(
+                        home, diagnostic -> log.warn("config", diagnostic))
+                .read();
+        log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
+        log.setMaxStorageMiB(runtimeConfig
+                .path("maxLogStorageMiB")
+                .asInt(dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB));
+        if (!pendingPlugins.applied()) {
+            log.warn(
+                    "plugin-management",
+                    pendingPlugins.code()
+                            + ": installed plugins kept; failed intent retained. Review pending changes in Plugin Management.");
+        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.install(log);
+        RuntimeScheduler scheduler = null;
+        HostRuntimeIngress ingress = null;
+        LocalPluginRuntime plugins = null;
+        final StartupPhaseTimer startupTimer = new StartupPhaseTimer(System::nanoTime);
+        try {
+            // Provisional: Cubism writes the Environment Settings language onto the
+            // process default locale as the editor starts, which is later than this
+            // first resolution. Re-resolved once the host is verified and ACTIVE.
+            java.util.concurrent.atomic.AtomicReference<java.util.Locale> effectiveLocale =
+                    new java.util.concurrent.atomic.AtomicReference<>(
+                            resolveEffectiveLocale(runtimeConfig, message -> log.warn("i18n", message)));
+            log.info("i18n", "Using startup locale " + effectiveLocale.get().toLanguageTag());
+            log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
+            startupTimer.completed("configuration", message -> log.info("startup", message));
+            // Inject the persisted theme before the Cubism GL scene initializes so
+            // the off-canvas background color (cached in a singleton Lazy) takes
+            // effect on restart, matching the legacy hook agent's startup timing.
+            new dev.turboism.ui.appearance.EarlyThemeAppearanceBootstrap(
+                            home,
+                            verifiedHostClassLoader,
+                            () -> log.info("runtime", "Early theme appearance injected from persisted selection"))
+                    .start();
+            // One-shot L&F readiness repair: hosts like Cubism 5.3.02 construct
+            // windows on the EDT before FlatLaf's UI defaults are installed, so
+            // early components get no ComponentUI and stay blank; once FlatLaf is
+            // ready, updateUI() reinstalls every already-built component's UI.
+            // No colors or themes are injected; version-neutral and fail-open.
+            new dev.turboism.ui.appearance.LafReadinessRepair(
+                            verifiedHostClassLoader, message -> log.info("appearance", message))
+                    .start();
+            scheduler = createScheduler(log);
+            RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
+            ingress = new HostRuntimeIngress(
+                    effectiveLocale::get,
+                    new dev.turboism.config.ConfigTextureAtlasSelectionStore(
+                            home, diagnostic -> log.warn("config", diagnostic)));
+            startupTimer.completed("appearance-and-services", message -> log.info("startup", message));
+
+            final Path normalizedVerificationRecord = Objects.requireNonNull(verificationRecord, "verificationRecord")
+                    .toAbsolutePath()
+                    .normalize();
+            final Path normalizedCoreArtifact =
+                    coreArtifact == null ? null : coreArtifact.toAbsolutePath().normalize();
+            final HostVerificationEvidence.Slice projectWorkspace = editorSlice(
+                    normalizedVerificationRecord,
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "project-workspace");
+            final HostVerificationEvidence.Slice editorModel = editorSlice(
+                    Objects.requireNonNull(editorModelVerificationRecord, "editorModelVerificationRecord")
+                            .toAbsolutePath()
+                            .normalize(),
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    hostResolution,
+                    "editor-model");
+            // Compatibility-bound hosts admit slices individually: a record is
+            // only present when the slice's full contract was verified, so
+            // optional slices accumulate conditionally instead of requiring
+            // every record path up front.
+            HostVerificationEvidence evidence = HostVerificationEvidence.withEditorModel(projectWorkspace, editorModel);
+            if (coreRuntimeVerificationRecord != null && normalizedCoreArtifact != null) {
+                evidence = evidence.addingCoreRuntime(editorSlice(
+                        coreRuntimeVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedCoreArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "core-model-read"));
+            }
+            if (mainToolbarVerificationRecord != null) {
+                evidence = evidence.addingMainToolbar(editorSlice(
+                        mainToolbarVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-main-toolbar"));
+            }
+            if (embeddedPanelVerificationRecord != null) {
+                evidence = evidence.addingEmbeddedPanel(editorSlice(
+                        embeddedPanelVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-embedded-panel"));
+            }
+            if (topMenuVerificationRecord != null) {
+                evidence = evidence.addingTopMenu(editorSlice(
+                        topMenuVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-top-menu"));
+            }
+            if (boundingBoxOverlayVerificationRecord != null) {
+                evidence = evidence.addingBoundingBoxOverlayButton(editorSlice(
+                        boundingBoxOverlayVerificationRecord.toAbsolutePath().normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        "ui-bounding-box-overlay"));
+            }
+            final HostVerificationEvidence evidenceWithCore = evidence;
+            final HostVerificationEvidence evidenceWithStatus = statusBarVerificationRecord
+                    .map(record -> record.toAbsolutePath().normalize())
+                    .map(record -> evidenceWithCore.addingStatusBar(editorSlice(
+                            record, normalizedHostArtifact, verifiedHostClassLoader, hostResolution, "ui-status-bar")))
+                    .orElse(evidenceWithCore);
+            final HostVerificationEvidence evidenceWithClipMask = clipMaskVerificationRecord
+                    .map(record -> record.toAbsolutePath().normalize())
+                    .map(record -> evidenceWithStatus.addingClipMask(editorSlice(
+                            record, normalizedHostArtifact, verifiedHostClassLoader, hostResolution, "clipmask")))
+                    .orElse(evidenceWithStatus);
+            final HostVerificationEvidence evidenceWithAutoBackup = autoBackupVerificationRecord == null
+                    ? evidenceWithClipMask
+                    : evidenceWithClipMask.addingAutoBackup(editorSlice(
+                            autoBackupVerificationRecord.toAbsolutePath().normalize(),
+                            normalizedHostArtifact,
+                            verifiedHostClassLoader,
+                            hostResolution,
+                            "autobackup"));
+            final HostSession.State hostState = ingress.publish(new HostInstanceDescriptor(
+                    "cubism-" + ProcessHandle.current().pid(), evidenceWithAutoBackup));
+            if (hostState == HostSession.State.ACTIVE) {
+                log.info("host", "Verified Cubism project/workspace adapter connected");
+            } else {
+                final String failure = ingress.lastFailure()
+                        .map(value -> value.code() + ": " + value.message())
+                        .orElse("No detailed failure");
+                log.warn("host", "Host adapter entered " + hostState + ": " + failure);
+            }
+            if (hostState != HostSession.State.ACTIVE) {
+                throw new IllegalStateException("Cubism host admission failed before plugin loading");
+            }
+            startupTimer.completed("host-adapters", message -> log.info("startup", message));
+
+            // The host class is observable, and this runtime therefore starts, before
+            // Cubism finishes applying File -> Environment Settings -> General ->
+            // Language to the process default locale. Re-resolve now that the host is
+            // verified and ACTIVE so plugin message bundles follow the language the
+            // user actually sees; an explicit -Dturboism.locale or config locale still
+            // outranks the host in resolveStartup. The first resolution already
+            // reported operator/config diagnostics, hence the silent sink here.
+            final java.util.Locale hostVerifiedLocale = resolveEffectiveLocale(runtimeConfig, message -> {});
+            if (!hostVerifiedLocale.equals(effectiveLocale.get())) {
+                log.info(
+                        "i18n",
+                        "Host locale " + hostVerifiedLocale.toLanguageTag() + " supersedes the startup locale "
+                                + effectiveLocale.get().toLanguageTag());
+                effectiveLocale.set(hostVerifiedLocale);
+            }
+
+            final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
+                    createFileChooserHistoryService(home, log);
+            plugins = new LocalPluginRuntime(
+                    home,
+                    scheduler,
+                    ingress.adapterAccess(),
+                    log,
+                    ingress.adapterAccess().parameterLifecycle(),
+                    fileChooserHistory,
+                    effectiveLocale.get(),
+                    CoreShellRuntime.frameworkAdmission());
+            // Host-level export-settings policy. It is created before plugin loading so every
+            // plugin's contribution registry is reachable from the native dialog, and identity is
+            // read from the same live host snapshots the rest of the runtime uses.
+            final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings =
+                    new dev.turboism.exportsettings.RuntimeExportSettingsAuthority(
+                            new dev.turboism.exportsettings.HostDocumentExportSettingsIdentitySource(
+                                    dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
+                                            ingress.adapterAccess().adapters().projectWorkspace())));
+            plugins.bindExportSettingsAuthority(exportSettings);
+            // The user-visible veto surface: every rejected/failed protected-export
+            // confirmation names its bounded reason instead of dying silently.
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface =
+                    dev.turboism.exportsettings.ExportSettingsVetoDialog::present;
+            exportSettings.vetoReporter(vetoSurface);
+            // The orchestrator is a degraded-capability seam: when the record is absent or the
+            // pinned chain fails, no orchestrator is bound and checked export stays rejected.
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
+                    createProtectedExportOrchestrator(
+                            protectedExportVerificationRecord,
+                            normalizedHostArtifact,
+                            verifiedHostClassLoader,
+                            exportSettings,
+                            ingress,
+                            layout,
+                            log,
+                            vetoSurface);
+            if (protectedExport != null) {
+                exportSettings.protectedExportOrchestrator(protectedExport);
+            }
+            final KernelReportWriter reportWriter = new KernelReportWriter(
+                    layout.runtimeStateDir(),
+                    diagnostic -> log.warn(
+                            "preview-report",
+                            diagnostic.code() + " " + diagnostic.reportType() + ": " + diagnostic.message()));
+            final KernelRuntime runtime = new KernelRuntime(
+                    home,
+                    log,
+                    scheduler,
+                    ingress,
+                    plugins,
+                    new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
+                    reportWriter,
+                    "runtime-" + UUID.randomUUID(),
+                    normalizedVerificationRecord,
+                    normalizedHostArtifact,
+                    effectiveLocale.get());
+            runtime.bindFileChooserHistoryService(fileChooserHistory);
+            runtime.bindExportSettingsAuthority(exportSettings);
+            runtime.bindProtectedExportOrchestrator(protectedExport);
+            runtime.loadPluginsAfterBootstrap(beforePlugins, afterPlugins);
+            startupTimer.completed("plugin-loading", message -> log.info("startup", message));
+            // Only publish startup after the hooks and plugin listeners are ready.
+            ingress.adapterAccess()
+                    .editorLifecycleEvents()
+                    .publishStartup(startupHostVersion(normalizedHostArtifact, hostResolution));
+            runtime.writeInitialReports(hostState);
+            runtime.publishStartupBanner(verifiedHostClassLoader);
+            publishNativeStartupNotice(verifiedHostClassLoader, log);
+            startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
+            confirmFrameworkHealthAfterPluginApply(
+                    pendingPlugins,
+                    () -> dev.turboism.update.FrameworkUpdateHealth.startupSucceeded(
+                            home, message -> log.info("updates", message)),
+                    message -> log.warn("updates", message));
+            return runtime;
+        } catch (RuntimeException | Error failure) {
+            closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
+            RecentPreviewDiagnostics.uninstall();
+            throw failure;
+        }
+    }
+
+    static void requireSafePendingPlugins(
+            final dev.turboism.pluginmanagement.PendingPluginOperations.ApplyResult result) throws IOException {
+        if (result.status() != dev.turboism.pluginmanagement.PendingPluginOperations.Status.APPLIED
+                && result.status() != dev.turboism.pluginmanagement.PendingPluginOperations.Status.ROLLED_BACK
+                && result.status() != dev.turboism.pluginmanagement.PendingPluginOperations.Status.DEFERRED) {
+            throw new IOException(result.code());
+        }
+    }
+
+    static void confirmFrameworkHealthAfterPluginApply(
+            final dev.turboism.pluginmanagement.PendingPluginOperations.ApplyResult result,
+            final Runnable confirmation,
+            final java.util.function.Consumer<String> diagnostic) {
+        if (result.applied()) {
+            confirmation.run();
+        } else {
+            // A complete plugin rollback permits old plugins, not acceptance of the framework update.
+            diagnostic.accept("UPDATE_STARTUP_NOT_CONFIRMED: " + result.code());
+        }
+    }
+
+    /** The same startup barrier is used by production and plugin-initialization tests. */
+    void loadPluginsAfterBootstrap(final java.util.function.Consumer<KernelRuntime> beforePlugins) {
+        loadPluginsAfterBootstrap(beforePlugins, runtime -> {});
+    }
+
+    void loadPluginsAfterBootstrap(
+            final java.util.function.Consumer<KernelRuntime> beforePlugins,
+            final java.util.function.Consumer<KernelRuntime> afterPlugins) {
+        Objects.requireNonNull(beforePlugins, "beforePlugins");
+        Objects.requireNonNull(afterPlugins, "afterPlugins");
+        if (closed.get() || !pluginsStarted.compareAndSet(false, true)) {
+            throw new IllegalStateException("Plugin startup is no longer available");
+        }
+        beforePlugins.accept(this);
+        loadReport = pluginRuntime.loadAll();
+        afterPlugins.accept(this);
+    }
+
+    /**
+     * Admission gate for the editor artifact. {@code hostResolution == null}
+     * keeps the legacy exact requirement; a resolution must be DECLARED —
+     * {@code VERIFIED} hosts satisfy the reviewed-artifact check as before,
+     * {@code COMPATIBLE} hosts are admitted on their structurally verified
+     * contracts instead, and {@code REJECTED} verdicts always fail closed.
+     */
+    static String requireAdmittedEditorRelease(final Path hostArtifact, final CompatibilityResolution hostResolution)
+            throws IOException {
+        if (hostResolution == null) {
+            return requireReviewedEditorRelease(hostArtifact);
+        }
+        if (hostResolution.mode() == CompatibilityResolution.Mode.REJECTED) {
+            throw new IllegalStateException("Cubism host identity rejected: " + hostResolution.detail());
+        }
+        if (!hostResolution.runtimeAdmitted()) {
+            throw new IllegalStateException("Cubism admission resolved no base runtime capability");
+        }
+        if (!dev.turboism.mapping.verification.HostArtifactDigest.from(hostArtifact)
+                .equals(hostResolution.identity().orElseThrow().artifact())) {
+            throw new IllegalStateException("Cubism host artifact changed since compatibility probing");
+        }
+        if (hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE) {
+            return hostResolution.declaredVersion();
+        }
+        return requireReviewedEditorRelease(hostArtifact);
+    }
+
+    /**
+     * Version published to the editor-lifecycle startup event. Compatibility
+     * resolutions publish the host-declared version; the legacy path keeps the
+     * exact reviewed profile lookup.
+     */
+    private static String startupHostVersion(
+            final Path normalizedHostArtifact, final CompatibilityResolution hostResolution) throws IOException {
+        if (hostResolution != null) {
+            return hostResolution.declaredVersion();
+        }
+        return dev.turboism.mapping.verification.EditorModelVerificationManifest.resourceProfileForArtifact(
+                dev.turboism.mapping.verification.HostArtifactDigest.from(normalizedHostArtifact));
+    }
+
+    /**
+     * Builds an evidence slice, attaching the admitted compatibility contract
+     * when a resolution governs this start. A resolution in {@code COMPATIBLE}
+     * mode must have admitted the slice; a missing contract fails closed so a
+     * caller cannot bypass per-feature admission by passing a record anyway.
+     */
+    private static HostVerificationEvidence.Slice editorSlice(
+            final Path record,
+            final Path artifact,
+            final ClassLoader hostClassLoader,
+            final CompatibilityResolution hostResolution,
+            final String sliceId) {
+        if (hostResolution == null) {
+            return new HostVerificationEvidence.Slice(record, artifact, hostClassLoader);
+        }
+        final CompatibilityResolution.SliceResolution slice = hostResolution.slice(sliceId);
+        if (hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE
+                && slice.contract().isEmpty()) {
+            throw new IllegalStateException(
+                    "record passed for slice " + sliceId + " that compatibility admission rejected");
+        }
+        return new HostVerificationEvidence.Slice(record, artifact, hostClassLoader, slice.contract());
+    }
+
+    /** Package-private exact release/artifact agreement seam for focused admission tests. */
+    static String requireReviewedEditorRelease(final Path hostArtifact) throws IOException {
+        final Path normalized = Objects.requireNonNull(hostArtifact, "hostArtifact")
+                .toAbsolutePath()
+                .normalize();
+        final CubismEditorReleaseDeclaration declaration = CubismEditorReleaseDetector.detect(normalized)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Cubism host release declaration missing or ambiguous; admission failed closed"));
+        final String reviewedVersion = ReviewedHostArtifacts.cubismVersionOf(
+                        dev.turboism.mapping.verification.HostArtifactDigest.from(normalized))
+                .orElseThrow(() -> new IllegalStateException(
+                        "Cubism host artifact is not an exact reviewed identity; admission failed closed"));
+        return requireReleaseAgreement(reviewedVersion, declaration.version());
+    }
+
+    /** Package-private semantic release and exact-artifact agreement seam for focused tests. */
+    static String requireReleaseAgreement(final String reviewedVersion, final String declaredVersion) {
+        final String reviewed = Objects.requireNonNull(reviewedVersion, "reviewedVersion");
+        final String declared = Objects.requireNonNull(declaredVersion, "declaredVersion");
+        if (!reviewed.equals(declared)) {
+            throw new IllegalStateException("Cubism host release/artifact mismatch; admission failed closed");
+        }
+        return reviewed;
+    }
+
+    /** @return the normalized absolute Turboism home directory this runtime reads and writes under */
+    public Path home() {
+        return home;
+    }
+
+    /**
+     * Resolves the runtime's effective locale from the configuration, the host language and
+     * the JVM display locale, in the frozen {@code PluginLocaleResolver} precedence.
+     *
+     * <p>Called twice on purpose. The first call is provisional: it runs before Cubism has
+     * applied {@code File → Environment Settings → General → Language} to the process default
+     * locale. The second call, made once the host is verified and ACTIVE, is the value plugin
+     * message bundles and reports use.</p>
+     *
+     * @param runtimeConfigTurboism runtime configuration
+     * @param diagnostics receives the resolver's locale-source diagnostics
+     * @return the resolved locale, never {@code null}
+     */
+    private static java.util.Locale resolveEffectiveLocale(
+            final ObjectNode runtimeConfig, final java.util.function.Consumer<String> diagnostics) {
+        return dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+                runtimeConfig.path("locale").asText(""),
+                dev.turboism.i18n.CubismHostLocale.resolve(),
+                java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+                diagnostics);
+    }
+
+    /**
+     * @return the locale the runtime resolved at startup and uses for plugin message bundles; this
+     *     is the configured locale, which need not equal the JVM default
+     */
+    public java.util.Locale effectiveLocale() {
+        return effectiveLocale;
+    }
+
+    /**
+     * @return the host session's state as of this call, read through the ingress; reflects whether
+     *     a real Cubism host is attached
+     */
+    public HostSession.State hostState() {
+        return hostIngress.state();
+    }
+
+    /**
+     * Writes an INFO line to the runtime log.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     */
+    public void info(final String component, final String message) {
+        log.info(component, message);
+    }
+
+    /**
+     * Writes a DEBUG line to the runtime log.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     */
+    public void debug(final String component, final String message) {
+        log.debug(component, message);
+    }
+
+    /**
+     * Writes a WARN line to the runtime log.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     */
+    public void warn(final String component, final String message) {
+        log.warn(component, message);
+    }
+
+    /**
+     * Writes an ERROR line to the runtime log, attaching the throwable's cause chain.
+     *
+     * @param component short subsystem tag
+     * @param message the text to record
+     * @param failure throwable to attach, or null to write the line alone
+     */
+    public void error(final String component, final String message, final Throwable failure) {
+        log.error(component, message, failure);
+    }
+
+    private static void publishNativeStartupNotice(final ClassLoader hostClassLoader, final KernelLog log) {
+        CubismLoggerBridge bridge = null;
+        try {
+            bridge = CubismLoggerBridge.connect(hostClassLoader);
+            bridge.write(
+                    KernelLog.Level.INFO,
+                    "runtime",
+                    "Turboism started. Open Turboism Logs for framework details.",
+                    null);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            log.debug("runtime", "Native startup notice was unavailable");
+        } finally {
+            if (bridge != null) {
+                try {
+                    bridge.close();
+                } catch (RuntimeException | LinkageError failure) {
+                    log.debug("runtime", "Native startup logger cleanup was unavailable");
+                }
+            }
+        }
+    }
+
+    private void publishStartupBanner(final ClassLoader hostClassLoader) {
+        final LocalPluginRuntime.StartupEnvironment environment = pluginRuntime.startupEnvironment();
+        final dev.turboism.graal.GraalHostConfiguration graal = environment.graalConfiguration();
+        final String graalVm = graal.enabled()
+                ? dev.turboism.graal.ManagedGraalRuntimeService.GRAAL_VERSION + " (" + sourceLabel(graal.source()) + ")"
+                : "unavailable (standard JVM)";
+        final String graalJs = environment.discoveredScriptCount() + " discovered; host "
+                + (graal.enabled() ? "available" : "unavailable");
+        STARTUP_BANNER.publish(
+                List.of(log::banner, rendered -> publishHostBanner(hostClassLoader, rendered)),
+                new StartupBanner.Details(
+                        StartupBanner.frameworkDisplayVersion(),
+                        System.getProperty("java.version", "unavailable"),
+                        graalVm,
+                        hostAccess().cubismEditorVersion().orElse("unavailable"),
+                        loadReport.loaded().size(),
+                        graalJs));
+    }
+
+    private void publishHostBanner(final ClassLoader hostClassLoader, final String banner) {
+        CubismLoggerBridge bridge = null;
+        try {
+            bridge = CubismLoggerBridge.connect(hostClassLoader);
+            for (final String line : banner.split("\\n", -1)) {
+                bridge.write(KernelLog.Level.INFO, "startup", line, null);
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            log.debug("runtime", "Native startup banner was unavailable");
+        } finally {
+            if (bridge != null) {
+                try {
+                    bridge.close();
+                } catch (RuntimeException | LinkageError failure) {
+                    log.debug("runtime", "Native startup logger cleanup was unavailable");
+                }
+            }
+        }
+    }
+
+    private static String sourceLabel(final dev.turboism.graal.GraalHostConfiguration.Source source) {
+        return switch (source) {
+            case MANAGED -> "managed";
+            case LEGACY_PACKAGED -> "legacy packaged";
+            case EXTERNAL -> "external";
+            case EXPLICIT -> "explicit";
+            case DISABLED -> "disabled";
+        };
+    }
+
+    /**
+     * @return the plugin load outcome captured during {@link #start}; fixed for the runtime's
+     *     lifetime, so it describes the initial load and not any later state
+     */
+    public LocalPluginRuntime.LoadReport loadReport() {
+        return loadReport;
+    }
+
+    /** @return the gateway through which runtime code reaches verified host members */
+    public dev.turboism.adapter.host.RuntimeHostAdapterAccess hostAccess() {
+        return hostIngress.adapterAccess();
+    }
+
+    /** Runtime file-chooser history service (lazily bound; persistence via plugin provider). */
+    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService() {
+        dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service = fileChooserHistoryService;
+        if (service == null) {
+            synchronized (this) {
+                service = fileChooserHistoryService;
+                if (service == null) {
+                    service = createFileChooserHistoryService(home, log);
+                    fileChooserHistoryService = service;
+                }
+            }
+        }
+        return service;
+    }
+
+    /** Binds the shared singleton created during {@link #start}; a no-op when already bound. */
+    void bindFileChooserHistoryService(final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService service) {
+        synchronized (this) {
+            if (fileChooserHistoryService == null) {
+                fileChooserHistoryService = java.util.Objects.requireNonNull(service, "service");
+            }
+        }
+    }
+
+    /**
+     * Host-level export-settings policy shared by every loaded plugin.
+     *
+     * <p>Returns the authority bound during {@link #start}. An unbound runtime throws instead of
+     * answering with a substitute: the bootstrap hook must never transform host bytecode whose
+     * callbacks no runtime policy can serve.</p>
+     *
+     * @return the export-settings authority bound to this runtime
+     * @throws IllegalStateException if no authority was bound
+     */
+    public dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority() {
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority = exportSettingsAuthority;
+        if (authority == null) {
+            throw new IllegalStateException("export settings authority is not bound");
+        }
+        return authority;
+    }
+
+    /** Binds the shared authority created during {@link #start}; a no-op when already bound. */
+    void bindExportSettingsAuthority(final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority) {
+        synchronized (this) {
+            if (exportSettingsAuthority == null) {
+                exportSettingsAuthority = java.util.Objects.requireNonNull(authority, "authority");
+            }
+        }
+    }
+
+    /** Keeps the orchestrator reachable for shutdown; a no-op for an unwired capability. */
+    void bindProtectedExportOrchestrator(final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator) {
+        if (orchestrator == null) {
+            return;
+        }
+        synchronized (this) {
+            if (protectedExportOrchestrator == null) {
+                protectedExportOrchestrator = orchestrator;
+            }
+        }
+    }
+
+    /**
+     * Builds the protected-export orchestrator when the reviewed record is present and its
+     * whole pinned chain checks out (record hash, manifest agreement, byte-identical artifact,
+     * static selector verification, host classloader attestation).
+     *
+     * <p>Any failure degrades to no orchestrator: the authority keeps serving the native dialog
+     * and a checked option stays rejected, never silently downgraded to an unchecked export.</p>
+     */
+    private static dev.turboism.exportsettings.ProtectedExportOrchestrator createProtectedExportOrchestrator(
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path normalizedHostArtifact,
+            final ClassLoader verifiedHostClassLoader,
+            final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings,
+            final HostRuntimeIngress ingress,
+            final TurboismHomeLayout layout,
+            final KernelLog log,
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface) {
+        if (protectedExportVerificationRecord.isEmpty()) {
+            return null;
+        }
+        try {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver =
+                    dev.turboism.mapping.verification.SliceRegistry.PROTECTED_EXPORT
+                            .resolverFactory()
+                            .create(
+                                    protectedExportVerificationRecord.orElseThrow(),
+                                    normalizedHostArtifact,
+                                    verifiedHostClassLoader);
+            final String orchestratedPluginId = "dev.turboism.plugin.protected-export";
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher edt =
+                    new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
+                        @Override
+                        public <T> T call(final java.util.concurrent.Callable<T> action) throws Exception {
+                            return dev.turboism.ui.host.EdtDispatch.callExact(
+                                    "protected-export EDT operation",
+                                    dev.turboism.ui.host.EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
+                                    action);
+                        }
+
+                        @Override
+                        public void submit(final Runnable task) {
+                            dev.turboism.ui.host.EdtDispatch.post("protected-export EDT submission", task);
+                        }
+                    };
+            final dev.turboism.sdk.cubism.core.MocLoader ownedMocLoader =
+                    ingress.adapterAccess().coreRuntimeInfo().mocLoader();
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
+                    new dev.turboism.exportsettings.ProtectedExportOrchestrator(
+                            new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
+                            new dev.turboism.exportsettings.ProtectedExportStaging(
+                                    ownedMocLoader::load,
+                                    ownedMocLoader
+                                                    instanceof
+                                                    dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer
+                                            ? writer::writeParameterValue
+                                            : null),
+                            layout.runtimeStateDir().resolve("protected-export"),
+                            orchestratedPluginId,
+                            "protected-export",
+                            exportSettings::protectedExportRedirectSeamInstalled,
+                            () -> exportSettings.pluginBindingLive(orchestratedPluginId),
+                            exportSettings::hostGeneration,
+                            edt,
+                            report -> {
+                                log.info(
+                                        "protected-export",
+                                        "session=" + report.sessionId()
+                                                + " reached=" + report.reached()
+                                                + " published=" + report.published()
+                                                + " failure=" + report.failureKey()
+                                                + (report.failureDetail() == null
+                                                        ? ""
+                                                        : " detail=" + report.failureDetail()));
+                                // A user-initiated chooser cancel explains itself; every other
+                                // non-published terminal report must surface visibly.
+                                if (!report.published()
+                                        && !dev.turboism.exportsettings.ProtectedExportOrchestrator.EXPORT_CANCELLED_KEY
+                                                .equals(report.failureKey())) {
+                                    vetoSurface.accept(new dev.turboism.exportsettings.ExportSettingsVetoDiagnostic(
+                                            report.failureKey() != null
+                                                    ? report.failureKey()
+                                                    : "protected-export.failed",
+                                            report.failureDetail()));
+                                }
+                            },
+                            10_000L,
+                            600_000L);
+            orchestrator.refusalReporter(vetoSurface);
+            return orchestrator;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            log.warn(
+                    "protected-export",
+                    "Protected-export orchestration unavailable: "
+                            + failure.getClass().getName());
+            return null;
+        }
+    }
+
+    private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService createFileChooserHistoryService(
+            final Path home, final KernelLog log) {
+        final dev.turboism.config.RuntimeConfigRepository config =
+                new dev.turboism.config.RuntimeConfigRepository(home, diagnostic -> log.warn("config", diagnostic));
+        return new dev.turboism.filechooser.RuntimeFileChooserHistoryService(() -> config.read()
+                .path("hooks")
+                .path("startup")
+                .path("separateExportSaveDirectory")
+                .asBoolean(false));
+    }
+
+    /**
+     * @return the resolver for verified editor-model members, through which mapped host fields and
+     *     methods are reached; access it only for members the verification record admits
+     */
+    public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
+        return hostIngress.editorModelResolver();
+    }
+
+    /**
+     * Withdraws Editor capabilities that depend on a failed or closed bootstrap hook. SDK
+     * proxies consult the live session view, so previously acquired handles also see the loss.
+     *
+     * @param hookId catalog hook identity without the {@code hook:} prefix
+     * @return affected capability ids, empty after the host connection has closed
+     */
+    public java.util.Set<String> disableEditorCapabilitiesRequiringHook(final String hookId) {
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver;
+        try {
+            resolver = editorModelResolver();
+        } catch (IllegalStateException unavailable) {
+            return java.util.Set.of();
+        }
+        final var disabled = resolver.disableCapabilitiesRequiringHook(hookId);
+        if (!disabled.isEmpty()) {
+            log.warn("host-capabilities", "hook=" + hookId + " unavailable; disabled=" + disabled);
+        }
+        return disabled;
+    }
+
+    /**
+     * @return the texture-atlas data-model capture of the active verified connection
+     * @throws IllegalStateException when no verified connection is active
+     */
+    public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
+        return hostIngress.textureAtlasDataModelCapture();
+    }
+
+    private static RuntimeScheduler createScheduler(final KernelLog log) {
+        final Clock clock = Clock.systemUTC();
+        final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event -> log.warn(
+                "scheduler", event.pluginId() + " " + event.taskId() + " " + event.phase() + " " + event.decision());
+        return new RuntimeScheduler(
+                new DefaultWorkBudgetPolicy(),
+                // Plugin actions are dispatched asynchronously and commonly invoke
+                // host operations (undo/redo, menu work) that legitimately take longer
+                // than the 500ms registry default; a too-tight timeout timed the
+                // history panel's undo/redo actions out and tripped the circuit
+                // breaker (CIRCUIT_OPEN rejected every later action).
+                new PluginWorkExecutorRegistry(5_000L, 1, 64, diagnosticSink, clock),
+                diagnosticSink);
+    }
+
+    private static void closeAfterFailedStart(
+            final LocalPluginRuntime plugins,
+            final HostRuntimeIngress ingress,
+            final RuntimeScheduler scheduler,
+            final KernelLog log,
+            final Throwable failure) {
+        log.error("runtime", "Turboism preview startup failed", failure);
+        if (plugins != null) {
+            plugins.close();
+        }
+        if (ingress != null) {
+            ingress.close();
+        }
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.clear();
+        try {
+            log.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    /** Package-private initial-report seam that avoids reflective test access. */
+    void writeInitialReports(final HostSession.State observedHostState) {
+        try {
+            writeReportsStrict(observedHostState, false);
+        } catch (RuntimeException failure) {
+            log.warn("preview-report", "PREVIEW_REPORT_SNAPSHOT_FAILED: report snapshot failed safely: " + failure);
+        }
+    }
+
+    private void writeReportsStrict(final HostSession.State observedHostState, final boolean stopped) {
+        if (!writeReportsOnce(observedHostState, stopped, stopped)) {
+            throw new IllegalStateException("Preview report persistence failed safely");
+        }
+    }
+
+    private boolean writeReportsOnce(
+            final HostSession.State observedHostState, final boolean stopped, final boolean shutdownAttempted) {
+        final LocalPluginRuntimeReportSnapshot snapshot = pluginRuntime.reportSnapshot();
+        final Map<KernelReportType, ObjectNode> reports = KernelReportSnapshotFactory.create(
+                runtimeId,
+                Instant.now(),
+                home,
+                observedHostState,
+                hostArtifact,
+                verificationRecord,
+                loadReport,
+                snapshot.pluginSummaries(),
+                snapshot.failures(),
+                stopped,
+                shutdownAttempted);
+        final Map<?, Boolean> results = reportWriter.writeAll(reports);
+        return results.values().stream().allMatch(Boolean.TRUE::equals);
+    }
+
+    static ShutdownReportCounts shutdownReportCounts(final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
+        final long succeeded = summaries.stream()
+                .filter(summary -> summary.unloadState().equals("SUCCEEDED"))
+                .count();
+        final long scopesClosed = summaries.stream()
+                .filter(summary -> summary.scopeCleanupState().equals("SUCCEEDED"))
+                .count();
+        final long classloadersClosed = summaries.stream()
+                .filter(summary -> summary.classloaderCleanupState().equals("SUCCEEDED"))
+                .count();
+        final long cleanupFailures = summaries.stream()
+                .mapToLong(summary -> (summary.scopeCleanupState().equals("FAILED") ? 1 : 0)
+                        + (summary.classloaderCleanupState().equals("FAILED") ? 1 : 0))
+                .sum();
+        return new ShutdownReportCounts(
+                summaries.size(),
+                succeeded,
+                summaries.size() - succeeded,
+                scopesClosed,
+                classloadersClosed,
+                cleanupFailures);
+    }
+
+    /**
+     * @return the failures recorded while shutting the runtime down; empty until {@link #close()}
+     *     or {@link #closeForProcessExit()} has run. The list is an immutable copy published
+     *     through a volatile field, so it is safe to read from any thread.
+     */
+    public List<ShutdownFailure> shutdownFailures() {
+        return shutdownFailures;
+    }
+
+    @Override
+    public void close() {
+        close(true);
+    }
+
+    /**
+     * Persists terminal evidence without invoking plugin or host cleanup after JVM shutdown starts.
+     * Host-bound cleanup remains the responsibility of {@link #close()} while the host is live.
+     */
+    public void closeForProcessExit() {
+        close(false);
+    }
+
+    private void close(final boolean cleanHostResources) {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        final List<ShutdownFailure> failures = new ArrayList<>();
+        try {
+            shutdownLifecycle.logStopping();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            failures.add(stableFailure("STOP_LOG_FAILED", "stop-log"));
+        }
+
+        HostSession.State observedHostState = HostSession.State.FAILED;
+        try {
+            observedHostState = shutdownLifecycle.hostState();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            failures.add(stableFailure("HOST_STATE_CAPTURE_FAILED", "host-state"));
+        }
+        final HostSession.State finalObservedHostState = observedHostState;
+        if (cleanHostResources) {
+            failures.addAll(runShutdownStages(List.of(
+                    new ShutdownStage(
+                            "PLUGIN_RUNTIME_CLOSE_FAILED", "plugin-runtime", shutdownLifecycle::closePluginRuntime),
+                    new ShutdownStage(
+                            "EXPORT_SETTINGS_AUTHORITY_CLOSE_FAILED",
+                            "export-settings-authority",
+                            this::closeExportSettingsAuthority),
+                    new ShutdownStage("HOST_INGRESS_CLOSE_FAILED", "host-ingress", shutdownLifecycle::closeHostIngress),
+                    new ShutdownStage(
+                            "SCHEDULER_SHUTDOWN_FAILED", "scheduler", shutdownLifecycle::shutdownScheduler))));
+        }
+        failures.addAll(runShutdownStages(List.of(new ShutdownStage("FINAL_REPORT_WRITE_FAILED", "final-report", () -> {
+            if (!shutdownLifecycle.writeFinalReport(finalObservedHostState, cleanHostResources)) {
+                throw new IllegalStateException("Preview report persistence failed safely");
+            }
+        }))));
+
+        if (!failures.isEmpty()) {
+            try {
+                shutdownLifecycle.logDegradedShutdown();
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                failures.add(stableFailure("SHUTDOWN_SUMMARY_LOG_FAILED", "summary-log"));
+            }
+        }
+
+        failures.addAll(
+                runShutdownStages(List.of(new ShutdownStage("LOG_CLOSE_FAILED", "log", shutdownLifecycle::closeLog))));
+        RecentPreviewDiagnostics.uninstall();
+        shutdownFailures = List.copyOf(failures);
+        if (failures.stream().anyMatch(failure -> failure.code().equals("LOG_CLOSE_FAILED"))) {
+            System.err.println("Turboism preview log close failed safely: LOG_CLOSE_FAILED");
+        }
+    }
+
+    /**
+     * Closes the host-level export-settings policy and drops every dialog attachment it owns.
+     *
+     * <p>Runs after the plugin runtime has closed, so no plugin registry is still bound, and before
+     * the host ingress is torn down, so dialog state is released while the host objects it refers to
+     * are still allocated.</p>
+     */
+    private void closeExportSettingsAuthority() {
+        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
+        protectedExportOrchestrator = null;
+        if (orchestrator != null) {
+            try {
+                orchestrator.close();
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+                // A stuck armed session must not block the authority teardown below.
+            }
+        }
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority = exportSettingsAuthority;
+        exportSettingsAuthority = null;
+        if (authority != null) {
+            authority.close();
+        }
+    }
+
+    static List<ShutdownFailure> runShutdownStages(final List<ShutdownStage> stages) {
+        final List<ShutdownFailure> failures = new ArrayList<>();
+        for (ShutdownStage stage : stages) {
+            try {
+                stage.action().run();
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                failures.add(stableFailure(stage.code(), stage.phase()));
+            }
+        }
+        return List.copyOf(failures);
+    }
+
+    private static ShutdownFailure stableFailure(final String code, final String phase) {
+        return new ShutdownFailure(code, phase, "Runtime shutdown stage failed safely.");
+    }
+
+    record ShutdownReportCounts(
+            long shutdownAttempted,
+            long shutdownSucceeded,
+            long shutdownFailed,
+            long scopesClosed,
+            long classloadersClosed,
+            long cleanupFailures) {}
+
+    /**
+     * One shutdown stage that did not complete. Shutdown is best-effort: a stage failure is
+     * recorded here and the remaining stages still run.
+     *
+     * @param code stable diagnostic code identifying the stage that failed
+     * @param phase the shutdown phase the stage belongs to
+     * @param message fixed, report-safe description; deliberately not derived from the underlying
+     *     throwable, so host detail cannot leak into a report
+     */
+    public record ShutdownFailure(String code, String phase, String message) {}
+
+    record ShutdownStage(String code, String phase, ShutdownAction action) {}
+
+    @FunctionalInterface
+    interface ShutdownAction {
+        void run() throws Throwable;
+    }
+
+    interface ShutdownLifecycle {
+        void logStopping() throws Throwable;
+
+        HostSession.State hostState() throws Throwable;
+
+        void closePluginRuntime() throws Throwable;
+
+        void closeHostIngress() throws Throwable;
+
+        void shutdownScheduler() throws Throwable;
+
+        boolean writeFinalReport(HostSession.State observedHostState, boolean shutdownAttempted) throws Throwable;
+
+        void logDegradedShutdown() throws Throwable;
+
+        void closeLog() throws Throwable;
+    }
+}

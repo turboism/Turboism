@@ -33,7 +33,7 @@ final class NativeOptimizationStartupOrder {
         String start = methodBody(javap, classes, "private static void start(");
         int resolution = start.indexOf("resolveHost:");
         int installation = start.indexOf("installPhase:");
-        int runtimeStart = start.indexOf("startPreviewRuntime:");
+        int runtimeStart = start.indexOf("startKernelRuntime:");
         assertTrue(resolution >= 0, "the verified host is resolved in start()");
         assertTrue(installation > resolution, "exact host resolution precedes the install phase");
         assertTrue(installation < runtimeStart, "host-resolved hooks precede initial document loading");

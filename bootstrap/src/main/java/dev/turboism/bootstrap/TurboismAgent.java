@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
-import dev.turboism.bootstrap.PreviewRuntimeLauncher.ResolvedHost;
+import dev.turboism.bootstrap.KernelRuntimeLauncher.ResolvedHost;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.preview.PreviewRuntime;
+import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 public final class TurboismAgent {
 
     private static final AtomicBoolean START_REQUESTED = new AtomicBoolean(false);
-    private static final AtomicReference<PreviewRuntime> RUNTIME = new AtomicReference<>();
+    private static final AtomicReference<KernelRuntime> RUNTIME = new AtomicReference<>();
     private static final AtomicReference<HookRegistry> HOOKS = new AtomicReference<>(new HookRegistry());
 
     @FunctionalInterface
@@ -230,7 +230,7 @@ public final class TurboismAgent {
         final StartupLoadingWindow loading = StartupLoadingWindow.open();
         try {
             RuntimeDiagnostics.debug("bootstrap", "Agent active; waiting for the Cubism host");
-            final Optional<ResolvedHost> located = PreviewRuntimeLauncher.resolveHost(instrumentation, options);
+            final Optional<ResolvedHost> located = KernelRuntimeLauncher.resolveHost(instrumentation, options);
             if (located.isEmpty()) {
                 loading.phase(StartupLoadingWindow.Phase.TIMED_OUT);
                 System.out.println("Turboism agent stopped: Cubism host class was not observed");
@@ -242,10 +242,10 @@ public final class TurboismAgent {
                     contributors,
                     HookContributor.Phase.HOST_RESOLVED,
                     environment(instrumentation, attachmentMode, options, resolved, null, launchOptimizationConfig)));
-            final PreviewRuntime runtime = PreviewRuntimeLauncher.startPreviewRuntime(
+            final KernelRuntime runtime = KernelRuntimeLauncher.startKernelRuntime(
                     meshMirrorHook,
                     warpAltMirrorHook,
-                    () -> PreviewRuntimeLauncher.start(
+                    () -> KernelRuntimeLauncher.start(
                             options,
                             resolved,
                             prepared -> {
@@ -286,7 +286,7 @@ public final class TurboismAgent {
                             }));
             if (!RUNTIME.compareAndSet(null, runtime)) {
                 loading.close();
-                PreviewRuntimeLauncher.closeDuplicateRuntimeAndHooks(runtime::close, meshMirrorHook, warpAltMirrorHook);
+                KernelRuntimeLauncher.closeDuplicateRuntimeAndHooks(runtime::close, meshMirrorHook, warpAltMirrorHook);
                 return;
             }
             published = true;
@@ -301,7 +301,7 @@ public final class TurboismAgent {
             // @containment-exempt: loading phase set to failed before rethrowing fatal
             loading.phase(StartupLoadingWindow.Phase.FAILED);
             FatalErrors.rethrowIfFatal(failure);
-            final PreviewRuntime runtime = RUNTIME.get();
+            final KernelRuntime runtime = RUNTIME.get();
             if (runtime == null) {
                 System.err.println("Turboism bootstrap failed safely: "
                         + failure.getClass().getName() + ": " + failure.getMessage());
@@ -312,7 +312,7 @@ public final class TurboismAgent {
             if (published) loading.close();
             if (!published) {
                 // Also covers host lookup timeout, identity/base-capability rejection,
-                // and interruption before startPreviewRuntime owns the later cleanup.
+                // and interruption before startKernelRuntime owns the later cleanup.
                 HOOKS.get()
                         .closePhase(
                                 HookContributor.Phase.RUNTIME_STARTED,
@@ -324,7 +324,7 @@ public final class TurboismAgent {
                                 TurboismAgent::runtimeWarn,
                                 TurboismAgent::runtimeInfo);
                 try {
-                    PreviewRuntimeLauncher.closePremainRuntimeHooks(meshMirrorHook, warpAltMirrorHook);
+                    KernelRuntimeLauncher.closePremainRuntimeHooks(meshMirrorHook, warpAltMirrorHook);
                 } catch (Throwable cleanupFailure) {
                     FatalErrors.rethrowIfFatal(cleanupFailure);
                     runtimeWarn("Turboism premain runtime-hook cleanup failed safely: "
@@ -479,7 +479,7 @@ public final class TurboismAgent {
             final StartupSuppressionInstaller.AttachmentMode attachmentMode,
             final AgentOptions options,
             final ResolvedHost resolved,
-            final PreviewRuntime runtime,
+            final KernelRuntime runtime,
             final dev.turboism.config.NativeOptimizationConfig optimizationConfig) {
         return HookEnvironment.builder()
                 .instrumentation(instrumentation)
@@ -507,7 +507,7 @@ public final class TurboismAgent {
     }
 
     private static void runtimeInfo(final String message) {
-        final PreviewRuntime runtime = RUNTIME.get();
+        final KernelRuntime runtime = RUNTIME.get();
         if (runtime == null) {
             RuntimeDiagnostics.info("bootstrap", message);
         } else {
@@ -516,7 +516,7 @@ public final class TurboismAgent {
     }
 
     private static void runtimeWarn(final String message) {
-        final PreviewRuntime runtime = RUNTIME.get();
+        final KernelRuntime runtime = RUNTIME.get();
         if (runtime == null) {
             RuntimeDiagnostics.warn("bootstrap", message);
         } else {
@@ -525,7 +525,7 @@ public final class TurboismAgent {
     }
 
     private static void shutdown() {
-        final PreviewRuntime runtime = RUNTIME.getAndSet(null);
+        final KernelRuntime runtime = RUNTIME.getAndSet(null);
         HOOKS.get().closeOnProcessExit(TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
         if (runtime == null) {
             return;
@@ -541,7 +541,7 @@ public final class TurboismAgent {
     static boolean shutdownForTesting() {
         JvmShims.closeAll(TurboismAgent::runtimeWarn);
         HOOKS.get().closeAll(TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);
-        final PreviewRuntime runtime = RUNTIME.getAndSet(null);
+        final KernelRuntime runtime = RUNTIME.getAndSet(null);
         if (runtime == null) {
             return false;
         }

@@ -8,8 +8,8 @@ import sys
 import unittest
 
 RUNNER = Path(__file__).resolve().parents[1] / 'preview/run-cubism-host-validation.sh'
-BODY = RUNNER.read_text().split('result_file_contains() {', 1)[1].split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
-COUNT_BODY = RUNNER.read_text().split('result_file_assertion_count() {', 1)[1].split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+BODY = RUNNER.read_text(encoding='utf-8').split('result_file_contains() {', 1)[1].split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+COUNT_BODY = RUNNER.read_text(encoding='utf-8').split('result_file_assertion_count() {', 1)[1].split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 class ResultLines(unittest.TestCase):
     def matches(self, payload, expected='status=PASS'):

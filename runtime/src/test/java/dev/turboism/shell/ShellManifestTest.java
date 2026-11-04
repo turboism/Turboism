@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.internal.core.CorePluginManagement;
-import dev.turboism.preview.ShellManifest;
+import dev.turboism.kernel.ShellManifest;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.util.LinkedHashSet;
 import java.util.Set;

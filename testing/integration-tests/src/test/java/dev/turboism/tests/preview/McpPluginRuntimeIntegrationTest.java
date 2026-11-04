@@ -9,8 +9,8 @@ import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.preview.LocalPluginRuntime;
-import dev.turboism.preview.PreviewLog;
+import dev.turboism.kernel.KernelLog;
+import dev.turboism.kernel.LocalPluginRuntime;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -62,7 +62,7 @@ final class McpPluginRuntimeIntegrationTest {
     }
 
     private static void loadEnableAndProbe(final Path home) throws Exception {
-        final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
+        final KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
         final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);

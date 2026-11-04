@@ -80,7 +80,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     private static final String AVAILABILITY_HANDLER_CLASS =
         "dev.turboism.core.plugin.context.CubismEditorApiAvailabilityInterceptor$Handler";
     private static final String GENERATION_GUARD_HANDLER_CLASS =
-        "dev.turboism.preview.PluginGenerationGuard$Handler";
+        "dev.turboism.kernel.PluginGenerationGuard$Handler";
     private static final int MAX_DRAWABLE_UNWRAP_DEPTH = 5;
     private static final String RAW_ART_MESH_SOURCE =
         "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource";

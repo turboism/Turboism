@@ -72,7 +72,7 @@ def main():
               ROOT / 'build/t093-native-table-growth-r1/sole-premain-r1/turboism-agent.jar']
     for number, agent in enumerate(agents):
         guard.guarded(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp', str(agent) + os.pathsep + str(original / 'check-classes'),
-                       'dev.turboism.preview.ObserverFreePluginLoaderSelfCheck', str(jar)], out / f'loader-{number}.log', env)
+                       'dev.turboism.kernel.ObserverFreePluginLoaderSelfCheck', str(jar)], out / f'loader-{number}.log', env)
     report = dict(status='PASS_OFFLINE_JVM_CONTEXT_DIAGNOSTIC_NOT_HOST_VALIDATED', pluginSha256=base.sha(jar),
                   formalAcceptance='NOT_GRANTED', productionAgentsChanged=False, hostSubmitted=False,
                   inputPins={str(p): base.sha(p) for p in [Path(__file__), helper, HERE / check.name, args.sdk.resolve(), *agents]},

@@ -1,0 +1,186 @@
+package dev.turboism.kernel;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.host.HostSession;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.internal.core.ShellHandle;
+import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.testkit.RuntimeTestKit;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * Covers the runtime-owned shell composition seam: a failing admission must produce a
+ * useful diagnostic and close the runtime, a wired shell is admitted before external
+ * plugins but never reported as one, the explicit {@code null} admission runs headless,
+ * and a completed runtime must never start the shell twice.
+ */
+class LocalPluginRuntimeShellAdmissionTest {
+
+    @TempDir
+    Path temporary;
+
+    @Test
+    void failedShellAdmissionClosesRuntimeWithDiagnostic() throws Exception {
+        final Path home = temporary.resolve("home");
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        final IllegalStateException compositionFailure = new IllegalStateException("shell-compose-boom");
+
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime =
+                    new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, services -> {
+                        throw compositionFailure;
+                    });
+            final IllegalStateException thrown = assertThrows(IllegalStateException.class, runtime::loadAll);
+            assertEquals("Runtime-owned shell failed to start", thrown.getMessage());
+            assertNotNull(
+                    findCause(thrown, compositionFailure),
+                    "the admission failure must surface in the diagnostic chain");
+            // The runtime closed itself before propagating; a retry is rejected, not re-driven.
+            assertThrows(IllegalStateException.class, runtime::loadAll);
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void admittedShellStartsButIsNotReportedAsAPlugin() throws Exception {
+        final Path home = temporary.resolve("home2");
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        final AtomicBoolean shellStarted = new AtomicBoolean();
+        final AtomicBoolean shellClosed = new AtomicBoolean();
+
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime =
+                    new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, services -> new ShellHandle() {
+                        @Override
+                        public void start(final PluginContext context) {
+                            shellStarted.set(true);
+                        }
+
+                        @Override
+                        public void close() {
+                            shellClosed.set(true);
+                        }
+                    });
+            try {
+                runtime.loadAll();
+                assertTrue(shellStarted.get(), "the wired admission must run");
+                assertTrue(
+                        runtime.loadedPlugins().stream()
+                                .noneMatch(plugin -> plugin.id()
+                                        .equals(dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID)),
+                        "the shell is not a plugin and must not appear in plugin summaries");
+                final IllegalStateException second = assertThrows(IllegalStateException.class, runtime::loadAll);
+                assertTrue(second.getMessage() != null);
+            } finally {
+                runtime.close();
+            }
+            assertTrue(shellClosed.get(), "runtime close must release the shell");
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void explicitNullAdmissionRunsHeadless() throws Exception {
+        final Path home = temporary.resolve("home3");
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                    home, scheduler, host.adapterAccess(), log, (dev.turboism.internal.core.ShellAdmission) null);
+            try {
+                final LocalPluginRuntime.LoadReport report = runtime.loadAll();
+                assertTrue(report.failures().isEmpty());
+                assertTrue(report.loaded().isEmpty());
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void shellAdmissionUsesItsOwnDeadlineSeparateFromPluginLoads() throws Exception {
+        final Path home = temporary.resolve("home4");
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        final AtomicBoolean shellStarted = new AtomicBoolean();
+        final PluginLifecyclePolicy policy = new PluginLifecyclePolicy(
+                1,
+                4,
+                Duration.ofMillis(100),
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(1),
+                Duration.ofSeconds(1),
+                Duration.ofMillis(50),
+                Duration.ofMillis(20));
+
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                    home,
+                    scheduler,
+                    host.adapterAccess(),
+                    log,
+                    (pluginId, phase) -> {},
+                    policy,
+                    services -> new ShellHandle() {
+                        @Override
+                        public void start(final PluginContext context) {
+                            try {
+                                // Longer than the plugin load budget, shorter than the shell budget.
+                                Thread.sleep(300);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            shellStarted.set(true);
+                        }
+
+                        @Override
+                        public void close() {}
+                    });
+            try {
+                runtime.loadAll();
+                assertTrue(shellStarted.get(), "shell admission must not be fenced by the plugin load deadline");
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    private static Throwable findCause(final Throwable thrown, final Throwable target) {
+        Throwable cursor = thrown;
+        while (cursor != null) {
+            if (cursor == target) {
+                return cursor;
+            }
+            cursor = cursor.getCause();
+        }
+        return null;
+    }
+
+    private static RuntimeScheduler scheduler() {
+        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
+    }
+}

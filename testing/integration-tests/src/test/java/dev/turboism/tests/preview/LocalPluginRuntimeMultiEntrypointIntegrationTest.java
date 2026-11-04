@@ -7,8 +7,8 @@ import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.preview.LocalPluginRuntime;
-import dev.turboism.preview.PreviewLog;
+import dev.turboism.kernel.KernelLog;
+import dev.turboism.kernel.LocalPluginRuntime;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -68,7 +68,7 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
         MultiEntrypointPluginJarFixture.write(home.resolve("plugins"), temporary.resolve(name + "-build"));
         System.setProperty(MultiEntrypointPluginJarFixture.MARKER_PROPERTY, marker.toString());
         System.setProperty(MultiEntrypointPluginJarFixture.FAIL_PROPERTY, Boolean.toString(failSecondEnable));
-        final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
+        final KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = scheduler();
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
         final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
@@ -83,7 +83,7 @@ class LocalPluginRuntimeMultiEntrypointIntegrationTest {
     }
 
     private record Scenario(
-            LocalPluginRuntime runtime, HostRuntimeIngress hostIngress, RuntimeScheduler scheduler, PreviewLog log)
+            LocalPluginRuntime runtime, HostRuntimeIngress hostIngress, RuntimeScheduler scheduler, KernelLog log)
             implements AutoCloseable {
         @Override
         public void close() throws Exception {

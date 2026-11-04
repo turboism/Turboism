@@ -83,7 +83,7 @@ tasks.register<Test>("previewPluginRuntimeTest") {
     filter {
         includeTestsMatching("dev.turboism.tests.preview.LocalPluginRuntimeIntegrationTest")
         includeTestsMatching("dev.turboism.tests.preview.McpPluginRuntimeIntegrationTest")
-        includeTestsMatching("dev.turboism.preview.LocalPluginRuntimeFailureReportIntegrationTest")
+        includeTestsMatching("dev.turboism.kernel.LocalPluginRuntimeFailureReportIntegrationTest")
         isFailOnNoMatchingTests = true
     }
 }

@@ -12,7 +12,7 @@ import dev.turboism.adapter.cubism.integration.SwingEditApprovalGate;
 import dev.turboism.adapter.cubism.integration.VerifiedEditApiDispatchInstaller;
 import dev.turboism.adapter.cubism.integration.VerifiedEditToggleHookInstaller;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.preview.PreviewRuntime;
+import dev.turboism.kernel.KernelRuntime;
 import java.util.Optional;
 
 /**
@@ -225,7 +225,7 @@ final class EditApiDispatchHookContributor implements HookContributor {
      * closed.</p>
      */
     private static java.util.Optional<dev.turboism.sdk.cubism.id.DocumentId> activeDocument(
-            final PreviewRuntime runtime) {
+            final KernelRuntime runtime) {
         final dev.turboism.adapter.cubism.ProjectWorkspaceAdapter.AdapterResult<
                         java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>>
                 result = runtime.hostAccess().adapters().projectWorkspace().activeDocument();

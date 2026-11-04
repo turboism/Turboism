@@ -163,7 +163,7 @@ class TriageFixture(unittest.TestCase):
 
     def test_caused_by_chain_feeds_classification(self):
         log = ("java.lang.IllegalStateException: Runtime-owned shell failed to start\n"
-               "\tat dev.turboism.preview.PreviewRuntime.start(PreviewRuntime.java:641)\n"
+               "\tat dev.turboism.kernel.KernelRuntime.start(KernelRuntime.java:641)\n"
                "caused by dev.turboism.ui.host.EdtDispatchException: embedded-panel EDT "
                "operation was not accepted by the EDT within 1000ms\n"
                "\tat dev.turboism.ui.host.EdtDispatch.dispatch(EdtDispatch.java:163)\n")

@@ -29,7 +29,9 @@ import javax.management.ObjectName;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
+@ResourceLock("chart-data-registry")
 class RuntimePerformanceProbeServiceTest {
 
     private final AtomicLong calls = new AtomicLong();

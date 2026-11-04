@@ -14,11 +14,11 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.kernel.KernelLog;
+import dev.turboism.kernel.LocalPluginRuntime;
 import dev.turboism.pluginmanagement.PluginCatalogClient.CatalogFetchResult;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.TrustedKey;
-import dev.turboism.preview.LocalPluginRuntime;
-import dev.turboism.preview.PreviewLog;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.test.Stubs;
@@ -790,7 +790,7 @@ final class RuntimePluginAutoUpdaterTest {
                 home,
                 scheduler,
                 host.adapterAccess(),
-                new PreviewLog(home.resolve("logs/turboism.log")),
+                new KernelLog(home.resolve("logs/turboism.log")),
                 (dev.turboism.internal.core.ShellAdmission) null);
     }
 

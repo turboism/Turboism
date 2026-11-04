@@ -277,7 +277,7 @@ def main():
                        env=env, check=True)
         check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
                                 str(args.production_agent.resolve()) + os.pathsep + str(check_classes),
-                                'dev.turboism.preview.ObserverFreePluginLoaderSelfCheck', str(jar)],
+                                'dev.turboism.kernel.ObserverFreePluginLoaderSelfCheck', str(jar)],
                                env=env, text=True, capture_output=True)
         (out / 'plugin-loader-selfcheck.log').write_text(check.stdout + check.stderr)
         check.check_returncode()

@@ -101,7 +101,7 @@ def main():
     guard.guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', str(accepted), '-d', str(check_classes),
                    str(loader_source)], out / 'loader-compile.log', env)
     guard.guarded(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp', str(accepted) + os.pathsep + str(check_classes),
-                   'dev.turboism.preview.ObserverFreePluginLoaderSelfCheck', str(jar)], out / 'loader-check.log', env)
+                   'dev.turboism.kernel.ObserverFreePluginLoaderSelfCheck', str(jar)], out / 'loader-check.log', env)
     guard.guarded(['javap', '-classpath', str(jar), '-c', '-p',
                    'dev.turboism.validation.atlasimage.shadow.NativeObserverFreeAutoConnect'],
                   out / 'native-bytecode.txt', env)
@@ -112,7 +112,7 @@ def main():
     if sha(final_agent) != 'fa9e417c52cfc8463bfdf7c505da93bfbb70930e9cbc9edf397d0a3aba234e1d':
         raise ValueError('final production agent identity mismatch')
     guard.guarded(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp', str(final_agent) + os.pathsep + str(check_classes),
-                   'dev.turboism.preview.ObserverFreePluginLoaderSelfCheck', str(jar)], out / 'final-loader-check.log', env)
+                   'dev.turboism.kernel.ObserverFreePluginLoaderSelfCheck', str(jar)], out / 'final-loader-check.log', env)
     report = {'status': 'PASS_OFFLINE_NON_JFR_CONTROLLED_CANVAS_PLUGIN_NOT_HOST_VALIDATED', 'pluginSha256': sha(jar),
               'performanceAcceptance': 'NOT_GRANTED', 'hostPreparedOrSubmitted': False,
               'inputs': json.loads((template / 'build.json').read_text())['inputs'],

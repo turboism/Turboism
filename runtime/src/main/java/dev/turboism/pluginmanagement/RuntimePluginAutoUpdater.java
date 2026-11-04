@@ -106,7 +106,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     private final Object lock = new Object();
     private final CopyOnWriteArrayList<Consumer<Snapshot>> listeners = new CopyOnWriteArrayList<>();
 
-    private volatile dev.turboism.preview.PluginHotReloadCoordinator hotReloadCoordinator;
+    private volatile dev.turboism.kernel.PluginHotReloadCoordinator hotReloadCoordinator;
     private boolean automaticEnabled;
     private Snapshot snapshot = Snapshot.idle();
     private RuntimeTimerHandle automaticTimer;
@@ -176,7 +176,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     }
 
     /** Binds the runtime hot-reload coordinator to apply updates without restart when safe. */
-    public void bindHotReloadCoordinator(final dev.turboism.preview.PluginHotReloadCoordinator coordinator) {
+    public void bindHotReloadCoordinator(final dev.turboism.kernel.PluginHotReloadCoordinator coordinator) {
         this.hotReloadCoordinator = coordinator;
     }
 

@@ -80,7 +80,7 @@ tasks.register("checkModuleBoundaries") {
  * Layering inside the single :runtime module. The framework core, adapters, mapping, leaf
  * service implementations and shared infrastructure must not import upward into composition
  * layers or sideways into surfaces they are documented to sit below. Composition seams —
- * {@code bootstrap}, {@code shell}, {@code ui}, {@code preview}, {@code distribution} — and the
+ * {@code bootstrap}, {@code shell}, {@code ui}, {@code kernel}, {@code distribution} — and the
  * service-wiring package {@code core.plugin.context} may reach anywhere.
  *
  * Violations are fail-closed: a known debt is an explicit per-file waiver in
@@ -93,7 +93,7 @@ private class RuntimePackageRule(
     val message: String
 )
 
-private val runtimeCompositionLayers = setOf("shell", "preview", "distribution")
+private val runtimeCompositionLayers = setOf("shell", "kernel", "distribution")
 private val runtimeFeatureImpls = setOf(
     "recentfile", "recentpreview", "screenshot", "script", "storage", "task", "config",
     "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update"
@@ -106,19 +106,19 @@ private val runtimePackageRules = listOf(
     RuntimePackageRule(
         setOf("core"),
         setOf("core/plugin/context/"),
-        setOf("adapter", "hook", "shell", "ui", "preview", "distribution"),
+        setOf("adapter", "hook", "shell", "ui", "kernel", "distribution"),
         "framework core must not reach into adapter/host/composition layers"
     ),
     RuntimePackageRule(
         setOf("adapter"),
         emptySet(),
-        setOf("shell", "preview", "distribution", "bootstrap"),
+        setOf("shell", "kernel", "distribution", "bootstrap"),
         "editor adapters must not reach into composition/bootstrap seams"
     ),
     RuntimePackageRule(
         setOf("mapping"),
         emptySet(),
-        setOf("adapter", "shell", "ui", "preview", "distribution", "hook"),
+        setOf("adapter", "shell", "ui", "kernel", "distribution", "hook"),
         "host-artifact verification must stay below runtime surfaces"
     ),
     RuntimePackageRule(
@@ -130,7 +130,7 @@ private val runtimePackageRules = listOf(
     RuntimePackageRule(
         runtimeInfra,
         emptySet(),
-        setOf("adapter", "shell", "ui", "preview", "distribution", "hook", "mapping"),
+        setOf("adapter", "shell", "ui", "kernel", "distribution", "hook", "mapping"),
         "shared infrastructure must not reach into runtime surfaces"
     )
 )

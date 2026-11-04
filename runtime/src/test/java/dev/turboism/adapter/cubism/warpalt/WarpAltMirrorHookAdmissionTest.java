@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
-import dev.turboism.preview.LocalPluginRuntime;
+import dev.turboism.kernel.LocalPluginRuntime;
 import dev.turboism.sdk.permission.PermissionIds;
 import java.nio.file.Path;
 import java.util.List;

@@ -2,9 +2,9 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.preview.PreviewRuntime;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -26,7 +26,7 @@ final class HookEnvironment {
     private final StartupSuppressionInstaller.AttachmentMode attachmentMode;
     private final AgentOptions options;
     private final HostClassLocator.LocatedHost host;
-    private final PreviewRuntime runtime;
+    private final KernelRuntime runtime;
     private final String profile;
     private final CompatibilityResolution hostResolution;
     private final boolean fullRuntimeAdmission;
@@ -112,7 +112,7 @@ final class HookEnvironment {
      * @return the started preview runtime, present only in
      *     {@link HookContributor.Phase#RUNTIME_STARTED}
      */
-    Optional<PreviewRuntime> runtime() {
+    Optional<KernelRuntime> runtime() {
         return Optional.ofNullable(runtime);
     }
 
@@ -345,7 +345,7 @@ final class HookEnvironment {
                 StartupSuppressionInstaller.AttachmentMode.AGENTMAIN;
         private AgentOptions options;
         private HostClassLocator.LocatedHost host;
-        private PreviewRuntime runtime;
+        private KernelRuntime runtime;
         private String profile;
         private CompatibilityResolution hostResolution;
         private boolean fullRuntimeAdmission;
@@ -381,7 +381,7 @@ final class HookEnvironment {
             return this;
         }
 
-        Builder runtime(final PreviewRuntime value) {
+        Builder runtime(final KernelRuntime value) {
             this.runtime = value;
             return this;
         }

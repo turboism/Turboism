@@ -1,4 +1,4 @@
-package dev.turboism.preview;
+package dev.turboism.kernel;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;

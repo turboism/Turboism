@@ -1,4 +1,4 @@
-package dev.turboism.preview;
+package dev.turboism.kernel;
 
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.lang.reflect.InvocationTargetException;
@@ -36,7 +36,7 @@ public final class ObserverFreePluginLoaderSelfCheck {
         require(descriptor.getClass().getMethod("id").invoke(descriptor)
                 .equals("dev.turboism.validation.observerfreemesh"), "real inspector metadata");
         try (var loader = new URLClassLoader(new URL[] {jar.toUri().toURL()},
-                PreviewPluginLoader.resolvePluginParent(TurboismPlugin.class.getClassLoader()))) {
+                PluginClassLoader.resolvePluginParent(TurboismPlugin.class.getClassLoader()))) {
             Class<?> plugin = Class.forName("dev.turboism.validation.atlasimage.shadow.ObserverFreeMeshProbePlugin",
                     true, loader);
             require(plugin.getClassLoader() == loader && TurboismPlugin.class.isAssignableFrom(plugin),

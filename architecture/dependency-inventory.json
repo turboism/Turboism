@@ -684,6 +684,82 @@
         "dev.turboism.task"
       ],
       [
+        "dev.turboism.kernel",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.bootstrap"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.cleanup"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.exportsettings"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.graal"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.home"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.hostread"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.i18n"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.performance"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.storage"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.userfile"
+      ],
+      [
         "dev.turboism.keybinding",
         "dev.turboism.core"
       ],
@@ -749,7 +825,7 @@
       ],
       [
         "dev.turboism.pluginmanagement",
-        "dev.turboism.preview"
+        "dev.turboism.kernel"
       ],
       [
         "dev.turboism.pluginmanagement",
@@ -758,82 +834,6 @@
       [
         "dev.turboism.pluginmanagement",
         "dev.turboism.update"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.adapter"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.bootstrap"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.cleanup"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.config"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.core"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.exportsettings"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.failure"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.graal"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.home"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.hostread"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.i18n"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.internal"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.mapping"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.performance"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.runtime"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.storage"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.task"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.ui"
-      ],
-      [
-        "dev.turboism.preview",
-        "dev.turboism.userfile"
       ],
       [
         "dev.turboism.recentfile",
@@ -1013,13 +1013,13 @@
       "dev.turboism.hostread",
       "dev.turboism.i18n",
       "dev.turboism.internal",
+      "dev.turboism.kernel",
       "dev.turboism.keybinding",
       "dev.turboism.mapping",
       "dev.turboism.mcp",
       "dev.turboism.performance",
       "dev.turboism.permissions",
       "dev.turboism.pluginmanagement",
-      "dev.turboism.preview",
       "dev.turboism.recentfile",
       "dev.turboism.recentpreview",
       "dev.turboism.runtime",

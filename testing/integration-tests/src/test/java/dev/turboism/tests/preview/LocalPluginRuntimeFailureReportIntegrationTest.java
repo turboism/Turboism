@@ -1,4 +1,4 @@
-package dev.turboism.preview;
+package dev.turboism.kernel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -9,8 +9,8 @@ import dev.turboism.adapter.host.HostSession;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.preview.report.PreviewReportType;
-import dev.turboism.preview.report.PreviewReportValidator;
+import dev.turboism.kernel.report.KernelReportType;
+import dev.turboism.kernel.report.KernelReportValidator;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -29,12 +29,12 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         Files.createDirectories(home.resolve("plugins"));
         PreviewFailurePluginJarFixture.write(home.resolve("plugins"), temporary);
 
-        final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
+        final KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = rejectedScheduler();
         final HostRuntimeIngress ingress = new HostRuntimeIngress();
         final LocalPluginRuntime plugins = new LocalPluginRuntime(home, scheduler, ingress.adapterAccess(), log);
         final LocalPluginRuntime.LoadReport loadReport = plugins.loadAll();
-        final PreviewRuntime runtime = runtime(home, log, scheduler, ingress, plugins, loadReport);
+        final KernelRuntime runtime = runtime(home, log, scheduler, ingress, plugins, loadReport);
         try {
             runtime.writeInitialReports(HostSession.State.SAFE_MODE);
             assertTrue(Files.isRegularFile(home.resolve("plugins/preview-failure-plugin.jar")));
@@ -63,21 +63,21 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
                 ignored -> {});
     }
 
-    private static PreviewRuntime runtime(
+    private static KernelRuntime runtime(
             final Path home,
-            final PreviewLog log,
+            final KernelLog log,
             final RuntimeScheduler scheduler,
             final HostRuntimeIngress ingress,
             final LocalPluginRuntime plugins,
             final LocalPluginRuntime.LoadReport loadReport) {
-        return new PreviewRuntime(
+        return new KernelRuntime(
                 home,
                 log,
                 scheduler,
                 ingress,
                 plugins,
                 loadReport,
-                new dev.turboism.preview.report.PreviewReportWriter(home.resolve("state"), ignored -> {}),
+                new dev.turboism.kernel.report.KernelReportWriter(home.resolve("state"), ignored -> {}),
                 "real-plugin-failure-runtime",
                 null,
                 null);
@@ -100,8 +100,8 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
     }
 
     private static JsonNode report(final Path home) throws Exception {
-        return PreviewReportValidator.validate(
-                        Files.readAllBytes(home.resolve("state").resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())))
+        return KernelReportValidator.validate(
+                        Files.readAllBytes(home.resolve("state").resolve(KernelReportType.PREVIEW_RUNTIME.fileName())))
                 .document();
     }
 
@@ -139,7 +139,7 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         assertEquals(0, occurrences(report, "CONFIG_READ_REJECTED"));
     }
 
-    private static void assertSafeLog(final Path home, final PreviewLog log) throws Exception {
+    private static void assertSafeLog(final Path home, final KernelLog log) throws Exception {
         log.drain();
         final String text = Files.readString(home.resolve("logs/turboism.log"));
         assertFalse(text.isBlank());

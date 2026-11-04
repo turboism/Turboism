@@ -65,7 +65,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final LocalizationDiagnosticSink metadataDiagnostics;
     private volatile PluginAutoUpdateControl autoUpdater = PluginAutoUpdateControl.unavailable();
-    private volatile dev.turboism.preview.PluginHotReloadCoordinator hotReloadCoordinator;
+    private volatile dev.turboism.kernel.PluginHotReloadCoordinator hotReloadCoordinator;
     private volatile Supplier<Optional<String>> cubismVersion = Optional::empty;
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
@@ -201,7 +201,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     /** Binds the hot-reload coordinator for immediate runtime lifecycle operations. */
-    public void bindHotReloadCoordinator(final dev.turboism.preview.PluginHotReloadCoordinator coordinator) {
+    public void bindHotReloadCoordinator(final dev.turboism.kernel.PluginHotReloadCoordinator coordinator) {
         this.hotReloadCoordinator = coordinator;
         if (marketService != null) {
             marketService.bindHotReloadCoordinator(coordinator);
@@ -703,7 +703,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     private static PluginInfo corePlugin() {
-        final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.preview.ShellManifest.descriptor();
+        final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.kernel.ShellManifest.descriptor();
         return new PluginInfo(
                 shell.id(),
                 shell.name(),
@@ -744,7 +744,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     private PluginDetails coreDetails(final PluginInfo plugin) {
-        final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.preview.ShellManifest.descriptor();
+        final dev.turboism.sdk.plugin.PluginDescriptor shell = dev.turboism.kernel.ShellManifest.descriptor();
         return new PluginDetails(
                 plugin,
                 shell.turboismApi(),
