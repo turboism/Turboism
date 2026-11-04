@@ -90,7 +90,7 @@ jobs:
       - name: Install Windows installer compiler and isolated display
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nsis xvfb
+          sudo apt-get install --yes --no-install-recommends nsis xvfb gifsicle
       - name: Resolve explicit QA-only identity, without allocating or publishing a product build
         env:
           CHANNEL: ${{ matrix.channel }}
@@ -103,6 +103,8 @@ jobs:
           echo "TURBOISM_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "ORG_GRADLE_PROJECT_turboismRelease=true" >> "$GITHUB_ENV"
       - name: Run the full release gate with the selected channel
+        env:
+          TURBOISM_TEST_GIFSICLE: /usr/bin/gifsicle
         run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
       - name: Verify all four real packages and their embedded identity
         run: |

@@ -54,7 +54,7 @@ jobs:
             turboism-gradle-build-cache-v1-
 
       - name: Install the isolated display server
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb gifsicle
 
       - name: Install the shell lint tool
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends shellcheck
@@ -75,4 +75,6 @@ jobs:
         run: ./gradlew --no-daemon :buildSrc:test --console=plain
 
       - name: Run development and completed-commit gates
+        env:
+          TURBOISM_TEST_GIFSICLE: /usr/bin/gifsicle
         run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon devCheck checkCompletedCommit --console=plain

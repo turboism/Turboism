@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: physics, editing, simulation
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -17,6 +17,14 @@ interface: swing
 > **Official Turboism plugin** · **Status: Preview**
 
 Adds select-all behavior and reopen retention to Cubism's native Physics / Scene Blending Settings group list.
+
+## GIF recording
+
+Use the red **Record** icon in the transparent, icon-only toolbar above the right preview (1–50 FPS). Hover over an icon to see its action. It becomes **Pause** during recording; press it again to resume. **Stop** opens export settings, and **Discard** deletes the recording without exporting. There is no frame-count input. Default registered shortcuts: **F7** record/pause/resume, **Shift+F7** pause, **F8** stop/export, **F9** discard. They can be changed in the shortcut settings and only operate on the focused Physics Settings preview. Paused time adds no frames. Recording reads the model framebuffer, excluding the settings and toolbar. When recording finishes, the export dialog provides percentage scaling, pixel width/height, and an aspect-ratio lock. **Optimize to target size** is checked by default with a **20 MB** limit (1 MB = 1,000,000 bytes). Optimization may reduce colors and dimensions while preserving all frames and playback timing. Uncheck it to export at the selected dimensions without a size target.
+
+Confirm export settings, then choose a save location. The last successful GIF export directory is remembered across sessions, independently of project saves. Export failures preserve the recording so you can adjust settings and retry. Cancellation, closing the preview, or disabling the plugin cleans up temporary recordings.
+
+GIF export requires **Gifsicle** installed locally: make `gifsicle` available on `PATH`, enter its executable path in the export dialog, or set `-Dturboism.gifsicle.path=<path>`. No executable is downloaded automatically. Keep the preview open and its size unchanged while recording.
 
 | Detail | Value |
 |---|---|
@@ -41,7 +49,7 @@ Adds select-all behavior and reopen retention to Cubism's native Physics / Scene
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.68.1,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
@@ -76,6 +84,7 @@ No capabilities are declared in the plugin manifest.
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
+| `turboism.action.register` | `application` | Registers GIF recording, pause, stop and discard actions with configurable shortcuts. |
 | `turboism.cubism.model.write` | `application` | Atomically enables or disables Physics Settings groups through the verified Editor transaction path. |
 
 ## Privacy and data
@@ -86,7 +95,7 @@ Makes no network connections.
 
 ### Local data
 
-Does not write plugin-owned files or alter project files on disk. State retention is stored strictly in-memory during the active model session and discarded upon closing the model or exiting Cubism.
+GIF recording writes temporary files and the selected output GIF, and remembers the last successful export directory in local preferences. Group state retention stays in memory during the active model session; project files are unchanged.
 
 ### Telemetry
 
@@ -98,7 +107,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 - **Status:** Preview.
 - Requires a supported Physics Editor contribution service in the active Cubism host.
-- **Workflow-only scope:** The plugin is intentionally limited to group table select-all and in-session reopen retention. It is not an alternative physics simulator and does not alter pendulum physical calculations, reaction times, gravity, wind forces, or motion sync parameters.
+- **Workflow-only scope:** The plugin provides group table select-all, in-session reopen retention and preview GIF recording. It is not an alternative physics simulator and does not alter pendulum physical calculations, reaction times, gravity, wind forces, or motion sync parameters.
 - **Session-scoped retention:** Retention operates within the active model session memory and does not serialize custom tags into the `.cmo3` model file.
 - Disabling the plugin while the dialog is open safely restores the native header renderer without affecting current model state.
 

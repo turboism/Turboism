@@ -169,7 +169,8 @@ jobs:
       - name: Install NSIS and isolated display
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nsis xvfb
+          sudo apt-get install --yes --no-install-recommends nsis xvfb gifsicle
+          echo "TURBOISM_TEST_GIFSICLE=/usr/bin/gifsicle" >> "$GITHUB_ENV"
 
       - name: Install the pinned scripts lint tool
         run: python3 -m pip install 'ruff==0.16.9' 'PyYAML==6.0.3'

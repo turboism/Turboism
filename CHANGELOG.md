@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory.
+
 ### Fixed
 
 - Runtime-owned shell startup has its own lifecycle deadline and waits out host event-queue startup work, so a briefly busy editor no longer produces an intermittent `Runtime-owned shell failed to start` failure.
