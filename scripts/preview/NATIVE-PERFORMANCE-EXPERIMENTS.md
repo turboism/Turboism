@@ -1998,8 +1998,56 @@ were `meshDeformed=64,119` versus `meshSkipped=1,221` across 54 epochs (about
 is required work, not a duplicate. A faster implementation would have to come
 from outside the loop: a deformer-level dirty gate that skips
 `CWarpDeformer.transformDeformer_testImpl` when both the local form and the
-parent-to-canvas transform are unchanged, or a parallel/GPU rewrite. The former
-is the only credible small step (the incremental bridge already retains the
-required form/parent state); the latter needs a new concurrency or rendering
-architecture and was not attempted after P07's pure-Java rewrite measured
-slower.
+parent-to-canvas transform are unchanged, or a parallel/GPU rewrite. The gate
+was subsequently prototyped and measured; it skips ~94 % of the calls but the
+whole deformer-transform body is only 3.7 % of the deform-phase wall time, so
+it is not worth productising (see the section below). The parallel/GPU rewrite
+needs a new concurrency or rendering architecture and was not attempted after
+P07's pure-Java rewrite measured slower.
+
+**Deformer-level dirty gate exploration (2026-11-04).** The earlier
+`transformDeformer_testImpl` gate idea was prototyped with a throw-away agent
+(`build/deformer-gate-diag`, not shipped) that instruments
+`CWarpDeformer.transformDeformer_testImpl` at entry and before its `RETURN`.
+It compares every input of the pure transform with the committed snapshot:
+child `preDeformForm` identity, positions, opacity/multiply/screen colours,
+source/instance identity; parent `getCalculatedForm()` identity and warp-grid
+positions; the output `deformedForm` identity, positions and style; and
+`preDeformForm.isCompatible(deformedForm)`. Any doubt or exception runs native.
+
+The redundant fraction is real: on the QUICK fixture the count-only run saw
+`wouldSkip=38,239 / 42,516` calls (89.9 %), with `outMutated=0`,
+`incompatible=0` and only the expected 746 first-call misses where the host
+creates `deformedForm` inside the method. The skip run skipped
+`34,041 / 38,786` calls (87.8 %): `param` 21,404 / 23,126 (92.6 %) and `deform`
+12,637 / 13,428 (94.1 %). The gate is mechanically safe on this sample.
+
+It is, however, not worth shipping, because the whole native transform is a
+small part of the frame:
+
+| QUICK phase | native `transformDeformer_testImpl` time | phase wall | share |
+|---|---:|---:|---:|
+| `param` | 346.7 ms | 6,300 ms | 5.5 % |
+| `deform` | 184.8 ms | 5,050 ms | 3.7 % |
+
+The JFR phase profile agrees. In `deform`, 125 EDT execution samples were
+collected; `warp.o.a` was the leaf in 18 (14.4 %), of which 16 called through
+`CWarpDeformer.transformDeformer_testImpl` and only 2 through an ArtMesh. But
+EDT itself was busy for only about 1.25 s of the 5.05 s wall: 80/125 samples
+were under Swing repaint and 66 under `SGFramework.render3d`. Even removing
+every deformer transform leaves a hard ceiling of roughly 3–5 % wall time.
+
+The A/B FPS runs confirm that the effect is below machine noise. One pair had
+the skip run faster (`wheel` 6.39 → 11.90 FPS, `param` 4.62 → 8.80 FPS), the
+next pair had the count run faster (`wheel` 12.74 → 8.49 FPS, `param` 8.64 →
+6.30 FPS). EDT allocation dropped consistently with skipping, but wall time did
+not. The conclusion is to leave `transformDeformer_testImpl` alone: the 94 %
+redundancy is cheap work, and a production hook would add snapshot state and
+admission risk for no demonstrable frame-time gain.
+
+If content-equality reuse is revisited, the higher-leverage site is the
+ArtMesh deform call (`CArtMeshForm.transform` / the incremental bridge's
+`deformArtMesh`), where the changed-set decision still marks nearly every mesh
+dirty in editing mode; that needs its own timing experiment first. The larger
+remaining frame cost is the render path itself (Swing repaint → `render3d`,
+`glReadPixels`, scene traversal and line uploads), not the model transform.
