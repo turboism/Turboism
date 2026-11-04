@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "e2ea37337fe6b291d61d19a1a2a6a00d94f0b0f306ec9aa7b2c5496ec4ed15dd",
+  "surfaceSha256": "ae358248c4128fabecc9b97a28401ce69b1cabdfb27b7a166ff6cec6a9e1ee18",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
@@ -12,6 +12,7 @@
     "dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport$Operation": "0.68.0",
     "dev.turboism.sdk.cubism.model.ParameterGroupChild": "0.68.0",
     "dev.turboism.sdk.cubism.model.ParameterGroupChild$Kind": "0.68.0",
+    "dev.turboism.sdk.cubism.physics.PhysicsEditorService$GifCommand": "0.68.1",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$1": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$Reason": "0.67.2",
@@ -32,6 +33,7 @@
     "dev.turboism.sdk.cubism.model.ParameterBindingOperations#bindValues:(Ldev/turboism/sdk/cubism/model/ParameterBindingTarget;Ljava/util/List;)V": "0.68.0",
     "dev.turboism.sdk.cubism.model.ParameterGroup#orderedChildren:()Ljava/util/List;": "0.68.0",
     "dev.turboism.sdk.cubism.model.ParameterGroups#moveParameter:(Ldev/turboism/sdk/cubism/id/ParameterId;Ldev/turboism/sdk/cubism/id/ParameterGroupId;I)V": "0.68.0",
+    "dev.turboism.sdk.cubism.physics.PhysicsEditorService#gifCommand:(Ldev/turboism/sdk/cubism/physics/PhysicsEditorService$GifCommand;)V": "0.68.1",
     "dev.turboism.sdk.cubism.psd.PsdEditFile#openInApplication:(Ljava/lang/String;)Ljava/util/concurrent/CompletionStage;": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel#isVisible:()Z": "0.68.1",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem#<init>:(Ljava/lang/String;IILdev/turboism/sdk/cubism/textureatlas/TextureAtlasOutline;)V": "0.67.4",
