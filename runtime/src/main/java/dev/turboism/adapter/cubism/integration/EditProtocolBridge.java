@@ -168,12 +168,7 @@ public final class EditProtocolBridge {
     }
 
     private boolean enabled() {
-        final String flag;
-        try {
-            flag = System.getProperty(ENABLED_PROPERTY);
-        } catch (RuntimeException unavailable) {
-            return true;
-        }
+        final String flag = System.getProperty(ENABLED_PROPERTY);
         return !"false".equalsIgnoreCase(flag);
     }
 

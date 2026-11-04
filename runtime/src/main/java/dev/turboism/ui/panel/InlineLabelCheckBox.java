@@ -197,13 +197,10 @@ final class InlineLabelCheckBox extends JCheckBox {
             } else if (run instanceof UiInlineLabel.IconRun iconRun) {
                 Icon icon = null;
                 try {
-                    final Optional<Icon> candidate = iconResolver.apply(iconRun.icon(), disabled);
-                    if (candidate != null && candidate.isPresent()) {
-                        final Icon value = candidate.orElse(null);
-                        if (value != null && value.getIconWidth() > 0 && value.getIconHeight() > 0) {
-                            icon = value;
-                        }
-                    }
+                    icon = iconResolver
+                            .apply(iconRun.icon(), disabled)
+                            .filter(value -> value.getIconWidth() > 0 && value.getIconHeight() > 0)
+                            .orElse(null);
                 } catch (RuntimeException ignored) {
                     // A display resolver is optional. A failed/missing icon must degrade to the
                     // run's localized text rather than disabling or breaking the row.

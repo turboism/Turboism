@@ -308,14 +308,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             bridge.install();
             installed = true;
         } catch (Exception | Error problem) {
-            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
-            try {
-                close();
-            } catch (Exception | Error cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
-                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(problem, cleanup));
-            }
+            VerifiedHookInstallerSupport.closeOnInstallFailure(problem, this);
             throw problem;
         }
     }
@@ -330,8 +323,11 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         IllegalStateException failure = null;
         for (Target target : removing) {
             if (!instrumentation.removeTransformer(target.transformer())) {
-                if (failure == null) failure = new IllegalStateException("uniform transformer removal not proven");
-                failure.addSuppressed(new IllegalStateException(target.type().getName()));
+                final IllegalStateException problem =
+                        new IllegalStateException(target.type().getName());
+                if (failure == null)
+                    failure = new IllegalStateException("uniform transformer removal not proven", problem);
+                else failure.addSuppressed(problem);
             }
         }
         registered.clear();
@@ -346,8 +342,8 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                     throw new IllegalStateException("uniform class restoration mismatch: "
                             + target.type().getName());
             } catch (Exception problem) {
-                if (failure == null) failure = new IllegalStateException("uniform native restoration failed");
-                failure.addSuppressed(problem);
+                if (failure == null) failure = new IllegalStateException("uniform native restoration failed", problem);
+                else failure.addSuppressed(problem);
             }
         }
         restored = failure == null;

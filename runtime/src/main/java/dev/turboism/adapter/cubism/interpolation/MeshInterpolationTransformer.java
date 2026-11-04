@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.interpolation;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -204,9 +205,6 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
     }
 
     private void report(String code) {
-        try {
-            diagnostic.accept("MESH_INTERPOLATION_" + code);
-        } catch (RuntimeException ignored) {
-        }
+        FatalErrors.reportSafely(diagnostic, "MESH_INTERPOLATION_" + code);
     }
 }

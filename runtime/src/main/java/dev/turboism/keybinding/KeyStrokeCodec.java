@@ -58,8 +58,8 @@ public final class KeyStrokeCodec {
                 final String canonical = canonicalName(name.substring(3));
                 byName.putIfAbsent(canonical.toUpperCase(Locale.ROOT), code);
                 byKey.putIfAbsent(code, canonical);
-            } catch (IllegalAccessException ignored) {
-                // public static fields are always readable; a reflective miss just drops the name
+            } catch (IllegalAccessException impossible) {
+                throw new AssertionError(impossible);
             }
         }
         KEYS_BY_NAME = Map.copyOf(byName);

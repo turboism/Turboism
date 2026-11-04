@@ -25,14 +25,8 @@ public final class TriangulationEdgeIndexSettingsFileService
 
     @Override
     public boolean read() {
-        try {
-            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
-                    config.read(),
-                    PerformanceSettingsConfig.Field.TRIANGULATION_EDGE_INDEX,
-                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
-        } catch (RuntimeException invalid) {
-            return false;
-        }
+        return PerformanceSettingsConfig.readSavedBoolean(
+                config, PerformanceSettingsConfig.Field.TRIANGULATION_EDGE_INDEX);
     }
 
     @Override

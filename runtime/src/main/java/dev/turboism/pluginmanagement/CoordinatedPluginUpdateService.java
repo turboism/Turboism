@@ -700,7 +700,8 @@ public class CoordinatedPluginUpdateService {
                 activeMetadata.put(d.id(), new ResolvedPluginMeta(d.id(), d.version(), d.turboismApi(), reqDeps));
                 try {
                     postUpdateVersions.put(d.id(), PluginVersion.parse(d.version()));
-                } catch (Exception ignored) {
+                } catch (IllegalArgumentException ignored) {
+                    /* malformed version is skipped */
                 }
             }
         }

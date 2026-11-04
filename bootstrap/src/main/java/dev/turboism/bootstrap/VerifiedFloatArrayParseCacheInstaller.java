@@ -7,9 +7,7 @@ import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
@@ -60,14 +58,7 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
                 throw new IllegalStateException("native float serializer not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
-            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
-            try {
-                close();
-            } catch (Exception | Error cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
-                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
-            }
+            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
             throw failure;
         }
     }
@@ -87,13 +78,7 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
                     Class<?> redefined,
                     ProtectionDomain domain,
                     byte[] bytes) {
-                if (redefined == target)
-                    try {
-                        observed.set(HexFormat.of()
-                                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
-                    } catch (Exception failure) {
-                        observed.set("unavailable");
-                    }
+                if (redefined == target) observed.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
                 return null;
             }
         };

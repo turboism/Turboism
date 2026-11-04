@@ -59,12 +59,7 @@ public final class VerifiedAccessException extends RuntimeException {
         Throwable current = failure;
         for (int depth = 0; current != null && depth < 16; depth++) {
             if (seen.put(current, Boolean.TRUE) != null) return HostFailureCategory.UNKNOWN;
-            final Throwable next;
-            try {
-                next = current.getCause();
-            } catch (RuntimeException | LinkageError inaccessible) {
-                return HostFailureCategory.UNKNOWN;
-            }
+            final Throwable next = current.getCause();
             if (next != null) {
                 current = next;
                 continue;

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -126,7 +127,7 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
             outcome(Outcome.TARGET_TRANSFORMED, "MESH_TOOL_SESSION_TARGET_TRANSFORMED");
             return writer.toByteArray();
         } catch (Throwable failure) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            FatalErrors.rethrowIfFatal(failure);
             return reject(Outcome.TRANSFORMATION_FAILED, "MESH_TOOL_SESSION_TRANSFORMATION_FAILED");
         }
     }
@@ -188,12 +189,7 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
 
     private void outcome(final Outcome next, final String message) {
         outcome.set(next);
-        try {
-            diagnostic.accept(message);
-        } catch (Throwable ignored) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(ignored);
-            // Diagnostics cannot block host class definition.
-        }
+        FatalErrors.reportSafely(diagnostic, message);
     }
 
     private static Path codeSourcePath(final ProtectionDomain protectionDomain) {

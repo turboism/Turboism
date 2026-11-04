@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.shader;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
@@ -266,9 +267,6 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
     }
 
     private void report(String code) {
-        try {
-            diagnostic.accept("SHADER_UNIFORM_" + code);
-        } catch (RuntimeException ignored) {
-        }
+        FatalErrors.reportSafely(diagnostic, "SHADER_UNIFORM_" + code);
     }
 }

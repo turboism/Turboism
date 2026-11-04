@@ -9,6 +9,72 @@ but concurrent builds contaminated its timings. The later `adc851609` build
 requires its own final exact-host results; a rebuilt JAR or offline PASS is not
 that evidence. Physical presentation FPS and native Windows remain unmeasured.
 
+## Human-trace measurement (diagnostic)
+
+The legacy wheel workload dispatches one synthetic notch, waits for its paint,
+then dispatches the next one. That remains the attribution microbenchmark, but
+it cannot show queue backlog, burst coalescing or how far the screen falls
+behind a real hand. The human-trace mode records real AWT events and replays
+them through the system `EventQueue` at the recorded pacing without waiting for
+paints between events.
+
+Record a real gesture (the host is disposable; interact normally for the whole
+window):
+
+```powershell
+.\scripts\preview\launch-cubism-host-probe-benchmark.ps1 `
+  -Workload record -WorktreeId <id> -RecordKind wheel|pan|artmesh `
+  -RecordSeconds 30 -RecordOutput <path>\human-trace.tsv
+```
+
+Replay it (the trace's `kind=` selects wheel, pan or ArtMesh; the launcher
+workload stays `wheel`):
+
+```powershell
+.\scripts\preview\launch-cubism-host-probe-benchmark.ps1 `
+  -Workload wheel -WorktreeId <id> `
+  -JvmOption '-Dturboism.validation.humanTrace=<path>\human-trace.tsv,-Dturboism.validation.humanIdleResume=true'
+```
+
+`-Dturboism.validation.humanIdleResume=true` adds a 1.5 s idle, then one notch,
+and reports the first-frame latency after the pause. A deterministic baseline
+can be generated without the host:
+
+```bash
+python3 scripts/preview/generate-human-trace.py wheel --notches 8 --interval-ms 80 --out build/human-wheel.tsv
+python3 scripts/preview/generate-human-trace.py pan --distance 240 --out build/human-pan.tsv
+python3 scripts/preview/generate-human-trace.py artmesh --x 582 --y 413 --out build/human-artmesh.tsv
+```
+
+The report reuses `wheel-benchmark.txt` and adds `leg.N.human.*`:
+
+| key | meaning |
+| --- | --- |
+| `inputToFirstFrameNanos` | first pointer/wheel input to the first completed `display()` |
+| `settleNanos` | last input to the display that first shows the final state |
+| `maxLagNotches` / `p95LagNotches` | posted-but-not-yet-applied wheel notches at each display |
+| `maxZoomStepNotches` / `multiNotchFrameRatio` | how many notches one painted frame jumps |
+| `maxEventsPerFrame` | pointer samples folded into one painted frame |
+| `frameRate` / `frameIntervalP*` | completed-display pacing during the gesture |
+| `sustainableRatePerSecond` / `sustainableLagOne` | input rate and whether the run stayed within one notch of backlog |
+| `idleResumeNanos` | first-frame latency after a 1.5 s idle |
+
+Raw evidence is written to `human-events-leg-N.tsv` and
+`human-frames-leg-N.tsv`. Camera traces restore the baseline camera between
+legs and require the same baseline window digest on every leg. ArtMesh traces
+require exactly one changed mesh, native Undo to restore the geometry and Redo
+to replay it; a point edit and a whole-mesh drag are both accepted and reported
+via `movedVertexCount` / `wholeMeshMoved`.
+
+`-Workload reorder` additionally tries to activate the native Parts palette and
+perform a real OS `Robot` press-hold-drag-hold-release on its rows, then checks
+the row order and native Undo/Redo. In the current isolated 5.3.04 layout the
+Parts palette exists but is not docked (the table is `visible` but not
+`showing`), so this mode FAILs with `parts palette table is not showing after
+activation` instead of emitting a synthetic reorder number. Open/undock the
+Parts palette in the host layout (or add a native reorder command) before
+treating layer-reorder timings as evidence.
+
 ## Independent matrix-scratch comparison
 
 The `matrixScratch` factor keeps the verified uniform-location cache ON in every

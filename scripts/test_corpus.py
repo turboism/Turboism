@@ -93,7 +93,7 @@ def is_safe_destination(base_dir: Path, target_path: Path) -> bool:
         resolved_base = base_dir.resolve()
         resolved_target = target_path.resolve()
         return resolved_target == resolved_base or resolved_base in resolved_target.parents
-    except Exception:
+    except (OSError, ValueError):
         return False
 
 

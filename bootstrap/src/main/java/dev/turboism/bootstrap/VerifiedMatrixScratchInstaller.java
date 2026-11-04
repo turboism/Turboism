@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
 
 /** Exact-host, explicitly requested installation of invocation-local matrix scratch storage. */
@@ -26,7 +27,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private final Class<?> target;
     private final MatrixScratchTransformer transformer;
     private final AtomicBoolean admission = new AtomicBoolean();
-    private final AtomicBoolean dependencyRejected = new AtomicBoolean();
+    private final AtomicReference<Throwable> dependencyRejection = new AtomicReference<>();
     private final Map<Class<?>, List<Body>> dependencies = new LinkedHashMap<>();
     private final List<ClassFileTransformer> registered = new ArrayList<>();
     private final String originalTargetSha;
@@ -103,7 +104,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                             "matrix dependency loader/source mismatch: " + redefined.getName());
                     verifyBodies(redefined, bytes, bodies);
                 } catch (Exception | LinkageError rejected) {
-                    dependencyRejected.set(true);
+                    dependencyRejection.compareAndSet(null, rejected);
                     admission.set(false);
                 }
                 return null;
@@ -197,8 +198,9 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             instrumentation.addTransformer(transformer, true);
             registered.add(transformer);
             instrumentation.retransformClasses(target);
-            if (transformer.matches() != 1 || transformer.failure() != null || dependencyRejected.get()) {
-                throw new IllegalStateException("matrix transform was not admitted: " + transformer.failure());
+            if (transformer.matches() != 1 || transformer.failure() != null || dependencyRejection.get() != null) {
+                throw new IllegalStateException(
+                        "matrix transform was not admitted: " + transformer.failure(), dependencyRejection.get());
             }
             synchronized (properties) {
                 // Identity comparison is intentional: the properties table stores this exact
@@ -212,21 +214,15 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                 }
                 admission.set(true);
                 // A guard invocation racing arming cannot revive a rejected dependency.
-                if (dependencyRejected.get()) {
+                if (dependencyRejection.get() != null) {
                     admission.set(false);
-                    throw new IllegalStateException("matrix dependencies changed during installation");
+                    throw new IllegalStateException(
+                            "matrix dependencies changed during installation", dependencyRejection.get());
                 }
             }
             installed = true;
         } catch (Exception | Error failed) {
-            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
-            try {
-                close();
-            } catch (Exception | Error cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
-                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failed, cleanup));
-            }
+            VerifiedHookInstallerSupport.closeOnInstallFailure(failed, this);
             throw failed;
         }
     }
@@ -251,8 +247,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                     throw new IllegalStateException("matrix transformer removal not proven");
                 registered.remove(owned);
             } catch (RuntimeException problem) {
-                if (failure == null) failure = new IllegalStateException("matrix restoration failed");
-                failure.addSuppressed(problem);
+                if (failure == null) failure = new IllegalStateException("matrix restoration failed", problem);
+                else failure.addSuppressed(problem);
             }
         }
         if (registered.isEmpty()) {
@@ -267,8 +263,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                     throw new IllegalStateException("matrix original class restoration mismatch");
                 restored = failure == null;
             } catch (Exception problem) {
-                if (failure == null) failure = new IllegalStateException("matrix restoration failed");
-                failure.addSuppressed(problem);
+                if (failure == null) failure = new IllegalStateException("matrix restoration failed", problem);
+                else failure.addSuppressed(problem);
             }
         }
         if (failure != null) throw failure;

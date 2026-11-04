@@ -2,6 +2,7 @@ package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -156,11 +157,7 @@ public record RuntimeStartupConfig(
     }
 
     private static void report(final Consumer<String> diagnostic, final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics must never block the official host startup path.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /**

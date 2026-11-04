@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -36,7 +36,7 @@ Cubism ネイティブのバウンディングボックスにおける Alt 対�
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.68.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在レビュー済みの Editor `5.0.00`〜`5.3.04` をサポートしており、宣言されたサービスと機能が利用可能な場合にのみ各機能を提供します。
 - **インターフェースモード:** `none`。
 - **プラグイン依存関係:** なし。

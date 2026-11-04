@@ -523,12 +523,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
     }
 
     private void report(final String message) {
-        try {
-            diagnostic.accept(message);
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // Diagnostics must not block host class definition.
-        }
+        FatalErrors.reportSafely(diagnostic, message);
     }
 
     private Kind kind(final String owner, final String name, final String descriptor) {

@@ -69,9 +69,8 @@ public final class McpPlugin extends AbstractTurboismPlugin {
                 rollback.register(() -> {
                     throw failure;
                 });
-            } catch (RuntimeException rollbackFailure) {
-                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
+                if (rollbackFailure instanceof RuntimeException runtime) throw runtime;
                 throw new IllegalStateException("MCP startup rollback failed", rollbackFailure);
             }
         }

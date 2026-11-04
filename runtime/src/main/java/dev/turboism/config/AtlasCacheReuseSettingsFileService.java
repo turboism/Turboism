@@ -24,14 +24,7 @@ public final class AtlasCacheReuseSettingsFileService implements AtlasCacheReuse
 
     @Override
     public boolean read() {
-        try {
-            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
-                    config.read(),
-                    PerformanceSettingsConfig.Field.ATLAS_CACHE_REUSE,
-                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
-        } catch (RuntimeException invalid) {
-            return false;
-        }
+        return PerformanceSettingsConfig.readSavedBoolean(config, PerformanceSettingsConfig.Field.ATLAS_CACHE_REUSE);
     }
 
     @Override

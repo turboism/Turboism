@@ -36,14 +36,6 @@ final class PermissionCheckedCubismReadCapabilityService implements CubismReadCa
         this.delegate = Objects.requireNonNull(delegate, "delegate");
     }
 
-    static CubismReadCapabilityService wrap(
-            final PermissionChecker permissions, final CubismReadCapabilityService delegate) {
-        if (delegate == null) {
-            return null;
-        }
-        return new PermissionCheckedCubismReadCapabilityService(permissions, delegate);
-    }
-
     @Override
     public Optional<ProjectSnapshot> activeProject() {
         requireProjectRead("activeProject");

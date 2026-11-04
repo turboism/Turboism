@@ -10,9 +10,7 @@ import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
@@ -88,14 +86,7 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
                         "line-renderer upload split was not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
-            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
-            try {
-                close();
-            } catch (Exception | Error cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
-                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
-            }
+            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
             throw failure;
         }
     }
@@ -121,7 +112,7 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
                     final Class<?> redefined,
                     final ProtectionDomain domain,
                     final byte[] bytes) {
-                if (redefined == target) observed.set(sha256OrUnavailable(bytes));
+                if (redefined == target) observed.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
                 return null;
             }
         };
@@ -137,14 +128,6 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
         } finally {
             instrumentation.removeTransformer(observer);
             bridge.close();
-        }
-    }
-
-    private static String sha256OrUnavailable(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (Exception failure) {
-            return "unavailable";
         }
     }
 

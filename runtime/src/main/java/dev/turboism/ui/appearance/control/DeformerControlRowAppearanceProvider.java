@@ -1,5 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.sdk.plugin.Registration;
 import java.awt.Component;
 import java.util.Objects;
 
@@ -7,7 +8,7 @@ import java.util.Objects;
 public final class DeformerControlRowAppearanceProvider implements AutoCloseable {
     private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
-    private final AutoCloseable changeSubscription;
+    private final Registration changeSubscription;
 
     public DeformerControlRowAppearanceProvider(final PaletteAppearanceCoordinator coordinator) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
@@ -45,10 +46,7 @@ public final class DeformerControlRowAppearanceProvider implements AutoCloseable
 
     @Override
     public void close() {
-        try {
-            changeSubscription.close();
-        } catch (Exception ignored) {
-        }
+        changeSubscription.close();
         restore();
     }
 }

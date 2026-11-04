@@ -279,11 +279,7 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
         try {
             context.getClass().getMethod("close", boolean.class).invoke(context, cancelIfExecuting);
         } catch (ReflectiveOperationException ignored) {
-            try {
-                context.getClass().getMethod("close").invoke(context);
-            } catch (ReflectiveOperationException ignoredAgain) {
-                // Process supervision remains the final cleanup boundary.
-            }
+            // Process supervision remains the final cleanup boundary.
         }
     }
 
@@ -291,9 +287,6 @@ final class ReflectiveGraalJsRuntime implements AutoCloseable {
         Class.forName("org.graalvm.polyglot.Context");
         Class.forName("org.graalvm.polyglot.SandboxPolicy");
         Class.forName("org.graalvm.polyglot.proxy.ProxyExecutable");
-        if (candidateEngine == null) {
-            throw new IllegalStateException("Graal Engine is unavailable");
-        }
         Object context = null;
         try {
             context = newContext(candidateEngine, new ByteArrayOutputStream(), new ByteArrayOutputStream());

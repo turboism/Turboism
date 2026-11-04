@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -290,10 +291,7 @@ public final class RuntimeConfigRepository {
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     private static void move(final Path source, final Path target) throws IOException {

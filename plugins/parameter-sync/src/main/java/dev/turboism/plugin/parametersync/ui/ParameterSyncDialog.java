@@ -17,6 +17,7 @@ import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -61,7 +62,7 @@ public class ParameterSyncDialog extends JDialog {
             final SyncRuleSet ruleSet,
             final ParameterSyncPlugin plugin,
             final PluginLocalization i18n) {
-        super((Frame) null, i18n != null ? i18n.text("dialog.sync.title") : "Parameter Synchronization", false);
+        super((Frame) null, Objects.requireNonNull(i18n, "i18n").text("dialog.sync.title"), false);
         TurboismWindowFactory.style(this);
         setAlwaysOnTop(true);
         this.model = model;
@@ -82,9 +83,8 @@ public class ParameterSyncDialog extends JDialog {
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 0.0;
-        globalEnabledCheck = new JCheckBox(
-                i18n != null ? i18n.text("dialog.top.enable") : "Enable Parameter Synchronization",
-                ruleSet != null && ruleSet.isGlobalEnabled());
+        globalEnabledCheck =
+                new JCheckBox(i18n.text("dialog.top.enable"), ruleSet != null && ruleSet.isGlobalEnabled());
         globalEnabledCheck.setFont(globalEnabledCheck.getFont().deriveFont(Font.PLAIN, 14f));
         globalEnabledCheck.addActionListener(e -> {
             if (ruleSet != null) {
@@ -101,7 +101,7 @@ public class ParameterSyncDialog extends JDialog {
         countLabel.setFont(countLabel.getFont().deriveFont(Font.PLAIN));
         final JPanel countPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         countPanel.add(countLabel);
-        final JButton clearBtn = new JButton(i18n != null ? i18n.text("dialog.btn.clear") : "Clear Selection");
+        final JButton clearBtn = new JButton(i18n.text("dialog.btn.clear"));
         clearBtn.addActionListener(e -> clearSelection());
         countPanel.add(clearBtn);
         topPanel.add(countPanel, gbc);
@@ -110,7 +110,7 @@ public class ParameterSyncDialog extends JDialog {
         gbc.gridx = 0;
         gbc.gridy = 1;
         gbc.weightx = 0.0;
-        final JLabel searchLabel = new JLabel(i18n != null ? i18n.text("dialog.search.label") : "Filter:");
+        final JLabel searchLabel = new JLabel(i18n.text("dialog.search.label"));
         topPanel.add(searchLabel, gbc);
 
         gbc.gridx = 1;
@@ -138,8 +138,8 @@ public class ParameterSyncDialog extends JDialog {
         content.add(topPanel, BorderLayout.NORTH);
 
         // ── Center Table: Checkbox, Parameter, Range, Current Value ──
-        initRows(model, focusedParamId);
         tableModel = new ParamTableModel();
+        initRows(model, focusedParamId);
         table = new JTable(tableModel);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setRowHeight(26);
@@ -153,12 +153,12 @@ public class ParameterSyncDialog extends JDialog {
 
         // ── Bottom Panel: Action Buttons ──
         final JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        final JButton saveBtn = new JButton(i18n != null ? i18n.text("dialog.btn.save") : "Save & Close");
+        final JButton saveBtn = new JButton(i18n.text("dialog.btn.save"));
         saveBtn.addActionListener(e -> {
             persist();
             dispose();
         });
-        final JButton closeBtn = new JButton(i18n != null ? i18n.text("dialog.btn.close") : "Close");
+        final JButton closeBtn = new JButton(i18n.text("dialog.btn.close"));
         closeBtn.addActionListener(e -> dispose());
         buttonPanel.add(saveBtn);
         buttonPanel.add(closeBtn);
@@ -174,7 +174,7 @@ public class ParameterSyncDialog extends JDialog {
 
         // The dialog is non-modal: keep the Current column in step with the editor values.
         final Timer refreshTimer = new Timer(250, e -> {
-            if (isShowing() && tableModel != null && !filteredRows.isEmpty()) {
+            if (isShowing() && !filteredRows.isEmpty()) {
                 tableModel.fireTableChanged(
                         new javax.swing.event.TableModelEvent(tableModel, 0, filteredRows.size() - 1, 3));
             }
@@ -209,7 +209,7 @@ public class ParameterSyncDialog extends JDialog {
     }
 
     private void applyFilter() {
-        final String query = searchField != null ? searchField.getText().trim().toLowerCase(Locale.ROOT) : "";
+        final String query = searchField.getText().trim().toLowerCase(Locale.ROOT);
         filteredRows.clear();
         for (final ParamRow row : allRows) {
             if (query.isEmpty()
@@ -218,17 +218,12 @@ public class ParameterSyncDialog extends JDialog {
                 filteredRows.add(row);
             }
         }
-        if (tableModel != null) {
-            tableModel.fireTableDataChanged();
-        }
+        tableModel.fireTableDataChanged();
     }
 
     private void updateCountLabel() {
         final int count = (int) allRows.stream().filter(r -> r.sync).count();
-        if (countLabel != null) {
-            countLabel.setText(String.format(
-                    i18n != null ? i18n.text("dialog.top.count") : "Synchronized: %d parameter(s)", count));
-        }
+        countLabel.setText(String.format(i18n.text("dialog.top.count"), count));
     }
 
     private void clearSelection() {
@@ -310,10 +305,10 @@ public class ParameterSyncDialog extends JDialog {
 
     private final class ParamTableModel extends AbstractTableModel {
         private final String[] columns = new String[] {
-            i18n != null ? i18n.text("dialog.table.col.sync") : "Sync",
-            i18n != null ? i18n.text("dialog.table.col.parameter") : "Parameter",
-            i18n != null ? i18n.text("dialog.table.col.range") : "Range",
-            i18n != null ? i18n.text("dialog.table.col.current") : "Current"
+            i18n.text("dialog.table.col.sync"),
+            i18n.text("dialog.table.col.parameter"),
+            i18n.text("dialog.table.col.range"),
+            i18n.text("dialog.table.col.current")
         };
 
         @Override

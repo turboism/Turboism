@@ -145,9 +145,8 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
                 rollback.register(() -> {
                     throw failure;
                 });
-            } catch (RuntimeException rollbackFailure) {
-                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
+                if (rollbackFailure instanceof RuntimeException runtime) throw runtime;
                 throw new IllegalStateException("WebDAV backup startup rollback failed", rollbackFailure);
             }
         }
@@ -165,9 +164,8 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
         try (DisposableScope cleanup = new DisposableScope()) {
             cleanup.register(this::shutdownWorkers);
             cleanup.register(super::disable);
-        } catch (RuntimeException failure) {
-            throw failure;
         } catch (Exception failure) {
+            if (failure instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("WebDAV backup plugin disable failed", failure);
         }
     }
@@ -178,9 +176,8 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
             cleanup.register(super::shutdown);
             cleanup.register(binding::shutdown);
             cleanup.register(this::disable);
-        } catch (RuntimeException failure) {
-            throw failure;
         } catch (Exception failure) {
+            if (failure instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("WebDAV backup plugin shutdown failed", failure);
         }
     }

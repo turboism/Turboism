@@ -1,7 +1,6 @@
 package dev.turboism.plugin.parametersync.domain;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -40,7 +39,7 @@ public final class SyncRuleSet {
 
     /** Returns an immutable snapshot of selected parameter IDs. */
     public synchronized Set<String> synchronizedIds() {
-        return Collections.unmodifiableSet(new LinkedHashSet<>(synchronizedIds));
+        return Set.copyOf(synchronizedIds);
     }
 
     /** Returns the number of selected parameters. */
