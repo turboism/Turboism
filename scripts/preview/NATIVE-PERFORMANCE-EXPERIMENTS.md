@@ -2064,3 +2064,48 @@ ArtMesh deform call (`CArtMeshForm.transform` / the incremental bridge's
 dirty in editing mode; that needs its own timing experiment first. The larger
 remaining frame cost is the render path itself (Swing repaint → `render3d`,
 `glReadPixels`, scene traversal and line uploads), not the model transform.
+
+## Canvas readback pipeline, MSAA and the frame budget (2026-11-04)
+
+**Frame budget correction.** The JFR recordings use `jdk.ExecutionSample` at 10 ms and
+`jdk.NativeMethodSample` at 20 ms (confirmed from `jdk.ActiveSetting` and the inter-sample
+histogram). Weighted per type, the EDT is active for only 4 % of a wheel frame (5 ms of 133 ms),
+34 % of a parameter frame and 42 % of a deformation frame (50 ms of 119 ms). Camera panning is
+therefore paced outside the EDT, and Java-side render work has a much lower ceiling than the
+earlier 20 ms-everywhere estimate implied.
+
+**Canvas size is a measurement variable.** The GLJPanel is 830x653 when created and 1513x1253
+once the window is maximised — a 3.4x pixel difference. The perf plugin now records
+`<phase>.canvasWidth` / `<phase>.canvasHeight`; A/B arms must be compared only when those match.
+
+**4x MSAA is hard-coded.** `graphics3d.shader.A.<clinit>` sets `e = 4` and `f = true`, and
+`c()` passes them to `setNumSamples` / `setSampleBuffers`; there is no host setting. A throw-away
+agent rewrote the two field reads to `ICONST_0` (verified `numSamples=0 sampleBuffers=0`) and ran
+A/B/B/A: wheel 12.17/12.20 → 12.63/12.57 (+3.4 %), parameter +1.6 %, deformation within noise.
+**Rejected** — the canvas is not fill-rate bound, so the quality cost is not worth 3 %.
+
+**Readback ceiling.** Replacing `GLJPanel$OffscreenBackend.postGL` with a counter and an immediate
+return (stale image by design) gave deform 8.88/9.11 → 10.34/10.43 (+15 %) in two pairs. The
+readback itself transfers only ~2.2 MB per frame (0.5 Mpx), so the gain is the removed GPU sync,
+not bandwidth. `-Dsun.java2d.opengl=true` does not help: JOGL still selects `OffscreenBackend`
+(`oglPipelineUsable()` false) and the run is slower.
+
+**Pipelined readback (shipped, opt-in).** `launcher.asyncReadback` rewrites the single GLSL-path
+`GL.glReadPixels(IIIIIILjava/nio/Buffer;)V` inside `postGL` into `AsyncReadbackBridge.read`, which
+queues frame N into a pixel-pack buffer and delivers frame N-1 from the other one. Only the pinned
+JOGL artifact is admitted, the whole `postGL` instruction shape is re-verified per transform, and
+the first pipelined delivery is compared int-by-int against the primed synchronous frame (one
+mismatch disables the path permanently). Measured QUICK, same 1513x1253 canvas, adjacent arms:
+wheel 12.34/12.44 → 15.13/15.24 (**+22.5 %**), parameter 8.38/8.46 → 9.56/9.71 (**+14 %**),
+deformation 9.13 → 10.65 (+16.6 %); self-check mismatches 0. The canvas paints one frame late, so
+the option is default-off and states the tradeoff in the settings tooltip.
+
+**Cross-version note.** The earlier "5.3 is 35 % slower than 5.2" comparison used the 10 MB model
+in `deferred2-*`; it does not apply to the 763 MB fixture (178 vs 46–48 deformation frames per 5 s
+window). Do not compare frame rates across different fixtures.
+
+**Adapter cost.** The `matrixScratch` admission gate costs 10–12 ns per call across 66k–80k calls
+per frame (0.5–2.5 ms/frame) and, for the 2–3 level transform chains this fixture uses, saves no
+allocations at all: both scratch slots are per-invocation locals. The telemetry sampler was also
+calling `getProcessCpuLoad()` once per second, which measured **67 ms of CPU per call** on Windows
+(PDH); it now latches to a `getProcessCpuTime()` delta after one probe.
