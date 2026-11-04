@@ -275,7 +275,7 @@ final class PaletteLogFilter {
         try {
             raw = state.sourceDoc.getText(0, state.sourceDoc.getLength());
         } catch (javax.swing.text.BadLocationException impossible) {
-            return;
+            throw new AssertionError(impossible);
         }
         final String filteredText =
                 filterLogText(raw, state.filterText, state.showInfo, state.showWarn, state.showError);
@@ -292,7 +292,8 @@ final class PaletteLogFilter {
         state.filteredDoc = new javax.swing.text.DefaultStyledDocument(context);
         try {
             state.filteredDoc.insertString(0, filteredText, null);
-        } catch (javax.swing.text.BadLocationException ignored) {
+        } catch (javax.swing.text.BadLocationException impossible) {
+            throw new AssertionError(impossible);
         }
         pane.setDocument(state.filteredDoc);
         if (tail) {

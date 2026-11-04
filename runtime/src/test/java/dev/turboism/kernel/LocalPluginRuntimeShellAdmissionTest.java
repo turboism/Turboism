@@ -12,6 +12,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
@@ -107,6 +108,58 @@ class LocalPluginRuntimeShellAdmissionTest {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
                 assertTrue(report.failures().isEmpty());
                 assertTrue(report.loaded().isEmpty());
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            host.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void shellAdmissionUsesItsOwnDeadlineSeparateFromPluginLoads() throws Exception {
+        final Path home = temporary.resolve("home4");
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        final AtomicBoolean shellStarted = new AtomicBoolean();
+        final PluginLifecyclePolicy policy = new PluginLifecyclePolicy(
+                1,
+                4,
+                Duration.ofMillis(100),
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(1),
+                Duration.ofSeconds(1),
+                Duration.ofMillis(50),
+                Duration.ofMillis(20));
+
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(
+                    home,
+                    scheduler,
+                    host.adapterAccess(),
+                    log,
+                    (pluginId, phase) -> {},
+                    policy,
+                    services -> new ShellHandle() {
+                        @Override
+                        public void start(final PluginContext context) {
+                            try {
+                                // Longer than the plugin load budget, shorter than the shell budget.
+                                Thread.sleep(300);
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            shellStarted.set(true);
+                        }
+
+                        @Override
+                        public void close() {}
+                    });
+            try {
+                runtime.loadAll();
+                assertTrue(shellStarted.get(), "shell admission must not be fenced by the plugin load deadline");
             } finally {
                 runtime.close();
             }

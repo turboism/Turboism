@@ -97,13 +97,7 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
     private void indexDrawables(final Map<String, String> namesByGuid, final Map<String, String> idsByGuid) {
         try {
             final List<Drawable> drawables = modelAccess.active().drawables().all();
-            if (drawables == null) {
-                return;
-            }
             for (Drawable drawable : drawables) {
-                if (drawable == null) {
-                    continue;
-                }
                 final String guid;
                 try {
                     guid = drawable.guid();
@@ -128,7 +122,7 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
                 } catch (RuntimeException unavailable) {
                     id = ""; // id unavailable -> do not block name collection
                 }
-                if (id != null && !id.isBlank()) {
+                if (!id.isBlank()) {
                     idsByGuid.putIfAbsent(guid, id);
                 }
             }

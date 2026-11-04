@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -202,11 +203,7 @@ public final class PluginCatalogStateStore {
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics are best-effort and never alter state handling.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     private static OptionalLong optionalPositiveLong(final JsonNode node) throws IOException {

@@ -244,9 +244,8 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         try (DisposableScope cleanup = new DisposableScope()) {
             cleanup.register(() -> disposeWindow(active));
             cleanup.register(this::stopSampling);
-        } catch (RuntimeException failure) {
-            throw failure;
         } catch (Exception failure) {
+            if (failure instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Performance Statistics disposal failed", failure);
         }
     }

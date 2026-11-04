@@ -22,8 +22,7 @@ public record ParameterSyncData(
         if (modelGuid.isEmpty()) {
             throw new IllegalArgumentException("modelGuid must not be blank");
         }
-        synchronizedParameterIds =
-                Set.copyOf(new LinkedHashSet<>(synchronizedParameterIds != null ? synchronizedParameterIds : Set.of()));
+        synchronizedParameterIds = Set.copyOf(synchronizedParameterIds != null ? synchronizedParameterIds : Set.of());
         savedAt = savedAt == null || savedAt.isBlank() ? Instant.now().toString() : savedAt;
     }
 

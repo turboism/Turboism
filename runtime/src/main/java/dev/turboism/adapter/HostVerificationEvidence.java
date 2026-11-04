@@ -149,8 +149,7 @@ public record HostVerificationEvidence(
     }
 
     private static Path normalize(final Path path) {
-        return Objects.requireNonNull(
-                Objects.requireNonNull(path, "path").toAbsolutePath().normalize(), "normalized path");
+        return Objects.requireNonNull(path, "path").toAbsolutePath().normalize();
     }
 
     /**

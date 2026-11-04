@@ -305,8 +305,6 @@ public final class MappingReviewService {
             process.getInputStream().readAllBytes();
             if (process.waitFor() != 0) fail("PACK_NOT_TRACKED", "mapping pack must be tracked by git");
             return resolved;
-        } catch (DraftMappingException exception) {
-            throw exception;
         } catch (IOException | InterruptedException | SecurityException exception) {
             if (exception instanceof InterruptedException)
                 Thread.currentThread().interrupt();
@@ -355,8 +353,6 @@ public final class MappingReviewService {
                 if (referenced)
                     fail("PACK_REFERENCED_BY_VERIFIED_STATIC", "mapping is referenced by VERIFIED_STATIC evidence");
             }
-        } catch (DraftMappingException exception) {
-            throw exception;
         } catch (IOException | SecurityException exception) {
             throw new DraftMappingException(
                     "STATIC_VERIFICATION_RECORD_INVALID", "could not safely scan verification records", exception);

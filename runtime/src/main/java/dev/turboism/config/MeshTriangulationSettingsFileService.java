@@ -24,14 +24,8 @@ public final class MeshTriangulationSettingsFileService implements MeshTriangula
 
     @Override
     public boolean read() {
-        try {
-            return Boolean.parseBoolean(PerformanceSettingsConfig.saved(
-                    config.read(),
-                    PerformanceSettingsConfig.Field.MESH_TRIANGULATION_HASH,
-                    dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton()));
-        } catch (RuntimeException invalid) {
-            return false;
-        }
+        return PerformanceSettingsConfig.readSavedBoolean(
+                config, PerformanceSettingsConfig.Field.MESH_TRIANGULATION_HASH);
     }
 
     @Override

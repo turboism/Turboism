@@ -463,6 +463,7 @@ class LocalPluginRuntimeCloseTest {
                 2,
                 16,
                 Duration.ofSeconds(5),
+                Duration.ofSeconds(5),
                 Duration.ofSeconds(2),
                 Duration.ofSeconds(3),
                 Duration.ofMillis(200),

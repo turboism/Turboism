@@ -3,6 +3,7 @@ package dev.turboism.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -69,9 +70,6 @@ public final class ConfigTextureAtlasSelectionStore implements TextureAtlasAutoL
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 }

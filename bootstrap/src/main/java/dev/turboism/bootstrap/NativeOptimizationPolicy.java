@@ -80,6 +80,10 @@ final class NativeOptimizationPolicy {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MESA_GL_THREAD);
     }
 
+    static boolean asyncReadbackEnabled(final HookEnvironment environment) {
+        return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.ASYNC_READBACK);
+    }
+
     static boolean meshInterpolationEnabled(final HookEnvironment environment) {
         return requested(environment, dev.turboism.config.NativeOptimizationConfig.Option.MESH_INTERPOLATION);
     }

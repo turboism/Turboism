@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 import javax.management.ObjectName;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,17 +61,26 @@ class RuntimePerformanceProbeServiceTest {
     /** Fake OS bean: configurable load; process CPU time advances 1_000 ns per query. */
     private static final class FakeOsBean implements OperatingSystemMXBean {
         private final double load;
+        private final long loadNanos;
         private long cpuTimeNanos;
         private int loadQueries;
         private int cpuTimeQueries;
 
         private FakeOsBean(final double load) {
+            this(load, 0L);
+        }
+
+        private FakeOsBean(final double load, final long loadNanos) {
             this.load = load;
+            this.loadNanos = loadNanos;
         }
 
         @Override
         public double getProcessCpuLoad() {
             loadQueries++;
+            if (loadNanos > 0L) {
+                LockSupport.parkNanos(loadNanos);
+            }
             return load;
         }
 
@@ -250,6 +260,20 @@ class RuntimePerformanceProbeServiceTest {
         final RuntimePerformanceProbeService service = service(granted(), os);
         assertEquals(50.0, service.snapshot().cpuPercent(), 0.0);
         assertEquals(0, os.cpuTimeQueries, "time-delta fallback must not run while the load API is valid");
+    }
+
+    @Test
+    void expensiveCpuLoadApiIsLatchedOffAfterOneQuery() {
+        // Windows answers this query through PDH and measured ~65 ms per call; the probe
+        // must keep the first real value and then never pay for the query again.
+        final FakeOsBean os = new FakeOsBean(0.25, 5_000_000L);
+        final RuntimePerformanceProbeService service = service(granted(), os);
+        assertEquals(25.0, service.snapshot().cpuPercent(), 0.0);
+        assertEquals(1, os.loadQueries);
+        final double second = service.snapshot().cpuPercent();
+        assertTrue(second >= 0.0 && second <= 100.0, "delta path must stay in range, was " + second);
+        assertEquals(1, os.loadQueries, "an over-budget load API must not be queried again");
+        assertTrue(os.cpuTimeQueries > 0, "samples after the latch must come from the delta path");
     }
 
     @Test

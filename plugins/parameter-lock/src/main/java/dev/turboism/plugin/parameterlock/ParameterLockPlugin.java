@@ -385,7 +385,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
         if (model == null) {
             return null;
         }
-        final String modelGuid = model.id() != null ? model.id().value() : "";
+        final String modelGuid = model.id().value();
         if (modelGuid.isBlank()) {
             return null;
         }
@@ -649,24 +649,16 @@ public final class ParameterLockPlugin implements CubismPlugin {
             return;
         }
         try {
-            final List<ParameterId> paramIds = group.parameterIds();
-            if (paramIds != null) {
-                for (final ParameterId paramId : paramIds) {
-                    if (paramId != null
-                            && paramId.value() != null
-                            && !paramId.value().isBlank()) {
-                        accumulator.add(paramId.value());
-                    }
+            for (final ParameterId paramId : group.parameterIds()) {
+                if (!paramId.value().isBlank()) {
+                    accumulator.add(paramId.value());
                 }
             }
         } catch (RuntimeException ignored) {
         }
         try {
-            final List<ParameterGroupId> childGroupIds = group.childGroupIds();
-            if (childGroupIds != null) {
-                for (final ParameterGroupId childId : childGroupIds) {
-                    collectGroupParametersRecursively(model, childId, visited, accumulator);
-                }
+            for (final ParameterGroupId childId : group.childGroupIds()) {
+                collectGroupParametersRecursively(model, childId, visited, accumulator);
             }
         } catch (RuntimeException ignored) {
         }
@@ -741,17 +733,13 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
     private Set<String> captureModelParameterIds(final String targetModelGuid) {
         final Optional<CubismModel> active = activeModelOrNull();
-        if (active.isPresent()
-                && active.get().id() != null
-                && active.get().id().value().equals(targetModelGuid)) {
+        if (active.isPresent() && active.get().id().value().equals(targetModelGuid)) {
             try {
                 final Parameters params = active.get().parameters();
                 if (params != null) {
                     final Set<String> ids = new HashSet<>();
                     for (final Parameter p : params.all()) {
-                        if (p != null && p.id() != null) {
-                            ids.add(p.id().value());
-                        }
+                        ids.add(p.id().value());
                     }
                     return Collections.unmodifiableSet(ids);
                 }

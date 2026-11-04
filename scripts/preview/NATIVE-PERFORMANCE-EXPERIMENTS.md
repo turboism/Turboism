@@ -1998,8 +1998,124 @@ were `meshDeformed=64,119` versus `meshSkipped=1,221` across 54 epochs (about
 is required work, not a duplicate. A faster implementation would have to come
 from outside the loop: a deformer-level dirty gate that skips
 `CWarpDeformer.transformDeformer_testImpl` when both the local form and the
-parent-to-canvas transform are unchanged, or a parallel/GPU rewrite. The former
-is the only credible small step (the incremental bridge already retains the
-required form/parent state); the latter needs a new concurrency or rendering
-architecture and was not attempted after P07's pure-Java rewrite measured
-slower.
+parent-to-canvas transform are unchanged, or a parallel/GPU rewrite. The gate
+was subsequently prototyped and measured; it skips ~94 % of the calls but the
+whole deformer-transform body is only 3.7 % of the deform-phase wall time, so
+it is not worth productising (see the section below). The parallel/GPU rewrite
+needs a new concurrency or rendering architecture and was not attempted after
+P07's pure-Java rewrite measured slower.
+
+**Deformer-level dirty gate exploration (2026-11-04).** The earlier
+`transformDeformer_testImpl` gate idea was prototyped with a throw-away agent
+(`build/deformer-gate-diag`, not shipped) that instruments
+`CWarpDeformer.transformDeformer_testImpl` at entry and before its `RETURN`.
+It compares every input of the pure transform with the committed snapshot:
+child `preDeformForm` identity, positions, opacity/multiply/screen colours,
+source/instance identity; parent `getCalculatedForm()` identity and warp-grid
+positions; the output `deformedForm` identity, positions and style; and
+`preDeformForm.isCompatible(deformedForm)`. Any doubt or exception runs native.
+
+The redundant fraction is real: on the QUICK fixture the count-only run saw
+`wouldSkip=38,239 / 42,516` calls (89.9 %), with `outMutated=0`,
+`incompatible=0` and only the expected 746 first-call misses where the host
+creates `deformedForm` inside the method. The skip run skipped
+`34,041 / 38,786` calls (87.8 %): `param` 21,404 / 23,126 (92.6 %) and `deform`
+12,637 / 13,428 (94.1 %). The gate is mechanically safe on this sample.
+
+It is, however, not worth shipping, because the whole native transform is a
+small part of the frame:
+
+| QUICK phase | native `transformDeformer_testImpl` time | phase wall | share |
+|---|---:|---:|---:|
+| `param` | 346.7 ms | 6,300 ms | 5.5 % |
+| `deform` | 184.8 ms | 5,050 ms | 3.7 % |
+
+The JFR phase profile agrees. In `deform`, 125 EDT execution samples were
+collected; `warp.o.a` was the leaf in 18 (14.4 %), of which 16 called through
+`CWarpDeformer.transformDeformer_testImpl` and only 2 through an ArtMesh. But
+EDT itself was busy for only about 1.25 s of the 5.05 s wall: 80/125 samples
+were under Swing repaint and 66 under `SGFramework.render3d`. Even removing
+every deformer transform leaves a hard ceiling of roughly 3–5 % wall time.
+
+The A/B FPS runs confirm that the effect is below machine noise. One pair had
+the skip run faster (`wheel` 6.39 → 11.90 FPS, `param` 4.62 → 8.80 FPS), the
+next pair had the count run faster (`wheel` 12.74 → 8.49 FPS, `param` 8.64 →
+6.30 FPS). The conclusion is to leave `transformDeformer_testImpl` alone: the
+94 % redundancy is cheap work, and a production hook would add snapshot state
+and admission risk for no demonstrable frame-time gain.
+
+The apparent EDT allocation drop in the skip runs is not a memory saving from
+the gate. JFR allocation samples attribute **no allocation** to
+`transformDeformer_testImpl` (or to the ArtMesh deform path) in either phase;
+the transform is allocation-free. `edtAllocatedBytes` is cumulative churn, the
+runs processed different event/frame counts, and the diagnostic agent itself
+allocates `Pending` snapshots and array clones only on non-skipped calls.
+`heapUsedEnd` and process working set showed no consistent reduction: the
+`deform` heap was 3.50 GB in the count run versus 3.32 GB in the skip run, and
+one pair's median working set moved in the opposite direction. The real
+allocation churn is in the render path: `GMatrix44.<init>` through
+`GTransform.getLocalToParentMatrix`/`getLocalToWorldMatrix` (~28 % of sampled
+allocation weight in `deform`), `Arrays.copyOf` (~17 %), `ArrayList` iterators,
+`Float.valueOf` and morph-target lookup.
+
+If content-equality reuse is revisited, the higher-leverage site is the
+ArtMesh deform call (`CArtMeshForm.transform` / the incremental bridge's
+`deformArtMesh`), where the changed-set decision still marks nearly every mesh
+dirty in editing mode; that needs its own timing experiment first. The larger
+remaining frame cost is the render path itself (Swing repaint → `render3d`,
+`glReadPixels`, scene traversal and line uploads), not the model transform.
+
+## Canvas readback pipeline, MSAA and the frame budget (2026-11-04)
+
+**Frame budget correction.** The JFR recordings use `jdk.ExecutionSample` at 10 ms and
+`jdk.NativeMethodSample` at 20 ms (confirmed from `jdk.ActiveSetting` and the inter-sample
+histogram). Weighted per type, the EDT is active for only 4 % of a wheel frame (5 ms of 133 ms),
+34 % of a parameter frame and 42 % of a deformation frame (50 ms of 119 ms). Camera panning is
+therefore paced outside the EDT, and Java-side render work has a much lower ceiling than the
+earlier 20 ms-everywhere estimate implied.
+
+**Canvas size is a measurement variable.** The GLJPanel is 830x653 when created and 1513x1253
+once the window is maximised — a 3.4x pixel difference. The perf plugin now records
+`<phase>.canvasWidth` / `<phase>.canvasHeight`; A/B arms must be compared only when those match.
+
+**4x MSAA is hard-coded.** `graphics3d.shader.A.<clinit>` sets `e = 4` and `f = true`, and
+`c()` passes them to `setNumSamples` / `setSampleBuffers`; there is no host setting. A throw-away
+agent rewrote the two field reads to `ICONST_0` (verified `numSamples=0 sampleBuffers=0`) and ran
+A/B/B/A: wheel 12.17/12.20 → 12.63/12.57 (+3.4 %), parameter +1.6 %, deformation within noise.
+**Rejected** — the canvas is not fill-rate bound, so the quality cost is not worth 3 %.
+
+**Readback ceiling.** Replacing `GLJPanel$OffscreenBackend.postGL` with a counter and an immediate
+return (stale image by design) gave deform 8.88/9.11 → 10.34/10.43 (+15 %) in two pairs. The
+readback itself transfers only ~2.2 MB per frame (0.5 Mpx), so the gain is the removed GPU sync,
+not bandwidth. `-Dsun.java2d.opengl=true` does not help: JOGL still selects `OffscreenBackend`
+(`oglPipelineUsable()` false) and the run is slower.
+
+**Pipelined readback (shipped, opt-in).** `launcher.asyncReadback` rewrites the single GLSL-path
+`GL.glReadPixels(IIIIIILjava/nio/Buffer;)V` inside `postGL` into `AsyncReadbackBridge.read`, which
+queues frame N into a pixel-pack buffer and delivers frame N-1 from the other one. Only the pinned
+JOGL artifact is admitted, the whole `postGL` instruction shape is re-verified per transform, and
+the first pipelined delivery is compared int-by-int against the primed synchronous frame (one
+mismatch disables the path permanently). Measured QUICK, same 1513x1253 canvas, adjacent arms:
+wheel 12.34/12.44 → 15.13/15.24 (**+22.5 %**), parameter 8.38/8.46 → 9.56/9.71 (**+14 %**),
+deformation 9.13 → 10.65 (+16.6 %); self-check mismatches 0. The canvas paints one frame late, so
+the option is default-off and states the tradeoff in the settings tooltip.
+
+**Cross-version note.** The earlier "5.3 is 35 % slower than 5.2" comparison used the 10 MB model
+in `deferred2-*`; it does not apply to the 763 MB fixture (178 vs 46–48 deformation frames per 5 s
+window). Do not compare frame rates across different fixtures.
+
+**Adapter cost.** The `matrixScratch` admission gate costs 10–12 ns per call across 66k–80k calls
+per frame (0.5–2.5 ms/frame) and, for the 2–3 level transform chains this fixture uses, saves no
+allocations at all: both scratch slots are per-invocation locals. The telemetry sampler was also
+calling `getProcessCpuLoad()` once per second, which measured **67 ms of CPU per call** on Windows
+(PDH); it now latches to a `getProcessCpuTime()` delta after one probe.
+
+**Readback hook version sweep.** Every installed build on the reviewed host shares one JOGL
+artifact: 38 installations (20 stable 5.0.00–5.3.04 plus 18 betas up to 5.3.05 beta1) all carry
+the same 3,616,948-byte `jogl-all.jar` (`7dbedb4b…`, the reviewed `CUBISM_5_3_03_JOGL` digest), and
+every checked Editor build ships the same fourteen `graphics3d/view/glWrapper` classes and
+constructs `GLJPanel`. The artifact test — digest, exact `postGL` shape, single rewritten readback,
+drift refusal — passes against 5.0.00, 5.1.03, 5.2.03, 5.3.04 and 5.3.05 beta1. A real 5.2.03
+launch reported `TURBOISM_ASYNC_READBACK pipelined=ACTIVE` with zero self-check failures (that
+build's perfbench plugin does not produce results, so the frame-rate numbers above remain the
+5.3.04 measurement).

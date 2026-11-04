@@ -1,5 +1,6 @@
 package dev.turboism.adapter.jdk;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -79,11 +80,7 @@ public final class PipeImplLoopbackInstaller {
     }
 
     private static void report(final Consumer<String> diagnostic, final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics must not block agent startup.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** Why one {@link #install} attempt did or did not install the shim transformer. */

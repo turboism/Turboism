@@ -69,6 +69,18 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
     /** Consecutive invalid getProcessCpuLoad results before latching the time-delta fallback. */
     private static final int INVALID_CPU_LOAD_LATCH_THRESHOLD = 2;
 
+    /**
+     * Upper bound for a single {@code getProcessCpuLoad()} call before the probe is
+     * latched off in favour of the {@code getProcessCpuTime()} delta.
+     *
+     * <p>On Windows the platform implementation collects a PDH query and measured
+     * 65 ms per call on the reviewed host, while {@code getProcessCpuTime()} costs
+     * under a microsecond. At a one-second sampling period the expensive query burns
+     * roughly 6 % of one core for the whole session and inflates the very CPU figure
+     * it reports, so the probe pays for itself on the first sample.</p>
+     */
+    private static final long CPU_LOAD_PROBE_BUDGET_NANOS = 2_000_000L;
+
     private final String pluginId;
     private final PermissionChecker permissionChecker;
     private final Clock clock;
@@ -87,6 +99,7 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
     private long lastGcPauseMillis = -1L;
     private final OperatingSystemMXBean osBean;
     private boolean cpuLoadApiInvalid;
+    private boolean cpuLoadApiTooSlow;
     private int invalidCpuLoadCount;
     private long lastCpuTimeNanos = -1L;
     private long lastCpuSampleNanos = -1L;
@@ -386,17 +399,27 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
 
     /**
      * Process CPU percent in [0,100]. The JDK {@link OperatingSystemMXBean}
-     * getProcessCpuLoad value is used while valid; once it reports invalid
-     * values (NaN/negative — e.g. the PDH query failure under Wine/Proton) on
-     * two consecutive samples, the broken query is latched off and samples are
-     * derived from getProcessCpuTime() deltas over monotonic elapsed time,
-     * normalized by available processors. A sample with no prior baseline is
-     * 0; the next sample is non-zero whenever process CPU time advanced.
+     * getProcessCpuLoad value is used while it is both valid and affordable; once it
+     * reports invalid values (NaN/negative — e.g. the PDH query failure under
+     * Wine/Proton) on two consecutive samples, or one call exceeds
+     * {@link #CPU_LOAD_PROBE_BUDGET_NANOS}, the query is latched off and samples are
+     * derived from getProcessCpuTime() deltas over monotonic elapsed time, normalized
+     * by available processors. A sample with no prior baseline is 0; the next sample is
+     * non-zero whenever process CPU time advanced.
      */
     private double processCpuPercent() {
-        if (!cpuLoadApiInvalid) {
+        if (!cpuLoadApiInvalid && !cpuLoadApiTooSlow) {
+            final long startedNanos = System.nanoTime();
             final double load = osBean.getProcessCpuLoad();
+            final boolean overBudget = System.nanoTime() - startedNanos > CPU_LOAD_PROBE_BUDGET_NANOS;
             if (!Double.isNaN(load) && load >= 0.0) {
+                if (overBudget) {
+                    // Keep this real measurement, then never pay the query again: the
+                    // delta path below is exact for the sampling interval and ~5 orders
+                    // of magnitude cheaper on the reviewed Windows host.
+                    cpuLoadApiTooSlow = true;
+                    captureCpuBaseline();
+                }
                 return Math.min(100.0, load * 100.0);
             }
             if (++invalidCpuLoadCount < INVALID_CPU_LOAD_LATCH_THRESHOLD) {

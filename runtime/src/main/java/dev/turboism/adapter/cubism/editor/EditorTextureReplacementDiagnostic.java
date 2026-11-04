@@ -74,11 +74,7 @@ final class EditorTextureReplacementDiagnostic {
 
     /** Returns whether this validation-only observation was explicitly enabled. */
     static boolean enabled() {
-        try {
-            return Boolean.getBoolean(ENABLE_PROPERTY);
-        } catch (RuntimeException | LinkageError ignored) {
-            return false;
-        }
+        return Boolean.getBoolean(ENABLE_PROPERTY);
     }
 
     /** Resolves the parsed incoming raw identity through the reviewed GUID aliases. */

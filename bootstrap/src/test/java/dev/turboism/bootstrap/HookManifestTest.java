@@ -25,6 +25,7 @@ final class HookManifestTest {
                         AtlasTileBboxHookContributor.class,
                         AtlasCacheReuseHookContributor.class,
                         MeshInterpolationHookContributor.class,
+                        AsyncReadbackHookContributor.class,
                         ShaderUniformHookContributor.class,
                         FpsHookContributor.class,
                         ParameterHookContributor.class,

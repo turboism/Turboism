@@ -16,6 +16,7 @@ public final class NativeOptimizationConfig {
         MESH_SETUP_ELISION("meshSetupElision"),
         INPUT_PATH_ELISION("inputPathElision"),
         MESA_GL_THREAD("mesaGlThread"),
+        ASYNC_READBACK("asyncReadback"),
         MESH_INTERPOLATION("meshInterpolation"),
         SHADER_UNIFORM("shaderUniform"),
         MATRIX_SCRATCH("matrixScratch"),

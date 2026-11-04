@@ -387,12 +387,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
     }
 
     private static String safeName(final Class<?> type) {
-        try {
-            return type.getName();
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            return "UNKNOWN";
-        }
+        return type.getName();
     }
 
     private boolean isTarget(final String name) {

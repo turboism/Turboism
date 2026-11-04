@@ -72,9 +72,8 @@ final class AcpPluginSettings implements AutoCloseable {
                 rollback.register(() -> {
                     throw failure;
                 });
-            } catch (RuntimeException rollbackFailure) {
-                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
+                if (rollbackFailure instanceof RuntimeException runtime) throw runtime;
                 throw new IllegalStateException(
                         "Turboism ACP settings initialization rollback failed", rollbackFailure);
             }
@@ -207,9 +206,8 @@ final class AcpPluginSettings implements AutoCloseable {
         try (DisposableScope closeScope = new DisposableScope()) {
             closeScope.register(readScope);
             closeScope.register(writeScope);
-        } catch (RuntimeException re) {
-            throw re;
         } catch (Exception e) {
+            if (e instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Turboism ACP settings close failed", e);
         }
     }

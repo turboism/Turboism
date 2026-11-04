@@ -20,8 +20,10 @@ import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
@@ -294,16 +296,39 @@ final class StartupLoadingWindow implements AutoCloseable {
     private void paintContent(final Graphics2D target) {
         final int width = Math.max(1, content.getWidth());
         final int height = Math.max(1, content.getHeight());
-        if (backBuffer == null || backBuffer.getWidth() != width || backBuffer.getHeight() != height) {
-            backBuffer = createBackBuffer(width, height);
+        final AffineTransform tx = target.getTransform();
+        final double scaleX;
+        final double scaleY;
+        if (tx != null && tx.getScaleX() > 0.0 && tx.getScaleY() > 0.0) {
+            scaleX = tx.getScaleX();
+            scaleY = tx.getScaleY();
+        } else {
+            final GraphicsConfiguration configuration = content.getGraphicsConfiguration();
+            final AffineTransform defaultTx = configuration != null ? configuration.getDefaultTransform() : null;
+            if (defaultTx != null && defaultTx.getScaleX() > 0.0 && defaultTx.getScaleY() > 0.0) {
+                scaleX = defaultTx.getScaleX();
+                scaleY = defaultTx.getScaleY();
+            } else {
+                scaleX = 1.0;
+                scaleY = 1.0;
+            }
+        }
+        final int bufferWidth = Math.max(1, (int) Math.round(width * scaleX));
+        final int bufferHeight = Math.max(1, (int) Math.round(height * scaleY));
+        if (backBuffer == null || backBuffer.getWidth() != bufferWidth || backBuffer.getHeight() != bufferHeight) {
+            backBuffer = createBackBuffer(bufferWidth, bufferHeight);
         }
         final Graphics2D graphics = backBuffer.createGraphics();
         try {
+            graphics.setComposite(AlphaComposite.Src);
+            graphics.setColor(BACKGROUND);
+            graphics.fillRect(0, 0, bufferWidth, bufferHeight);
+            graphics.scale((double) bufferWidth / width, (double) bufferHeight / height);
             render(graphics, width, height);
         } finally {
             graphics.dispose();
         }
-        target.drawImage(backBuffer, 0, 0, null);
+        target.drawImage(backBuffer, 0, 0, width, height, null);
         // Without an explicit flush the X11 pipeline batches frames and presents
         // them up to half a second late; a no-op where the platform already flushes.
         Toolkit.getDefaultToolkit().sync();
@@ -329,8 +354,21 @@ final class StartupLoadingWindow implements AutoCloseable {
                 contentAlpha >= 1f
                         ? AlphaComposite.SrcOver
                         : AlphaComposite.getInstance(AlphaComposite.SRC_OVER, contentAlpha));
+        boolean hasTextAntialiasingHint = false;
+        try {
+            final Object desktopHints = Toolkit.getDefaultToolkit().getDesktopProperty("awt.font.desktophints");
+            if (desktopHints instanceof Map<?, ?> hints) {
+                graphics.addRenderingHints(hints);
+                hasTextAntialiasingHint = hints.containsKey(RenderingHints.KEY_TEXT_ANTIALIASING);
+            }
+        } catch (RuntimeException ignored) {
+            // Desktop font hints are optional; retain the default antialiasing fallback.
+        }
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        if (!hasTextAntialiasingHint) {
+            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        }
+        graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         final FontMetrics title = graphics.getFontMetrics(TITLE_FONT);
         final FontMetrics subtitle = graphics.getFontMetrics(SUBTITLE_FONT);
         final int x = PADDING + SPINNER_SIZE + TEXT_GAP;
@@ -369,13 +407,14 @@ final class StartupLoadingWindow implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         if (timer != null) timer.cancel();
-        try {
-            EventQueue.invokeLater(() -> {
-                if (window != null) window.dispose();
-            });
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            // Optional feedback must never interrupt the editor bootstrap.
-        }
+        EventQueue.invokeLater(() -> {
+            if (window == null) return;
+            try {
+                window.dispose();
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                // Optional feedback must never interrupt the editor bootstrap.
+            }
+        });
     }
 }

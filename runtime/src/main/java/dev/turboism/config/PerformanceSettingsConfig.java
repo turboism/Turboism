@@ -22,6 +22,7 @@ public final class PerformanceSettingsConfig {
         MESH_SETUP_ELISION("meshSetupElision", true, "false"),
         INPUT_PATH_ELISION("inputPathElision", true, "false"),
         MESA_GL_THREAD("mesaGlThread", true, "false"),
+        ASYNC_READBACK("asyncReadback", true, "false"),
         MESH_INTERPOLATION("meshInterpolation", true, "false"),
         SHADER_UNIFORM("shaderUniform", true, "false"),
         MATRIX_SCRATCH("matrixScratch", true, "false"),
@@ -144,6 +145,26 @@ public final class PerformanceSettingsConfig {
     public static String saved(JsonNode root, Field field, boolean proton) {
         JsonNode node = (field.launcher ? root.path("launcher") : root).get(field.key);
         return node == null || node.isNull() ? field.defaultValue(proton) : node.asText();
+    }
+
+    /**
+     * Reads a persisted boolean performance preference from {@code repository}, returning
+     * {@code false} if the configuration file cannot be read or parsed.
+     *
+     * <p>The four native-optimization preference services in this package all persist a single
+     * boolean through the same repository; sharing the read keeps their unreadable-file policy
+     * identical instead of restating the same try/catch per service.
+     *
+     * @param repository the configuration repository to read from
+     * @param field the boolean performance setting field
+     * @return {@code true} only when the persisted or default value parses as {@code true}
+     */
+    public static boolean readSavedBoolean(RuntimeConfigRepository repository, Field field) {
+        try {
+            return Boolean.parseBoolean(saved(repository.read(), field, ProtonEnvironment.underWineOrProton()));
+        } catch (RuntimeException invalid) {
+            return false;
+        }
     }
 
     /** Explicitly persists a selection through the validated atomic global repository. */

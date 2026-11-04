@@ -59,6 +59,26 @@ public final class FatalErrors {
     }
 
     /**
+     * Delivers {@code code} to {@code diagnostic}, swallowing any non-fatal {@link RuntimeException}
+     * thrown by the sink so diagnostic reporting can never abort startup or bytecode transformation.
+     *
+     * <p>Every diagnostic sink in the runtime is advisory: a consumer that throws must not change the
+     * outcome of the operation being reported. Catching {@link RuntimeException} rather than
+     * {@link Throwable} keeps fatal JVM conditions on the normal propagation path, so call sites no
+     * longer need their own try/catch block around a single sink call.
+     *
+     * @param diagnostic the diagnostic sink to notify
+     * @param code the diagnostic code to deliver
+     */
+    public static void reportSafely(final java.util.function.Consumer<String> diagnostic, final String code) {
+        try {
+            diagnostic.accept(code);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must never block startup or bytecode transformation.
+        }
+    }
+
+    /**
      * Merges a cleanup or secondary failure into a primary failure, ensuring a fatal JVM condition
      * is always prioritized as the primary failure and suppressing the other failure onto it.
      *

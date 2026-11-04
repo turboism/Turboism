@@ -292,6 +292,36 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 null);
     }
 
+    /**
+     * Package-private seam combining a custom lifecycle policy with a shell admission. Tests use
+     * it to give the shell a deadline different from external plugin loads.
+     */
+    LocalPluginRuntime(
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeHostAdapterAccess hostAccess,
+            final PreviewLog log,
+            final PluginCloseHook pluginCloseHook,
+            final PluginLifecyclePolicy lifecyclePolicy,
+            final dev.turboism.internal.core.ShellAdmission shellAdmission) {
+        this(
+                home,
+                scheduler,
+                hostAccess,
+                log,
+                new RuntimeFailureCollector(),
+                pluginCloseHook,
+                hostAccess.parameterLifecycle(),
+                hostAccess.partLifecycle(),
+                hostAccess.editorObjectLifecycle(),
+                hostAccess.projectFileLifecycle(),
+                hostAccess.editorLifecycleEvents(),
+                null,
+                CubismHostLocale.resolve(),
+                lifecyclePolicy,
+                shellAdmission);
+    }
+
     private LocalPluginRuntime(
             final Path home,
             final RuntimeScheduler scheduler,
@@ -388,7 +418,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
      * external plugins still load and no shell implementation class is resolved.
      *
      * <p>The shell is admitted on the bounded lifecycle lane under
-     * {@link PluginLifecyclePolicy#loadTimeout} before any external plugin, so a blocking
+     * {@link PluginLifecyclePolicy#shellLoadTimeout} before any external plugin, so a blocking
      * or non-returning plugin cannot prevent management and diagnostic surfaces from
      * coming up; a shell that misses its deadline is fenced and its generation retained
      * rather than half-started. External plugins load sequentially in resolved dependency
@@ -411,6 +441,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             log.warn("keybindings", "Keybinding service startup failed safely: " + failure);
         }
         if (shellAdmission != null) {
+            final long shellStartedAt = System.nanoTime();
             try {
                 coreShell = CoreShellRuntime.start(
                         contextFactory,
@@ -437,7 +468,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
             } catch (Exception failure) {
                 log.error(
                         dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID,
-                        "Shell startup failed",
+                        "Shell startup failed after "
+                                + java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - shellStartedAt)
+                                + " ms",
                         failure);
                 close();
                 throw new IllegalStateException("Runtime-owned shell failed to start", failure);

@@ -77,7 +77,7 @@ final class FrameworkUpdatePendingTask {
                                 .writerWithDefaultPrettyPrinter()
                                 .writeValueAsString(node) + "\n")
                 .getBytes(StandardCharsets.UTF_8);
-        if (bytes.length <= 0 || bytes.length > MAX_PENDING_BYTES) {
+        if (bytes.length > MAX_PENDING_BYTES) {
             throw new IllegalArgumentException("Pending task record exceeds maximum allowed bytes: " + bytes.length);
         }
 
@@ -118,7 +118,7 @@ final class FrameworkUpdatePendingTask {
             try (var in = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
                 bytes = in.readNBytes(MAX_PENDING_BYTES + 1);
             }
-            if (bytes.length <= 0 || bytes.length > MAX_PENDING_BYTES) {
+            if (bytes.length > MAX_PENDING_BYTES) {
                 discard(workDir);
                 return Optional.empty();
             }

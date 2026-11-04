@@ -15,6 +15,9 @@ import java.util.Objects;
  * @param queueCapacity bounded pending-task admission; saturation fails fast instead of queueing
  *     unboundedly
  * @param loadTimeout deadline for one plugin's construct/init/enable sequence
+ * @param shellLoadTimeout deadline for runtime-owned shell admission. The shell builds the host UI
+ *     synchronously, so its work can queue behind editor startup tasks that a plugin's bounded
+ *     lifecycle never touches; it therefore gets a wider deadline than {@code loadTimeout}.
  * @param cleanupTimeout deadline the caller waits for rollback of a failed load before deferring
  *     the rest to retention
  * @param closeTimeout deadline for one plugin's disable/shutdown/unload sequence during close
@@ -27,6 +30,7 @@ public record PluginLifecyclePolicy(
         int workerCount,
         int queueCapacity,
         Duration loadTimeout,
+        Duration shellLoadTimeout,
         Duration cleanupTimeout,
         Duration closeTimeout,
         Duration eventQuiescenceTimeout,
@@ -39,12 +43,16 @@ public record PluginLifecyclePolicy(
             throw new IllegalArgumentException("queueCapacity must be positive");
         }
         Objects.requireNonNull(loadTimeout, "loadTimeout");
+        Objects.requireNonNull(shellLoadTimeout, "shellLoadTimeout");
         Objects.requireNonNull(cleanupTimeout, "cleanupTimeout");
         Objects.requireNonNull(closeTimeout, "closeTimeout");
         Objects.requireNonNull(eventQuiescenceTimeout, "eventQuiescenceTimeout");
         Objects.requireNonNull(retentionRetryInterval, "retentionRetryInterval");
         if (loadTimeout.isNegative() || loadTimeout.isZero()) {
             throw new IllegalArgumentException("loadTimeout must be positive");
+        }
+        if (shellLoadTimeout.isNegative() || shellLoadTimeout.isZero()) {
+            throw new IllegalArgumentException("shellLoadTimeout must be positive");
         }
         if (cleanupTimeout.isNegative() || cleanupTimeout.isZero()) {
             throw new IllegalArgumentException("cleanupTimeout must be positive");
@@ -66,6 +74,7 @@ public record PluginLifecyclePolicy(
                 4,
                 128,
                 Duration.ofSeconds(30),
+                Duration.ofMinutes(3),
                 Duration.ofSeconds(15),
                 Duration.ofSeconds(15),
                 Duration.ofSeconds(5),

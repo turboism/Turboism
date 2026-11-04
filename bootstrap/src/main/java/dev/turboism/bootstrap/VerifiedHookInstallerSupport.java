@@ -136,6 +136,32 @@ final class VerifiedHookInstallerSupport {
     }
 
     /**
+     * Computes the lowercase SHA-256 hex digest of {@code bytes} inside a {@link ClassFileTransformer}
+     * callback where checked exceptions cannot be thrown.
+     */
+    static String sha256HexUnchecked(final byte[] bytes) {
+        try {
+            return sha256Hex(bytes);
+        } catch (Exception impossible) {
+            throw new AssertionError("SHA-256 is a standard JCA digest algorithm", impossible);
+        }
+    }
+
+    /**
+     * Runs {@code close} after an installation failure and merges any secondary cleanup failure
+     * onto {@code failure} with fatal JVM conditions prioritized.
+     */
+    static void closeOnInstallFailure(final Throwable failure, final AutoCloseable close) {
+        try {
+            close.close();
+        } catch (Exception | Error cleanup) {
+            // @containment-exempt: cleanup failure merged, prioritizing fatal error
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
+                    dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
+        }
+    }
+
+    /**
      * Retransforms every already-loaded class with the exact binary name and host loader.
      *
      * @return the number of retransformed classes

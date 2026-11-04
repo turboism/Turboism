@@ -1206,10 +1206,7 @@ public final class KernelRuntime implements AutoCloseable {
         try {
             writeReportsStrict(observedHostState, false);
         } catch (RuntimeException failure) {
-            try {
-                log.warn("preview-report", "PREVIEW_REPORT_SNAPSHOT_FAILED: report snapshot failed safely.");
-            } catch (RuntimeException ignored) {
-            }
+            log.warn("preview-report", "PREVIEW_REPORT_SNAPSHOT_FAILED: report snapshot failed safely: " + failure);
         }
     }
 

@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.startup;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
@@ -185,11 +186,7 @@ public final class StartupSuppressionInstaller {
     }
 
     private static void report(final Consumer<String> diagnostic, final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics must not block official startup behavior.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** How the Java agent was attached to the JVM. */
