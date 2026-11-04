@@ -2109,3 +2109,13 @@ per frame (0.5–2.5 ms/frame) and, for the 2–3 level transform chains this fi
 allocations at all: both scratch slots are per-invocation locals. The telemetry sampler was also
 calling `getProcessCpuLoad()` once per second, which measured **67 ms of CPU per call** on Windows
 (PDH); it now latches to a `getProcessCpuTime()` delta after one probe.
+
+**Readback hook version sweep.** Every installed build on the reviewed host shares one JOGL
+artifact: 38 installations (20 stable 5.0.00–5.3.04 plus 18 betas up to 5.3.05 beta1) all carry
+the same 3,616,948-byte `jogl-all.jar` (`7dbedb4b…`, the reviewed `CUBISM_5_3_03_JOGL` digest), and
+every checked Editor build ships the same fourteen `graphics3d/view/glWrapper` classes and
+constructs `GLJPanel`. The artifact test — digest, exact `postGL` shape, single rewritten readback,
+drift refusal — passes against 5.0.00, 5.1.03, 5.2.03, 5.3.04 and 5.3.05 beta1. A real 5.2.03
+launch reported `TURBOISM_ASYNC_READBACK pipelined=ACTIVE` with zero self-check failures (that
+build's perfbench plugin does not produce results, so the frame-rate numbers above remain the
+5.3.04 measurement).

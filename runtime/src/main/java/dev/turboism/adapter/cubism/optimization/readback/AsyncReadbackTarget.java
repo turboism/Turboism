@@ -15,9 +15,13 @@ import java.util.Objects;
  * {@link AsyncReadbackBridge#read}, which reads into a pixel-pack buffer and hands the caller the
  * previous frame. Pixels are identical, one frame late.</p>
  *
- * <p>The bundled {@code jogl-all.jar} is digest-attested: the reviewed artifact is the same bytes
- * for every reviewed Editor generation that bundles JOGL 2.4.0 (5.2.03, 5.3.02, 5.3.03, 5.3.04 and
- * the installed 5.3.04 used for the A/B). Unknown JOGL builds are refused before any class is
+ * <p>The bundled {@code jogl-all.jar} is digest-attested, and every installed Editor build shares
+ * exactly one artifact: 5.0.00 through 5.3.05 beta1 — 38 local installations, stable and beta —
+ * all carry the same 3,616,948-byte JOGL 2.4.0 ({@code 7dbedb4b…}, the reviewed
+ * {@code CUBISM_5_3_03_JOGL} digest). Editor versions also share the canvas architecture: every
+ * checked build ships the same fourteen {@code glWrapper} classes and constructs
+ * {@code GLJPanel}, so the rewritten path exists on all of them. The hook therefore depends on the
+ * JOGL artifact only, never on the Editor jar. Unknown JOGL builds are refused before any class is
  * retransformed, and the exact {@code postGL} instruction shape is re-verified against the
  * artifact's own reference bytes on every transform.</p>
  */
