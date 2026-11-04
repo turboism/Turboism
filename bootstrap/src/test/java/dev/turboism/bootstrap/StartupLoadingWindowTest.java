@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.awt.AWTEvent;
 import java.awt.Canvas;
+import java.awt.Color;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -196,6 +197,51 @@ class StartupLoadingWindowTest {
             }
             assertTrue(spinnerChanges > 0, "The spinner must advance between frames");
             assertEquals(0, textChanges, "The animation must not disturb the text or clear the window");
+        }
+        assertNoWindow();
+    }
+
+    @Test
+    void hiDpiTargetPaintsAtFullDeviceResolution() throws Exception {
+        try (StartupLoadingWindow loading = StartupLoadingWindow.open()) {
+            final Dialog window = awaitWindow();
+            Thread.sleep(300L);
+            final AtomicReference<Canvas> found = new AtomicReference<>();
+            EventQueue.invokeAndWait(() -> found.set((Canvas) window.getComponents()[0]));
+            final Canvas canvas = found.get();
+            final int scale = 2;
+            final AtomicReference<BufferedImage> rendered = new AtomicReference<>();
+            EventQueue.invokeAndWait(() -> {
+                final int w = canvas.getWidth();
+                final int h = canvas.getHeight();
+                final BufferedImage image = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+                final Graphics2D graphics = image.createGraphics();
+                try {
+                    graphics.scale(scale, scale);
+                    canvas.paint(graphics);
+                } finally {
+                    graphics.dispose();
+                }
+                rendered.set(image);
+            });
+            final BufferedImage image = rendered.get();
+            assertEquals(canvas.getWidth() * scale, image.getWidth());
+            assertEquals(canvas.getHeight() * scale, image.getHeight());
+            final int splitColumn = (18 + 22 + 14) * scale;
+            int spinnerPixels = 0;
+            int textPixels = 0;
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    if (image.getRGB(x, y) == Color.WHITE.getRGB()) continue;
+                    if (x < splitColumn) {
+                        spinnerPixels++;
+                    } else {
+                        textPixels++;
+                    }
+                }
+            }
+            assertTrue(spinnerPixels > 0, "The HiDPI buffer must contain the rendered spinner");
+            assertTrue(textPixels > 0, "The HiDPI buffer must contain the rendered text");
         }
         assertNoWindow();
     }
