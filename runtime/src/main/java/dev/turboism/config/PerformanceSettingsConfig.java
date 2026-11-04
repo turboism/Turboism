@@ -19,6 +19,7 @@ public final class PerformanceSettingsConfig {
         INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters", true, "false"),
         UNIFORM_LOCATION_CACHE("uniformLocationCache", true, "false"),
         UPLOAD_ELISION("uploadElision", true, "false"),
+        MESH_SETUP_ELISION("meshSetupElision", true, "false"),
         INPUT_PATH_ELISION("inputPathElision", true, "false"),
         MESA_GL_THREAD("mesaGlThread", true, "false"),
         MESH_INTERPOLATION("meshInterpolation", true, "false"),

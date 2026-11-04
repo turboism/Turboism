@@ -2,7 +2,8 @@
 # Sorted by tab, then render index. Update this file deliberately when a row is
 # added, removed, reordered or retyped - it is the single place layout is pinned.
 performance 60 note performance-recommendation
-performance 61 note performance.section.heavy-model
+performance 60 note performance.section.heavy-model
+performance 61 toggle model-update-skip
 performance 62 toggle clip-mask-deduplication
 performance 63 toggle clip-mask-scissor-clear
 performance 64 toggle extended-interpolation-incremental-setup
@@ -10,7 +11,6 @@ performance 65 toggle reinit-pair-elision
 performance 66 toggle model-instance-coalesce
 performance 67 toggle inspector-property-bypass
 performance 70 note performance.section.model
-performance 71 toggle model-update-skip
 performance 72 toggle incremental-update
 performance 73 toggle incremental-update-affecters
 performance 74 toggle mesh-interpolation
@@ -23,6 +23,7 @@ performance 85 toggle mesa-gl-thread
 performance 90 note performance.section.upload
 performance 91 toggle upload-elision
 performance 92 toggle input-path-elision
+performance 93 toggle mesh-setup-elision
 performance 100 note performance.section.mesh
 performance 101 toggle mesh-triangulation-hash
 performance 102 toggle triangulation-edge-index

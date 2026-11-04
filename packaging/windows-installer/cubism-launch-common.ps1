@@ -1823,6 +1823,7 @@ function Get-CubismLegacyManagedBatOriginalText {
         '(?: -Dturboism\.optimization\.incrementalUpdate=true)?' +
         '(?: -Dturboism\.optimization\.uniformLocationCache=false)?' +
         '(?: -Dturboism\.optimization\.uploadElision=false)?' +
+        '(?: -Dturboism\.optimization\.meshSetupElision=false)?' +
         '(?: -Dturboism\.optimization\.inputPathElision=false)?' +
         '(?: -Dturboism\.optimization\.mesaGlThread=false)?'
     $pattern = '\Arem TURBOISM MANAGED BEGIN\r?\n' +
@@ -2093,7 +2094,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|meshSetupElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -2149,6 +2150,9 @@ function Get-CubismManagedJdkOptionTokens {
     }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision")) {
         $tokens += "-Dturboism.optimization.uploadElision=false"
+    }
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "meshSetupElision")) {
+        $tokens += "-Dturboism.optimization.meshSetupElision=false"
     }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "reinitPairElision")) {
         $tokens += "-Dturboism.optimization.reinitPairElision=false"

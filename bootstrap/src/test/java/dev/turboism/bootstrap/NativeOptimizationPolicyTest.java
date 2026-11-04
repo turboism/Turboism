@@ -74,6 +74,7 @@ class NativeOptimizationPolicyTest {
         assertFalse(NativeOptimizationPolicy.incrementalUpdateEnabled(first.forHook("second")));
         assertFalse(NativeOptimizationPolicy.uniformLocationCacheEnabled(first));
         assertFalse(NativeOptimizationPolicy.uploadElisionEnabled(first));
+        assertFalse(NativeOptimizationPolicy.meshSetupElisionEnabled(first));
         assertFalse(NativeOptimizationPolicy.inputPathElisionEnabled(first));
         assertFalse(NativeOptimizationPolicy.mesaGlThreadEnabled(first));
         for (Option option : Option.values())
@@ -85,6 +86,7 @@ class NativeOptimizationPolicyTest {
         assertTrue(NativeOptimizationPolicy.incrementalUpdateEnabled(next));
         assertTrue(NativeOptimizationPolicy.uniformLocationCacheEnabled(next));
         assertTrue(NativeOptimizationPolicy.uploadElisionEnabled(next));
+        assertTrue(NativeOptimizationPolicy.meshSetupElisionEnabled(next));
         assertTrue(NativeOptimizationPolicy.inputPathElisionEnabled(next));
         assertTrue(NativeOptimizationPolicy.mesaGlThreadEnabled(next));
         assertTrue(NativeOptimizationPolicy.meshInterpolationEnabled(next));

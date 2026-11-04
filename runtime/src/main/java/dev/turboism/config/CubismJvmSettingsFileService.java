@@ -215,6 +215,16 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean meshSetupElision() {
+        return optimization("meshSetupElision");
+    }
+
+    @Override
+    public boolean saveMeshSetupElision(final boolean value) {
+        return saveOptimization("meshSetupElision", value);
+    }
+
+    @Override
     public boolean inputPathElision() {
         return optimization("inputPathElision");
     }

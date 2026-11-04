@@ -849,7 +849,7 @@ final class ConfigMerge {
             "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
     private static final Set<String> LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
-            "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision",
+            "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision",
             "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch",
             "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision",
             "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass");
@@ -858,7 +858,7 @@ final class ConfigMerge {
     private static final Set<String> LEGACY_ROOT_LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
-            "zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision",
+            "zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision",
             "inputPathElision", "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch",
             "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision",
             "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass");

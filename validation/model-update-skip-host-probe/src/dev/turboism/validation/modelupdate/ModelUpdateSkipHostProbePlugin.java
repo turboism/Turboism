@@ -120,6 +120,8 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
             if (interaction.isEmpty()) {
                 new CanvasWheelWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir)
                     .run("probe".equals(mode));
+            } else if ("deformer".equals(interaction)) {
+                new NativeDeformerWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir).run();
             } else {
                 if ("probe".equals(mode)) throw new IllegalArgumentException("native interaction does not run model digest probes");
                 new NativeInteractionWorkload(System.getProperty("turboism.validation.fixtureName"), stateDir, interaction).run();
