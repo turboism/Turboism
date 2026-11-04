@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "6b149c5856893f255720f71d06e8f26343754472bd1127aa88e7c5d4601ba95d",
+  "surfaceSha256": "e2ea37337fe6b291d61d19a1a2a6a00d94f0b0f306ec9aa7b2c5496ec4ed15dd",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
@@ -45,6 +45,7 @@
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
-    "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0"
+    "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",
+    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry#contributeStateButtons:(Ldev/turboism/sdk/ui/viewcontext/ViewContextMenuRegistry$StateButtonContribution;I)Ldev/turboism/sdk/plugin/Registration;": "0.68.1"
   }
 }

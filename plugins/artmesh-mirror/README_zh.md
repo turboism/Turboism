@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing, symmetry
-turboismApi: "[0.68.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,7 @@ interface: none
 
 ## 要求与兼容性
 
-Turboism API: `[0.68.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.1,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
@@ -66,7 +66,7 @@ Turboism API: `[0.68.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 ### 0.68.1
 
-- 将最低 Turboism API 提升到 0.68.0，与插件实际使用的 SDK 成员一致。
+- 为固定画布顶部按钮位置、不再依赖插件加载顺序，将最低 Turboism API 提升到 0.68.1。
 
 ### 0.1.0
 

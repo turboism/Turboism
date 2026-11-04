@@ -72,6 +72,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
     }
 
     private static final String AXIS_BUTTON_ID = "warp-deformer-alt-symmetry.axis";
+    /** Stable strip position independent of plugin load order. */
+    private static final int STRIP_ORDER = 20;
 
     /** Contributes the mirror-axis state-cycling button into the canvas-top GL strip. */
     private void contributeStripButton() {
@@ -85,7 +87,8 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
             context.disposableScope()
                     .register(registry.contributeStateButtons(
                             new dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution(
-                                    AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis())));
+                                    AXIS_BUTTON_ID, icons, armedAxis, ignored -> cycleArmedAxis()),
+                            STRIP_ORDER));
             logger.info("Warp deformer Alt axis-symmetry strip button contributed");
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
