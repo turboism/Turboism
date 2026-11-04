@@ -130,9 +130,7 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
                         activeContext,
                         "Protected export preflight has unresolved conditions; protected export remains unavailable.");
             }
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable unavailable) {
+        } catch (RuntimeException unavailable) {
             warnSafely(
                     activeContext, "Protected export preflight is unavailable; protected export remains unavailable.");
         }
@@ -191,9 +189,7 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
         }
         try {
             context.logger().warn(message);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
             // A diagnostic sink must not alter the fixed fail-closed decision.
         }
     }

@@ -57,8 +57,6 @@ final class BoundedStorageDeleter {
             budget.beforeDelete(logicalPath);
             Files.delete(target);
             progress.changed = true;
-        } catch (DeleteFault failure) {
-            throw failure;
         } catch (IOException failure) {
             throw new DeleteFault(logicalPath, StorageErrorCode.IO_FAILURE, failure);
         }

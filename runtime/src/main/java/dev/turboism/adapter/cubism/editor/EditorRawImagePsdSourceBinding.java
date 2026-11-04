@@ -122,11 +122,10 @@ final class EditorRawImagePsdSourceBinding {
 
     private static List<?> snapshotList(final Object value, final String label) {
         if (!(value instanceof List<?> values)) throw unavailable(label + " is not a List");
-        try {
-            return List.copyOf(values);
-        } catch (NullPointerException failure) {
+        if (values.contains(null)) {
             throw unavailable(label + " contains null");
         }
+        return List.copyOf(values);
     }
 
     private String guidValue(final Object guid, final String label) {

@@ -1,6 +1,5 @@
 package dev.turboism.adapter.ui;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,7 @@ public final class BoundedKeyedStore<K, V> {
      *     mutation of the store does not affect the returned list
      */
     public synchronized List<V> snapshot() {
-        return List.copyOf(new ArrayList<>(values.values()));
+        return List.copyOf(values.values());
     }
 
     /** @return the number of live entries, never above the capacity given at construction. */

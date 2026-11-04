@@ -83,9 +83,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
                             true,
                             true,
                             registeredPlanner())));
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             context.logger().warn("Atlas Dalsoo algorithm registration failed safely: " + failure);
         }
     }

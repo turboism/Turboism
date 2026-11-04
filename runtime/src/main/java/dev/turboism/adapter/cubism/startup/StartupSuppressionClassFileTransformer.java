@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.startup;
 
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.net.URI;
@@ -94,11 +95,7 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics must not affect the official host startup path.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     private static Path codeSourcePath(final ProtectionDomain protectionDomain) {

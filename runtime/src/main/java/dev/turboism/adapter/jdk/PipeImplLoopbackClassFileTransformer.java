@@ -1,5 +1,6 @@
 package dev.turboism.adapter.jdk;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
@@ -84,11 +85,7 @@ final class PipeImplLoopbackClassFileTransformer implements ClassFileTransformer
     }
 
     private void report(final String code) {
-        try {
-            diagnostic.accept(code);
-        } catch (RuntimeException ignored) {
-            // Diagnostics must not affect the class loading path.
-        }
+        FatalErrors.reportSafely(diagnostic, code);
     }
 
     enum Outcome {

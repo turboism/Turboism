@@ -63,8 +63,6 @@ def load_launch(path, server="turboism"):
         if not isinstance(env, dict) or len(env) > 128 or any(not isinstance(k, str) or not isinstance(v, str) or not k or "=" in k or "\0" in k + v for k, v in env.items()):
             raise AuditError("INVALID_STDIO_CONFIG")
         return [command, *args], env
-    except AuditError:
-        raise
     except (OSError, ValueError, TypeError, KeyError):
         raise AuditError("CONFIG_UNAVAILABLE_OR_INVALID") from None
 

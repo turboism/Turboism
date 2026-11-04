@@ -64,9 +64,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                 return thread;
             });
             scheduler.scheduleWithFixedDelay(this::refresh, POLL_SECONDS, POLL_SECONDS, TimeUnit.SECONDS);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             disable();
             context.logger().warn("Texture Atlas Statistics panel unavailable: " + failure);
         }
@@ -114,9 +112,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                     .map(TextureAtlasSummary::imageCount)
                     .orElse(0);
             publish(target, i18n.format(LINE_KEY, whole, selected));
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
-        } catch (Throwable failure) {
+        } catch (RuntimeException failure) {
             publish(target, i18n.text(UNAVAILABLE_KEY));
         }
     }

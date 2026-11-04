@@ -369,13 +369,14 @@ final class StartupLoadingWindow implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         if (timer != null) timer.cancel();
-        try {
-            EventQueue.invokeLater(() -> {
-                if (window != null) window.dispose();
-            });
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            // Optional feedback must never interrupt the editor bootstrap.
-        }
+        EventQueue.invokeLater(() -> {
+            if (window == null) return;
+            try {
+                window.dispose();
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                // Optional feedback must never interrupt the editor bootstrap.
+            }
+        });
     }
 }

@@ -1,5 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.sdk.plugin.Registration;
 import java.awt.Component;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
     private final NativeRowActionTracker rowActions = new NativeRowActionTracker();
     private final ParameterEditingTracker editing = new ParameterEditingTracker();
     private final List<Binding> bindings = new ArrayList<>();
-    private final AutoCloseable changeSubscription;
+    private final Registration changeSubscription;
     private volatile long hostGeneration;
 
     public ParameterControlAppearanceProvider(
@@ -137,10 +138,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
     @Override
     public void close() {
         hostGeneration = 0;
-        try {
-            changeSubscription.close();
-        } catch (Exception ignored) {
-        }
+        changeSubscription.close();
         final Runnable action = () -> {
             styles.restoreAll();
             rowActions.restoreAll();

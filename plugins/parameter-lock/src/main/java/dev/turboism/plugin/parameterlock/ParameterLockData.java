@@ -24,8 +24,7 @@ record ParameterLockData(int version, String modelGuid, Set<String> lockedParame
         if (modelGuid.isEmpty()) {
             throw new IllegalArgumentException("modelGuid must not be blank");
         }
-        lockedParameterIds =
-                Set.copyOf(new LinkedHashSet<>(Objects.requireNonNull(lockedParameterIds, "lockedParameterIds")));
+        lockedParameterIds = Set.copyOf(Objects.requireNonNull(lockedParameterIds, "lockedParameterIds"));
         savedAt = savedAt == null || savedAt.isBlank() ? Instant.now().toString() : savedAt;
     }
 

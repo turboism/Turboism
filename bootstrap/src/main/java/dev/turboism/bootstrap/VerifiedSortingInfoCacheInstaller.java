@@ -10,9 +10,7 @@ import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarFile;
@@ -104,14 +102,7 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
                         "mesh-container rewrite was not admitted: " + containerTransformer.failure());
             }
         } catch (Exception | Error failure) {
-            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
-            try {
-                close();
-            } catch (Exception | Error cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
-                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
-            }
+            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
             throw failure;
         }
     }
@@ -133,9 +124,9 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
                     final ProtectionDomain domain,
                     final byte[] bytes) {
                 if (redefined == sortingOwner) {
-                    observedSorting.set(sha256OrUnavailable(bytes));
+                    observedSorting.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
                 } else if (redefined == meshRendererOwner) {
-                    observedContainer.set(sha256OrUnavailable(bytes));
+                    observedContainer.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
                 }
                 return null;
             }
@@ -155,14 +146,6 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
             throw new IllegalStateException("sorting-info restoration failed", failure);
         } finally {
             instrumentation.removeTransformer(observer);
-        }
-    }
-
-    private static String sha256OrUnavailable(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (Exception failure) {
-            return "unavailable";
         }
     }
 

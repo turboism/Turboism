@@ -130,12 +130,7 @@ public final class TurboismAgent {
             final ShutdownHookRegistrar shutdownHookRegistrar,
             final Consumer<Runnable> bootstrapThreadStarter) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
-            try {
-                RuntimeDiagnostics.debug("bootstrap", "Agent start ignored because the runtime was already requested");
-            } catch (Throwable ignored) {
-                FatalErrors.rethrowIfFatal(ignored);
-                // Diagnostics must never propagate into the host JVM.
-            }
+            RuntimeDiagnostics.debug("bootstrap", "Agent start ignored because the runtime was already requested");
             return;
         }
         try {
@@ -206,13 +201,8 @@ public final class TurboismAgent {
      * throwing would abort the host launch entirely.
      */
     private static void failStartSafely(final Throwable failure) {
-        try {
-            System.err.println("Turboism agent start failed safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage());
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // Even failure reporting must not reach the host JVM.
-        }
+        System.err.println(
+                "Turboism agent start failed safely: " + failure.getClass().getName() + ": " + failure.getMessage());
         try {
             JvmShims.closeAll(TurboismAgent::runtimeWarn);
             HOOKS.get().closeAll(TurboismAgent::runtimeWarn, TurboismAgent::runtimeInfo);

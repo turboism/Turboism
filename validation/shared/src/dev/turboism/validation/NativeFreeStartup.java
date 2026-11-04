@@ -849,7 +849,7 @@ public final class NativeFreeStartup {
             final var stageField = dialogClass.getDeclaredField(ANNOUNCEMENT_STAGE_FIELD);
             stageField.setAccessible(true);
             return stageField.get(null);
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return null;
         }
     }
@@ -873,7 +873,7 @@ public final class NativeFreeStartup {
         try {
             final Object showing = stage.getClass().getMethod("isShowing").invoke(stage);
             if (showing instanceof Boolean flag) return flag;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             // Synthetic test stages may omit isShowing().
         }
         return null;
@@ -899,7 +899,7 @@ public final class NativeFreeStartup {
                     config,
                     ANNOUNCEMENT_LAST_OPENED_DATE_KEY,
                     Integer.valueOf(ANNOUNCEMENT_SUPPRESSED_DATE));
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             // UUConfig absent or signature differs on this build; stage hide still proceeds.
         }
     }
@@ -917,13 +917,13 @@ public final class NativeFreeStartup {
                 runLater.invoke(null, (Runnable) () -> {
                     try {
                         hideMethod.invoke(stage);
-                    } catch (Throwable ignored) {
+                    } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                         HIDDEN_ANNOUNCEMENT_STAGES.remove(stage);
                     } finally {
                         hidden.countDown();
                     }
                 });
-            } catch (Throwable invokeFailure) {
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError invokeFailure) {
                 HIDDEN_ANNOUNCEMENT_STAGES.remove(stage);
                 return false;
             }
@@ -932,7 +932,7 @@ public final class NativeFreeStartup {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return HIDDEN_ANNOUNCEMENT_STAGES.containsKey(stage);
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return false;
         }
     }

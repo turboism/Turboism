@@ -121,9 +121,8 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
                 rollback.register(() -> {
                     throw failure;
                 });
-            } catch (RuntimeException rollbackFailure) {
-                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
+                if (rollbackFailure instanceof RuntimeException runtime) throw runtime;
                 throw new IllegalStateException("Turboism ACP startup rollback failed", rollbackFailure);
             }
         }
@@ -151,9 +150,8 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             cleanup.register(() -> disposeFrames(currentWindow));
             if (currentController != null) cleanup.register(currentController);
             cleanup.register(super::disable);
-        } catch (RuntimeException failure) {
-            throw failure;
         } catch (Exception failure) {
+            if (failure instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Turboism ACP disposal failed", failure);
         }
     }
@@ -169,9 +167,8 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             });
             cleanup.register(super::shutdown);
             cleanup.register(this::disable);
-        } catch (RuntimeException failure) {
-            throw failure;
         } catch (Exception failure) {
+            if (failure instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Turboism ACP shutdown failed", failure);
         }
     }
@@ -297,9 +294,8 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
         try (DisposableScope cleanup = new DisposableScope()) {
             cleanup.register(() -> disposeFrames(currentWindow));
             if (current != null) cleanup.register(current);
-        } catch (RuntimeException failure) {
-            throw failure;
         } catch (Exception failure) {
+            if (failure instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Turboism ACP UI disposal failed", failure);
         }
     }
