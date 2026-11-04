@@ -1,0 +1,39 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "cornflower-editing",
+  "safeMode": false,
+  "logLevel": "INFO",
+  "pluginDirs": ["plugins"],
+  "hooks": {
+    "disabledIds": [],
+    "denylistedClasses": [],
+    "startup": {"skipUpdateCheck": true, "skipSplash": true, "skipInformation": true}
+  },
+  "launcher": {
+    "modelUpdateSkip": true,
+    "uniformLocationCache": true,
+    "uploadElision": true,
+    "meshSetupElision": true,
+    "mesaGlThread": true,
+    "clipMaskDeduplication": true,
+    "clipMaskScissorClear": true,
+    "extendedInterpolationIncrementalSetup": true,
+    "incrementalUpdate": true,
+    "incrementalUpdateAffecters": true,
+    "inputPathElision": false,
+    "asyncReadback": false,
+    "meshInterpolation": false,
+    "shaderUniform": false,
+    "matrixScratch": false,
+    "imageArchiveReuse": false,
+    "floatArrayParseCache": false,
+    "textureUploadPreparation": false,
+    "warpPositionProjection": false,
+    "reinitPairElision": false,
+    "modelInstanceCoalesce": false,
+    "inspectorPropertyBypass": false,
+    "zgc": true,
+    "memoryProfile": "system"
+  }
+}

@@ -2119,3 +2119,26 @@ drift refusal — passes against 5.0.00, 5.1.03, 5.2.03, 5.3.04 and 5.3.05 beta1
 launch reported `TURBOISM_ASYNC_READBACK pipelined=ACTIVE` with zero self-check failures (that
 build's perfbench plugin does not produce results, so the frame-rate numbers above remain the
 5.3.04 measurement).
+
+## Windows 5.3.04 + 763 MB 矢车菊：精选组合实机筛选（2026-11-05）
+
+原生 Windows 5.3.04、bundled Java 17.0.3.1、Intel UHD 770。wheel 200 事件/腿，
+OFF/ON/ON/OFF，精确 camera 恢复，模型视口 `x>=500` 逐像素比较；最终组合经 `config.json`
+实际生效。模型 SHA-256 `83326ac5…b6da`。
+
+- **Tier 1（推荐）**：modelUpdateSkip + uniformLocationCache + mesaGlThread + uploadElision +
+  meshSetupElision + clipMaskDeduplication + clipMaskScissorClear + extendedInterpolationIncrementalSetup。
+  完整轮 ON 腿均值 **231.2/229.0 → 73.0/71.6 ms**（约 3.2×）；相邻校准轮约 2.3×；
+  模型视口像素与基线 0 差异，Tier 1 校准轮整窗哈希也与基线一致。
+- **归因**：uniform+帧末延迟 GL 约 1.9×；再加 upload+meshSetup 约 2.3×；clipMask scissor
+  在本模型节省约 96.7% 蒙版清屏像素。Uniform 缓存与帧末延迟检查必须同开；单独 Uniform 无
+  稳定收益，单独 mesaGlThread 在本宿主为 INACTIVE。
+- **编辑组合**：Tier 1 + incrementalUpdate + incrementalUpdateAffecters。wheel 纯相机缩放上
+  约 103.5 ms（慢于 Tier 1），不进入默认；编辑/层级场景另评。
+- **否决/可选**：全开组合在模型视口出现 43,582 像素差异且不更快，`warpPositionProjection`
+  在本宿主安装失败；meshInterpolation/shaderUniform/matrixScratch 单独叠加视觉一致但更慢；
+  asyncReadback 有 `oneFrameLatency=true` 且本轮无稳定额外收益，不作为严格视觉一致默认；
+  旧的分配/纹理缓存无主指标收益。
+- **限制**：单模型单版本；wheel 非物理 FPS；完整轮与校准轮宿主负载有波动；artmesh 拖拽探针
+  本轮被 1 像素画布身份检查挡住，未产出新拖拽/Undo 结论。证据与配置见
+  [windows-cornflower-performance-20261105](../../validation/windows-cornflower-performance-20261105/README.md)。

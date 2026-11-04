@@ -562,7 +562,7 @@ final class CanvasWheelWorkload {
                     return null;
                 });
                 report.append(p).append("exactCameraBaseline=").append(exactCamera).append('\n');
-                final String[] windowShot = onEdt(this::windowSnapshot);
+                final String[] windowShot = onEdt(() -> windowSnapshot("leg-" + captureLeg));
                 legWindowDigests.add(windowShot[0]);
                 report.append(p).append("windowDigest=").append(windowShot[0]).append('\n')
                     .append(p).append("windowDigestMethod=").append(windowShot[1]).append('\n')
@@ -886,7 +886,7 @@ final class CanvasWheelWorkload {
             });
             Thread.sleep(150L);
             report.append(p).append("exactCameraBaseline=true\n");
-            final String[] windowShot = onEdt(this::windowSnapshot);
+            final String[] windowShot = onEdt(() -> windowSnapshot("leg-" + leg));
             legWindowDigests.add(windowShot[0]);
             report.append(p).append("windowDigest=").append(windowShot[0]).append('\n')
                 .append(p).append("windowDigestMethod=").append(windowShot[1]).append('\n')
@@ -1076,7 +1076,7 @@ final class CanvasWheelWorkload {
                 return null;
             });
             Thread.sleep(150L);
-            final String[] windowShot = onEdt(this::windowSnapshot);
+            final String[] windowShot = onEdt(() -> windowSnapshot("leg-" + leg));
             legWindowDigests.add(windowShot[0]);
             report.append(p).append("exactCameraBaseline=true\n")
                 .append(p).append("windowDigest=").append(windowShot[0]).append('\n')
@@ -1874,13 +1874,14 @@ final class CanvasWheelWorkload {
      * BufferedImage via {@code printAll} ({@code printAll} proves the Swing
      * paint result but cannot observe the actual screen blit).
      */
-    private String[] windowSnapshot() {
+    private String[] windowSnapshot(final String label) {
         final Component parent = canvas.getParent() != null ? canvas.getParent() : canvas;
         try {
             final java.awt.Rectangle bounds =
                 new java.awt.Rectangle(parent.getLocationOnScreen(), parent.getSize());
             final java.awt.image.BufferedImage image =
                 new java.awt.Robot().createScreenCapture(bounds);
+            saveWindowShot(image, label);
             return imageResult(image, "robot");
         } catch (Throwable robotFailure) {
             final int w = Math.max(1, parent.getWidth());
@@ -1893,7 +1894,18 @@ final class CanvasWheelWorkload {
             } finally {
                 g.dispose();
             }
+            saveWindowShot(image, label);
             return imageResult(image, "printAll");
+        }
+    }
+
+    private void saveWindowShot(final java.awt.image.BufferedImage image, final String label) {
+        if (!Boolean.getBoolean("turboism.validation.saveWindowShots")) return;
+        try {
+            javax.imageio.ImageIO.write(image, "png",
+                state.resolve("window-" + label + ".png").toFile());
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("window screenshot write failed", failure);
         }
     }
 
