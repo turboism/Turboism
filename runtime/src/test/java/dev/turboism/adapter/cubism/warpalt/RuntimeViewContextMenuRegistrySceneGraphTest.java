@@ -10,8 +10,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.live2d.graphics3d.sceneGraph.GSceneGraph;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class RuntimeViewContextMenuRegistrySceneGraphTest {
@@ -198,6 +200,55 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
         assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
         assertEquals(1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
         assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, new Object()));
+    }
+
+    @Test
+    void insertsContributedButtonsByOrderNotRegistrationOrder() {
+        final List<Object> group = new ArrayList<>(List.of("native-1", "native-2", "artmesh", "warp"));
+        final RuntimeViewContextMenuRegistry.OrderedContribution artMesh = contribution("artmesh-mirror.toggle", 10);
+        final RuntimeViewContextMenuRegistry.OrderedContribution warp =
+                contribution("warp-deformer-alt-symmetry.axis", 20);
+
+        assertEquals(
+                2,
+                RuntimeViewContextMenuRegistry.insertionIndex(
+                        group, List.of("artmesh", "warp"), List.of(artMesh, warp), contribution("first", 5)));
+        assertEquals(
+                3,
+                RuntimeViewContextMenuRegistry.insertionIndex(
+                        group, List.of("artmesh", "warp"), List.of(artMesh, warp), contribution("middle", 15)));
+        assertEquals(
+                4,
+                RuntimeViewContextMenuRegistry.insertionIndex(
+                        group, List.of("artmesh", "warp"), List.of(artMesh, warp), contribution("last", 25)));
+    }
+
+    @Test
+    void equalOrdersUseContributionIdAsTheStableTieBreaker() {
+        final List<Object> group = new ArrayList<>(List.of("native", "z"));
+        final RuntimeViewContextMenuRegistry.OrderedContribution z = contribution("z", 10);
+
+        assertEquals(
+                1,
+                RuntimeViewContextMenuRegistry.insertionIndex(group, List.of("z"), List.of(z), contribution("a", 10)));
+        assertEquals(
+                2,
+                RuntimeViewContextMenuRegistry.insertionIndex(group, List.of("z"), List.of(z), contribution("zz", 10)));
+    }
+
+    @Test
+    void firstContributionFollowsNativeEntries() {
+        final List<Object> group = new ArrayList<>(List.of("native-1", "native-2"));
+
+        assertEquals(
+                2, RuntimeViewContextMenuRegistry.insertionIndex(group, List.of(), List.of(), contribution("only", 0)));
+    }
+
+    private static RuntimeViewContextMenuRegistry.OrderedContribution contribution(final String id, final int order) {
+        return new RuntimeViewContextMenuRegistry.OrderedContribution(
+                new StateButtonContribution(
+                        id, Map.of(0, new UiRasterImage(1, 1, new int[] {0xff000000})), 0, ignored -> {}),
+                order);
     }
 
     @Test
