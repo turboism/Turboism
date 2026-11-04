@@ -133,7 +133,7 @@ class LocalPluginRuntimeShellAdmissionTest {
                 Duration.ofMillis(50),
                 Duration.ofMillis(20));
 
-        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
                     home,
                     scheduler,

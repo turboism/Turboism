@@ -300,7 +300,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             final Path home,
             final RuntimeScheduler scheduler,
             final RuntimeHostAdapterAccess hostAccess,
-            final PreviewLog log,
+            final KernelLog log,
             final PluginCloseHook pluginCloseHook,
             final PluginLifecyclePolicy lifecyclePolicy,
             final dev.turboism.internal.core.ShellAdmission shellAdmission) {
