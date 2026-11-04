@@ -14,10 +14,30 @@ export async function github(path,fetcher=fetch,token=null){
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
  return {value:JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)),next:/rel="next"/.test(response.headers.get('link')??'')};
 }
-async function sourceFor(tag,fetcher,token){
+async function sourceFor(tag,fetcher,token,receipt=null){
  let obj=(await github(`/git/ref/tags/${tag}`,fetcher,token)).value.object;
- for(let i=0;obj?.type==='tag'&&i<4;i++){if(!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid tag');obj=(await github(`/git/tags/${obj.sha}`,fetcher,token)).value.object;}
- if(obj?.type!=='commit'||!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid source commit');return obj.sha;
+ let annotatedSource=null;
+ for(let i=0;obj?.type==='tag'&&i<4;i++){
+  if(!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid tag');
+  const annotation=(await github(`/git/tags/${obj.sha}`,fetcher,token)).value;
+  if(annotation?.tag!==tag||typeof annotation.message!=='string'||!annotation.object)throw new Error('Invalid annotated release tag');
+  // Some previously published tags point to a promotion commit rather than
+  // the immutable build source. Accept ONLY the exact source binding already
+  // independently verified by the build-ledger receipt (below). Never use
+  // this tag message to authorize an unsigned or unverified release.
+  const binding=/^Turboism ([0-9A-Za-z.+-]+) \(([a-f0-9]{40})\)\r?\nCandidate payload SHA-256: ([a-f0-9]{64})(?:\r?\n)?$/.exec(annotation.message);
+  if(receipt&&binding){
+   if(binding[1]!==receipt.version||binding[2]!==receipt.sourceRevision||tag!==`v${receipt.version}`)throw new Error('Annotated build identity mismatch');
+   annotatedSource=receipt.sourceRevision;
+  }
+  obj=annotation.object;
+ }
+ if(obj?.type!=='commit'||!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid source commit');
+ if(receipt&&obj.sha!==receipt.sourceRevision){
+  if(annotatedSource!==receipt.sourceRevision)throw new Error('Unverified promoted tag source');
+  return annotatedSource;
+ }
+ return obj.sha;
 }
 function transientUpstream(error){
  const message=String(error?.message??error??'');
@@ -40,7 +60,7 @@ export async function synchronize(previous,env={},fetcher=fetch,token=null){
  for(const channel of CHANNELS){
   const raw=grouped[channel].sort((a,b)=>compareVersions(b.tag_name.slice(1),a.tag_name.slice(1)))[0];if(!raw)continue;
   try{
-   const source=await sourceFor(raw.tag_name,fetcher,token),receipt=buildReceipt(raw.body);let identity=null;
+   const receipt=buildReceipt(raw.body),source=await sourceFor(raw.tag_name,fetcher,token,receipt);let identity=null;
    if(receipt){const result=(await github(`/contents/entries/${receipt.runId}-${receipt.runAttempt}.json?ref=build-ledger`,fetcher,token)).value;identity=JSON.parse(atob(result.content.replace(/\s/g,'')));}
    let release=parseRelease(raw,source,identity);const key=release.tag;
    if(known[key]&&fingerprint(known[key].release)!==fingerprint(release))throw new Error('Immutable release conflict');
