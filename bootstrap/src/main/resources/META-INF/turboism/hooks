@@ -45,6 +45,10 @@ dev.turboism.bootstrap.IncrementalUpdateHookContributor
 # would fail closed on both sides.
 dev.turboism.bootstrap.GlGetErrorElisionHookContributor
 dev.turboism.bootstrap.SkippedFrameUploadElisionHookContributor
+# Line-renderer dirty split: positions always, colors/indices only when their
+# source arrays changed. Installed under the upload-elision preference; safe with
+# the uniform-location cache because it retains no GL payload baseline.
+dev.turboism.bootstrap.LineRendererUploadSplitHookContributor
 dev.turboism.bootstrap.SkippedFrameMeshSetupElisionHookContributor
 dev.turboism.bootstrap.InputPathElisionHookContributor
 dev.turboism.bootstrap.CanvasCompositeElisionHookContributor

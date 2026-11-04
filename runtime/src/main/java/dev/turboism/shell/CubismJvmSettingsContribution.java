@@ -269,7 +269,7 @@ final class CubismJvmSettingsContribution {
                 "settings.optimization.model-update-skip",
                 settings::modelUpdateSkip,
                 settings::saveModelUpdateSkip,
-                61);
+                62);
     }
 
     static SettingsContribution createIncrementalUpdateToggle(
@@ -320,8 +320,11 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Default-on: skips provably unchanged buffer uploads on frames where
-     * the model update was skipped (verified Editor versions only).
+     * Default-on: skips provably unchanged buffer uploads on frames where the
+     * model update was skipped (verified Editor versions only). The same
+     * preference also enables the independent line-overlay dirty split, which
+     * remains active with Uniform Location Cache because it retains no GL
+     * payload baseline.
      */
     static SettingsContribution createUploadElisionToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
@@ -385,12 +388,12 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * Platform-defaulted, Linux/Mesa only: on under Wine/Proton the launch
-     * exports {@code mesa_glthread=true} and installs the deferred GL
-     * error-check hook so the shader helper's per-call {@code glGetError} no
-     * longer flushes the threaded submitter; off on native Windows, where
-     * launches ignore it entirely. An explicit saved value overrides the
-     * platform default.
+     * Platform-defaulted, opt-in on native Windows. Under Wine/Proton the
+     * launch exports {@code mesa_glthread=true} and installs the deferred GL
+     * error-check hook; on native Windows it installs only the deferred
+     * frame-end check (Mesa threading does not apply). In both cases the
+     * shader helper's per-call {@code glGetError} no longer stalls the render
+     * thread per draw. An explicit saved value overrides the platform default.
      */
     static SettingsContribution createMesaGlThreadToggle(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
@@ -406,7 +409,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                85);
+                61);
     }
 
     /**
@@ -548,7 +551,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                62);
+                63);
     }
 
     static SettingsContribution createClipMaskScissorClearToggle(
@@ -565,7 +568,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                63);
+                64);
     }
 
     static SettingsContribution createExtendedInterpolationIncrementalSetupToggle(
@@ -583,7 +586,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                64);
+                65);
     }
 
     static SettingsContribution createReinitPairElisionToggle(
@@ -600,7 +603,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                65);
+                66);
     }
 
     static SettingsContribution createModelInstanceCoalesceToggle(
@@ -617,7 +620,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                66);
+                67);
     }
 
     static SettingsContribution createInspectorPropertyBypassToggle(
@@ -634,7 +637,7 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                67);
+                68);
     }
 
     static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {

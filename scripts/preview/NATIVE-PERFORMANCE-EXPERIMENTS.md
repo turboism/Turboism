@@ -1845,3 +1845,161 @@ native `beginEdit` hook and the undo listener) is wired but was not exercised
 through a scripted palette drag. Calling `setup()` directly is not a user edit,
 so the frozen-time figure for a real palette move additionally includes the
 second `updateModelInstances()` call and the palette's own work.
+
+## Render backend hotspot attribution and native-Windows deferred GL error check (2026-11-04)
+
+**Question.** After the render-backend branch landed, which per-frame paths still
+limit deformer/vertex-move smoothness? The workload is the 763 MB
+`矢车菊机械未来1.cmo3` fixture on native Windows (Cubism 5.3.04 bundled JRE
+17.0.3.1, Intel UHD Graphics 770), with every current optimization enabled.
+
+**Method.** Two 5-second deformation JFR windows (QUICK workload) were recorded
+with `jcmd JFR.start settings=profile` timed by the perfbench phase markers:
+A = deferred GL error check off (the shipped native-Windows default), B = the
+same run with `-Dturboism.optimization.mesaGlThread=true` (installs
+`TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE`, no Mesa threading on
+Windows). Samples below are `jdk.ExecutionSample` + `jdk.NativeMethodSample`
+on `AWT-EventQueue-0` only; a native leaf can be a blocked GL query, so these
+are per-thread wall samples, not CPU time.
+
+| Deform-phase EDT leaf | A off (110 samples / 16 frames) | B deferred (178 samples / 27 frames) |
+|---|---:|---:|
+| `GL4bcImpl.dispatch_glGetError1` | **53** | **0** |
+| `GL4bcImpl.dispatch_glBufferSubData1` | 0 (masked by the query) | 19 |
+| `warp.o.a` (warp deformer transform) | 7 | 18 |
+| `GL4bcImpl.dispatch_glReadPixels1` (`GLJPanel` readback) | 7 | 16 |
+| `CEViewContext.onInputEvent_exe` | 5 | 11 |
+| `KeyFormMorphTargetSet.getMorphTargetList` (parameter palette) | 2 | 9 |
+| `GEntity.getRenderer` / `Entities$TraverseIterable` / `HashMap` | 2 / 2 / 1 | 7 / 4 / 7 |
+| `AGRenderer.compareTo` (sort) | 1 | 4 |
+| `GBounds.<init>` / `Arrays.copyOf` | 0 / 0 | 4 / 4 |
+
+The per-draw `shader/A.a → glGetError` query dominates the unmodified
+deformation frame: 48 % of the EDT render samples and roughly 3.3 samples per
+rendered frame. With the deferred frame-end check the query disappears from the
+samples; the remaining time spreads over the line-overlay upload, the warp
+transform, the JOGL panel readback, model update, palette repaint and sorting.
+
+**Throughput A/B (MEDIUM: 100 wheel pairs, 4×12 parameters, 15 s deformation;
+two interleaved runs per arm).** FPS, raw runs and medians:
+
+| Phase | A off | B deferred | Median gain |
+|---|---:|---:|---:|
+| wheel | 3.07 / 5.16 | 8.76 / 8.92 | 4.12 → 8.84 (+115 %) |
+| parameter | 2.83 / 4.88 | 4.77 / 6.13 | 3.86 → 5.45 (+41 %) |
+| deformation | 2.66 / 3.82 | 6.46 / 6.64 | 3.24 → 6.55 (+102 %) |
+
+Median deformation frame time falls from 318 ms to 153 ms (2.08×); wheel from
+260 ms to 113 ms (2.30×); parameter from 279 ms to 187 ms (1.50×). The QUICK
+runs show the same direction (deform 2.85–4.58 → 5.30–8.84 FPS). CPU use is
+similar or lower per frame (roughly 170–207 % of one core in B versus
+181–213 % in A), so the gain is removed synchronization, not less Java work.
+
+**Compatibility and admission.** A new exact-artifact test
+(`DeferredGlErrorCheckArtifactTest`) feeds every reviewed official JAR's own
+error-helper and frame-boundary bytes to the transformer: all 20 stable
+versions 5.0.00–5.3.04 rewrite both classes and keep the transform admitted.
+A real-host smoke then launched every one of the 20 installed stable versions
+with `launcher.mesaGlThread=true`: each run wrote `status=PASS` and logged
+`TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE`. The same admission works
+through persisted `config.json` (`"launcher": {"mesaGlThread": true}`) without a
+JVM override, verified on 5.3.04; the managed native-Windows launcher does not
+export `mesa_glthread`, so only the deferred check is installed there.
+
+**Remaining hotspots after the deferred check.** (1) `GLineRenderer` overlay
+buffers: `updateMeshData()` marks positions, colors and indices dirty together,
+and every frame the render path re-uploads all three via `glBufferSubData`
+(18 of 19 upload samples); colors/indices are usually unchanged, so a split
+dirty/partial-update experiment is the next deformation-specific candidate.
+(2) `warp.o.a` is the real deformer transform (~10 %); earlier pure-Java fast
+paths were slower, so no retry without a new algorithm. (3) `GLJPanel`
+`OffscreenBackend.postGL` `glReadPixels` (~9 %) is the fixed Swing/JOGL
+readback. (4) The new clip-mask scissor bounds scan appeared in only 3 of 312
+parameter-phase samples and did not reach the deformation top list. (5) The
+`matrixScratch` transform still executes `Boolean.getBoolean` plus a
+`System.getProperties()` lookup on every `GTransform.getLocalToWorldMatrix`
+call; a static installer-owned field would remove two global lookups per
+drawable per frame.
+
+**Decision.** The project keeps rendering optimizations opt-in on native
+Windows, so the default stays off; the settings label/tooltip now state that
+native Windows installs the deferred frame-end check (Mesa threading itself is
+still Linux/Proton-only). Users who need smooth deformer/vertex interaction on
+Windows should enable `launcher.mesaGlThread`; the measured deformation gain is
+about 2× on this fixture and host.
+
+**Follow-up inspection: `GLineRenderer` uploads and `warp.o.a` (2026-11-04).**
+
+`GLineRenderer.updateMeshData()` is a three-line method that marks the
+positions, colors and indices buffers dirty. The deformation callers do not
+change all three:
+
+- `GSimpleLinesEntity` calls `setIndices` only when the line/topology count
+  changed, then always `setPositions` and `positionsBuffer.l()`; it never sets
+  colors in that path.
+- `WarpDeformer_Draw` has the same split: the topology branch rebuilds indices
+  and calls `updateMeshData`, while the position-only branch calls
+  `setPositions` and `updateMeshData`; the colors array is not touched by the
+  per-frame path.
+- Deployment always calls `setup()`, which copies positions, colors and indices
+  into their direct buffers, but only a dirty wrapper reaches
+  `glBufferSubData`.
+
+So each deformation update re-uploads colors and indices even though only
+positions changed. The measured upload samples are 18 `GLineRenderer`
+`glBufferSubData` calls in the 5 s deformation window (one sample from a real
+`GMeshRenderer`). A dirty split — positions always, colors/indices only after
+their source array content changed — would remove roughly two thirds of those
+uploads (~6–7 % of EDT samples). The safe design is a content check against the
+last marked arrays (or setter hooks if in-place mutation is ruled out), not a
+blanket removal: selection colors and topology edits must still reach the GPU.
+`uploadElision` cannot cover this today because the production hook is refused
+when `uniformLocationCache` is enabled (the uniform lifecycle invalidates
+upload content at every render boundary), and it only considers skipped frames.
+
+`warp.o.a` is a ~3 KB pure-float routine (bilinear/affine warp projection) with
+no object allocation in the reviewed 5.3.04 body. Its samples are the actual
+per-vertex transform for deformers whose forms changed; incremental update
+already leaves unchanged deformers native/clean, so the remaining ~10 % is the
+required changed-set work. The historical pure-Java rewrite was slower (P07),
+and there is no safe skip without changing the deformation result. The
+remaining lever is reducing the changed-deformer set (incremental-update
+coverage), not the math itself.
+
+**Line-renderer split implementation (2026-11-04).** The opt-in
+`GLineRenderer.updateMeshData()` entry guard is now implemented under the
+existing upload-elision preference (it no longer shares the skipped-frame mesh
+elision's uniform-cache refusal). It marks positions unconditionally and marks
+colors/indices only when their source arrays differ from the last marked
+content. On the 5.3.04 763 MB fixture a QUICK run recorded:
+
+| Counter | Value |
+|---|---:|
+| `calls` | 6,098 |
+| `colorMarks` / `colorSkips` | 2 / 6,095 |
+| `indexMarks` / `indexSkips` | 3,037 / 3,060 |
+| `indexElements` | 129,966 |
+| `failures` | 0 |
+
+The empty/default colors array is now recognized and never dirtied; almost all
+remaining marks are the first sighting of each renderer's index array. The
+actual GL upload samples are still dominated by positions
+(`GLineRenderer.render → bindFloatBuffer`), which must change during
+deformation, so the FPS delta on this fixture is within the noise band. The
+hook is a low-risk reduction of redundant index dirty/upload calls for
+color/index-bearing overlays; it is not a fix for the dominant position upload.
+
+**`warp.o.a` algorithm check.** The native routine is a single ~3 KB,
+allocation-free float loop with an inside-grid interpolation branch and an
+outside-grid extrapolation branch; there is no per-vertex object or collection
+allocation to remove. The incremental-update counters on the same QUICK run
+were `meshDeformed=64,119` versus `meshSkipped=1,221` across 54 epochs (about
+1.9 % skipped), so nearly every ArtMesh is in the changed set and the warp math
+is required work, not a duplicate. A faster implementation would have to come
+from outside the loop: a deformer-level dirty gate that skips
+`CWarpDeformer.transformDeformer_testImpl` when both the local form and the
+parent-to-canvas transform are unchanged, or a parallel/GPU rewrite. The former
+is the only credible small step (the incremental bridge already retains the
+required form/parent state); the latter needs a new concurrency or rendering
+architecture and was not attempted after P07's pure-Java rewrite measured
+slower.
