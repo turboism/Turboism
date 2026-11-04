@@ -42,7 +42,6 @@ class UiRasterImageTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> contribution.stateIcons().clear());
-
     }
 
     @Test
