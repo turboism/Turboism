@@ -3,9 +3,9 @@ package dev.turboism.bootstrap;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.config.NativeOptimizationConfig;
-import dev.turboism.config.NativeOptimizationConfig.Option;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
@@ -24,7 +24,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
     @AfterEach
     void cleanup() {
         System.clearProperty("turboism.meshInterpolation.enabled");
-        System.clearProperty("turboism.optimization.meshInterpolation");
+        System.clearProperty(OptimizationCatalog.MESH_INTERPOLATION.property());
         System.clearProperty("turboism.modelSerialization.enabled");
         NativeOptimizationDiagnostics.resetForTesting();
     }
@@ -76,7 +76,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
                 .startupPolicy(policy(false, Set.of()))
                 .build();
         assertFalse(contributor.admitted(defaultEnv));
-        var defaultDiag = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+        var defaultDiag = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
         assertNotNull(defaultDiag);
         assertEquals("not-installed", defaultDiag.state());
         assertEquals("preference-disabled", defaultDiag.reason());
@@ -126,7 +126,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
         assertFalse(contributor.admitted(disabledEnv));
 
         // 7. Serialization-only admission does not mark interpolation as installed
-        System.clearProperty("turboism.optimization.meshInterpolation");
+        System.clearProperty(OptimizationCatalog.MESH_INTERPOLATION.property());
         System.clearProperty("turboism.meshInterpolation.enabled");
         System.setProperty("turboism.modelSerialization.enabled", "true");
         Files.writeString(
@@ -137,7 +137,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
                 .startupPolicy(policy(false, Set.of()))
                 .build();
         assertTrue(contributor.admitted(serializationOnlyEnv), "admitted because serialization is enabled");
-        var serializationDiag = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+        var serializationDiag = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
         assertNotNull(serializationDiag);
         assertEquals("not-installed", serializationDiag.state());
         assertEquals("preference-disabled", serializationDiag.reason());
@@ -185,7 +185,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
             assertNotNull(transformer, "transformer must be registered in instrumentation");
 
             // 1. Immediately after registration before class loads: pending waiting-class-load
-            var pendingStatus = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+            var pendingStatus = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertNotNull(pendingStatus);
             assertEquals("pending", pendingStatus.state());
             assertEquals("waiting-class-load", pendingStatus.reason());
@@ -197,13 +197,13 @@ final class TurboismAgentMeshInterpolationPolicyTest {
                     null,
                     null,
                     null);
-            var declinedStatus = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+            var declinedStatus = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertEquals("not-installed", declinedStatus.state());
             assertEquals("DECLINED_DEFINITION", declinedStatus.reason());
         }
 
         // 3. After handle close -> closed
-        var closedStatus = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+        var closedStatus = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
         assertEquals("not-installed", closedStatus.state());
         assertEquals("closed", closedStatus.reason());
     }
@@ -231,14 +231,14 @@ final class TurboismAgentMeshInterpolationPolicyTest {
             assertNotNull(transformer, "serialization transformer registered");
 
             // Diagnostic for mesh interpolation must remain preference-disabled, NOT pending or installed!
-            var status = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+            var status = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertNotNull(status);
             assertEquals("not-installed", status.state());
             assertEquals("preference-disabled", status.reason());
 
             // Even if a serialization class or unknown class is transformed:
             transformer.transform(getClass().getClassLoader(), "any/RandomClass", null, null, null);
-            var statusAfter = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+            var statusAfter = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertEquals("not-installed", statusAfter.state());
             assertEquals("preference-disabled", statusAfter.reason());
         }
@@ -264,7 +264,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
         try (var handle = contributor.install(premainEnv)) {
             assertNotNull(handle);
             NativeOptimizationDiagnostics.installed("TURBOISM_MESH_INTERPOLATION", "installed", "PATCHED_5304");
-            var premainStatus = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+            var premainStatus = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertEquals("installed", premainStatus.state());
             assertEquals("PATCHED_5304", premainStatus.reason());
 
@@ -279,10 +279,10 @@ final class TurboismAgentMeshInterpolationPolicyTest {
             // When new phase environment resolves its optimizationConfig, it reuses the explicitly shared launchConfig
             var nextConfig = hostResolvedEnv.optimizationConfig();
             assertSame(launchConfig, nextConfig);
-            assertTrue(nextConfig.choice(Option.MESH_INTERPOLATION).enabled());
+            assertTrue(nextConfig.choice(OptimizationCatalog.MESH_INTERPOLATION).enabled());
 
             // Because launchConfig was explicitly shared, premain observed status is preserved
-            var preservedStatus = NativeOptimizationDiagnostics.snapshot().get(Option.MESH_INTERPOLATION);
+            var preservedStatus = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertEquals(
                     "installed",
                     preservedStatus.state(),

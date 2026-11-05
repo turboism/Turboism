@@ -39,7 +39,7 @@ final class TriangulationEdgeIndexHookContributor implements ReportedHookContrib
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
                 .optimizationConfig()
-                .choice(dev.turboism.config.NativeOptimizationConfig.Option.TRIANGULATION_EDGE_INDEX)
+                .choice(dev.turboism.config.optimization.OptimizationCatalog.TRIANGULATION_EDGE_INDEX)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)

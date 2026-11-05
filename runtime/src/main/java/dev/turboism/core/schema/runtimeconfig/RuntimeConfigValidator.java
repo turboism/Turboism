@@ -1,10 +1,12 @@
 package dev.turboism.core.schema.runtimeconfig;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -13,7 +15,12 @@ import java.util.Set;
  */
 public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
-    private static final Set<String> ALLOWED_FIELDS = Set.of(
+    /**
+     * Root-level fields that are not native optimizations. The rest of the root booleans come from
+     * {@link OptimizationCatalog#rootFieldNames()}, so a new persisted optimization cannot be
+     * accepted at the root without also being declared there.
+     */
+    private static final Set<String> RUNTIME_FIELDS = Set.of(
             "worktreeId",
             "pluginDirs",
             "disabledPlugins",
@@ -26,11 +33,9 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "hooks",
             "launcher",
             "textureAtlas",
-            "reduceAutoBackup",
-            "meshTriangulationHashFix",
-            "atlasTileBbox",
-            "atlasCacheReuse",
-            "meshTriangulationEdgeIndex");
+            "reduceAutoBackup");
+
+    private static final Set<String> ALLOWED_FIELDS = allowedFields();
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
 
@@ -42,33 +47,14 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of("disabledIds", "denylistedClasses", "startup");
     private static final Set<String> ALLOWED_STARTUP_FIELDS =
             Set.of("skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
-    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of(
-            "cubismJvm",
-            "graalVmPath",
-            "zgc",
-            "memoryProfile",
-            "modelUpdateSkip",
-            "incrementalUpdate",
-            "incrementalUpdateAffecters",
-            "uniformLocationCache",
-            "uploadElision",
-            "meshSetupElision",
-            "inputPathElision",
-            "mesaGlThread",
-            "asyncReadback",
-            "meshInterpolation",
-            "shaderUniform",
-            "matrixScratch",
-            "imageArchiveReuse",
-            "floatArrayParseCache",
-            "textureUploadPreparation",
-            "warpPositionProjection",
-            "reinitPairElision",
-            "clipMaskDeduplication",
-            "clipMaskScissorClear",
-            "extendedInterpolationIncrementalSetup",
-            "modelInstanceCoalesce",
-            "inspectorPropertyBypass");
+    /**
+     * Launcher fields that are not native optimizations. Each carries its own value shape and
+     * diagnostic code, so they stay outside the catalogue.
+     */
+    private static final Set<String> NON_OPTIMIZATION_LAUNCHER_FIELDS =
+            Set.of("cubismJvm", "graalVmPath", "zgc", "memoryProfile");
+
+    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = allowedLauncherFields();
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Set<String> ALLOWED_MEMORY_PROFILES = Set.of("system", "balanced4g", "balanced4gFastSoft");
 
@@ -78,29 +64,20 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     }
 
     private static final Set<String> ALLOWED_TEXTURE_ATLAS_FIELDS = Set.of("algorithmId", "parallel");
-    private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
-            "modelUpdateSkip",
-            "incrementalUpdate",
-            "incrementalUpdateAffecters",
-            "uniformLocationCache",
-            "uploadElision",
-            "meshSetupElision",
-            "inputPathElision",
-            "mesaGlThread",
-            "asyncReadback",
-            "meshInterpolation",
-            "shaderUniform",
-            "matrixScratch",
-            "imageArchiveReuse",
-            "floatArrayParseCache",
-            "textureUploadPreparation",
-            "warpPositionProjection",
-            "reinitPairElision",
-            "clipMaskDeduplication",
-            "clipMaskScissorClear",
-            "extendedInterpolationIncrementalSetup",
-            "modelInstanceCoalesce",
-            "inspectorPropertyBypass");
+    private static final Set<String> BOOLEAN_LAUNCHER_FIELDS =
+            Set.copyOf(OptimizationCatalog.booleanLauncherFieldNames());
+
+    private static Set<String> allowedFields() {
+        final Set<String> fields = new LinkedHashSet<>(RUNTIME_FIELDS);
+        fields.addAll(OptimizationCatalog.rootFieldNames());
+        return Set.copyOf(fields);
+    }
+
+    private static Set<String> allowedLauncherFields() {
+        final Set<String> fields = new LinkedHashSet<>(NON_OPTIMIZATION_LAUNCHER_FIELDS);
+        fields.addAll(OptimizationCatalog.launcherFieldNames());
+        return Set.copyOf(fields);
+    }
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);
@@ -205,10 +182,9 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         validateOptionalBoolean(node, "safeMode", errors, source);
         validateOptionalBoolean(node, "useTextIcon", errors, source);
         validateOptionalBoolean(node, "reduceAutoBackup", errors, source);
-        validateOptionalBoolean(node, "meshTriangulationHashFix", errors, source);
-        validateOptionalBoolean(node, "atlasTileBbox", errors, source);
-        validateOptionalBoolean(node, "atlasCacheReuse", errors, source);
-        validateOptionalBoolean(node, "meshTriangulationEdgeIndex", errors, source);
+        for (final String rootField : OptimizationCatalog.rootFieldNames()) {
+            validateOptionalBoolean(node, rootField, errors, source);
+        }
         validateHooks(node, errors, source);
         validateLauncher(node, errors, source, tolerateUnsupportedChoices);
         validateTextureAtlas(node, errors, source);
