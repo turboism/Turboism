@@ -234,6 +234,7 @@ tasks.register<Exec>("checkThrowableContainment") {
         fileTree("event-processor/src/main/java") { include("**/*.java") },
         fileTree("graal-host/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/tooling/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
         fileTree("plugins") { include("**/src/main/java/**/*.java") },
         fileTree("scripts/verification-sources/templates") { include("**/*.java") }
@@ -260,6 +261,7 @@ tasks.register<Exec>("checkCodeQuality") {
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/tooling/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
         fileTree("core-contract/src/main/java") { include("**/*.java") },
         fileTree("persistence-core/src/main/java") { include("**/*.java") },
@@ -559,7 +561,8 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     inputs.file("scripts/test/check_package_layout.py")
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
-        fileTree("runtime/src/main/java") { include("**/*.java") }
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/tooling/java") { include("**/*.java") }
     )
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
@@ -1063,6 +1066,12 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
         val mainSources = sub.extensions.getByType<SourceSetContainer>()["main"]
         sourceDirectories.from(mainSources.allJava.srcDirs)
         classDirectories.from(mainSources.output.classesDirs)
+        // :runtime compiles its build-time review tooling into a separate source set; the tests
+        // that execute it still run in :runtime:test, so its coverage is attributed too.
+        sub.extensions.getByType<SourceSetContainer>().findByName("tooling")?.let { toolingSources ->
+            sourceDirectories.from(toolingSources.allJava.srcDirs)
+            classDirectories.from(toolingSources.output.classesDirs)
+        }
     }
 }
 

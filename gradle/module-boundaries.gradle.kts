@@ -364,14 +364,17 @@ private fun checkAsmDependencies(project: Project, state: BoundaryState) {
 }
 
 private fun scanProductionSources(root: Project, project: Project, state: BoundaryState) {
-    listOf(project.file("src/main/java"), project.file("src/main/resources")).forEach { sourceDir ->
-        if (!sourceDir.exists()) {
-            return@forEach
+    // `src/tooling/java` is build-time review tooling compiled in :runtime; it sits in the same
+    // layering scheme as the main sources even though it never ships in the runtime JAR.
+    listOf(project.file("src/main/java"), project.file("src/main/resources"), project.file("src/tooling/java"))
+        .forEach { sourceDir ->
+            if (!sourceDir.exists()) {
+                return@forEach
+            }
+            sourceDir.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
+                checkSourceFile(root, project, file, state)
+            }
         }
-        sourceDir.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
-            checkSourceFile(root, project, file, state)
-        }
-    }
 }
 
 private fun checkSourceFile(root: Project, project: Project, file: java.io.File, state: BoundaryState) {
@@ -387,10 +390,28 @@ private fun checkSourceFile(root: Project, project: Project, file: java.io.File,
         checkForbiddenHostUiTraversal(root, file, lines, state)
     }
     // Resources carry .java texts that are never compiled, so the runtime layering rules
-    // (which are keyed to compiled source packages) only apply under src/main/java.
-    if (project.path == ":runtime" && file.startsWith(project.file("src/main/java"))) {
+    // (which are keyed to compiled source packages) only apply under src/main/java and the
+    // build-time src/tooling/java source set.
+    if (project.path == ":runtime" &&
+        (file.startsWith(project.file("src/main/java")) ||
+            file.startsWith(project.file("src/tooling/java")))
+    ) {
         checkRuntimePackageBoundaries(root, file, lines, state)
     }
+}
+
+/**
+ * Path of a runtime source relative to {@code dev/turboism}, for both compiled source sets: the
+ * shipped {@code src/main/java} tree and the build-time {@code src/tooling/java} tree. An empty
+ * string means the file sits directly in {@code dev/turboism} and carries no top-level package.
+ */
+private fun runtimeSourceRelativePath(root: Project, file: java.io.File): String {
+    val devRoots = listOf(
+        root.file("runtime/src/main/java/dev/turboism"),
+        root.file("runtime/src/tooling/java/dev/turboism")
+    )
+    val devRoot = devRoots.firstOrNull { file.startsWith(it) } ?: return ""
+    return file.relativeTo(devRoot).path.replace('\\', '/')
 }
 
 private fun checkRuntimePackageBoundaries(
@@ -399,8 +420,7 @@ private fun checkRuntimePackageBoundaries(
     lines: List<String>,
     state: BoundaryState
 ) {
-    val relative = file.relativeTo(root.file("runtime/src/main/java/dev/turboism")).path
-        .replace('\\', '/')
+    val relative = runtimeSourceRelativePath(root, file)
     val topPackage = relative.substringBefore('/', "")
     if (topPackage.isEmpty()) {
         return

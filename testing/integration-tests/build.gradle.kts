@@ -16,6 +16,9 @@ tasks.named<JavaCompile>("compileTestJava") {
 
 dependencies {
     testImplementation(project(":runtime"))
+    // Fixture validation covers the draft mapping-review validators, which are build-time
+    // tooling in :runtime's `tooling` source set and therefore absent from the runtime JAR.
+    testImplementation(project(path = ":runtime", configuration = "toolingElements"))
     testImplementation(project(":sdk"))
     testImplementation(project(":core-contract"))
     testImplementation(project(":plugins:demo"))

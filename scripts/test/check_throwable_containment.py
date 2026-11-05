@@ -26,6 +26,9 @@ PRODUCTION_ROOTS = (
     "event-processor/src/main/java",
     "graal-host/src/main/java",
     "runtime/src/main/java",
+    # Build-time review tooling compiled in :runtime but excluded from the runtime JAR; it is
+    # production source for the CLI lanes and holds itself to the same policy.
+    "runtime/src/tooling/java",
     "bootstrap/src/main/java",
     "persistence-core/src/main/java",
     "compatibility-policy/src/main/java",
@@ -34,6 +37,7 @@ PRODUCTION_ROOTS = (
 PLUGIN_ROOT = "plugins"
 RUNTIME_BOOTSTRAP_PREFIXES = (
     "runtime/src/main/java",
+    "runtime/src/tooling/java",
     "bootstrap/src/main/java",
 )
 
