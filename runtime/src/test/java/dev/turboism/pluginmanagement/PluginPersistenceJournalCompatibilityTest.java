@@ -3,8 +3,11 @@ package dev.turboism.pluginmanagement;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.Files;
@@ -12,7 +15,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -26,6 +33,8 @@ import org.junit.jupiter.api.io.TempDir;
 class PluginPersistenceJournalCompatibilityTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Path FIXTURES =
+            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "tests/fixtures/snapshots"));
 
     @TempDir
     Path home;
@@ -244,6 +253,58 @@ class PluginPersistenceJournalCompatibilityTest {
     }
 
     @Test
+    void savingAfterACorruptReadKeepsTheUnreadableCatalogState() throws Exception {
+        final byte[] corrupt =
+                "{\n  \"schemaVersion\" : 2,\n  \"catalogVersion\" :".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.createDirectories(catalogState().getParent());
+        Files.write(catalogState(), corrupt);
+
+        final PluginCatalogStateStore store = new PluginCatalogStateStore(home);
+        assertTrue(store.read().catalogVersion().isEmpty());
+        assertTrue(
+                store.save(PluginCatalogStateStore.State.empty().withStagedUpdates(Map.of("example.plugin", "3.0.0"))));
+
+        final Path image = catalogState().resolveSibling(catalogState().getFileName() + ".corrupt.bak");
+        assertArrayEquals(
+                corrupt,
+                Files.readAllBytes(image),
+                "the bytes the corrupt read discarded must survive the overwrite that replaces them");
+        assertEquals(Map.of("example.plugin", "3.0.0"), store.read().stagedUpdates());
+    }
+
+    @Test
+    void aRefusedFutureCatalogStateIsKeptBeforeTheNextSaveReplacesIt() throws Exception {
+        final byte[] future = """
+                {
+                  "schemaVersion": 3,
+                  "catalogVersion": 99
+                }
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.createDirectories(catalogState().getParent());
+        Files.write(catalogState(), future);
+
+        final PluginCatalogStateStore store = new PluginCatalogStateStore(home);
+        assertTrue(store.read().catalogVersion().isEmpty(), "a future schema must be refused, never migrated");
+        assertArrayEquals(future, Files.readAllBytes(catalogState()), "reading must not rewrite it");
+        assertTrue(store.save(PluginCatalogStateStore.State.empty()));
+        assertArrayEquals(
+                future,
+                Files.readAllBytes(catalogState().resolveSibling(catalogState().getFileName() + ".corrupt.bak")),
+                "a document from a newer build must be recoverable after the downgrade overwrites it");
+    }
+
+    @Test
+    void aNormalCatalogStateOverwriteKeepsNoRecoveryImage() throws Exception {
+        final PluginCatalogStateStore store = new PluginCatalogStateStore(home);
+        assertTrue(store.save(PluginCatalogStateStore.State.empty()));
+        assertTrue(
+                store.save(PluginCatalogStateStore.State.empty().withStagedUpdates(Map.of("example.plugin", "2.0.0"))));
+        assertFalse(
+                Files.exists(catalogState().resolveSibling(catalogState().getFileName() + ".corrupt.bak")),
+                "a readable document must be overwritten in place without accumulating backups");
+    }
+
+    @Test
     void pendingJournalRevisionIsNotRequiredForAlreadyWrittenLegacyDocuments() throws Exception {
         // A journal without the optional random revision is still a frozen v1 document; unknown
         // fields are rejected, but a missing revision remains readable for older bytes.
@@ -255,5 +316,61 @@ class PluginPersistenceJournalCompatibilityTest {
 
         assertEquals(1, pending.operations().size());
         assertEquals("example.plugin", pending.operations().get(0).pluginId());
+    }
+
+    /**
+     * Replays every release-derived {@code plugin-journal} fixture through the production reader.
+     *
+     * <p>The v0.42.0 document is the journal a published release actually wrote: a staged install
+     * of a shipped plugin plus a queued uninstall. It predates the {@code revision} generation
+     * field, so this replay is also the release-derived proof that a revision-less v1 journal is
+     * still read exactly the same way.</p>
+     */
+    @TestFactory
+    Stream<DynamicTest> goldenPluginJournalSnapshotsReplayThroughProductionReader() throws Exception {
+        final JsonNode cases = JSON.readTree(Files.readAllBytes(FIXTURES.resolve("manifest.json")))
+                .path("snapshots");
+        final List<JsonNode> fixtures = StreamSupport.stream(cases.spliterator(), false)
+                .filter(fixture ->
+                        "plugin-journal".equals(fixture.path("family").asText()))
+                .toList();
+        assertFalse(fixtures.isEmpty(), "the plugin-journal golden family must stay registered");
+        return fixtures.stream().map(fixture -> dynamicTest(fixture.path("id").asText(), () -> replayJournal(fixture)));
+    }
+
+    private void replayJournal(final JsonNode fixture) throws Exception {
+        final byte[] original =
+                Files.readAllBytes(FIXTURES.resolve(fixture.path("path").asText()));
+        Files.createDirectories(journal().getParent());
+        Files.write(journal(), original);
+
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        assertFalse(pending.recoveryRequired(), "a released journal must never be treated as corrupt");
+        assertEquals("PLUGIN_PENDING_READY", pending.pendingChanges().code());
+
+        final List<PendingPluginOperations.Operation> operations = pending.operations();
+        assertEquals(2, operations.size(), "both released operations must be read");
+        final PendingPluginOperations.Operation uninstall = operations.get(0);
+        assertEquals("UNINSTALL", uninstall.type());
+        assertEquals("dev.turboism.plugin.example", uninstall.pluginId());
+        assertEquals("", uninstall.stagedJar());
+        assertEquals(0L, uninstall.jarSize());
+
+        final PendingPluginOperations.Operation install = operations.get(1);
+        assertEquals("INSTALL", install.type());
+        assertEquals("dev.turboism.plugin.uitheme", install.pluginId());
+        assertEquals("0.1.0", install.version());
+        assertTrue(install.rawSha256().matches("[0-9a-f]{64}"));
+        assertTrue(install.jarSha256().matches("[0-9a-f]{64}"));
+        assertNotEquals(
+                install.rawSha256(),
+                install.jarSha256(),
+                "the released journal records the package digest and the staged JAR digest separately");
+        assertEquals(130987L, install.jarSize());
+        assertTrue(install.descriptorSha256().matches("[0-9a-f]{64}"));
+        assertTrue(
+                install.stagedJar().endsWith("dev.turboism.plugin.uitheme-" + install.rawSha256() + ".jar"),
+                "the staged file name is derived from the package digest: " + install.stagedJar());
+        assertArrayEquals(original, Files.readAllBytes(journal()), "reading a released journal must not rewrite it");
     }
 }

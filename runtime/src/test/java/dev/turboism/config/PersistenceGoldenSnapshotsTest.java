@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.pluginmanagement.PluginCatalogStateStore;
 import dev.turboism.sdk.config.ConfigCodecs;
 import dev.turboism.sdk.config.ConfigDocument;
 import dev.turboism.sdk.config.ConfigErrorCode;
@@ -23,6 +25,9 @@ import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.ConfigValueSource;
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
@@ -36,6 +41,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -50,13 +56,31 @@ import org.junit.jupiter.api.io.TempDir;
  * <p>Fixtures whose {@code origin} is {@code verified-release-artifact} were produced by the
  * released writer recorded in the manifest. This test never decodes or migrates those bytes
  * itself: it hands the exact fixture bytes to {@link RuntimeConfigRepository},
- * {@link RuntimeTypedPluginConfigRegistry}, {@link UpdateStateStore} and
- * {@link UpdatePreferencesStore}. Migration policies registered for a typed document mirror the
- * owning plugin's own {@code ConfigMigration} chain (the runtime module deliberately has no
- * dependency on plugin modules); the migration engine, store and recovery-point writer are always
- * the production implementations.
+ * {@link RuntimeTypedPluginConfigRegistry}, {@link RuntimePluginConfigRegistry},
+ * {@link PluginCatalogStateStore}, {@link UpdateStateStore} and {@link UpdatePreferencesStore}.
+ * Migration policies registered for a typed document mirror the owning plugin's own
+ * {@code ConfigMigration} chain (the runtime module deliberately has no dependency on plugin
+ * modules); the migration engine, store and recovery-point writer are always the production
+ * implementations.
+ *
+ * <p>{@code pending.json}, {@code installed-build.json}, {@code journal.json} and the launch lease
+ * are replayed by the two suites that share their package-private production readers
+ * ({@code dev.turboism.pluginmanagement.PluginPersistenceJournalCompatibilityTest} and
+ * {@code dev.turboism.update.GoldenUpdateStateSnapshotsTest}). This class refuses any fixture whose
+ * family has no owner, so a new family cannot enter the corpus unreplayed.
  */
 class PersistenceGoldenSnapshotsTest {
+
+    private static final Set<String> REPLAYED_HERE =
+            Set.of("runtime-config", "typed-config", "plugin-properties", "catalog-state", "update-state");
+    private static final Set<String> REPLAYED_ELSEWHERE = Set.of("plugin-journal", "installed-build", "update-journal");
+    private static final String PROPERTIES_PLUGIN_ID = "dev.turboism.plugin.external-psd-edit";
+    private static final byte[] SYNTHETIC_CACHED_CATALOG =
+            "{\"note\":\"synthetic-golden-corpus-catalog-not-a-signed-document\"}"
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private static final byte[] SYNTHETIC_CACHED_SIGNATURE =
+            "{\"note\":\"synthetic-golden-corpus-envelope-not-a-signature\"}"
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Path FIXTURES =
@@ -73,8 +97,17 @@ class PersistenceGoldenSnapshotsTest {
         final JsonNode cases = JSON.readTree(Files.readAllBytes(FIXTURES.resolve("manifest.json")))
                 .path("snapshots");
         assertTrue(cases.isArray());
-        assertTrue(cases.size() >= 4, "golden snapshot matrix must never silently shrink");
-        return StreamSupport.stream(cases.spliterator(), false)
+        assertTrue(cases.size() >= 22, "golden snapshot matrix must never silently shrink");
+        final List<JsonNode> fixtures =
+                StreamSupport.stream(cases.spliterator(), false).toList();
+        for (final JsonNode fixture : fixtures) {
+            final String family = fixture.path("family").asText();
+            assertTrue(
+                    REPLAYED_HERE.contains(family) || REPLAYED_ELSEWHERE.contains(family),
+                    "no production replay owns golden family: " + family);
+        }
+        return fixtures.stream()
+                .filter(fixture -> REPLAYED_HERE.contains(fixture.path("family").asText()))
                 .map(fixture -> dynamicTest(fixture.path("id").asText(), () -> verify(fixture)));
     }
 
@@ -85,6 +118,8 @@ class PersistenceGoldenSnapshotsTest {
         switch (fixture.path("family").asText()) {
             case "runtime-config" -> verifyGlobalConfig(home, original, fixture);
             case "typed-config" -> verifyTypedConfig(home, original, fixture);
+            case "plugin-properties" -> verifyPluginProperties(home, original, fixture);
+            case "catalog-state" -> verifyCatalogState(home, original, fixture);
             case "update-state" -> verifyUpdateState(home, original, fixture);
             default -> throw new AssertionError("Unrecognized golden fixture family: " + relativePath);
         }
@@ -266,7 +301,13 @@ class PersistenceGoldenSnapshotsTest {
                     assertEquals(4L, first.value().revision());
                     assertArrayEquals(original, Files.readAllBytes(file), "a current document must not be rewritten");
                     assertTrue(store.recoveryPoints(documentPath).isEmpty());
-                    assertUnknownKeyRejected(registry, store, shape.primary(), documentPath, file);
+                    assertUnknownKeyRejected(
+                            registry,
+                            store,
+                            shape.primary(),
+                            documentPath,
+                            file,
+                            new StoredDocument(4, 5, Map.of("layout-mode", "COMPACT", "retired-key", "x")));
                     assertFutureVersionRejected(registry, store, shape.primary(), documentPath, file);
                 }
                 case "v1-webdav-reads-without-migration" -> {
@@ -284,6 +325,68 @@ class PersistenceGoldenSnapshotsTest {
                     assertTrue(store.recoveryPoints(documentPath).isEmpty());
                     assertFutureVersionRejected(registry, store, shape.primary(), documentPath, file);
                 }
+                case "v1-ui-theme-selection-reads-without-migration" -> {
+                    assertTypedValue(registry, shape.primary(), List.of("golden-theme"));
+                    final ConfigReadResult<?> first =
+                            registry.read(shape.primary()).toCompletableFuture().get(3, TimeUnit.SECONDS);
+                    assertEquals(1L, first.value().revision());
+                    assertArrayEquals(original, Files.readAllBytes(file), "a v1 document must not be rewritten");
+                    assertTrue(store.recoveryPoints(documentPath).isEmpty());
+                    assertUnknownKeyRejected(
+                            registry,
+                            store,
+                            shape.primary(),
+                            documentPath,
+                            file,
+                            new StoredDocument(1, 2, Map.of("retired-key", "x")));
+                    assertFutureVersionRejected(registry, store, shape.primary(), documentPath, file);
+                }
+                case "v2-dalsoo-layout-reads-without-migration" -> {
+                    assertTypedValue(registry, shape.keys().get(0), TextureAtlasLayoutBackend.DALSOO_POLYGON);
+                    assertTypedValue(registry, shape.keys().get(1), TextureAtlasRotationMode.NONE);
+                    assertTypedValue(registry, shape.keys().get(2), TextureAtlasLayoutQuality.DENSE);
+                    assertTypedValue(registry, shape.keys().get(3), false);
+                    assertTypedValue(registry, shape.keys().get(4), 250);
+                    assertTypedValue(registry, shape.keys().get(5), false);
+                    assertTypedValue(registry, shape.keys().get(6), true);
+                    assertTypedValue(registry, shape.keys().get(7), "ANGLE");
+                    assertTypedValue(registry, shape.keys().get(8), 75);
+                    assertTypedValue(registry, shape.keys().get(9), 8);
+                    assertTypedValue(registry, shape.keys().get(10), List.of("golden-model/golden-texture|1|0|1|0"));
+                    assertArrayEquals(
+                            original, Files.readAllBytes(file), "a current v2 document must not be rewritten");
+                    assertTrue(store.recoveryPoints(documentPath).isEmpty());
+                    assertUnknownKeyRejected(
+                            registry,
+                            store,
+                            shape.primary(),
+                            documentPath,
+                            file,
+                            new StoredDocument(2, 2, Map.of("backend", "AUTO", "retired-key", "x")));
+                    assertFutureVersionRejected(registry, store, shape.primary(), documentPath, file);
+
+                    // No published release ever wrote schema 1 of this document (inventory §14 G5),
+                    // so the v1 input is produced here with the production store. The read path must
+                    // run the approved v1 -> v2 rule (add the three preset defaults), keep the
+                    // pre-upgrade bytes as a recovery point and stay idempotent.
+                    store.writeAtomic(documentPath, new StoredDocument(1, 3, Map.of("backend", "HOST_NATIVE")));
+                    final byte[] v1Bytes = Files.readAllBytes(file);
+                    final ConfigReadResult<?> migrated =
+                            registry.read(shape.primary()).toCompletableFuture().get(3, TimeUnit.SECONDS);
+                    assertEquals(ConfigValueSource.STORED, migrated.value().source());
+                    assertEquals(
+                            TextureAtlasLayoutBackend.HOST_NATIVE,
+                            migrated.value().value());
+                    assertEquals(4L, migrated.value().revision());
+                    assertEquals(2, store.read(documentPath).orElseThrow().schemaVersion());
+                    final var dalsooPoints = store.recoveryPoints(documentPath);
+                    assertEquals(1, dalsooPoints.size(), "a read-time migration must retain one pre-migration image");
+                    assertArrayEquals(v1Bytes, Files.readAllBytes(dalsooPoints.get(0)));
+                    final ConfigReadResult<?> repeated =
+                            registry.read(shape.primary()).toCompletableFuture().get(3, TimeUnit.SECONDS);
+                    assertEquals(4L, repeated.value().revision());
+                    assertEquals(1, store.recoveryPoints(documentPath).size());
+                }
                 default -> throw new AssertionError("Unrecognized golden fixture expectation: " + expectation);
             }
         } finally {
@@ -291,6 +394,89 @@ class PersistenceGoldenSnapshotsTest {
                 scheduler.shutdown();
             }
         }
+    }
+
+    /**
+     * Family 3: the released {@code java.util.Properties} writer under the plugin data directory.
+     *
+     * <p>The released file is read with the production {@link RuntimePluginConfigRegistry}. A key
+     * this build no longer owns must survive both the read and a later production write, which is
+     * the behaviour the merge-on-write format depends on. Bytes are not stable across writes
+     * ({@code Properties.store} stamps a timestamp), so only the read is byte-immutable.</p>
+     */
+    private void verifyPluginProperties(final Path home, final byte[] original, final JsonNode fixture)
+            throws Exception {
+        final String documentPath = fixture.path("documentPath").asText();
+        final Path dataDir = home.resolve("data").resolve(PROPERTIES_PLUGIN_ID);
+        Files.createDirectories(dataDir);
+        final Path file = dataDir.resolve(documentPath);
+        Files.write(file, original);
+
+        final RuntimeScheduler scheduler = new RuntimeScheduler(
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                ignored -> {});
+        try (RuntimePluginConfigRegistry registry = new RuntimePluginConfigRegistry(
+                        PermissionChecker.allowAll(), scheduler, dataDir, PROPERTIES_PLUGIN_ID);
+                Registration readScope = registry.readScope(documentPath)) {
+            assertEquals(
+                    Optional.of("C:/GoldenCorpus/external-editor.exe"),
+                    registry.readString(documentPath, "applicationPath"));
+            assertEquals(Optional.of("keep-me"), registry.readString(documentPath, "retired.preference"));
+            assertArrayEquals(original, Files.readAllBytes(file), "reading released properties must not rewrite them");
+
+            try (Registration writeScope = registry.writeScope(documentPath)) {
+                registry.writeString(documentPath, "applicationPath", "C:/GoldenCorpus/other-editor.exe");
+            }
+            assertEquals(
+                    Optional.of("C:/GoldenCorpus/other-editor.exe"),
+                    registry.readString(documentPath, "applicationPath"));
+            assertEquals(
+                    Optional.of("keep-me"),
+                    registry.readString(documentPath, "retired.preference"),
+                    "a key this build no longer owns must survive a production write");
+        } finally {
+            if (!scheduler.isClosed()) {
+                scheduler.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Family 4: the released {@code catalog-state.json} v2 document, read with the production
+     * {@link PluginCatalogStateStore}. The cached payloads are synthetic placeholders, never a real
+     * signed catalog or signature.
+     */
+    private void verifyCatalogState(final Path home, final byte[] original, final JsonNode fixture) throws Exception {
+        final Path file = home.resolve(fixture.path("documentPath").asText());
+        Files.createDirectories(file.getParent());
+        Files.write(file, original);
+
+        final PluginCatalogStateStore store = new PluginCatalogStateStore(home);
+        final PluginCatalogStateStore.State state = store.read();
+        assertEquals(OptionalLong.of(42L), state.catalogVersion());
+        assertEquals(Optional.of(Instant.parse("2026-09-30T12:00:00Z")), state.publishedAt());
+        assertEquals(
+                Optional.of("59a36fd75921b6aa47ec76753997c2660f32b583272397733de22704d6e4f169"), state.catalogSha256());
+        assertEquals(Optional.of("W/\"golden-corpus-0.67.4\""), state.etag());
+        assertEquals(Optional.of(Instant.parse("2026-09-30T12:05:00Z")), state.lastAutomaticAttempt());
+        assertArrayEquals(SYNTHETIC_CACHED_CATALOG, state.cachedCatalogBytes().orElseThrow());
+        assertArrayEquals(
+                SYNTHETIC_CACHED_SIGNATURE, state.cachedSignatureBytes().orElseThrow());
+        assertEquals(Map.of("dev.turboism.plugin.example", "0.2.0"), state.stagedUpdates());
+        assertArrayEquals(original, Files.readAllBytes(file), "reading a v2 document must not rewrite it");
+
+        // The same v2 document must be writable by the current writer without losing its meaning.
+        assertTrue(store.save(state));
+        final PluginCatalogStateStore.State rewritten = new PluginCatalogStateStore(home).read();
+        assertEquals(state.etag(), rewritten.etag());
+        assertEquals(state.catalogVersion(), rewritten.catalogVersion());
+        assertEquals(state.publishedAt(), rewritten.publishedAt());
+        assertEquals(state.stagedUpdates(), rewritten.stagedUpdates());
+        assertArrayEquals(
+                SYNTHETIC_CACHED_CATALOG, rewritten.cachedCatalogBytes().orElseThrow());
+        assertArrayEquals(
+                SYNTHETIC_CACHED_SIGNATURE, rewritten.cachedSignatureBytes().orElseThrow());
     }
 
     private static void verifyUpdateState(final Path home, final byte[] original, final JsonNode fixture)
@@ -336,9 +522,10 @@ class PersistenceGoldenSnapshotsTest {
             final TypedConfigDocumentStore store,
             final ConfigKey<?> primary,
             final String documentPath,
-            final Path file)
+            final Path file,
+            final StoredDocument retrievableKeyDocument)
             throws Exception {
-        store.writeAtomic(documentPath, new StoredDocument(4, 5, Map.of("layout-mode", "COMPACT", "retired-key", "x")));
+        store.writeAtomic(documentPath, retrievableKeyDocument);
         final byte[] unknownBytes = Files.readAllBytes(file);
         final ConfigReadResult<?> rejected =
                 registry.read(primary).toCompletableFuture().get(3, TimeUnit.SECONDS);
@@ -417,6 +604,50 @@ class PersistenceGoldenSnapshotsTest {
                     List.of(mode));
         }
         final String webdav = "golden.webdav";
+        if ("v1-ui-theme-selection-reads-without-migration".equals(expectation)) {
+            final String uiTheme = "golden.ui-theme";
+            final ConfigKey<List<String>> selected =
+                    new ConfigKey<>(uiTheme, "selected-theme", List.of(), ConfigCodecs.boundedStringList(1, 128));
+            return new TypedShape(
+                    new ConfigSchema(uiTheme, documentPath, 1, List.of(selected)),
+                    List.of(),
+                    selected,
+                    List.of(selected));
+        }
+        if ("v2-dalsoo-layout-reads-without-migration".equals(expectation)) {
+            final String dalsoo = "golden.texture-atlas-dalsoo";
+            final List<ConfigKey<?>> keys = List.of(
+                    new ConfigKey<>(
+                            dalsoo,
+                            "backend",
+                            TextureAtlasLayoutBackend.AUTO,
+                            ConfigCodecs.enumValue(TextureAtlasLayoutBackend.class)),
+                    new ConfigKey<>(
+                            dalsoo,
+                            "rotation",
+                            TextureAtlasRotationMode.QUARTER,
+                            ConfigCodecs.enumValue(TextureAtlasRotationMode.class)),
+                    new ConfigKey<>(
+                            dalsoo,
+                            "quality",
+                            TextureAtlasLayoutQuality.BALANCED,
+                            ConfigCodecs.enumValue(TextureAtlasLayoutQuality.class)),
+                    new ConfigKey<>(dalsoo, "auto-scale", true, ConfigCodecs.booleanValue()),
+                    new ConfigKey<>(dalsoo, "fixed-scale-percent", 100, ConfigCodecs.boundedInt(1, 800)),
+                    new ConfigKey<>(dalsoo, "use-abey", true, ConfigCodecs.booleanValue()),
+                    new ConfigKey<>(dalsoo, "parallel", false, ConfigCodecs.booleanValue()),
+                    // The preset enum belongs to the plugin module the runtime must not depend on;
+                    // the document stores the constant name, so it mirrors as bounded text.
+                    new ConfigKey<>(dalsoo, "lock-preset", "NONE", ConfigCodecs.stringValue(32)),
+                    new ConfigKey<>(dalsoo, "auto-scale-tolerance-permille", 0, ConfigCodecs.boundedInt(0, 1000)),
+                    new ConfigKey<>(dalsoo, "auto-scale-max-try", 0, ConfigCodecs.boundedInt(0, 64)),
+                    new ConfigKey<>(dalsoo, "item-policies", List.of(), ConfigCodecs.boundedStringList(4096, 256)));
+            return new TypedShape(
+                    new ConfigSchema(dalsoo, documentPath, 2, keys),
+                    List.of(dalsooV1ToV2(keys.get(7), keys.get(8), keys.get(9))),
+                    keys.get(0),
+                    keys);
+        }
         final List<ConfigKey<?>> keys = List.of(
                 new ConfigKey<>(webdav, "enabled", false, ConfigCodecs.booleanValue()),
                 new ConfigKey<>(webdav, "url", "", ConfigCodecs.stringValue(512)),
@@ -454,6 +685,35 @@ class PersistenceGoldenSnapshotsTest {
                     retained.put(mode.name(), stored);
                 }
                 return new ConfigDocument(to, retained);
+            }
+        };
+    }
+
+    /**
+     * Mirrors the polygon plugin's own {@code V1_TO_V2} step: schema 2 added the lock preset and
+     * the two automatic-scale bounds, which default to {@code NONE}/{@code 0}/{@code 0}; every
+     * stored value is retained. The migration engine that executes it is production code.
+     */
+    private static ConfigMigration dalsooV1ToV2(
+            final ConfigKey<?> lockPreset, final ConfigKey<?> tolerance, final ConfigKey<?> maxTry) {
+        return new ConfigMigration() {
+            @Override
+            public int fromVersion() {
+                return 1;
+            }
+
+            @Override
+            public int toVersion() {
+                return 2;
+            }
+
+            @Override
+            public ConfigDocument migrate(final ConfigDocument input) {
+                final Map<String, String> retained = new java.util.LinkedHashMap<>(input.encodedValues());
+                retained.putIfAbsent(lockPreset.name(), "NONE");
+                retained.putIfAbsent(tolerance.name(), "0");
+                retained.putIfAbsent(maxTry.name(), "0");
+                return new ConfigDocument(2, retained);
             }
         };
     }

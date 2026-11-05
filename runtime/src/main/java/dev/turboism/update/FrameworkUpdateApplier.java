@@ -645,6 +645,34 @@ final class FrameworkUpdateApplier {
     // ---------------------------------------------------------------- journal
 
     private ObjectNode readJournal(final Path path) throws IOException {
+        return readJournal(path, work);
+    }
+
+    /** One validated journal, described without binding it to the installation being inspected. */
+    record JournalSummary(String state, String version, int files) {}
+
+    /**
+     * Validates and summarizes the journal held by {@code work} exactly as {@link #recover} does.
+     *
+     * <p>Nothing is mutated and the installation binding is deliberately not compared: diagnostics
+     * and the release corpus must be able to read an old journal's shape on a machine that is not
+     * that installation. {@link #recover} still refuses a journal whose recorded root differs, so a
+     * foreign journal can never roll back the wrong installation.</p>
+     *
+     * @param work the helper work directory that owns {@code journal.json}
+     * @return the validated summary, or empty when no journal exists
+     */
+    static Optional<JournalSummary> inspectJournal(final Path work) throws IOException {
+        final Path journal = work.toAbsolutePath().normalize().resolve(JOURNAL);
+        if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS)) return Optional.empty();
+        final ObjectNode parsed = readJournal(journal, work.toAbsolutePath().normalize());
+        return Optional.of(new JournalSummary(
+                parsed.path("state").asText(),
+                parsed.path("version").asText(),
+                parsed.path("files").size()));
+    }
+
+    private static ObjectNode readJournal(final Path path, final Path work) throws IOException {
         FrameworkUpdateCache.installationAncestors(work);
         final BasicFileAttributes a = FrameworkUpdateCache.attributes(path);
         if (a == null || !a.isRegularFile() || a.size() > 1024 * 1024) throw new IOException("Invalid journal");
