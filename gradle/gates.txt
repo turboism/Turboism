@@ -1,0 +1,166 @@
+# The aggregate gate graph as data. Read twice, both fail-closed:
+#   buildSrc/src/main/java/dev/turboism/gradle/internal/GateManifest.java  registers the tasks
+#   scripts/test/test_ci_coverage.py                                       asserts the contract
+#
+# Grammar, one declaration per line. `#` starts a comment (outside quotes); blank lines are free.
+#
+#   aggregate <name> group="…" owner="<workflow>:<line>"|"via:<aggregate>"
+#                     harm="…" description="…" [release-flags] [require-xvfb]
+#   member <aggregate> <task path | @token>
+#   manual|opt-in|orphan <task> reason="…" [doc="<path>:<line>"]
+#
+# `owner` names the workflow that launches the aggregate and the line that does it, or `via:` the
+# aggregate that launches it. `harm` cites the concrete user-harm mode when the gate is absent
+# (ARCHITECTURE_GOVERNANCE.md); both are mandatory, and a member must name a declared aggregate.
+# Member order is the registration order, so reordering a member list is a behaviour change.
+#
+# `@token` members are the dynamic collections the script binds (see verification.gradle.kts); an
+# unbound token, or a bound token no member names, fails the load. Every other member stays a lazy
+# dependency by task name, so a task registered by a later script still resolves.
+#
+# Routes explain why a task is not an aggregate member. `manual` is run by a human on demand,
+# `opt-in` is reached outside the static aggregate graph (a module `check` alias, a dynamic
+# cross-project edge, or an explicit workflow lane), and `orphan` is a tombstone with no route at
+# all that a maintainer must resolve. Every `check*`/`*SelfTest`/`verify*` task must be a member or
+# routed, so a gate cannot shrink without a diff.
+
+# --- devCheck: the daily slice gate -------------------------------------------------------------
+aggregate devCheck group="verification" owner=".github/workflows/ci.yml:76" description="Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice." harm="a boundary, boundary-scan or code-quality regression reaches main through a daily slice because the fast gate never ran, and is found only at release time"
+member devCheck @matching:checkGeneratedSubscriberCatalogs
+member devCheck checkPluginBoundaries
+member devCheck checkPluginPermissionAudit
+member devCheck checkDraftContractDiagnostics
+member devCheck checkDependencyInventory
+member devCheck checkArchitectureRules
+member devCheck checkGoldenSnapshotManifest
+member devCheck :runtime:persistenceGoldenSnapshotsTest
+member devCheck @all-module-classes
+member devCheck checkDuplicateJavaImports
+member devCheck checkPackageLayout
+member devCheck checkModuleBoundaries
+member devCheck checkCodeQuality
+member devCheck checkThrowableContainment
+member devCheck checkValidationToolsSync
+member devCheck checkPythonLint
+member devCheck checkCompatibilityMatrix
+member devCheck checkShellLint
+member devCheck checkAsmDependencyModel
+member devCheck checkResolvedBytecodeDependencyGraph
+member devCheck checkInstallerPluginSections
+member devCheck checkProbeTerminalSelftest
+member devCheck checkHostProbeResultContract
+member devCheck checkCleanWorktreeSafety
+member devCheck checkShellLintRequiresShellcheck
+member devCheck checkHostCleanupEnvMerge
+member devCheck checkCleanupFailurePropagation
+member devCheck checkTestExecutionGuard
+member devCheck checkPluginTemplateSetup
+member devCheck checkRepositoryHygiene
+member devCheck checkEditorModelAliases
+member devCheck checkMaterializedRecords
+member devCheck checkReviewedReleases
+member devCheck checkSdkCubismEditorAnnotations
+member devCheck validatePluginMeta
+member devCheck checkPluginApiRanges
+member devCheck checkPluginApiFloors
+member devCheck :runtime:checkHeadlessRuntimeClasspath
+member devCheck :runtime:admissionPreflightTest
+member devCheck :runtime:admissionUnitTests
+member devCheck :persistence-core:test
+member devCheck :compatibility-policy:test
+member devCheck :sdk:test
+member devCheck :bootstrap:test
+member devCheck :testing:integration-tests:admissionUnitTests
+
+# --- checkIntegration: packaged and cross-module behaviour --------------------------------------
+aggregate checkIntegration group="verification" owner="via:checkCompletedCommit" description="Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification." harm="a packaged, cross-module or preview-agent seam breaks in a shipped build because integration behaviour was only ever exercised in isolation"
+member checkIntegration devCheck
+member checkIntegration checkExternalPluginTemplate
+member checkIntegration checkAsyncHostReadFoundation
+member checkIntegration checkCubismCoreApiInventory
+member checkIntegration checkCubismCoreMemberPolicy
+member checkIntegration checkCubismCoreSelectorPolicy
+member checkIntegration :runtime:corePublicApiProviderTest
+member checkIntegration checkPluginInspectionRuntime
+member checkIntegration verifyFirstPartyPluginMetadata
+member checkIntegration verifyFirstPartyPluginReadmes
+member checkIntegration checkDistributionProtocolContract
+member checkIntegration checkOfficialPluginI18nCompleteness
+member checkIntegration checkPreviewBundleLayout
+member checkIntegration checkPsdClipMaskHostValidationBundle
+member checkIntegration checkHistoryValidationProbePackaging
+member checkIntegration checkCubismHostValidationLocalTransport
+member checkIntegration previewBootstrapBridgeTest
+member checkIntegration :testing:integration-tests:hostValidationScriptContractTest
+member checkIntegration :bootstrap:checkBootstrapJarDependencyIsolation
+member checkIntegration :bootstrap:checkBootstrapLaunchLeasePremain
+member checkIntegration :testing:integration-tests:previewPluginRuntimeTest
+
+# --- checkCompletedCommit: everything a coherent change must survive ---------------------------
+aggregate checkCompletedCommit group="verification" owner=".github/workflows/ci.yml:76" description="Runs the complete automated repository gate for a coherent completed change." harm="a change lands with a failing module suite, unformatted sources, a stale SDK API baseline or an unexecuted test corpus, so a green main stops meaning the repository is releasable"
+member checkCompletedCommit checkIntegration
+member checkCompletedCommit @all-module-tests
+member checkCompletedCommit :sdk:javadoc
+member checkCompletedCommit checkOfficialPluginI18nCompleteness
+member checkCompletedCommit checkOfficialPluginReadmes
+member checkCompletedCommit checkPluginApiRanges
+member checkCompletedCommit checkPluginApiFloors
+member checkCompletedCommit checkDraftPackMetadata
+member checkCompletedCommit checkReviewedReleases
+member checkCompletedCommit checkVerificationSources
+member checkCompletedCommit checkSdkApiBaselineTool
+member checkCompletedCommit checkPluginEventReference
+member checkCompletedCommit checkPerformanceProbeReports
+member checkCompletedCommit checkHostToolingSelfTest
+member checkCompletedCommit checkLocalizedChangelogs
+member checkCompletedCommit checkLocalizedChangelogsSelfTest
+member checkCompletedCommit @all-module-spotless
+member checkCompletedCommit checkSdkApiCurrent
+# Registered later in verification.gradle.kts (forward references stay lazy by name).
+member checkCompletedCommit checkFrameworkUpdateTooling
+member checkCompletedCommit checkWindowsUpdateNativeSources
+member checkCompletedCommit checkBootstrapReceipt
+member checkCompletedCommit :bootstrap:checkBootstrapLaunchLeasePremain
+# Registered by gradle/architecture-governance.gradle.kts and duplicated from checkRelease below so
+# each gate states its full dependency set; the CI coverage contract keeps both lists equal.
+member checkCompletedCommit checkArchitectureRules
+member checkCompletedCommit checkGoldenSnapshotManifest
+
+# --- checkReleasePackaging: the release delta, once, without the completed-commit closure ------
+aggregate checkReleasePackaging group="release verification" owner=".github/workflows/unified-channel-checks.yml:154" description="Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure." harm="an unsigned, unversioned or wrongly localized installer reaches a user because the release delta never ran against the release build identity" release-flags
+member checkReleasePackaging checkReleaseTooling
+member checkReleasePackaging checkInstallerVersion
+member checkReleasePackaging checkMarketReleaseMetadata
+member checkReleasePackaging checkAsmSupplyChainAdmission
+member checkReleasePackaging checkMappingReviewWrapperArgs
+member checkReleasePackaging checkInstallerLocalization
+member checkReleasePackaging checkWindowsInstaller
+
+# --- checkRelease: the formal candidate gate ---------------------------------------------------
+aggregate checkRelease group="verification" owner=".github/workflows/release.yml:241" description="Runs completed-commit verification plus supply-chain and historical release audits." harm="a release candidate ships with a supply-chain, SDK API or installer regression that the completed-commit gate alone does not cover" release-flags require-xvfb
+member checkRelease checkCompletedCommit
+member checkRelease checkReleasePackaging
+# Registered by gradle/architecture-governance.gradle.kts and reachable through
+# checkCompletedCommit; listed here so this gate states its full dependency set.
+member checkRelease checkArchitectureRules
+member checkRelease checkGoldenSnapshotManifest
+
+# --- routes: why a gate is not an aggregate member ---------------------------------------------
+manual check reason="Gradle lifecycle alias: the root project forwards it to devCheck in verification.gradle.kts, so the aggregate is reached by name instead of membership"
+manual checkCubismHostValidationArguments reason="offline argument-transport check for a host-validation lane that no aggregate launches"
+manual checkCubismHostValidationJavaEvidence reason="offline Java-evidence envelope check for a host-validation lane that no aggregate launches"
+manual checkFloatArrayValidationBundle reason="builds the native float validator and therefore needs a C toolchain; kept out of every default aggregate" doc="gradle/image-archive-validation.gradle.kts"
+manual checkImageArchiveValidationBundle reason="builds the native PNG validators and therefore needs a C toolchain; kept out of every default aggregate" doc="gradle/image-archive-validation.gradle.kts"
+manual checkResourceValidationBundle reason="builds the native resource validators and therefore needs a C toolchain; kept out of every default aggregate" doc="gradle/image-archive-validation.gradle.kts"
+manual checkTextureUploadValidationBundle reason="builds the native texture validator and therefore needs a C toolchain; kept out of every default aggregate" doc="gradle/image-archive-validation.gradle.kts"
+manual checkWarpPositionValidationBundle reason="builds the native warp-position validator and therefore needs a C toolchain; kept out of every default aggregate" doc="gradle/image-archive-validation.gradle.kts"
+manual checkGraalPreviewLauncherContract reason="asserts the preview launcher's Graal closure claim offline; on demand only, no aggregate launches it" doc="scripts/preview/launch-cubism-turboism.ps1"
+manual checkGraalScriptHostValidation reason="launches a real Graal script host, which no offline gate may start" doc="graal-host/build.gradle.kts"
+manual checkGraalScriptHostValidationDryRun reason="dry-run companion of checkGraalScriptHostValidation; run together with it" doc="graal-host/build.gradle.kts"
+manual verifyStaticHostSelectors reason="needs a separately supplied host artifact and verification record; never part of a default aggregate" doc="compatibility/cubism/version-onboarding.md:91"
+manual checkBootstrapJarLicenses reason="finalizes :bootstrap:jar, so every build that produces the fat JAR runs it without being an aggregate member" doc="bootstrap/build.gradle.kts:187"
+opt-in verifySelectionBrushJar reason="module check anchor of :plugins:selection-brush, reached through checkPluginBoundaries contractTaskNames (a dynamic cross-project edge)" doc="plugins/selection-brush/build.gradle.kts:8"
+opt-in verifyGeometricMeshLayoutJar reason="module check anchor of :plugins:geometric-mesh-layout, reached through checkPluginBoundaries contractTaskNames (a dynamic cross-project edge)" doc="plugins/geometric-mesh-layout/build.gradle.kts:8"
+opt-in checkJavaInstaller reason="builds the Java installer, so only the macOS packaging verification workflow launches it" doc=".github/workflows/macos-packaging-verification.yml:47"
+opt-in checkInstallerPluginJsonUnicodeEscapes reason="runs inside checkJavaInstaller; no aggregate launches the installer build" doc=".github/workflows/macos-packaging-verification.yml:47"
+orphan checkGraalHostTargetSelection reason="no aggregate contains :graal-host:check and the root check alias forwards to devCheck, so this gate runs nowhere; tracked as an open question (does :graal-host:check stay unreachable?) and must be wired or deleted deliberately" doc="graal-host/build.gradle.kts:87"
