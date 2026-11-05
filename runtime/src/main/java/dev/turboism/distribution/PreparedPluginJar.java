@@ -1,11 +1,12 @@
 package dev.turboism.distribution;
 
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.nio.file.Path;
 import java.util.Objects;
 
 /** Runtime-private installation evidence produced from a directly selected plugin JAR. */
 public record PreparedPluginJar(
-        PluginDescriptorSnapshot descriptor, String descriptorSha256, Path stagedJar, String jarSha256, long jarSize) {
+        PluginDescriptor descriptor, String descriptorSha256, Path stagedJar, String jarSha256, long jarSize) {
     /** Validates and normalizes direct-JAR installation evidence. */
     public PreparedPluginJar {
         descriptor = Objects.requireNonNull(descriptor, "descriptor");

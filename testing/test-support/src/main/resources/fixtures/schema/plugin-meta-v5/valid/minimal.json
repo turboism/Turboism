@@ -1,0 +1,41 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 5,
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "description": "Sample schema v5 plugin metadata fixture with an embedded public contract artifact.",
+  "entrypoints": [
+    "dev.turboism.plugin.sample.SamplePlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  },
+  "category": "workflow",
+  "tags": [],
+  "eventExports": [],
+  "eventImports": [],
+  "eventContracts": [
+    {
+      "id": "sample.events",
+      "version": "1.0.0",
+      "artifact": "META-INF/turboism/contracts/sample-events-1.0.0.jar",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}
