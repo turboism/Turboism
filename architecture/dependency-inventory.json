@@ -685,10 +685,6 @@
         "dev.turboism.core"
       ],
       [
-        "dev.turboism.hook",
-        "dev.turboism.core"
-      ],
-      [
         "dev.turboism.hostread",
         "dev.turboism.task"
       ],
@@ -1018,7 +1014,6 @@
       "dev.turboism.filechooser",
       "dev.turboism.graal",
       "dev.turboism.home",
-      "dev.turboism.hook",
       "dev.turboism.hostread",
       "dev.turboism.i18n",
       "dev.turboism.internal",

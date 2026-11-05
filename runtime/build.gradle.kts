@@ -443,6 +443,43 @@ sourceSets.named("headlessProbe") {
     runtimeClasspath += sourceSets.main.get().runtimeClasspath
 }
 
+// Mapping review tooling (draft review pipeline, static-verification CLI) runs from a JavaExec
+// task, never from the agent: no src/main/java type references it, so it must not ship in the
+// runtime JAR. It stays in this module because it compiles against the production mapping,
+// schema and verification types, and it keeps its package names so the FQN-based launchers
+// (`mappingReview`, `verifyStaticHostSelectors`) still resolve.
+sourceSets {
+    create("tooling") {
+        java.srcDir("src/tooling/java")
+    }
+}
+sourceSets.named("tooling") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+    runtimeClasspath += sourceSets.main.get().runtimeClasspath
+}
+// The matching tests stay in src/test/java. The two source sets declare disjoint packages, so
+// the tooling output is added to the test classpath rather than duplicated into a toolingTest
+// source set.
+sourceSets.named("test") {
+    compileClasspath += sourceSets["tooling"].output
+    runtimeClasspath += sourceSets["tooling"].output
+}
+// Single consumable projection of the tooling output so the integration fixture tests depend on
+// it by name instead of reaching into another project's source sets.
+val toolingJar by tasks.registering(Jar::class) {
+    description = "Packages the build-time mapping review tooling; never a runtime dependency."
+    from(sourceSets["tooling"].output)
+    archiveClassifier.set("tooling-${rootProject.extra["turboismResolvedWorktreeId"]}")
+}
+val toolingElements by configurations.creating {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+}
+
+artifacts {
+    add("toolingElements", toolingJar)
+}
+
 val headlessProbeHome = layout.buildDirectory.dir("headless-probe/home")
 
 val headlessClasspathStamp = layout.buildDirectory.file("verification-stamps/checkHeadlessRuntimeClasspath.stamp")

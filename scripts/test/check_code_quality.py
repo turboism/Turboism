@@ -46,6 +46,9 @@ from pathlib import Path
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
+    # Build-time review tooling compiled in :runtime but excluded from the runtime JAR. It is
+    # production source for the CLI lanes, so it keeps Javadoc and naming coverage.
+    "runtime/src/tooling/java",
     "bootstrap/src/main/java",
     "core-contract/src/main/java",
     "persistence-core/src/main/java",
