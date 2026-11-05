@@ -1,10 +1,56 @@
+# Unified build channel, distribution and release-tooling checks.
+#
+# This workflow owns every responsibility the former distribution-ci,
+# download-counts-ci and release-notes-checks workflows repeated: one Node
+# distribution suite, one release/channel Python selection, one Worker dry-run
+# and one source archive. The ordinary pull-request closure stays in ci.yml;
+# nothing here re-executes devCheck, checkCompletedCommit or the full
+# checkRelease closure. Instead:
+#
+#   verify          no Gradle: release/channel/distribution regression tests,
+#                   Worker bundle dry-run, worktree hygiene, source archive.
+#   release-gates   one shared upstream (needs: verify): the single serial
+#                   no-clean channel chain plus the release-only Gradle gate.
+#   channel-package one real package per channel (matrix), no shared closure.
+#
+# release-notes/** is deliberately not a trigger: those files are data rendered by
+# the required devCheck lane (`checkLocalizedChangelogs` runs on every pull
+# request without path filters), so a notes-only edit must not schedule the real
+# stable/beta/nightly packaging matrix.
+
 name: Unified build channel checks
 on:
   push:
     branches: [main]
-    paths: ['gradle/**', 'runtime/**', 'scripts/release/**', 'scripts/test/**', 'packaging/**', '.github/workflows/**', 'RELEASING.md', 'build.gradle.kts', 'settings.gradle.kts', 'gradlew', 'gradlew.bat', 'buildSrc/**', 'distribution/**']
+    paths:
+      - 'gradle/**'
+      - 'runtime/**'
+      - 'scripts/release/**'
+      - 'scripts/test/**'
+      - 'packaging/**'
+      - '.github/workflows/**'
+      - 'RELEASING.md'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'buildSrc/**'
+      - 'distribution/**'
   pull_request:
-    paths: ['gradle/**', 'runtime/**', 'scripts/release/**', 'scripts/test/**', 'packaging/**', '.github/workflows/**', 'RELEASING.md', 'build.gradle.kts', 'settings.gradle.kts', 'gradlew', 'gradlew.bat', 'buildSrc/**', 'distribution/**']
+    paths:
+      - 'gradle/**'
+      - 'runtime/**'
+      - 'scripts/release/**'
+      - 'scripts/test/**'
+      - 'packaging/**'
+      - '.github/workflows/**'
+      - 'RELEASING.md'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'buildSrc/**'
+      - 'distribution/**'
 permissions:
   contents: read
 concurrency:
@@ -22,21 +68,28 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
-      - name: Release, channel and API regression tests
+      - name: Distribution, release and channel regression tests
+        # The release tooling modules executed by the Gradle gate
+        # (test_release_tooling / orchestrator / promotion) are intentionally not
+        # repeated here; every other release, channel and distribution suite runs
+        # exactly once in this repository.
         run: |
           python3 -m unittest discover -s scripts/release -p 'test_*.py'
-          python3 -m unittest discover -s scripts/test -p 'test_release*.py'
-          python3 -m unittest discover -s scripts/test -p 'test_build_channels.py'
-          python3 -m unittest discover -s scripts/test -p 'test_nightly.py'
-          python3 -m unittest discover -s scripts/test -p 'test_prerelease.py'
-          python3 -m unittest discover -s scripts/test -p 'test_product_cli.py'
+          python3 -m unittest scripts.test.test_build_channels scripts.test.test_nightly scripts.test.test_prerelease scripts.test.test_product_cli scripts.test.test_release_details
           node --test distribution/test/*.test.mjs
-          python3 scripts/check_remote_hygiene.py --worktree
-      - name: Retain exact tested source
+          git diff --check
+          npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir artifacts/worker
+      - name: Source hygiene
+        run: python3 scripts/check_remote_hygiene.py --worktree
+      - name: Retain exact tested source and history
+        # One archive for the repository: the exact source, the commit and the tag
+        # history used by independent review. The former release-notes workflow kept
+        # this same bundle; it is not duplicated anywhere else.
         if: always()
         run: |
           mkdir -p artifacts
           git archive HEAD | gzip > artifacts/source.tar.gz
+          git bundle create artifacts/history.bundle HEAD --tags
           git rev-parse HEAD > artifacts/commit.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -44,8 +97,65 @@ jobs:
           name: unified-channel-source
           path: artifacts
           retention-days: 7
-  package-check:
+  release-gates:
+    # Single upstream for the three channel packages. The no-clean
+    # beta→nightly→stable switch regression must stay one serial chain in one
+    # build directory (splitting it per channel would lose the stale-resource
+    # coverage), and the release-only gate must not re-run the public
+    # completed-commit closure that ci.yml already executed for this commit.
     needs: verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Restore Gradle build and SDK reference caches
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            ~/.gradle/caches/turboism-sdk-reference-v1
+          key: turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-CI-
+            turboism-gradle-build-cache-v1-
+      - name: Install the NSIS installer compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends nsis
+      - name: Check local metadata and successive channel inputs without cleaning
+        # Runs before any QA identity is injected: the chain must observe the
+        # ordinary local metadata, and TURBOISM_BUILD_CHANNEL=stable would make the
+        # beta/nightly runs fail the channel-identity consistency check.
+        run: |
+          ./gradlew --no-daemon -q printBuildInfo
+          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
+          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
+          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
+      - name: Resolve explicit QA-only identity, without allocating or publishing a product build
+        run: |
+          BASE=$(python3 -c 'import sys;sys.path.insert(0,"scripts/release");from turboism_release.versions import framework_version;from pathlib import Path;print(framework_version(Path.cwd()))')
+          echo "TURBOISM_BUILD_VERSION=$BASE" >> "$GITHUB_ENV"
+          echo "TURBOISM_BUILD_CHANNEL=stable" >> "$GITHUB_ENV"
+          echo "TURBOISM_BUILD_NUMBER=900000000" >> "$GITHUB_ENV"
+          echo "TURBOISM_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_turboismRelease=true" >> "$GITHUB_ENV"
+      - name: Run the release-only gate
+        run: ./gradlew --no-daemon checkReleasePackaging -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
+  channel-package:
+    # Real per-channel identity and packages stay per channel; only the shared
+    # upstream work moved out of this matrix.
+    needs: release-gates
     strategy:
       fail-fast: false
       matrix:
@@ -72,25 +182,15 @@ jobs:
           restore-keys: |
             turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-${{ github.sha }}-
             turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
             turboism-gradle-build-cache-v1-${{ github.workflow }}-
             turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
             turboism-gradle-build-cache-v1-CI-
             turboism-gradle-build-cache-v1-
-      - name: Install the pinned scripts lint tool
-        run: python3 -m pip install 'ruff==0.16.9'
-
-      - name: Install the AST architecture tool
-        run: npm install --global '@ast-grep/cli'
-      - name: Check local metadata and successive channel inputs without cleaning
-        run: |
-          ./gradlew --no-daemon -q printBuildInfo
-          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
-          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
-          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
-      - name: Install Windows installer compiler and isolated display
+      - name: Install the NSIS installer compiler
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nsis xvfb gifsicle
+          sudo apt-get install --yes --no-install-recommends nsis
       - name: Resolve explicit QA-only identity, without allocating or publishing a product build
         env:
           CHANNEL: ${{ matrix.channel }}
@@ -102,13 +202,10 @@ jobs:
           echo "TURBOISM_BUILD_NUMBER=$NUMBER" >> "$GITHUB_ENV"
           echo "TURBOISM_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "ORG_GRADLE_PROJECT_turboismRelease=true" >> "$GITHUB_ENV"
-      - name: Run the full release gate with the selected channel
-        env:
-          TURBOISM_TEST_GIFSICLE: /usr/bin/gifsicle
-        run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
+      - name: Assemble the four real channel packages
+        run: bash packaging/windows-installer/assemble-release.sh "$TURBOISM_BUILD_VERSION"
       - name: Verify all four real packages and their embedded identity
         run: |
-          bash packaging/windows-installer/assemble-release.sh "$TURBOISM_BUILD_VERSION"
           python3 scripts/release/verify-release.py --channel "$TURBOISM_BUILD_CHANNEL" --version "$TURBOISM_BUILD_VERSION" --dist build/windows-installer/dist --release-plugins packaging/release-plugins.txt --windows-stage build/windows-installer/staging --manifest-output build/qa-manifest.json
           python3 scripts/test/verify_built_identity.py > build/qa-identity.json
           git diff --exit-code

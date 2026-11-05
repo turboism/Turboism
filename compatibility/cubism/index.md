@@ -7,6 +7,11 @@ This directory contains the public, reproducible contracts required to build and
 - `verification/` — hash-pinned static records packaged into the agent under `META-INF/turboism/verification/`.
 - `mapping-packs/draft/` — retained observation/legacy evidence. `materializeDraftContracts` combines it with `draft-src/` annotations and materialized records into `build/generated/draft/mapping-packs/`.
 - `build/generated/draft/profiles/` — generated exact-version mapping-pack catalogues for 5.0.00, 5.0.01, 5.0.02, 5.0.03, 5.0.04, 5.0.05, 5.0.06, 5.1.00, 5.1.01, 5.1.02, 5.1.03, 5.2.00, 5.2.01, 5.2.02, 5.2.03, 5.3.00, 5.3.01, 5.3.02, 5.3.03, and 5.3.04.
+- `build/generated/compatibility/cubism/compatibility-matrix.json` — the generated
+  machine-readable matrix. It is a build product, not a tracked fact: the
+  generator materializes it from the same reviewed sources, and the committed
+  `plugins*.md` / `capabilities*.md` pages are its byte-checked user and
+  developer views.
 - `core-api/observed/` — exact-artifact public class declarations, JVM descriptors, and public constants governed by `turboism.cubism-core.public-api` v1.
 - `core-api/policy/` — complete-surface classification and selector policies with SHA-256 roster bindings.
 

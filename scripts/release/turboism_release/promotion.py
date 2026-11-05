@@ -142,10 +142,13 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
     result = subprocess.run(["git", "-C", str(source_root), "rev-parse", "HEAD"],
                             capture_output=True, text=True)
     require(result.returncode == 0 and result.stdout.strip() == source_sha, "source checkout mismatch")
+    # The compatibility matrix is a generated build product, not committed metadata.
+    # stable_metadata() derives the published marker from reviewed-releases.json
+    # (guarded here) and only cross-checks the matrix when a build produced it, so
+    # there is no committed matrix file whose stability this guard must hold.
     clean = subprocess.run(["git", "-C", str(source_root), "diff", "--quiet", "HEAD", "--",
                             "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
                             "release-notes", "scripts/release/turboism_release/release_notes.py",
-                            "compatibility/cubism/compatibility-matrix.json",
                             "compatibility/cubism/reviewed-releases.json",
                             "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
                             "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedReleaseTable.java"],

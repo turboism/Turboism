@@ -233,8 +233,8 @@ by the two editor call sites. Leaf-package cycles went from 2 to 1.
 - **Tests**: `runtime/src/test/java/dev/turboism/ui/**`,
   `runtime/src/test/java/dev/turboism/mapping/**`.
 - **Backward compatibility**: selector contracts feed the compatibility matrix
-  (`compatibility/cubism/compatibility-matrix.json`) and the generated
-  verification manifest, both regenerated in the same commit.
+  (`build/generated/compatibility/cubism/compatibility-matrix.json`) and the
+  verification manifest, both materialized from reviewed sources during the build.
 - **Enforcement**: `checkDependencyInventory`, the `mapping`/`adapter`/`ui` rules in
   `gradle/module-boundaries.gradle.kts` (waiver map is now empty), and the
   compatibility-matrix freshness gate.

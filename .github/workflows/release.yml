@@ -104,12 +104,17 @@ jobs:
 
       - name: Restore remote-hygiene boundary cache
         # Incremental history scan: the boundary file records verified tips and a
-        # rules fingerprint (sha256 of the checker script). Cache key rotates with
-        # the script, so any rule change falls back to a full scan automatically.
+        # rules fingerprint (sha256 of the checker script). A rule change, a missing
+        # or corrupt boundary falls back to a full scan. The key carries the commit
+        # and run identity because cache keys are immutable: a key built only from
+        # the rules hash would keep returning the first boundary forever.
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: ${{ runner.temp }}/remote-hygiene-boundary.json
-          key: remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}
+          key: remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}-${{ github.sha }}-
+            remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}-
 
       - name: Check complete public history hygiene
         run: python3 scripts/check_remote_hygiene.py --all --boundary-file "$RUNNER_TEMP/remote-hygiene-boundary.json"

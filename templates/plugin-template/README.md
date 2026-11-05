@@ -123,7 +123,7 @@ SDK API declares the versions it supports with `@CubismEditor` — an exact
 `value` list admits only the named reviewed versions, `from`/`to` ranges can
 also satisfy unreviewed compatibility-admitted hosts, and `exclude` always
 removes a version. The full per-API matrix is generated into
-`compatibility/cubism/compatibility-matrix.json` (developer view:
+`build/generated/compatibility/cubism/compatibility-matrix.json` (developer view:
 `compatibility/cubism/capabilities.md`) in the Turboism repository.
 
 Query availability instead of assuming it:

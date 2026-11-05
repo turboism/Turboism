@@ -552,8 +552,10 @@ class ProtocolTest(unittest.TestCase):
 
     def test_catalog_is_only_5302(self):
         task = json.loads((ROOT / 'scripts/preview/host-validation-tasks.json').read_text())['tasks']['model-import-3d']
-        matrix = json.loads((ROOT / 'compatibility/cubism/compatibility-matrix.json').read_text())
-        expected = [v.replace('.', '') for v in matrix['reviewedVersions']]
+        # The derived matrix is a build product; reviewed-releases.json is its
+        # reviewed authority and needs neither generation nor a host.
+        releases = json.loads((ROOT / 'compatibility/cubism/reviewed-releases.json').read_text())['releases']
+        expected = [r['version'].replace('.', '') for r in releases]
         self.assertEqual(expected, task['versions']); self.assertEqual({'host-slot': 1}, task['resources'])
         self.assertEqual(['{version}', '{runLabel}'], task['arguments'])
 

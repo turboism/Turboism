@@ -4,50 +4,33 @@ set -euo pipefail
 # Builds the task-local model-update-skip host validation exerciser plugin JAR
 # against the already-built SDK jar. The probe is validation tooling only; it
 # is never part of the production preview bundle or product build.
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$repo_root"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/probe-build.sh"
 
-worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
-sdk_dir="$repo_root/build/worktree/$worktree_id/sdk/libs"
-shopt -s nullglob
-sdk_jars=("$sdk_dir"/sdk-*.jar)
-if [ "${#sdk_jars[@]}" -ne 1 ] || [ ! -f "${sdk_jars[0]}" ]; then
-  echo "error: expected exactly one sdk jar in $sdk_dir; found ${#sdk_jars[@]}" >&2
-  exit 1
-fi
-sdk_jar="${sdk_jars[0]}"
-src="validation/model-update-skip-host-probe/src"
-out="$(mktemp -d)"
-trap 'rm -rf "$out"' EXIT
-
-javac --release 17 -encoding UTF-8 -cp "$sdk_jar" -d "$out" \
-  "$src/dev/turboism/validation/modelupdate/ModelUpdateSkipHostProbePlugin.java" \
-  "$src/dev/turboism/validation/modelupdate/CanvasWheelWorkload.java" \
-  "$src/dev/turboism/validation/modelupdate/HumanTrace.java" \
-  "$src/dev/turboism/validation/modelupdate/PaletteReorderWorkload.java" \
-  "$src/dev/turboism/validation/modelupdate/NativeDragSequence.java" \
-  "$src/dev/turboism/validation/modelupdate/NativeParitySequence.java" \
-  "$src/dev/turboism/validation/modelupdate/NativeInteractionHost.java" \
-  "$src/dev/turboism/validation/modelupdate/NativeInteractionFocus.java" \
-  "$src/dev/turboism/validation/modelupdate/NativeInteractionWorkload.java" \
-  "$src/dev/turboism/validation/modelupdate/NativeDeformerWorkload.java" \
-  "$src/dev/turboism/validation/modelupdate/PreparationWatchdog.java" \
-  "$src/dev/turboism/validation/modelupdate/AllocationProfile.java" \
-  "$src/dev/turboism/validation/modelupdate/NarrowUniformTrial.java" \
-  "$src/dev/turboism/validation/modelupdate/GpuCompletionProbe.java" \
-  "$src/dev/turboism/validation/modelupdate/GlSubmissionProbe.java" \
-  "$src/dev/turboism/validation/modelupdate/GlCallCategory.java" \
-  "$src/dev/turboism/validation/modelupdate/GlRedundancyTracker.java" \
-  "$src/dev/turboism/validation/modelupdate/UploadPayloadObserver.java" \
-  "$src/dev/turboism/validation/modelupdate/UniformLocationCache.java" \
-  "$src/dev/turboism/validation/modelupdate/UniformValueCache.java" \
-  "$src/dev/turboism/validation/modelupdate/UniformLocationTrial.java" \
-  "$src/dev/turboism/validation/modelupdate/FrameReadback.java" \
-  "$src/dev/turboism/validation/modelupdate/ProcessMemorySample.java" \
-  "$src/dev/turboism/validation/modelupdate/BenchmarkResources.java"
-cp -r "$src/META-INF" "$out/"
-
-output="$repo_root/build/model-update-skip-host-validation-exerciser.jar"
-jar cf "$output" -C "$out" .
-echo "[probe] $output"
-sha256sum "$output"
+PROBE_JAVAC_FLAGS=(-encoding UTF-8)
+base=validation/model-update-skip-host-probe/src/dev/turboism/validation/modelupdate
+probe_build_plugin_jar validation/model-update-skip-host-probe \
+  build/model-update-skip-host-validation-exerciser.jar \
+  "$base/ModelUpdateSkipHostProbePlugin.java" \
+  "$base/CanvasWheelWorkload.java" \
+  "$base/HumanTrace.java" \
+  "$base/PaletteReorderWorkload.java" \
+  "$base/NativeDragSequence.java" \
+  "$base/NativeParitySequence.java" \
+  "$base/NativeInteractionHost.java" \
+  "$base/NativeInteractionFocus.java" \
+  "$base/NativeInteractionWorkload.java" \
+  "$base/NativeDeformerWorkload.java" \
+  "$base/PreparationWatchdog.java" \
+  "$base/AllocationProfile.java" \
+  "$base/NarrowUniformTrial.java" \
+  "$base/GpuCompletionProbe.java" \
+  "$base/GlSubmissionProbe.java" \
+  "$base/GlCallCategory.java" \
+  "$base/GlRedundancyTracker.java" \
+  "$base/UploadPayloadObserver.java" \
+  "$base/UniformLocationCache.java" \
+  "$base/UniformValueCache.java" \
+  "$base/UniformLocationTrial.java" \
+  "$base/FrameReadback.java" \
+  "$base/ProcessMemorySample.java" \
+  "$base/BenchmarkResources.java"

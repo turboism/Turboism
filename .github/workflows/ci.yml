@@ -53,17 +53,13 @@ jobs:
             turboism-gradle-build-cache-v1-Unified build channel checks-
             turboism-gradle-build-cache-v1-
 
-      - name: Install the isolated display server
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb gifsicle
+      - name: Install the isolated display, shell lint and image tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends xvfb gifsicle shellcheck
 
-      - name: Install the shell lint tool
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends shellcheck
-
-      - name: Install the pinned workflow guard tool
-        run: python3 -m pip install 'PyYAML==6.0.3'
-
-      - name: Install the pinned scripts lint tool
-        run: python3 -m pip install 'ruff==0.16.9'
+      - name: Install the pinned Python guard and lint tools
+        run: python3 -m pip install 'PyYAML==6.0.3' 'ruff==0.16.9'
 
       - name: Install the AST architecture tool
         run: npm install --global '@ast-grep/cli'

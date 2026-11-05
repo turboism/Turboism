@@ -185,11 +185,11 @@ first-party plugin — never implement for a few versions and move on.
   blocks new gaps and shrinks as the backlog is annotated.
 - **First-party plugins** get their supported-version set derived from
   declared capabilities and SDK usage — it lands in the generated block of
-  each `plugins/*/README*`, in `compatibility/cubism/compatibility-matrix.json`,
+  each `plugins/*/README*`, in `build/generated/compatibility/cubism/compatibility-matrix.json`,
   and in the packaged `META-INF/turboism/cubism-versions.json` sidecar.
   After any coverage change run
   `python3 scripts/generate_compatibility_matrix.py`; `checkCompatibilityMatrix`
-  rejects stale generated output.
+  rejects stale tracked output and materializes the untracked matrix in one pass.
 - **Real-host confirmation is representative, not exhaustive.** Validate on
   the lowest and highest patch of each affected minor line, and run the
   offline preflight `:runtime:admissionPreflightTest` first.

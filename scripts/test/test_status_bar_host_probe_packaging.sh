@@ -3,8 +3,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/validation/status-bar-host-probe/src" "$work/scripts/dev" "$work/build/worktree/test/sdk/libs"
+mkdir -p "$work/validation/status-bar-host-probe/src" "$work/validation/shared" "$work/scripts/dev" "$work/build/worktree/test/sdk/libs"
 cp "$repo_root/validation/status-bar-host-probe/build.sh" "$work/validation/status-bar-host-probe/build.sh"
+# The probe build scripts delegate the repeated SDK/compile/package steps to the shared
+# helper; the catalog preflight must still run before that helper touches the SDK.
+cp "$repo_root/validation/shared/probe-build.sh" "$work/validation/shared/probe-build.sh"
 printf '#!/bin/sh\nprintf "test\\n"\n' > "$work/scripts/dev/worktree-id.sh"
 chmod +x "$work/scripts/dev/worktree-id.sh"
 : > "$work/build/worktree/test/sdk/libs/sdk-test.jar"

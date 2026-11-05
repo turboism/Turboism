@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-"""Pin the result-file layout the four shared-recorder probes publish.
+"""Pin the result publication and the probe packaging the four shared-recorder probes rely on.
 
-The Runner's first screen reads a count as soon as it sees the pass line, so the counter
-lines must precede the terminal line. The post-containment evidence gate reads the same
-counters and the per-assertion records. Two layers check this without a host:
+The Runner's first screen reads a count as soon as it sees the pass line, and the
+post-containment evidence gate reads the same counters and per-assertion records. Both are
+proven here against the shared recorder's real output (compiled with javac), not against the
+probes' source shape: counters, records and the terminal line are published by one shared
+call, so a probe cannot reorder or truncate them.
 
-- the shared recorder's real output (compiled with javac) is fed to the evidence gate and to
-  the Runner's own count reader;
-- each probe's writer is checked in source order, because the probes' own writers cannot run
-  without the SDK and a Cubism host.
+The build test drives the shared probe build helper with a synthetic probe, so worktree SDK
+resolution, javac, META-INF staging, packaging and the packaged descriptor requirement are
+proven without a Cubism host or an SDK jar from a real build.
 """
 from pathlib import Path
-import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 PREVIEW = ROOT / "scripts/preview"
@@ -23,7 +25,6 @@ sys.path.insert(0, str(PREVIEW))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host_validation_evidence as evidence
 import test_host_validation_probe_wrappers as wrappers
-import check_validation_tools_sync as sync
 import test_cubism_host_validation_result as runner_tests
 
 RUNNER = (PREVIEW / "run-cubism-host-validation.sh").read_text(encoding="utf-8")
@@ -32,13 +33,15 @@ SHARED = ROOT / "validation/shared"
 VERDICT = SHARED / "src/dev/turboism/validation/shared/verdict"
 DUMP = SHARED / "test/dev/turboism/validation/shared/verdict/ProbeResultLayoutDump.java"
 
-# probe source -> (layout of the assertion records, terminal key the probe writes last)
+# probe source -> terminal key the probe publishes last.
 PROBES = {
-    "animation-timeline": ("animationtimeline/AnimationTimelineHostValidationPlugin.java", "appendIndexed", "terminal"),
-    "atlas-polygon": ("atlaspolygon/AtlasPolygonHostValidationPlugin.java", "appendNamed", "status"),
-    "clipmask-viewer": ("clipmaskviewer/ClipMaskViewerHostValidationPlugin.java", "appendNamed", "status"),
-    "parameter-batch-transfer": ("parameterbatchtransfer/ParameterBatchTransferHostValidationPlugin.java", "appendNamed", "status"),
+    "animation-timeline": ("animationtimeline/AnimationTimelineHostValidationPlugin.java", "terminal"),
+    "atlas-polygon": ("atlaspolygon/AtlasPolygonHostValidationPlugin.java", "status"),
+    "clipmask-viewer": ("clipmaskviewer/ClipMaskViewerHostValidationPlugin.java", "status"),
+    "parameter-batch-transfer": ("parameterbatchtransfer/ParameterBatchTransferHostValidationPlugin.java", "status"),
 }
+
+BUILD_TOOLS = ("bash", "javac", "java", "jar")
 
 
 def probe_source(task: str) -> str:
@@ -47,69 +50,14 @@ def probe_source(task: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def writer_region(text: str) -> str:
-    """The complete writer before publication, including anything before the counters."""
-    start = re.search(r"private void writeResult(?:File)?\(", text).start()
-    return text[start:text.index("Files.writeString", start)]
-
-
-def layout_findings(task: str, text: str) -> list[str]:
-    """Check actual writer statements, including early/duplicate terminal lines."""
-    _, records, terminal_key = PROBES[task]
-    region = sync.strip_comments(writer_region(text))
-    counters = list(re.finditer(r"assertions\.appendCounters\(report\);", region))
-    rows = list(re.finditer(r"assertions\." + records + r"\(report(?:, true)?\);", region))
-    terminals = list(re.finditer(r'report\.append\("' + terminal_key + r'=.*?;', region, re.S))
-    if len(counters) != 1 or len(rows) != 1 or len(terminals) != 1:
-        return [f"{task}: expected exactly one counters, records and terminal statement"]
-    findings = []
-    counter, row, terminal = counters[0], rows[0], terminals[0]
-    if not counter.start() < row.start() < terminal.start():
-        findings.append(f"{task}: expected counters, records, then terminal")
-    statement = re.sub(r"\s+", "", terminal.group())
-    expression = 'terminal' if task == 'atlas-polygon' else 'assertions.terminal().name()'
-    expected = f'report.append("{terminal_key}=").append({expression}).append(\'\\n\');'
-    if statement != expected:
-        findings.append(f"{task}: terminal must come from the shared recorder")
-    if expression == 'terminal' and 'final String terminal = assertions.terminal().name();' not in region:
-        findings.append(f"{task}: terminal variable must come from the shared recorder")
-    if re.search(r"\breport\.", region[terminal.end():]):
-        findings.append(f"{task}: report is changed after the terminal line")
-    return findings
-
-
-class ProbeWriterOrderTest(unittest.TestCase):
-    def test_every_probe_writes_counters_then_assertions_then_the_terminal_line(self):
-        for task in PROBES:
-            with self.subTest(task=task):
-                self.assertEqual([], layout_findings(task, probe_source(task)))
-
-    def test_probe_terminal_key_matches_the_wrapper_pass_line(self):
+class ProducerConsumerTest(unittest.TestCase):
+    def test_every_probe_writes_the_result_file_its_wrapper_reads(self):
+        # The wrapper's --result-file and terminal key are the consumer side of one contract;
+        # a probe that renames its file or publishes another key fails the run as MISSING.
         for task, (result_file, key) in wrappers.CONTRACT.items():
             with self.subTest(task=task):
-                self.assertEqual(key, PROBES[task][2])
+                self.assertEqual(key, PROBES[task][1])
                 self.assertIn(Path(result_file).name, probe_source(task))
-
-    def test_writer_regressions_are_reported(self):
-        for task in PROBES:
-            text = probe_source(task)
-            _, records, key = PROBES[task]
-            terminal = re.search(r'report\.append\("' + key + r'=.*?;', text, re.S).group()
-            without_terminal = text.replace(terminal, '')
-            mutations = {
-                "no counters": text.replace("assertions.appendCounters(report);", ""),
-                "no records": text.replace(f"assertions.{records}(report", "unused(report"),
-                "terminal before counters": without_terminal.replace(
-                    'assertions.appendCounters(report);', terminal + '\nassertions.appendCounters(report);'),
-                "terminal before records": without_terminal.replace(
-                    f'assertions.{records}(', terminal + f'\nassertions.{records}('),
-                "duplicate terminal": text.replace(terminal, terminal + terminal),
-                "hardcoded pass": text.replace(terminal, f'report.append("{key}=PASS\\n");'),
-                "record after terminal": text.replace(terminal, terminal + 'report.append("extra=1\\n");'),
-            }
-            for mutation, changed in mutations.items():
-                with self.subTest(task=task, mutation=mutation):
-                    self.assertTrue(layout_findings(task, changed))
 
 
 class RecorderOutputTest(unittest.TestCase):
@@ -212,6 +160,87 @@ class RecorderOutputTest(unittest.TestCase):
                     terminal = self.gate(text, key)
                     self.assertTrue(terminal["emptyRun"])
                     self.assertFalse(terminal["passed"])
+
+
+@unittest.skipUnless(all(shutil.which(tool) for tool in BUILD_TOOLS),
+                     "probe build contract needs " + ", ".join(BUILD_TOOLS))
+class SharedProbeBuildTest(unittest.TestCase):
+    """The shared build helper, exercised end to end on a synthetic probe."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temp.name)
+        shared = self.repo / "validation/shared"
+        shared.mkdir(parents=True)
+        shutil.copy(SHARED / "probe-build.sh", shared / "probe-build.sh")
+        dev = self.repo / "scripts/dev"
+        dev.mkdir(parents=True)
+        (dev / "worktree-id.sh").write_text("#!/bin/sh\nprintf 'wt\\n'\n", encoding="utf-8")
+        (dev / "worktree-id.sh").chmod(0o755)
+        sdk = self.repo / "build/worktree/wt/sdk/libs/sdk-test.jar"
+        sdk.parent.mkdir(parents=True)
+        with zipfile.ZipFile(sdk, "w") as jar:
+            jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+        source = self.repo / "validation/fake-probe/src/dev/fake/Fake.java"
+        source.parent.mkdir(parents=True)
+        source.write_text("package dev.fake;\npublic final class Fake {}\n", encoding="utf-8")
+        self.manifest = self.repo / "validation/fake-probe/src/META-INF/turboism/plugin.json"
+        self.manifest.parent.mkdir(parents=True)
+        self.manifest.write_text(
+            '{"format":"turboism.plugin.meta","schemaVersion":3,'
+            '"id":"dev.turboism.validation.fake","version":"0.1.0",'
+            '"entrypoints":["dev.fake.Fake"],"permissions":[],"capabilities":[],'
+            '"environment":{"requiresCubism":true,"ui":"embedded"}}\n',
+            encoding="utf-8")
+        self.build_script = self.repo / "build.sh"
+        self.write_build_script()
+
+    def write_build_script(self, required_entries: tuple[str, ...] = ()) -> None:
+        self.build_script.write_text(
+            "set -euo pipefail\n"
+            f'source "{self.repo.as_posix()}/validation/shared/probe-build.sh"\n'
+            f"PROBE_REQUIRED_ENTRIES=({' '.join(required_entries)})\n"
+            "probe_build_plugin_jar validation/fake-probe build/fake.jar"
+            " validation/fake-probe/src/dev/fake/Fake.java\n",
+            encoding="utf-8")
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def build(self) -> subprocess.CompletedProcess:
+        return subprocess.run(["bash", str(self.build_script)], text=True, capture_output=True)
+
+    def test_build_stages_metadata_and_requires_the_packaged_descriptor(self):
+        result = self.build()
+        self.assertEqual(0, result.returncode, result.stderr)
+        jar = self.repo / "build/fake.jar"
+        with zipfile.ZipFile(jar) as packaged:
+            names = set(packaged.namelist())
+        self.assertIn("META-INF/turboism/plugin.json", names)
+        self.assertIn("dev/fake/Fake.class", names)
+        self.assertIn(str(jar), result.stdout)
+
+    def test_missing_packaged_descriptor_fails_the_build(self):
+        self.manifest.unlink()
+        result = self.build()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("probe jar is missing META-INF/turboism/plugin.json", result.stderr)
+
+    def test_call_site_required_entries_are_enforced(self):
+        self.write_build_script(required_entries=("META-INF/turboism/i18n/messages.properties",))
+        result = self.build()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("probe jar is missing META-INF/turboism/i18n/messages.properties", result.stderr)
+
+    def test_missing_sdk_jar_fails_instead_of_borrowing_another_worktree(self):
+        other = self.repo / "build/worktree/other/sdk/libs/sdk-other.jar"
+        other.parent.mkdir(parents=True)
+        with zipfile.ZipFile(other, "w") as jar:
+            jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+        shutil.rmtree(self.repo / "build/worktree/wt")
+        result = self.build()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("no sdk jar found", result.stderr)
 
 
 if __name__ == "__main__":
