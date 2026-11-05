@@ -3,11 +3,15 @@ package dev.turboism.validation.shared.verdict;
 import java.util.Collection;
 
 /**
- * Terminal verdicts shared by the host-validation probes.
+ * Assertion statuses shared by the host-validation probes.
  *
- * <p>The terminal set is fixed: {@code PASS}, {@code FAIL}, {@code BLOCKED} and
- * {@code SKIPPED}. {@link #compute(Collection)} applies one rule order so every probe
- * answers the same question the same way:</p>
+ * <p>The set is closed and typed: {@code PASS}, {@code FAIL}, {@code BLOCKED},
+ * {@code SKIPPED} and the evidence-only {@code INFO}. A probe records a status through
+ * {@link ProbeAssertions#record}, so a mistyped status is a compile error instead of a
+ * run-time string that silently leaves the verdict.</p>
+ *
+ * <p>{@link #compute(Collection)} applies one rule order so every probe answers the same
+ * question the same way:</p>
  *
  * <ol>
  *   <li>any {@code FAIL} assertion makes the run {@code FAIL};</li>
@@ -19,12 +23,9 @@ import java.util.Collection;
  *   <li>otherwise every assertion passed and the run is {@code PASS}.</li>
  * </ol>
  *
- * <p>{@link #EVIDENCE_ONLY} assertions carry diagnostics such as raw host values. They are
- * recorded and archived but never decide the terminal verdict, so they are excluded before
- * the rules above are applied.</p>
- *
- * <p>Any other status string is rejected by {@link #parse(String)}. A probe that records a
- * mistyped or unknown status fails instead of silently passing.</p>
+ * <p>{@link #INFO} assertions carry diagnostics such as raw host values. They are
+ * recorded and archived but never decide the verdict, so they are excluded before the
+ * rules above are applied.</p>
  */
 public enum ProbeTerminal {
     /** Every verdict-bearing assertion passed. */
@@ -34,40 +35,38 @@ public enum ProbeTerminal {
     /** The run could not exercise its assertions or recorded no assertion at all. */
     BLOCKED,
     /** Every executed assertion passed, but the run skipped assertions it owed. */
-    SKIPPED;
+    SKIPPED,
+    /** Evidence-only status: archived with the run, never part of the verdict. */
+    INFO;
+
+    /** Whether an assertion with this status decides the terminal verdict. */
+    public boolean verdictBearing() {
+        return this != INFO;
+    }
 
     /**
-     * Evidence-only assertion status. Diagnostics recorded under this status are archived
-     * with the run and never participate in {@link #compute(Collection)}.
-     */
-    public static final String EVIDENCE_ONLY = "INFO";
-
-    /**
-     * Returns the terminal verdict for a collection of assertion statuses.
+     * Returns the terminal verdict of the given statuses, ignoring evidence-only ones.
      *
-     * <p>Rules are evaluated in the order documented on this type. {@link #EVIDENCE_ONLY}
-     * entries are ignored; an empty collection (or one holding only evidence entries) is
-     * {@link #BLOCKED}.</p>
+     * <p>Rules are evaluated in the order documented on this type. An empty collection
+     * (or one holding only {@link #INFO} entries) is {@link #BLOCKED}.</p>
      *
      * @param statuses assertion statuses in recording order
      * @return the terminal verdict
-     * @throws IllegalArgumentException when a status is not part of the accepted set
      */
-    public static ProbeTerminal compute(final Collection<String> statuses) {
+    public static ProbeTerminal compute(final Collection<ProbeTerminal> statuses) {
         int verdicts = 0;
         boolean anyBlocked = false;
         boolean anySkipped = false;
-        for (final String status : statuses) {
-            if (EVIDENCE_ONLY.equals(status)) {
+        for (final ProbeTerminal status : statuses) {
+            if (!status.verdictBearing()) {
                 continue;
             }
-            final ProbeTerminal parsed = parse(status);
-            if (parsed == FAIL) {
+            if (status == FAIL) {
                 return FAIL;
             }
-            if (parsed == BLOCKED) {
+            if (status == BLOCKED) {
                 anyBlocked = true;
-            } else if (parsed == SKIPPED) {
+            } else if (status == SKIPPED) {
                 anySkipped = true;
             }
             verdicts++;
@@ -79,28 +78,5 @@ public enum ProbeTerminal {
             return BLOCKED;
         }
         return anySkipped ? SKIPPED : PASS;
-    }
-
-    /**
-     * Parses one assertion status.
-     *
-     * @param status status token to parse; {@link #EVIDENCE_ONLY} is accepted because probes
-     *     record it, but it has no terminal verdict of its own
-     * @return the matching terminal, or {@code null} for {@link #EVIDENCE_ONLY}
-     * @throws IllegalArgumentException when the token is not part of the accepted set
-     */
-    public static ProbeTerminal parse(final String status) {
-        if (status == null) {
-            throw new IllegalArgumentException("assertion status must not be null");
-        }
-        if (EVIDENCE_ONLY.equals(status)) {
-            return null;
-        }
-        for (final ProbeTerminal candidate : values()) {
-            if (candidate.name().equals(status)) {
-                return candidate;
-            }
-        }
-        throw new IllegalArgumentException("unknown assertion status: " + status);
     }
 }

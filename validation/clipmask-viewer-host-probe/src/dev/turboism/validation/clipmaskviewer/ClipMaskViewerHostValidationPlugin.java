@@ -17,6 +17,9 @@ import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.validation.shared.verdict.ProbeAssertions;
+import dev.turboism.validation.shared.verdict.ProbeTerminal;
+
+import static dev.turboism.validation.shared.verdict.ProbeAssertions.singleLine;
 
 import javax.swing.SwingUtilities;
 import java.awt.Dialog;
@@ -185,7 +188,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             runNotifyStatus();
         } catch (Exception failure) {
             recordAssertion("matrix.unexpectedFailure", "no exception",
-                singleLine(failure), "FAIL");
+                singleLine(failure), ProbeTerminal.FAIL);
             logger.error("CLIPMASK_VIEWER_MATRIX_FAILED " + singleLine(failure), failure);
         }
 
@@ -387,7 +390,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         } catch (Exception failure) {
             recordAssertion("crossCheck.maskIdsRead",
                 "drawable.maskIds() readable on host thread",
-                singleLine(failure), "FAIL");
+                singleLine(failure), ProbeTerminal.FAIL);
             logger.error("CLIPMASK_VIEWER_MASK_IDS_READ_FAILED " + singleLine(failure), failure);
             throw failure;
         }
@@ -396,27 +399,27 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     private void recordCrossCheckAssertions() {
         recordAssertion("crossCheck.drawableMasks",
             "maskIds-based drawable mask usage",
-            "drawableMaskCount=" + drawableMaskCount, "PASS");
+            "drawableMaskCount=" + drawableMaskCount, ProbeTerminal.PASS);
         if (drawableMaskCount > 0 && recordCount > 0) {
             recordAssertion("crossCheck.readAgreement",
                 "clipMasks records agree with drawable maskIds",
-                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, "PASS");
+                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, ProbeTerminal.PASS);
         } else if (drawableMaskCount > 0) {
             // Model has masks via maskIds() but the clip-mask slice read is empty:
             // the clip-mask slice is broken on this host.
             recordAssertion("crossCheck.readAgreement",
                 "clipMasks records agree with drawable maskIds",
-                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, "FAIL");
+                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, ProbeTerminal.FAIL);
         } else if (recordCount == 0) {
             recordAssertion("crossCheck.readAgreement",
                 "clipMasks records agree with drawable maskIds",
-                "both zero", "PASS");
+                "both zero", ProbeTerminal.PASS);
         } else {
             // clipMasks() has records but no drawable reports maskIds: keep the
             // evidence, do not fail (not expected to happen on a real host).
             recordAssertion("crossCheck.readAgreement",
                 "clipMasks records agree with drawable maskIds",
-                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, "PASS");
+                "drawableMaskCount=" + drawableMaskCount + " recordCount=" + recordCount, ProbeTerminal.PASS);
             logger.info("CLIPMASK_VIEWER_READ_AGREEMENT_NOTE clipMasks records present but no drawable maskIds");
         }
     }
@@ -437,7 +440,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         recordAssertion("matrix.read.idempotent", "two collects identical",
             idempotent ? "identical records=" + first.size()
                 : "differ first=" + first.size() + " second=" + second.size(),
-            idempotent ? "PASS" : "FAIL");
+            idempotent ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
 
         // Dedup: record count must equal the distinct-guid count.
@@ -450,7 +453,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             "records == distinct guids",
             dedup ? "records=" + first.size() + " distinctGuids=" + recordGuids.size()
                 : "records=" + first.size() + " distinctGuids=" + recordGuids.size(),
-            dedup ? "PASS" : "FAIL");
+            dedup ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         // maskRelationships over ALL records (not just the sample). Evidence only:
         // ArtMesh guid (clip-mask slices) and ArtMesh id (meshes()/drawables) are
@@ -461,7 +464,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         }
         maskRelationships = relationships;
         recordAssertion("record.maskGuidsObserved", "evidence: summed orderedMaskGuids",
-            "maskGuidsObserved=" + maskRelationships, "PASS");
+            "maskGuidsObserved=" + maskRelationships, ProbeTerminal.PASS);
 
         // Per-record checks on a bounded sample: non-blank fields + name resolution.
         final int sample = Math.min(RECORD_SAMPLE_MAX, first.size());
@@ -497,30 +500,30 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             recordAssertion("record." + index + ".displayNameResolved",
                 "resolved display name (not short-GUID fallback)",
                 record.displayName(),
-                resolved ? "PASS" : "FAIL");
+                resolved ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         }
         recordAssertion("record.guidNonBlank",
             "sampled record guids non-blank",
             guidsOk ? "ok sample=" + sample : recordDetail,
-            guidsOk ? "PASS" : "FAIL");
+            guidsOk ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         recordAssertion("record.displayNameNonBlank",
             "sampled record display names non-blank",
             displayNamesOk ? "ok sample=" + sample : recordDetail,
-            displayNamesOk ? "PASS" : "FAIL");
+            displayNamesOk ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         recordAssertion("record.maskGuidsNonBlank",
             "sampled record ordered mask guids non-blank",
             maskGuidsOk ? "ok sample=" + sample : recordDetail,
-            maskGuidsOk ? "PASS" : "FAIL");
+            maskGuidsOk ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         // Fixture-content adaptation: zero clip-mask relationships over a loaded
         // model means the fixture itself has none (mirror BLOCKED precedent).
-        final String fixtureStatus;
+        final ProbeTerminal fixtureStatus;
         if (recordCount > 0) {
-            fixtureStatus = "PASS";
+            fixtureStatus = ProbeTerminal.PASS;
         } else if (meshCount > 0) {
-            fixtureStatus = "BLOCKED";
+            fixtureStatus = ProbeTerminal.BLOCKED;
         } else {
-            fixtureStatus = "FAIL";
+            fixtureStatus = ProbeTerminal.FAIL;
         }
         recordAssertion("fixture.clipMasks",
             "clip-mask relationships present in fixture",
@@ -576,13 +579,13 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
 
         recordAssertion("diagnostic.drawableSamples",
             "evidence: id()/name()/guid() of first drawables",
-            "drawableCount=" + drawableCount + " sampled=" + sampled[0], "PASS");
+            "drawableCount=" + drawableCount + " sampled=" + sampled[0], ProbeTerminal.PASS);
         recordAssertion("diagnostic.recordSamples",
             "evidence: guid/id/displayName/maskCount of first records",
-            "recordCount=" + recordCount + " sampled=" + sampled[1], "PASS");
+            "recordCount=" + recordCount + " sampled=" + sampled[1], ProbeTerminal.PASS);
         recordAssertion("diagnostic.referencedMasks",
             "evidence: referenced vs pure mask counts",
-            "referencedMasks=" + referencedMaskCount + " pureMasks=" + pureMaskCount, "PASS");
+            "referencedMasks=" + referencedMaskCount + " pureMasks=" + pureMaskCount, ProbeTerminal.PASS);
         logger.info("CLIPMASK_VIEWER_ID_SAMPLES referencedMasks=" + referencedMaskCount
             + " pureMasks=" + pureMaskCount);
     }
@@ -609,20 +612,20 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             ok ? "selectedObjectIds=" + selection.selectedObjectIds().size()
                 + " activeArtMeshId=" + selection.activeArtMeshId().orElse("")
                 : singleLine(selection),
-            ok ? "PASS" : "FAIL");
+            ok ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         // Best-effort selection-query bridge: any outcome is PASS (same pattern as
         // notifyStatus). selectionQuery() is a PluginContext default method that may
         // throw UnsupportedOperationException on the exact host.
         try {
             onHostThread(() -> context.selectionQuery().currentSelection());
-            recordAssertion("selection.query", "best-effort read", "delivered", "PASS");
+            recordAssertion("selection.query", "best-effort read", "delivered", ProbeTerminal.PASS);
         } catch (UnsupportedOperationException unsupported) {
             logger.warn("CLIPMASK_VIEWER_SELECTION_QUERY unsupported=" + unsupported.getMessage());
-            recordAssertion("selection.query", "best-effort read", "unsupported", "PASS");
+            recordAssertion("selection.query", "best-effort read", "unsupported", ProbeTerminal.PASS);
         } catch (Exception failure) {
             logger.warn("CLIPMASK_VIEWER_SELECTION_QUERY failed=" + singleLine(failure));
-            recordAssertion("selection.query", "best-effort read", "failed", "PASS");
+            recordAssertion("selection.query", "best-effort read", "failed", ProbeTerminal.PASS);
         }
     }
 
@@ -634,19 +637,19 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         try {
             registerAll();
             recordAssertion("lifecycle.register",
-                "action+menu+section registered without exception", "registered", "PASS");
+                "action+menu+section registered without exception", "registered", ProbeTerminal.PASS);
             closeAll();
             recordAssertion("lifecycle.close",
-                "action+menu+section closed without exception", "closed", "PASS");
+                "action+menu+section closed without exception", "closed", ProbeTerminal.PASS);
             registerAll();
             recordAssertion("lifecycle.reregister",
-                "action+menu+section registered again without exception", "registered", "PASS");
+                "action+menu+section registered again without exception", "registered", ProbeTerminal.PASS);
             closeAll();
             recordAssertion("lifecycle.reclose",
-                "action+menu+section closed again without exception", "closed", "PASS");
+                "action+menu+section closed again without exception", "closed", ProbeTerminal.PASS);
         } catch (Exception failure) {
             recordAssertion("lifecycle.registerClose",
-                "register/close without exception", singleLine(failure), "FAIL");
+                "register/close without exception", singleLine(failure), ProbeTerminal.FAIL);
             logger.error("CLIPMASK_VIEWER_LIFECYCLE status=FAIL " + singleLine(failure), failure);
         }
     }
@@ -711,13 +714,13 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         try {
             context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).notifyStatus(new StatusNotification(
                 STATUS_ID, "INFO", "Clip mask viewer host validation probe completed."));
-            recordAssertion("status.notify", "best-effort delivery", "delivered", "PASS");
+            recordAssertion("status.notify", "best-effort delivery", "delivered", ProbeTerminal.PASS);
         } catch (UnsupportedOperationException unsupported) {
             logger.warn("CLIPMASK_VIEWER_STATUS_NOTIFY unsupported=" + unsupported.getMessage());
-            recordAssertion("status.notify", "best-effort delivery", "unsupported", "PASS");
+            recordAssertion("status.notify", "best-effort delivery", "unsupported", ProbeTerminal.PASS);
         } catch (RuntimeException failure) {
             logger.warn("CLIPMASK_VIEWER_STATUS_NOTIFY failed=" + singleLine(failure));
-            recordAssertion("status.notify", "best-effort delivery", "failed", "PASS");
+            recordAssertion("status.notify", "best-effort delivery", "failed", ProbeTerminal.PASS);
         }
     }
 
@@ -754,16 +757,8 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         return guid.length() <= 8 ? guid : guid.substring(0, 8);
     }
 
-    private void recordAssertion(final String name, final Object expected, final Object actual, final String status) {
+    private void recordAssertion(final String name, final Object expected, final Object actual, final ProbeTerminal status) {
         assertions.record(name, expected, actual, status);
-    }
-
-    private static String singleLine(final Object value) {
-        if (value == null) {
-            return "null";
-        }
-        final String text = value.toString().replace('\n', ' ').replace('\r', ' ');
-        return text.length() > 4000 ? text.substring(0, 4000) : text;
     }
 
     private void writeResultFile(final long startedNanos) {
@@ -788,11 +783,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 report.append(sampleLine).append('\n');
             }
             report.append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-            assertions.appendCounters(report);
-            assertions.appendNamed(report);
-            // The terminal verdict goes last: the Runner requires a positive verdict count
-            // as soon as it observes the pass line.
-            report.append("status=").append(assertions.terminal().name()).append('\n');
+            assertions.appendPublication(report, ProbeAssertions.Records.NAMED, "status");
             Files.createDirectories(result.getParent());
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);

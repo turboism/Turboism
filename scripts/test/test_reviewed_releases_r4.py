@@ -10,6 +10,7 @@ from pathlib import Path
 from scripts.test.reviewed_releases_fixture import table
 
 from scripts import check_reviewed_releases as gate
+from scripts import generate_compatibility_matrix as matrix_generator
 
 
 class CheckHostValidationVersionsTest(unittest.TestCase):
@@ -35,7 +36,25 @@ class CheckHostValidationVersionsTest(unittest.TestCase):
                 self.assertTrue(gate.r4_check(root))
 
     def test_live_repository_passes(self) -> None:
-        self.assertEqual([], gate.r4_check(gate.r4_ROOT))
+        records = gate.r4_ROOT / "build/generated/verification"
+        if not records.is_dir():
+            self.skipTest(
+                "the live matrix is a build product; materialize the verification "
+                "records before running this suite"
+            )
+        with tempfile.TemporaryDirectory() as directory:
+            # The gate reads the generated matrix, so prove the live tree agrees
+            # with a fresh projection of its own records and reviewed releases.
+            matrix = Path(directory) / "compatibility-matrix.json"
+            matrix.write_bytes(
+                json.dumps(
+                    matrix_generator.build_matrix(gate.r4_ROOT),
+                    ensure_ascii=False,
+                    indent=1,
+                ).encode("utf-8")
+            )
+            with patch.object(gate, "r4_MATRIX_PATH", matrix):
+                self.assertEqual([], gate.r4_check(gate.r4_ROOT))
 
     def test_manifest_version_drift_is_rejected_until_registered(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

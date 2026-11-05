@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from turboism_dev.json_io import dump_json, read_json
-from turboism_dev.paths import repo_root
+from turboism_dev.paths import COMPATIBILITY_MATRIX, repo_root
 from turboism_dev.versions import (reviewed_range_versions, cubism_version_key, dotted_to_compact,
     compact_to_dotted as _compact_to_dotted, missing_higher, parse_cubism_version)
 from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
@@ -1124,7 +1124,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "preview"))
 
 
 r4_ROOT = ROOT
-r4_MATRIX_PATH = Path("compatibility/cubism/compatibility-matrix.json")
+# Generated build product: the Gradle generate task must run before this gate.
+r4_MATRIX_PATH = COMPATIBILITY_MATRIX
 r4_MANIFEST_PATH = HOST_TASKS
 
 # Task -> explicit capability dependencies when taskGroupAliases/taskPluginAliases
@@ -1249,7 +1250,10 @@ def r4_derive_all_task_versions(
     try:
         matrix = read_json(matrix_file)
     except Exception as exc:
-        return {}, [f"{r4_MATRIX_PATH}: cannot read compatibility matrix: {exc}"]
+        return {}, [
+            f"{r4_MATRIX_PATH}: cannot read the generated compatibility matrix: {exc}; "
+            "run `python3 scripts/generate_compatibility_matrix.py` first"
+        ]
     try:
         manifest = read_json(manifest_file)
     except Exception as exc:

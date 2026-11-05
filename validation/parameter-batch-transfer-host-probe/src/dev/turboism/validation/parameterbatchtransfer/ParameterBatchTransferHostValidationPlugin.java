@@ -19,6 +19,9 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.validation.shared.verdict.ProbeAssertions;
+import dev.turboism.validation.shared.verdict.ProbeTerminal;
+
+import static dev.turboism.validation.shared.verdict.ProbeAssertions.singleLine;
 
 import javax.swing.SwingUtilities;
 import java.awt.Robot;
@@ -171,7 +174,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             runSessionMatrix(model);
             runApplyMatrix(model);
         } catch (Exception failure) {
-            recordAssertion("matrix.unexpectedFailure", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("matrix.unexpectedFailure", "no exception", singleLine(failure), ProbeTerminal.FAIL);
             logger.error("PBT_MATRIX_FAILED " + singleLine(failure), failure);
         }
         final String terminal = assertions.terminal().name();
@@ -203,22 +206,22 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "owner.discovery",
                 "an object with at least one parameter binding",
                 "none found (deformers and ArtMeshes scanned)",
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             return;
         }
         ownerType = owner.target().type().name();
         ownerId = owner.target().id();
         boundCount = owner.bound().size();
-        recordAssertion("owner.discovery", "object with bound parameters", ownerType + ":" + ownerId, "PASS");
-        recordAssertion("bound.count", "> 0", String.valueOf(boundCount), boundCount > 0 ? "PASS" : "FAIL");
+        recordAssertion("owner.discovery", "object with bound parameters", ownerType + ":" + ownerId, ProbeTerminal.PASS);
+        recordAssertion("bound.count", "> 0", String.valueOf(boundCount), boundCount > 0 ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         final List<BoundSnapshot> bound = owner.bound();
         final List<BoundSnapshot> candidates = model.parameters().all().stream()
             .map(parameter -> BoundSnapshot.of(parameter, null))
             .toList();
         recordAssertion("candidates.count", "> 0", String.valueOf(candidates.size()),
-            candidates.isEmpty() ? "FAIL" : "PASS");
+            candidates.isEmpty() ? ProbeTerminal.FAIL : ProbeTerminal.PASS);
 
         boolean markersPass = true;
         boolean labelsPass = true;
@@ -233,7 +236,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             if (!expectedMarkers.toString().equals(snapshot.markers())) {
                 markersPass = false;
                 recordAssertion("markers." + snapshot.parameterId().value(),
-                    expectedMarkers.toString(), snapshot.markers(), "FAIL");
+                    expectedMarkers.toString(), snapshot.markers(), ProbeTerminal.FAIL);
             }
             final String expectedLabel = snapshot.parameter().name()
                 .filter(value -> !value.isBlank())
@@ -241,25 +244,25 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             if (!expectedLabel.equals(snapshot.label())) {
                 labelsPass = false;
                 recordAssertion("label." + snapshot.parameterId().value(),
-                    expectedLabel, snapshot.label(), "FAIL");
+                    expectedLabel, snapshot.label(), ProbeTerminal.FAIL);
             }
         }
         recordAssertion("markers.match", "all bound M/C markers match SDK types",
-            markersPass ? "match" : "mismatch", markersPass ? "PASS" : "FAIL");
+            markersPass ? "match" : "mismatch", markersPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         recordAssertion("label.match", "all bound labels are name or id",
-            labelsPass ? "match" : "mismatch", labelsPass ? "PASS" : "FAIL");
+            labelsPass ? "match" : "mismatch", labelsPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         final BoundSnapshot source = bound.get(0);
         final List<BoundSnapshot> targets = targetCandidates(candidates, bound, source);
         recordAssertion("targetCandidates.containsSource",
             "source itself is offered as default target",
             targets.stream().anyMatch(value -> value.parameterId().equals(source.parameterId())) ? "yes" : "no",
-            targets.stream().anyMatch(value -> value.parameterId().equals(source.parameterId())) ? "PASS" : "FAIL");
+            targets.stream().anyMatch(value -> value.parameterId().equals(source.parameterId())) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         final boolean categoryFilterPass = targets.stream().allMatch(value ->
             value.morph() == source.morph() && value.combined() == source.combined());
         recordAssertion("targetCandidates.categoryFilter",
             "all candidates share source morph/combined category",
-            categoryFilterPass ? "match" : "mismatch", categoryFilterPass ? "PASS" : "FAIL");
+            categoryFilterPass ? "match" : "mismatch", categoryFilterPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         final Set<ParameterId> boundElsewhere = bound.stream()
             .map(BoundSnapshot::parameterId)
             .filter(id -> !id.equals(source.parameterId()))
@@ -268,10 +271,10 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             .noneMatch(value -> boundElsewhere.contains(value.parameterId()));
         recordAssertion("targetCandidates.excludesAlreadyBound",
             "no already-bound-other parameter offered", exclusionPass ? "clean" : "contaminated",
-            exclusionPass ? "PASS" : "FAIL");
+            exclusionPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         final boolean sortedPass = isSortedByLowerLabel(targets);
         recordAssertion("targetCandidates.sorted", "sorted by lowercase label",
-            sortedPass ? "sorted" : "unsorted", sortedPass ? "PASS" : "FAIL");
+            sortedPass ? "sorted" : "unsorted", sortedPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         runClassificationMatrix(candidates, bound);
     }
@@ -308,7 +311,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             }
         }
         recordAssertion("classify.scan", "per-parameter type/combined/markers evidence",
-            scan.toString(), "PASS");
+            scan.toString(), ProbeTerminal.PASS);
 
         boolean markerConsistency = true;
         for (final BoundSnapshot candidate : candidates) {
@@ -319,13 +322,13 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             if (expectsM != hasM || expectsC != hasC) {
                 markerConsistency = false;
                 recordAssertion("classify.markers." + candidate.parameterId().value(),
-                    "M=" + expectsM + " C=" + expectsC, candidate.markers(), "FAIL");
+                    "M=" + expectsM + " C=" + expectsC, candidate.markers(), ProbeTerminal.FAIL);
             }
         }
         recordAssertion("classify.markers.consistent",
             "markers match type()/combined() for every parameter",
             markerConsistency ? "consistent" : "inconsistent",
-            markerConsistency ? "PASS" : "FAIL");
+            markerConsistency ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         final BoundSnapshot morphSource = candidates.stream()
             .filter(BoundSnapshot::morph).findFirst().orElse(null);
@@ -333,7 +336,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             recordAssertion("classify.morph.filter",
                 "morph source row offers only morph targets",
                 "not applicable: no morph parameter in model (morphCount=" + morphCount + ")",
-                "INFO");
+                ProbeTerminal.INFO);
         } else {
             final List<BoundSnapshot> morphTargets = targetCandidates(candidates, bound, morphSource);
             final boolean onlyMorph = morphTargets.stream().allMatch(BoundSnapshot::morph);
@@ -341,7 +344,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "morph source row offers only morph targets",
                 "morphCount=" + morphCount + " offered=" + morphTargets.size()
                     + " nonMorphOffered=" + morphTargets.stream().filter(value -> !value.morph()).count(),
-                onlyMorph ? "PASS" : "FAIL");
+                onlyMorph ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         }
 
         final BoundSnapshot combinedSource = candidates.stream()
@@ -350,7 +353,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             recordAssertion("classify.combined.filter",
                 "combined source row offers no morph targets",
                 "not applicable: no combined parameter in model (combinedCount=" + combinedCount + ")",
-                "INFO");
+                ProbeTerminal.INFO);
         } else {
             final List<BoundSnapshot> combinedTargets = targetCandidates(candidates, bound, combinedSource);
             final boolean noMorph = combinedTargets.stream().noneMatch(BoundSnapshot::morph);
@@ -358,7 +361,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "combined source row offers no morph targets (normal and combined allowed)",
                 "combinedCount=" + combinedCount + " offered=" + combinedTargets.size()
                     + " morphOffered=" + combinedTargets.stream().filter(BoundSnapshot::morph).count(),
-                noMorph ? "PASS" : "FAIL");
+                noMorph ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         }
 
         final BoundSnapshot normalSource = candidates.stream()
@@ -367,7 +370,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             recordAssertion("classify.normal.filter",
                 "normal source row offers no morph targets",
                 "not applicable: no normal parameter in model",
-                "INFO");
+                ProbeTerminal.INFO);
         } else {
             final List<BoundSnapshot> normalTargets = targetCandidates(candidates, bound, normalSource);
             final boolean noMorph = normalTargets.stream().noneMatch(BoundSnapshot::morph);
@@ -376,7 +379,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "offered=" + normalTargets.size()
                     + " morphOffered=" + normalTargets.stream().filter(BoundSnapshot::morph).count()
                     + " combinedOffered=" + normalTargets.stream().filter(BoundSnapshot::combined).count(),
-                noMorph ? "PASS" : "FAIL");
+                noMorph ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         }
     }
 
@@ -393,13 +396,13 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     "apply.morph.transfer",
                     "fallback or natural drawable BLEND_SHAPE binding with at least 3 points",
                     "no usable multi-point morph fixture was prepared",
-                    "BLOCKED"
+                    ProbeTerminal.BLOCKED
                 );
             } else {
                 runMorphApplyMatrix(model, morphFixture.owner());
             }
         } catch (Exception failure) {
-            recordAssertion("apply.morph.transfer", "multi-point morph fixture and rows complete", singleLine(failure), "BLOCKED");
+            recordAssertion("apply.morph.transfer", "multi-point morph fixture and rows complete", singleLine(failure), ProbeTerminal.BLOCKED);
             logger.warn("PBT_MORPH_FIXTURE_FAILED " + singleLine(failure));
         } finally {
             cleanupMorphFixture(model, morphFixture);
@@ -408,7 +411,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         // transferClamped is the keyform path; keep it separate from the morph path.
         final Owner owner = discoverOwner(model);
         if (owner == null) {
-            recordAssertion("apply.skipped", "owner discovered by session matrix", "no owner", "BLOCKED");
+            recordAssertion("apply.skipped", "owner discovered by session matrix", "no owner", ProbeTerminal.BLOCKED);
             return;
         }
 
@@ -426,7 +429,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "apply.source",
                 "a non-morph bound source for transferClamped",
                 "SKIPPED: fixture has no non-morph source",
-                "SKIPPED"
+                ProbeTerminal.SKIPPED
             );
             return;
         }
@@ -440,7 +443,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "apply.source",
                 "non-empty source binding points",
                 "no source points",
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             return;
         }
@@ -480,7 +483,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 rangeCandidates.isEmpty()
                     ? "none available"
                     : "none contains source and inverted points without collision",
-                rangeCandidates.isEmpty() ? "BLOCKED" : "INFO"
+                rangeCandidates.isEmpty() ? ProbeTerminal.BLOCKED : ProbeTerminal.INFO
             );
         }
 
@@ -492,7 +495,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "row.clamped.plain",
                 "same-category unbound candidate with unique changed clamp",
                 "SKIPPED: no suitable narrow candidate",
-                "SKIPPED"
+                ProbeTerminal.SKIPPED
             );
         } else {
             if ("none".equals(targetParameter)) {
@@ -515,7 +518,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     "row.invert",
                     "same-category unbound candidate with unique changed negate-then-clamp mapping",
                     "SKIPPED: no suitable inverted candidate",
-                    "SKIPPED"
+                    ProbeTerminal.SKIPPED
                 );
             } else {
                 if ("none".equals(targetParameter)) {
@@ -538,7 +541,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "row.clamped.duplicate",
                 "same-category unbound candidate with near-duplicate mapped points",
                 "SKIPPED: no collision candidate",
-                "SKIPPED"
+                ProbeTerminal.SKIPPED
             );
         } else {
             assertDuplicateFailsBeforeMutation(
@@ -577,7 +580,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "apply.morph.source",
             "family=BLEND_SHAPE target=" + target + " points>=3 finite unique",
             sourceActual + " typeIsBlendShape=" + sourceShape,
-            sourceReady ? "PASS" : sourceBinding == null || !sourceHasThreePoints ? "BLOCKED" : "FAIL"
+            sourceReady ? ProbeTerminal.PASS : sourceBinding == null || !sourceHasThreePoints ? ProbeTerminal.BLOCKED : ProbeTerminal.FAIL
         );
         if (!sourceReady) return;
 
@@ -592,13 +595,13 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "apply.morph.wide.preflight",
                 "free morph destination whose range preserves every source point",
                 "none; candidates=" + rangeEvidence(morphCandidates),
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             recordAssertion(
                 "apply.morph.transfer",
                 "wide-preserve and narrow-clamp rows preflight before any edit",
                 "wide destination unavailable",
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             return;
         }
@@ -607,7 +610,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "apply.morph.wide.preflight",
             "free morph destination range preserves all source points",
             mappingEvidence(wide),
-            "PASS"
+            ProbeTerminal.PASS
         );
 
         final MappingCandidate narrow = findNarrowMorphCandidate(sourcePoints, morphCandidates, usedTargets);
@@ -616,13 +619,13 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "apply.morph.narrow.preflight",
                 "different free morph destination whose range excludes a source point (proves no clamp)",
                 "none; candidates=" + rangeEvidence(morphCandidates),
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             recordAssertion(
                 "apply.morph.transfer",
                 "wide-preserve and narrow-clamp rows preflight before any edit",
                 "narrow destination unavailable after wide destination reservation",
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             return;
         }
@@ -630,7 +633,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "apply.morph.narrow.preflight",
             "different free morph destination has unique unchanged mapping into an excluding range",
             mappingEvidence(narrow),
-            "PASS"
+            ProbeTerminal.PASS
         );
 
         final MappingCandidate inverted = findInvertMorphCandidate(sourcePoints, morphCandidates);
@@ -639,13 +642,13 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "apply.morph.invert.preflight",
                 "free morph destination with unique negated mapping for every point",
                 "none; candidates=" + rangeEvidence(morphCandidates),
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             recordAssertion(
                 "apply.morph.transfer",
                 "wide-preserve, narrow-clamp, and inverted morph rows preflight before any edit",
                 "inversion destination unavailable",
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             return;
         }
@@ -653,14 +656,14 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "apply.morph.invert.preflight",
             "free morph destination has unique negated mapping",
             mappingEvidence(inverted),
-            "PASS"
+            ProbeTerminal.PASS
         );
         recordAssertion(
             "apply.morph.preflight",
             "source, destinations, finite values, and mapped coordinates verified before edit",
             "sourcePoints=" + sourcePoints + " wide=" + mappingEvidence(wide)
                 + " narrow=" + mappingEvidence(narrow) + " inverted=" + mappingEvidence(inverted),
-            "PASS"
+            ProbeTerminal.PASS
         );
         targetParameter = wide.candidate().snapshot().parameterId().value();
 
@@ -668,7 +671,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         try {
             robot = new Robot();
         } catch (Exception failure) {
-            recordAssertion("apply.morph.robot", "host input available", singleLine(failure), "FAIL");
+            recordAssertion("apply.morph.robot", "host input available", singleLine(failure), ProbeTerminal.FAIL);
             return;
         }
         final MorphRowPlan widePlan = new MorphRowPlan(
@@ -691,7 +694,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             transferMorphRow(model, narrowPlan, robot);
             transferMorphRow(model, invertedPlan, robot);
         } catch (Exception failure) {
-            recordAssertion("apply.morph.exception", "three atomic morph rows complete", singleLine(failure), "FAIL");
+            recordAssertion("apply.morph.exception", "three atomic morph rows complete", singleLine(failure), ProbeTerminal.FAIL);
             logger.error("PBT_MORPH_TRANSFER_FAILED " + singleLine(failure), failure);
         }
     }
@@ -711,7 +714,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             plan.prefix() + ".precondition",
             "source binding has all planned points and destination has no morph/keyform binding",
             "source=" + bindingEvidence(sourceBefore) + " destination=" + destinationEvidence(destinationBefore),
-            precondition ? "PASS" : "FAIL"
+            precondition ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         if (!precondition) return;
 
@@ -744,7 +747,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             plan.prefix() + ".destination.guid",
             plan.destination().value(),
             destinationAfter == null ? "binding=null" : destinationAfter.parameterId().value(),
-            guidPass ? "PASS" : "FAIL"
+            guidPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         recordAssertion(
             plan.prefix() + ".destination.points",
@@ -752,19 +755,19 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "count=" + (destinationAfter == null ? 0 : destinationAfter.points().size())
                 + " ids=" + (destinationAfter == null ? List.of() : destinationAfter.points().stream()
                     .map(point -> point.id().value()).toList()),
-            countPass ? "PASS" : "FAIL"
+            countPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         recordAssertion(
             plan.prefix() + ".destination.values",
             "mappedBySource=" + plan.expectedDestination() + " expectedSourceOrder=" + plan.expectedDestination(),
             "actual=" + actualDestination + " binding=" + bindingEvidence(destinationAfter),
-            valuesPass ? "PASS" : "FAIL"
+            valuesPass ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         recordAssertion(
             plan.prefix() + ".transferred",
             "one whole-binding morph edit moves every point and removes source binding",
             "source=" + bindingEvidence(sourceAfter) + " destination=" + bindingEvidence(destinationAfter),
-            transferred ? "PASS" : "FAIL"
+            transferred ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         if (!transferred) return;
 
@@ -778,7 +781,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "one user Ctrl+Z restores every source point and removes destination",
             "shortcutCount=1 source=" + bindingEvidence(morphBinding(model, plan.source(), plan.target()))
                 + " destination=" + bindingEvidence(morphBinding(model, plan.destination(), plan.target())),
-            undone ? "PASS" : "FAIL"
+            undone ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         if (!undone) return;
 
@@ -792,7 +795,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "one user Ctrl+Y restores the complete destination binding",
             "source=" + bindingEvidence(morphBinding(model, plan.source(), plan.target()))
                 + " destination=" + bindingEvidence(morphBinding(model, plan.destination(), plan.target())),
-            redone ? "PASS" : "FAIL"
+            redone ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         if (!redone) return;
 
@@ -823,14 +826,14 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "source=" + plan.sourcePoints().get(index) + " maps to destination="
                     + plan.expectedDestination().get(index),
                 actual,
-                matches ? "PASS" : "FAIL"
+                matches ? ProbeTerminal.PASS : ProbeTerminal.FAIL
             );
         }
         recordAssertion(
             plan.prefix() + ".association",
             "every source morph point keeps its target association",
             "sourcePoints=" + plan.sourcePoints() + " mappedBySource=" + plan.expectedDestination(),
-            associated ? "PASS" : "FAIL"
+            associated ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
 
         final int cleanupUndoSteps = pressUntil(
@@ -854,7 +857,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 + " source=" + bindingEvidence(morphBinding(model, plan.source(), plan.target()))
                 + " destination=" + bindingEvidence(morphBinding(model, plan.destination(), plan.target()))
                 + " valuesRestored=" + restoredValues,
-            restoredBindings && restoredValues ? "PASS" : "FAIL"
+            restoredBindings && restoredValues ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
     }
 
@@ -1042,7 +1045,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 assertionPrefix + ".precondition",
                 "source bound and destination free before row",
                 "source=" + originalPoints + " destination=" + destinationBefore,
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             return;
         }
@@ -1055,7 +1058,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             assertionPrefix + ".mapped.unique",
             "mappedBySource has no equal or near-duplicate values",
             mappedBySource,
-            isUnique(mappedBySource) ? "PASS" : "FAIL"
+            isUnique(mappedBySource) ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
 
         final float sourceValue = onHostThread(() -> findParameter(model, source).getValue());
@@ -1077,7 +1080,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             assertionPrefix + ".readback.sorted",
             "destination binding readback is sorted ascending",
             moved,
-            readbackSorted ? "PASS" : "FAIL"
+            readbackSorted ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
         final boolean transferred = sourceAfterTransfer.isEmpty()
             && moved.equals(expectedDestination);
@@ -1087,7 +1090,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "mappedBySource=" + mappedBySource + " expectedSorted=" + expectedDestination
                 + " destination=" + moved
                 + " source=" + sourceAfterTransfer,
-            transferred ? "PASS" : "FAIL"
+            transferred ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
 
 
@@ -1102,7 +1105,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "original binding restored on source (undoSteps=" + undoSteps + ")",
             "source=" + bindingValues(model, source, owner)
                 + " destination=" + bindingValues(model, destination, owner),
-            undone ? "PASS" : "FAIL"
+            undone ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
 
         final int redoSteps = pressUntil(
@@ -1116,7 +1119,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "mapped destination restored after redo (redoSteps=" + redoSteps + ")",
             "destination=" + bindingValues(model, destination, owner)
                 + " source=" + bindingValues(model, source, owner),
-            redone ? "PASS" : "FAIL"
+            redone ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
 
         if (transferred && redone) {
@@ -1134,21 +1137,21 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                         + " equals destination state at " + mappedBySource.get(index),
                     "before=" + singleLine(sourceStates.get(index))
                         + " after=" + singleLine(destinationStates.get(index)),
-                    matches ? "PASS" : "FAIL"
+                    matches ? ProbeTerminal.PASS : ProbeTerminal.FAIL
                 );
             }
             recordAssertion(
                 assertionPrefix + ".association",
                 "each keyform state follows its source-order mapped coordinate",
                 "mappedBySource=" + mappedBySource,
-                associated ? "PASS" : "FAIL"
+                associated ? ProbeTerminal.PASS : ProbeTerminal.FAIL
             );
         } else {
             recordAssertion(
                 assertionPrefix + ".association",
                 "keyform association checked after successful transfer and redo",
                 "not evaluated because transfer or redo readback failed",
-                "FAIL"
+                ProbeTerminal.FAIL
             );
         }
 
@@ -1163,7 +1166,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "cleanup undo restored original state",
             "source=" + bindingValues(model, source, owner)
                 + " destination=" + bindingValues(model, destination, owner),
-            restored ? "PASS" : "FAIL"
+            restored ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
     }
 
@@ -1265,7 +1268,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.natural",
                 "existing BLEND_SHAPE binding with at least three points",
                 bindingEvidence(natural.binding()),
-                "PASS"
+                ProbeTerminal.PASS
             );
             final MorphFixtureSetup setup = MorphFixtureSetup.natural(natural);
             return setup;
@@ -1274,7 +1277,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "setup.natural",
             "existing BLEND_SHAPE binding with at least three points",
             "none; task-scoped fallback setup required",
-            "PASS"
+            ProbeTerminal.PASS
         );
         final MorphFixtureSetup setup = prepareFallbackMorphFixture(model);
         return setup;
@@ -1318,7 +1321,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     + " originalTargets=" + rawTargetEvidence(originalTargets)
                     + " selectedForms=" + rawKeyEvidence(fallback.selectedKeys())
                     + " originalBindingPresent=" + originalBindingPresent,
-                "PASS"
+                ProbeTerminal.PASS
             );
 
             restores = selectFallbackTargets(model, owner.source());
@@ -1327,7 +1330,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.fallback.targets.preflight",
                 "two globally unbound NORMAL parameters with legal planned definitions",
                 definitionPlansEvidence(definitions),
-                "PASS"
+                ProbeTerminal.PASS
             );
 
             final List<RawKeyform> existingKeys = fallback.selectedKeys();
@@ -1363,7 +1366,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.fallback.morph",
                 "public binding family=BLEND_SHAPE selected points>=3 finite unique",
                 bindingEvidence(preparedBinding) + " selectedPoints=" + setupPoints,
-                morphReady ? "PASS" : "BLOCKED"
+                morphReady ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED
             );
             if (!morphReady) {
                 throw new IllegalStateException("Fallback MorphTarget setup did not project as the selected public three-point binding.");
@@ -1383,9 +1386,9 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "at least three selected ACForm source points have pairwise-distinct owner states",
                 "points=" + setupPoints
                     + " states=" + associationStates.stream()
-                        .map(ParameterBatchTransferHostValidationPlugin::singleLine)
+                        .map(ProbeAssertions::singleLine)
                         .toList(),
-                distinctStates ? "PASS" : "BLOCKED"
+                distinctStates ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED
             );
             if (!distinctStates) {
                 throw new IllegalStateException("Fallback source ACForm association states are not pairwise distinct.");
@@ -1404,7 +1407,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.fallback.targets",
                 "two BLEND_SHAPE definitions with planned wide/narrow ranges",
                 definitionPlansEvidence(definitions),
-                definitionsReady ? "PASS" : "BLOCKED"
+                definitionsReady ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED
             );
             if (!definitionsReady) {
                 throw new IllegalStateException("Fallback target definition readback did not match the planned setup.");
@@ -1418,7 +1421,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     + " selectedForms=" + rawKeyEvidence(fallback.selectedKeys())
                     + " points=" + preparedPoints
                     + " targets=" + definitionPlansEvidence(definitions),
-                "PASS"
+                ProbeTerminal.PASS
             );
             return new MorphFixtureSetup(
                 owner,
@@ -1438,7 +1441,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.fallback",
                 "fallback setup completes without leaving partial fixture state",
                 singleLine(failure),
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             cleanupMorphFixture(
                 model,
@@ -1487,7 +1490,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     "setup.scaffold.source",
                     "existing BLEND_SHAPE source plus separate legal NORMAL scaffold parameter",
                     "no compatible source/owner/scaffold group; rejects=" + rejectEvidence(scaffoldDiagnostics),
-                    "BLOCKED"
+                    ProbeTerminal.BLOCKED
                 );
                 return MorphFixtureSetup.none();
             }
@@ -1527,7 +1530,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     + " baselineGridKeys=" + setupBaseline.gridKeys().size()
                     + " baselineForms=" + setupBaseline.formPositions().size()
                     + " targets=" + definitionPlansEvidence(definitions),
-                "PASS"
+                ProbeTerminal.PASS
             );
 
             final List<RawKeyform> selected = new ArrayList<>();
@@ -1587,7 +1590,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "keys=" + rawKeyEvidence(selectedAfter)
                     + " newFormCount=" + newFormCount
                     + " nudgedForms=" + nudgedPositions.keySet(),
-                "PASS"
+                ProbeTerminal.PASS
             );
 
             onHostThread(() -> {
@@ -1614,7 +1617,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.scaffold.morph",
                 "public source binding is exactly BLEND_SHAPE [-30,0,30], finite and unique",
                 bindingEvidence(preparedBinding) + " selectedPoints=" + setupPoints,
-                morphReady ? "PASS" : "BLOCKED"
+                morphReady ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED
             );
             if (!morphReady) {
                 throw new IllegalStateException("Scaffold MorphTarget setup did not project as the exact public three-point binding.");
@@ -1633,9 +1636,9 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "three scaffold source points have pairwise-distinct owner states",
                 "points=" + setupPoints
                     + " states=" + associationStates.stream()
-                        .map(ParameterBatchTransferHostValidationPlugin::singleLine)
+                        .map(ProbeAssertions::singleLine)
                         .toList(),
-                distinctStates ? "PASS" : "BLOCKED"
+                distinctStates ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED
             );
             if (!distinctStates) {
                 throw new IllegalStateException("Scaffold source form states are not pairwise distinct.");
@@ -1654,7 +1657,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.scaffold.targets",
                 "two BLEND_SHAPE definitions with planned wide/narrow ranges",
                 definitionPlansEvidence(definitions),
-                definitionsReady ? "PASS" : "BLOCKED"
+                definitionsReady ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED
             );
             if (!definitionsReady) {
                 throw new IllegalStateException("Scaffold target definition readback did not match the planned setup.");
@@ -1668,7 +1671,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     + " forms=" + rawKeyEvidence(selectedAfter)
                     + " newForms=" + addedFormGuids
                     + " targets=" + definitionPlansEvidence(definitions),
-                "PASS"
+                ProbeTerminal.PASS
             );
             return new MorphFixtureSetup(
                 owner,
@@ -1698,7 +1701,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.scaffold",
                 "scaffold setup completes without leaving partial grid/form/target state",
                 singleLine(failure),
-                "BLOCKED"
+                ProbeTerminal.BLOCKED
             );
             final ScaffoldState partialScaffold = rawGrid == null
                     || scaffoldGuid == null
@@ -1757,7 +1760,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "setup.fallback.source.parameter",
                 "optional existing-form fast path: existing global BLEND_SHAPE parameter",
                 "none; the scaffold fixture setup runs instead",
-                "INFO"
+                ProbeTerminal.INFO
             );
             return null;
         }
@@ -1858,7 +1861,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             "optional existing-form fast path: existing global BLEND_SHAPE parameter + Drawable with >=3 distinct existing ACForms",
             "none; blendShapeParameters=" + sourceParameters.stream().map(ParameterId::value).toList()
                 + " rejects=" + rejectEvidence(rejects),
-            "INFO"
+            ProbeTerminal.INFO
         );
         return null;
     }
@@ -2602,7 +2605,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                         + " originalTargetCount=" + fixture.originalTargets().size()
                         + " original=" + rawTargetEvidence(fixture.originalTargets())
                         + " current=" + rawTargetEvidence(currentTargets),
-                    addedAbsent && originalPreserved ? "PASS" : "FAIL"
+                    addedAbsent && originalPreserved ? ProbeTerminal.PASS : ProbeTerminal.FAIL
                 );
             } catch (Exception failure) {
                 rawRemoved = false;
@@ -2610,7 +2613,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     "setup.cleanup.morphTargets",
                     "all fallback MorphTargets removed and original raw targets preserved",
                     singleLine(failure),
-                    "FAIL"
+                    ProbeTerminal.FAIL
                 );
             }
         }
@@ -2688,7 +2691,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                         + " scaffoldPublicUnbound=" + scaffoldPublicUnbound
                         + " definition=" + definitionRestored
                         + " addedFormGuids=" + scaffold.addedFormGuids(),
-                    scaffoldRestored ? "PASS" : "FAIL"
+                    scaffoldRestored ? ProbeTerminal.PASS : ProbeTerminal.FAIL
                 );
             } catch (Exception failure) {
                 scaffoldRestored = false;
@@ -2696,7 +2699,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     "setup.cleanup.scaffold",
                     "added scaffold keys/forms removed and baseline grid/forms/positions restored exactly",
                     singleLine(failure),
-                    "FAIL"
+                    ProbeTerminal.FAIL
                 );
             }
         }
@@ -2727,11 +2730,11 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 "fallback target definitions and values restored exactly",
                 fixture.restores().stream().map(restore -> definitionEvidence(restore.definition())).toList()
                     + " readback=" + definitionReadback,
-                definitionReadback ? "PASS" : "FAIL"
+                definitionReadback ? ProbeTerminal.PASS : ProbeTerminal.FAIL
             );
         } catch (Exception failure) {
             definitionsRestored = false;
-            recordAssertion("setup.cleanup.definitions", "fallback target definitions restored exactly", singleLine(failure), "FAIL");
+            recordAssertion("setup.cleanup.definitions", "fallback target definitions restored exactly", singleLine(failure), ProbeTerminal.FAIL);
         }
 
         boolean sourceRestored = true;
@@ -2763,11 +2766,11 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                         + " restored=" + bindingEvidence(restored)
                         + " expected=" + fixture.originalPoints()
                         + " valueRestored=" + sourceValueRestored,
-                    sourceRestored ? "PASS" : "FAIL"
+                    sourceRestored ? ProbeTerminal.PASS : ProbeTerminal.FAIL
                 );
             } catch (Exception failure) {
                 sourceRestored = false;
-                recordAssertion("setup.cleanup.source", "original source morph binding and value restored", singleLine(failure), "FAIL");
+                recordAssertion("setup.cleanup.source", "original source morph binding and value restored", singleLine(failure), ProbeTerminal.FAIL);
             }
         }
         if (!(rawRemoved && scaffoldRestored && definitionsRestored && sourceRestored)) {
@@ -3336,7 +3339,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 + " exception=" + (failure == null ? "none" : singleLine(failure))
                 + " sourceBefore=" + sourceBefore + " sourceAfter=" + sourceAfter
                 + " destinationBefore=" + destinationBefore + " destinationAfter=" + destinationAfter,
-            passed ? "PASS" : "FAIL"
+            passed ? ProbeTerminal.PASS : ProbeTerminal.FAIL
         );
     }
 
@@ -3677,7 +3680,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     // Evidence
     // ------------------------------------------------------------------
 
-    private void recordAssertion(final String name, final Object expected, final Object actual, final String status) {
+    private void recordAssertion(final String name, final Object expected, final Object actual, final ProbeTerminal status) {
         assertions.record(name, expected, actual, status);
     }
 
@@ -3688,14 +3691,6 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             chain.append(cursor.getClass().getSimpleName()).append(": ").append(cursor.getMessage());
         }
         return chain.toString();
-    }
-
-    private static String singleLine(final Object value) {
-        if (value == null) {
-            return "null";
-        }
-        final String text = value.toString().replace('\n', ' ').replace('\r', ' ');
-        return text.length() > 4000 ? text.substring(0, 4000) : text;
     }
 
     private void writeResultFile(final long startedNanos) {
@@ -3714,11 +3709,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 .append("sourceParameter=").append(sourceParameter).append('\n')
                 .append("targetParameter=").append(targetParameter).append('\n')
                 .append("durationMillis=").append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-            assertions.appendCounters(report);
-            assertions.appendNamed(report);
-            // The terminal verdict goes last: the Runner requires a positive verdict count
-            // as soon as it observes the pass line.
-            report.append("status=").append(assertions.terminal().name()).append('\n');
+            assertions.appendPublication(report, ProbeAssertions.Records.NAMED, "status");
             Files.createDirectories(result.getParent());
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);

@@ -13,16 +13,25 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/release'))
 from turboism_release import prerelease
 from turboism_release.build_identity import identity
+from turboism_release.release_notes import COMPATIBILITY_MATRIX
 
 class ReleaseDetailsTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        matrix = self.root / 'compatibility/cubism/compatibility-matrix.json'
+        reviewed = self.root / 'compatibility/cubism/reviewed-releases.json'
+        reviewed.parent.mkdir(parents=True, exist_ok=True)
+        reviewed.write_bytes((ROOT / 'compatibility/cubism/reviewed-releases.json').read_bytes())
+        # The matrix is a generated build product: the release fixture only needs
+        # the cross-check projection, derived from the reviewed table itself.
+        matrix = self.root / COMPATIBILITY_MATRIX
         matrix.parent.mkdir(parents=True, exist_ok=True)
-        matrix.write_bytes((ROOT / 'compatibility/cubism/compatibility-matrix.json').read_bytes())
-        (self.root / 'compatibility/cubism/reviewed-releases.json').write_bytes((ROOT / 'compatibility/cubism/reviewed-releases.json').read_bytes())
+        matrix.write_text(json.dumps({
+            'format': 'turboism.compatibility-matrix/v1',
+            'reviewedVersions': [r['version'] for r in json.loads(
+                reviewed.read_text(encoding='utf-8'))['releases']],
+        }), encoding='utf-8')
         self.git('init','-q')
         self.git('config','user.name','Tests'); self.git('config','user.email','tests@example.invalid')
         self.base = self.commit('initial')
@@ -192,7 +201,7 @@ class ReleaseDetailsTests(unittest.TestCase):
                 sub_payload['cubismEditor']['ranges'],
                 [{'from': '5.2.03', 'to': '5.2.03'}, {'from': '5.3.02', 'to': '5.3.03'}],
             )
-            matrix=empty/'compatibility/cubism/compatibility-matrix.json'
+            matrix=empty/COMPATIBILITY_MATRIX
             matrix.parent.mkdir(parents=True, exist_ok=True)
             matrix.write_text(json.dumps({
                 'format': 'turboism.compatibility-matrix/v1',

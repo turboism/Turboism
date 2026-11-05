@@ -8,6 +8,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.validation.shared.verdict.ProbeAssertions;
+import dev.turboism.validation.shared.verdict.ProbeTerminal;
 
 import javax.swing.AbstractButton;
 import javax.swing.JComboBox;
@@ -169,7 +170,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
             }
         } catch (Throwable failure) {
             recordAssertion("probe.unexpectedFailure", "no exception",
-                singleLine(failure), "FAIL");
+                singleLine(failure), ProbeTerminal.FAIL);
             logger.error("ATLAS_POLYGON_PROBE_FAILED " + singleLine(failure), failure);
         }
         writeResult(phase, startedNanos);
@@ -193,7 +194,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         recordAssertion("callback.installed",
             "BooleanSupplier registered at " + CALLBACK_KEY,
             callback == null ? "absent" : callback.getClass().getName(),
-            callback instanceof BooleanSupplier ? "PASS" : "FAIL");
+            callback instanceof BooleanSupplier ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         installDialogObserver();
         System.getProperties().put(ALGORITHM_KEY, ALGORITHM_DALSOO);
@@ -202,7 +203,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         final String fixtureShaBefore = fixture == null ? "" : sha256(fixture);
         recordAssertion("fixture.readable", "fixture file readable for hashing",
             fixture == null ? "no fixture sysprop" : fixture + " sha256=" + fixtureShaBefore,
-            fixture != null && !fixtureShaBefore.isEmpty() ? "PASS" : "FAIL");
+            fixture != null && !fixtureShaBefore.isEmpty() ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
         ensureAtlasEditor();
         recordSdkReadback();
@@ -221,7 +222,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         recordAssertion("undo.restoresPreState",
             "state digest after undo equals pre-layout digest",
             "pre(inv1)=" + inv1.preState + " pre(inv2)=" + inv2.preState,
-            inv1.preState != null && inv1.preState.equals(inv2.preState) ? "PASS" : "FAIL");
+            inv1.preState != null && inv1.preState.equals(inv2.preState) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         commitAtlasEditor();
 
         // Undo the second commit, then redo: the next invocation must read the
@@ -234,7 +235,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         recordAssertion("redo.restoresPostState",
             "state digest after redo equals post-inv2 digest",
             "post(inv2)=" + inv2.postState + " pre(inv3)=" + inv3.preState,
-            inv2.postState != null && inv2.postState.equals(inv3.preState) ? "PASS" : "FAIL");
+            inv2.postState != null && inv2.postState.equals(inv3.preState) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         commitAtlasEditor();
 
         // Save: the host writes the task fixture in place (real save path);
@@ -243,14 +244,14 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         final Path savedCopy = saveAndPreserveCopy(fixture, fixtureShaBefore);
         recordAssertion("persist.savedCopy",
             "host save persisted committed state; saved bytes preserved as sibling copy",
-            String.valueOf(savedCopy), savedCopy != null ? "PASS" : "FAIL");
+            String.valueOf(savedCopy), savedCopy != null ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         recordAssertion("persist.fixtureUnchanged",
             "task fixture copy restored unchanged after evidence capture",
             "before=" + fixtureShaBefore + " after=" + sha256(fixture),
-            fixture != null && sha256(fixture).equals(fixtureShaBefore) ? "PASS" : "FAIL");
+            fixture != null && sha256(fixture).equals(fixtureShaBefore) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         // The persisted committed state is inv3's post digest; phase B re-reads it.
         recordAssertion("persist.expectedPostState", "post-layout state digest for phase B",
-            String.valueOf(inv3.postState), inv3.postState != null ? "PASS" : "FAIL");
+            String.valueOf(inv3.postState), inv3.postState != null ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         System.setProperty("turboism.validation.atlasPolygon.postStateDigest",
             String.valueOf(inv3.postState));
         if (savedCopy != null) {
@@ -269,13 +270,13 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         final String expected = System.getProperty(
             "turboism.validation.atlasPolygon.expectedPlanSha", "");
         recordAssertion("persist.expectedShaProvided", "phase-A state digest provided",
-            expected.isBlank() ? "missing" : expected, expected.isBlank() ? "FAIL" : "PASS");
+            expected.isBlank() ? "missing" : expected, expected.isBlank() ? ProbeTerminal.FAIL : ProbeTerminal.PASS);
         ensureAtlasEditor();
         final Invocation inv = runAutoLayoutInvocation();
         recordAssertion("persist.stateMatchesPost",
             "reopened snapshot digest equals phase-A post-layout digest",
             "expected=" + expected + " actual=" + inv.preState,
-            inv.preState != null && inv.preState.equals(expected) ? "PASS" : "FAIL");
+            inv.preState != null && inv.preState.equals(expected) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         // Leave the editor committed so cleanup exercises a normal close.
         commitAtlasEditor();
     }
@@ -362,7 +363,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         }
         recordAssertion("dialog.algorithmRegistered." + invocationCount,
             "dalsoo algorithm registered in the dialog selector",
-            detail, saw ? "PASS" : "FAIL");
+            detail, saw ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
     }
 
     /**
@@ -434,7 +435,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         });
         recordAssertion("layout.trigger." + label,
             "auto-layout trigger found and clicked in atlas editor",
-            "triggered=" + triggered, triggered ? "PASS" : "FAIL");
+            "triggered=" + triggered, triggered ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         if (!triggered) {
             throw new IllegalStateException("No auto-layout trigger in atlas editor.");
         }
@@ -443,7 +444,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         if (settings != null) {
             recordAssertion("dialog.autoLayoutOpened." + label,
                 "native auto-layout settings dialog opened",
-                settings.getTitle(), "PASS");
+                settings.getTitle(), ProbeTerminal.PASS);
             if (dialogObservation.get() != null) {
                 assertObserverSawDalsoo();
             }
@@ -510,17 +511,17 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
             "dalsoo callback applied a valid plan (not host fallback)",
             "handled=" + inv.handled + " failed=" + inv.failed
                 + " status=" + inv.status + " plan=" + abbrev(inv.planLine),
-            inv.handled && !inv.failed ? "PASS" : "FAIL");
+            inv.handled && !inv.failed ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         final String shapes = extractToken(inv.snapshotLine, "outlineDrawDataShapes=");
         final boolean contours = shapes != null && !"0".equals(shapes);
         recordAssertion("outline.drawDataShapes." + label,
             "real draw-data-shape contours extracted for at least one item",
             "outlineDrawDataShapes=" + shapes + " snapshot=" + abbrev(inv.snapshotLine),
-            contours ? "PASS" : "FAIL");
+            contours ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         recordAssertion("layout.writeBack." + label,
             "post-apply live state digest logged by the production service",
             "pre=" + inv.preState + " post=" + inv.postState,
-            inv.postState != null && !"unreadable".equals(inv.postState) ? "PASS" : "FAIL");
+            inv.postState != null && !"unreadable".equals(inv.postState) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
     }
 
     private void recordSdkReadback() throws Exception {
@@ -529,7 +530,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         recordAssertion("editor.sdkReadback",
             "provider exposes current authoring state (informational)",
             "current()=" + (present ? "present" : "empty"),
-            present ? "PASS" : "INFO");
+            present ? ProbeTerminal.PASS : ProbeTerminal.INFO);
     }
 
     /** The atlas-creation dialog: a showing modal JDialog that is not the auto-layout dialog. */
@@ -638,7 +639,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         recordAssertion("editor.windowFound." + invocationCount,
             "atlas editor window located for commit",
             editor == null ? "none" : editor.getClass().getName(),
-            editor != null ? "PASS" : "FAIL");
+            editor != null ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         if (editor == null) {
             return;
         }
@@ -649,7 +650,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         });
         recordAssertion("editor.commitClicked." + invocationCount,
             "editor OK/commit button clicked",
-            "clicked=" + clicked, clicked ? "PASS" : "FAIL");
+            "clicked=" + clicked, clicked ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         // Wait for the editor window to close.
         final long deadline = System.currentTimeMillis() + DIALOG_TIMEOUT_MILLIS;
         while (System.currentTimeMillis() < deadline) {
@@ -1094,7 +1095,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         final String name,
         final String expected,
         final String actual,
-        final String status
+        final ProbeTerminal status
     ) {
         assertions.record(name, expected, actual, status);
         logger.info("ATLAS_POLYGON_ASSERT " + name + " status=" + status
@@ -1109,11 +1110,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
             .append(System.getProperty("turboism.validation.hostVersion", "unknown")).append('\n');
         report.append("durationMillis=")
             .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-        assertions.appendCounters(report);
-        assertions.appendNamed(report);
-        // The terminal verdict goes last: the Runner requires a positive verdict count
-        // as soon as it observes the pass line.
-        report.append("status=").append(terminal).append('\n');
+        assertions.appendPublication(report, ProbeAssertions.Records.NAMED, "status");
         try {
             final Path result = Path.of(System.getProperty("turboism.home"),
                 "state", "atlas-polygon-validation-result.properties");

@@ -5,7 +5,6 @@ from .constants import (
     BLOCK_BEGIN,
     BLOCK_END,
     BOUNDARY_TRIAGE,
-    CAMPAIGN_INVENTORY,
     CAMPAIGN_JOBS,
     CAPABILITY_GROUP_RULES,
     CLASS_PINS_DIR,
@@ -33,6 +32,7 @@ from .constants import (
     VERIFICATION_DIR,
     VERSION_BOUNDARIES,
     VERSION_RE,
+    is_generated_output,
 )
 from .extract import (
     _load_boundary_entries,
@@ -88,7 +88,6 @@ __all__ = [
     "BLOCK_BEGIN",
     "BLOCK_END",
     "BOUNDARY_TRIAGE",
-    "CAMPAIGN_INVENTORY",
     "CAMPAIGN_JOBS",
     "CAPABILITY_GROUP_RULES",
     "CLASS_PINS_DIR",
@@ -136,6 +135,7 @@ __all__ = [
     "classify_gap",
     "compact_ranges",
     "index_official_timeline",
+    "is_generated_output",
     "load_campaign",
     "load_capabilities",
     "load_class_pins",

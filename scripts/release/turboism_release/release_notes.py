@@ -7,13 +7,14 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from turboism_dev.paths import COMPATIBILITY_MATRIX
+
 REPO = 'https://github.com/turboism/Turboism'
 MATRIX_URL = 'https://turboism.dev/docs/use/compatibility'
 PLATFORMS = ('windows-x64',)
 SHA = re.compile(r'[0-9a-f]{40}')
 TAG = re.compile(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?')
 CUBISM_VERSION = re.compile(r'^5\.\d{1,2}\.\d{2}$')
-COMPATIBILITY_MATRIX = Path('compatibility/cubism/compatibility-matrix.json')
 REVIEWED_HOST_ARTIFACTS = Path(
     'compatibility/cubism/reviewed-releases.json'
 )
@@ -168,6 +169,8 @@ def _cubism_version_key(version):
 
 def compatibility_versions(root):
     root = Path(root)
+    # Generated build product: when the build ran the generator it must agree
+    # with the reviewed release table; without it the table stays authoritative.
     matrix_path = root / COMPATIBILITY_MATRIX
     artifacts_path = root / REVIEWED_HOST_ARTIFACTS
     require(artifacts_path.is_file() and not artifacts_path.is_symlink(), 'Missing or invalid reviewed releases table')

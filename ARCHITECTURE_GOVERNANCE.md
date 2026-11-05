@@ -150,6 +150,12 @@ of persistence formats, migrations, API baselines, verification wiring and the
 governance tooling is recorded here and enforced by gates; see
 "Solo-Maintainer Governance Principles".
 
+`checkRelease` combines `checkCompletedCommit` with `checkReleasePackaging`.
+Ordinary CI owns the former; the channel workflow executes the latter once
+before validating each channel's packages. The CI coverage contract verifies
+the combined task closure, preserving the full release gate without repeating
+the completed-commit suite in each channel job.
+
 Main is now enforced by the repository ruleset `protect-main` (id 26441981,
 `refs/heads/main`, active, no bypass actors):
 

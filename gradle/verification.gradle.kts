@@ -369,7 +369,9 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
 val checkReviewedReleases by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks reviewed release integrity, patch closure, literal bans and task coverage."
+    dependsOn("checkCompatibilityMatrix")
     workingDir(rootDir)
+    inputs.file("build/generated/compatibility/cubism/compatibility-matrix.json")
     inputs.files(fileTree(rootDir) {
         include("scripts/**/*.py", "scripts/**/*.json", "scripts/**/*.java", "scripts/**/*.template",
                 "scripts/preview/run-*.sh", "compatibility/cubism/**/*.json", "compatibility/cubism/index.md",
@@ -395,8 +397,8 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
  * the generated blocks inside plugin READMEs are derived artifacts: every
  * version set comes from the verification records, selector contracts, SDK
  * annotations, and campaign results. The check task regenerates them in
- * memory and fails on drift, so a coverage change must be followed by one
- * generator run instead of hand-editing the outputs.
+ * memory and fails on tracked-output drift before materializing the matrix
+ * under build/generated. One render serves the check and its downstream readers.
  */
 /*
  * generate_compatibility_matrix.py reads Java sources only through token-gated
@@ -427,8 +429,6 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
         "validation/cubism-version-matrix/campaign-jobs.json",
-        "validation/cubism-version-matrix/inventory.json",
-        "compatibility/cubism/compatibility-matrix.json",
         "compatibility/cubism/version-boundaries.json",
         "compatibility/cubism/official-feature-timeline.json",
         "packaging/release-plugins.txt",
@@ -454,13 +454,14 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
             include("*/src/main/resources/META-INF/turboism/cubism-versions.json")
             // Plugin sources stay whole: SDK accessor use is detected by method-name regex.
             include("*/src/main/java/**/*.java")
-            include("README*.md")
+            include("*/README*.md")
         }
     )
+    outputs.file("build/generated/compatibility/cubism/compatibility-matrix.json")
     VerificationStamps.apply(this)
     commandLine(
         "python3", "scripts/generate_compatibility_matrix.py",
-        "--check", "--root", rootDir.absolutePath
+        "--check", "--generated-only", "--root", rootDir.absolutePath
     )
 }
 
@@ -1769,17 +1770,19 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
     )
 }
 
-tasks.register("checkRelease") {
-    group = "verification"
-    description = "Runs completed-commit verification plus supply-chain and historical release audits."
+/*
+ * Release-only gates: supply chain, release tooling, market metadata and the installer
+ * contracts. They are one separately invocable aggregate so a per-channel packaging run
+ * executes the release evidence without repeating the public completed-commit closure.
+ * `checkRelease` still wires the complete set below, so a formal candidate keeps exactly
+ * one full gate; the two are equivalent by construction, not by convention.
+ */
+val checkReleasePackaging by tasks.registering {
+    group = "release verification"
+    description = "Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure."
     dependsOn(
-        checkCompletedCommit,
         checkReleaseTooling,
         "checkInstallerVersion",
-        // Registered by gradle/architecture-governance.gradle.kts and reachable through
-        // checkCompletedCommit; listed here so this gate states its full dependency set.
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",
@@ -1788,11 +1791,24 @@ tasks.register("checkRelease") {
     )
 }
 
+tasks.register("checkRelease") {
+    group = "verification"
+    description = "Runs completed-commit verification plus supply-chain and historical release audits."
+    dependsOn(
+        checkCompletedCommit,
+        checkReleasePackaging,
+        // Registered by gradle/architecture-governance.gradle.kts and reachable through
+        // checkCompletedCommit; listed here so this gate states its full dependency set.
+        "checkArchitectureRules",
+        "checkGoldenSnapshotManifest"
+    )
+}
+
 tasks.named("check") {
     dependsOn(devCheck)
 }
 
-// Gate notes: the unified channel check runs the full release gate on pushes touching gradle/runtime/packaging.
+// Ordinary CI owns the completed-commit closure; the channel workflow runs the release delta once.
 
 // Python gates and their live-tree fixtures read the canonical materialized records.
 // The materializer itself is registered in the root build, outside this gate script.

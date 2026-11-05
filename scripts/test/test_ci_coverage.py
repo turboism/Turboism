@@ -91,8 +91,33 @@ def is_xvfb_install_line(line: str) -> bool:
     return False
 
 
-def executable_commands(document: dict, release: bool = False) -> list[list[str]]:
-    commands = []
+# Aggregates a workflow may launch directly. `checkReleasePackaging` is the
+# separately invocable release-only gate; the formal candidate keeps the complete
+# `checkRelease` gate.
+GATE_TASKS = ('devCheck', 'checkCompletedCommit', 'checkReleasePackaging', 'checkRelease')
+ORDINARY_GATES = frozenset({'devCheck', 'checkCompletedCommit'})
+PACKAGING_GATE = 'checkReleasePackaging'
+FORMAL_RELEASE_GATE = 'checkRelease'
+ALLOWED_GATE_ARGS = frozenset({
+    *GATE_TASKS, ':buildSrc:test',
+    '--no-daemon', '--offline', '--console=plain', '--stacktrace', '--continue',
+})
+# Both release gates bind a resolved installer identity and the release flag; only
+# the formal candidate gate must also execute under the pinned Xvfb display.
+GATE_OPTIONS = {FORMAL_RELEASE_GATE: {'release_flags': True, 'require_xvfb': True},
+                PACKAGING_GATE: {'release_flags': True}}
+
+
+def gate_commands(document: dict, gate: str | None = None, *, release_flags: bool = False,
+                  require_xvfb: bool = False) -> list[list[str]]:
+    """Validate deterministic Gradle aggregate invocations and return their arguments.
+
+    `gate=None` collects every aggregate invocation. A release gate additionally has
+    to bind an explicit installer identity (`-PinstallerVersion` that comes from the
+    resolved build identity, never a literal) plus `-PturboismRelease=true`; the
+    formal candidate gate also has to execute under the pinned Xvfb display.
+    """
+    commands: list[list[str]] = []
     for job in document.get('jobs', {}).values():
         assert not job.get('continue-on-error'), 'CI job must propagate failures'
         xvfb_installed = False
@@ -103,51 +128,87 @@ def executable_commands(document: dict, release: bool = False) -> list[list[str]
             for line in step['run'].replace('\\\n', ' ').splitlines():
                 if is_unconditional_step and is_xvfb_install_line(line):
                     xvfb_installed = True
-                if release and 'checkRelease' not in line:
+                if './gradlew' not in line:
                     continue
                 tokens = shlex.split(line, comments=True)
-                if release and 'checkRelease' not in tokens:
+                if not tokens or './gradlew' not in tokens:
                     continue
-                if tokens and './gradlew' in tokens:
-                    assert not step.get('if') and not step.get('continue-on-error'), 'conditional gate'
-                    assert release or not job.get('if'), 'conditional CI job'
-                    assert tokens[0] in ('./gradlew', 'xvfb-run'), 'gate must execute directly'
-                    assert not any(x in line for x in ('&&', '||', ';', '`', '$(', '|')), 'shell gate bypass'
-                    prefix = tokens[:tokens.index('./gradlew')]
-                    if prefix:
-                        index = 1
-                        while index < len(prefix):
-                            option = prefix[index]
-                            assert option in {'-a', '--auto-servernum', '-s', '--server-args'}, 'xvfb must execute Gradle'
-                            index += 2 if option in {'-s', '--server-args'} else 1
-                        assert index == len(prefix), 'missing xvfb option value'
-                    if release:
-                        assert prefix and tokens[0] == 'xvfb-run', 'release gate must execute under xvfb-run'
-                        assert '-screen 0 1920x1080x24' in prefix, 'xvfb-run must specify standard screen geometry'
-                        assert xvfb_installed, 'release gate requires xvfb to be installed in a preceding unconditional step'
-                    args = tokens[tokens.index('./gradlew') + 1:]
-                    assert not any(x in args for x in ('-m', '--dry-run', '-x', '--exclude-task')), 'disabled gate'
-                    if release:
-                        args = [x for x in args if not (x.startswith('-PinstallerVersion=') or x == '-PturboismRelease=true')]
-                    assert not any(x.startswith(('-P', '-I', '--exclude-task=', '--tests')) for x in args), 'filtered gate'
-                    assert set(args) <= {'devCheck', 'checkCompletedCommit', 'checkRelease',
-                                         ':buildSrc:test',
-                                         '--no-daemon', '--offline', '--console=plain',
-                                         '--stacktrace', '--continue'}, 'unexpected gate argument'
-                    commands.append(args)
+                if gate is None:
+                    if not any(name in tokens for name in GATE_TASKS) and ':buildSrc:test' not in tokens:
+                        continue
+                elif gate not in tokens:
+                    continue
+                assert not step.get('if') and not step.get('continue-on-error'), 'conditional gate'
+                assert require_xvfb or not job.get('if'), 'conditional CI job'
+                assert tokens[0] in ('./gradlew', 'xvfb-run'), 'gate must execute directly'
+                assert not any(x in line for x in ('&&', '||', ';', '`', '$(', '|')), 'shell gate bypass'
+                prefix = tokens[:tokens.index('./gradlew')]
+                if prefix:
+                    index = 1
+                    while index < len(prefix):
+                        option = prefix[index]
+                        assert option in {'-a', '--auto-servernum', '-s', '--server-args'}, 'xvfb must execute Gradle'
+                        index += 2 if option in {'-s', '--server-args'} else 1
+                    assert index == len(prefix), 'missing xvfb option value'
+                if require_xvfb:
+                    assert prefix and tokens[0] == 'xvfb-run', 'release gate must execute under xvfb-run'
+                    assert '-screen 0 1920x1080x24' in prefix, 'xvfb-run must specify standard screen geometry'
+                    assert xvfb_installed, 'release gate requires xvfb to be installed in a preceding unconditional step'
+                args = tokens[tokens.index('./gradlew') + 1:]
+                assert not any(x in args for x in ('-m', '--dry-run', '-x', '--exclude-task')), 'disabled gate'
+                if release_flags:
+                    identities = [x for x in args if x.startswith('-PinstallerVersion=')]
+                    assert len(identities) == 1, 'release gate must bind one installer version'
+                    assert '$' in identities[0], 'release gate installer identity must come from the build identity'
+                    assert '-PturboismRelease=true' in args, 'release gate must set -PturboismRelease=true'
+                    args = [x for x in args if x not in identities and x != '-PturboismRelease=true']
+                assert not any(x.startswith(('-P', '-I', '--exclude-task=', '--tests')) for x in args), 'filtered gate'
+                assert set(args) <= ALLOWED_GATE_ARGS, 'unexpected gate argument'
+                commands.append(args)
     return commands
 
 
-def check_workflow(root: Path) -> None:
-    workflow = yaml.safe_load((root / '.github/workflows/ci.yml').read_text(encoding='utf-8'))
+def workflow_document(root: Path, name: str) -> dict:
+    return yaml.safe_load((root / '.github/workflows' / name).read_text(encoding='utf-8'))
+
+
+def job_runs(job: dict) -> str:
+    return '\n'.join(step.get('run', '') for step in job.get('steps', []))
+
+
+def workflow_gates(root: Path) -> dict[str, set[str]]:
+    """Every aggregate gate each workflow really launches, validated for direct execution."""
+    gates = {}
+    for path in sorted((root / '.github/workflows').glob('*.yml')):
+        document = yaml.safe_load(path.read_text(encoding='utf-8'))
+        gates[path.name] = {gate for gate in GATE_TASKS
+                            if gate_commands(document, gate, **GATE_OPTIONS.get(gate, {}))}
+    return gates
+
+
+# A full regression suite executes once in the repository; a second copy is
+# duplication, not extra coverage.
+DEDUP_MARKERS = (('node --test distribution/test/*.test.mjs', 'the Node distribution suite'),
+                 ('wrangler@4.127.0 deploy --dry-run', 'the Worker dry-run'),
+                 ('scripts/check_remote_hygiene.py --worktree', 'the worktree hygiene scan'))
+
+CHANNEL_SWITCH_CHAIN = ['beta', 'nightly', 'stable']
+
+
+def check_workflow(root: Path, gates: dict[str, set[str]]) -> None:
+    workflow = workflow_document(root, 'ci.yml')
     triggers = workflow.get('on', workflow.get(True, {}))
     assert 'pull_request' in triggers and 'push' in triggers, 'missing ordinary CI event'
     assert not triggers['pull_request'], 'pull requests must not be path/branch filtered'
     assert triggers['push'] == {'branches': ['main']}, 'main pushes must run CI'
     assert workflow.get('permissions') == {'contents': 'read'}, 'CI must be read-only'
     assert 'secrets.' not in str(workflow), 'ordinary CI must not consume secrets'
-    assert any({'devCheck', 'checkCompletedCommit'} <= set(command)
-               for command in executable_commands(workflow)), 'CI must execute both aggregates'
+    assert 'devCheck' in {job.get('name') for job in workflow['jobs'].values()}, \
+        'the required devCheck check name must stay'
+    assert gates['ci.yml'] == set(ORDINARY_GATES), \
+        f'CI must execute both ordinary aggregates: {sorted(gates["ci.yml"])}'
+    assert any(ORDINARY_GATES <= set(command) for command in gate_commands(workflow)), \
+        'CI must execute both aggregates in one invocation'
     guard_runs = [step for job in workflow['jobs'].values() for step in job.get('steps', [])
                   if step.get('run', '').strip() == 'python3 scripts/test/test_ci_coverage.py']
     assert guard_runs and all(not step.get('if') and not step.get('continue-on-error')
@@ -155,12 +216,84 @@ def check_workflow(root: Path) -> None:
     for job in workflow['jobs'].values():
         assert not job.get('permissions'), 'job must inherit read-only permissions'
 
-    for name in ('unified-channel-checks.yml', 'release.yml'):
-        document = yaml.safe_load((root / '.github/workflows' / name).read_text(encoding='utf-8'))
-        assert any('checkRelease' in command for command in executable_commands(document, release=True)), name + ' must execute checkRelease'
+    # One owner per responsibility: the required lane, the release-only delta and the
+    # formal candidate. Any other workflow launching an aggregate duplicates a closure.
+    assert gates['unified-channel-checks.yml'] == {PACKAGING_GATE}, \
+        'unified must execute the release packaging gate and no other closure'
+    assert gates['release.yml'] == {FORMAL_RELEASE_GATE}, \
+        'release.yml must execute the complete release gate'
+    assert {name for name, found in gates.items() if found} == {
+        'ci.yml', 'unified-channel-checks.yml', 'release.yml'}, 'an extra workflow executes an aggregate gate'
+
+    for marker, label in DEDUP_MARKERS:
+        owners = [path.name for path in sorted((root / '.github/workflows').glob('*.yml'))
+                  if marker in path.read_text(encoding='utf-8')]
+        assert owners == ['unified-channel-checks.yml'], f'{label} must run exactly once: {owners}'
+    unified = workflow_document(root, 'unified-channel-checks.yml')
+    runs = '\n'.join(job_runs(job) for job in unified['jobs'].values())
+    # Unique archival responsibility: exact source plus the tag history bundle.
+    for marker in ('git archive HEAD', 'git bundle create artifacts/history.bundle'):
+        assert marker in runs, f'unified must keep its source/history archive: {marker}'
+    events = unified.get('on', unified.get(True)) or {}
+    assert all('release-notes/**' not in ((events.get(event) or {}).get('paths') or [])
+               for event in ('pull_request', 'push')), \
+        'notes-only data changes must not schedule the channel packaging matrix'
+    check_channel_topology(unified)
+    check_history_gate(root)
 
 
-def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
+def check_channel_topology(document: dict) -> None:
+    """One serial no-clean channel chain and one real per-channel package matrix."""
+    chains = {name: job for name, job in document['jobs'].items()
+              if 'FrameworkBuildInfoTest' in job_runs(job)}
+    assert len(chains) == 1, f'the no-clean channel chain must run in exactly one job: {sorted(chains)}'
+    job = next(iter(chains.values()))
+    assert not job.get('strategy'), 'the channel switch chain must not be duplicated per channel'
+    found = re.findall(r'-PturboismChannel=([a-z]+)', job_runs(job))
+    assert found == CHANNEL_SWITCH_CHAIN, f'the chain must run beta->nightly->stable once: {found}'
+    # A QA identity injected first makes the beta/nightly runs fail the channel
+    # consistency check instead of exercising a real switch.
+    runs = [step.get('run', '') for step in job['steps']]
+    chain = next(index for index, run in enumerate(runs) if 'FrameworkBuildInfoTest' in run)
+    identity = next((index for index, run in enumerate(runs) if 'TURBOISM_BUILD_CHANNEL=' in run), None)
+    assert identity is None or chain < identity, \
+        'the QA identity must be injected after the no-clean channel chain'
+
+    packages = [(name, job) for name, job in document['jobs'].items()
+                if ((job.get('strategy') or {}).get('matrix') or {}).get('channel')]
+    assert len(packages) == 1, f'exactly one channel package matrix is allowed: {[n for n, _ in packages]}'
+    name, package = packages[0]
+    assert package['strategy']['matrix']['channel'] == ['stable', 'beta', 'nightly'], 'channel matrix changed'
+    assert 'release-gates' in str(package.get('needs')), 'channel packages must consume the shared upstream gate'
+    package_runs = job_runs(package)
+    for marker in ('assemble-release.sh', 'scripts/release/verify-release.py',
+                   'scripts/test/verify_built_identity.py'):
+        assert marker in package_runs, f'channel packaging lost real artifact verification: {marker}'
+
+
+def check_history_gate(root: Path) -> None:
+    """The required history gate scans reachable history and rotates its boundary cache."""
+    document = workflow_document(root, 'remote-hygiene.yml')
+    assert 'pull_request' in (document.get('on', document.get(True)) or {}), \
+        'history hygiene must gate every pull request'
+    job = next(iter(document['jobs'].values()))
+    assert job.get('name') == 'scan reachable history', 'the required history check name must stay'
+    assert 'scripts/check_remote_hygiene.py --all' in job_runs(job), 'the history gate must scan reachable history'
+    fingerprint = "hashFiles('scripts/check_remote_hygiene.py')"
+    for name in ('remote-hygiene.yml', 'release.yml'):
+        steps = [step for job in workflow_document(root, name)['jobs'].values()
+                 for step in job.get('steps', [])]
+        assert any('--boundary-file' in step.get('run', '') for step in steps), \
+            f'{name} must consume the verified boundary file'
+        cache = next(step for step in steps
+                     if 'remote-hygiene-boundary.json' in str((step.get('with') or {}).get('path', '')))
+        key, restore = str(cache['with']['key']), str(cache['with'].get('restore-keys', ''))
+        assert fingerprint in key and 'github.run_id' in key, \
+            f'{name} boundary cache key must rotate per run (immutable cache keys)'
+        assert fingerprint in restore, f'{name} boundary cache must restore by the rules fingerprint'
+
+
+def check_tasks(root: Path) -> tuple[dict[str, list[str]], dict[str, set[str]], set[str]]:
     bodies = {}
     for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
         for name, tokens in task_bodies(file.read_text(encoding='utf-8')).items():
@@ -169,6 +302,13 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     covered = reachable(graph, {'devCheck', 'checkCompletedCommit'})
     release = reachable(graph, {'checkRelease'})
     assert 'checkCompletedCommit' in release, 'release gate must include completed commits'
+    # The formal gate is exactly the public completed-commit closure plus the
+    # separately invocable release-only gate. A release check that is added to one
+    # side but not the other fails here instead of silently leaving the PR flow.
+    composition = reachable(graph, {'checkCompletedCommit', PACKAGING_GATE}) | {FORMAL_RELEASE_GATE}
+    assert composition == release, (
+        'checkRelease must equal checkCompletedCommit plus the release packaging gate; '
+        f'missing: {sorted(release - composition)}; unexpected: {sorted(composition - release)}')
     # Host gates intentionally launch/inspect a real host; release-only gates
     # belong to checkRelease. Every new ordinary gate or SelfTest must be wired.
     missing = {name for name, body in bodies.items()
@@ -180,6 +320,8 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     assert 'checkHostToolingSelfTest' in covered, 'host tooling selftest is orphaned'
     assert 'checkHostToolingSelfTest' not in reachable(graph, {'devCheck'}), 'host tooling belongs to completed commits'
     assert 'ordinaryTestTasks' in covered, 'all module tests must run on completed commits'
+    assert 'checkLocalizedChangelogs' in covered, \
+        'release-notes data changes must stay gated by the required changelog render check'
     for name in OPT_IN_TESTS:
         assert name in bodies, f'missing opt-in task: {name}'
         assert name not in reachable(graph, {'devCheck', 'checkIntegration', 'checkCompletedCommit'}), f'opt-in task became gated: {name}'
@@ -187,17 +329,18 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], set[str]]:
     check_opt_in_gradle_tests(bodies, covered)
     for name in RETIRED_META_GATE_SELFTESTS:
         assert name not in bodies, f'retired meta-gate selftest is back: {name}'
-    return bodies, covered
+    return bodies, graph, covered
 
 
 def check_centralized_gates(root: Path) -> None:
-    """The four aggregate gates are declared once and never re-opened.
+    """The aggregate gates are declared once and never re-opened.
 
-    devCheck, checkIntegration, checkCompletedCommit and checkRelease each list their
-    full dependency set inline in gradle/verification.gradle.kts, so a gate member is
-    added in one place instead of being patched from whichever script owns the task.
+    devCheck, checkIntegration, checkCompletedCommit, checkRelease and the
+    separately invocable checkReleasePackaging each list their full dependency set
+    inline in gradle/verification.gradle.kts, so a gate member is added in one place
+    instead of being patched from whichever script owns the task.
     """
-    aggregate = ('devCheck', 'checkIntegration', 'checkCompletedCommit', 'checkRelease')
+    aggregate = ('devCheck', 'checkIntegration', 'checkCompletedCommit', 'checkRelease', PACKAGING_GATE)
     reopen = re.compile(r'tasks\.(?:named|register|getByName)(?:<[^>]+>)?\(\s*"([\w:]+)"')
     for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
         if file.name == 'verification.gradle.kts':
@@ -417,132 +560,74 @@ def self_test() -> None:
     for option in ('--dry-run', '-x test', '--tests Foo'):
         workflow = {'jobs': {'ci': {'steps': [{'run': f'./gradlew devCheck checkCompletedCommit {option}'}]}}}
         try:
-            executable_commands(workflow)
+            gate_commands(workflow)
         except AssertionError:
             pass
         else:
             raise AssertionError(f'gate bypass accepted: {option}')
 
     try:
-        executable_commands({'jobs': {'ci': {'steps': [
+        gate_commands({'jobs': {'ci': {'steps': [
             {'run': 'xvfb-run -a echo ./gradlew devCheck checkCompletedCommit'}]}}})
     except AssertionError:
         pass
     else:
         raise AssertionError('xvfb wrapping echo accepted')
 
-    # Release gate must execute under xvfb-run (bare gradlew counter-example)
-    bare_release_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': 'sudo apt-get install --yes xvfb'},
-            {'run': './gradlew --no-daemon checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true'}
-        ]}}
-    }
-    try:
-        executable_commands(bare_release_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate must execute under xvfb-run' in str(err)
-    else:
-        raise AssertionError('bare gradlew checkRelease accepted')
+    def rejected(steps: list[dict], expected: str, gate: str | None = None, **options) -> None:
+        try:
+            gate_commands({'jobs': {'gate': {'steps': steps}}}, gate, **options)
+        except AssertionError as err:
+            assert expected in str(err), (steps, expected, str(err))
+        else:
+            raise AssertionError(f'gate bypass accepted: {expected}')
 
-    # Comment disguise counter-example
-    comment_release_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': 'sudo apt-get install --yes xvfb'},
-            {'run': "# xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
-        ]}}
-    }
-    assert executable_commands(comment_release_wf, release=True) == [], 'commented-out checkRelease must yield no executable command'
+    display = "xvfb-run -a -s '-screen 0 1920x1080x24' "
+    identity = '-PinstallerVersion=${VERSION} -PturboismRelease=true'
+    release = {'run': display + './gradlew --no-daemon checkRelease ' + identity}
+    install = {'run': 'sudo apt-get install --yes xvfb'}
+    formal = dict(gate=FORMAL_RELEASE_GATE, release_flags=True, require_xvfb=True)
 
-    # Unquoted echo disguise for xvfb install counter-example
-    unquoted_echo_install_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': 'echo sudo apt-get install --yes xvfb'},
-            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
-        ]}}
-    }
-    try:
-        executable_commands(unquoted_echo_install_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate requires xvfb to be installed' in str(err)
-    else:
-        raise AssertionError('unquoted echo xvfb installation accepted')
+    # The formal gate must execute under xvfb-run with xvfb installed beforehand.
+    rejected([{'run': './gradlew --no-daemon checkRelease ' + identity}],
+             'release gate must execute under xvfb-run', **formal)
+    for disguise in ({'run': 'echo sudo apt-get install --yes xvfb'},
+                     {'run': 'false && sudo apt-get install --yes xvfb'},
+                     {'run': 'sudo apt-get install --yes --simulate xvfb'},
+                     {'run': 'sudo apt-get remove install xvfb'}):
+        rejected([disguise, release], 'release gate requires xvfb to be installed', **formal)
+    for steps in ([release, install], [{'run': release['run'] + '\n' + install['run']}]):
+        rejected(steps, 'release gate requires xvfb to be installed', **formal)
+    assert gate_commands({'jobs': {'release': {'steps': [install, {'run': '# ' + release['run']}]}}},
+                         **formal) == [], 'commented-out checkRelease must yield no executable command'
 
-    # Shell bypass in install line counter-example
-    bypass_install_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': 'false && sudo apt-get install --yes xvfb'},
-            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
-        ]}}
-    }
-    try:
-        executable_commands(bypass_install_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate requires xvfb to be installed' in str(err)
-    else:
-        raise AssertionError('shell bypass xvfb installation accepted')
-
-    # Simulation flag in install counter-example
-    simulate_install_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': 'sudo apt-get install --yes --simulate xvfb'},
-            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
-        ]}}
-    }
-    try:
-        executable_commands(simulate_install_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate requires xvfb to be installed' in str(err)
-    else:
-        raise AssertionError('simulation flag xvfb installation accepted')
-
-    # Post-gate install counter-example (installed after checkRelease)
-    post_install_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"},
-            {'run': 'sudo apt-get install --yes xvfb'}
-        ]}}
-    }
-    try:
-        executable_commands(post_install_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate requires xvfb to be installed' in str(err)
-    else:
-        raise AssertionError('post-gate xvfb installation accepted')
-
-    # Same-step post-gate install counter-example
-    same_step_post_install_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true\nsudo apt-get install --yes xvfb"}
-        ]}}
-    }
-    try:
-        executable_commands(same_step_post_install_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate requires xvfb to be installed' in str(err)
-    else:
-        raise AssertionError('same-step post-gate xvfb installation accepted')
-
-    # Non-install apt subcommand counter-example
-    remove_install_wf = {
-        'jobs': {'release': {'steps': [
-            {'run': 'sudo apt-get remove install xvfb'},
-            {'run': "xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew checkRelease -PinstallerVersion=1.0.0 -PturboismRelease=true"}
-        ]}}
-    }
-    try:
-        executable_commands(remove_install_wf, release=True)
-    except AssertionError as err:
-        assert 'release gate requires xvfb to be installed' in str(err)
-    else:
-        raise AssertionError('non-install apt command accepted')
+    # The separately invocable packaging gate needs no display but the same identity.
+    packaging = {'run': './gradlew --no-daemon checkReleasePackaging ' + identity + ' --console=plain'}
+    assert gate_commands({'jobs': {'packaging': {'steps': [packaging]}}},
+                         PACKAGING_GATE, release_flags=True) == [['--no-daemon', PACKAGING_GATE, '--console=plain']]
+    assert gate_commands({'jobs': {'packaging': {'steps': [release]}}}, PACKAGING_GATE) == [], \
+        'gate filtering must not treat the formal gate as the packaging gate'
+    for broken, expected in (
+            ('./gradlew --no-daemon checkReleasePackaging -PinstallerVersion=1.0.0 -PturboismRelease=true',
+             'installer identity must come from the build identity'),
+            ('./gradlew --no-daemon checkReleasePackaging -PinstallerVersion=${VERSION}',
+             'release gate must set -PturboismRelease=true')):
+        rejected([{'run': broken}], expected, PACKAGING_GATE, release_flags=True)
 
 
 def contract(root: Path) -> None:
     self_test()
-    check_workflow(root)
+    gates = workflow_gates(root)
+    check_workflow(root, gates)
     check_centralized_gates(root)
-    bodies, covered = check_tasks(root)
+    bodies, graph, covered = check_tasks(root)
+    # The pull-request flow must execute the complete formal release closure between
+    # ci.yml and the merged channel workflow, and nothing outside it.
+    executed = reachable(graph, gates['ci.yml'] | gates['unified-channel-checks.yml']) | {FORMAL_RELEASE_GATE}
+    release = reachable(graph, {FORMAL_RELEASE_GATE})
+    assert executed == release, (
+        'PR workflows must cover the complete release closure; '
+        f'missing: {sorted(release - executed)}; unexpected: {sorted(executed - release)}')
     check_sources(root, bodies, covered)
 
 
@@ -556,7 +641,7 @@ class CiCoverageContractTest(unittest.TestCase):
 def main() -> int:
     root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT
     contract(root)
-    print('PASS: CI aggregates, centralized gate declarations, gate dependencies and test source coverage')
+    print('PASS: workflow gate ownership, release closure equivalence, channel topology and test source coverage')
     return 0
 
 
