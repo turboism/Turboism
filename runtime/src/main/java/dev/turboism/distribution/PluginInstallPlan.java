@@ -1,5 +1,6 @@
 package dev.turboism.distribution;
 
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.util.List;
 import java.util.Objects;
 
@@ -12,14 +13,14 @@ public final class PluginInstallPlan {
     }
 
     private final PluginPackageIdentity packageIdentity;
-    private final PluginDescriptorSnapshot descriptor;
+    private final PluginDescriptor descriptor;
     private final String descriptorSha256;
     private final List<PlannedFile> files;
     private final Requirement requirement;
 
     PluginInstallPlan(
             PluginPackageIdentity identity,
-            PluginDescriptorSnapshot descriptor,
+            PluginDescriptor descriptor,
             String descriptorSha256,
             List<PlannedFile> files,
             Requirement requirement) {
@@ -43,7 +44,7 @@ public final class PluginInstallPlan {
     }
 
     /** @return the descriptor read from the plugin JAR, already cross-checked against the package manifest */
-    public PluginDescriptorSnapshot descriptor() {
+    public PluginDescriptor descriptor() {
         return descriptor;
     }
 
