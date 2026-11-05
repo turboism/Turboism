@@ -17,6 +17,10 @@ import java.util.Set;
  * <p>An entry that no settings page renders is {@link Access#DIAGNOSTIC_ONLY}: it has no config
  * key, no row and no i18n key, so {@link #key()}, {@link #contributionId()}, {@link #labelKey()}
  * and {@link #tooltipKey()} are empty and {@link #placement()} is absent.</p>
+ *
+ * <p>{@link #relations()} carries the cross-entry knowledge that used to live in contributor
+ * {@code if} blocks, so one launch decision and one refusal code serve every hook that would
+ * otherwise restate it.</p>
  */
 public record Optimization(
         /** {@code config.json} key; empty for a diagnostic-only probe. */
@@ -36,7 +40,9 @@ public record Optimization(
         /** Label key; explicit because the Atlas and mesh groups do not derive it. */
         String labelKey,
         /** Tooltip key; empty when the row has none. */
-        String tooltipKey) {
+        String tooltipKey,
+        /** Cross-entry dependencies, evaluated in declaration order. */
+        List<Relation> relations) {
 
     public Optimization {
         Objects.requireNonNull(key, "key");
@@ -48,6 +54,16 @@ public record Optimization(
         placement = Objects.requireNonNull(placement, "placement");
         Objects.requireNonNull(labelKey, "labelKey");
         Objects.requireNonNull(tooltipKey, "tooltipKey");
+        relations = List.copyOf(Objects.requireNonNull(relations, "relations"));
+        for (final Relation relation : relations) {
+            if (!key.isEmpty() && relation.target().key().equals(key)) {
+                throw new IllegalArgumentException("Native optimization " + key + " relates to itself");
+            }
+            if (access == Access.DIAGNOSTIC_ONLY && relation.kind() != Relation.Kind.DERIVED_FROM) {
+                throw new IllegalArgumentException(
+                        "Diagnostic-only probe " + protocols + " cannot " + relation.kind() + " another entry");
+            }
+        }
     }
 
     /** How the preference is persisted, which decides where a config writer puts it. */
@@ -58,6 +74,59 @@ public record Optimization(
         PERSISTED_ROOT,
         /** No persisted preference at all: the row only reports what its hook measured. */
         DIAGNOSTIC_ONLY
+    }
+
+    /**
+     * One declared dependency between two entries, so the refusal it causes is a value instead of
+     * a contributor's {@code if}.
+     *
+     * <p>{@code reasonCode} reproduces the user-visible refusal a contributor reported before the
+     * relation was declared, byte-for-byte: {@code REQUIRES} refuses with
+     * {@code <target key>-disabled}, {@code CONFLICTS} with {@code <target key>-enabled}, and
+     * {@code DERIVED_FROM} never refuses because it only supplies the default of an entry that
+     * persists no preference of its own. The canonical constructor refuses a code that disagrees
+     * with its kind and target, so the literal cannot drift from the relation it explains.</p>
+     *
+     * @param kind how the target constrains this entry
+     * @param target the declared entry the constraint reads
+     * @param reasonCode the refusal code {@code REQUIRES} and {@code CONFLICTS} report, empty for
+     *     {@code DERIVED_FROM}
+     */
+    public record Relation(Kind kind, Optimization target, String reasonCode) {
+
+        public Relation {
+            Objects.requireNonNull(kind, "kind");
+            Objects.requireNonNull(target, "target");
+            Objects.requireNonNull(reasonCode, "reasonCode");
+            if (target.key().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "A relation cannot target the diagnostic-only probe " + target.protocols());
+            }
+            final String expected = expectedReasonCode(kind, target);
+            if (!expected.equals(reasonCode)) {
+                throw new IllegalArgumentException(kind + " " + target.key() + " must be reported as '" + expected
+                        + "', not '" + reasonCode + "'");
+            }
+        }
+
+        /** How the target constrains this entry. */
+        public enum Kind {
+            /** Installs only when the target is admitted as well. */
+            REQUIRES,
+            /** Refuses when the target is admitted as well. */
+            CONFLICTS,
+            /** Persists no preference of its own: defaults to on when any target is admitted. */
+            DERIVED_FROM
+        }
+
+        /** @return the refusal code this relation's kind and target imply */
+        public static String expectedReasonCode(final Kind kind, final Optimization target) {
+            return switch (kind) {
+                case REQUIRES -> target.key() + "-disabled";
+                case CONFLICTS -> target.key() + "-enabled";
+                case DERIVED_FROM -> "";
+            };
+        }
     }
 
     /** The settings row a persisted entry renders as: section id plus render index. */

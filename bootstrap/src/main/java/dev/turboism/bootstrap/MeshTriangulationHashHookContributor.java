@@ -41,7 +41,7 @@ final class MeshTriangulationHashHookContributor implements ReportedHookContribu
     @Override
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
-                .optimizationConfig()
+                .plan()
                 .choice(dev.turboism.config.optimization.OptimizationCatalog.MESH_TRIANGULATION_HASH)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null

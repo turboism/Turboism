@@ -16,7 +16,7 @@ final class WarpPositionProjectionHookContributor extends NativeOptimizationHook
         final var host = environment.host().orElseThrow();
         if (!VerifiedWarpPositionProjectionInstaller.admitted(
                 host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
+                environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");

@@ -16,7 +16,7 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
         final var host = environment.host().orElseThrow();
         if (!VerifiedTextureUploadPreparationInstaller.admitted(
                 host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
+                environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");
