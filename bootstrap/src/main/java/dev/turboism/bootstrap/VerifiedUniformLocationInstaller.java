@@ -30,6 +30,10 @@ import java.util.jar.JarFile;
  */
 final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.render.uniform-location-cache";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final UniformLocationHookBridge bridge;
     private final List<Target> targets = new ArrayList<>();
@@ -55,10 +59,8 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                     });
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedUniformLocationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)

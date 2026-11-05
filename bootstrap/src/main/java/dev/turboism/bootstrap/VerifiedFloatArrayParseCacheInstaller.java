@@ -15,6 +15,10 @@ import java.util.jar.JarFile;
 /** Exact native serializer admission, callback lifetime and verified bytecode restoration. */
 final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.float-array-parse-cache";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
+
     private final Instrumentation instrumentation;
     private final Class<?> target;
     private final FloatArrayParseTransformer transformer;
@@ -25,8 +29,13 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
             ReviewedHostContract.candidates(FloatArrayParseTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
-    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostContract.resolved(artifact, CANDIDATES);
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested) {
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                Runtime.version().feature(),
+                () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedFloatArrayParseCacheInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)

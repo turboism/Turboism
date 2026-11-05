@@ -14,15 +14,14 @@ final class ReinitPairElisionHookContributor extends NativeOptimizationHookContr
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
-        if (!VerifiedReinitPairElisionInstaller.admitted(
-                host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
-                true)) {
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
+        if (!VerifiedReinitPairElisionInstaller.admitted(host.artifact(), environment.startupPolicy(), true)) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedReinitPairElisionInstaller installer = new VerifiedReinitPairElisionInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedReinitPairElisionInstaller installer =
+                new VerifiedReinitPairElisionInstaller(InstallContext.of(environment));
         installer.install();
         return installer;
     }
