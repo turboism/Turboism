@@ -4,6 +4,7 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.testing.jacoco.tasks.JacocoReport
+import dev.turboism.gradle.internal.GateManifest
 import dev.turboism.gradle.internal.VerificationStamps
 
 /*
@@ -15,6 +16,10 @@ import dev.turboism.gradle.internal.VerificationStamps
  *   checkIntegration  packaged/runtime and affected cross-module behavior
  *   checkRelease      supply-chain, API tooling, packaging, and release checks
  *   host validation   explicit exact-version Cubism runs; never a default gate
+ *
+ * The aggregates themselves are declared in gradle/gates.txt and registered at the bottom of this
+ * script, from the same manifest scripts/test/test_ci_coverage.py asserts against. Everything else
+ * in this file is a leaf task that some aggregate names.
  *
  * Historical M1-M16/M13/M14 governance tasks are intentionally absent.
  */
@@ -1092,63 +1097,6 @@ tasks.register<Exec>("checkPythonLint") {
     commandLine("python3", "scripts/check_python_lint.py")
 }
 
-val devCheck by tasks.registering {
-    group = "verification"
-    description = "Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice."
-    // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the
-    // live collection keeps devCheck wired without a hardcoded plugin list.
-    dependsOn(tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" })
-    dependsOn(
-        "checkPluginBoundaries",
-        "checkPluginPermissionAudit",
-        // Declared in build.gradle.kts / applied gate scripts, wired here and nowhere else.
-        "checkDraftContractDiagnostics",
-        "checkDependencyInventory",
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest",
-        ":runtime:persistenceGoldenSnapshotsTest",
-        productionClasses,
-        checkDuplicateJavaImports,
-        checkPackageLayout,
-        "checkModuleBoundaries",
-        "checkCodeQuality",
-        "checkThrowableContainment",
-        "checkValidationToolsSync",
-        "checkPythonLint",
-        "checkCompatibilityMatrix",
-        "checkShellLint",
-        // ASM admission used to run only in checkRelease, so a plugin or SDK dependency
-        // could carry an unadmitted bytecode library through the daily gate unnoticed.
-        "checkAsmDependencyModel",
-        "checkResolvedBytecodeDependencyGraph",
-        "checkInstallerPluginSections",
-        checkProbeTerminalSelftest,
-        checkHostProbeResultContract,
-        "checkCleanWorktreeSafety",
-        "checkShellLintRequiresShellcheck",
-        "checkHostCleanupEnvMerge",
-        "checkCleanupFailurePropagation",
-        checkTestExecutionGuard,
-        checkPluginTemplateSetup,
-        checkRepositoryHygiene,
-        checkEditorModelAliases,
-        checkMaterializedRecords,
-        checkReviewedReleases,
-        checkSdkCubismEditorAnnotations,
-        "validatePluginMeta",
-        checkPluginApiRanges,
-        checkPluginApiFloors,
-        ":runtime:checkHeadlessRuntimeClasspath",
-        ":runtime:admissionPreflightTest",
-        ":runtime:admissionUnitTests",
-        ":persistence-core:test",
-        ":compatibility-policy:test",
-        ":sdk:test",
-        ":bootstrap:test",
-        ":testing:integration-tests:admissionUnitTests"
-    )
-}
-
 val resolvedHostValidationWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
 // Marks an Exec task as a worktree-ID consumer: exports the resolved ID and fails
@@ -1615,37 +1563,6 @@ tasks.register<Exec>("checkLocalizedChangelogsSelfTest") {
     commandLine("python3", "scripts/test/test_render_localized_changelogs.py")
 }
 
-tasks.register("checkIntegration") {
-    group = "verification"
-    description = "Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification."
-    dependsOn(
-        devCheck,
-        "checkExternalPluginTemplate",
-        checkAsyncHostReadFoundation,
-        checkCubismCoreApiInventory,
-        checkCubismCoreMemberPolicy,
-        checkCubismCoreSelectorPolicy,
-        ":runtime:corePublicApiProviderTest",
-        "checkPluginInspectionRuntime",
-        "verifyFirstPartyPluginMetadata",
-        "verifyFirstPartyPluginReadmes",
-        "checkDistributionProtocolContract",
-        "checkOfficialPluginI18nCompleteness",
-        "checkPreviewBundleLayout",
-        "checkPsdClipMaskHostValidationBundle",
-        "checkHistoryValidationProbePackaging",
-        "checkCubismHostValidationLocalTransport",
-        "previewBootstrapBridgeTest",
-        // Registered in :testing:integration-tests; the locale wrapper contract is
-        // offline and part of the packaged preview-agent surface, so the aggregated
-        // integration gate must execute it instead of leaving it orphaned.
-        ":testing:integration-tests:hostValidationScriptContractTest",
-        ":bootstrap:checkBootstrapJarDependencyIsolation",
-        ":bootstrap:checkBootstrapLaunchLeasePremain",
-        ":testing:integration-tests:previewPluginRuntimeTest"
-    )
-}
-
 val checkPerformanceProbeReports by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks legacy and image-pipeline diagnostic evidence without launching Cubism."
@@ -1688,39 +1605,6 @@ val ordinaryTestTasks = subprojects
 val spotlessCheckTasks = subprojects
     .filter { it.tasks.findByName("spotlessCheck") != null }
     .map { "${it.path}:spotlessCheck" }
-
-val checkCompletedCommit by tasks.registering {
-    group = "verification"
-    description = "Runs the complete automated repository gate for a coherent completed change."
-    dependsOn(
-        "checkIntegration",
-        ordinaryTestTasks,
-        ":sdk:javadoc",
-        "checkOfficialPluginI18nCompleteness",
-        checkOfficialPluginReadmes,
-        checkPluginApiRanges,
-        checkPluginApiFloors,
-        checkDraftPackMetadata,
-        checkReviewedReleases,
-        checkVerificationSources,
-        "checkSdkApiBaselineTool",
-        checkPluginEventReference,
-        checkPerformanceProbeReports,
-        checkHostToolingSelfTest,
-        "checkLocalizedChangelogs",
-        "checkLocalizedChangelogsSelfTest",
-        spotlessCheckTasks,
-        "checkSdkApiCurrent",
-        // Registered later in this script (forward references stay lazy by name).
-        "checkFrameworkUpdateTooling",
-        "checkWindowsUpdateNativeSources",
-        "checkBootstrapReceipt",
-        ":bootstrap:checkBootstrapLaunchLeasePremain",
-        // Registered by gradle/architecture-governance.gradle.kts, applied before this script.
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest"
-    )
-}
 
 // The offline signing fixture is ordinary CI: temporary keys only, no publishing.
 val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
@@ -1782,44 +1666,6 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/test/test_release_orchestrator.py",
         "scripts/test/test_release_promotion.py"
     )
-}
-
-/*
- * Release-only gates: supply chain, release tooling, market metadata and the installer
- * contracts. They are one separately invocable aggregate so a per-channel packaging run
- * executes the release evidence without repeating the public completed-commit closure.
- * `checkRelease` still wires the complete set below, so a formal candidate keeps exactly
- * one full gate; the two are equivalent by construction, not by convention.
- */
-val checkReleasePackaging by tasks.registering {
-    group = "release verification"
-    description = "Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure."
-    dependsOn(
-        checkReleaseTooling,
-        "checkInstallerVersion",
-        checkMarketReleaseMetadata,
-        "checkAsmSupplyChainAdmission",
-        "checkMappingReviewWrapperArgs",
-        "checkInstallerLocalization",
-        "checkWindowsInstaller"
-    )
-}
-
-tasks.register("checkRelease") {
-    group = "verification"
-    description = "Runs completed-commit verification plus supply-chain and historical release audits."
-    dependsOn(
-        checkCompletedCommit,
-        checkReleasePackaging,
-        // Registered by gradle/architecture-governance.gradle.kts and reachable through
-        // checkCompletedCommit; listed here so this gate states its full dependency set.
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest"
-    )
-}
-
-tasks.named("check") {
-    dependsOn(devCheck)
 }
 
 // Ordinary CI owns the completed-commit closure; the channel workflow runs the release delta once.
@@ -1909,3 +1755,38 @@ val checkBootstrapReceipt by tasks.registering(Exec::class) {
 // :bootstrap (it owns the built JAR input, the test-classes dependency and the fork classpath); the checkCompletedCommit
 // dependency list above links it into the ordinary gate so a premain handshake regression fails loudly. It validates
 // whatever identity the built artifact really carries, so a numbered CI build stays valid.
+
+/*
+ * The aggregate gates are declared in gradle/gates.txt and registered here, once, after every leaf
+ * task above exists: a member that is not a `@token` stays a string, so a task registered by a
+ * script applied after this one still resolves lazily by name.
+ *
+ * The tokens are the four dynamic collections the manifest cannot name statically. Loading fails
+ * closed both ways: a member naming a token this map does not bind, and a bound token no member
+ * names, both break the build instead of silently shrinking a gate.
+ */
+val gateTokens: Map<String, Any> = mapOf(
+    // :testing:integration-tests is excluded so the fast gate never waits for the packaged suites.
+    "@all-module-classes" to productionClasses,
+    "@all-module-tests" to ordinaryTestTasks,
+    "@all-module-spotless" to spotlessCheckTasks,
+    // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the live collection
+    // keeps devCheck wired without a hardcoded plugin list and matches nothing if it is not.
+    "@matching:checkGeneratedSubscriberCatalogs" to tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" }
+)
+
+val gateManifest = GateManifest.load(rootDir.toPath().resolve("gradle/gates.txt"), gateTokens.keys)
+
+gateManifest.aggregateNames().forEach { name ->
+    val aggregate = gateManifest.aggregate(name)
+    tasks.register(name) {
+        group = aggregate.group()
+        description = aggregate.description()
+        dependsOn(aggregate.members().map { member -> gateTokens[member] ?: member })
+    }
+}
+
+// The root lifecycle task is an alias for the daily gate, not a second aggregate.
+tasks.named("check") {
+    dependsOn("devCheck")
+}

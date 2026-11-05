@@ -86,7 +86,7 @@ generated subscriber-catalog verification, installer plugin-section freshness, A
 - `runtime-verification.gradle.kts` — plugin metadata validation and static host-selector verification CLIs.
 - `sdk-api.gradle.kts` — SDK public-API baseline tooling and exact-version compatibility checks.
 - `distribution-preview.gradle.kts` — preview bundle assembly plus distribution protocol and bundle-layout contracts.
-- `verification.gradle.kts` — the layered gates in the table above and the host-validation task registrations.
+- `verification.gradle.kts` — the layered gates in the table above, registered from the aggregate manifest `gates.txt`, and the host-validation task registrations.
 - `image-archive-validation.gradle.kts` — builds the test-only native PNG/float validators and checks they stay out of product artifacts.
 
 `scripts/preview/` holds the local host-validation machinery those `validate*Host` tasks invoke: the `host_validation.py` admission queue and containment, packaging/launch scripts, and per-feature probes. It is opt-in, uses one UID-scoped queue root and host-admission lock, and is never installed or started by Gradle; see `scripts/preview/README-host-validation-scheduling.md`.

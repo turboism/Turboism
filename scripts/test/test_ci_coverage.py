@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Structural CI coverage contract: workflow execution, task reachability and sources."""
+"""Structural CI coverage contract: workflow execution, manifest gate graph and sources.
+
+The gate graph is read from `gradle/gates.txt`, the manifest `gradle/verification.gradle.kts`
+registers the aggregates from, so gate membership has exactly one statement. The Kotlin in the gate
+scripts is still tokenized for one purpose only: the inventory of commands a gate executes, which is
+how test-source coverage is proven.
+"""
 from __future__ import annotations
 
 import fnmatch
@@ -8,6 +14,7 @@ import shlex
 import sys
 import unittest
 from pathlib import Path
+from typing import NamedTuple
 
 import yaml
 
@@ -45,6 +52,11 @@ def task_bodies(text: str) -> dict[str, list[str]]:
 
 
 def dependency_graph(bodies: dict[str, list[str]]) -> dict[str, set[str]]:
+    """Edges between two non-aggregate tasks, read from the script that wires them.
+
+    Aggregate membership comes from the manifest; this is the leaf wiring a member's own
+    helper tasks keep local, and the contract needs it to see what a gate really runs.
+    """
     graph = {}
     for name, tokens in bodies.items():
         edges = set()
@@ -53,11 +65,155 @@ def dependency_graph(bodies: dict[str, list[str]]) -> dict[str, set[str]]:
                 end = balanced(tokens, index + 1, '(', ')')
                 edges.update(t.strip('"') for t in tokens[index + 2:end]
                              if t.strip('"') in bodies or t.startswith('\":'))
-                if 'ordinaryTestTasks' in tokens[index + 2:end]:
-                    edges.add('ordinaryTestTasks')
         graph[name] = edges
     return graph
 
+
+GATES_MANIFEST = Path('gradle/gates.txt')
+
+
+class Aggregate(NamedTuple):
+    """One declared aggregate gate, in declaration order."""
+
+    name: str
+    group: str
+    owner: str
+    harm: str
+    description: str
+    release_flags: bool
+    require_xvfb: bool
+    members: tuple[str, ...]
+
+
+class Route(NamedTuple):
+    """Why a gate is not an aggregate member."""
+
+    task: str
+    kind: str
+    reason: str
+    documentation: str
+
+
+class Manifest(NamedTuple):
+    """The parsed manifest: declaration order, aggregates and routes."""
+
+    aggregates: dict[str, Aggregate]
+    order: tuple[str, ...]
+    routes: dict[str, Route]
+
+    def is_routed(self, task: str) -> bool:
+        return task in self.routes
+
+
+def strip_comment(line: str) -> str:
+    quoted = False
+    for index, character in enumerate(line):
+        if character == '"':
+            quoted = not quoted
+        elif character == '#' and not quoted:
+            return line[:index]
+    return line
+
+
+def split_words(text: str) -> list[str]:
+    """Whitespace split that keeps `key="value with spaces"` atomic."""
+    words: list[str] = []
+    current: list[str] = []
+    quoted = False
+    for character in text:
+        if character == '"':
+            quoted = not quoted
+        if not quoted and character.isspace():
+            if current:
+                words.append(''.join(current))
+                current = []
+            continue
+        current.append(character)
+    if current:
+        words.append(''.join(current))
+    return words
+
+
+def parse_manifest(source: str, path: str = str(GATES_MANIFEST)) -> Manifest:
+    """Parse the manifest, failing closed on every malformed line at once.
+
+    This mirrors `dev.turboism.gradle.internal.GateManifest`: the Java reader registers the tasks
+    from the same file, so both must accept and reject exactly the same declarations.
+    """
+    declared: dict[str, dict] = {}
+    members: dict[str, list[str]] = {}
+    routes: dict[str, Route] = {}
+    problems: list[str] = []
+    for number, raw in enumerate(source.splitlines(), 1):
+        where = f'{path}:{number}'
+        line = strip_comment(raw).strip()
+        if not line:
+            continue
+        words = split_words(line)
+        directive = words[0]
+        if len(words) < 2:
+            problems.append(f'{where}: "{directive}" needs a name')
+            continue
+        name = words[1]
+        attributes: dict[str, str] = {}
+        flags: set[str] = set()
+        if directive not in ('aggregate', 'member', 'manual', 'opt-in', 'orphan'):
+            problems.append(f'{where}: unknown directive "{directive}"')
+            continue
+        for word in words[2:]:
+            key, separator, value = word.partition('=')
+            if not separator:
+                flags.add(word)
+            elif len(value) < 2 or not value.startswith('"') or not value.endswith('"'):
+                problems.append(f'{where}: "{word}" must be written as {key}="value"')
+            else:
+                attributes.setdefault(key, value[1:-1])
+        if directive == 'aggregate':
+            if name in declared:
+                problems.append(f'{where}: aggregate "{name}" is declared twice')
+                continue
+            declared[name] = {'attributes': attributes, 'flags': flags, 'where': where}
+        elif directive == 'member':
+            if len(words) < 3:
+                problems.append(f'{where}: member of "{name}" names no task')
+                continue
+            members.setdefault(name, []).append(words[2])
+        else:
+            reason = attributes.get('reason', '')
+            if not reason:
+                problems.append(f'{where}: {directive} route for "{name}" is missing reason')
+            if name in routes:
+                problems.append(f'{where}: "{name}" is already routed')
+            routes[name] = Route(name, directive, reason, attributes.get('doc', ''))
+    for aggregate_name in sorted(members):
+        if aggregate_name not in declared:
+            problems.append(f'{path}: member belongs to undeclared aggregate "{aggregate_name}"')
+    aggregates: dict[str, Aggregate] = {}
+    for name, declaration in declared.items():
+        attributes = declaration['attributes']
+        for attribute in ('group', 'owner', 'harm', 'description'):
+            if not attributes.get(attribute):
+                problems.append(f'{declaration["where"]}: aggregate "{name}" is missing {attribute}')
+        aggregates[name] = Aggregate(name, attributes.get('group', ''), attributes.get('owner', ''),
+                                     attributes.get('harm', ''), attributes.get('description', ''),
+                                     'release-flags' in declaration['flags'],
+                                     'require-xvfb' in declaration['flags'],
+                                     tuple(members.get(name, ())))
+    for route in routes.values():
+        if any(route.task in aggregate.members for aggregate in aggregates.values()):
+            problems.append(f'{path}: routed task "{route.task}" is also an aggregate member')
+    if problems:
+        raise AssertionError('malformed gate manifest:\n  ' + '\n  '.join(problems))
+    return Manifest(aggregates, tuple(declared), routes)
+
+
+def load_manifest(root: Path) -> Manifest:
+    return parse_manifest((root / GATES_MANIFEST).read_text(encoding='utf-8'), str(GATES_MANIFEST))
+
+
+def aggregate_graph(manifest: Manifest) -> dict[str, set[str]]:
+    """Declared membership as a graph: a member that is not an aggregate is a leaf."""
+    return {name: set(aggregate.members) for name, aggregate in manifest.aggregates.items()}
 
 def reachable(graph: dict[str, set[str]], roots: set[str]) -> set[str]:
     seen = set()
@@ -93,7 +249,8 @@ def is_xvfb_install_line(line: str) -> bool:
 
 # Aggregates a workflow may launch directly. `checkReleasePackaging` is the
 # separately invocable release-only gate; the formal candidate keeps the complete
-# `checkRelease` gate.
+# `checkRelease` gate. These four names are the contract's expectation of the manifest,
+# not a copy of it: `check_manifest` asserts gradle/gates.txt declares them.
 GATE_TASKS = ('devCheck', 'checkCompletedCommit', 'checkReleasePackaging', 'checkRelease')
 ORDINARY_GATES = frozenset({'devCheck', 'checkCompletedCommit'})
 PACKAGING_GATE = 'checkReleasePackaging'
@@ -104,8 +261,15 @@ ALLOWED_GATE_ARGS = frozenset({
 })
 # Both release gates bind a resolved installer identity and the release flag; only
 # the formal candidate gate must also execute under the pinned Xvfb display.
-GATE_OPTIONS = {FORMAL_RELEASE_GATE: {'release_flags': True, 'require_xvfb': True},
-                PACKAGING_GATE: {'release_flags': True}}
+RELEASE_FLAGS = (PACKAGING_GATE, FORMAL_RELEASE_GATE)
+XVFB_GATES = (FORMAL_RELEASE_GATE,)
+
+
+def gate_options(manifest: Manifest) -> dict[str, dict[str, bool]]:
+    """The display and identity requirements the manifest declares, per launched gate."""
+    return {gate: {'release_flags': manifest.aggregates[gate].release_flags,
+                   'require_xvfb': manifest.aggregates[gate].require_xvfb}
+            for gate in GATE_TASKS if gate in manifest.aggregates}
 
 
 def gate_commands(document: dict, gate: str | None = None, *, release_flags: bool = False,
@@ -176,13 +340,13 @@ def job_runs(job: dict) -> str:
     return '\n'.join(step.get('run', '') for step in job.get('steps', []))
 
 
-def workflow_gates(root: Path) -> dict[str, set[str]]:
+def workflow_gates(root: Path, options: dict[str, dict[str, bool]]) -> dict[str, set[str]]:
     """Every aggregate gate each workflow really launches, validated for direct execution."""
     gates = {}
     for path in sorted((root / '.github/workflows').glob('*.yml')):
         document = yaml.safe_load(path.read_text(encoding='utf-8'))
         gates[path.name] = {gate for gate in GATE_TASKS
-                            if gate_commands(document, gate, **GATE_OPTIONS.get(gate, {}))}
+                            if gate_commands(document, gate, **options.get(gate, {}))}
     return gates
 
 
@@ -293,14 +457,32 @@ def check_history_gate(root: Path) -> None:
         assert fingerprint in restore, f'{name} boundary cache must restore by the rules fingerprint'
 
 
-def check_tasks(root: Path) -> tuple[dict[str, list[str]], dict[str, set[str]], set[str]]:
-    bodies = {}
-    for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
+def build_script_bodies(root: Path) -> dict[str, list[str]]:
+    """Every declared task body in the build scripts, keyed by task name.
+
+    The manifest owns aggregate membership; this inventory exists so the contract can see which
+    commands a gate executes and which gate tasks a script declares without a manifest line.
+    """
+    bodies: dict[str, list[str]] = {}
+    for file in sorted(root.glob('**/*.gradle.kts')):
+        relative = file.relative_to(root).parts
+        if 'build' in relative or 'buildSrc' in relative:
+            continue
         for name, tokens in task_bodies(file.read_text(encoding='utf-8')).items():
             bodies.setdefault(name, []).extend(tokens)
-    graph = dependency_graph(bodies)
-    covered = reachable(graph, {'devCheck', 'checkCompletedCommit'})
-    release = reachable(graph, {'checkRelease'})
+    return bodies
+
+
+def member_names(gates: set[str]) -> set[str]:
+    """Members keyed the way a build script declares them: `:module:task` also answers to `task`."""
+    return {name.rsplit(':', 1)[-1] for name in gates if not name.startswith('@')}
+
+
+def check_manifest(manifest: Manifest, graph: dict[str, set[str]]) -> None:
+    """The manifest declares the launched aggregates and composes them as the contract expects."""
+    for gate in GATE_TASKS:
+        assert gate in manifest.aggregates, f'gradle/gates.txt must declare {gate}'
+    release = reachable(graph, {FORMAL_RELEASE_GATE})
     assert 'checkCompletedCommit' in release, 'release gate must include completed commits'
     # The formal gate is exactly the public completed-commit closure plus the
     # separately invocable release-only gate. A release check that is added to one
@@ -309,52 +491,102 @@ def check_tasks(root: Path) -> tuple[dict[str, list[str]], dict[str, set[str]], 
     assert composition == release, (
         'checkRelease must equal checkCompletedCommit plus the release packaging gate; '
         f'missing: {sorted(release - composition)}; unexpected: {sorted(composition - release)}')
-    # Host gates intentionally launch/inspect a real host; release-only gates
-    # belong to checkRelease. Every new ordinary gate or SelfTest must be wired.
-    missing = {name for name, body in bodies.items()
-               if (name.startswith('check') or name.endswith('SelfTest'))
-               and name not in covered and name not in release and name not in MANUAL_GATES
-               and '$' not in name
-               and not any('host verification' in token for token in body)}
-    assert not missing, f'unreachable gates: {sorted(missing)}'
-    assert 'checkHostToolingSelfTest' in covered, 'host tooling selftest is orphaned'
-    assert 'checkHostToolingSelfTest' not in reachable(graph, {'devCheck'}), 'host tooling belongs to completed commits'
-    assert 'ordinaryTestTasks' in covered, 'all module tests must run on completed commits'
-    assert 'checkLocalizedChangelogs' in covered, \
-        'release-notes data changes must stay gated by the required changelog render check'
-    for name in OPT_IN_TESTS:
-        assert name in bodies, f'missing opt-in task: {name}'
-        assert name not in reachable(graph, {'devCheck', 'checkIntegration', 'checkCompletedCommit'}), f'opt-in task became gated: {name}'
-        assert '"host verification"' in bodies[name], f'opt-in task must be labelled: {name}'
-    check_opt_in_gradle_tests(bodies, covered)
-    for name in RETIRED_META_GATE_SELFTESTS:
-        assert name not in bodies, f'retired meta-gate selftest is back: {name}'
-    return bodies, graph, covered
+    # The identity and display requirements stay bound to the gates that need them: the
+    # workflow invocation check below is only as strong as these flags.
+    options = gate_options(manifest)
+    for gate in GATE_TASKS:
+        expected = {'release_flags': gate in RELEASE_FLAGS, 'require_xvfb': gate in XVFB_GATES}
+        assert options[gate] == expected, \
+            f'{gate} declares {options[gate]} but the workflow contract requires {expected}'
 
 
-def check_centralized_gates(root: Path) -> None:
-    """The aggregate gates are declared once and never re-opened.
+def check_gate_ownership(root: Path, manifest: Manifest, gates: dict[str, set[str]]) -> None:
+    """`owner=` names the workflow and line that launch the aggregate, and every gate is reached."""
+    for gate in GATE_TASKS:
+        owner = manifest.aggregates[gate].owner
+        assert not owner.startswith('via:'), f'{gate} is launched by a workflow, not through another gate'
+        path, _, line = owner.rpartition(':')
+        assert line.isdigit(), f'{gate} owner must be <workflow>:<line>: {owner}'
+        workflows = sorted(name for name, found in gates.items() if gate in found)
+        assert workflows == [Path(path).name], f'{gate} is launched by {workflows}, not {path}'
+        source = (root / path).read_text(encoding='utf-8').splitlines()
+        assert int(line) <= len(source), f'{owner} is past the end of {path}'
+        invocation = source[int(line) - 1]
+        assert './gradlew' in invocation and gate in invocation, \
+            f'{owner} does not launch {gate}: {invocation!r}'
+    graph = aggregate_graph(manifest)
+    launched = {gate for gate in GATE_TASKS if not manifest.aggregates[gate].owner.startswith('via:')}
+    unreachable = [name for name in manifest.order if name not in reachable(graph, launched)]
+    assert not unreachable, f'aggregates no workflow reaches: {unreachable}'
 
-    devCheck, checkIntegration, checkCompletedCommit, checkRelease and the
-    separately invocable checkReleasePackaging each list their full dependency set
-    inline in gradle/verification.gradle.kts, so a gate member is added in one place
-    instead of being patched from whichever script owns the task.
+
+def check_declarations(root: Path, manifest: Manifest) -> None:
+    """The manifest is the only statement of aggregate membership.
+
+    Every aggregate is registered from gradle/gates.txt in gradle/verification.gradle.kts and no
+    other script re-opens one, so a member is added in one place instead of being patched from
+    whichever script owns the task.
     """
-    aggregate = ('devCheck', 'checkIntegration', 'checkCompletedCommit', 'checkRelease', PACKAGING_GATE)
     reopen = re.compile(r'tasks\.(?:named|register|getByName)(?:<[^>]+>)?\(\s*"([\w:]+)"')
     for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
         if file.name == 'verification.gradle.kts':
             continue
         patched = sorted({name for name in reopen.findall(file.read_text(encoding='utf-8'))
-                          if name in aggregate})
+                          if name in manifest.aggregates})
         assert not patched, f'{file.name} re-opens aggregate gates: {patched}'
     verification = (root / 'gradle/verification.gradle.kts').read_text(encoding='utf-8')
-    for gate in aggregate:
-        declared = len(re.findall(
-            rf'(?:val\s+{gate}\s+by\s+tasks\.registering|tasks\.register\("{gate}"\))', verification))
-        assert declared == 1, f'{gate} must be declared exactly once in verification.gradle.kts: {declared}'
+    assert 'GateManifest.load' in verification, \
+        'gradle/verification.gradle.kts must register the aggregates from gradle/gates.txt'
+    for gate in manifest.order:
+        inline = re.search(rf'(?:val\s+{gate}\s+by\s+tasks\.registering'
+                           rf'|tasks\.register(?:<[^>]+>)?\("{gate}"\))', verification)
+        assert not inline, f'{gate} must be registered from gradle/gates.txt, not declared inline'
         assert not re.search(rf'tasks\.(?:named|getByName)\("{gate}"\)', verification), \
-            f'{gate} must not be patched after its declaration'
+            f'{gate} must not be patched after its registration'
+
+
+def ungated_tasks(bodies: dict[str, list[str]], graph: dict[str, set[str]],
+                  manifest: Manifest) -> list[str]:
+    """Declared gate tasks that no aggregate reaches and no route explains.
+
+    The inventory is every `check*`/`*SelfTest`/`verify*` task any build script declares, including
+    a module build file, so a gate that nobody wires cannot pass by being unlisted. Reachability
+    starts at every declared aggregate; whether an aggregate itself is launched is asserted
+    separately, so an aggregate that exists but no workflow starts fails on that line instead.
+    """
+    members = member_names(reachable(graph, set(manifest.aggregates)))
+    return sorted(name for name in bodies
+                  if (name.startswith('check') or name.endswith('SelfTest') or name.startswith('verify'))
+                  and name not in members and not manifest.is_routed(name))
+
+
+def check_gates(bodies: dict[str, list[str]], manifest: Manifest,
+                graph: dict[str, set[str]]) -> set[str]:
+    """Every gate task is a member or explicitly routed, so a gate cannot shrink silently.
+
+    The inventory is every `check*`/`*SelfTest`/`verify*` task any build script declares, including
+    a module build file: a gate that no aggregate reaches and no route explains fails here, instead
+    of passing because nobody looked at it.
+    """
+    covered = reachable(graph, set(ORDINARY_GATES))
+    release = reachable(graph, {FORMAL_RELEASE_GATE})
+    orphans = ungated_tasks(bodies, graph, manifest)
+    assert not orphans, ('ungated gates: add a member line, or a manual/opt-in/orphan route, '
+                         f'in gradle/gates.txt: {orphans}')
+    assert 'checkHostToolingSelfTest' in covered, 'host tooling selftest is orphaned'
+    assert 'checkHostToolingSelfTest' not in reachable(graph, {'devCheck'}), \
+        'host tooling belongs to completed commits'
+    assert '@all-module-tests' in covered, 'all module tests must run on completed commits'
+    assert 'checkLocalizedChangelogs' in covered, \
+        'release-notes data changes must stay gated by the required changelog render check'
+    for name in OPT_IN_TESTS:
+        assert name in bodies, f'missing opt-in task: {name}'
+        assert name not in covered | release, f'opt-in task became gated: {name}'
+        assert '"host verification"' in bodies[name], f'opt-in task must be labelled: {name}'
+    check_opt_in_gradle_tests(bodies, member_names(covered))
+    for name in RETIRED_META_GATE_SELFTESTS:
+        assert name not in bodies, f'retired meta-gate selftest is back: {name}'
+    return covered
 
 
 def check_opt_in_gradle_tests(bodies: dict[str, list[str]], covered: set[str]) -> None:
@@ -415,7 +647,6 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
         assert (relative in selected or module in selected or
                 any(fnmatch.fnmatchcase(file.name, pattern) for pattern in selected) or
                 relative in manual or relative == 'scripts/test/test_ci_coverage.py'), f'ungated test: {relative}'
-    assert 'ordinaryTestTasks' in covered
     # Java test directories must belong to a module included in settings, where
     # checkCompletedCommit discovers its ordinary Test task automatically.
     # buildSrc is a special Gradle build that settings.gradle.kts cannot list; its
@@ -453,14 +684,6 @@ OPT_IN_GRADLE_TESTS = {
 
 # Test tasks that are deliberately only reachable through their own opt-in lane.
 OPT_IN_GRADLE_TEST_SOURCES = ('runtime/build.gradle.kts',)
-
-# Explicit opt-in host probes and the Gradle lifecycle alias.
-MANUAL_GATES = set("""check checkCubismHostValidationArguments
-checkCubismHostValidationJavaEvidence checkFloatArrayValidationBundle
-checkGraalPreviewLauncherContract checkGraalScriptHostValidation
-checkGraalScriptHostValidationDryRun checkImageArchiveValidationBundle
-checkResourceValidationBundle
-checkTextureUploadValidationBundle checkWarpPositionValidationBundle""".split())
 
 # Third-order meta-gates removed by the centralization slice: they proved the wiring
 # and negative fixtures of other gates rather than the product. Keeping the names
@@ -547,16 +770,55 @@ scripts/test_corpus.py
 
 
 def self_test() -> None:
-    bodies = task_bodies('''
-        val devCheck by tasks.registering { dependsOn(checkOne) }
-        val checkOne by tasks.registering(Exec::class) { commandLine("echo", "}") }
-        tasks.register<Exec>("checkNewSelfTest") { commandLine("python3", "test_new.py") }
-        tasks.named("devCheck") { dependsOn("checkNewSelfTest") }
-    ''')
-    graph = dependency_graph(bodies)
-    assert reachable(graph, {'devCheck'}) == {'devCheck', 'checkOne', 'checkNewSelfTest'}
-    graph['devCheck'].remove('checkNewSelfTest')
-    assert 'checkNewSelfTest' not in reachable(graph, {'devCheck'})
+    # The manifest grammar: declaration order, route kinds and the fail-closed cases the
+    # contract depends on. The Kotlin reader proves the same rules against the same shape.
+    source = '''
+        # A comment, and blank lines, are free.
+
+        aggregate devCheck group="verification" owner=".github/workflows/ci.yml:76" harm="h" description="d"
+        member devCheck checkOne
+        member devCheck @all-module-tests
+        aggregate release group="verification" owner="via:devCheck" harm="h" description="d" release-flags
+        member release devCheck
+        member release checkNewSelfTest
+        manual checkManual reason="on demand" doc="docs/gates.md:1"
+        opt-in verifySelectionBrushJar reason="module check anchor"
+        orphan checkGraalHostTargetSelection reason="runs nowhere"
+    '''
+    manifest = parse_manifest(source, 'gates.txt')
+    assert manifest.order == ('devCheck', 'release')
+    assert manifest.aggregates['release'].release_flags
+    assert manifest.aggregates['release'].members == ('devCheck', 'checkNewSelfTest')
+    assert manifest.routes['checkManual'].kind == 'manual'
+    assert manifest.routes['checkManual'].documentation == 'docs/gates.md:1'
+    assert manifest.is_routed('checkGraalHostTargetSelection')
+    assert not manifest.is_routed('checkOne')
+    graph = aggregate_graph(manifest)
+    assert reachable(graph, {'release'}) == {
+        'release', 'devCheck', 'checkOne', '@all-module-tests', 'checkNewSelfTest'}
+    # An orphan is a tombstone, not a free pass: dropping the route line must redden the rule
+    # that keeps every declared gate wired.
+    inventory = {name: [] for name in ('checkOne', 'checkNewSelfTest',
+                                       'checkGraalHostTargetSelection', 'checkManual')}
+    assert ungated_tasks(inventory, dependency_graph(inventory) | graph, manifest) == []
+    unrouted = parse_manifest(source.replace(
+        'orphan checkGraalHostTargetSelection reason="runs nowhere"', ''), 'gates.txt')
+    assert ungated_tasks(inventory, dependency_graph(inventory) | aggregate_graph(unrouted),
+                         unrouted) == ['checkGraalHostTargetSelection']
+    graph['release'].remove('devCheck')
+    assert 'checkOne' not in reachable(graph, {'release'})
+    full = 'aggregate devCheck group="g" owner=".github/workflows/ci.yml:1" harm="h" description="d"'
+    for broken, expected in (
+            ('member devCheck checkOne', 'undeclared aggregate'),
+            ('manual checkOne', 'missing reason'),
+            (full + '\n' + full, 'declared twice')):
+        try:
+            parse_manifest(broken, 'gates.txt')
+        except AssertionError as err:
+            assert expected in str(err), (broken, expected, str(err))
+        else:
+            raise AssertionError(f'malformed manifest accepted: {broken}')
+
     for option in ('--dry-run', '-x test', '--tests Foo'):
         workflow = {'jobs': {'ci': {'steps': [{'run': f'./gradlew devCheck checkCompletedCommit {option}'}]}}}
         try:
@@ -617,10 +879,17 @@ def self_test() -> None:
 
 def contract(root: Path) -> None:
     self_test()
-    gates = workflow_gates(root)
+    manifest = load_manifest(root)
+    gates = workflow_gates(root, gate_options(manifest))
     check_workflow(root, gates)
-    check_centralized_gates(root)
-    bodies, graph, covered = check_tasks(root)
+    check_declarations(root, manifest)
+    check_gate_ownership(root, manifest, gates)
+    bodies = build_script_bodies(root)
+    # The manifest owns what an aggregate covers; the scripts still own the edges between two
+    # non-aggregate tasks, so a member's own helper chain stays visible without a manifest line.
+    graph = dependency_graph(bodies) | aggregate_graph(manifest)
+    check_manifest(manifest, graph)
+    covered = check_gates(bodies, manifest, graph)
     # The pull-request flow must execute the complete formal release closure between
     # ci.yml and the merged channel workflow, and nothing outside it.
     executed = reachable(graph, gates['ci.yml'] | gates['unified-channel-checks.yml']) | {FORMAL_RELEASE_GATE}
@@ -628,7 +897,7 @@ def contract(root: Path) -> None:
     assert executed == release, (
         'PR workflows must cover the complete release closure; '
         f'missing: {sorted(release - executed)}; unexpected: {sorted(executed - release)}')
-    check_sources(root, bodies, covered)
+    check_sources(root, bodies, member_names(covered))
 
 
 class CiCoverageContractTest(unittest.TestCase):
