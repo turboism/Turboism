@@ -5,6 +5,7 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import dev.turboism.gradle.internal.GateManifest
+import dev.turboism.gradle.internal.boundary.DuplicateImports
 import dev.turboism.gradle.internal.VerificationStamps
 
 /*
@@ -603,52 +604,19 @@ val checkDuplicateJavaImports by tasks.registering {
         exclude(".worktrees/**", ".claude/**", "**/build/**")
     }
     inputs.files(sources)
-    // The check logic lives in this script rather than a standalone tool.
+    // The wiring lives in this script, so an edit here still invalidates the gate.
     inputs.file("gradle/verification.gradle.kts")
     doLast {
-        val importPattern = Regex("""^\s*import\s+(static\s+)?([\w.${'$'}*]+)\s*;\s*${'$'}""")
+        // The scan itself lives in buildSrc (DuplicateImports), so the import-block grammar is
+        // covered by unit tests; this action is the walk, the ordering and the single failure.
         val duplicates = mutableListOf<String>()
         sources.files
             .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
             .forEach { source ->
-                val relativePath = source.relativeTo(rootDir).invariantSeparatorsPath
-                val firstImportLines = mutableMapOf<String, Int>()
-                var importsOpen = true
-                var blockComment = false
-                source.useLines { lines ->
-                    lines.forEachIndexed { index, line ->
-                        if (!importsOpen) {
-                            return@forEachIndexed
-                        }
-                        val trimmed = line.trim()
-                        if (blockComment) {
-                            if (trimmed.contains("*/")) {
-                                blockComment = false
-                            }
-                            return@forEachIndexed
-                        }
-                        if (trimmed.isEmpty() || trimmed.startsWith("//")) {
-                            return@forEachIndexed
-                        }
-                        if (trimmed.startsWith("/*")) {
-                            blockComment = !trimmed.contains("*/")
-                            return@forEachIndexed
-                        }
-                        val match = importPattern.matchEntire(line)
-                        if (match == null) {
-                            if (!trimmed.startsWith("package ") && !trimmed.startsWith("@")) {
-                                importsOpen = false
-                            }
-                            return@forEachIndexed
-                        }
-                        val declaration = (match.groupValues[1] + match.groupValues[2]).trim()
-                        val lineNumber = index + 1
-                        val firstLine = firstImportLines.putIfAbsent(declaration, lineNumber)
-                        if (firstLine != null) {
-                            duplicates += "$relativePath:$lineNumber repeats import $declaration; (first at line $firstLine)"
-                        }
-                    }
-                }
+                duplicates += DuplicateImports.duplicates(
+                    source.relativeTo(rootDir).invariantSeparatorsPath,
+                    source.readLines()
+                )
             }
         if (duplicates.isNotEmpty()) {
             throw GradleException(duplicates.sorted().joinToString("\n", prefix = "Duplicate Java import declarations:\n"))
