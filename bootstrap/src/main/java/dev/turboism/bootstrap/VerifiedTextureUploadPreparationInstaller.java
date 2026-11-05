@@ -19,6 +19,10 @@ import java.util.jar.JarFile;
 /** Owns exact Editor/JOGL/JVM admission and restoration for native texture preparation. */
 final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.texture-upload-preparation";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
+
     static final String JOGL_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.sha256();
     private final Instrumentation instrumentation;
     private final Class<?> target;
@@ -31,10 +35,8 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
             TextureUploadPreparationTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvmFeature) {
-        return requested
-                && jvmFeature == 17
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvmFeature, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedTextureUploadPreparationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)

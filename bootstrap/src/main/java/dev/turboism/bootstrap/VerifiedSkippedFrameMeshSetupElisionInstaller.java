@@ -28,6 +28,9 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
     /** Operator kill-switch id checked through the startup hook policy. */
     static final String HOOK_ID = "cubism.render.mesh-setup-elision";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final SkippedFrameMeshSetupElisionTarget target;
     private final Class<?> entry;
@@ -45,10 +48,12 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
             final RuntimeStartupConfig config,
             final boolean requested,
             final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && SkippedFrameMeshSetupElisionTarget.of(digest).isPresent();
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm,
+                () -> SkippedFrameMeshSetupElisionTarget.of(digest).isPresent());
     }
 
     VerifiedSkippedFrameMeshSetupElisionInstaller(

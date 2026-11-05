@@ -33,16 +33,21 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     /** Startup hook id used by the safe-mode / disabledHooks policy. */
     static final String HOOK_ID = "cubism.render.input-path-elision";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     /** Exact production admission: reviewed digest + JVM17 + hook policy. */
     static boolean admitted(
             final HostArtifactDigest digest,
             final RuntimeStartupConfig config,
             final boolean requested,
             final Runtime.Version jvm) {
-        return requested
-                && jvm.feature() >= 17
-                && InputPathElisionTarget.of(digest).isPresent()
-                && config.hookEnabled(HOOK_ID);
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm.feature(),
+                () -> InputPathElisionTarget.of(digest).isPresent());
     }
 
     private final Instrumentation instrumentation;

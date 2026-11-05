@@ -30,6 +30,9 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.render.mesa-gl-thread";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final DeferredGlErrorCheckTarget target;
     private final Class<?> errorType, frameType;
@@ -41,10 +44,12 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
             final RuntimeStartupConfig config,
             final boolean requested,
             final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && DeferredGlErrorCheckTarget.of(digest).isPresent();
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm,
+                () -> DeferredGlErrorCheckTarget.of(digest).isPresent());
     }
 
     VerifiedDeferredGlErrorCheckInstaller(

@@ -3,102 +3,88 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.pair.ReinitPairElisionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.ProtectionDomain;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.JarFile;
+import java.util.Optional;
 
-/** Exact-host admission, one-shot rewrite and verified restoration for the reinit Pair elision. */
+/**
+ * Exact-host admission, one-shot rewrite and verified restoration for the reinit Pair elision.
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed contract
+ * table and, for the slice that migrates it, the install surface its contributor already used. Its
+ * contract payload is the {@link ReviewedHostContract.Bound bound} resolution itself, because the
+ * reference bytes are read after binding and must still come from the bound snapshot.</p>
+ */
 final class VerifiedReinitPairElisionInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.model.reinit-pair-elision";
-    private final Instrumentation instrumentation;
-    private final Class<?> target;
-    private final ReinitPairElisionTransformer transformer;
-    private boolean installed;
-    private boolean restored;
+
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
             ReviewedHostContract.candidates(ReinitPairElisionTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
-    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested) {
-        return requested
-                && config != null
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+    static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<>(
+            ADMISSION,
+            "reinit Pair elision",
+            VerifiedReinitPairElisionInstaller::resolve,
+            new WeavePlan<>(VerifiedReinitPairElisionInstaller::targets, WeavePlan.PostCheck.NONE),
+            BridgeLayer.NONE,
+            WeaveEffects.none());
+
+    private final InstallContext context;
+    private VerifiedInstall<ReviewedHostContract.Bound<String>> hook;
+
+    VerifiedReinitPairElisionInstaller(final InstallContext context) {
+        this.context = context;
     }
 
-    VerifiedReinitPairElisionInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
-            throws Exception {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        final Path source =
-                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        final var contract = ReviewedHostContract.requireBound(
-                ReviewedHostContract.resolve(source, CANDIDATES), "reinit Pair elision");
-        target = Class.forName(ReinitPairElisionTransformer.OWNER.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                target, loader, source, "reinit Pair host loader or artifact mismatch");
-        try (JarFile jar = new JarFile(source.toFile())) {
-            transformer = new ReinitPairElisionTransformer(
-                    loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
-        }
-        contract.requireUnchanged(source);
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested) {
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                Runtime.version().feature(),
+                () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
+    private static Optional<ReviewedHostContract.Bound<String>> resolve(final Path artifact) {
+        return ReviewedHostContract.resolve(artifact, CANDIDATES) instanceof ReviewedHostContract.Bound<String> bound
+                ? Optional.of(bound)
+                : Optional.empty();
+    }
+
+    private static List<WeaveTarget> targets(
+            final ReviewedHostContract.Bound<String> contract, final WeaveSource source) throws Exception {
+        final Class<?> target = source.load(ReinitPairElisionTransformer.OWNER);
+        final var transformer =
+                new ReinitPairElisionTransformer(source.loader(), source.artifact(), source.referenceBytes(target));
+        contract.requireUnchanged(source.artifact());
+        return List.of(WeaveTarget.single(
+                target,
+                transformer,
+                1,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
+    }
+
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not an admitted reinit Pair host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isRetransformClassesSupported() || !instrumentation.isModifiableClass(target)) {
-            throw new IllegalStateException("reinit Pair host cannot be transformed");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context)
+                instanceof VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<String>> installed)) {
+            throw new IllegalStateException("reinit Pair elision refused: host-not-supported-or-hook-disabled");
         }
-        try {
-            instrumentation.addTransformer(transformer, true);
-            installed = true;
-            instrumentation.retransformClasses(target);
-            if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException("reinit Pair rewrite was not admitted: " + transformer.failure());
-            }
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     @Override
     public synchronized void close() {
-        if (!installed) return;
-        instrumentation.removeTransformer(transformer);
-        AtomicReference<String> observed = new AtomicReference<>();
-        ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    Module module,
-                    ClassLoader loader,
-                    String name,
-                    Class<?> redefined,
-                    ProtectionDomain domain,
-                    byte[] bytes) {
-                if (redefined == target) observed.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(target);
-            restored = transformer.beforeSha256() != null
-                    && transformer.beforeSha256().equals(observed.get());
-            if (!restored) throw new IllegalStateException("reinit Pair restoration not proven");
-            installed = false;
-        } catch (java.lang.instrument.UnmodifiableClassException failure) {
-            throw new IllegalStateException("reinit Pair restoration failed", failure);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
-    }
-
-    boolean restored() {
-        return restored;
+        if (hook != null) hook.close();
     }
 }
