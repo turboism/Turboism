@@ -5,12 +5,16 @@ import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -36,8 +40,11 @@ class EditorDefaultKeyformLockWriteTest {
         model.setDefaultKeyformLocked(true);
 
         assertEquals(true, model.defaultKeyformLocked());
-        assertEquals(1, fixture.editMode.beginCalls);
-        assertEquals(1, fixture.editMode.committedEdits);
+        assertEquals(1, fixture.document.undoManager().entries().size(), "one native Undo entry per write");
+        assertEquals(
+                "Turboism: Set Default Keyform Lock",
+                fixture.document.undoManager().entries().get(0).presentationName(),
+                "the frozen Undo label is the write label");
         assertEquals(1, fixture.document.dirtyUpdates);
         assertEquals(1, fixture.operation.refreshes);
         assertEquals(1, fixture.completePack.parameterRefreshes);
@@ -52,7 +59,34 @@ class EditorDefaultKeyformLockWriteTest {
         assertEquals(3, fixture.completePack.canvasRepaints);
 
         model.setDefaultKeyformLocked(true);
-        assertEquals(1, fixture.editMode.beginCalls, "unchanged state must not create history");
+        assertEquals(1, fixture.document.undoManager().entries().size(), "unchanged state must not create history");
+    }
+
+    /**
+     * Ambient atomicity (design C2 §7 Q1): a migrated envelope write refuses to join an ambient root
+     * it could not roll back, and the rejected write leaves no Undo entry, no dirty mark and no
+     * refresh behind. The resolver here does not authorize the edit-session row the join needs.
+     */
+    @Test
+    void lockWriteInsideAmbientTransactionFailsClosedWithoutTheJoinRow() {
+        Fixture fixture = new Fixture("model-a");
+        Host.install(fixture);
+        var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
+        var model = access.active();
+        var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");
+
+        var result = service.execute(AuthoringTransactionOptions.of("Grouped lock write"), () -> {
+            model.setDefaultKeyformLocked(true);
+            return null;
+        });
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(false, model.defaultKeyformLocked(), "the rejected write must not reach the model");
+        assertTrue(fixture.document.undoManager().entries().isEmpty(), "a rejected write admits no Undo entry");
+        assertEquals(0, fixture.document.dirtyUpdates);
+        assertEquals(0, fixture.operation.refreshes);
+        assertEquals(0, fixture.completePack.parameterRefreshes);
+        assertEquals(0, fixture.completePack.canvasRepaints);
     }
 
     @Test
@@ -64,7 +98,7 @@ class EditorDefaultKeyformLockWriteTest {
         assertEquals(false, model.defaultKeyformLocked());
         assertThrows(UnsupportedOperationException.class, () -> model.setDefaultKeyformLocked(true));
         assertEquals(false, model.defaultKeyformLocked());
-        assertEquals(0, fixture.editMode.beginCalls);
+        assertTrue(fixture.document.undoManager().entries().isEmpty());
         assertEquals(0, fixture.document.dirtyUpdates);
     }
 
@@ -85,11 +119,13 @@ class EditorDefaultKeyformLockWriteTest {
                 ? java.util.Set.of(
                         "cubism.editor-model.read",
                         "cubism.editor-model.write",
+                        "cubism.editor-history.read",
                         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
                         EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID)
                 : java.util.Set.of(
                         "cubism.editor-model.read",
                         "cubism.editor-model.write",
+                        "cubism.editor-history.read",
                         EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID);
         return TestVerifiedResolvers.create(
                 "5.3.02",
@@ -213,7 +249,29 @@ class EditorDefaultKeyformLockWriteTest {
                                 "create",
                                 "(Ljava/lang/String;ZL" + internal(Action.class) + ";L"
                                         + internal(Action.class) + ";L" + internal(UpdateAction.class) + ";)L"
-                                        + internal(SimpleUndo.class) + ";")),
+                                        + internal(SimpleUndo.class) + ";"),
+                        method(
+                                "cubism.editor-history.document.undo-manager",
+                                Document.class,
+                                "undoManager",
+                                desc(UndoManager.class)),
+                        StaticSelector.classSelector(
+                                "cubism.editor-history.manager.class", internal(UndoManager.class)),
+                        method(
+                                "cubism.editor-history.manager.entries",
+                                UndoManager.class,
+                                "entries",
+                                "()Ljava/util/List;"),
+                        method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"),
+                        method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"),
+                        method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"),
+                        StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Undo.class)),
+                        method(
+                                "cubism.editor-history.entry.presentation-name",
+                                Undo.class,
+                                "presentationName",
+                                "()Ljava/lang/String;"),
+                        method("cubism.editor-history.entry.significant", Undo.class, "significant", "()Z")),
                 Host.class.getClassLoader());
     }
 
@@ -282,11 +340,13 @@ class EditorDefaultKeyformLockWriteTest {
     public static final class Document {
         final ModelSource source;
         final EditMode editMode;
+        final UndoManager undoManager;
         int dirtyUpdates;
 
         Document(final ModelSource source, final EditMode editMode) {
             this.source = source;
             this.editMode = editMode;
+            this.undoManager = new UndoManager(editMode);
         }
 
         public ModelSource modelSource() {
@@ -297,8 +357,37 @@ class EditorDefaultKeyformLockWriteTest {
             return editMode;
         }
 
+        public UndoManager undoManager() {
+            return undoManager;
+        }
+
         public void markDirty() {
             dirtyUpdates++;
+        }
+    }
+
+    /** Native undo-manager projection: one history entry per committed edit bracket. */
+    public static final class UndoManager {
+        private final EditMode editMode;
+
+        UndoManager(final EditMode editMode) {
+            this.editMode = editMode;
+        }
+
+        public List<Undo> entries() {
+            return List.copyOf(editMode.entries);
+        }
+
+        public int position() {
+            return editMode.entries.size();
+        }
+
+        public boolean canUndo() {
+            return !editMode.entries.isEmpty();
+        }
+
+        public boolean canRedo() {
+            return false;
         }
     }
 
@@ -395,8 +484,21 @@ class EditorDefaultKeyformLockWriteTest {
     }
 
     public static final class Undo {
+        final String label;
         final List<SimpleUndo> edits = new ArrayList<>();
         final List<UndoListener> listeners = new ArrayList<>();
+
+        Undo(final String label) {
+            this.label = label;
+        }
+
+        public String presentationName() {
+            return label;
+        }
+
+        public boolean significant() {
+            return true;
+        }
 
         public boolean add(final Object raw, final boolean force) {
             edits.add((SimpleUndo) raw);
@@ -422,21 +524,19 @@ class EditorDefaultKeyformLockWriteTest {
     }
 
     public static final class EditMode {
-        int beginCalls;
-        int committedEdits;
+        final List<Undo> entries = new ArrayList<>();
         Undo active;
         Undo committed;
 
         public Undo begin(final String action) {
-            beginCalls++;
-            active = new Undo();
+            active = new Undo(action);
             return active;
         }
 
         public boolean end(final boolean cancelled, final Object callback) {
             if (!cancelled) {
-                committedEdits++;
                 committed = active;
+                entries.add(active);
             }
             active = null;
             return !cancelled;
