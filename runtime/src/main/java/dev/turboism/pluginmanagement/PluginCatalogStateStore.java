@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.PathLocks;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -22,8 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -52,7 +50,6 @@ public final class PluginCatalogStateStore {
             "cachedSignatureBase64",
             "stagedUpdates");
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
-    private static final Map<Path, Object> LOCKS = new ConcurrentHashMap<>();
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
                     .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                     .build())
@@ -79,7 +76,7 @@ public final class PluginCatalogStateStore {
             throw new IllegalArgumentException("catalog state path escaped home");
         }
         this.files = new ConfinedPluginFiles(this.home);
-        this.lock = LOCKS.computeIfAbsent(this.path, ignored -> new Object());
+        this.lock = PathLocks.forPath(this.path);
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
@@ -156,7 +153,6 @@ public final class PluginCatalogStateStore {
     public boolean save(final State state) {
         Objects.requireNonNull(state, "state");
         synchronized (lock) {
-            Path temporary = null;
             try {
                 files.rejectLinks(home);
                 Files.createDirectories(staging);
@@ -183,20 +179,9 @@ public final class PluginCatalogStateStore {
                 if (encoded.length > MAX_STATE_FILE_BYTES) {
                     throw new IOException("catalog state exceeds size limit");
                 }
-                temporary = staging.resolve(".catalog-state-" + UUID.randomUUID() + ".tmp");
-                try (var output = files.createNew(temporary, parent)) {
-                    output.write(ByteBuffer.wrap(encoded));
-                }
-                files.move(temporary, path, parent, true);
+                files.writeBytes(path, encoded, parent, true);
                 return true;
             } catch (IOException | RuntimeException failure) {
-                if (temporary != null) {
-                    try {
-                        Files.deleteIfExists(temporary);
-                    } catch (IOException ignored) {
-                        // Best-effort cleanup of temp state file.
-                    }
-                }
                 report("PLUGIN_CATALOG_STATE_WRITE_FAILED");
                 return false;
             }

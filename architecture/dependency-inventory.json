@@ -514,6 +514,7 @@
         "dev.turboism.adapter",
         "dev.turboism.config",
         "dev.turboism.core",
+        "dev.turboism.home",
         "dev.turboism.hostread",
         "dev.turboism.mapping",
         "dev.turboism.recentfile",
@@ -682,6 +683,10 @@
       ],
       [
         "dev.turboism.graal",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.home",
         "dev.turboism.core"
       ],
       [

@@ -3,6 +3,8 @@ package dev.turboism.userfile;
 import dev.turboism.adapter.cubism.command.EditorFileCommandResolver;
 import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.DurableWriteException;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
@@ -28,15 +30,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,7 +44,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -514,7 +512,6 @@ public final class RuntimeUserFileAccessService
     }
 
     private UserFileWriteResult writeBytesNow(final Path target, final byte[] content) {
-        Path temporary = null;
         try {
             final Path parent = target.getParent();
             if (parent == null
@@ -528,36 +525,17 @@ public final class RuntimeUserFileAccessService
                             && !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
                 return writeFailure(UserFileErrorCode.IO_FAILURE);
             }
-            temporary = target.resolveSibling(
-                    "." + target.getFileName() + ".turboism-user-file-" + UUID.randomUUID() + ".tmp");
-            try (FileChannel channel =
-                    FileChannel.open(temporary, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                final ByteBuffer buffer = ByteBuffer.wrap(content);
-                while (buffer.hasRemaining()) {
-                    if (Thread.currentThread().isInterrupted()) {
-                        return writeFailure(UserFileErrorCode.CANCELED);
-                    }
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            temporary = null;
+            DurableFile.at(target).replaceCancellable(content);
             return new UserFileWriteResult(true, Optional.empty());
-        } catch (AtomicMoveNotSupportedException exception) {
-            return writeFailure(UserFileErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+        } catch (DurableWriteException exception) {
+            return writeFailure(
+                    exception.failure() == DurableWriteException.Failure.ATOMIC_REPLACE_UNAVAILABLE
+                            ? UserFileErrorCode.ATOMIC_REPLACE_UNAVAILABLE
+                            : UserFileErrorCode.IO_FAILURE);
+        } catch (InterruptedException exception) {
+            return writeFailure(UserFileErrorCode.CANCELED);
         } catch (IOException exception) {
             return writeFailure(UserFileErrorCode.IO_FAILURE);
-        } finally {
-            if (temporary != null) {
-                try {
-                    if (Files.deleteIfExists(temporary)) {
-                        cleanupEvidence.temporaryFileDeleted();
-                    }
-                } catch (IOException ignored) {
-                    cleanupEvidence.cleanupFailed();
-                }
-            }
         }
     }
 

@@ -502,7 +502,7 @@ public final class PendingPluginOperations {
             }
             // Inactive name is intentionally ignored by older runtimes after a framework rollback.
             // Keep the complete original intent and packages; do not retry corrupt bytes every launch.
-            files.move(journal, failedJournal, files.parent(journal), false);
+            files.publish(journal, failedJournal, files.parent(journal), false);
             return new ApplyResult(Status.ROLLED_BACK, "PLUGIN_PENDING_ROLLED_BACK");
         } catch (Exception unsafeRecovery) {
             return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_RECOVERY_REQUIRED");
@@ -565,7 +565,7 @@ public final class PendingPluginOperations {
                     FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
                 snapshot.force(true);
             }
-            files.move(temporary, target, pluginParent, true);
+            files.publish(temporary, target, pluginParent, true);
             for (Path path : existing) if (!path.equals(target)) files.delete(path, pluginParent);
         } finally {
             files.delete(temporary, pluginParent);
@@ -620,7 +620,7 @@ public final class PendingPluginOperations {
                 final Path temporary = plugins.resolve(".restore-" + UUID.randomUUID() + ".tmp");
                 try {
                     copySnapshot(path, temporary, pluginParent);
-                    files.move(temporary, target, pluginParent, false);
+                    files.publish(temporary, target, pluginParent, false);
                 } finally {
                     files.delete(temporary, pluginParent);
                 }
@@ -663,7 +663,6 @@ public final class PendingPluginOperations {
     }
 
     private void writeOperations(final List<Operation> operations) {
-        Path temporary = null;
         try {
             Files.createDirectories(staging);
             final ConfinedPluginFiles.ParentIdentity parent = files.parent(journal);
@@ -678,17 +677,8 @@ public final class PendingPluginOperations {
                     .forEach(operation -> values.add(operation.json()));
             final byte[] bytes = JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
             if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException("pending journal too large");
-            temporary = staging.resolve(".pending-" + UUID.randomUUID() + ".tmp");
-            try (var output = files.createNew(temporary, parent)) {
-                final ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) output.write(buffer);
-                if (!(output instanceof FileChannel channel))
-                    throw new IOException("durable journal channel unavailable");
-                channel.force(true);
-            }
-            files.move(temporary, journal, parent, true);
+            files.writeBytes(journal, bytes, parent, true);
         } catch (IOException failure) {
-            deleteQuietly(temporary);
             throw new IllegalStateException("PLUGIN_PENDING_WRITE_FAILED", failure);
         }
     }

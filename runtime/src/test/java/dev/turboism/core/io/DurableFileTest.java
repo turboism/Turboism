@@ -249,6 +249,23 @@ class DurableFileTest {
     }
 
     @Test
+    void adoptKeepingSourceLeavesACallerOwnedSourceWhenPublicationIsRefused() throws Exception {
+        final Path source = temporary.resolve("plugin.jar");
+        Files.writeString(source, "new");
+        final Path target = temporary.resolve("installed.jar");
+        Files.writeString(target, "old");
+
+        final DurableWriteException failure = assertThrows(
+                DurableWriteException.class,
+                () -> DurableFile.createOnce(target).adoptKeepingSource(source));
+
+        assertEquals(Failure.ALREADY_EXISTS, failure.failure());
+        assertEquals("new", Files.readString(source), "a source the caller owns is never deleted by a refusal");
+        assertEquals("old", Files.readString(target));
+        assertEquals(List.of("installed.jar", "plugin.jar"), names(temporary));
+    }
+
+    @Test
     void replaceStreamingPublishesWhatTheProducerWrites() throws Exception {
         final Path target = temporary.resolve("streamed.properties");
 

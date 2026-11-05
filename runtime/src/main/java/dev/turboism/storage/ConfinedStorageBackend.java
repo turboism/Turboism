@@ -1,6 +1,7 @@
 package dev.turboism.storage;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.io.DurableWriteException;
 import dev.turboism.home.AnchoredDirectoryTree;
 import dev.turboism.sdk.storage.StorageEntry;
 import dev.turboism.sdk.storage.StorageError;
@@ -49,7 +50,7 @@ final class ConfinedStorageBackend {
         this(
                 roots,
                 new CleanupEvidenceCollector(),
-                StorageAtomicMover::move,
+                StorageFiles::moveAtomically,
                 Files::deleteIfExists,
                 DeleteLimits.defaults(),
                 false);
@@ -57,14 +58,20 @@ final class ConfinedStorageBackend {
 
     ConfinedStorageBackend(final Map<StorageRoot, Path> roots, final CleanupEvidenceCollector cleanupEvidence)
             throws IOException {
-        this(roots, cleanupEvidence, StorageAtomicMover::move, Files::deleteIfExists, DeleteLimits.defaults(), false);
+        this(
+                roots,
+                cleanupEvidence,
+                StorageFiles::moveAtomically,
+                Files::deleteIfExists,
+                DeleteLimits.defaults(),
+                false);
     }
 
     ConfinedStorageBackend(final Map<StorageRoot, Path> roots, final DeleteLimits deleteLimits) throws IOException {
         this(
                 roots,
                 new CleanupEvidenceCollector(),
-                StorageAtomicMover::move,
+                StorageFiles::moveAtomically,
                 Files::deleteIfExists,
                 deleteLimits,
                 true);
@@ -155,6 +162,8 @@ final class ConfinedStorageBackend {
             return writeFailure(path, StorageErrorCode.ALREADY_EXISTS);
         } catch (AtomicMoveNotSupportedException exception) {
             return writeFailure(path, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+        } catch (DurableWriteException exception) {
+            return writeFailure(path, storageCode(exception));
         } catch (IOException exception) {
             return writeFailure(path, StorageErrorCode.IO_FAILURE);
         }
@@ -201,6 +210,8 @@ final class ConfinedStorageBackend {
             return mutationFailure(target, StorageErrorCode.ALREADY_EXISTS);
         } catch (AtomicMoveNotSupportedException exception) {
             return mutationFailure(target, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+        } catch (DurableWriteException exception) {
+            return mutationFailure(target, storageCode(exception));
         } catch (IOException exception) {
             return mutationFailure(target, StorageErrorCode.IO_FAILURE);
         }
@@ -284,6 +295,8 @@ final class ConfinedStorageBackend {
             return mutationFailure(target, StorageErrorCode.ALREADY_EXISTS);
         } catch (AtomicMoveNotSupportedException exception) {
             return mutationFailure(target, StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE);
+        } catch (DurableWriteException exception) {
+            return mutationFailure(target, storageCode(exception));
         } catch (IOException exception) {
             return mutationFailure(target, StorageErrorCode.IO_FAILURE);
         }
@@ -559,6 +572,15 @@ final class ConfinedStorageBackend {
 
     private StorageMutationResult mutationFailure(final StoragePath path, final StorageErrorCode code) {
         return new StorageMutationResult(false, Optional.of(error(path, code)));
+    }
+
+    /** Maps the durable-write module's closed failure set onto the storage error codes. */
+    private static StorageErrorCode storageCode(final DurableWriteException failure) {
+        return switch (failure.failure()) {
+            case ATOMIC_REPLACE_UNAVAILABLE -> StorageErrorCode.ATOMIC_REPLACE_UNAVAILABLE;
+            case ALREADY_EXISTS -> StorageErrorCode.ALREADY_EXISTS;
+            case OWNER_ONLY_UNAVAILABLE, IO_FAILURE -> StorageErrorCode.IO_FAILURE;
+        };
     }
 
     private void deleteTemporary(final Path temporary) {
