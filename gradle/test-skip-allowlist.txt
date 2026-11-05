@@ -81,6 +81,9 @@ dev.turboism.plugin.perfstats.PerfStatsPluginLifecycleTest.windowActionFailsGrac
 # Framework self-update cases from main that only run on their target platform or
 # under an explicit opt-in environment; Linux CI skips them through assumptions.
 dev.turboism.config.TypedConfigDocumentStorePermissionTest.* # requires a POSIX filesystem; Windows NTFS skips POSIX mode bit enforcement via assumption.
+# The shared durable-write primitive asserts real POSIX mode bits the same way; its
+# owner-only fail-closed branch is platform-independent and always runs.
+dev.turboism.core.io.DurableFileTest.ownerOnlyRestrictsTheFileBeforeAnyPayloadByteIsWritten() # requires a POSIX filesystem; Windows NTFS skips POSIX mode bit enforcement via assumption.
 dev.turboism.update.FrameworkInstallationReceiptLoaderTest.appliedReceiptIndexAndRollbackBackupStayPrivateUnderWideInheritedAcl() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
 dev.turboism.update.FrameworkInstallationReceiptLoaderTest.receiptIndexRestorePublishesPrivateStateInsteadOfWideCopiedBackup() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
 dev.turboism.update.FrameworkUpdateApplierTest.lockedFileOnWindowsRollsBackEverythingElseAndKeepsLockedFileUntouched() # Windows sharing-violation semantics only.
