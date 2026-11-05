@@ -16,7 +16,7 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
         final var host = environment.host().orElseThrow();
         if (!VerifiedModelUpdateSkipInstaller.admitted(
                 host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
+                environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");

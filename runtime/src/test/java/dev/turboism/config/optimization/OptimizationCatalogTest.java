@@ -253,6 +253,52 @@ final class OptimizationCatalogTest {
         assertRefused("is persisted but declares no settings placement", withPlacement(base, Optional.empty()));
 
         assertRefused("is persisted but declares no contribution id", withContributionId(base, ""));
+
+        final Optimization.Relation toBase =
+                new Optimization.Relation(Optimization.Relation.Kind.REQUIRES, base, "modelUpdateSkip-disabled");
+        assertRefused(
+                "relates to Native optimization uploadElision, which is not declared before it",
+                withRelations(
+                        other,
+                        List.of(new Optimization.Relation(
+                                Optimization.Relation.Kind.REQUIRES,
+                                OptimizationCatalog.UPLOAD_ELISION,
+                                "uploadElision-disabled"))),
+                base);
+        assertRefused(
+                "declares the REQUIRES modelUpdateSkip relation twice",
+                base,
+                withRelations(other, List.of(toBase, toBase)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> withRelations(base, List.of(toBase)),
+                "an entry cannot relate to itself");
+    }
+
+    /** A relation's refusal code is derived from its kind and target, so a literal cannot drift. */
+    @Test
+    void relationRefusalCodesAreDerivedNotRestated() {
+        final Optimization target = OptimizationCatalog.MODEL_UPDATE_SKIP;
+        assertEquals(
+                "modelUpdateSkip-disabled",
+                new Optimization.Relation(Optimization.Relation.Kind.REQUIRES, target, "modelUpdateSkip-disabled")
+                        .reasonCode());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Optimization.Relation(Optimization.Relation.Kind.REQUIRES, target, "modelUpdateSkip-enabled"),
+                "a REQUIRES relation cannot claim the conflict code");
+        assertEquals(
+                "",
+                new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, target, "").reasonCode(),
+                "a derived default refuses nothing");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, target, "x-disabled"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Optimization.Relation(
+                        Optimization.Relation.Kind.REQUIRES, OptimizationCatalog.SORTING_INFO_CACHE, "-disabled"),
+                "a relation cannot target a diagnostic-only probe");
     }
 
     private static void assertRefused(final String expectedMessage, final Optimization... entries) {
@@ -307,6 +353,20 @@ final class OptimizationCatalogTest {
                 base.placement());
     }
 
+    private static Optimization withRelations(final Optimization base, final List<Optimization.Relation> relations) {
+        return new Optimization(
+                base.key(),
+                base.contributionId(),
+                base.access(),
+                base.overrideProperties(),
+                base.protocols(),
+                base.hookIds(),
+                base.placement(),
+                base.labelKey(),
+                base.tooltipKey(),
+                relations);
+    }
+
     private static Optimization withOverrides(final Optimization base, final List<String> overrides) {
         return rebuild(
                 base, base.key(), base.contributionId(), base.access(), overrides, base.protocols(), base.placement());
@@ -341,7 +401,8 @@ final class OptimizationCatalogTest {
                 base.hookIds(),
                 placement,
                 base.labelKey(),
-                base.tooltipKey());
+                base.tooltipKey(),
+                base.relations());
     }
 
     /** @return every rendered toggle as {@code <contribution id> <index>}, in page order */

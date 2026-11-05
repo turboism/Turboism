@@ -42,7 +42,7 @@ final class AtlasTileBboxHookContributor implements ReportedHookContributor {
     @Override
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
-                .optimizationConfig()
+                .plan()
                 .choice(dev.turboism.config.optimization.OptimizationCatalog.ATLAS_TILE_BBOX)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
