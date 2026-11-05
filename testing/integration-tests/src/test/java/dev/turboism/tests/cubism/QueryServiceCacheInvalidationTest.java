@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -13,14 +14,14 @@ class QueryServiceCacheInvalidationTest {
 
     @Test
     void eachReadObservesTheCurrentHostData() {
-        final CubismQueryIntegrationSupport.VersionedSource source = CubismQueryIntegrationSupport.versionedSource(
+        final RecordingHostSnapshotSource source = CubismQueryIntegrationSupport.versionedSource(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X")));
         final CubismQueryIntegrationSupport.QueryEnvironment environment =
                 CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION);
 
         final List<ParameterSnapshot> first = environment.context().cubismRead().parameters();
-        source.replaceParametersWithoutInvalidation(
-                List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
+        CubismQueryIntegrationSupport.replaceParameters(
+                source, List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
         final List<ParameterSnapshot> reread =
                 environment.context().cubismRead().parameters();
 
@@ -34,14 +35,14 @@ class QueryServiceCacheInvalidationTest {
 
     @Test
     void hostInvalidationAdvancesTokenAndRefreshesDerivedData() {
-        final CubismQueryIntegrationSupport.VersionedSource source = CubismQueryIntegrationSupport.versionedSource(
+        final RecordingHostSnapshotSource source = CubismQueryIntegrationSupport.versionedSource(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X")));
         final CubismQueryIntegrationSupport.QueryEnvironment environment =
                 CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION);
 
         environment.context().cubismRead().parameters();
-        source.replaceParametersWithoutInvalidation(
-                List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
+        CubismQueryIntegrationSupport.replaceParameters(
+                source, List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
         source.advanceInvalidationToken();
         final List<ParameterSnapshot> refreshed =
                 environment.context().cubismRead().parameters();
@@ -53,16 +54,17 @@ class QueryServiceCacheInvalidationTest {
 
     @Test
     void staleSnapshotIsNotMergedWithNewHostData() {
-        final CubismQueryIntegrationSupport.VersionedSource source =
-                CubismQueryIntegrationSupport.versionedSource(List.of(
-                        CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X"),
-                        CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
+        final RecordingHostSnapshotSource source = CubismQueryIntegrationSupport.versionedSource(List.of(
+                CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X"),
+                CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
         final CubismQueryIntegrationSupport.QueryEnvironment environment =
                 CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION);
 
         environment.context().cubismRead().parameters();
-        source.replaceParametersWithoutInvalidation(List.of(
-                new HostSnapshotSource.HostParameter("param-angle-y", "Angle Y", 0.0, 0.0, -30.0, 30.0, true, true)));
+        CubismQueryIntegrationSupport.replaceParameters(
+                source,
+                List.of(new HostSnapshotSource.HostParameter(
+                        "param-angle-y", "Angle Y", 0.0, 0.0, -30.0, 30.0, true, true)));
         source.advanceInvalidationToken();
         final List<ParameterSnapshot> refreshed =
                 environment.context().cubismRead().parameters();

@@ -484,6 +484,7 @@
       ],
       "testImplementation": [
         ":plugins:selection-brush",
+        ":runtime",
         ":testing:test-support"
       ]
     },

@@ -16,6 +16,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Clock;
@@ -263,7 +264,7 @@ class CubismFacadeAvailabilityTest {
             final RuntimeTextureAtlasEditorSession editorSession,
             final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithms) {
         return new CubismFacadeImpl(
-                source(),
+                RecordingHostSnapshotSource.empty(),
                 new CubismPermissionGate(
                         "plugin.demo",
                         List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
@@ -285,40 +286,6 @@ class CubismFacadeAvailabilityTest {
     private static CubismPermissionGate permissionGate() {
         return new CubismPermissionGate(
                 "plugin.demo", List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)), ignored -> {}, FIXED_CLOCK);
-    }
-
-    private static HostSnapshotSource source() {
-        return new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.empty();
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return false;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return 0L;
-            }
-        };
     }
 
     private static PluginPermission permission(final String id) {

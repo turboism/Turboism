@@ -34,6 +34,7 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.workspace.WorkspaceHostProvider;
@@ -89,48 +90,12 @@ class HostSessionTest {
     @Test
     void projectCloseListenerRemovesOnlySuccessfulContentAndInvalidateStillClearsAll() {
         final HostSession session = new HostSession(() -> Optional.empty());
-        final String[] contentId = {"content-a"};
-        final String[] modelId = {"model-a"};
-        final long[] token = {1L};
-        final HostSnapshotSource source = new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.of(new HostDocument(
-                        "document-" + contentId[0],
-                        "Model",
-                        DocumentKind.MODEL,
-                        "models/" + contentId[0] + ".cmo3",
-                        Optional.empty(),
-                        Optional.of(contentId[0]),
-                        Optional.of(new HostModel(modelId[0], "Model", List.of(), List.of(), List.of())),
-                        Optional.empty()));
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.of(new HostModel(modelId[0], "Model", List.of(), List.of(), List.of()));
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return true;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return token[0];
-            }
-        };
+        final RecordingHostSnapshotSource source = RecordingHostSnapshotSource.builder()
+                .document(openDocument("content-a", "model-a"))
+                .model(model("model-a"))
+                .hostPresent(true)
+                .invalidationToken(1L)
+                .build();
         final RuntimeModelAppearanceAccess accessA = RuntimeModelAppearanceAccess.create(
                 "plugin-a",
                 1L,
@@ -145,9 +110,9 @@ class HostSessionTest {
                 accessA.part("model-a", "PartA", 0L).partPaletteEntry().orElseThrow();
         aEntry.overrideBold(true);
 
-        contentId[0] = "content-b";
-        modelId[0] = "model-b";
-        token[0] = 2L;
+        source.setDocument(openDocument("content-b", "model-b"));
+        source.setModel(model("model-b"));
+        source.setInvalidationToken(2L);
         final RuntimeModelAppearanceAccess accessB = RuntimeModelAppearanceAccess.create(
                 "plugin-b",
                 1L,
@@ -174,9 +139,9 @@ class HostSessionTest {
         session.projectFileLifecycle().awaitIdle();
         assertEquals(Optional.of(false), bEntry.resolved().bold());
 
-        contentId[0] = "content-a";
-        modelId[0] = "model-a";
-        token[0] = 3L;
+        source.setDocument(openDocument("content-a", "model-a"));
+        source.setModel(model("model-a"));
+        source.setInvalidationToken(3L);
         final RuntimeModelAppearanceAccess afterCloseAccess = RuntimeModelAppearanceAccess.create(
                 "plugin-closed",
                 1L,
@@ -222,6 +187,22 @@ class HostSessionTest {
         assertEquals(HostSession.State.SAFE_MODE, session.refresh());
         assertTrue(rejectedEntry.resolved().bold().isEmpty());
         session.close();
+    }
+
+    private static HostSnapshotSource.HostDocument openDocument(final String contentId, final String modelId) {
+        return new HostSnapshotSource.HostDocument(
+                "document-" + contentId,
+                "Model",
+                DocumentKind.MODEL,
+                "models/" + contentId + ".cmo3",
+                Optional.empty(),
+                Optional.of(contentId),
+                Optional.of(model(modelId)),
+                Optional.empty());
+    }
+
+    private static HostSnapshotSource.HostModel model(final String modelId) {
+        return new HostSnapshotSource.HostModel(modelId, "Model", List.of(), List.of(), List.of());
     }
 
     @Test

@@ -65,6 +65,9 @@ PLUGIN_ROOT = "plugins"
 SOURCE_SCAN_ROOTS = PRODUCTION_ROOTS + (
     PLUGIN_ROOT,
     "runtime/src/test/java",
+    # Runtime test fixtures (`dev.turboism.testkit`) are consumed by :testing:integration-tests
+    # tests too, so they carry the same rules as the test trees they serve.
+    "runtime/src/testFixtures/java",
     "persistence-core/src/test/java",
     "compatibility-policy/src/test/java",
     "bootstrap/src/test/java",
