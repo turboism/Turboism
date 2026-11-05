@@ -1,19 +1,16 @@
 package dev.turboism.kernel.report;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.DurableWriteException;
+import dev.turboism.core.io.DurableWriteException.Failure;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 /** Strict atomic writer for the four authoritative preview report files. */
@@ -57,10 +54,10 @@ public final class KernelReportWriter {
      * <p>The caller's node is never mutated — it is deep-copied first. The bytes are validated
      * against the full v1 contract and their declared type is checked against
      * {@code expectedType} before anything touches the filesystem, so an invalid document never
-     * replaces a previously good file. Publication goes through a uniquely named temporary file
-     * that is force-synced and then atomically moved over the target; the temporary is deleted on
-     * every failure path. The state directory is created if needed and rejected if it is a
-     * symbolic link.
+     * replaces a previously good file. Publication goes through {@link DurableFile}: a uniquely
+     * named sibling temporary file that is force-synced and then atomically moved over the target,
+     * deleted on every failure path. Atomicity is required — the writer has no non-atomic fallback.
+     * The state directory is created if needed and rejected if it is a symbolic link.
      *
      * <p>This method does not throw for expected failures: rejection and I/O problems are reported
      * to the diagnostic sink as a {@link Diagnostic} and reduced to a {@code false} return, so a
@@ -75,7 +72,6 @@ public final class KernelReportWriter {
     public boolean write(final KernelReportType expectedType, final ObjectNode document) {
         Objects.requireNonNull(expectedType, "expectedType");
         Objects.requireNonNull(document, "document");
-        Path temporary = null;
         try {
             final ObjectNode sanitized = document.deepCopy();
             sanitizer.sanitize(sanitized);
@@ -86,24 +82,23 @@ public final class KernelReportWriter {
                         "REPORT_TYPE_MISMATCH", "Preview report target and discriminator do not match.");
             }
             prepareStateDirectory();
-            final Path target = stateDirectory.resolve(expectedType.fileName());
-            temporary =
-                    stateDirectory.resolve("." + expectedType.fileName() + ".turboism-" + UUID.randomUUID() + ".tmp");
-            writeForced(temporary, bytes);
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            temporary = null;
+            DurableFile.at(stateDirectory.resolve(expectedType.fileName())).replace(bytes);
             return true;
         } catch (KernelReportValidationException exception) {
             emitRejected(expectedType, exception.code());
             return false;
-        } catch (AtomicMoveNotSupportedException exception) {
-            emitFailure(expectedType, "ATOMIC_REPLACE_UNAVAILABLE");
+        } catch (DurableWriteException exception) {
+            // Only an unavailable atomic replace keeps its own code; every other publication
+            // failure stays the generic I/O code this writer has always reported.
+            emitFailure(
+                    expectedType,
+                    exception.failure() == Failure.ATOMIC_REPLACE_UNAVAILABLE
+                            ? "ATOMIC_REPLACE_UNAVAILABLE"
+                            : "IO_FAILURE");
             return false;
         } catch (IOException | RuntimeException exception) {
             emitFailure(expectedType, "IO_FAILURE");
             return false;
-        } finally {
-            deleteTemporary(temporary);
         }
     }
 
@@ -111,17 +106,6 @@ public final class KernelReportWriter {
         Files.createDirectories(stateDirectory);
         if (Files.isSymbolicLink(stateDirectory) || !Files.isDirectory(stateDirectory, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Preview report state directory is unsafe.");
-        }
-    }
-
-    private static void writeForced(final Path temporary, final byte[] bytes) throws IOException {
-        try (FileChannel channel =
-                FileChannel.open(temporary, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            final ByteBuffer buffer = ByteBuffer.wrap(bytes);
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-            channel.force(true);
         }
     }
 
@@ -144,16 +128,6 @@ public final class KernelReportWriter {
             return "UNKNOWN";
         }
         return value;
-    }
-
-    private static void deleteTemporary(final Path temporary) {
-        if (temporary == null) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(temporary);
-        } catch (IOException ignored) {
-        }
     }
 
     /**
