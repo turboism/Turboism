@@ -1,7 +1,6 @@
 import groovy.json.JsonSlurper
+import dev.turboism.gradle.internal.boundary.InstallerManifest
 import org.gradle.api.tasks.SourceSetContainer
-import java.nio.ByteBuffer
-import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.HexFormat
@@ -69,41 +68,6 @@ fun requireInstallerVersion(): String = validateInstallerVersion(
     }
 )
 
-fun rejectNonAsciiJsonUnicodeEscapes(bytes: ByteArray, source: String): String {
-    val text = try {
-        StandardCharsets.UTF_8.newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT)
-            .decode(ByteBuffer.wrap(bytes))
-            .toString()
-    } catch (exception: java.nio.charset.CharacterCodingException) {
-        throw GradleException("$source: plugin.json is not valid UTF-8", exception)
-    }
-    var offset = 0
-    while (offset < text.length) {
-        if (text[offset] != '\\') {
-            offset++
-            continue
-        }
-        var slashCount = 1
-        while (offset + slashCount < text.length && text[offset + slashCount] == '\\') {
-            slashCount++
-        }
-        val marker = offset + slashCount
-        if (slashCount % 2 == 1 && marker < text.length && text[marker] == 'u') {
-            if (marker + 4 >= text.length) {
-                throw GradleException("$source: truncated JSON Unicode escape")
-            }
-            val hex = text.substring(marker + 1, marker + 5)
-            if (!Regex("^[0-9A-Fa-f]{4}$").matches(hex)) {
-                throw GradleException("$source: JSON Unicode escape must use ASCII hexadecimal digits")
-            }
-        }
-        offset += slashCount
-    }
-    return text
-}
-
 val payloadDir = layout.buildDirectory.dir("windows-installer/staging")
 val distDir = layout.buildDirectory.dir("windows-installer/dist")
 val izpackBaseDir = layout.buildDirectory.dir("java-installer/izpack")
@@ -117,34 +81,10 @@ val izpackBaseDir = layout.buildDirectory.dir("java-installer/izpack")
 // plugin JAR.
 val releasePluginsFile: File = rootProject.file("packaging/release-plugins.txt")
 
-fun parseReleasePluginManifest(file: File): List<String> {
-    if (!file.isFile) throw GradleException("release-plugins.txt missing: ${file.path}")
-    val lines = file.readLines().map { it.trim() }
-    val invalid = lines.filter { it.isEmpty() || it.startsWith("#") }
-    if (invalid.isNotEmpty()) {
-        throw GradleException("release-plugins.txt forbids blank/comment lines: '${invalid.first()}'")
-    }
-    val entryPattern = Regex("^:plugins:[a-z0-9-]+$")
-    val malformed = lines.filterNot { entryPattern.matches(it) }
-    if (malformed.isNotEmpty()) {
-        throw GradleException("release-plugins.txt contains a non-plugin entry: '${malformed.first()}'")
-    }
-    val duplicates = lines.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-    if (duplicates.isNotEmpty()) {
-        throw GradleException("release-plugins.txt contains duplicates: '${duplicates.first()}'")
-    }
-    if (lines != lines.sorted()) {
-        throw GradleException("release-plugins.txt entries are not ASCII-sorted")
-    }
-    val knownProjects = rootProject.subprojects.map { it.path }.toSet()
-    val unknown = lines.filterNot { it in knownProjects }
-    if (unknown.isNotEmpty()) {
-        throw GradleException("release-plugins.txt references unknown project: '${unknown.first()}'")
-    }
-    return lines
-}
-
-val allowedPluginModules: List<String> = parseReleasePluginManifest(releasePluginsFile)
+val allowedPluginModules: List<String> = InstallerManifest.parseReleasePluginManifest(
+    releasePluginsFile,
+    rootProject.subprojects.map { it.path }.toSet()
+)
 val pluginModuleNames: List<String> = allowedPluginModules
     .map { it.removePrefix(":plugins:") }
 
@@ -202,7 +142,7 @@ val checkInstallerPluginJsonUnicodeEscapes by tasks.registering {
     group = "verification"
     description = "Pins ASCII-only JSON Unicode escapes for installer plugin metadata."
     doLast {
-        val valid = rejectNonAsciiJsonUnicodeEscapes(
+        val valid = InstallerManifest.rejectNonAsciiJsonUnicodeEscapes(
             "{\"id\":\"dev.turboism.plugin.\\u006dcp\"}".toByteArray(StandardCharsets.UTF_8),
             "valid fixture"
         )
@@ -215,7 +155,7 @@ val checkInstallerPluginJsonUnicodeEscapes by tasks.registering {
             "{\"id\":\"dev.turboism.plugin.\\u００６dcp\"}" to "fullwidth"
         ).forEach { (fixture, name) ->
             try {
-                rejectNonAsciiJsonUnicodeEscapes(
+                InstallerManifest.rejectNonAsciiJsonUnicodeEscapes(
                     fixture.toByteArray(StandardCharsets.UTF_8),
                     "$name fixture"
                 )
@@ -543,7 +483,7 @@ val generateInstallerXml by tasks.registering {
                         ?: throw GradleException("${jarFile.name}: missing META-INF/turboism/plugin.json")
                     val parsed = try {
                         val bytes = zip.getInputStream(entry).use { it.readBytes() }
-                        val canonical = rejectNonAsciiJsonUnicodeEscapes(
+                        val canonical = InstallerManifest.rejectNonAsciiJsonUnicodeEscapes(
                             bytes,
                             "${jarFile.name}: META-INF/turboism/plugin.json"
                         )
