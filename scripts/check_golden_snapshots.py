@@ -9,8 +9,38 @@ import sys
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1] / "tests/fixtures/snapshots"
-ALLOWED_FAMILIES = {"runtime-config", "typed-config"}
+ALLOWED_FAMILIES = {"runtime-config", "typed-config", "update-state"}
 ALLOWED_ORIGINS = {"synthetic-format-v1", "verified-release-artifact"}
+VERIFIED_PROVENANCE_FIELDS = (
+    "releaseTag",
+    "releaseCommit",
+    "writer",
+    "producerInvocation",
+    "deidentification",
+)
+RELEASE_TAG = re.compile(r"v[0-9]+[.][0-9]+[.][0-9]+(?:[-+][0-9A-Za-z.-]+)?")
+RELEASE_COMMIT = re.compile(r"[0-9a-f]{40}")
+SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def require_verified_provenance(case: dict, case_id: str) -> None:
+    """A release-derived fixture must carry checkable, non-empty provenance."""
+    missing = [
+        field
+        for field in VERIFIED_PROVENANCE_FIELDS
+        if not isinstance(case.get(field), str) or not case[field].strip()
+    ]
+    if missing:
+        raise ValueError(f"missing verified provenance for {case_id}: {', '.join(missing)}")
+    if not RELEASE_TAG.fullmatch(case["releaseTag"]):
+        raise ValueError(f"invalid releaseTag for {case_id}: {case['releaseTag']}")
+    if not RELEASE_COMMIT.fullmatch(case["releaseCommit"]):
+        raise ValueError(f"invalid releaseCommit for {case_id}: {case['releaseCommit']}")
+    if not SHA256.fullmatch(case.get("sha256", "")):
+        raise ValueError(f"invalid sha256 for {case_id}")
+    for field in ("writer", "producerInvocation", "deidentification"):
+        if len(case[field]) < 8:
+            raise ValueError(f"unsubstantiated {field} for {case_id}")
 
 
 def validate() -> None:
@@ -34,6 +64,18 @@ def validate() -> None:
                 or case["origin"] not in ALLOWED_ORIGINS
                 or not path.startswith(case["family"] + "/")):
             raise ValueError(f"invalid snapshot provenance: {case_id}")
+        if case["origin"] == "verified-release-artifact":
+            require_verified_provenance(case, case_id)
+        document_path = case.get("documentPath")
+        if document_path is not None:
+            if not isinstance(document_path, str):
+                raise ValueError(f"invalid documentPath for {case_id}: {document_path}")
+            document_parts = PurePosixPath(document_path).parts
+            if (not document_parts
+                    or document_path.startswith("/")
+                    or any(part in {".", ".."} for part in document_parts)
+                    or "\\" in document_path):
+                raise ValueError(f"invalid documentPath for {case_id}: {document_path}")
         if path in covered:
             raise ValueError(f"duplicate snapshot path: {path}")
         full_path = ROOT.joinpath(*path_parts)
