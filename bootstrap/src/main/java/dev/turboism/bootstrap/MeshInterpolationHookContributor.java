@@ -9,7 +9,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * process-exit path. The installer also carries the model-serialization
  * feature flag, so admission passes when either feature is enabled.
  */
-final class MeshInterpolationHookContributor implements HookContributor {
+final class MeshInterpolationHookContributor implements ReportedHookContributor {
 
     static final String INTERPOLATION_POLICY_ID = "cubism.mesh.interpolation";
     static final String SERIALIZATION_POLICY_ID = "cubism.model.serialization";

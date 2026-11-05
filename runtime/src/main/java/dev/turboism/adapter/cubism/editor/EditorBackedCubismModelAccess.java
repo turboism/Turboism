@@ -353,11 +353,7 @@ public final class EditorBackedCubismModelAccess
         final Object document =
                 app == null ? null : resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-            final String actualClass =
-                    document == null ? "null" : document.getClass().getName();
-            throw unavailable("The active Cubism document is not a modeling document. [DEBUG-pb-admission]"
-                    + " activeDocumentClass="
-                    + actualClass + " thread=" + Thread.currentThread().getName());
+            throw unavailable("The active Cubism document is not a modeling document.");
         }
         final Object source = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
         final Object model =

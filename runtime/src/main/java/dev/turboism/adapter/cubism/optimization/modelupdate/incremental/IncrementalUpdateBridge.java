@@ -378,6 +378,16 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         return active.get() && flagEnabled();
     }
 
+    /**
+     * Why glue-affecter models stay on the native path, or {@code null} when this installed
+     * bridge admits them. Only meaningful after {@link #install()} succeeded: the host glue
+     * class and the affecter switch are both known only once the handles are resolved.
+     */
+    public String affecterReuseRefusal() {
+        if (glueType == null) return "host-glue-class-absent";
+        return affecterReuseEnabled() ? null : "preference-disabled";
+    }
+
     /** Invalidates all baseline and pending epoch state so subsequent epochs re-evaluate natively. */
     public synchronized void invalidate() {
         completedUpdate = null;
