@@ -2,15 +2,13 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.WriteOptions;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,6 +25,9 @@ final class FrameworkUpdatePendingTask {
     static final String FILE_NAME = "pending.json";
     static final String FORMAT = "turboism-framework-pending-v1";
     private static final int MAX_PENDING_BYTES = 64 * 1024;
+
+    /** The pending record: an atomic replacement is required, permissions inherited from the update work directory. */
+    private static final WriteOptions PENDING_WRITE = WriteOptions.DEFAULT;
 
     record Task(Path root, Path stage, String version, Instant created) {
         Task {
@@ -81,19 +82,7 @@ final class FrameworkUpdatePendingTask {
             throw new IllegalArgumentException("Pending task record exceeds maximum allowed bytes: " + bytes.length);
         }
 
-        final Path temp = Files.createTempFile(workParent, ".pending-", ".tmp");
-        try {
-            try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
-                final ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } finally {
-            Files.deleteIfExists(temp);
-        }
+        DurableFile.at(target).withOptions(PENDING_WRITE).replace(bytes);
     }
 
     static Optional<Task> read(final Path workDir) {
