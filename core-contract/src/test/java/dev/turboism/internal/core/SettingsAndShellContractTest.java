@@ -15,22 +15,33 @@ import org.junit.jupiter.api.Test;
 class SettingsAndShellContractTest {
 
     @Test
-    void booleanSettingServicesReportDefaultAndRefuseSave() {
-        final AtlasCacheReuseSettingsService cache = AtlasCacheReuseSettingsService.unavailable();
-        assertEquals(AtlasCacheReuseSettingsService.DEFAULT_ENABLED, cache.read());
-        assertThrows(IllegalStateException.class, () -> cache.save(true));
+    void unavailableOptimizationSettingsReportOffAndRefuseEverySave() {
+        final OptimizationSettingsService settings = OptimizationSettingsService.unavailable();
+        assertFalse(settings.isAvailable());
+        for (final String key : List.of("modelUpdateSkip", "atlasCacheReuse", "meshTriangulationEdgeIndex")) {
+            assertFalse(settings.enabled(key), key + " reads as off");
+            assertThrows(IllegalStateException.class, () -> settings.setEnabled(key, true), key + " refuses to save");
+        }
+    }
 
-        final AtlasTileBboxSettingsService bbox = AtlasTileBboxSettingsService.unavailable();
-        assertEquals(AtlasTileBboxSettingsService.DEFAULT_ENABLED, bbox.read());
-        assertThrows(IllegalStateException.class, () -> bbox.save(false));
+    @Test
+    void optimizationSettingsDefaultsOffAndAcceptsOneKey() {
+        final java.util.Map<String, Boolean> stored = new java.util.HashMap<>();
+        final OptimizationSettingsService settings = new OptimizationSettingsService() {
+            @Override
+            public boolean enabled(final String key) {
+                return stored.getOrDefault(key, false);
+            }
 
-        final MeshTriangulationSettingsService mesh = MeshTriangulationSettingsService.unavailable();
-        assertEquals(MeshTriangulationSettingsService.DEFAULT_ENABLED, mesh.read());
-        assertThrows(IllegalStateException.class, () -> mesh.save(true));
-
-        final TriangulationEdgeIndexSettingsService edge = TriangulationEdgeIndexSettingsService.unavailable();
-        assertEquals(TriangulationEdgeIndexSettingsService.DEFAULT_ENABLED, edge.read());
-        assertThrows(IllegalStateException.class, () -> edge.save(true));
+            @Override
+            public void setEnabled(final String key, final boolean enabled) {
+                stored.put(key, enabled);
+            }
+        };
+        assertTrue(settings.isAvailable());
+        assertFalse(settings.enabled("modelUpdateSkip"));
+        settings.setEnabled("modelUpdateSkip", true);
+        assertTrue(settings.enabled("modelUpdateSkip"));
     }
 
     @Test

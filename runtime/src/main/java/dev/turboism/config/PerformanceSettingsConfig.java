@@ -164,9 +164,9 @@ public final class PerformanceSettingsConfig {
      * Reads a persisted boolean performance preference from {@code repository}, returning
      * {@code false} if the configuration file cannot be read or parsed.
      *
-     * <p>The four native-optimization preference services in this package all persist a single
-     * boolean through the same repository; sharing the read keeps their unreadable-file policy
-     * identical instead of restating the same try/catch per service.
+     * <p>The preference service in this package persists a single boolean through the same
+     * repository; sharing the read keeps its unreadable-file policy identical to the startup
+     * snapshot instead of restating the same try/catch.
      *
      * @param repository the configuration repository to read from
      * @param field the boolean performance setting field

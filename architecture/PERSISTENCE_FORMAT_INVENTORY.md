@@ -208,10 +208,7 @@ typed facade over this same document:
 | --- | --- |
 | `RuntimeSettingsFileService` | `logLevel`, `maxLogStorageMiB` |
 | `CubismJvmSettingsFileService` | `launcher.cubismJvm`, `launcher.graalVmPath` |
-| `AtlasCacheReuseSettingsFileService` | `atlasCacheReuse` |
-| `AtlasTileBboxSettingsFileService` | `atlasTileBbox` |
-| `MeshTriangulationSettingsFileService` | `meshTriangulationHashFix` |
-| `TriangulationEdgeIndexSettingsFileService` | `meshTriangulationEdgeIndex` |
+| `OptimizationSettingsFileService` | every native-optimization key the catalogue declares: `launcher.<key>` for the 22 launcher rows, `<key>` at the root for `atlasCacheReuse`, `atlasTileBbox`, `meshTriangulationHashFix` and `meshTriangulationEdgeIndex` |
 
 All of them delegate to `RuntimeConfigRepository#update`, so there is exactly one runtime write
 path and one runtime read path for this family.

@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.config.CubismJvmSettingsFileService;
+import dev.turboism.config.OptimizationSettingsFileService;
 import dev.turboism.config.TriangulationEdgeIndexPreference;
-import dev.turboism.config.TriangulationEdgeIndexSettingsFileService;
 import dev.turboism.internal.core.CubismJvmSettingsService.MemoryProfile;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -76,10 +76,10 @@ class RuntimeInstallerConfigRoundTripTest {
                 try (var runtime = new CubismJvmSettingsFileService(home)) {
                     runtime.saveMemoryProfile(profile);
                     runtime.saveZgc(false);
-                    runtime.saveMeshInterpolation(true);
                 }
-                try (var edgeIndex = new TriangulationEdgeIndexSettingsFileService(home)) {
-                    edgeIndex.save(false);
+                try (var optimizations = new OptimizationSettingsFileService(home)) {
+                    optimizations.setEnabled("meshInterpolation", true);
+                    optimizations.setEnabled("meshTriangulationEdgeIndex", false);
                 }
                 ObjectNode expected = (ObjectNode) mapper.readTree(config.toFile());
                 expected.putArray("disabledPlugins").add("dev.turboism.plugin.test");
@@ -91,11 +91,14 @@ class RuntimeInstallerConfigRoundTripTest {
                 try (var reopened = new CubismJvmSettingsFileService(home)) {
                     assertEquals(profile, reopened.memoryProfile());
                     assertFalse(reopened.zgc(), "unrelated persisted preference survives");
-                    assertTrue(
-                            reopened.meshInterpolation(), "mesh interpolation preference survives installer upgrade");
                 }
-                try (var edgeIndex = new TriangulationEdgeIndexSettingsFileService(home)) {
-                    assertFalse(edgeIndex.read(), "explicit edge-index opt-out survives installer upgrade");
+                try (var optimizations = new OptimizationSettingsFileService(home)) {
+                    assertTrue(
+                            optimizations.enabled("meshInterpolation"),
+                            "mesh interpolation preference survives installer upgrade");
+                    assertFalse(
+                            optimizations.enabled("meshTriangulationEdgeIndex"),
+                            "explicit edge-index opt-out survives installer upgrade");
                 }
                 assertFalse(
                         TriangulationEdgeIndexPreference.read(home),
