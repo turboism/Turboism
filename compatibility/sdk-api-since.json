@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "ae358248c4128fabecc9b97a28401ce69b1cabdfb27b7a166ff6cec6a9e1ee18",
+  "surfaceSha256": "3c0c161693a9a09df924d0ef051d2f5b9919515cec9df7de83e11a0aa0b691b0",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
@@ -44,6 +44,7 @@
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan#pageSizes:()Ljava/util/List;": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan#polygonPages:()Ljava/util/List;": "0.67.4",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner#supportsCompleteAtlas:()Z": "0.67.2",
+    "dev.turboism.sdk.plugin.PluginDescriptor#hotReload:()Z": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",

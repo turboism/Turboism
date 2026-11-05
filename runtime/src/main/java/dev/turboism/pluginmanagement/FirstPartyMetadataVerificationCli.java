@@ -122,10 +122,8 @@ public final class FirstPartyMetadataVerificationCli {
                     "FIRST_PARTY_CLASSIFICATION_MISMATCH",
                     "packaged category/tags differ from tracked metadata");
         }
-        final boolean sourceHotReload =
-                (source instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload());
-        final boolean embeddedHotReload =
-                (embedded instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload());
+        final boolean sourceHotReload = source.hotReload();
+        final boolean embeddedHotReload = embedded.hotReload();
         if (sourceHotReload != embeddedHotReload) {
             throw new FirstPartyRejection(
                     descriptorPath,
