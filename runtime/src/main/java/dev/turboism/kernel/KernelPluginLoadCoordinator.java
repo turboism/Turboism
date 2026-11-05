@@ -108,8 +108,60 @@ final class KernelPluginLoadCoordinator {
         final Map<String, List<String>> requiredDependents = requiredDependents(resolution);
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>();
         final Set<String> runtimeFailed = new LinkedHashSet<>();
-        for (DependencyResolver.ResolvedPlugin resolved : resolution.loadOrder()) {
-            loadResolvedPlugin(resolved, candidates, disabled, requiredDependents, runtimeFailed, failures, summaries);
+        int waveIndex = 0;
+        for (List<DependencyResolver.ResolvedPlugin> wave : loadWaves(resolution, candidates, disabled)) {
+            final long waveStarted = System.nanoTime();
+            log.info(
+                    "plugin-loader",
+                    "Plugin load wave started: wave=" + (++waveIndex) + " plugins="
+                            + wave.stream()
+                                    .map(DependencyResolver.ResolvedPlugin::id)
+                                    .toList());
+            final List<PreviewPluginCandidate> ready = new ArrayList<>();
+            for (DependencyResolver.ResolvedPlugin resolved : wave) {
+                final PreviewPluginCandidate candidate = candidates.get(resolved.id());
+                if (candidate == null || disabled.contains(resolved.id())) {
+                    continue;
+                }
+                final List<String> failedDependencies = failedDependencies(candidate.descriptor(), runtimeFailed);
+                if (!failedDependencies.isEmpty()) {
+                    failures.add(new LocalPluginRuntime.PluginFailure(
+                            resolved.id(),
+                            candidate.jar(),
+                            "DEPENDENCY_LOAD_FAILED",
+                            "Required dependency failed to load: " + String.join(", ", failedDependencies)));
+                    log.warn(
+                            resolved.id(),
+                            "Plugin lifecycle: load skipped because required dependencies failed: "
+                                    + String.join(", ", failedDependencies));
+                    markRuntimeFailed(
+                            resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
+                    continue;
+                }
+                ready.add(candidate);
+            }
+            // Admit the complete wave before awaiting any sibling.
+            final List<PluginClassLoader.PendingLoad> pending =
+                    ready.stream().map(loader::submitLoad).toList();
+            for (PluginClassLoader.PendingLoad attempt : pending) {
+                final LocalPluginRuntime.LoadedPluginSummary summary = loader.finishLoad(attempt, failures);
+                if (summary == null) {
+                    markRuntimeFailed(
+                            attempt.candidate().descriptor().id(),
+                            candidates,
+                            requiredDependents,
+                            runtimeFailed,
+                            failures,
+                            summaries);
+                } else {
+                    summaries.add(summary);
+                }
+            }
+            log.info(
+                    "plugin-loader",
+                    "Plugin load wave complete: wave=" + waveIndex + " elapsedMs="
+                            + java.time.Duration.ofNanos(System.nanoTime() - waveStarted)
+                                    .toMillis());
         }
         log.info("plugin-loader", "Plugin load complete: loaded=" + summaries.size() + ", failed=" + failures.size());
         // A bare count is not diagnosable. An exact-host run reported failed=1 with nothing
@@ -125,6 +177,81 @@ final class KernelPluginLoadCoordinator {
         }
         return new LocalPluginRuntime.LoadReport(
                 List.copyOf(summaries), List.copyOf(failures), List.copyOf(resolution.cycles()));
+    }
+
+    /** Build only forward edges in the settled order, preserving all dependency contracts. */
+    private static List<List<DependencyResolver.ResolvedPlugin>> loadWaves(
+            final DependencyResolver.ResolutionResult resolution,
+            final Map<String, PreviewPluginCandidate> candidates,
+            final Set<String> disabled) {
+        final List<DependencyResolver.ResolvedPlugin> order = resolution.loadOrder().stream()
+                .filter(plugin -> !disabled.contains(plugin.id()) && candidates.containsKey(plugin.id()))
+                .toList();
+        final Map<String, Set<String>> dependencies = new LinkedHashMap<>();
+        final Map<String, Set<String>> predecessors = new LinkedHashMap<>();
+        for (DependencyResolver.ResolvedPlugin plugin : order) {
+            final Set<String> direct = new LinkedHashSet<>();
+            plugin.descriptor().dependencies().forEach(dependency -> direct.add(dependency.id()));
+            dependencies.put(plugin.id(), direct);
+            predecessors.put(plugin.id(), new LinkedHashSet<>());
+        }
+        final Map<String, Set<String>> transitive = new LinkedHashMap<>();
+        for (DependencyResolver.ResolvedPlugin plugin : order) {
+            final Set<String> reachable = new LinkedHashSet<>();
+            final Deque<String> queue = new ArrayDeque<>(dependencies.get(plugin.id()));
+            while (!queue.isEmpty()) {
+                final String target = queue.removeFirst();
+                if (reachable.add(target)) {
+                    queue.addAll(dependencies.getOrDefault(target, Set.of()));
+                }
+            }
+            transitive.put(plugin.id(), reachable);
+        }
+        for (int later = 0; later < order.size(); later++) {
+            final DependencyResolver.ResolvedPlugin target = order.get(later);
+            for (int earlier = 0; earlier < later; earlier++) {
+                final DependencyResolver.ResolvedPlugin source = order.get(earlier);
+                if (dependencies.get(source.id()).contains(target.id())
+                        || dependencies.get(target.id()).contains(source.id())
+                        || (hasEventContracts(source.descriptor()) && hasEventContracts(target.descriptor()))) {
+                    predecessors.get(target.id()).add(source.id());
+                }
+                // A before-declarer's downstream consumers must finish before its provider:
+                // a provider failure must roll back the already-loaded transitive closure.
+                final boolean before = source.descriptor().dependencies().stream()
+                        .anyMatch(dependency ->
+                                dependency.id().equals(target.id()) && "before".equals(dependency.ordering()));
+                if (before) {
+                    for (int middle = earlier + 1; middle < later; middle++) {
+                        final String consumer = order.get(middle).id();
+                        if (transitive.get(consumer).contains(source.id())) {
+                            predecessors.get(target.id()).add(consumer);
+                        }
+                    }
+                }
+            }
+        }
+        final List<List<DependencyResolver.ResolvedPlugin>> waves = new ArrayList<>();
+        while (!predecessors.isEmpty()) {
+            final List<DependencyResolver.ResolvedPlugin> wave = order.stream()
+                    .filter(plugin -> predecessors.containsKey(plugin.id())
+                            && predecessors.get(plugin.id()).isEmpty())
+                    .toList();
+            if (wave.isEmpty()) {
+                throw new IllegalStateException("Resolved plugin load graph contains a cycle");
+            }
+            waves.add(wave);
+            final Set<String> completed = new LinkedHashSet<>();
+            wave.forEach(plugin -> completed.add(plugin.id()));
+            completed.forEach(predecessors::remove);
+            predecessors.values().forEach(required -> required.removeAll(completed));
+        }
+        return List.copyOf(waves);
+    }
+
+    private static boolean hasEventContracts(final PluginDescriptor descriptor) {
+        return !descriptor.eventExports().isEmpty()
+                || !descriptor.eventImports().isEmpty();
     }
 
     private void recordDisabled(
@@ -164,40 +291,6 @@ final class KernelPluginLoadCoordinator {
             }
         }
         return dependents;
-    }
-
-    private void loadResolvedPlugin(
-            final DependencyResolver.ResolvedPlugin resolved,
-            final Map<String, PreviewPluginCandidate> candidates,
-            final Set<String> disabled,
-            final Map<String, List<String>> requiredDependents,
-            final Set<String> runtimeFailed,
-            final List<LocalPluginRuntime.PluginFailure> failures,
-            final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
-        final PreviewPluginCandidate candidate = candidates.get(resolved.id());
-        if (candidate == null || disabled.contains(resolved.id())) {
-            return;
-        }
-        final List<String> failedDependencies = failedDependencies(candidate.descriptor(), runtimeFailed);
-        if (!failedDependencies.isEmpty()) {
-            failures.add(new LocalPluginRuntime.PluginFailure(
-                    resolved.id(),
-                    candidate.jar(),
-                    "DEPENDENCY_LOAD_FAILED",
-                    "Required dependency failed to load: " + String.join(", ", failedDependencies)));
-            log.warn(
-                    resolved.id(),
-                    "Plugin lifecycle: load skipped because required dependencies failed: "
-                            + String.join(", ", failedDependencies));
-            markRuntimeFailed(resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
-            return;
-        }
-        final LocalPluginRuntime.LoadedPluginSummary summary = loader.load(candidate, failures);
-        if (summary == null) {
-            markRuntimeFailed(resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
-        } else {
-            summaries.add(summary);
-        }
     }
 
     /**

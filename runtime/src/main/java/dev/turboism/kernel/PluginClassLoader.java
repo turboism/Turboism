@@ -74,6 +74,15 @@ final class PluginClassLoader {
 
     LocalPluginRuntime.LoadedPluginSummary load(
             final PreviewPluginCandidate candidate, final List<LocalPluginRuntime.PluginFailure> failures) {
+        return finishLoad(beginLoad(candidate), failures);
+    }
+
+    PendingLoad beginLoad(final PreviewPluginCandidate candidate) {
+        return submitLoad(candidate);
+    }
+
+    PendingLoad submitLoad(final PreviewPluginCandidate candidate) {
+        final long startedNanos = System.nanoTime();
         final PluginDescriptor descriptor = candidate.descriptor();
         log.info(
                 descriptor.id(),
@@ -87,16 +96,41 @@ final class PluginClassLoader {
         final PluginLifecycleLease lease = new PluginLifecycleLease(descriptor.id());
         final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
                 lane.submit(descriptor.id(), "load", () -> {
+                    resources.workerStartedNanos = System.nanoTime();
                     try {
                         return loadPlugin(candidate, runtime, resources, lease);
                     } catch (Throwable failure) {
                         FatalErrors.rethrowIfFatal(failure);
                         resources.cleanupComplete = cleanupFailed(resources, descriptor.id(), true);
                         throw failure;
+                    } finally {
+                        resources.completedNanos = System.nanoTime();
                     }
                 });
+        return new PendingLoad(candidate, runtime, resources, lease, invocation, startedNanos);
+    }
+
+    LocalPluginRuntime.LoadedPluginSummary finishLoad(
+            final PendingLoad pending, final List<LocalPluginRuntime.PluginFailure> failures) {
+        final PreviewPluginCandidate candidate = pending.candidate();
+        final PluginDescriptor descriptor = candidate.descriptor();
+        final PluginRuntime runtime = pending.runtime();
+        final LoadResources resources = pending.resources();
+        final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation = pending.invocation();
+        final long workerStarted = resources.workerStartedNanos;
+        final Duration awaitTimeout = workerStarted == 0L
+                ? policy.loadTimeout()
+                : Duration.ofNanos(Math.max(0L, policy.loadTimeout().toNanos() - (System.nanoTime() - workerStarted)));
         final PluginLifecycleLane.AwaitResult<LocalPluginRuntime.LoadedPlugin> result =
-                lane.await(invocation, policy.loadTimeout(), lease);
+                lane.await(invocation, awaitTimeout, pending.lease());
+        final long finishedNanos = resources.completedNanos;
+        final long effectiveStart = workerStarted == 0L ? pending.startedNanos() : workerStarted;
+        final long elapsedMillis = Duration.ofNanos(
+                        Math.max(0L, (finishedNanos == 0L ? System.nanoTime() : finishedNanos) - effectiveStart))
+                .toMillis();
+        if (elapsedMillis > 5_000L) {
+            log.warn(descriptor.id(), "Plugin lifecycle: slow load detected elapsedMs=" + elapsedMillis);
+        }
         return switch (result.outcome) {
             case SUCCEEDED -> {
                 loaded.add(result.value);
@@ -104,7 +138,8 @@ final class PluginClassLoader {
                         descriptor.id(),
                         "Plugin lifecycle: load succeeded name=" + descriptor.name()
                                 + " version=" + descriptor.version()
-                                + " entrypoints=" + resources.entrypoints.size());
+                                + " entrypoints=" + resources.entrypoints.size()
+                                + " elapsedMs=" + elapsedMillis);
                 lifecycleEvents.loaded(
                         descriptor.id(), result.value.eventOwner().key().generation());
                 yield KernelPluginSummaryFactory.active(result.value);
@@ -143,6 +178,14 @@ final class PluginClassLoader {
             }
         };
     }
+
+    record PendingLoad(
+            PreviewPluginCandidate candidate,
+            PluginRuntime runtime,
+            LoadResources resources,
+            PluginLifecycleLease lease,
+            PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation,
+            long startedNanos) {}
 
     /**
      * Generation admitted for this attempt, or {@code NO_ADMITTED_GENERATION} when the
@@ -216,17 +259,20 @@ final class PluginClassLoader {
             throws Exception {
         // Public event payload types resolve through the shared SDK classloader; the
         // plugin loader only isolates plugin classes behind the parent boundary.
+        resources.phase = "classloader";
         resources.classLoader = new URLClassLoader(
                 new URL[] {candidate.jar().toUri().toURL()},
                 resolvePluginParent(TurboismPlugin.class.getClassLoader()));
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
 
+        resources.phase = "construct";
         resources.entrypoints.addAll(instantiateAll(candidate.descriptor(), resources.classLoader));
         runtime.setEntrypoints(resources.entrypoints);
         resources.eventSubscribers =
                 new GeneratedSubscriberCatalogLoader().inspect(resources.entrypoints, resources.classLoader);
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
+        resources.phase = "context";
         resources.scope = new DisposableScope();
         final PluginContextBundle contextBundle = contextFactory.create(
                 candidate.descriptor(), resources.classLoader, resources.scope, () -> !resources.guard.isFenced());
@@ -242,6 +288,7 @@ final class PluginClassLoader {
         final dev.turboism.sdk.plugin.PluginContext guardedContext = resources.guard.wrap(contextBundle.context());
         resources.eventOwner.beginInitializing();
 
+        resources.phase = "init";
         for (TurboismPlugin entrypoint : resources.entrypoints) {
             lease.checkpoint();
             try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(resources.classLoader)) {
@@ -252,12 +299,14 @@ final class PluginClassLoader {
         runtime.transitionTo(PluginLifecycleState.LOADED);
         log.info(candidate.descriptor().id(), "Plugin lifecycle: initialized entrypoints=" + resources.initialized);
 
+        resources.phase = "enable";
         resources.eventOwner.beginEnabling();
         enableAll(resources, runtime, candidate.descriptor().id(), lease);
 
         // Commit boundary: activation, hook registration and LoadedPlugin assembly run atomically
         // against the deadline fence. A late worker hits the fence here and unwinds instead of
         // activating a generation the caller already reported timed out.
+        resources.phase = "commit";
         return lease.commit(() -> {
             resources.eventOwner.activate();
             registerHooks(candidate, resources, contextBundle);
@@ -573,6 +622,9 @@ final class PluginClassLoader {
      * and safely published through the task's completion.
      */
     private static final class LoadResources {
+        volatile String phase = "queued";
+        volatile long workerStartedNanos;
+        volatile long completedNanos;
         volatile URLClassLoader classLoader;
         final List<TurboismPlugin> entrypoints = new ArrayList<>();
         List<EventSubscriberDescriptor> eventSubscribers = List.of();

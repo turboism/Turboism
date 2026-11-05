@@ -44,6 +44,7 @@ public final class UiThemePlugin implements TurboismPlugin {
     private ThemeManagerService themeManagerService;
     private BuiltinThemeAppearanceService builtinThemeAppearanceService;
     private ThemeEditorService themeEditorService;
+    private boolean themeCacheInitialized;
 
     @Override
     public void init(final PluginContext context) {
@@ -84,7 +85,8 @@ public final class UiThemePlugin implements TurboismPlugin {
     @Override
     public void enable() {
         registerAction(STATUS_ACTION_ID, STATUS_ACTION_LABEL, ignored -> themePackageStatusService.checkThemeStatus());
-        registerAction(MANAGER_ACTION_ID, MANAGER_ACTION_LABEL, ignored -> themeManagerService.open());
+        themeCacheInitialized = false;
+        registerAction(MANAGER_ACTION_ID, MANAGER_ACTION_LABEL, ignored -> openThemeManager());
         registerAction(
                 APPLY_BUILTIN_ACTION_ID,
                 APPLY_BUILTIN_ACTION_LABEL,
@@ -92,9 +94,17 @@ public final class UiThemePlugin implements TurboismPlugin {
         // The Turboism top-level menu keeps a single theme entry; all theme
         // workflows (apply/import/export/delete) live inside the manager window.
         registerMenu("Turboism/" + context.localization().text("menu.themeManager"), MANAGER_ACTION_ID, 40);
-        themeManagerService.refreshCache();
         themeManagerService.restorePersistedSelection();
         logger.info("UiThemePlugin enabled: unified theme manager and package actions enrolled in disposable scope");
+    }
+
+    private synchronized void openThemeManager() {
+        if (!themeCacheInitialized) {
+            // Listing every built-in and user package is only needed when the manager is opened.
+            themeManagerService.refreshCache();
+            themeCacheInitialized = true;
+        }
+        themeManagerService.open();
     }
 
     @Override

@@ -65,6 +65,80 @@ class KernelPluginLifecycleIsolationIntegrationTest {
     }
 
     @Test
+    void independentPluginsInitializeConcurrentlyAndPublishInResolvedOrder() throws Exception {
+        final String callbackKey = "dev.turboism.test.wavefront.barrier";
+        final Path home = temporary.resolve("wavefront-home");
+        final java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(2);
+        for (String name : java.util.List.of("first", "second")) {
+            writePlugin(
+                    home.resolve("plugins"),
+                    name + ".jar",
+                    "dev.example." + name,
+                    "dev/example/" + name + "/Entrypoint.java",
+                    "dev.example." + name + ".Entrypoint",
+                    """
+                    package dev.example.%s;
+                    import dev.turboism.sdk.plugin.PluginContext;
+                    import dev.turboism.sdk.plugin.TurboismPlugin;
+                    public final class Entrypoint implements TurboismPlugin {
+                        @Override public void init(PluginContext context) {
+                            ((Runnable) System.getProperties().get("%s")).run();
+                        }
+                    }
+                    """.formatted(name, callbackKey));
+        }
+        final PluginLifecyclePolicy policy = new PluginLifecyclePolicy(
+                2,
+                16,
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(2),
+                Duration.ofSeconds(3),
+                Duration.ofMillis(200),
+                Duration.ofMillis(40));
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        System.getProperties().put(callbackKey, (Runnable) () -> {
+            entered.countDown();
+            try {
+                if (!entered.await(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("independent plugin init bodies did not overlap");
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+        });
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            final LocalPluginRuntime runtime =
+                    new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log, (pluginId, phase) -> {}, policy);
+            try {
+                final LocalPluginRuntime.LoadReport report = runtime.loadAll();
+                assertTrue(report.failures().isEmpty(), report.failures().toString());
+                assertEquals(
+                        java.util.List.of("dev.example.first", "dev.example.second"),
+                        report.loaded().stream()
+                                .map(LocalPluginRuntime.LoadedPluginSummary::id)
+                                .toList());
+                assertEquals(
+                        java.util.List.of("dev.example.first", "dev.example.second"),
+                        runtime.loadedPlugins().stream()
+                                .map(LocalPluginRuntime.LoadedPluginSummary::id)
+                                .toList());
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            System.getProperties().remove(callbackKey);
+            host.close();
+            scheduler.shutdown();
+        }
+        final String logs = Files.readString(home.resolve("logs/turboism.log"));
+        assertTrue(logs.contains(
+                "Plugin lifecycle: load succeeded name=dev.example.first version=0.1.0 entrypoints=1 elapsedMs="));
+    }
+
+    @Test
     void pluginInitCanCallTheHookInstalledByTheBootstrapBarrier() throws Exception {
         final String callbackKey = "dev.turboism.test.startup-barrier.callback";
         final Path home = temporary.resolve("barrier-home");

@@ -48,6 +48,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
     private final BooleanSupplier nativeAutoLayoutCallback = this::applyFromNativeEntry;
     private TextureAtlasPolygonAutoLayoutService polygonService;
     private RectAutoLayoutDelegate rectDelegate;
+    private RectPathPolygonPlanner rectPlanner;
 
     @Override
     public void init(final PluginContext context) {
@@ -65,7 +66,6 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
             throw new IllegalStateException("Atlas Dalsoo configuration could not be loaded.");
         }
         enabled = true;
-        composeServices();
         registerAlgorithm();
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         publishDialogState();
@@ -89,13 +89,12 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
     }
 
     private TextureAtlasPolygonLayoutPlanner registeredPlanner() {
-        final var rectangles = new RectPathPolygonPlanner(() -> settings.confirmed());
         return new TextureAtlasPolygonLayoutPlanner() {
             @Override
             public TextureAtlasPolygonPlan planPolygon(
                     final TextureAtlasPolygonLayoutSnapshot snapshot, final boolean parallel) {
                 syncDialogState();
-                return polygonService.planAutomaticLayout(snapshot, parallel);
+                return polygonService().planAutomaticLayout(snapshot, parallel);
             }
 
             @Override
@@ -110,17 +109,42 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
                     final TextureAtlasLayoutConstraints constraints,
                     final boolean parallel) {
                 syncDialogState();
-                return rectangles.plan(items, constraints, parallel);
+                return rectPlanner().plan(items, constraints, parallel);
             }
         };
     }
 
-    private void composeServices() {
-        polygonService = new TextureAtlasPolygonAutoLayoutService(
-                context.cubism().textureAtlasPolygonLayouts(),
-                () -> settings.confirmed(),
-                message -> context.logger().info(message));
-        rectDelegate = new RectAutoLayoutDelegate(context.cubism().textureAtlasLayouts());
+    private synchronized TextureAtlasPolygonAutoLayoutService polygonService() {
+        requireContext();
+        if (polygonService == null) {
+            polygonService = new TextureAtlasPolygonAutoLayoutService(
+                    context.cubism().textureAtlasPolygonLayouts(),
+                    () -> settings.confirmed(),
+                    message -> context.logger().info(message));
+        }
+        return polygonService;
+    }
+
+    private synchronized RectAutoLayoutDelegate rectDelegate() {
+        requireContext();
+        if (rectDelegate == null) {
+            rectDelegate = new RectAutoLayoutDelegate(context.cubism().textureAtlasLayouts());
+        }
+        return rectDelegate;
+    }
+
+    private synchronized RectPathPolygonPlanner rectPlanner() {
+        requireContext();
+        if (rectPlanner == null) {
+            rectPlanner = new RectPathPolygonPlanner(() -> settings.confirmed());
+        }
+        return rectPlanner;
+    }
+
+    private synchronized void clearServices() {
+        polygonService = null;
+        rectDelegate = null;
+        rectPlanner = null;
     }
 
     private boolean applyFromNativeEntry() {
@@ -129,7 +153,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
             final boolean parallel = "true".equals(System.getProperty(DIALOG_PARALLEL_KEY, "false"));
             if (ALGORITHM_DALSOO.equals(algorithm)) {
                 syncDialogState();
-                final TextureAtlasLayoutApplyResult result = polygonService.applyAutomaticLayout(parallel);
+                final TextureAtlasLayoutApplyResult result = polygonService().applyAutomaticLayout(parallel);
                 if (result.status().isPresent()) {
                     context.logger()
                             .info("Atlas Dalsoo automatic-layout status="
@@ -151,7 +175,10 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
             if (planner == null) {
                 return false;
             }
-            return rectDelegate.applyAutomaticLayout(planner, parallel).status().isPresent();
+            return rectDelegate()
+                    .applyAutomaticLayout(planner, parallel)
+                    .status()
+                    .isPresent();
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (RuntimeException | Error failure) {
@@ -279,6 +306,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         removeNativeCallback();
         enabled = false;
         settings.disable();
+        clearServices();
     }
 
     @Override
@@ -287,8 +315,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         enabled = false;
         settings.shutdown();
         context = null;
-        polygonService = null;
-        rectDelegate = null;
+        clearServices();
     }
 
     private void removeNativeCallback() {

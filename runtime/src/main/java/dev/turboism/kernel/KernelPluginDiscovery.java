@@ -15,10 +15,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -29,6 +32,9 @@ final class KernelPluginDiscovery {
     private static final String CUBISM_VERSIONS_PATH = "META-INF/turboism/cubism-versions.json";
     /** Never-shipped schema-v5 embedded contract artifact directory. */
     private static final String CONTRACT_DIRECTORY = "META-INF/turboism/contracts/";
+
+    private static final PluginDescriptorParser DESCRIPTOR_PARSER = new PluginDescriptorParser();
+    private static final ObjectMapper SIDECAR_MAPPER = new ObjectMapper();
 
     private static final PluginVersion TURBOISM_API_VERSION =
             FrameworkBuildInfo.current().apiVersion();
@@ -46,8 +52,15 @@ final class KernelPluginDiscovery {
     Map<String, PreviewPluginCandidate> discover(final List<LocalPluginRuntime.PluginFailure> failures) {
         final Map<String, List<PreviewPluginCandidate>> grouped = new LinkedHashMap<>();
         try {
-            for (Path jar : jarFiles()) {
-                final PreviewPluginCandidate candidate = readCandidate(jar, failures);
+            final List<Path> jars = jarFiles();
+            // toList preserves encounter order even when parsing completes out of order.
+            final List<CandidateReadResult> results = (jars.size() > 1 ? jars.parallelStream() : jars.stream())
+                    .map(this::readCandidateResult)
+                    .toList();
+            for (CandidateReadResult result : results) {
+                failures.addAll(result.failures());
+                result.logs().forEach(this::writeDiscoveryLog);
+                final PreviewPluginCandidate candidate = result.candidate();
                 if (candidate == null) {
                     continue;
                 }
@@ -81,8 +94,8 @@ final class KernelPluginDiscovery {
     private List<Path> jarFiles() throws IOException {
         Files.createDirectories(pluginDirectory);
         try (var entries = Files.list(pluginDirectory)) {
-            return entries.filter(Files::isRegularFile)
-                    .filter(this::isJar)
+            return entries.filter(this::isJar)
+                    .filter(Files::isRegularFile)
                     .sorted(Comparator.comparing(path -> path.getFileName().toString()))
                     .toList();
         }
@@ -119,6 +132,18 @@ final class KernelPluginDiscovery {
     }
 
     PreviewPluginCandidate readCandidate(final Path jar, final List<LocalPluginRuntime.PluginFailure> failures) {
+        return readCandidate(jar, failures, this::writeDiscoveryLog);
+    }
+
+    private CandidateReadResult readCandidateResult(final Path jar) {
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+        final List<DiscoveryLog> logs = new ArrayList<>();
+        final PreviewPluginCandidate candidate = readCandidate(jar, failures, logs::add);
+        return new CandidateReadResult(candidate, List.copyOf(failures), List.copyOf(logs));
+    }
+
+    private PreviewPluginCandidate readCandidate(
+            final Path jar, final List<LocalPluginRuntime.PluginFailure> failures, final Consumer<DiscoveryLog> logs) {
         try (JarFile archive = new JarFile(jar.toFile())) {
             final JarEntry entry = archive.getJarEntry(DESCRIPTOR_PATH);
             if (entry == null || entry.isDirectory()) {
@@ -126,7 +151,7 @@ final class KernelPluginDiscovery {
                         "<unknown>", jar, "PLUGIN_DESCRIPTOR_MISSING", DESCRIPTOR_PATH + " is required"));
                 return null;
             }
-            return parseCandidate(archive, entry, jar, failures);
+            return parseCandidate(archive, entry, jar, failures, logs);
         } catch (DescriptorParseException exception) {
             failures.add(
                     new LocalPluginRuntime.PluginFailure("<invalid>", jar, exception.code(), exception.getMessage()));
@@ -141,10 +166,11 @@ final class KernelPluginDiscovery {
             final JarFile archive,
             final JarEntry entry,
             final Path jar,
-            final List<LocalPluginRuntime.PluginFailure> failures)
+            final List<LocalPluginRuntime.PluginFailure> failures,
+            final Consumer<DiscoveryLog> logs)
             throws IOException, DescriptorParseException {
         try (InputStream source = archive.getInputStream(entry)) {
-            final PluginDescriptor descriptor = new PluginDescriptorParser().parse(source);
+            final PluginDescriptor descriptor = DESCRIPTOR_PARSER.parse(source);
             if (dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
                 failures.add(new LocalPluginRuntime.PluginFailure(
                         descriptor.id(),
@@ -153,10 +179,20 @@ final class KernelPluginDiscovery {
                         "External plugin packages cannot declare the Runtime-owned core ID."));
                 return null;
             }
-            if (!descriptor.eventContracts().isEmpty()
-                    || archive.stream()
-                            .anyMatch(candidate -> !candidate.isDirectory()
-                                    && candidate.getName().startsWith(CONTRACT_DIRECTORY))) {
+            final Set<String> names = new HashSet<>();
+            boolean hasContractArtifacts = false;
+            final var entries = archive.entries();
+            while (entries.hasMoreElements()) {
+                final JarEntry candidate = entries.nextElement();
+                if (!candidate.isDirectory()) {
+                    final String name = candidate.getName();
+                    names.add(name);
+                    hasContractArtifacts |= name.startsWith(CONTRACT_DIRECTORY);
+                }
+            }
+            // validate's Set.copyOf can reuse this immutable set without another content copy.
+            final Set<String> entryNames = Set.copyOf(names);
+            if (!descriptor.eventContracts().isEmpty() || hasContractArtifacts) {
                 // Embedded public-event-contract artifacts were never shipped and are
                 // not supported: the descriptor declaration and any embedded artifact
                 // both fail discovery outright, same verdict as managed admission.
@@ -168,13 +204,7 @@ final class KernelPluginDiscovery {
                 return null;
             }
             try {
-                PluginJarContract.validate(
-                        descriptor,
-                        archive.stream()
-                                .filter(candidate -> !candidate.isDirectory())
-                                .map(JarEntry::getName)
-                                .toList(),
-                        jar.toString());
+                PluginJarContract.validate(descriptor, entryNames, jar.toString());
             } catch (PluginJarContract.PluginJarContractException exception) {
                 failures.add(
                         new LocalPluginRuntime.PluginFailure(descriptor.id(), jar, exception.code(), exception.path()));
@@ -189,7 +219,7 @@ final class KernelPluginDiscovery {
                                 + TURBOISM_API_VERSION));
                 return null;
             }
-            noteCubismVersionDeclaration(archive, descriptor);
+            noteCubismVersionDeclaration(archive, descriptor, logs);
             return new PreviewPluginCandidate(jar.toAbsolutePath().normalize(), descriptor);
         }
     }
@@ -209,32 +239,48 @@ final class KernelPluginDiscovery {
      * time), and the absence is logged once so the gap is visible instead of silent. A
      * malformed sidecar degrades to a warning the same way; neither case fails admission.
      */
-    private void noteCubismVersionDeclaration(final JarFile archive, final PluginDescriptor descriptor) {
+    private void noteCubismVersionDeclaration(
+            final JarFile archive, final PluginDescriptor descriptor, final Consumer<DiscoveryLog> logs) {
         if (!descriptor.environment().requiresCubism()) {
             return;
         }
         final JarEntry sidecar = archive.getJarEntry(CUBISM_VERSIONS_PATH);
         if (sidecar == null || sidecar.isDirectory()) {
-            log.info(
-                    "plugin-loader",
+            logs.accept(new DiscoveryLog(
+                    false,
                     "Plugin " + descriptor.id() + " declares no Cubism Editor version support ("
                             + CUBISM_VERSIONS_PATH + " absent); treated as undeclared — see "
-                            + "compatibility/cubism/compatibility-matrix.json for derived support");
+                            + "compatibility/cubism/compatibility-matrix.json for derived support"));
             return;
         }
         try (InputStream source = archive.getInputStream(sidecar)) {
-            final JsonNode document = new ObjectMapper().readTree(source);
+            final JsonNode document = SIDECAR_MAPPER.readTree(source);
             final JsonNode versions = document.path("supportedVersions");
             if (!versions.isArray()) {
                 throw new IOException("supportedVersions is not an array");
             }
         } catch (IOException | RuntimeException exception) {
-            log.warn(
-                    "plugin-loader",
+            logs.accept(new DiscoveryLog(
+                    true,
                     "Plugin " + descriptor.id() + " ships an unreadable " + CUBISM_VERSIONS_PATH
-                            + "; treated as undeclared");
+                            + "; treated as undeclared"));
         }
     }
+
+    private void writeDiscoveryLog(final DiscoveryLog entry) {
+        if (entry.warning()) {
+            log.warn("plugin-loader", entry.message());
+        } else {
+            log.info("plugin-loader", entry.message());
+        }
+    }
+
+    private record DiscoveryLog(boolean warning, String message) {}
+
+    private record CandidateReadResult(
+            PreviewPluginCandidate candidate,
+            List<LocalPluginRuntime.PluginFailure> failures,
+            List<DiscoveryLog> logs) {}
 }
 
 record PreviewPluginCandidate(Path jar, PluginDescriptor descriptor) {}
