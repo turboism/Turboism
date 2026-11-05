@@ -103,6 +103,15 @@ public final class KernelReportSnapshotFactory {
                     "cubism.mesh.mirror-axis-angle",
                     "cubism.mesh.mirror-axis-angle",
                     PermissionIds.TURBOISM_CUBISM_MODEL_WRITE),
+            bindings(
+                    "cubism.mesh.point-and-edge-layout",
+                    binding("mesh.geometric-layout.activate", PermissionIds.TURBOISM_CUBISM_MODEL_READ),
+                    binding("mesh.geometric-layout.commit-points-edges", PermissionIds.TURBOISM_CUBISM_MODEL_WRITE)),
+            binding("cubism.export.protected", "protectedExport.orchestrate", PermissionIds.TURBOISM_CUBISM_MODEL_READ),
+            binding(
+                    "ui.view-context-menu.contribute",
+                    "ui.view-context-menu.contribute",
+                    PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE),
             binding(
                     "ui.mesh-edit.mirror-axis-angle",
                     "ui.mesh-edit.mirror-axis-angle.contribute",
@@ -113,6 +122,8 @@ public final class KernelReportSnapshotFactory {
             "cubism.mesh.write",
             "cubism.deformer.write",
             "cubism.mirror.writeback",
+            "cubism.artmesh.mirror",
+            "cubism.deformer.alt-axis-mirror",
             "cubism.psd.binding.write",
             "cubism.clipmask.write",
             "cubism.canvas.write",

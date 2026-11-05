@@ -606,7 +606,7 @@ class RuntimeExportSettingsAuthorityTest {
                 host,
                 new ProtectedExportStaging(data -> null),
                 stagingRoot,
-                "plugin-a",
+                () -> Optional.of("plugin-a"),
                 "protect",
                 () -> seamInstalled,
                 () -> true,

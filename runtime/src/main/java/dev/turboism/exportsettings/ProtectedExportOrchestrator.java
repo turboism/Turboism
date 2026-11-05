@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -33,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 /**
  * Armed-session orchestrator for protected export (approved F+S1 design).
@@ -129,7 +131,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private final ProtectedExportHostOperations host;
     private final ProtectedExportStaging staging;
     private final Path stagingRoot;
-    private final String orchestratedPluginId;
+    private final Supplier<Optional<String>> orchestrationOwner;
     private final String orchestratedOptionId;
     private final BooleanSupplier redirectSeamInstalled;
     private final BooleanSupplier optionBindingLive;
@@ -157,7 +159,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             final ProtectedExportHostOperations host,
             final ProtectedExportStaging staging,
             final Path stagingRoot,
-            final String orchestratedPluginId,
+            final Supplier<Optional<String>> orchestrationOwner,
             final String orchestratedOptionId,
             final BooleanSupplier redirectSeamInstalled,
             final BooleanSupplier optionBindingLive,
@@ -169,7 +171,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         this.host = Objects.requireNonNull(host, "host");
         this.staging = Objects.requireNonNull(staging, "staging");
         this.stagingRoot = Objects.requireNonNull(stagingRoot, "stagingRoot");
-        this.orchestratedPluginId = requireText(orchestratedPluginId, "orchestratedPluginId");
+        this.orchestrationOwner = Objects.requireNonNull(orchestrationOwner, "orchestrationOwner");
         this.orchestratedOptionId = requireText(orchestratedOptionId, "orchestratedOptionId");
         this.redirectSeamInstalled = Objects.requireNonNull(redirectSeamInstalled, "redirectSeamInstalled");
         this.optionBindingLive = Objects.requireNonNull(optionBindingLive, "optionBindingLive");
@@ -186,9 +188,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         this.worker = Executors.newSingleThreadExecutor(daemon);
     }
 
-    /** Whether the authority should route this contribution's decision through us. */
+    /**
+     * Whether the authority should route this contribution's decision through us.
+     *
+     * <p>The owner is resolved from the capability table on every call rather than pinned to a
+     * plugin id, and it is resolved late on purpose: plugins load after this orchestrator exists,
+     * so a session can only arm for a plugin that is entitled at export time.</p>
+     */
     public boolean isOrchestrationOption(final String pluginId, final String optionId) {
-        return orchestratedPluginId.equals(pluginId) && orchestratedOptionId.equals(optionId);
+        if (!orchestratedOptionId.equals(optionId)) {
+            return false;
+        }
+        final Optional<String> owner = orchestrationOwner.get();
+        return owner.isPresent() && owner.get().equals(pluginId);
     }
 
     /**

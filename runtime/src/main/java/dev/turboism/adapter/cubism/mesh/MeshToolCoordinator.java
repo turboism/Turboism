@@ -53,14 +53,16 @@ public final class MeshToolCoordinator implements AutoCloseable {
             final String pluginId,
             final long pluginGeneration,
             final MeshTool tool,
-            final PermissionChecker permissionChecker) {
+            final PermissionChecker permissionChecker,
+            final boolean pointAndEdgeLayoutGranted) {
         final Key key = new Key(
                 requireText(pluginId, "pluginId"),
                 requireGeneration(pluginGeneration),
                 requireText(Objects.requireNonNull(tool, "tool").id(), "tool.id"));
         requireText(tool.label(), "tool.label");
         requireText(tool.iconResourcePath(), "tool.iconResourcePath");
-        final StoredTool stored = new StoredTool(tool, Objects.requireNonNull(permissionChecker, "permissionChecker"));
+        final StoredTool stored = new StoredTool(
+                tool, Objects.requireNonNull(permissionChecker, "permissionChecker"), pointAndEdgeLayoutGranted);
         synchronized (transitionGate) {
             synchronized (monitor) {
                 requireOpen();
@@ -282,7 +284,8 @@ public final class MeshToolCoordinator implements AutoCloseable {
                     hostGeneration,
                     sessionGeneration,
                     activation,
-                    current);
+                    current,
+                    stored.pointAndEdgeLayoutGranted);
             final RuntimeMeshToolContext context = new RuntimeMeshToolContext(
                     new SessionBoundMeshEditor(lease, stored.permissionChecker),
                     lease,
@@ -452,6 +455,7 @@ public final class MeshToolCoordinator implements AutoCloseable {
         private final long sessionGeneration;
         private final long activationGeneration;
         private final Session session;
+        private final boolean pointAndEdgeLayoutGranted;
 
         private ActivationLease(
                 MeshToolCoordinator owner,
@@ -461,7 +465,8 @@ public final class MeshToolCoordinator implements AutoCloseable {
                 long hostGeneration,
                 long sessionGeneration,
                 long activationGeneration,
-                Session session) {
+                Session session,
+                boolean pointAndEdgeLayoutGranted) {
             this.owner = owner;
             this.pluginId = pluginId;
             this.pluginGeneration = pluginGeneration;
@@ -470,6 +475,7 @@ public final class MeshToolCoordinator implements AutoCloseable {
             this.sessionGeneration = sessionGeneration;
             this.activationGeneration = activationGeneration;
             this.session = session;
+            this.pointAndEdgeLayoutGranted = pointAndEdgeLayoutGranted;
         }
 
         /** Returns the owning plugin id. */
@@ -483,6 +489,10 @@ public final class MeshToolCoordinator implements AutoCloseable {
         /** Returns the activated tool id. */
         public String toolId() {
             return toolId;
+        }
+        /** Whether the owning plugin declared the {@code cubism.mesh.point-and-edge-layout} capability. */
+        public boolean pointAndEdgeLayoutGranted() {
+            return pointAndEdgeLayoutGranted;
         }
         /** Returns the captured host generation. */
         public long hostGeneration() {
@@ -513,7 +523,7 @@ public final class MeshToolCoordinator implements AutoCloseable {
 
     private record Key(String pluginId, long generation, String toolId) {}
 
-    private record StoredTool(MeshTool tool, PermissionChecker permissionChecker) {}
+    private record StoredTool(MeshTool tool, PermissionChecker permissionChecker, boolean pointAndEdgeLayoutGranted) {}
 
     private record PendingDeactivate(MeshTool tool, RuntimeMeshToolContext context, boolean activated) {}
 
