@@ -224,6 +224,36 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Admits one changed authoring primitive into the ambient root when one is open on this
+     * thread, and otherwise opens a standalone root with the same admission, rollback and
+     * verification semantics. Envelope families whose write owns a native Undo object use this
+     * instead of {@link #mutate} so a recovering root rewinds the admitted Undo objects through the
+     * native group-undo step before the bracket is aborted; {@code endEdit(abort)} alone discards
+     * the group without restoring model state.
+     *
+     * @param binding current authoring binding
+     * @param contribution changed authoring primitive
+     * @throws IllegalStateException when the ambient submission is rejected or the standalone
+     *     transaction cannot commit safely
+     */
+    public void mutateEnvelopeOrStandalone(final Binding binding, final EditorUndoContribution contribution) {
+        final Binding checkedBinding = Objects.requireNonNull(binding, "binding");
+        final EditorUndoContribution checkedContribution = Objects.requireNonNull(contribution, "contribution");
+        if (ambient.get() != null) {
+            mutateEnvelope(checkedContribution);
+            return;
+        }
+        final AuthoringTransactionResult<Void> result =
+                execute(checkedBinding, AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()), () -> {
+                    final EditorAuthoringScope scope = Objects.requireNonNull(ambient.get(), "ambient scope");
+                    scope.noteEnvelopeContribution();
+                    apply(scope, checkedBinding, checkedContribution, List.of());
+                    return null;
+                });
+        requireStandaloneSuccess(result);
+    }
+
+    /**
      * Whether the ambient root transaction's native group-undo step has completed during the
      * active recovery. Hand-written-envelope contributions without an explicit readback use this
      * as their restored probe: it asserts that the native mechanism responsible for rewinding
@@ -343,6 +373,10 @@ public final class EditorAuthoringTransactionCoordinator {
                             createdTargets);
                     return null;
                 });
+        requireStandaloneSuccess(result);
+    }
+
+    private static void requireStandaloneSuccess(final AuthoringTransactionResult<Void> result) {
         if (!result.successful()) {
             throw new IllegalStateException("Standalone Editor authoring transaction failed: " + result.outcome()
                     + result.diagnosticId().map(id -> " [" + id + "]").orElse(""));

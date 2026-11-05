@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.edit.VerifiedEditorEditSessionHost;
 import dev.turboism.adapter.cubism.editor.history.EditorHistoryPort;
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
@@ -94,6 +95,7 @@ public final class EditorBackedCubismModelAccess
     private final EditorPsdSnapshotAccess psdSnapshotAccess;
     private final VerifiedEditorAuthoringTransactionHost authoringHost;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final EditorAuthoringWriter authoringWriter;
     private final VerifiedEditorEditSessionHost editSessionHost;
     private final RuntimeEditSessionManager editSessionManager;
     private final Object generationLock = new Object();
@@ -146,6 +148,8 @@ public final class EditorBackedCubismModelAccess
                 new EditorHistoryPort(() -> Optional.of(resolver), this::authoringGeneration));
         final java.util.concurrent.atomic.AtomicBoolean editScopeGate = new java.util.concurrent.atomic.AtomicBoolean();
         this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost, editScopeGate);
+        this.authoringWriter =
+                new CoordinatorAuthoringWriter(authoringCoordinator, resolver, this::authoringParticipationBinding);
         this.editSessionHost =
                 new VerifiedEditorEditSessionHost(resolver, this::authoringNativeBinding, this::authoringGeneration);
         this.editSessionManager = new RuntimeEditSessionManager(editSessionHost, editScopeGate);
@@ -156,7 +160,7 @@ public final class EditorBackedCubismModelAccess
         this.parameterGroupsAccess =
                 new EditorParameterGroupsAccess(resolver, this::requireCurrent, this.parameterStructureAccess);
         this.defaultKeyformLockAccess =
-                new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+                new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.editLevelAccess = new EditorModelEditLevelAccess(resolver, this::requireCurrent);
         this.partStructureAccess =
                 new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
@@ -175,8 +179,7 @@ public final class EditorBackedCubismModelAccess
                 () -> binding().generation(),
                 this.authoringCoordinator,
                 this::authoringParticipationBinding);
-        this.modelProfileAccess =
-                new EditorModelProfileAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.modelProfileAccess = new EditorModelProfileAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.partOpacityAccess = new EditorPartOpacityAccess(
                 resolver,
                 this::requireCurrent,
