@@ -31,6 +31,12 @@ import java.util.Arrays;
  *       target. Call sites that must not swallow a broken contract use {@link #findField(Class,
  *       String)}/{@link #findMethod(Class, String, Class[])} and apply their own policy.</li>
  * </ul>
+ *
+ * <p>Neither policy produces a {@link java.lang.invoke.MethodHandle}. A hot host path that wants a
+ * bound call site — the {@code adapter.cubism.optimization} bridges — uses {@link HostHandles}
+ * instead: exact descriptor, private lookup with a public fallback, and a named
+ * {@link HostHandles.Refusal} instead of a {@code null}. This class stays the reflective,
+ * best-effort API the UI adapters call by member name; the two are not interchangeable.</p>
  */
 public final class ReflectAccess {
 

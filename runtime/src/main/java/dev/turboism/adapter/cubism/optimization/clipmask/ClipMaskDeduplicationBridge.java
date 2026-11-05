@@ -1,9 +1,11 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -50,7 +52,7 @@ import java.util.function.Supplier;
  * </ul>
  *
  * <p>Every host member is resolved once into a {@link MethodHandle} (see
- * {@link ClipMaskHandles}), and the consult itself is memoized per frame: the renderer's
+ * {@link HostHandles}), and the consult itself is memoized per frame: the renderer's
  * clipping component is looked up once, and mask digests live in a primitive-keyed table so
  * no consult boxes a {@link Long}. A cached value describes exactly one rendered frame — the
  * host updates the model before it renders and does not mutate component lists during the
@@ -102,7 +104,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     private final MethodHandle getTextureWidth;
     private final MethodHandle getTextureHeight;
 
-    private final ClipMaskHandles.FieldAccess renderSystemLease;
+    private final HostHandles.HostField renderSystemLease;
     private final Object poolInstance;
     private final MethodHandle poolRelease;
 
@@ -161,26 +163,22 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
 
         final String renderSystemOwner =
                 ClipMaskDeduplicationTarget.renderSystemOwner(Objects.requireNonNull(cubismVersion, "cubismVersion"));
-        final Class<?> renderSystemClass = Class.forName(renderSystemOwner.replace('/', '.'), false, loader);
-        renderSystemLease = ClipMaskHandles.field(renderSystemClass, "f");
+        final Class<?> renderSystemClass = HostHandles.load(loader, renderSystemOwner);
+        renderSystemLease = HostHandles.field(renderSystemClass, "f");
 
-        clippingType = Class.forName("com.live2d.graphics3d.component.GClipping", false, loader);
-        getValidMasks = ClipMaskHandles.virtual(
-                clippingType, "getClippingVaildMasks", MethodType.methodType(Object.class, Object.class));
-        isRemove =
-                ClipMaskHandles.virtual(clippingType, "isRemove", MethodType.methodType(boolean.class, Object.class));
-        getInvert =
-                ClipMaskHandles.virtual(clippingType, "getInvert", MethodType.methodType(boolean.class, Object.class));
+        clippingType = HostHandles.load(loader, "com/live2d/graphics3d/component/GClipping");
+        getValidMasks =
+                accessor(clippingType, "getClippingVaildMasks", MethodType.methodType(Object.class, Object.class));
+        isRemove = accessor(clippingType, "isRemove", MethodType.methodType(boolean.class, Object.class));
+        getInvert = accessor(clippingType, "getInvert", MethodType.methodType(boolean.class, Object.class));
 
-        final Class<?> rendererClass = Class.forName("com.live2d.graphics3d.component.AGRenderer", false, loader);
-        getEntity =
-                ClipMaskHandles.virtual(rendererClass, "getEntity", MethodType.methodType(Object.class, Object.class));
-        getCurMaterial = ClipMaskHandles.virtual(
-                rendererClass, "getCurMaterial", MethodType.methodType(Object.class, Object.class));
+        final Class<?> rendererClass = HostHandles.load(loader, "com/live2d/graphics3d/component/AGRenderer");
+        getEntity = accessor(rendererClass, "getEntity", MethodType.methodType(Object.class, Object.class));
+        getCurMaterial = accessor(rendererClass, "getCurMaterial", MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> entityClass = Class.forName("com.live2d.graphics3d.entity.GEntity", false, loader);
-        java.lang.reflect.Method componentsGetter = null;
-        for (final java.lang.reflect.Method method : entityClass.getMethods()) {
+        final Class<?> entityClass = HostHandles.load(loader, "com/live2d/graphics3d/entity/GEntity");
+        Method componentsGetter = null;
+        for (final Method method : entityClass.getMethods()) {
             if (method.getName().equals("getComponents")
                     && method.getParameterCount() == 0
                     && !method.getReturnType().equals(List.class)) {
@@ -191,13 +189,13 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (componentsGetter == null) {
             throw new NoSuchMethodException("getComponents returning non-List Components on GEntity");
         }
-        getComponents = ClipMaskHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
+        getComponents = HostHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> materialClass = Class.forName("com.live2d.graphics3d.material.GMaterial", false, loader);
-        final Class<?> textureClass = Class.forName("com.live2d.graphics3d.texture.GTexture", false, loader);
-        final Class<?> gVector2Class = Class.forName("com.live2d.graphics3d.type.GVector2", false, loader);
+        final Class<?> materialClass = HostHandles.load(loader, "com/live2d/graphics3d/material/GMaterial");
+        final Class<?> textureClass = HostHandles.load(loader, "com/live2d/graphics3d/texture/GTexture");
+        final Class<?> gVector2Class = HostHandles.load(loader, "com/live2d/graphics3d/type/GVector2");
 
-        setTexture = ClipMaskHandles.virtual(
+        setTexture = accessor(
                 materialClass,
                 "setTexture",
                 MethodType.methodType(void.class, Object.class, String.class, Object.class),
@@ -216,30 +214,41 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
                 String.class,
                 float.class);
 
-        gVector2Constructor = ClipMaskHandles.construct(
-                gVector2Class, MethodType.methodType(Object.class, float.class, float.class), float.class, float.class);
+        gVector2Constructor = HostHandles.construct(
+                gVector2Class, "(FF)V", MethodType.methodType(Object.class, float.class, float.class));
         zeroOffsetVector = open(gVector2Constructor, 0.0f, 0.0f);
 
         final Class<?> leaseClass = renderSystemLease.type();
-        getRenderTexture = ClipMaskHandles.virtual(leaseClass, "b", MethodType.methodType(Object.class, Object.class));
+        getRenderTexture = accessor(leaseClass, "b", MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> renderTextureClass =
-                Class.forName("com.live2d.graphics3d.texture.GRenderTexture", false, loader);
-        getTextureWidth =
-                ClipMaskHandles.virtual(renderTextureClass, "getWidth", MethodType.methodType(int.class, Object.class));
-        getTextureHeight = ClipMaskHandles.virtual(
-                renderTextureClass, "getHeight", MethodType.methodType(int.class, Object.class));
+        final Class<?> renderTextureClass = HostHandles.load(loader, "com/live2d/graphics3d/texture/GRenderTexture");
+        getTextureWidth = accessor(renderTextureClass, "getWidth", MethodType.methodType(int.class, Object.class));
+        getTextureHeight = accessor(renderTextureClass, "getHeight", MethodType.methodType(int.class, Object.class));
 
-        final Class<?> poolClass = Class.forName(
-                isVersion53 ? "com.live2d.graphics3d.rendering.b" : "com.live2d.graphics3d.rendering.a", false, loader);
+        final Class<?> poolClass = HostHandles.load(
+                loader, isVersion53 ? "com/live2d/graphics3d/rendering/b" : "com/live2d/graphics3d/rendering/a");
         try {
-            poolInstance = ClipMaskHandles.field(poolClass, "a").get(null);
+            poolInstance = HostHandles.field(poolClass, "a").get(null);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             throw new ReflectiveOperationException("mask lease pool unavailable", failure);
         }
-        poolRelease = ClipMaskHandles.virtual(
-                poolClass, "a", MethodType.methodType(void.class, Object.class, Object.class), leaseClass);
+        poolRelease =
+                accessor(poolClass, "a", MethodType.methodType(void.class, Object.class, Object.class), leaseClass);
+    }
+
+    /**
+     * Resolves one reviewed member whose parameter types are pinned but whose return type is checked by
+     * the bridge's call shape.
+     *
+     * <p>The member is discovered by name and exact parameter types (as the reviewed layout declares it)
+     * and opened through {@link HostHandles}, so the discovered descriptor decides which overload is
+     * bound and the unreflection is the one opening policy.</p>
+     */
+    private static MethodHandle accessor(
+            final Class<?> owner, final String name, final MethodType shape, final Class<?>... parameters)
+            throws ReflectiveOperationException {
+        return HostHandles.virtual(owner.getMethod(name, parameters), shape);
     }
 
     /**
@@ -257,9 +266,9 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         final Class<?>[] withUnit = Arrays.copyOf(parameters, parameters.length + 1);
         withUnit[parameters.length] = Integer.class;
         try {
-            return ClipMaskHandles.declared(owner, name, withUnit).asType(signature);
+            return accessor(owner, name, signature, withUnit);
         } catch (NoSuchMethodException withoutRenderUnit) {
-            final MethodHandle plain = ClipMaskHandles.declared(owner, name, parameters);
+            final MethodHandle plain = HostHandles.unreflect(owner.getMethod(name, parameters));
             // The render unit is appended after every declared parameter, so the older family's
             // call shape stays (receiver, name, value, ignored).
             return MethodHandles.dropArguments(plain, plain.type().parameterCount(), Object.class)

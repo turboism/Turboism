@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.optimization.inputpath;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Map;
 import java.util.Properties;
@@ -25,9 +25,8 @@ import javax.swing.SwingUtilities;
  * values stored in {@link System#getProperties()}, so no Turboism class is
  * referenced by the rewritten method. The consults resolve
  * {@code CWidget.getJComponent()} and {@code CCursor.getJCursor()} once through
- * {@link MethodHandles#publicLookup} (both members are {@code public}; the host
- * JAR lives in the unnamed module) and defer the decision to the reviewed
- * redundancy rules:</p>
+ * {@link HostHandles} on their reviewed descriptors and defer the decision to the
+ * reviewed redundancy rules:</p>
  *
  * <ul>
  *   <li>focus: elide only when the {@link KeyboardFocusManager}'s focus owner
@@ -78,12 +77,18 @@ public final class InputPathElisionBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when any reviewed member is absent
      */
     public InputPathElisionBridge(final ClassLoader loader) throws ReflectiveOperationException {
-        final Class<?> widget = Class.forName(InputPathElisionTarget.OWNER.replace('/', '.'), false, loader);
-        componentHandle = MethodHandles.publicLookup()
-                .findVirtual(widget, InputPathElisionTarget.COMPONENT_METHOD, MethodType.methodType(JComponent.class));
-        final Class<?> cursorType = Class.forName(InputPathElisionTarget.CURSOR_OWNER.replace('/', '.'), false, loader);
-        cursorHandle = MethodHandles.publicLookup()
-                .findVirtual(cursorType, InputPathElisionTarget.CURSOR_ACCESSOR, MethodType.methodType(Cursor.class));
+        final Class<?> widget = HostHandles.load(loader, InputPathElisionTarget.OWNER);
+        componentHandle = HostHandles.virtual(
+                widget,
+                InputPathElisionTarget.COMPONENT_METHOD,
+                InputPathElisionTarget.COMPONENT_DESCRIPTOR,
+                MethodType.methodType(JComponent.class, Object.class));
+        final Class<?> cursorType = HostHandles.load(loader, InputPathElisionTarget.CURSOR_OWNER);
+        cursorHandle = HostHandles.virtual(
+                cursorType,
+                InputPathElisionTarget.CURSOR_ACCESSOR,
+                InputPathElisionTarget.CURSOR_ACCESSOR_DESCRIPTOR,
+                MethodType.methodType(Cursor.class, Object.class));
     }
 
     /**
