@@ -143,7 +143,15 @@ final class TypedConfigDocumentStore {
         }
         // A same-named point whose bytes no longer match is repaired rather than trusted, so a
         // damaged recovery area cannot make a migration succeed with an unusable image behind it.
-        writeFileAtomic(point, bytes);
+        try {
+            writeFileAtomic(point, bytes);
+        } catch (java.nio.file.AccessDeniedException concurrentCapture) {
+            if (holdsExactImage(point, bytes)) {
+                tightenTree(point);
+                return point;
+            }
+            throw concurrentCapture;
+        }
         pruneRecoveryPoints(directory, point);
         return point;
     }
@@ -489,13 +497,21 @@ final class TypedConfigDocumentStore {
             final PosixFileAttributeView posix =
                     Files.getFileAttributeView(path, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             if (posix != null) {
-                posix.setPermissions(directory ? DIR_OWNER_ONLY : FILE_OWNER_ONLY);
+                final Set<PosixFilePermission> expected = directory ? DIR_OWNER_ONLY : FILE_OWNER_ONLY;
+                if (expected.equals(posix.readAttributes().permissions())) {
+                    return;
+                }
+                posix.setPermissions(expected);
                 return;
             }
             final AclFileAttributeView acl =
                     Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             if (acl != null) {
-                acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), directory)));
+                final List<AclEntry> expected = List.of(ownerOnlyEntry(acl.getOwner(), directory));
+                if (expected.equals(acl.getAcl())) {
+                    return;
+                }
+                acl.setAcl(expected);
                 return;
             }
         } catch (UnsupportedOperationException unsupported) {

@@ -96,6 +96,120 @@ class KernelPluginDiscoveryTest {
         }
     }
 
+    @Test
+    void parallelDiscoveryPreservesWinnersFailureOrderAndLogsAcrossMixedJars() throws Exception {
+        final Path home = temporary.resolve("parallel-home");
+        final Path plugins = home.resolve("plugins");
+        // Create in reverse filename order so directory enumeration cannot supply the ordering.
+        writePlugin(plugins.resolve("z-lower.jar"), "2.0.0");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(plugins.resolve("g-invalid.jar")))) {
+            add(output, "META-INF/turboism/plugin.json", "not json".getBytes(StandardCharsets.UTF_8));
+        }
+        writePlugin(plugins.resolve("f-tied.jar"), "10.0.0");
+        writeCubismPlugin(plugins.resolve("e-independent.jar"), "not json", "dev.example.independent");
+        writePlugin(plugins.resolve("d-highest.jar"), "10.0.0");
+        Files.writeString(plugins.resolve("c-corrupt.jar"), "not a ZIP archive");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(plugins.resolve("b-missing.jar")))) {
+            add(output, "unrelated.txt", new byte[0]);
+        }
+        writeCubismPlugin(plugins.resolve("a-lowest.jar"), null);
+
+        List<LocalPluginRuntime.PluginFailure> expectedFailures = null;
+        for (int attempt = 0; attempt < 10; attempt++) {
+            final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+            final List<String> records = new ArrayList<>();
+            try (KernelLog log = new KernelLog(
+                    home.resolve("logs/turboism.log"),
+                    Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                    (level, component, message, failure) ->
+                            records.add("[" + level + "][" + component + "] " + message))) {
+                final var candidates = new KernelPluginDiscovery(plugins, log).discover(failures);
+                assertEquals(List.of(PLUGIN_ID, "dev.example.independent"), new ArrayList<>(candidates.keySet()));
+                assertEquals(
+                        "d-highest.jar",
+                        candidates.get(PLUGIN_ID).jar().getFileName().toString());
+                assertEquals("10.0.0", candidates.get(PLUGIN_ID).descriptor().version());
+                assertEquals(
+                        "e-independent.jar",
+                        candidates
+                                .get("dev.example.independent")
+                                .jar()
+                                .getFileName()
+                                .toString());
+            }
+            assertEquals(
+                    List.of(
+                            "b-missing.jar",
+                            "c-corrupt.jar",
+                            "g-invalid.jar",
+                            "a-lowest.jar",
+                            "f-tied.jar",
+                            "z-lower.jar"),
+                    failureFilenames(failures));
+            assertEquals(
+                    List.of(
+                            "PLUGIN_DESCRIPTOR_MISSING",
+                            "PLUGIN_JAR_READ_FAILED",
+                            "PLUGIN_META_INVALID_JSON",
+                            "DUPLICATE_PLUGIN_ID",
+                            "DUPLICATE_PLUGIN_ID",
+                            "DUPLICATE_PLUGIN_ID"),
+                    failures.stream()
+                            .map(LocalPluginRuntime.PluginFailure::code)
+                            .toList());
+            if (expectedFailures == null) {
+                expectedFailures = List.copyOf(failures);
+            } else {
+                assertEquals(expectedFailures, failures);
+            }
+            assertEquals(
+                    List.of(
+                            "[INFO][plugin-loader] Plugin " + PLUGIN_ID
+                                    + " declares no Cubism Editor version support (META-INF/turboism/cubism-versions.json absent);"
+                                    + " treated as undeclared — see compatibility/cubism/compatibility-matrix.json for derived support",
+                            "[WARN][plugin-loader] Plugin dev.example.independent ships an unreadable"
+                                    + " META-INF/turboism/cubism-versions.json; treated as undeclared"),
+                    records);
+        }
+    }
+
+    @Test
+    void rejectsEmbeddedContractWithoutDescriptorDeclaration() throws Exception {
+        final Path home = temporary.resolve("embedded-contract");
+        final Path plugins = home.resolve("plugins");
+        writePlugin(
+                plugins.resolve("fixture.jar"),
+                "1.0.0",
+                "[0.67.0,1.0.0)",
+                Map.of("META-INF/turboism/contracts/undeclared.jar", new byte[] {0}));
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            assertTrue(
+                    new KernelPluginDiscovery(plugins, log).discover(failures).isEmpty());
+        }
+        assertEquals("PLUGIN_CONTRACT_ARTIFACTS_REMOVED", failures.get(0).code());
+        assertEquals(PLUGIN_ID, failures.get(0).pluginId());
+    }
+
+    @Test
+    void allowsEmptyContractDirectory() throws Exception {
+        final Path home = temporary.resolve("empty-contract-directory");
+        final Path plugins = home.resolve("plugins");
+        writePlugin(
+                plugins.resolve("fixture.jar"),
+                "1.0.0",
+                "[0.67.0,1.0.0)",
+                Map.of("META-INF/turboism/contracts/", new byte[0]));
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+
+        try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
+            assertNotNull(
+                    new KernelPluginDiscovery(plugins, log).discover(failures).get(PLUGIN_ID));
+        }
+        assertTrue(failures.isEmpty());
+    }
+
     /**
      * Drop-in discovery matches managed admission: embedded public-event-contract
      * artifacts were never shipped, so a schema-v5 plugin declaring one is rejected
@@ -258,6 +372,12 @@ class KernelPluginDiscoveryTest {
     }
 
     private static void writePlugin(final Path jar, final String version, final String apiRange) throws Exception {
+        writePlugin(jar, version, apiRange, Map.of());
+    }
+
+    private static void writePlugin(
+            final Path jar, final String version, final String apiRange, final Map<String, byte[]> extraEntries)
+            throws Exception {
         Files.createDirectories(jar.getParent());
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             add(output, "dev/example/Fixture.class", new byte[] {0});
@@ -266,10 +386,18 @@ class KernelPluginDiscoveryTest {
                     "META-INF/turboism/plugin.json",
                     descriptor(version).replace("[0.67.0,1.0.0)", apiRange).getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
+            for (var entry : extraEntries.entrySet()) {
+                add(output, entry.getKey(), entry.getValue());
+            }
         }
     }
 
     private static void writeCubismPlugin(final Path jar, final String sidecar) throws Exception {
+        writeCubismPlugin(jar, sidecar, PLUGIN_ID);
+    }
+
+    private static void writeCubismPlugin(final Path jar, final String sidecar, final String pluginId)
+            throws Exception {
         Files.createDirectories(jar.getParent());
         final String descriptor = """
             {"format":"turboism.plugin.meta","schemaVersion":2,"id":"%s","name":"Fixture","version":"1.0.0",
@@ -277,7 +405,7 @@ class KernelPluginDiscoveryTest {
             "authors":[{"name":"Tests"}],"license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},"dependencies":[],"permissions":[],
             "capabilities":[],"environment":{"requiresCubism":true,"ui":"none"}}
-            """.formatted(PLUGIN_ID);
+            """.formatted(pluginId);
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             add(output, "dev/example/Fixture.class", new byte[] {0});
             add(output, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));

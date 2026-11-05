@@ -16,7 +16,8 @@ public final class PluginDescriptorParser {
 
     private static final int MAX_DESCRIPTOR_BYTES = 1024 * 1024;
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    // Configuration is fixed before publication; Jackson can safely reuse its caches across plugins.
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * Parses and validates a manifest read from a stream. The stream is consumed but not closed.
@@ -34,7 +35,7 @@ public final class PluginDescriptorParser {
                 throw new DescriptorParseException(
                         "PLUGIN_META_TOO_LARGE", "plugin.json exceeds 1 MiB", "<input stream>");
             }
-            return parseNode(mapper.readTree(bytes), "<input stream>");
+            return parseNode(MAPPER.readTree(bytes), "<input stream>");
         } catch (IOException exception) {
             throw new DescriptorParseException("PLUGIN_META_INVALID_JSON", "Failed to parse plugin.json", exception);
         }
@@ -50,7 +51,7 @@ public final class PluginDescriptorParser {
      */
     public PluginDescriptor parse(final String json) throws DescriptorParseException {
         try {
-            return parseNode(mapper.readTree(json), "<input string>");
+            return parseNode(MAPPER.readTree(json), "<input string>");
         } catch (IOException exception) {
             throw new DescriptorParseException("PLUGIN_META_INVALID_JSON", "Failed to parse plugin.json", exception);
         }
