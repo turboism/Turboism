@@ -17,6 +17,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -29,10 +30,15 @@ class ModelHierarchyQueryServiceImplTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-07-08T03:00:00Z"), ZoneOffset.UTC);
 
+    private static final HostSnapshotSource.HostParameter PARAMETER =
+            new HostSnapshotSource.HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
+    private static final HostSnapshotSource.HostArtMesh MESH =
+            new HostSnapshotSource.HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
+
     @Test
     void currentHierarchyFindNodeAndChildrenOfReturnImmutableHierarchyWhenPermissionGranted()
             throws CubismServiceException {
-        final VersionedHierarchySource source = VersionedHierarchySource.withModel();
+        final RecordingHostSnapshotSource source = withModel();
         final ModelHierarchyQueryServiceImpl service = serviceWith(
                 source,
                 new ArrayList<>(),
@@ -59,13 +65,13 @@ class ModelHierarchyQueryServiceImplTest {
 
     @Test
     void currentHierarchyUsesCachedHierarchyUntilSnapshotVersionChanges() throws CubismServiceException {
-        final VersionedHierarchySource source = VersionedHierarchySource.withModel();
+        final RecordingHostSnapshotSource source = withModel();
         final ModelHierarchyQueryServiceImpl service =
                 serviceWith(source, new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         final ModelHierarchy first = service.currentHierarchy().orElseThrow();
-        source.replaceDeformersWithoutInvalidation(List.of(new HostSnapshotSource.HostDeformer(
-                "deformer-new", "New", DeformerType.WARP, Optional.empty(), List.of())));
+        source.setModel(model(List.of(new HostSnapshotSource.HostDeformer(
+                "deformer-new", "New", DeformerType.WARP, Optional.empty(), List.of()))));
         final ModelHierarchy cached = service.currentHierarchy().orElseThrow();
         source.advanceInvalidationToken();
         final ModelHierarchy refreshed = service.currentHierarchy().orElseThrow();
@@ -77,9 +83,7 @@ class ModelHierarchyQueryServiceImplTest {
     @Test
     void noActiveModelReturnsEmptyHierarchyAndEmptyLookups() throws CubismServiceException {
         final ModelHierarchyQueryServiceImpl service = serviceWith(
-                VersionedHierarchySource.withoutModel(),
-                new ArrayList<>(),
-                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
+                withoutModel(), new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         assertTrue(service.currentHierarchy().isEmpty());
         assertTrue(service.findNode(new ModelObjectId("missing")).isEmpty());
@@ -89,8 +93,7 @@ class ModelHierarchyQueryServiceImplTest {
     @Test
     void everyDeniedModelReadOperationRecordsItsOperationAndModelTreeCapability() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
-        final ModelHierarchyQueryServiceImpl service =
-                serviceWith(VersionedHierarchySource.withModel(), auditEvents, List.of());
+        final ModelHierarchyQueryServiceImpl service = serviceWith(withModel(), auditEvents, List.of());
 
         assertDenied(
                 service::currentHierarchy, auditEvents, ModelHierarchyQueryServiceImpl.CURRENT_HIERARCHY_OPERATION);
@@ -126,7 +129,7 @@ class ModelHierarchyQueryServiceImplTest {
 
     @Test
     void deniedMeshReadFiltersArtMeshNodesFromHierarchy() throws CubismServiceException {
-        final VersionedHierarchySource source = VersionedHierarchySource.withModel();
+        final RecordingHostSnapshotSource source = withModel();
         final ModelHierarchyQueryServiceImpl service =
                 serviceWith(source, new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
@@ -152,71 +155,19 @@ class ModelHierarchyQueryServiceImplTest {
         return Stubs.permission(id);
     }
 
-    private static final class VersionedHierarchySource implements HostSnapshotSource {
+    private static RecordingHostSnapshotSource withModel() {
+        return RecordingHostSnapshotSource.builder()
+                .model(model(List.of(new HostSnapshotSource.HostDeformer(
+                        "deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face")))))
+                .hostPresent(true)
+                .build();
+    }
 
-        private static final HostParameter PARAMETER =
-                new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
-        private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
+    private static RecordingHostSnapshotSource withoutModel() {
+        return RecordingHostSnapshotSource.builder().hostPresent(true).build();
+    }
 
-        private final boolean hasModel;
-        private List<HostDeformer> deformers;
-        private long invalidationToken;
-
-        private VersionedHierarchySource(final boolean hasModel, final List<HostDeformer> deformers) {
-            this.hasModel = hasModel;
-            this.deformers = List.copyOf(deformers);
-        }
-
-        static VersionedHierarchySource withModel() {
-            return new VersionedHierarchySource(
-                    true,
-                    List.of(new HostDeformer(
-                            "deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"))));
-        }
-
-        static VersionedHierarchySource withoutModel() {
-            return new VersionedHierarchySource(false, List.of());
-        }
-
-        void replaceDeformersWithoutInvalidation(final List<HostDeformer> nextDeformers) {
-            deformers = List.copyOf(nextDeformers);
-        }
-
-        void advanceInvalidationToken() {
-            invalidationToken++;
-        }
-
-        @Override
-        public Optional<HostProject> activeProject() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            if (!hasModel) {
-                return Optional.empty();
-            }
-            return Optional.of(new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), deformers));
-        }
-
-        @Override
-        public HostSelection selection() {
-            return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return true;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return invalidationToken;
-        }
+    private static HostSnapshotSource.HostModel model(final List<HostSnapshotSource.HostDeformer> deformers) {
+        return new HostSnapshotSource.HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), deformers);
     }
 }

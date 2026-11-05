@@ -18,6 +18,7 @@ import dev.turboism.test.fake.FakeCubismHost;
 import dev.turboism.test.fake.FakeCubismModel;
 import dev.turboism.test.fake.FakeCubismParameter;
 import dev.turboism.test.fake.FakeCubismProject;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -31,6 +32,11 @@ final class CubismQueryIntegrationSupport {
     static final String PLUGIN_ID = "plugin.query-tests";
     static final String MODEL_READ_PERMISSION = CubismFacadeImpl.MODEL_READ_PERMISSION;
     static final String MESH_READ_PERMISSION = CubismFacadeImpl.MESH_READ_PERMISSION;
+
+    private static final HostSnapshotSource.HostArtMesh MESH =
+            new HostSnapshotSource.HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
+    private static final HostSnapshotSource.HostDeformer DEFORMER = new HostSnapshotSource.HostDeformer(
+            "deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
 
     private CubismQueryIntegrationSupport() {}
 
@@ -87,12 +93,25 @@ final class CubismQueryIntegrationSupport {
         return host;
     }
 
-    static VersionedSource versionedSource(final List<HostSnapshotSource.HostParameter> parameters) {
-        return new VersionedSource(parameters, true);
+    static RecordingHostSnapshotSource versionedSource(final List<HostSnapshotSource.HostParameter> parameters) {
+        return RecordingHostSnapshotSource.builder()
+                .model(model(parameters))
+                .hostPresent(true)
+                .build();
     }
 
-    static VersionedSource absentModelSource() {
-        return new VersionedSource(List.of(), false);
+    static RecordingHostSnapshotSource absentModelSource() {
+        return RecordingHostSnapshotSource.builder().hostPresent(true).build();
+    }
+
+    /** Replaces the observed parameters without moving the token: "same version, new data". */
+    static void replaceParameters(
+            final RecordingHostSnapshotSource source, final List<HostSnapshotSource.HostParameter> parameters) {
+        source.setModel(model(parameters));
+    }
+
+    private static HostSnapshotSource.HostModel model(final List<HostSnapshotSource.HostParameter> parameters) {
+        return new HostSnapshotSource.HostModel("model-1", "Model", parameters, List.of(MESH), List.of(DEFORMER));
     }
 
     static HostSnapshotSource.HostParameter hostParameter(final String id, final String name) {
@@ -112,60 +131,4 @@ final class CubismQueryIntegrationSupport {
 
     record QueryEnvironment(
             CorePluginContext context, List<CubismFacadeAuditEvent> auditEvents, DisposableScope disposableScope) {}
-
-    static final class VersionedSource implements HostSnapshotSource {
-        private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
-        private static final HostDeformer DEFORMER =
-                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
-
-        private final boolean hasModel;
-        private List<HostParameter> parameters;
-        private long invalidationToken;
-
-        private VersionedSource(final List<HostParameter> parameters, final boolean hasModel) {
-            this.parameters = List.copyOf(parameters);
-            this.hasModel = hasModel;
-        }
-
-        void replaceParametersWithoutInvalidation(final List<HostParameter> nextParameters) {
-            parameters = List.copyOf(nextParameters);
-        }
-
-        void advanceInvalidationToken() {
-            invalidationToken++;
-        }
-
-        @Override
-        public Optional<HostProject> activeProject() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            if (!hasModel) {
-                return Optional.empty();
-            }
-            return Optional.of(new HostModel("model-1", "Model", parameters, List.of(MESH), List.of(DEFORMER)));
-        }
-
-        @Override
-        public HostSelection selection() {
-            return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return true;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return invalidationToken;
-        }
-    }
 }

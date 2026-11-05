@@ -280,6 +280,7 @@ tasks.register<Exec>("checkCodeQuality") {
     // The controlchars rule also scans these roots for literal control bytes.
     inputs.files(
         fileTree("runtime/src/test/java") { include("**/*.java") },
+        fileTree("runtime/src/testFixtures/java") { include("**/*.java") },
         fileTree("persistence-core/src/test/java") { include("**/*.java") },
         fileTree("compatibility-policy/src/test/java") { include("**/*.java") },
         fileTree("bootstrap/src/test/java") { include("**/*.java") },

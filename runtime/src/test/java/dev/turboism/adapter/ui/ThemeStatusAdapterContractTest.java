@@ -13,6 +13,7 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -117,12 +118,10 @@ class ThemeStatusAdapterContractTest {
     }
 
     private static HostSnapshotSource projectOnlySource() {
-        return new TestHostSnapshotSource(
-                Optional.of(new HostSnapshotSource.HostProject("project-1", "Project", Optional.empty(), List.of())),
-                Optional.empty(),
-                Optional.empty(),
-                new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
-                true);
+        return RecordingHostSnapshotSource.builder()
+                .project(new HostSnapshotSource.HostProject("project-1", "Project", Optional.empty(), List.of()))
+                .hostPresent(true)
+                .build();
     }
 
     private static CubismPermissionGate projectReadGate() {
@@ -141,39 +140,6 @@ class ThemeStatusAdapterContractTest {
         @Override
         public Optional<ThemeStatusSnapshot> themeStatus() {
             return Optional.of(new ThemeStatusSnapshot("aurora", "Aurora", true));
-        }
-    }
-
-    private record TestHostSnapshotSource(
-            Optional<HostProject> project,
-            Optional<HostDocument> document,
-            Optional<HostModel> model,
-            HostSelection selection,
-            boolean hostPresent)
-            implements HostSnapshotSource {
-        @Override
-        public Optional<HostProject> activeProject() {
-            return project;
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return document;
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            return model;
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return hostPresent;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return 0L;
         }
     }
 
