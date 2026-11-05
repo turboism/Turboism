@@ -45,6 +45,7 @@ Bundled with the official Turboism distribution. Enable or disable it in Plugin 
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | Registers the custom tool in the native mesh-editing toolbar. |
+| `cubism.mesh.point-and-edge-layout` | Selects the runtime point-and-edge layout brush for this plugin's own registered tool. |
 
 ## Permissions
 

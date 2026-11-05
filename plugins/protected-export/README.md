@@ -51,7 +51,9 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 ## Capabilities
 
-No capabilities are declared in the plugin manifest.
+| Capability | Effect |
+|---|---|
+| `cubism.export.protected` | Admits the declaring plugin as the single owner that drives the runtime protected-export pipeline for its own export-settings option. |
 
 ## Permissions
 

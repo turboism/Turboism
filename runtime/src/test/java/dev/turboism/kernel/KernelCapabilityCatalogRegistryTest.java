@@ -33,7 +33,7 @@ class KernelCapabilityCatalogRegistryTest {
         final List<String> capabilityIds = KernelReportSnapshotFactory.canonicalCapabilityIds().stream()
                 .sorted()
                 .toList();
-        assertEquals(69, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
+        assertEquals(74, capabilityIds.size(), "canonical catalog size changed; update this closure test deliberately");
 
         final JsonNode capabilities =
                 capabilityReport(capabilityIds).path("payload").path("capabilities");
@@ -48,7 +48,7 @@ class KernelCapabilityCatalogRegistryTest {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toUnmodifiableSet());
 
-        assertEquals(69, canonicalCapabilities.size());
+        assertEquals(74, canonicalCapabilities.size());
         assertEquals(canonicalCapabilities, entriesByCapability.keySet());
         assertTrue(
                 java.util.Collections.disjoint(mappedCapabilities, knownUnmappedCapabilities),
