@@ -421,11 +421,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
      * {@link PluginLifecyclePolicy#shellLoadTimeout} before any external plugin, so a blocking
      * or non-returning plugin cannot prevent management and diagnostic surfaces from
      * coming up; a shell that misses its deadline is fenced and its generation retained
-     * rather than half-started. External plugins load sequentially in resolved dependency
-     * order on the same lane; failures are reported in the returned {@link LoadReport}
-     * and do not stop the load. The shell is not a plugin: it never appears in the
-     * report and never produces plugin lifecycle events. A failure of the runtime-owned
-     * shell is different in kind: the whole runtime is closed before the exception
+     * rather than half-started; {@link CoreShellRuntime} admits it through the same
+     * {@link AdmittedGeneration} module external plugin loads and closes use. External plugins
+     * load sequentially in resolved dependency order on the same lane; failures are reported in the
+     * returned {@link LoadReport} and do not stop the load. The shell is not a plugin: it never
+     * appears in the report and never produces plugin lifecycle events. A failure of the
+     * runtime-owned shell is different in kind: the whole runtime is closed before the exception
      * propagates, so no half-initialized runtime is left behind.</p>
      *
      * @return the load outcome for the discovered plugins
