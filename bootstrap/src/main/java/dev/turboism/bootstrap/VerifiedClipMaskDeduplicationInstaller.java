@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTa
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTransformer;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
 import dev.turboism.config.NativeOptimizationDiagnostics;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.Instrumentation;
@@ -110,18 +111,16 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
     private void reportScissor() {
         if (scissorBridge == null) {
             NativeOptimizationDiagnostics.installed(
-                    NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR,
+                    OptimizationCatalog.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR,
                     "not-installed",
                     scissorFailure == null ? "not-attempted" : "refused");
         } else if (!ClipMaskScissorBridge.enabledByPreference()) {
             NativeOptimizationDiagnostics.installed(
-                    NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR,
-                    "not-installed",
-                    "disabled-by-property");
+                    OptimizationCatalog.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "not-installed", "disabled-by-property");
         } else {
             scissorReported = true;
             NativeOptimizationDiagnostics.installed(
-                    NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "installed", "verified");
+                    OptimizationCatalog.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "installed", "verified");
         }
     }
 
@@ -192,6 +191,6 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
         if (!scissorReported) return;
         scissorReported = false;
         NativeOptimizationDiagnostics.installed(
-                NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "not-installed", "closed");
+                OptimizationCatalog.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "not-installed", "closed");
     }
 }

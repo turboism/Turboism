@@ -1,6 +1,7 @@
 package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -406,7 +407,7 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
             var request = startup == null ? null : startup.value(field);
             String actual;
             if (field.nativeOptimization()) {
-                var status = hooks.get(NativeOptimizationConfig.Option.forKey(field.key()));
+                var status = hooks.get(OptimizationCatalog.requireByKey(field.key()));
                 actual = status == null ? "not-observed" : status.state() + ": " + status.reason();
             } else {
                 actual = switch (field) {
@@ -449,26 +450,6 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                         .findFirst()
                         .map(argument -> "; " + argument)
                         .orElse("");
-    }
-
-    @Override
-    public List<OptimizationStatus> optimizationStatuses() {
-        final JsonNode root = config.read();
-        final boolean proton = dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment);
-        final var diagnostics = NativeOptimizationDiagnostics.snapshot();
-        final List<OptimizationStatus> result = new ArrayList<>();
-        for (var option : NativeOptimizationConfig.Option.values()) {
-            final var status = diagnostics.get(option);
-            final var choice = status == null ? null : status.choice();
-            result.add(new OptimizationStatus(
-                    option.key(),
-                    Boolean.parseBoolean(PerformanceSettingsConfig.saved(root, option.field(), proton)),
-                    choice == null ? Optional.empty() : Optional.of(choice.enabled()),
-                    choice == null ? "unknown" : choice.source(),
-                    status == null ? "unknown" : status.state(),
-                    status == null ? "not-observed" : status.reason()));
-        }
-        return List.copyOf(result);
     }
 
     private String savedPerformance(PerformanceSettingsConfig.Field field) {
