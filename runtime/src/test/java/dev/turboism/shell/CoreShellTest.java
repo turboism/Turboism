@@ -11,14 +11,11 @@ import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.internal.core.AtlasCacheReuseSettingsService;
-import dev.turboism.internal.core.AtlasTileBboxSettingsService;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.internal.core.CubismJvmSettingsService;
-import dev.turboism.internal.core.MeshTriangulationSettingsService;
+import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.internal.core.ShellServices;
-import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
 import dev.turboism.kernel.KernelLog;
 import dev.turboism.kernel.LocalPluginRuntime;
 import dev.turboism.sdk.action.ActionRegistry;
@@ -836,10 +833,7 @@ class CoreShellTest {
         return new CoreShell(new ShellServices(
                 settings(),
                 CubismJvmSettingsService.unavailable(),
-                MeshTriangulationSettingsService.unavailable(),
-                AtlasTileBboxSettingsService.unavailable(),
-                AtlasCacheReuseSettingsService.unavailable(),
-                TriangulationEdgeIndexSettingsService.unavailable(),
+                OptimizationSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
