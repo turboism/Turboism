@@ -7,19 +7,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.PathLocks;
+import dev.turboism.core.io.WriteOptions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import java.io.IOException;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
@@ -30,7 +29,14 @@ public final class RuntimeConfigRepository {
                     .build())
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final long MAX_BYTES = 64L * 1024L;
-    private static final Map<Path, Object> LOCKS = new ConcurrentHashMap<>();
+
+    /**
+     * {@code config.json} keeps the pre-migration tolerance for file systems that refuse
+     * {@code ATOMIC_MOVE} (removable and network homes), and inherits the home directory's
+     * permission model.
+     */
+    private static final WriteOptions CONFIG_WRITE =
+            WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
 
     private final Path home;
     private final Path configPath;
@@ -43,7 +49,7 @@ public final class RuntimeConfigRepository {
                 .normalize();
         configPath = home.resolve("config.json").normalize();
         if (!configPath.startsWith(home)) throw new IllegalArgumentException("config path escapes Turboism home");
-        lock = LOCKS.computeIfAbsent(configPath, ignored -> new Object());
+        lock = PathLocks.forPath(configPath);
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
@@ -231,20 +237,18 @@ public final class RuntimeConfigRepository {
 
     private void writeLocked(final ObjectNode root) {
         final Path parent = configPath.getParent();
-        final Path temporary = parent.resolve(".config-" + java.util.UUID.randomUUID() + ".tmp");
         try {
             Files.createDirectories(parent);
             rejectSymlinkChain(parent);
             final byte[] bytes = JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
             if (bytes.length > MAX_BYTES) throw failure("RUNTIME_CONFIG_TOO_LARGE");
-            Files.write(temporary, bytes);
-            move(temporary, configPath);
+            // The chain is re-checked while the previous document is still visible: a directory that
+            // turned into a link during the write must not receive the new document.
+            DurableFile.at(configPath)
+                    .withOptions(CONFIG_WRITE)
+                    .guardedBy((staged, target) -> rejectSymlinkChain(target))
+                    .replace(bytes);
         } catch (IOException failure) {
-            try {
-                Files.deleteIfExists(temporary);
-            } catch (IOException ignored) {
-                failure.addSuppressed(ignored);
-            }
             throw failure("RUNTIME_CONFIG_WRITE_FAILED", failure);
         }
     }
@@ -298,14 +302,6 @@ public final class RuntimeConfigRepository {
 
     private void report(final String code) {
         FatalErrors.reportSafely(diagnostic, code);
-    }
-
-    private static void move(final Path source, final Path target) throws IOException {
-        try {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
     }
 
     private static void requirePluginId(final String pluginId) {
