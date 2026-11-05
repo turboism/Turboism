@@ -1,0 +1,1 @@
+{"algorithm":"Ed25519","format":"turboism-update-manifest-sig-v1","keyId":"test-key-reproducible","manifestSha256":"cefba5806ac8995f2d5d3736b98e9a4b258e22b5d4fd97d816c30d0ea2ad4790","schemaVersion":1,"signature":"OPKEwV3miGeIfMhW/t4XUs7WJMApgt6RXnQ18YYuIH+M9NdYLtsbOJjljFk1FH04gPDJu9AHp2177YoqTnT4Aw=="}
