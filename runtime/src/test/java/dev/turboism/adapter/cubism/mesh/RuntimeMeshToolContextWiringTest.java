@@ -11,9 +11,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Wiring of {@link RuntimeMeshToolContext#selectionBrush()}: which brush a plugin receives is
- * decided by the lease's plugin identity. The session here is not a native one, so each branch
- * stops at its own distinct "requires an exact native mesh-tool session" refusal, which tells the
- * branches apart without a host.
+ * decided by the {@code cubism.mesh.point-and-edge-layout} capability carried by the tool
+ * registration. The session here is not a native one, so each branch stops at its own distinct
+ * "requires an exact native mesh-tool session" refusal, which tells the branches apart without a
+ * host.
  */
 class RuntimeMeshToolContextWiringTest {
 
@@ -21,24 +22,23 @@ class RuntimeMeshToolContextWiringTest {
     private static final String GENERIC_REFUSAL = "selection brush requires an exact native mesh-tool session";
 
     @Test
-    void theOwningPluginReceivesTheRuntimeGeometricBrush() {
-        assertEquals(
-                GEOMETRIC_REFUSAL,
-                brushRefusal(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, RuntimeGeometricMeshLayout.TOOL_ID));
+    void aCapabilityDeclaringPluginReceivesTheRuntimeGeometricBrush() {
+        assertEquals(GEOMETRIC_REFUSAL, brushRefusal(true, RuntimeGeometricMeshLayout.TOOL_ID));
     }
 
     @Test
-    void aForeignPluginReusingTheReservedToolIdReceivesTheGenericBrush() {
-        assertEquals(GENERIC_REFUSAL, brushRefusal("dev.example.impostor", RuntimeGeometricMeshLayout.TOOL_ID));
+    void aPluginWithoutTheCapabilityReusingTheReservedToolIdReceivesTheGenericBrush() {
+        assertEquals(GENERIC_REFUSAL, brushRefusal(false, RuntimeGeometricMeshLayout.TOOL_ID));
     }
 
-    private static String brushRefusal(final String pluginId, final String toolId) {
+    private static String brushRefusal(final boolean pointAndEdgeLayoutGranted, final String toolId) {
         final AtomicReference<String> refusal = new AtomicReference<>();
         try (MeshToolCoordinator coordinator = new MeshToolCoordinator()) {
-            coordinator.register(pluginId, 1, new Tool(toolId, refusal), (permission, operation) -> {});
+            coordinator.register(
+                    "plugin", 1, new Tool(toolId, refusal), (permission, operation) -> {}, pointAndEdgeLayoutGranted);
             coordinator.beginSession(new Session());
             try {
-                coordinator.activate(pluginId, 1, toolId);
+                coordinator.activate("plugin", 1, toolId);
             } catch (RuntimeException ignored) {
                 // The refusal is recorded inside activate(); the coordinator rethrows it.
             }

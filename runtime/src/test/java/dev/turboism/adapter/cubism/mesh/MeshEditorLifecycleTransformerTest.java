@@ -148,7 +148,8 @@ class MeshEditorLifecycleTransformerTest {
                         brush.close();
                     }
                 },
-                (permission, operation) -> {});
+                (permission, operation) -> {},
+                false);
         NativeMeshToolSessionBridge.install(
                 new Object(), 41L, resolver, new NativeMeshToolSessionBridge.SessionListener() {
                     @Override

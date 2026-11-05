@@ -112,7 +112,7 @@ final class ProtectedExportTestFixtures {
                                         : (source, target) ->
                                                 Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)),
                         stagingRoot,
-                        "dev.turboism.plugin.protected-export",
+                        () -> java.util.Optional.of("dev.turboism.plugin.protected-export"),
                         "protected-export",
                         seamInstalled::get,
                         bindingLive::get,

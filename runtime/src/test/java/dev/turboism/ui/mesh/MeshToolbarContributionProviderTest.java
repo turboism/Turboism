@@ -49,7 +49,7 @@ class MeshToolbarContributionProviderTest {
     @Test
     void selectedStateTracksExactActiveIdentityAndSameButtonTogglesOff() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
-        coordinator.register("plugin.a", 1L, tool("a"), (permission, operation) -> {});
+        coordinator.register("plugin.a", 1L, tool("a"), (permission, operation) -> {}, false);
         RecordingHost host = new RecordingHost();
         MeshToolbarContributionProvider provider =
                 new MeshToolbarContributionProvider(admission(4L), host, coordinator);
