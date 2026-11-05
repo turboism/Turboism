@@ -1,11 +1,8 @@
 package dev.turboism.pluginmanagement;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.FrameworkBuildInfo;
+import dev.turboism.core.descriptor.CubismVersionSidecar;
+import dev.turboism.core.descriptor.CubismVersionSidecar.Read;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
@@ -79,11 +76,6 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     static volatile Runnable testBetweenStageAndHotApplyHook;
 
     private static final String DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json";
-    private static final String CUBISM_VERSIONS_ENTRY = "META-INF/turboism/cubism-versions.json";
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     private final Path home;
     private final Path pluginsDirectory;
@@ -625,38 +617,13 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                     if (activeCubism.isEmpty()) {
                         return JarCheckResult.CUBISM_SIDECAR_INCOMPATIBLE;
                     }
-                    final JarEntry cubismSidecar = jar.getJarEntry(CUBISM_VERSIONS_ENTRY);
-                    if (cubismSidecar != null) {
-                        if (cubismSidecar.isDirectory()) {
-                            return JarCheckResult.INVALID;
-                        }
-                        try (InputStream stream = jar.getInputStream(cubismSidecar)) {
-                            final JsonNode root = JSON.readTree(stream);
-                            if (root == null || !root.isObject()) {
-                                return JarCheckResult.INVALID;
-                            }
-                            final JsonNode pluginField = root.get("plugin");
-                            if (pluginField != null
-                                    && (!pluginField.isTextual()
-                                            || !update.pluginId().equals(pluginField.textValue()))) {
-                                return JarCheckResult.INVALID;
-                            }
-                            final JsonNode supported = root.get("supportedVersions");
-                            if (supported == null || !supported.isArray()) {
-                                return JarCheckResult.INVALID;
-                            }
-                            boolean found = false;
-                            final String requiredHost = activeCubism.orElseThrow();
-                            for (JsonNode item : supported) {
-                                if (item != null && item.isTextual() && requiredHost.equals(item.textValue())) {
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) {
-                                return JarCheckResult.CUBISM_SIDECAR_INCOMPATIBLE;
-                            }
-                        }
+                    final Read sidecar = CubismVersionSidecar.read(jar, update.pluginId());
+                    if (sidecar instanceof Read.Malformed) {
+                        return JarCheckResult.INVALID;
+                    }
+                    if (sidecar instanceof Read.Declared declared
+                            && !declared.declaration().supportedVersions().contains(activeCubism.orElseThrow())) {
+                        return JarCheckResult.CUBISM_SIDECAR_INCOMPATIBLE;
                     }
                 }
             }
