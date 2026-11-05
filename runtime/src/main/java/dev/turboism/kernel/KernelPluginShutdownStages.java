@@ -3,18 +3,17 @@ package dev.turboism.kernel;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
 import dev.turboism.core.runtime.work.FatalErrors;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Executes disable, shutdown, scope, classloader, and unload stages in order.
+ * Executes one plugin's disable, shutdown, scope, classloader and unload stage bodies.
  *
- * <p>Each stage is attempted at most once per close generation: outcomes are recorded in the
- * caller-owned {@link CloseProgress}, so a retention re-drive resumes at the first stage that has
- * not completed instead of re-invoking plugin {@code shutdown()} or letting a failed scope close
- * report success on retry. Plugin teardown bodies wait for admitted SDK calls to drain: if the
- * generation guard still has in-flight calls the close defers with
- * {@code PLUGIN_SDK_DRAIN_FAILED} and is re-driven once they settle.</p>
+ * <p>The order, the one-shot semantics and the deferral gates belong to
+ * {@link AdmittedGeneration}: this type only runs the plugin-specific bodies and records their
+ * plugin-visible outcome in the caller-owned {@link CloseReport}. Every stage is isolated per
+ * entrypoint so one failure cannot skip the rest, and a failed step keeps its recorded outcome
+ * instead of being retried into a misleading success — a retry of {@code DisposableScope.close()}
+ * would be an empty success that erases the failure and frees the classloader early.</p>
  */
 final class KernelPluginShutdownStages {
 
@@ -24,107 +23,8 @@ final class KernelPluginShutdownStages {
         this.log = log;
     }
 
-    PreviewPluginShutdownResult close(
-            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-            final String id,
-            final boolean eventQuiesced,
-            final CloseProgress progress) {
-        log.info(id, "Plugin lifecycle: close started");
-        final List<LocalPluginRuntime.PluginSummaryFailure> failures = new ArrayList<>();
-        if (!eventQuiesced) {
-            failures.add(failure(
-                    "PLUGIN_EVENT_QUIESCENCE_FAILED",
-                    "event-quiescence",
-                    "Plugin event callbacks did not quiesce before cleanup."));
-            logFailure(id, "PLUGIN_EVENT_QUIESCENCE_FAILED");
-            log.warn(id, "Plugin lifecycle: close deferred until event callbacks quiesce");
-            return deferredResult(progress, failures);
-        }
-        if (!progress.backupQuiesced) {
-            progress.backupQuiesced = quiesceBackup(loadedPlugin, failures, id);
-            if (!progress.backupQuiesced) {
-                log.warn(id, "Plugin lifecycle: close deferred until backup work quiesces");
-                return deferredResult(progress, failures);
-            }
-        }
-        // Admitted SDK work must drain before teardown bodies: disable()/shutdown() can destroy
-        // plugin state and resources an in-flight pre-fence call still touches, so the gate sits
-        // ahead of teardown, not only ahead of scope/classloader disposal.
-        final PluginGenerationGuard guard = loadedPlugin.guard();
-        if (guard != null && !guard.drained()) {
-            failures.add(failure(
-                    "PLUGIN_SDK_DRAIN_FAILED",
-                    "sdk-drain",
-                    "Plugin SDK calls admitted before fencing did not drain before teardown."));
-            logFailure(id, "PLUGIN_SDK_DRAIN_FAILED");
-            log.warn(id, "Plugin lifecycle: close deferred until admitted SDK calls drain");
-            return deferredResult(progress, failures);
-        }
-        if (!progress.disableAttempted) {
-            progress.disableAttempted = true;
-            progress.disableState = disable(loadedPlugin, failures, id);
-        }
-        if (!progress.shutdownAttempted) {
-            progress.shutdownAttempted = true;
-            progress.shutdownState = shutdown(loadedPlugin, failures, id);
-        }
-        if (!progress.scopeAttempted) {
-            progress.scopeAttempted = true;
-            final ScopeResult scope = closeScope(loadedPlugin, failures, id);
-            progress.scopeClosed = scope.closed();
-            progress.scopeState = scope.state();
-        }
-        if (!progress.classloaderAttempted) {
-            progress.classloaderAttempted = true;
-            progress.classloaderState =
-                    closeClassLoader(loadedPlugin, progress.scopeClosed, eventQuiesced, failures, id);
-        }
-        if (!progress.unloadAttempted) {
-            progress.unloadAttempted = true;
-            progress.unloadState =
-                    unload(loadedPlugin, progress.scopeClosed, eventQuiesced, progress.classloaderState, id);
-        }
-        // Terminal tail, reached only by a non-deferred pass: the executor set captured at
-        // fencing is released once scope closers and the classloader stage have run — the
-        // last paths that can still submit completion work — and only here so deferred
-        // re-drives keep the executor alive until teardown is actually over.
-        if (!progress.executorReleased) {
-            progress.executorReleased = true;
-            try {
-                loadedPlugin.eventOwner().releaseExecutors();
-            } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                log.error(id, "Plugin executor release failed safely", failure);
-            }
-        }
-        log.info(
-                id,
-                "Plugin lifecycle: close complete disable=" + progress.disableState
-                        + " shutdown=" + progress.shutdownState
-                        + " unload=" + progress.unloadState);
-        return progress.result(failures);
-    }
-
-    private PreviewPluginShutdownResult deferredResult(
-            final CloseProgress progress, final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
-        final List<LocalPluginRuntime.PluginSummaryFailure> all = new ArrayList<>(failures);
-        return new PreviewPluginShutdownResult(
-                orNotStarted(progress.disableState),
-                orNotStarted(progress.shutdownState),
-                "FAILED",
-                orNotStarted(progress.scopeState),
-                orNotStarted(progress.classloaderState),
-                all);
-    }
-
-    private static String orNotStarted(final String state) {
-        return state == null ? "NOT_STARTED" : state;
-    }
-
-    private boolean quiesceBackup(
-            final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-            final String id) {
+    /** @return {@code false} when backup work did not quiesce; the caller defers the pass */
+    boolean quiesceBackup(final LocalPluginRuntime.LoadedPlugin loadedPlugin) {
         try {
             if (loadedPlugin.context() != null) {
                 loadedPlugin.context().quiesceBackupOperations();
@@ -132,19 +32,14 @@ final class KernelPluginShutdownStages {
             return true;
         } catch (Throwable exception) {
             FatalErrors.rethrowIfFatal(exception);
-            failures.add(failure(
-                    "PLUGIN_BACKUP_QUIESCENCE_FAILED",
-                    "backup-quiescence",
-                    "Plugin backup work did not quiesce before lifecycle shutdown."));
-            logFailure(id, "PLUGIN_BACKUP_QUIESCENCE_FAILED");
             return false;
         }
     }
 
-    private String disable(
+    String disable(
             final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-            final String id) {
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
+        final String id = loadedPlugin.runtime().id();
         if (loadedPlugin.runtime().state() != PluginLifecycleState.ENABLED) {
             log.debug(
                     id,
@@ -171,10 +66,10 @@ final class KernelPluginShutdownStages {
         return failed ? "FAILED" : "SUCCEEDED";
     }
 
-    private String shutdown(
+    String shutdown(
             final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-            final String id) {
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
+        final String id = loadedPlugin.runtime().id();
         log.info(id, "Plugin lifecycle: shutdown started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
@@ -195,10 +90,10 @@ final class KernelPluginShutdownStages {
         return failed ? "FAILED" : "SUCCEEDED";
     }
 
-    private ScopeResult closeScope(
+    ScopeResult closeScope(
             final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-            final String id) {
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
+        final String id = loadedPlugin.runtime().id();
         try {
             loadedPlugin.scope().close();
             return new ScopeResult(true, "SUCCEEDED");
@@ -212,12 +107,12 @@ final class KernelPluginShutdownStages {
         }
     }
 
-    private String closeClassLoader(
+    String closeClassLoader(
             final LocalPluginRuntime.LoadedPlugin loadedPlugin,
             final boolean scopeClosed,
             final boolean eventQuiesced,
-            final List<LocalPluginRuntime.PluginSummaryFailure> failures,
-            final String id) {
+            final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
+        final String id = loadedPlugin.runtime().id();
         if (!scopeClosed || !eventQuiesced) {
             failures.add(failure(
                     "PLUGIN_CLASSLOADER_RETAINED",
@@ -241,12 +136,12 @@ final class KernelPluginShutdownStages {
         }
     }
 
-    private String unload(
+    String unload(
             final LocalPluginRuntime.LoadedPlugin loadedPlugin,
             final boolean scopeClosed,
             final boolean eventQuiesced,
-            final String classloaderState,
-            final String id) {
+            final String classloaderState) {
+        final String id = loadedPlugin.runtime().id();
         if (loadedPlugin.runtime().state() == PluginLifecycleState.SHUTDOWN
                 && scopeClosed
                 && eventQuiesced
@@ -274,47 +169,19 @@ final class KernelPluginShutdownStages {
         log.error(component, "Plugin lifecycle stage failed safely: " + code, new IllegalStateException(code));
     }
 
-    private record ScopeResult(boolean closed, String state) {}
+    record ScopeResult(boolean closed, String state) {}
 
     /**
-     * At-most-once phase outcomes for one close generation. Shared between the initial close task
-     * and any retention re-drive so completed phases are never re-run and failed disposal steps
-     * keep their recorded outcome instead of being retried into a misleading success.
+     * Plugin-visible verdict data of one close generation: the state each stage reached. Persisted
+     * across retention re-drives — a stage that already ran is never re-run, so its state is the
+     * final word — while the failure list is per pass and belongs to the caller.
      */
-    static final class CloseProgress {
-        boolean backupQuiesced;
-        boolean disableAttempted;
+    static final class CloseReport {
         String disableState;
-        boolean shutdownAttempted;
         String shutdownState;
-        boolean scopeAttempted;
-        boolean scopeClosed;
         String scopeState;
-        boolean classloaderAttempted;
         String classloaderState;
-        boolean unloadAttempted;
         String unloadState;
-        /** Set once this generation's claimed executor set has been released. */
-        boolean executorReleased;
-        /** Set once a terminal UNLOAD verdict has been published for this generation. */
-        boolean unloadVerdictPublished;
-        /**
-         * Set once the close reached a terminal failure whose scope/classloader disposal was
-         * never proven. Retention keeps the generation's references after that point, but the
-         * reclaim must not re-drive stages or re-log: the verdict is sticky.
-         */
-        boolean permanentDisposalFailure;
-
-        /**
-         * @return {@code true} once every plugin-code-bearing stage has been attempted at
-         *     least once: a retention re-drive of this generation can only re-probe the
-         *     quiescence gates, never run {@code disable()}/{@code shutdown()} or scope
-         *     closers again. This is what the shell drain barrier waits for — a generation
-         *     with unattempted stages is not inert even when no worker is currently running.
-         */
-        boolean noPendingStages() {
-            return disableAttempted && shutdownAttempted && scopeAttempted && classloaderAttempted && unloadAttempted;
-        }
 
         PreviewPluginShutdownResult result(final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
             return new PreviewPluginShutdownResult(
@@ -323,7 +190,22 @@ final class KernelPluginShutdownStages {
                     orNotStarted(unloadState),
                     orNotStarted(scopeState),
                     orNotStarted(classloaderState),
-                    failures);
+                    List.copyOf(failures));
+        }
+
+        /** A deferred pass reports the unload as failed and leaves the unattempted stages open. */
+        PreviewPluginShutdownResult deferred(final List<LocalPluginRuntime.PluginSummaryFailure> failures) {
+            return new PreviewPluginShutdownResult(
+                    orNotStarted(disableState),
+                    orNotStarted(shutdownState),
+                    "FAILED",
+                    orNotStarted(scopeState),
+                    orNotStarted(classloaderState),
+                    List.copyOf(failures));
+        }
+
+        private static String orNotStarted(final String state) {
+            return state == null ? "NOT_STARTED" : state;
         }
     }
 }
