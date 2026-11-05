@@ -3,6 +3,8 @@ package dev.turboism.shell;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Frame;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.Window;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
@@ -16,17 +18,50 @@ final class CoreDialogs {
         final JDialog dialog = TurboismWindowFactory.dialog(owner(), title, false);
         if (dialog == null) return null;
         dialog.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
-        dialog.setSize(width, height);
-        dialog.setLocationRelativeTo(dialog.getOwner());
+        final Rectangle usable = usableBounds();
+        final int fittedWidth = Math.min(width, usable.width);
+        final int fittedHeight = Math.min(height, usable.height);
+        dialog.setSize(fittedWidth, fittedHeight);
+        dialog.setLocation(
+                usable.x + Math.max(0, (usable.width - fittedWidth) / 2),
+                usable.y + Math.max(0, (usable.height - fittedHeight) / 2));
         return dialog;
     }
 
     static void show(final JDialog dialog) {
         if (dialog == null) return;
         dialog.setLocationRelativeTo(dialog.getOwner());
+        fitIntoUsableArea(dialog);
         dialog.setVisible(true);
         dialog.toFront();
         dialog.requestFocus();
+    }
+
+    /**
+     * Keeps a dialog inside the usable desktop area (screen minus taskbar).
+     *
+     * <p>High display scaling plus a maximized window can push a dialog footer - the install and
+     * restart buttons of the update window, for example - behind the taskbar. Windows are resized
+     * and repositioned, never re-laid out, so their content keeps its own scrolling behavior.</p>
+     */
+    static void fitIntoUsableArea(final JDialog dialog) {
+        final Rectangle usable = usableBounds();
+        final Rectangle bounds = dialog.getBounds();
+        final int width = Math.min(bounds.width, usable.width);
+        final int height = Math.min(bounds.height, usable.height);
+        final int x = Math.min(Math.max(bounds.x, usable.x), usable.x + usable.width - width);
+        final int y = Math.min(Math.max(bounds.y, usable.y), usable.y + usable.height - height);
+        if (!bounds.equals(new Rectangle(x, y, width, height))) dialog.setBounds(x, y, width, height);
+    }
+
+    /** Usable desktop rectangle for the default screen; falls back to the full screen when unknown. */
+    static Rectangle usableBounds() {
+        final Rectangle usable =
+                GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        if (usable == null || usable.width <= 0 || usable.height <= 0) {
+            return new Rectangle(java.awt.Toolkit.getDefaultToolkit().getScreenSize());
+        }
+        return usable;
     }
 
     static void message(final Window owner, final String title, final String message) {

@@ -93,3 +93,6 @@ dev.turboism.update.SignTestStage.sign() # opt-in staging signer; requires TURBO
 dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.realGifsicleHonorsLimitAndPreservesCountAndTiming() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
 dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.realGifsiclePreservesIdenticalFramesAndSupportsUnlockedPixelScaling() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
 dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.rejectsImpossibleLimitAndMissingExecutable() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
+
+# Symlink creation needs Developer Mode or elevation on Windows; the test asserts real link behavior.
+dev.turboism.pluginmanagement.PendingPluginOperationsSecurityTest.stagingSymlinkFailsClosedWithoutWritingOutsideHome() # requires symbolic-link creation privilege; Windows hosts without Developer Mode skip by design.
