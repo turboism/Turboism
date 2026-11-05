@@ -55,6 +55,9 @@ FORBIDDEN_PRODUCTION_TEXT = (
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
+    # Build-time review tooling compiled in :runtime but excluded from the runtime JAR: the
+    # retired-name and package-shell rules apply to every compiled runtime source tree.
+    "runtime/src/tooling/java",
 )
 
 PACKAGE_ONLY = re.compile(r"\A\s*package\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*;\s*\Z")

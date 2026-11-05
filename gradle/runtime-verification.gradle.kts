@@ -8,9 +8,20 @@ import dev.turboism.gradle.internal.VerificationStamps
 private fun Project.runtimeMainClasspath() = project(":runtime").extensions
     .getByType<SourceSetContainer>().named("main").get().runtimeClasspath
 
+// Build-time review tooling lives in :runtime's `tooling` source set, which is compiled from the
+// same production classes but excluded from the runtime JAR.
+private fun Project.runtimeToolingClasspath() = project(":runtime").extensions
+    .getByType<SourceSetContainer>().named("tooling").get().runtimeClasspath
+
 private fun JavaExec.configureRuntimeJavaExec(project: Project, mainClassName: String) {
     dependsOn(":runtime:classes")
     classpath = project.runtimeMainClasspath()
+    mainClass.set(mainClassName)
+}
+
+private fun JavaExec.configureRuntimeToolingJavaExec(project: Project, mainClassName: String) {
+    dependsOn(":runtime:toolingClasses")
+    classpath = project.runtimeToolingClasspath()
     mainClass.set(mainClassName)
 }
 
@@ -35,7 +46,7 @@ tasks.register<JavaExec>("verifyStaticHostSelectors") {
     description = "Verify an exact-version host JAR against a tracked static verification record."
     val recordPath = providers.gradleProperty("turboismStaticVerificationRecord")
     val artifactPath = providers.gradleProperty("turboismHostArtifact")
-    configureRuntimeJavaExec(project, "dev.turboism.mapping.verification.StaticVerificationCli")
+    configureRuntimeToolingJavaExec(project, "dev.turboism.mapping.verification.StaticVerificationCli")
     doFirst {
         if (!recordPath.isPresent || !artifactPath.isPresent) {
             throw GradleException("Pass -PturboismStaticVerificationRecord=<record.json> -PturboismHostArtifact=<Live2D_Cubism.jar>")
