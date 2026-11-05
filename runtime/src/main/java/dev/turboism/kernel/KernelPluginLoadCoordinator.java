@@ -109,6 +109,8 @@ final class KernelPluginLoadCoordinator {
         final List<LocalPluginRuntime.LoadedPluginSummary> summaries = new ArrayList<>();
         final Set<String> runtimeFailed = new LinkedHashSet<>();
         int waveIndex = 0;
+        final long loadStarted = System.nanoTime();
+        final dev.turboism.ui.host.EdtDispatch.Contention edtBefore = dev.turboism.ui.host.EdtDispatch.contention();
         for (List<DependencyResolver.ResolvedPlugin> wave : loadWaves(resolution, candidates, disabled)) {
             final long waveStarted = System.nanoTime();
             log.info(
@@ -164,6 +166,20 @@ final class KernelPluginLoadCoordinator {
                                     .toMillis());
         }
         log.info("plugin-loader", "Plugin load complete: loaded=" + summaries.size() + ", failed=" + failures.size());
+        // Total worker time is what parallel loading actually pays for; the wall-clock window
+        // divided by it is the parallelism efficiency. EDT contention is reported separately:
+        // plugin enable bodies that touch host UI serialize on that single thread.
+        final long loadWindowMillis =
+                java.time.Duration.ofNanos(System.nanoTime() - loadStarted).toMillis();
+        final long workerBusyMillis = loader.consumedLoadMillis();
+        final dev.turboism.ui.host.EdtDispatch.Contention edtAfter = dev.turboism.ui.host.EdtDispatch.contention();
+        log.info(
+                "plugin-loader",
+                "Plugin load summary: windowMs=" + loadWindowMillis
+                        + " workerBusyMs=" + workerBusyMillis
+                        + " parallelismEfficiency=" + parallelismEfficiency(workerBusyMillis, loadWindowMillis)
+                        + " edtCalls=" + (edtAfter.calls() - edtBefore.calls())
+                        + " edtWaitMs=" + (edtAfter.waitMillis() - edtBefore.waitMillis()));
         // A bare count is not diagnosable. An exact-host run reported failed=1 with nothing
         // naming the plugin or the reason, which cost several host sessions to narrow down by
         // hand; every failure now says which plugin, which code, and why.
@@ -177,6 +193,13 @@ final class KernelPluginLoadCoordinator {
         }
         return new LocalPluginRuntime.LoadReport(
                 List.copyOf(summaries), List.copyOf(failures), List.copyOf(resolution.cycles()));
+    }
+
+    private static String parallelismEfficiency(final long workerBusyMillis, final long windowMillis) {
+        if (windowMillis <= 0L) {
+            return "n/a";
+        }
+        return String.format(java.util.Locale.ROOT, "%.2fx", workerBusyMillis / (double) windowMillis);
     }
 
     /** Build only forward edges in the settled order, preserving all dependency contracts. */

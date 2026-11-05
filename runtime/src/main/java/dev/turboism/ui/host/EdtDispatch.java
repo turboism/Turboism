@@ -58,6 +58,10 @@ public final class EdtDispatch {
     static final int QUEUED = 0;
     static final int RUNNING = 1;
     static final int DONE = 2;
+    private static final java.util.concurrent.atomic.LongAdder DISPATCH_COUNT =
+            new java.util.concurrent.atomic.LongAdder();
+    private static final java.util.concurrent.atomic.LongAdder DISPATCH_WAIT_NANOS =
+            new java.util.concurrent.atomic.LongAdder();
     static final int ABANDONED = 3;
 
     private static final String COMPONENT = "host-edt-dispatch";
@@ -190,6 +194,43 @@ public final class EdtDispatch {
         if (SwingUtilities.isEventDispatchThread()) {
             return runInline(label, task, exact);
         }
+        final long startedNanos = System.nanoTime();
+        try {
+            return dispatchToEventThread(label, acceptTimeout, task, abandonCompensation, exact, scopedDefault);
+        } finally {
+            DISPATCH_COUNT.increment();
+            DISPATCH_WAIT_NANOS.add(System.nanoTime() - startedNanos);
+        }
+    }
+
+    /**
+     * Cumulative off-EDT dispatch contention: how many round trips callers made and how much
+     * wall time they spent blocked on them.
+     *
+     * <p>Startup attribution uses the delta across a plugin load wave: plugins that register UI
+     * contributions synchronously serialize on this single thread, so a large share here means
+     * the cost is host-thread hand-off rather than plugin work.</p>
+     */
+    public static Contention contention() {
+        return new Contention(
+                DISPATCH_COUNT.sum(), java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(DISPATCH_WAIT_NANOS.sum()));
+    }
+
+    /**
+     * Cumulative off-EDT dispatch contention.
+     *
+     * @param calls dispatches made from a non-EDT thread
+     * @param waitMillis total wall time those callers spent waiting
+     */
+    public record Contention(long calls, long waitMillis) {}
+
+    private static <T> T dispatchToEventThread(
+            final String label,
+            final Duration acceptTimeout,
+            final Callable<T> task,
+            final Runnable abandonCompensation,
+            final boolean exact,
+            final boolean scopedDefault) {
         final Queued<T> queued = new Queued<>(label, task);
         SwingUtilities.invokeLater(queued);
         final boolean shortBound = EXITING.get() || (!scopedDefault && EDT_UNRESPONSIVE.get());

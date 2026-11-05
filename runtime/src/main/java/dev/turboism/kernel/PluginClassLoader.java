@@ -34,6 +34,9 @@ import java.util.concurrent.TimeoutException;
  */
 final class PluginClassLoader {
 
+    /** Diagnostic switch: profile every plugin load, not only slow or failed ones. */
+    private static final boolean PROFILE_ALL_LOADS = Boolean.getBoolean("turboism.plugin.loadProfile");
+
     private final KernelPluginContextFactory contextFactory;
     private final KernelLog log;
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
@@ -45,6 +48,9 @@ final class PluginClassLoader {
     private final PluginLifecyclePolicy policy;
     private final RetainedPluginGenerations retention;
     private final PluginLifecycleEvents lifecycleEvents;
+    /** Cumulative worker-busy time of every finished load attempt, for startup attribution. */
+    private final java.util.concurrent.atomic.AtomicLong consumedLoadMillis =
+            new java.util.concurrent.atomic.AtomicLong();
 
     PluginClassLoader(
             final KernelPluginContextFactory contextFactory,
@@ -97,6 +103,7 @@ final class PluginClassLoader {
         final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
                 lane.submit(descriptor.id(), "load", () -> {
                     resources.workerStartedNanos = System.nanoTime();
+                    resources.timeline.mark("queue");
                     try {
                         return loadPlugin(candidate, runtime, resources, lease);
                     } catch (Throwable failure) {
@@ -130,6 +137,17 @@ final class PluginClassLoader {
                 .toMillis();
         if (elapsedMillis > 5_000L) {
             log.warn(descriptor.id(), "Plugin lifecycle: slow load detected elapsedMs=" + elapsedMillis);
+        }
+        final LoadTimeline timeline = resources.timeline;
+        consumedLoadMillis.addAndGet(elapsedMillis);
+        final String profile = "Plugin load profile: totalMs=" + elapsedMillis + timeline;
+        // Slow loads and every failure are always profiled; a diagnostic launch can ask for
+        // every plugin (-Dturboism.plugin.loadProfile=true) when a startup budget is being
+        // attributed across the whole plugin set.
+        if (PROFILE_ALL_LOADS || elapsedMillis >= 200L || result.outcome != PluginLifecycleLane.Outcome.SUCCEEDED) {
+            log.info(descriptor.id(), profile);
+        } else {
+            log.debug(descriptor.id(), profile);
         }
         return switch (result.outcome) {
             case SUCCEEDED -> {
@@ -179,6 +197,11 @@ final class PluginClassLoader {
         };
     }
 
+    /** @return cumulative worker-busy milliseconds of every finished load attempt */
+    long consumedLoadMillis() {
+        return consumedLoadMillis.get();
+    }
+
     record PendingLoad(
             PreviewPluginCandidate candidate,
             PluginRuntime runtime,
@@ -186,6 +209,39 @@ final class PluginClassLoader {
             PluginLifecycleLease lease,
             PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation,
             long startedNanos) {}
+
+    /**
+     * Ordered per-phase durations for one load attempt, recorded on the lifecycle worker.
+     *
+     * <p>Startup latency is diagnosed from these numbers, not from timestamps in the log: a
+     * coordinator thread that awaits a whole wave would otherwise attribute queue time to a
+     * plugin's own work. Marks are appended by the worker only; the coordinator reads the
+     * rendered form after the invocation completes, which publishes them through the
+     * completion future.</p>
+     */
+    private static final class LoadTimeline {
+        private final long startNanos = System.nanoTime();
+        private long markNanos = startNanos;
+        private final StringBuilder rendered = new StringBuilder();
+
+        void mark(final String phase) {
+            final long now = System.nanoTime();
+            rendered.append(' ')
+                    .append(phase)
+                    .append('=')
+                    .append(Duration.ofNanos(now - markNanos).toMillis());
+            markNanos = now;
+        }
+
+        long totalMillis() {
+            return Duration.ofNanos(markNanos - startNanos).toMillis();
+        }
+
+        @Override
+        public String toString() {
+            return rendered.toString();
+        }
+    }
 
     /**
      * Generation admitted for this attempt, or {@code NO_ADMITTED_GENERATION} when the
@@ -264,6 +320,7 @@ final class PluginClassLoader {
                 new URL[] {candidate.jar().toUri().toURL()},
                 resolvePluginParent(TurboismPlugin.class.getClassLoader()));
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
+        resources.timeline.mark("classloader");
 
         resources.phase = "construct";
         resources.entrypoints.addAll(instantiateAll(candidate.descriptor(), resources.classLoader));
@@ -271,6 +328,7 @@ final class PluginClassLoader {
         resources.eventSubscribers =
                 new GeneratedSubscriberCatalogLoader().inspect(resources.entrypoints, resources.classLoader);
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
+        resources.timeline.mark("construct");
 
         resources.phase = "context";
         resources.scope = new DisposableScope();
@@ -287,6 +345,7 @@ final class PluginClassLoader {
         logLocalization(candidate.descriptor(), contextBundle);
         final dev.turboism.sdk.plugin.PluginContext guardedContext = resources.guard.wrap(contextBundle.context());
         resources.eventOwner.beginInitializing();
+        resources.timeline.mark("context");
 
         resources.phase = "init";
         for (TurboismPlugin entrypoint : resources.entrypoints) {
@@ -297,17 +356,19 @@ final class PluginClassLoader {
             resources.initialized++;
         }
         runtime.transitionTo(PluginLifecycleState.LOADED);
+        resources.timeline.mark("init");
         log.info(candidate.descriptor().id(), "Plugin lifecycle: initialized entrypoints=" + resources.initialized);
 
         resources.phase = "enable";
         resources.eventOwner.beginEnabling();
         enableAll(resources, runtime, candidate.descriptor().id(), lease);
+        resources.timeline.mark("enable");
 
         // Commit boundary: activation, hook registration and LoadedPlugin assembly run atomically
         // against the deadline fence. A late worker hits the fence here and unwinds instead of
         // activating a generation the caller already reported timed out.
         resources.phase = "commit";
-        return lease.commit(() -> {
+        final LocalPluginRuntime.LoadedPlugin loaded = lease.commit(() -> {
             resources.eventOwner.activate();
             registerHooks(candidate, resources, contextBundle);
             return new LocalPluginRuntime.LoadedPlugin(
@@ -322,6 +383,8 @@ final class PluginClassLoader {
                     contextBundle.context(),
                     resources.guard);
         });
+        resources.timeline.mark("commit");
+        return loaded;
     }
 
     private void registerHooks(
@@ -475,10 +538,12 @@ final class PluginClassLoader {
         // Every failed generation is fenced — ordinary failures too, not only timeouts — so the
         // guarded context stops admitting work before rollback touches plugin code.
         fenceFailedGeneration(resources);
+        resources.timeline.mark("fence");
         if (resources.eventOwner != null && !resources.eventOwnerClosed) {
             resources.eventOwner.beginClosing();
             final boolean eventQuiesced =
                     resources.eventOwner.awaitQuiescence(awaitEvents ? policy.eventQuiescenceTimeout() : Duration.ZERO);
+            resources.timeline.mark("quiesce");
             if (!eventQuiesced) {
                 if (awaitEvents) {
                     log.error(
@@ -490,8 +555,10 @@ final class PluginClassLoader {
             }
             resources.eventOwner.close();
             resources.eventOwnerClosed = true;
+            resources.timeline.mark("event-close");
         }
         unregisterHooks(resources);
+        resources.timeline.mark("hooks");
         // Teardown bodies wait for SDK calls admitted before the fence to drain: disable() and
         // shutdown() can destroy state an in-flight pre-fence call still touches. The retention
         // watcher re-drives this method once they settle rather than racing plugin code.
@@ -501,10 +568,12 @@ final class PluginClassLoader {
         if (!resources.rolledBack) {
             resources.rolledBack = true;
             disableEnabledAfterFailure(resources, pluginId);
+            resources.timeline.mark("rollback");
         }
         if (!resources.shutdownCalled) {
             resources.shutdownCalled = true;
             shutdownConstructedAfterFailure(resources, pluginId);
+            resources.timeline.mark("shutdown");
         }
         // One-shot disposal: DisposableScope.close() marks itself closed before running closers,
         // so retrying after a failure would be an empty success that erases the recorded failure
@@ -513,22 +582,28 @@ final class PluginClassLoader {
         if (!resources.scopeAttempted) {
             resources.scopeAttempted = true;
             resources.scopeClosed = closeScopeAfterFailure(resources.scope, pluginId);
+            resources.timeline.mark("scope");
         }
         if (resources.scopeClosed && !resources.loaderAttempted) {
             resources.loaderAttempted = true;
             resources.loaderClosed = closeLoaderAfterFailure(resources.classLoader, pluginId);
+            resources.timeline.mark("loader");
         }
         // Executor release sits at the tail — past every deferral return — so late completion
         // submissions during scope close still land on the claimed set, and so the set dies on
         // the terminal pass whether cleanup succeeded or stays retained for a failed step.
+        // A failed generation is fenced and its owner closed, so the set is discarded rather than
+        // drained gracefully: waiting for work that can no longer be delivered used to cost the
+        // full pool shutdown grace (seconds) on the startup path that reported the failure.
         if (resources.eventOwner != null && !resources.executorReleased) {
             resources.executorReleased = true;
             try {
-                resources.eventOwner.releaseExecutors();
+                resources.eventOwner.discardExecutors();
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 log.error(pluginId, "Plugin executor release after load failure failed safely", failure);
             }
+            resources.timeline.mark("executor");
         }
         if (!(resources.scopeClosed && resources.loaderClosed) && !resources.retentionLogged) {
             resources.retentionLogged = true;
@@ -623,6 +698,7 @@ final class PluginClassLoader {
      */
     private static final class LoadResources {
         volatile String phase = "queued";
+        final LoadTimeline timeline = new LoadTimeline();
         volatile long workerStartedNanos;
         volatile long completedNanos;
         volatile URLClassLoader classLoader;
