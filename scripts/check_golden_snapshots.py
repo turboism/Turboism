@@ -9,7 +9,16 @@ import sys
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1] / "tests/fixtures/snapshots"
-ALLOWED_FAMILIES = {"runtime-config", "typed-config", "update-state"}
+ALLOWED_FAMILIES = {
+    "runtime-config",
+    "typed-config",
+    "plugin-properties",
+    "plugin-journal",
+    "catalog-state",
+    "installed-build",
+    "update-state",
+    "update-journal",
+}
 ALLOWED_ORIGINS = {"synthetic-format-v1", "verified-release-artifact"}
 VERIFIED_PROVENANCE_FIELDS = (
     "releaseTag",

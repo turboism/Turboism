@@ -1,0 +1,23 @@
+{
+  "format" : "turboism.plugin.pending",
+  "schemaVersion" : 1,
+  "operations" : [ {
+    "type" : "UNINSTALL",
+    "pluginId" : "dev.turboism.plugin.example",
+    "stagedJar" : "",
+    "version" : "",
+    "rawSha256" : "",
+    "descriptorSha256" : "",
+    "jarSha256" : "",
+    "jarSize" : 0
+  }, {
+    "type" : "INSTALL",
+    "pluginId" : "dev.turboism.plugin.uitheme",
+    "stagedJar" : "/tmp/turboism-golden-corpus/plugin-journal/home/state/runtime/plugin-management/packages/dev.turboism.plugin.uitheme-f3266d4132ba18f2b7d84b156da93eca0f037cde76b7995b52854f4dc24f212e.jar",
+    "version" : "0.1.0",
+    "rawSha256" : "f3266d4132ba18f2b7d84b156da93eca0f037cde76b7995b52854f4dc24f212e",
+    "descriptorSha256" : "05de9c461f382f616dec13c16ea1f099a6d254e0ac012052852764f93b977a77",
+    "jarSha256" : "9c26efa63293cbdb327609df481b57c7df3bb6ea679f18a8e8211c42a055d22b",
+    "jarSize" : 130987
+  } ]
+}

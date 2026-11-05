@@ -32,6 +32,14 @@ public final class UpdateFileSupport {
     private static final WriteOptions STATE_WRITE =
             WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
 
+    /**
+     * Suffix of the single bounded recovery image kept when a document can no longer be read as the
+     * current schema. Named after the whole file ({@code update-state.json.corrupt.bak}) so a user
+     * can find it next to the document it preserves, and rewritten rather than appended so the
+     * retention is exactly one image.
+     */
+    static final String UNREADABLE_SUFFIX = ".corrupt.bak";
+
     private UpdateFileSupport() {}
 
     static Path normalizeHome(final Path requestedHome) {
@@ -57,6 +65,12 @@ public final class UpdateFileSupport {
 
     static void writeAtomic(final Path home, final Path path, final ObjectNode object) throws IOException {
         Objects.requireNonNull(object, "object");
+        final byte[] bytes = JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(object);
+        if (bytes.length > MAX_FILE_BYTES) throw new IOException("update state is too large");
+        writeAtomic(home, path, bytes);
+    }
+
+    private static void writeAtomic(final Path home, final Path path, final byte[] bytes) throws IOException {
         final Path parent = path.getParent();
         if (parent == null || !path.startsWith(home)) throw new IOException("update path escaped home");
         rejectSymlinkChain(home, parent);
@@ -65,14 +79,40 @@ public final class UpdateFileSupport {
         if (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(path)) {
             throw new IOException("update state file is symbolic link");
         }
-        final byte[] bytes = JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(object);
-        if (bytes.length > MAX_FILE_BYTES) throw new IOException("update state is too large");
         // The chain is re-checked while the previous state file is still visible: a directory that
         // turned into a link during the write must not receive the new bytes.
         DurableFile.at(path)
                 .withOptions(STATE_WRITE)
                 .guardedBy((staged, target) -> rejectSymlinkChain(home, target))
                 .replace(bytes);
+    }
+
+    /** Returns the bounded recovery image path for {@code path}. */
+    static Path unreadableSibling(final Path path) {
+        return path.resolveSibling(path.getFileName() + UNREADABLE_SUFFIX);
+    }
+
+    /**
+     * Keeps one copy of a stored document that the current reader cannot accept, before the caller
+     * replaces it.
+     *
+     * <p>Only corrupt bytes, unknown fields and future {@code schemaVersion} documents reach this
+     * path: a document this build reads normally is overwritten with no extra copy, so a healthy
+     * installation never accumulates backups. The copy is written through the same atomic
+     * temporary-and-move path as the document itself, replaces any earlier image (retention is
+     * exactly one) and is best effort — a failed recovery copy must never block the write that
+     * follows or turn a save into data loss.</p>
+     */
+    static void preserveUnreadable(final Path home, final Path path) {
+        try {
+            rejectSymlinkChain(home, path);
+            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) return;
+            if (Files.size(path) > MAX_FILE_BYTES) return;
+            final byte[] bytes = Files.readAllBytes(path);
+            writeAtomic(home, unreadableSibling(path), bytes);
+        } catch (IOException | RuntimeException unavailable) {
+            // Best effort by contract: the caller's write still proceeds.
+        }
     }
 
     /** Copies a file via a temporary sibling, preserving the source for recovery. */

@@ -643,6 +643,8 @@ tasks.register<Test>("persistenceGoldenSnapshotsTest") {
     useJUnitPlatform()
     filter {
         includeTestsMatching("dev.turboism.config.PersistenceGoldenSnapshotsTest")
+        includeTestsMatching("dev.turboism.pluginmanagement.PluginPersistenceJournalCompatibilityTest")
+        includeTestsMatching("dev.turboism.update.GoldenUpdateStateSnapshotsTest")
         isFailOnNoMatchingTests = true
     }
 }
