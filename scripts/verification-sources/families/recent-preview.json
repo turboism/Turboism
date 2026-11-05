@@ -54,5 +54,8 @@
  ],
  "packs": [],
  "coverageSources": [],
- "coverage": false
+ "coverage": false,
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }
