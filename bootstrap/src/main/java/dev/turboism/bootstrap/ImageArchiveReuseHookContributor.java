@@ -19,8 +19,8 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedImageArchiveReuseInstaller installer = new VerifiedImageArchiveReuseInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedImageArchiveReuseInstaller installer =
+                new VerifiedImageArchiveReuseInstaller(InstallContext.of(environment));
         installer.install();
         return installer;
     }

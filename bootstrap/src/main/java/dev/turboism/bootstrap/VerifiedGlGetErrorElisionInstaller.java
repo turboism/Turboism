@@ -44,7 +44,7 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
             "glGetError elision",
             VerifiedGlGetErrorElisionInstaller::resolve,
             new WeavePlan<>(VerifiedGlGetErrorElisionInstaller::targets, VerifiedGlGetErrorElisionInstaller::unelided),
-            BridgeLayer.NONE,
+            BridgeFactory.none(),
             EFFECTS);
 
     private final InstallContext context;

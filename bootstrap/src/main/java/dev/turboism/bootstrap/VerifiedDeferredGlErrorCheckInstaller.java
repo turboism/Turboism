@@ -8,15 +8,14 @@ import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridg
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
-import java.util.jar.JarFile;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * Exact deferred GL error-check admission and restoration for the production
- * {@code launcher.mesaGlThread} option. Two host classes are rewritten: the
+ * {@code launcher.mesaGlThread} option. Two host classes are rewritten by one transformer: the
  * shader error-check helper (its {@code glGetError} site becomes a deferred
  * checkpoint) and the render-scope owner (every {@code render3d} return
  * consults the armed frame-end report). Reference bytecode comes from the
@@ -25,6 +24,11 @@ import java.util.jar.JarFile;
  * are admitted explicitly via a private probe — never by trusting observed
  * chain output. On close each class must hash back to its pre-rewrite
  * SHA-256.
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}. One transformer declared against two
+ * classes is registered once and retransforms both in one call, so the composed shape it accepts
+ * covers the whole rewrite set; the close proof then compares each owner against the digest the
+ * transformer observed before it rewrote that owner.</p>
  */
 final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
 
@@ -33,11 +37,26 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
 
-    private final Instrumentation instrumentation;
-    private final DeferredGlErrorCheckTarget target;
-    private final Class<?> errorType, frameType;
-    private final DeferredGlErrorCheckTransformer transformer;
-    private boolean installed, restored;
+    /** The transformer's matched sites across both rewritten classes; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 2;
+
+    /** The close proof re-captures both rewritten classes; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 2;
+
+    static final WeaveSpec<DeferredGlErrorCheckTarget> SPEC = new WeaveSpec<DeferredGlErrorCheckTarget>(
+            ADMISSION,
+            "deferred error check",
+            VerifiedDeferredGlErrorCheckInstaller::resolve,
+            new WeavePlan<>(VerifiedDeferredGlErrorCheckInstaller::targets, WeavePlan.PostCheck.NONE),
+            BridgeFactory.none(),
+            WeaveEffects.none());
+
+    private final InstallContext context;
+    private VerifiedInstall<DeferredGlErrorCheckTarget> hook;
+
+    VerifiedDeferredGlErrorCheckInstaller(final InstallContext context) {
+        this.context = context;
+    }
 
     static boolean admitted(
             final HostArtifactDigest digest,
@@ -52,89 +71,84 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
                 () -> DeferredGlErrorCheckTarget.of(digest).isPresent());
     }
 
-    VerifiedDeferredGlErrorCheckInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        target = DeferredGlErrorCheckTarget.of(HostArtifactDigest.from(artifact))
-                .orElseThrow(() -> new IllegalArgumentException("deferred error check unsupported host artifact"));
-        if (Runtime.version().feature() < 17) {
-            throw new IllegalArgumentException("deferred error check requires JVM17+");
-        }
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        if (GlGetErrorElisionTransformer.isInstalled(loader, target.errorOwner())) {
+    private static Optional<DeferredGlErrorCheckTarget> resolve(final Path artifact) throws Exception {
+        return DeferredGlErrorCheckTarget.of(HostArtifactDigest.from(artifact));
+    }
+
+    private static List<WeaveTarget> targets(final DeferredGlErrorCheckTarget target, final WeaveSource source)
+            throws Exception {
+        final Class<?> errorType = source.load(target.errorOwner());
+        final Class<?> frameType = source.load(target.frameOwner());
+        if (GlGetErrorElisionTransformer.isInstalled(source.loader(), target.errorOwner())) {
             // The test-only elision already consumed the error-check site;
             // deferred checking is the production replacement, not a stacking
             // mode, so the pair stays mutually exclusive.
             throw new IllegalStateException("deferred error check excludes the test-only elision");
         }
-        errorType = Class.forName(target.errorOwner().replace('/', '.'), false, loader);
-        frameType = Class.forName(target.frameOwner().replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                errorType, loader, artifact, "deferred-check loader/source mismatch: " + errorType.getName());
-        VerifiedHookInstallerSupport.attestClassSource(
-                frameType, loader, artifact, "deferred-check loader/source mismatch: " + frameType.getName());
         // The frame-end report needs the host logger and GLException shape the
         // bridge binds lazily; refuse admission up front when they are absent.
-        if (UniformLocationHookBridge.DeferredAccessors.resolve(loader) == null) {
+        if (UniformLocationHookBridge.DeferredAccessors.resolve(source.loader()) == null) {
             throw new IllegalStateException("deferred error check report path absent");
         }
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            final byte[] errorReference = VerifiedHookInstallerSupport.readReferenceBytes(
-                    jar, errorType, "deferred-check reference class missing: " + errorType.getName());
-            final byte[] frameReference = VerifiedHookInstallerSupport.readReferenceBytes(
-                    jar, frameType, "deferred-check reference class missing: " + frameType.getName());
-            transformer = new DeferredGlErrorCheckTransformer(loader, artifact, errorReference, frameReference, target);
-            final List<String> errorComposed = composedShape(
-                    loader,
-                    artifact,
-                    errorReference,
-                    UniformLocationLifecycleTransformer.Role.ERROR,
-                    errorType,
-                    target.errorOwner(),
-                    DeferredGlErrorCheckTarget.ERROR_METHOD,
-                    DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR);
-            if (errorComposed != null) {
-                transformer.acceptComposedShape(target.errorOwner(), errorComposed);
-            }
-            final List<String> frameComposed = composedShape(
-                    loader,
-                    artifact,
-                    frameReference,
-                    UniformLocationLifecycleTransformer.Role.FRAME,
-                    frameType,
-                    target.frameOwner(),
-                    DeferredGlErrorCheckTarget.FRAME_METHOD,
-                    DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR);
-            if (frameComposed != null) {
-                transformer.acceptComposedShape(target.frameOwner(), frameComposed);
-            }
-            verify(
-                    errorType,
-                    VerifiedHookInstallerSupport.captureLoadedBytes(
-                            instrumentation,
-                            errorType,
-                            "deferred-check class unmodifiable: " + errorType.getName(),
-                            "deferred-check capture absent: " + errorType.getName()),
-                    target.errorOwner(),
-                    DeferredGlErrorCheckTarget.ERROR_METHOD,
-                    DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
-                    errorReference,
-                    errorComposed);
-            verify(
-                    frameType,
-                    VerifiedHookInstallerSupport.captureLoadedBytes(
-                            instrumentation,
-                            frameType,
-                            "deferred-check class unmodifiable: " + frameType.getName(),
-                            "deferred-check capture absent: " + frameType.getName()),
-                    target.frameOwner(),
-                    DeferredGlErrorCheckTarget.FRAME_METHOD,
-                    DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR,
-                    frameReference,
-                    frameComposed);
+        final byte[] errorReference = source.referenceBytes(errorType);
+        final byte[] frameReference = source.referenceBytes(frameType);
+        final DeferredGlErrorCheckTransformer transformer = new DeferredGlErrorCheckTransformer(
+                source.loader(), source.artifact(), errorReference, frameReference, target);
+        final List<String> errorComposed = composedShape(
+                source,
+                errorReference,
+                UniformLocationLifecycleTransformer.Role.ERROR,
+                errorType,
+                target.errorOwner(),
+                DeferredGlErrorCheckTarget.ERROR_METHOD,
+                DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR);
+        if (errorComposed != null) {
+            transformer.acceptComposedShape(target.errorOwner(), errorComposed);
         }
+        final List<String> frameComposed = composedShape(
+                source,
+                frameReference,
+                UniformLocationLifecycleTransformer.Role.FRAME,
+                frameType,
+                target.frameOwner(),
+                DeferredGlErrorCheckTarget.FRAME_METHOD,
+                DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR);
+        if (frameComposed != null) {
+            transformer.acceptComposedShape(target.frameOwner(), frameComposed);
+        }
+        verify(
+                errorType,
+                errorReference,
+                target.errorOwner(),
+                DeferredGlErrorCheckTarget.ERROR_METHOD,
+                DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
+                errorComposed,
+                source);
+        verify(
+                frameType,
+                frameReference,
+                target.frameOwner(),
+                DeferredGlErrorCheckTarget.FRAME_METHOD,
+                DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR,
+                frameComposed,
+                source);
+        return List.of(
+                new WeaveTarget(
+                        errorType,
+                        transformer,
+                        EXPECTED_MATCHES,
+                        transformer::matches,
+                        transformer::failure,
+                        Set.of(target.errorOwner()),
+                        transformer::beforeSha256),
+                new WeaveTarget(
+                        frameType,
+                        transformer,
+                        EXPECTED_MATCHES,
+                        transformer::matches,
+                        transformer::failure,
+                        Set.of(target.frameOwner()),
+                        transformer::beforeSha256));
     }
 
     /**
@@ -145,8 +159,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
      * admitted. The shape is derived, never trusted from chain output.
      */
     private static List<String> composedShape(
-            final ClassLoader loader,
-            final Path artifact,
+            final WeaveSource source,
             final byte[] reference,
             final UniformLocationLifecycleTransformer.Role role,
             final Class<?> type,
@@ -155,10 +168,10 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
             final String descriptor) {
         try {
             final var probe = new UniformLocationLifecycleTransformer(
-                    loader, artifact, reference, role, HostArtifactDigest.from(artifact));
+                    source.loader(), source.artifact(), reference, role, HostArtifactDigest.from(source.artifact()));
             final byte[] output = probe.transform(
                     type.getModule(),
-                    loader,
+                    source.loader(),
                     type.getName().replace('.', '/'),
                     null,
                     type.getProtectionDomain(),
@@ -171,13 +184,18 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
 
     private static void verify(
             final Class<?> type,
-            final byte[] actual,
+            final byte[] reference,
             final String owner,
             final String method,
             final String descriptor,
-            final byte[] reference,
-            final List<String> composed)
+            final List<String> composed,
+            final WeaveSource source)
             throws Exception {
+        final byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
+                source.instrumentation(),
+                type,
+                "deferred-check class unmodifiable: " + type.getName(),
+                "deferred-check capture absent: " + type.getName());
         final List<String> official = ReviewedMethodShape.read(reference, owner, method, descriptor);
         final List<String> observed = ReviewedMethodShape.read(actual, owner, method, descriptor);
         if (official == null || observed == null || (!official.equals(observed) && !observed.equals(composed))) {
@@ -185,26 +203,24 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         }
     }
 
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalArgumentException when the artifact is not a reviewed deferred-check host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isModifiableClass(errorType) || !instrumentation.isModifiableClass(frameType)) {
-            throw new IllegalStateException("deferred-check class unmodifiable");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context)
+                instanceof VerifiedInstall.Attempt.Installed<DeferredGlErrorCheckTarget> installed)) {
+            throw new IllegalStateException("deferred error check refused: host-not-supported-or-hook-disabled");
         }
-        try {
-            instrumentation.addTransformer(transformer, true);
-            installed = true;
-            instrumentation.retransformClasses(errorType, frameType);
-            if (transformer.matches() != 2 || transformer.failure() != null) {
-                throw new IllegalStateException("deferred-check not admitted: " + transformer.failure());
-            }
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     /** Returns the reviewed target description for the install marker log. */
     String targetDescription() {
+        final DeferredGlErrorCheckTarget target = hook.contract();
         return target.errorOwner() + "." + DeferredGlErrorCheckTarget.ERROR_METHOD
                 + DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR + " + "
                 + target.frameOwner() + "." + DeferredGlErrorCheckTarget.FRAME_METHOD
@@ -213,33 +229,10 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (!installed) return;
-        instrumentation.removeTransformer(transformer);
-        restored = true;
-        for (final Map.Entry<Class<?>, String> owner : Map.ofEntries(
-                        Map.entry(errorType, target.errorOwner()), Map.entry(frameType, target.frameOwner()))
-                .entrySet()) {
-            try {
-                final String hash =
-                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
-                                instrumentation,
-                                owner.getKey(),
-                                "deferred-check class unmodifiable: "
-                                        + owner.getKey().getName(),
-                                "deferred-check capture absent: "
-                                        + owner.getKey().getName()));
-                if (!hash.equals(transformer.beforeSha256(owner.getValue()))) {
-                    throw new IllegalStateException("deferred-check restoration not proven: " + owner.getValue());
-                }
-            } catch (Exception failure) {
-                restored = false;
-                throw new IllegalStateException("deferred-check restoration failed", failure);
-            }
-        }
-        installed = false;
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

@@ -4,9 +4,11 @@ import dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackBridge;
 import dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackTarget;
 import dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.Instrumentation;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.jar.JarFile;
 
 /**
@@ -20,124 +22,122 @@ import java.util.jar.JarFile;
  *
  * <p>Composition: no other Turboism transformer touches this JOGL class, so the rewrite sees the
  * official bytes on every retransformation and the shape gate is stable.</p>
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}. Its admission row never consults the
+ * startup policy — the sole switch is the persisted {@code launcher.asyncReadback} preference, which
+ * production gates before the hook is installed — and its contract payload is the attested JOGL
+ * artifact, because every reference byte this weave reads comes from there rather than from the
+ * Editor jar.</p>
  */
 final class VerifiedAsyncReadbackInstaller implements AutoCloseable {
 
     /** Stable hook identity used by the contributor and the settings diagnostics. */
     static final String HOOK_ID = "cubism.render.async-readback";
 
-    private final Instrumentation instrumentation;
-    private final Class<?> entry;
-    private final AsyncReadbackTransformer transformer;
-    private final Path joglArtifact;
-    private boolean installed;
-    private boolean restored;
-    private boolean registered;
+    /** The admission row this hook froze: no kill switch of its own, no JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.ANY);
 
-    VerifiedAsyncReadbackInstaller(final Instrumentation instrumentation, final Path artifact, final ClassLoader loader)
-            throws Exception {
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        joglArtifact = artifact.toAbsolutePath()
+    /** The one {@code postGL} readback site this hook rewrites; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
+
+    static final WeaveSpec<Path> SPEC = new WeaveSpec<Path>(
+            ADMISSION,
+            "async readback",
+            VerifiedAsyncReadbackInstaller::resolve,
+            new WeavePlan<>(VerifiedAsyncReadbackInstaller::targets, WeavePlan.PostCheck.NONE),
+            (jogl, context) -> BridgeLayer.of(AsyncReadbackBridge::install, AsyncReadbackBridge::uninstall),
+            WeaveEffects.none());
+
+    private final InstallContext context;
+    private VerifiedInstall<Path> hook;
+
+    VerifiedAsyncReadbackInstaller(final InstallContext context) {
+        this.context = context;
+    }
+
+    private static Optional<Path> resolve(final Path artifact) throws Exception {
+        final Path jogl = joglArtifact(artifact);
+        return AsyncReadbackTarget.admitted(HostArtifactDigest.from(jogl)) ? Optional.of(jogl) : Optional.empty();
+    }
+
+    private static Path joglArtifact(final Path artifact) {
+        return artifact.toAbsolutePath()
                 .getParent()
                 .resolve("jogl/jogl-all.jar")
                 .normalize();
-        if (!AsyncReadbackTarget.admitted(HostArtifactDigest.from(joglArtifact))) {
-            throw new IllegalArgumentException("async readback bundled JOGL identity mismatch");
-        }
-        entry = Class.forName(AsyncReadbackTarget.OWNER.replace('/', '.'), false, loader);
+    }
+
+    private static List<WeaveTarget> targets(final Path jogl, final WeaveSource source) throws Exception {
+        final Class<?> entry = Class.forName(AsyncReadbackTarget.OWNER.replace('/', '.'), false, source.loader());
         VerifiedHookInstallerSupport.attestClassSource(
-                entry,
-                entry.getClassLoader(),
-                joglArtifact,
-                "async readback loader/source mismatch: " + entry.getName());
+                entry, entry.getClassLoader(), jogl, "async readback loader/source mismatch: " + entry.getName());
         // The rewritten bytecode calls the bridge statically, so it must link from the JOGL loader.
         Class.forName(AsyncReadbackTarget.BRIDGE_CLASS, false, entry.getClassLoader());
         final byte[] reference;
-        try (JarFile jar = new JarFile(joglArtifact.toFile())) {
+        try (JarFile jar = new JarFile(jogl.toFile())) {
             reference = VerifiedHookInstallerSupport.readReferenceBytes(
                     jar, entry, "async readback reference class missing");
         }
-        transformer = new AsyncReadbackTransformer(entry.getClassLoader(), joglArtifact, reference);
+        final AsyncReadbackTransformer transformer =
+                new AsyncReadbackTransformer(entry.getClassLoader(), jogl, reference);
+        return List.of(WeaveTarget.single(
+                entry,
+                transformer,
+                EXPECTED_MATCHES,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
     }
 
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalArgumentException when the bundled JOGL artifact is not the reviewed one
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) {
-            return;
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context) instanceof VerifiedInstall.Attempt.Installed<Path> installed)) {
+            throw new IllegalArgumentException("async readback bundled JOGL identity mismatch");
         }
-        if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("async readback entry unmodifiable: " + entry.getName());
-        }
-        try {
-            instrumentation.addTransformer(transformer, true);
-            registered = true;
-            instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException(
-                        "async readback entry not admitted: " + entry.getName() + " " + transformer.failure());
-            }
-            AsyncReadbackBridge.install();
-            installed = true;
-        } catch (Exception | Error failure) {
-            // @containment-exempt: close runs cleanup before rethrowing with fatal error prioritized
-            try {
-                close();
-            } catch (Exception | Error cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(
-                        dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, cleanup));
-            }
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
+    /**
+     * Unweaves, proves the restoration and reports the counters the workload reconciles against.
+     * A close without an installed handle reports the same {@code installed=false} line the
+     * hand-rolled protocol always carried.
+     */
     @Override
     public synchronized void close() {
-        final Map<String, Long> stats = AsyncReadbackBridge.snapshot();
-        AsyncReadbackBridge.uninstall();
-        if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                    "bootstrap", "TURBOISM_ASYNC_READBACK closed " + report(stats) + " installed=false");
+        if (hook == null) {
+            log("TURBOISM_ASYNC_READBACK closed " + report(AsyncReadbackBridge.snapshot()) + " installed=false");
             return;
         }
-        if (registered) {
-            instrumentation.removeTransformer(transformer);
-            registered = false;
-        }
+        final Map<String, Long> stats = AsyncReadbackBridge.snapshot();
         try {
-            if (transformer.beforeSha256() == null) {
-                restored = true;
-                installed = false;
-                dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                        "bootstrap", "TURBOISM_ASYNC_READBACK closed " + report(stats) + " restored=true");
-                return;
-            }
-            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation, entry, null, "async readback class capture absent: " + entry.getName());
-            if (!VerifiedHookInstallerSupport.sha256Hex(original).equals(transformer.beforeSha256())) {
-                throw new IllegalStateException("async readback restoration not proven: " + entry.getName());
-            }
-            restored = true;
-            installed = false;
-        } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                    "bootstrap",
-                    "TURBOISM_ASYNC_READBACK closed " + report(stats) + " restored=false reason=" + failure);
-            throw new IllegalStateException("async readback restoration failed", failure);
+            hook.close();
+        } catch (RuntimeException | Error failure) {
+            log("TURBOISM_ASYNC_READBACK closed " + report(stats) + " restored=false reason=" + failure);
+            throw failure;
         }
-        dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                "bootstrap", "TURBOISM_ASYNC_READBACK closed " + report(stats) + " restored=true");
+        log("TURBOISM_ASYNC_READBACK closed " + report(stats) + " restored=" + hook.restored());
+    }
+
+    boolean restored() {
+        return hook != null && hook.restored();
+    }
+
+    private static void log(final String line) {
+        RuntimeDiagnostics.info("bootstrap", line);
     }
 
     private static String report(final Map<String, Long> stats) {
         final StringBuilder line = new StringBuilder();
         stats.forEach((key, value) -> line.append(key).append('=').append(value).append(' '));
         return line.toString().trim();
-    }
-
-    boolean restored() {
-        return restored;
     }
 }
