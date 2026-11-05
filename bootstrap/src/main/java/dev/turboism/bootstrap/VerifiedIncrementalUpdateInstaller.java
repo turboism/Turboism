@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTransformer;
+import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -33,6 +34,8 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
     private final IncrementalUpdateTransformer transformer;
     private final IncrementalUpdateBridge bridge;
     private boolean installed, restored;
+    /** True while the glue-affecter sub-mode is reported as installed, so closing reports itself. */
+    private boolean affectersReported;
 
     private static final List<ReviewedHostContract.Candidate<IncrementalUpdateTarget>> CANDIDATES =
             ReviewedHostContract.candidates(
@@ -151,11 +154,38 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
             throw failure;
         }
+        reportAffecters();
+    }
+
+    /**
+     * Reports the glue-affecter sub-mode from the point where this installer decides it: the
+     * incremental weave owns it, so the bridge's host glue class and affecter switch are the
+     * only remaining gates once the entry classes are verified.
+     */
+    private void reportAffecters() {
+        final String refusal = bridge.affecterReuseRefusal();
+        if (refusal != null) {
+            NativeOptimizationDiagnostics.installed(
+                    NativeOptimizationDiagnostics.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", refusal);
+            return;
+        }
+        affectersReported = true;
+        NativeOptimizationDiagnostics.installed(
+                NativeOptimizationDiagnostics.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "installed", "verified");
+    }
+
+    /** The sub-mode cannot survive the weave it rides, so a closed installer proves nothing. */
+    private void reportAffectersClosed() {
+        if (!affectersReported) return;
+        affectersReported = false;
+        NativeOptimizationDiagnostics.installed(
+                NativeOptimizationDiagnostics.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", "closed");
     }
 
     @Override
     public synchronized void close() {
         bridge.close();
+        reportAffectersClosed();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         try {
