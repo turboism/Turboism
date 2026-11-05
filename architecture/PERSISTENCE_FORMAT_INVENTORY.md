@@ -397,8 +397,9 @@ First-party plugins still using it: `external-psd-edit` (`external-editor.proper
 `RuntimePluginStorage` is a permission facade over `ConfinedStorageBackend`, which is confined to
 three roots per plugin (`TurboismHomeLayout#plugin`): `data/<pluginId>`, `state/<pluginId>`,
 `cache/<pluginId>`. Writes go through `writeBytesAtomicLocked` → `StorageFiles#writeDurably`
-(`CREATE_NEW` + `force`) → `StorageAtomicMover#move` (`ATOMIC_MOVE`, fail-closed when the
-filesystem cannot do it). There is **no format layer**: the bytes are whatever the plugin encodes.
+(`dev.turboism.core.io.DurableFile`, create-once + `force`) → `StorageFiles#moveAtomically`
+(atomic replacement, fail-closed when the filesystem cannot do it). There is **no format layer**:
+the bytes are whatever the plugin encodes.
 
 Persisted first-party state found in the current tree:
 
