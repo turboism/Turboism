@@ -1,9 +1,10 @@
 package dev.turboism.home;
 
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.DurableWriteException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 
 /**
@@ -32,8 +33,8 @@ public final class LegacyHomeMigration {
      *
      * @param home the Turboism home root to migrate in place
      * @throws IOException if walking, creating or moving fails, including
-     *     {@link java.nio.file.AtomicMoveNotSupportedException} when source and destination are
-     *     on different file stores
+     *     {@link DurableWriteException} with {@code ATOMIC_REPLACE_UNAVAILABLE} when source and
+     *     destination are on different file stores
      */
     public static void migrate(final Path home) throws IOException {
         final TurboismHomeLayout layout = TurboismHomeLayout.create(home);
@@ -92,7 +93,9 @@ public final class LegacyHomeMigration {
             return;
         }
         Files.createDirectories(destination.getParent());
-        Files.move(path, destination, StandardCopyOption.ATOMIC_MOVE);
+        // Nothing exists at the destination, so this is a create-once publication: the durable
+        // module forces the legacy file and fails closed when the move cannot be atomic.
+        DurableFile.createOnce(destination).adoptKeepingSource(path);
     }
 
     private static void deleteEmptyTree(final Path root) throws IOException {

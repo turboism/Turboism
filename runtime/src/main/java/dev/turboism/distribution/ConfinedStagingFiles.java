@@ -1,14 +1,16 @@
 package dev.turboism.distribution;
 
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.PublishGuard;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Objects;
 import java.util.UUID;
 
 /** Confines package extraction to an existing, stable, non-link staging directory. */
@@ -62,8 +64,23 @@ final class ConfinedStagingFiles {
         void publish() throws IOException {
             output.close();
             verify();
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
-            verify();
+            // The staged name is content-addressed, so re-staging the same package publishes the
+            // same bytes over the previous one instead of failing on an existing name.
+            DurableFile.at(target).guardedBy(publishGuard()).adoptKeepingSource(temporary);
+        }
+
+        private PublishGuard publishGuard() {
+            return new PublishGuard() {
+                @Override
+                public void beforePublish(final Path staged, final Path published) throws IOException {
+                    verify();
+                }
+
+                @Override
+                public void afterPublish(final Path staged, final Path published) throws IOException {
+                    verify();
+                }
+            };
         }
 
         void cleanup() {
@@ -82,7 +99,7 @@ final class ConfinedStagingFiles {
             final BasicFileAttributes current = reader.read(directory);
             final Object expectedKey = identity.fileKey();
             final Object currentKey = current.fileKey();
-            if (!current.isDirectory() || (expectedKey != null && !java.util.Objects.equals(expectedKey, currentKey))) {
+            if (!current.isDirectory() || (expectedKey != null && !Objects.equals(expectedKey, currentKey))) {
                 throw new IOException("staging directory identity changed");
             }
         }

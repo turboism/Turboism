@@ -986,6 +986,11 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 
+    /**
+     * Swaps a whole managed-runtime directory tree. A directory rename is the documented
+     * exception to {@code dev.turboism.core.io.DurableFile}: there is no file payload to stage,
+     * force and publish, so only the atomic-move requirement is kept.
+     */
     private static void moveAtomically(final Path source, final Path target) throws IOException {
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);

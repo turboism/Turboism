@@ -2,11 +2,12 @@ package dev.turboism.adapter.cubism.performance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.WriteOptions;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,12 +17,16 @@ import java.util.Map;
  *
  * <p>The report identifies the exact bytes it describes - host artifact, agent, and
  * fixture digests - so a measurement can never be silently attributed to a different
- * build. Output is capped at 256 KiB and published by writing a sibling {@code .tmp}
- * file and moving it into place, atomically where the filesystem allows.</p>
+ * build. Output is capped at 256 KiB and published through a uniquely named sibling
+ * temporary file, atomically where the filesystem allows.</p>
  */
 public final class PerformanceProbeReportWriter {
 
     private static final int MAX_BYTES = 256 * 1024;
+    /** A report is evidence, not live state: a plain replacing move is better than no report. */
+    private static final WriteOptions PREFER_ATOMIC_REPLACE =
+            WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
@@ -129,13 +134,7 @@ public final class PerformanceProbeReportWriter {
         if (bytes.length > MAX_BYTES) throw new IOException("performance probe report exceeds 256 KiB");
         final Path target = output.toAbsolutePath().normalize();
         Files.createDirectories(target.getParent());
-        final Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.write(temporary, bytes);
-        try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        DurableFile.at(target).withOptions(PREFER_ATOMIC_REPLACE).replace(bytes);
     }
 
     private static String requireText(final String value, final String name) {

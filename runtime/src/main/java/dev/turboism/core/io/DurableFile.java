@@ -151,23 +151,23 @@ public final class DurableFile {
      */
     public void adopt(final Path staged) throws IOException {
         Objects.requireNonNull(staged, "staged");
-        final Path parent = DurableFiles.requireParent(target);
-        if (createOnce) {
-            DurableFiles.requireAbsent(target);
-        }
-        boolean published = false;
-        try {
-            DurableFiles.forceFile(staged);
-            guard.beforePublish(staged, target);
-            DurableFiles.move(staged, target, options, createOnce);
-            published = true;
-            guard.afterPublish(staged, target);
-            forceDirectoryWhenRequested(parent);
-        } finally {
-            if (!published) {
-                DurableFiles.deleteQuietly(staged);
-            }
-        }
+        publishStaged(staged, true);
+    }
+
+    /**
+     * As {@link #adopt} but the staged file is left in place when publication fails. Use this
+     * variant for a source the caller does not own — a plugin's own file being moved — where a
+     * refused publication must not remove the original; {@link #adopt} deletes it because the
+     * caller staged it only for this publication.
+     *
+     * @param staged the file to publish; it is no longer at its path only when publication
+     *     succeeded
+     * @throws DurableWriteException with a closed {@code Failure} set; never a bare JDK type
+     * @throws NullPointerException if {@code staged} is {@code null}
+     */
+    public void adoptKeepingSource(final Path staged) throws IOException {
+        Objects.requireNonNull(staged, "staged");
+        publishStaged(staged, false);
     }
 
     /**
@@ -182,6 +182,31 @@ public final class DurableFile {
     public void append(final byte[] bytes) throws IOException {
         Objects.requireNonNull(bytes, "bytes");
         DurableFiles.append(target, bytes);
+    }
+
+    /**
+     * The single publication step behind both {@code adopt} variants: force the staged file, run
+     * the guard, rename, run the guard again, force the directory. Only the failure cleanup
+     * differs, because only one of the two callers owns the staged file.
+     */
+    private void publishStaged(final Path staged, final boolean deleteStagedOnFailure) throws IOException {
+        final Path parent = DurableFiles.requireParent(target);
+        if (createOnce) {
+            DurableFiles.requireAbsent(target);
+        }
+        boolean published = false;
+        try {
+            DurableFiles.forceFile(staged);
+            guard.beforePublish(staged, target);
+            DurableFiles.move(staged, target, options, createOnce);
+            published = true;
+            guard.afterPublish(staged, target);
+            forceDirectoryWhenRequested(parent);
+        } finally {
+            if (deleteStagedOnFailure && !published) {
+                DurableFiles.deleteQuietly(staged);
+            }
+        }
     }
 
     private void publish(final StagedContent content, final boolean cancellable) throws IOException {

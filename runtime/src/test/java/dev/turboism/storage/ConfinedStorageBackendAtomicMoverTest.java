@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.io.DurableWriteException;
 import dev.turboism.sdk.storage.StorageErrorCode;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
@@ -16,7 +17,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class StorageAtomicMoverTest {
+class ConfinedStorageBackendAtomicMoverTest {
 
     @TempDir
     Path temporary;
@@ -84,7 +85,7 @@ class StorageAtomicMoverTest {
     void oversizedSourceDoesNotCreateTargetParents() throws Exception {
         final Roots roots = roots();
         Files.write(roots.data().resolve("source.bin"), new byte[(int) ConfinedStorageBackend.MAX_OPERATION_BYTES + 1]);
-        final ConfinedStorageBackend backend = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend backend = backend(roots, StorageFiles::moveAtomically);
 
         final var result = backend.copy(path("source.bin"), path("created/target.bin"), true);
 
@@ -99,7 +100,7 @@ class StorageAtomicMoverTest {
         final Roots roots = roots();
         Files.write(roots.data().resolve("source.bin"), new byte[(int) ConfinedStorageBackend.MAX_OPERATION_BYTES + 1]);
         Files.createDirectory(roots.data().resolve("target"));
-        final ConfinedStorageBackend backend = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend backend = backend(roots, StorageFiles::moveAtomically);
 
         final var result = backend.copy(path("source.bin"), path("target"), true);
 
@@ -112,7 +113,7 @@ class StorageAtomicMoverTest {
     @Test
     void missingSourceReportsBaselineTargetPathWithoutCreatingParents() throws Exception {
         final Roots roots = roots();
-        final ConfinedStorageBackend backend = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend backend = backend(roots, StorageFiles::moveAtomically);
 
         final var result = backend.copy(path("missing.txt"), path("created/target.txt"), true);
 
@@ -128,9 +129,10 @@ class StorageAtomicMoverTest {
         Files.writeString(source, "source");
         Files.writeString(target, "target");
 
-        assertThrows(
-                java.nio.file.FileAlreadyExistsException.class, () -> StorageAtomicMover.move(source, target, false));
+        final var failure =
+                assertThrows(DurableWriteException.class, () -> StorageFiles.moveAtomically(source, target, false));
 
+        assertEquals(DurableWriteException.Failure.ALREADY_EXISTS, failure.failure());
         assertEquals("source", Files.readString(source));
         assertEquals("target", Files.readString(target));
     }
