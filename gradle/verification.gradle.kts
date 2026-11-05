@@ -317,24 +317,30 @@ tasks.register<Exec>("checkCodeQuality") {
 }
 
 /*
- * Editor-model is the one capability family whose aliases are inline literals rather than
- * constants, so it has no Verified*HostOperations.methodAliasesUsed() for a test to compare
- * against. The repository test used a hand-maintained list instead, which drifted until it
- * matched neither the implementation nor the record. This derives production use and the older
- * exact-use records, then admits only the fixed invoked subset of the broader 5.3.03 static record.
+ * Host alias vocabulary. Every alias literal in a reviewed alias namespace, and every literal a
+ * VerifiedMemberResolver alias accessor receives, has to be declared by an admitted record of a
+ * family that declares a `vocabulary` block, or be pinned by name, file and reason in
+ * no-record-aliases.json. Editor-model is the one family whose aliases are inline literals rather
+ * than constants, so its admission stays exact: production use against the older exact-use
+ * records plus only the fixed invoked subset of the broader 5.3.03 static record. The repository
+ * test used a hand-maintained list instead, which drifted until it matched neither the
+ * implementation nor the record; the pin file replaces that list.
  */
 val checkEditorModelAliases by tasks.registering(Exec::class) {
     group = "verification"
     description =
-        "Rejects Editor-model selector aliases the implementation invokes without a reviewed " +
-            "record, and holds the unused-alias count non-increasing."
+        "Rejects host selector aliases the implementation invokes without a reviewed record " +
+            "or a named no-record pin, and holds the unused-alias count non-increasing."
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_editor_model_aliases.py",
-        "scripts/test/test_editor_model_aliases.py"
+        "scripts/test/test_editor_model_aliases.py",
+        "scripts/verification-sources/no-record-aliases.json"
     )
     inputs.files(
-        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        fileTree("scripts/verification-sources/families") { include("*.json") },
+        fileTree("build/generated/verification") { include("*.json") },
+        fileTree("runtime/src/main/java") { include("**/*.java") },
         "build/generated/verification/cubism-5.2.03-editor-model.json",
         "build/generated/verification/cubism-5.3.02-editor-model.json",
         "build/generated/verification/cubism-5.3.03-editor-model.json"
