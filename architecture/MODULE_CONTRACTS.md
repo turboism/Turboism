@@ -248,10 +248,80 @@ became `SelectorAdmission`, because leaving them in the contract classes was the
 edge that made the selector package depend on the resolver. Leaf-package cycles:
 1 → **0**.
 
+## `:persistence-core` ↔ `:runtime` typed config
+
+- **Owner**: typed-config and persistence maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `:persistence-core` owns the deterministic typed-config kernel: the
+  four frozen value codecs, the canonical persisted-document text format, the
+  schema/migration-chain validation, and the in-memory migration walk. It answers
+  "what do these bytes mean and is this registration legal" and nothing else. It
+  does not open files, schedule work, report failures, check permissions or decide
+  how a failure is presented to a plugin.
+- **Allowed dependencies**: `:persistence-core` may depend on `:sdk` only
+  (`api(project(":sdk"))`): the frozen `dev.turboism.sdk.config.*` records and
+  `dev.turboism.sdk.storage.StoragePath`. `:runtime` may depend on it through
+  `implementation(project(":persistence-core"))`. No other module declares it; the
+  framework shell, plugins and `:core-contract` keep consuming SDK types.
+- **Forbidden**: any `:persistence-core` → `:runtime`/`:core-contract`/`:plugins:*`
+  edge; any external library, file-system, reflection, Swing/AWT, `com.live2d`,
+  scheduler, event-broker or network reference; and any plugin source or bytecode
+  reference to `dev.turboism.persistence.*`. `java.io.IOException` is the only
+  `java.io` type the kernel may name — it is a checked parse-failure signature, not
+  IO.
+- **Public API**: `TypedConfigCodecSupport` (encode/decode/validate one value),
+  `TypedConfigDocumentCodec` + `StoredDocument` (canonical document bytes),
+  `RegisteredKey` + `RegisteredSchema` (snapshot of one legal registration),
+  `TypedConfigSchemaPolicy` (schema and migration-chain admission),
+  `TypedConfigMigrationPolicy` + `TypedConfigMigrationOutcome` +
+  `TypedConfigMigrationStatus` (in-memory migration walk and its classified
+  outcome). Everything else is package-private and must stay that way.
+- **Threading / IO**: all functions are stateless and pure; there is no executor,
+  lock or mutable static state. Callers own the bytes, the thread and the failure
+  presentation. A migration supplied by a plugin runs on the typed-config I/O lane
+  the `:runtime` facade owns, never inside the kernel.
+- **Tests**: `persistence-core/src/test/java/dev/turboism/persistence/config/**`
+  pins the codec, document-format, schema-admission and migration outcomes;
+  `:runtime` keeps `PersistenceGoldenSnapshotsTest`, `TypedConfigRecoveryPointTest`
+  and `RuntimeTypedPluginConfigRegistryTest` as the production read/migrate/recover
+  evidence through the real file store.
+- **Backward compatibility**: the on-disk format is frozen by
+  `tests/fixtures/snapshots/typed-config/**` and `checkGoldenSnapshotManifest`: the
+  `turboism-typed-config-v1` header, sorted base64url entries, schema-version and
+  revision metadata must stay byte-identical. Migration failure, future-version
+  rejection and idempotence semantics are unchanged; no SDK type, plugin lifecycle
+  hook or class identity moves.
+- **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges,
+  the source import allowlist and a compiled-bytecode scan over
+  `persistence-core/build/classes/java/main`), the plugin boundary dotted root
+  `persistence`, `checkDependencyInventory`, `checkCodeQuality`,
+  `checkThrowableContainment` and `checkReviewedReleases`, whose inputs now include
+  the module's production sources.
+
+**What changed (`#112`)**: `TypedConfigCodecSupport`, the canonical document
+`encode`/`parse` pair and its `StoredDocument`, the `RegisteredSchema`/
+`RegisteredKey` snapshots, and the pure `validate(...)` and migration walk moved out
+of `dev.turboism.config` into `dev.turboism.persistence.config`. The extraction is
+behaviour-preserving: the moved code keeps its exact checks, order and diagnostics,
+and the runtime facade now maps the kernel's classified outcome back to the same
+`ConfigValueSource`/`ConfigErrorCode` pairs.
+
+**What stayed behind, and why**: `TypedConfigDocumentStore` keeps every file-system
+concern — anchored root, owner-only permissions, atomic replace, fsync, recovery
+points and the BOM/size guards — and only delegates the text format to the kernel.
+`TypedConfigIoExecutor` (the single-threaded I/O lane), `TypedConfigFailureReporter`
+(the failure sink), `ConfigSchemaSettingsPublisher` (UI settings), `LoadedDocument`
+(the runtime read outcome) and `RuntimeTypedPluginConfigRegistry` (permissions,
+lifecycle, revision checks and error presentation) stay because they own threading,
+UI, failure reporting or composition, none of which the kernel may see.
+`RuntimeConfigRepository` stays for the same reason: it is the global runtime-config
+file owner, not a typed-config document. `EarlyThemeAppearanceBootstrap` keeps its
+small read-only parser: it runs before the runtime exists, is fail-open by contract
+and reports its own bounded diagnostics; unifying it on the kernel is a separate,
+reviewable change.
+
 ## Next boundaries (not yet extracted)
 
-None at package granularity. The next step in #70's sequence is not another move but
-the extraction itself (step 3): pull the pure persistence codec/migration kernel out
-of `:runtime` behind the contracts already recorded here, then the compatibility
-policy, each as its own reviewable PR with module contracts and the existing
-bytecode/ABI gates ratcheting the direction.
+None at package granularity, and the pure persistence kernel now has its module
+boundary. Step 3 of #70 is complete for persistence; the remaining extraction is the
+pure Cubism compatibility admission policy (#113), which lands as its own reviewable
+PR with a module contract and the same bytecode/ABI gates ratcheting the direction.

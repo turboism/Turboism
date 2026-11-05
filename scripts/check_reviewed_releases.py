@@ -320,6 +320,7 @@ r2_JAVA_ROOTS = (
     "runtime/src/main",
     "bootstrap/src/main",
     "core-contract/src/main",
+    "persistence-core/src/main",
     "event-processor/src/main",
     "graal-host/src/main",
     "packaging/java-installer/listener-src",

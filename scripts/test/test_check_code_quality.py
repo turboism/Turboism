@@ -580,8 +580,8 @@ def case_version_token_in_declared_type(root: Path) -> None:
 
 
 def case_version_token_in_new_production_roots(root: Path) -> None:
-    """core-contract/event-processor/graal-host are production roots too."""
-    for module in ("core-contract", "event-processor", "graal-host"):
+    """core-contract/persistence-core/event-processor/graal-host are production roots too."""
+    for module in ("core-contract", "persistence-core", "event-processor", "graal-host"):
         write(
             root,
             f"{module}/src/main/java/dev/turboism/sample/ThingManifest52.java",
@@ -589,7 +589,7 @@ def case_version_token_in_new_production_roots(root: Path) -> None:
         )
     result = run(root, "naming")
     assert result.returncode == 1, "new production roots must be scanned"
-    assert result.stdout.count("encodes a Cubism version") == 3
+    assert result.stdout.count("encodes a Cubism version") == 4
 
 
 def case_retired_asset_token(root: Path) -> None:

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.persistence.config.StoredDocument;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,7 +55,7 @@ class TypedConfigRecoveryPointTest {
     void unreachableRecoveryAreaFailsTheCaptureWithoutTouchingTheDocument() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument stored = document(1, 7, "enabled", "true");
+        final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] before = Files.readAllBytes(root.resolve(DOCUMENT));
         Files.write(root.resolve(".recovery-points"), new byte[] {0x00});
@@ -95,7 +96,7 @@ class TypedConfigRecoveryPointTest {
     void interruptionBetweenCaptureAndReplacementKeepsThePreMigrationBytes() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument before = document(1, 7, "enabled", "true");
+        final StoredDocument before = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, before);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
         final Path point = store.recordRecoveryPoint(DOCUMENT, before);
@@ -120,7 +121,7 @@ class TypedConfigRecoveryPointTest {
     void leftoverReplacementTemporariesAreNeverReadAsTheDocument() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument before = document(1, 7, "enabled", "true");
+        final StoredDocument before = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, before);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
         store.recordRecoveryPoint(DOCUMENT, before);
@@ -133,8 +134,7 @@ class TypedConfigRecoveryPointTest {
 
         final TypedConfigDocumentStore restarted = new TypedConfigDocumentStore(root);
 
-        final TypedConfigDocumentStore.StoredDocument replayed =
-                restarted.read(DOCUMENT).orElseThrow();
+        final StoredDocument replayed = restarted.read(DOCUMENT).orElseThrow();
         assertEquals(1, replayed.schemaVersion());
         assertEquals(7, replayed.revision());
         assertEquals("true", replayed.encodedValues().get("enabled"));
@@ -147,7 +147,7 @@ class TypedConfigRecoveryPointTest {
     void concurrentCapturesOfTheSameImageStoreOneCompletePoint() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument stored = document(1, 7, "enabled", "true");
+        final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
         final int writers = 8;
@@ -189,7 +189,7 @@ class TypedConfigRecoveryPointTest {
         for (int iteration = 0; iteration < 20; iteration++) {
             final Path root = temporary.resolve("race-" + iteration);
             final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-            final TypedConfigDocumentStore.StoredDocument before = document(1, 7, "enabled", "true");
+            final StoredDocument before = document(1, 7, "enabled", "true");
             store.writeAtomic(DOCUMENT, before);
             final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
             final CyclicBarrier barrier = new CyclicBarrier(2);
@@ -234,7 +234,7 @@ class TypedConfigRecoveryPointTest {
     void symlinkedRecoveryRootIsRejectedBeforeCapture() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument stored = document(1, 7, "enabled", "true");
+        final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
         assumeSymlinksSupported();
@@ -256,7 +256,7 @@ class TypedConfigRecoveryPointTest {
     void parentDirectorySwappedForASymlinkIsRejectedBeforeCapture() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument stored = document(1, 7, "enabled", "true");
+        final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
         assumeSymlinksSupported();
@@ -278,8 +278,7 @@ class TypedConfigRecoveryPointTest {
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
         final List<byte[]> images = new ArrayList<>();
         for (int revision = 1; revision <= 5; revision++) {
-            final TypedConfigDocumentStore.StoredDocument stored =
-                    document(1, revision, "enabled", String.valueOf(revision % 2 == 0));
+            final StoredDocument stored = document(1, revision, "enabled", String.valueOf(revision % 2 == 0));
             store.writeAtomic(DOCUMENT, stored);
             images.add(Files.readAllBytes(root.resolve(DOCUMENT)));
             store.recordRecoveryPoint(DOCUMENT, stored);
@@ -300,7 +299,7 @@ class TypedConfigRecoveryPointTest {
     void damagedPointFileIsRepairedOnRetryInsteadOfTrusted() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument stored = document(1, 7, "enabled", "true");
+        final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
         final Path point = store.recordRecoveryPoint(DOCUMENT, stored);
@@ -322,8 +321,7 @@ class TypedConfigRecoveryPointTest {
         final byte[] current = Files.readAllBytes(root.resolve(DOCUMENT));
         Files.write(root.resolve(".recovery-points"), new byte[] {0x00});
 
-        final TypedConfigDocumentStore.StoredDocument replayed =
-                store.read(DOCUMENT).orElseThrow();
+        final StoredDocument replayed = store.read(DOCUMENT).orElseThrow();
 
         assertEquals(2, replayed.schemaVersion());
         assertEquals("true", replayed.encodedValues().get("enabled"));
@@ -340,8 +338,7 @@ class TypedConfigRecoveryPointTest {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
         store.writeAtomic(DOCUMENT, document(1, 7, "enabled", "true"));
-        final TypedConfigDocumentStore.StoredDocument stale =
-                store.read(DOCUMENT).orElseThrow();
+        final StoredDocument stale = store.read(DOCUMENT).orElseThrow();
         store.writeAtomic(DOCUMENT, document(1, 9, "enabled", "false"));
         final byte[] current = Files.readAllBytes(root.resolve(DOCUMENT));
 
@@ -362,7 +359,7 @@ class TypedConfigRecoveryPointTest {
     void recoveryPointBytesReReadAsThePreMigrationDocument() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        final TypedConfigDocumentStore.StoredDocument before = document(1, 7, "enabled", "true");
+        final StoredDocument before = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, before);
         final Path point = store.recordRecoveryPoint(DOCUMENT, before);
         store.writeAtomic(DOCUMENT, document(2, 8, "enabled", "true"));
@@ -370,8 +367,7 @@ class TypedConfigRecoveryPointTest {
 
         Files.write(root.resolve(DOCUMENT), recovered);
 
-        final TypedConfigDocumentStore.StoredDocument restored =
-                store.read(DOCUMENT).orElseThrow();
+        final StoredDocument restored = store.read(DOCUMENT).orElseThrow();
         assertEquals(1, restored.schemaVersion());
         assertEquals(7, restored.revision());
         assertEquals("true", restored.encodedValues().get("enabled"));
@@ -392,13 +388,13 @@ class TypedConfigRecoveryPointTest {
         assertTrue(Files.notExists(root.resolve(".recovery-points/foreign.cfg")));
     }
 
-    private static TypedConfigDocumentStore.StoredDocument document(
+    private static StoredDocument document(
             final int version, final long revision, final String key, final String value) {
-        return new TypedConfigDocumentStore.StoredDocument(version, revision, Map.of(key, value));
+        return new StoredDocument(version, revision, Map.of(key, value));
     }
 
     /** Produces a canonical document image through the production writer instead of a hand encoder. */
-    private byte[] encodedImage(final TypedConfigDocumentStore.StoredDocument document) throws Exception {
+    private byte[] encodedImage(final StoredDocument document) throws Exception {
         final Path scratch = temporary.resolve("scratch");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(scratch);
         store.writeAtomic(DOCUMENT, document);

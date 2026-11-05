@@ -41,10 +41,23 @@ def write_project(
         resource_file.write_text(resource_source, encoding="utf-8")
 
 
+def write_persistence_kernel(root: Path, source: str = "") -> None:
+    """The kernel boundary gate needs a minimal, contract-clean source tree to pass."""
+    kernel = root / "persistence-core/src/main/java/dev/turboism/persistence/config/Fixture.java"
+    kernel.parent.mkdir(parents=True, exist_ok=True)
+    kernel.write_text(
+        source
+        or "package dev.turboism.persistence.config;\n\n"
+        "import java.util.List;\n\n"
+        "final class Fixture { List<String> values() { return List.of(); } }\n",
+        encoding="utf-8",
+    )
+
+
 def run_fixture(
     name: str, sdk_dependency: str = "", plugin_dependency: str = "", source: str = "",
     expected: str = "", *, runtime_dependency: str = "", contract_dependency: str = "",
-    resource_source: str = "",
+    persistence_dependency: str = "", persistence_source: str = "", resource_source: str = "",
 ) -> None:
     with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
         root = Path(directory)
@@ -56,7 +69,7 @@ def run_fixture(
         write_buildsrc(root)
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
-            'include(":sdk", ":runtime", ":core-contract", ":plugins:fixture")\n',
+            'include(":sdk", ":runtime", ":core-contract", ":persistence-core", ":plugins:fixture")\n',
             encoding="utf-8",
         )
         (root / "build.gradle.kts").write_text(
@@ -67,6 +80,8 @@ def run_fixture(
         write_project(root / "sdk", sdk_dependency)
         write_project(root / "runtime", runtime_dependency)
         write_project(root / "core-contract", contract_dependency)
+        write_project(root / "persistence-core", persistence_dependency)
+        write_persistence_kernel(root, persistence_source)
         write_project(
             root / "plugins/fixture", plugin_dependency, source, resource_source,
         )
@@ -98,7 +113,7 @@ def run_clean_fixture(name: str, source: str = "", resource_source: str = "") ->
         write_buildsrc(root)
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
-            'include(":sdk", ":runtime", ":core-contract", ":plugins:fixture")\n',
+            'include(":sdk", ":runtime", ":core-contract", ":persistence-core", ":plugins:fixture")\n',
             encoding="utf-8",
         )
         (root / "build.gradle.kts").write_text(
@@ -109,6 +124,8 @@ def run_clean_fixture(name: str, source: str = "", resource_source: str = "") ->
         write_project(root / "sdk")
         write_project(root / "runtime")
         write_project(root / "core-contract")
+        write_project(root / "persistence-core")
+        write_persistence_kernel(root)
         write_project(root / "plugins/fixture", source=source, resource_source=resource_source)
 
         result = subprocess.run(
@@ -219,6 +236,25 @@ def main() -> None:
             "plugin-contract-project",
             plugin_dependency='dependencies { compileOnly(project(":core-contract")) }\n',
             expected="Plugin :plugins:fixture may not depend on project component :core-contract",
+        ),
+        lambda: run_fixture(
+            "persistence-core-runtime-project",
+            persistence_dependency='dependencies { api(project(":runtime")) }\n',
+            expected="Persistence-core :persistence-core may not depend on project component :runtime",
+        ),
+        lambda: run_fixture(
+            "persistence-core-io-import",
+            persistence_source=(
+                "package dev.turboism.persistence.config;\n\n"
+                "import java.nio.file.Files;\n\n"
+                "final class Fixture { Files files; }\n"
+            ),
+            expected="Persistence-core import rejected",
+        ),
+        lambda: run_fixture(
+            "plugin-persistence-project",
+            plugin_dependency='dependencies { compileOnly(project(":persistence-core")) }\n',
+            expected="Plugin :plugins:fixture may not depend on project component :persistence-core",
         ),
         lambda: run_fixture(
             "plugin-internal-contract-import",
