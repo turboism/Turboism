@@ -14,6 +14,10 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Owns one opt-in, exact-5.3.02 PNG archive optimization and its bytecode restoration. */
 final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.image-archive-reuse";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
+
     private final Instrumentation instrumentation;
     private final Class<?> target;
     private final ImageArchiveReuseTransformer transformer;
@@ -25,7 +29,12 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
             ReviewedHostContract.candidates(ImageArchiveReuseTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                Runtime.version().feature(),
+                () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedImageArchiveReuseInstaller(

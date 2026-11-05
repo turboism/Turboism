@@ -23,6 +23,10 @@ import java.util.jar.JarFile;
 /** Exact-host, explicitly requested installation of invocation-local matrix scratch storage. */
 final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.render.matrix-scratch";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final Class<?> target;
     private final MatrixScratchTransformer transformer;
@@ -41,11 +45,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             ReviewedHostContract.candidates(MatrixScratchTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return requested
-                && jvm >= 17
-                && config != null
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedMatrixScratchInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)

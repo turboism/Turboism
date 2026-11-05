@@ -25,6 +25,9 @@ final class VerifiedInspectorPropertyBypassInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.editor-model.inspector-property-bypass";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final ClassLoader hostClassLoader;
     private final String cubismVersion;
@@ -36,7 +39,8 @@ final class VerifiedInspectorPropertyBypassInstaller implements AutoCloseable {
     private boolean restored;
 
     static boolean admitted(final Path artifact, final boolean requested, final int jvm) {
-        if (!requested || jvm < 17) return false;
+        // This hook's switch is the preference/validation flag, so the startup policy is never consulted.
+        if (!VerifiedInstall.admits(ADMISSION, null, requested, jvm)) return false;
         try {
             final String version = ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact))
                     .orElse("");

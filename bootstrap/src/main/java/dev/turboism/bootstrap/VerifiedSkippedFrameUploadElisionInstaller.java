@@ -33,6 +33,9 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     /** Operator kill-switch id checked through the startup hook policy. */
     static final String HOOK_ID = "cubism.render.upload-elision";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final SkippedFrameUploadElisionTarget target;
     private final SkippedFrameUploadElisionBridge bridge;
@@ -51,10 +54,12 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             final dev.turboism.config.RuntimeStartupConfig config,
             final boolean requested,
             final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && SkippedFrameUploadElisionTarget.of(digest).isPresent();
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm,
+                () -> SkippedFrameUploadElisionTarget.of(digest).isPresent());
     }
 
     VerifiedSkippedFrameUploadElisionInstaller(

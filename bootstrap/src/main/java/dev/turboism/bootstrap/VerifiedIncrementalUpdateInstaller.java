@@ -29,6 +29,9 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.model-update.incremental";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
     private final Instrumentation instrumentation;
     private final IncrementalUpdateTarget target;
     private final Class<?>[] entries;
@@ -46,10 +49,8 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
 
     static boolean admitted(
             final Path artifact, final RuntimeStartupConfig config, final boolean requested, final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedIncrementalUpdateInstaller(
