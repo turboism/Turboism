@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,7 +35,7 @@ import java.util.function.Supplier;
  *
  * <p>Camera zoom and pan change the projection every frame, so this bridge keeps its
  * cost off the per-drawable path: host members are resolved once into
- * {@link MethodHandle}s (see {@link ClipMaskHandles}), the viewport is read from the
+ * {@link MethodHandle}s (see {@link HostHandles}), the viewport is read from the
  * driver at most once per mask-texture size per frame instead of once per clear, and
  * the mask silhouettes' local bounds, their projected rectangles and the camera
  * matrices are memoized for the duration of one frame. Those memoized values are
@@ -68,7 +70,7 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
 
     private static volatile boolean configuredDefault = true;
 
-    private final ClipMaskHandles.FieldAccess renderSystemLease;
+    private final HostHandles.HostField renderSystemLease;
     private final MethodHandle contextCamera;
     private final MethodHandle rendererEntity;
     private final MethodHandle entityComponents;
@@ -146,22 +148,21 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         Objects.requireNonNull(loader, "loader");
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         final String renderSystemOwner = ClipMaskDeduplicationTarget.renderSystemOwner(cubismVersion);
-        final Class<?> renderSystemType = Class.forName(renderSystemOwner.replace('/', '.'), false, loader);
-        renderSystemLease = ClipMaskHandles.field(renderSystemType, "f");
+        final Class<?> renderSystemType = HostHandles.load(loader, renderSystemOwner);
+        renderSystemLease = HostHandles.field(renderSystemType, "f");
 
-        final Class<?> contextType = Class.forName("com.live2d.graphics3d.a", false, loader);
-        contextCamera = ClipMaskHandles.virtual(contextType, "b", MethodType.methodType(Object.class, Object.class));
+        final Class<?> contextType = HostHandles.load(loader, "com/live2d/graphics3d/a");
+        contextCamera = accessor(contextType, "b", MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> rendererType = Class.forName("com.live2d.graphics3d.component.AGRenderer", false, loader);
-        rendererEntity =
-                ClipMaskHandles.virtual(rendererType, "getEntity", MethodType.methodType(Object.class, Object.class));
+        final Class<?> rendererType = HostHandles.load(loader, "com/live2d/graphics3d/component/AGRenderer");
+        rendererEntity = accessor(rendererType, "getEntity", MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> entityType = Class.forName("com.live2d.graphics3d.entity.GEntity", false, loader);
-        java.lang.reflect.Method componentsGetter = null;
-        for (final java.lang.reflect.Method method : entityType.getMethods()) {
+        final Class<?> entityType = HostHandles.load(loader, "com/live2d/graphics3d/entity/GEntity");
+        Method componentsGetter = null;
+        for (final Method method : entityType.getMethods()) {
             if (method.getName().equals("getComponents")
                     && method.getParameterCount() == 0
-                    && !method.getReturnType().equals(java.util.List.class)) {
+                    && !method.getReturnType().equals(List.class)) {
                 componentsGetter = method;
                 break;
             }
@@ -169,64 +170,57 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         if (componentsGetter == null) {
             throw new NoSuchMethodException("getComponents returning non-List Components on GEntity");
         }
-        entityComponents = ClipMaskHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
-        entityRenderer =
-                ClipMaskHandles.virtual(entityType, "getRenderer", MethodType.methodType(Object.class, Object.class));
-        entityTransform =
-                ClipMaskHandles.virtual(entityType, "getTransform", MethodType.methodType(Object.class, Object.class));
+        entityComponents = HostHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
+        entityRenderer = accessor(entityType, "getRenderer", MethodType.methodType(Object.class, Object.class));
+        entityTransform = accessor(entityType, "getTransform", MethodType.methodType(Object.class, Object.class));
 
-        clippingType = Class.forName("com.live2d.graphics3d.component.GClipping", false, loader);
-        clippingValidMasks = ClipMaskHandles.virtual(
-                clippingType, "getClippingVaildMasks", MethodType.methodType(Object.class, Object.class));
+        clippingType = HostHandles.load(loader, "com/live2d/graphics3d/component/GClipping");
+        clippingValidMasks =
+                accessor(clippingType, "getClippingVaildMasks", MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> transformType = Class.forName("com.live2d.graphics3d.component.GTransform", false, loader);
-        transformLocalToWorld = ClipMaskHandles.virtual(
-                transformType, "getLocalToWorldMatrix", MethodType.methodType(Object.class, Object.class));
+        final Class<?> transformType = HostHandles.load(loader, "com/live2d/graphics3d/component/GTransform");
+        transformLocalToWorld =
+                accessor(transformType, "getLocalToWorldMatrix", MethodType.methodType(Object.class, Object.class));
 
-        meshRendererType = Class.forName("com.live2d.graphics3d.component.GMeshRenderer", false, loader);
-        meshContainer = ClipMaskHandles.virtual(
-                meshRendererType, "getMeshContainer", MethodType.methodType(Object.class, Object.class));
-        final Class<?> meshContainerType =
-                Class.forName("com.live2d.graphics3d.component.GMeshContainer", false, loader);
-        mesh = ClipMaskHandles.virtual(meshContainerType, "getMesh", MethodType.methodType(Object.class, Object.class));
-        final Class<?> meshType = Class.forName("com.live2d.graphics3d.mesh.a", false, loader);
-        meshPositions =
-                ClipMaskHandles.virtual(meshType, "getPositions", MethodType.methodType(float[].class, Object.class));
-        meshStep = ClipMaskHandles.virtual(meshType, "getStep", MethodType.methodType(int.class, Object.class));
+        meshRendererType = HostHandles.load(loader, "com/live2d/graphics3d/component/GMeshRenderer");
+        meshContainer =
+                accessor(meshRendererType, "getMeshContainer", MethodType.methodType(Object.class, Object.class));
+        final Class<?> meshContainerType = HostHandles.load(loader, "com/live2d/graphics3d/component/GMeshContainer");
+        mesh = accessor(meshContainerType, "getMesh", MethodType.methodType(Object.class, Object.class));
+        final Class<?> meshType = HostHandles.load(loader, "com/live2d/graphics3d/mesh/a");
+        meshPositions = accessor(meshType, "getPositions", MethodType.methodType(float[].class, Object.class));
+        meshStep = accessor(meshType, "getStep", MethodType.methodType(int.class, Object.class));
 
-        final Class<?> cameraType = Class.forName("com.live2d.graphics3d.GCamera", false, loader);
-        cameraProjection = ClipMaskHandles.virtual(
-                cameraType, "getProjectionMatrix", MethodType.methodType(Object.class, Object.class));
-        cameraWorldToCamera = ClipMaskHandles.virtual(
-                cameraType, "getWorldToCameraMatrix", MethodType.methodType(Object.class, Object.class));
-        final Class<?> matrixType = Class.forName("com.live2d.graphics3d.type.GMatrix44", false, loader);
-        matrixValues = ClipMaskHandles.virtual(matrixType, "a", MethodType.methodType(float[].class, Object.class));
+        final Class<?> cameraType = HostHandles.load(loader, "com/live2d/graphics3d/GCamera");
+        cameraProjection =
+                accessor(cameraType, "getProjectionMatrix", MethodType.methodType(Object.class, Object.class));
+        cameraWorldToCamera =
+                accessor(cameraType, "getWorldToCameraMatrix", MethodType.methodType(Object.class, Object.class));
+        final Class<?> matrixType = HostHandles.load(loader, "com/live2d/graphics3d/type/GMatrix44");
+        matrixValues = accessor(matrixType, "a", MethodType.methodType(float[].class, Object.class));
 
         final Class<?> leaseType = renderSystemLease.type();
-        leaseGl = ClipMaskHandles.virtual(leaseType, "a", MethodType.methodType(Object.class, Object.class));
-        leaseTexture = ClipMaskHandles.virtual(leaseType, "b", MethodType.methodType(Object.class, Object.class));
-        final Class<?> textureType = Class.forName("com.live2d.graphics3d.texture.GRenderTexture", false, loader);
-        textureWidth = ClipMaskHandles.virtual(textureType, "getWidth", MethodType.methodType(int.class, Object.class));
-        textureHeight =
-                ClipMaskHandles.virtual(textureType, "getHeight", MethodType.methodType(int.class, Object.class));
-        textureGlName = ClipMaskHandles.virtual(
-                textureType, "getGlTextureName", MethodType.methodType(int.class, Object.class));
+        leaseGl = accessor(leaseType, "a", MethodType.methodType(Object.class, Object.class));
+        leaseTexture = accessor(leaseType, "b", MethodType.methodType(Object.class, Object.class));
+        final Class<?> textureType = HostHandles.load(loader, "com/live2d/graphics3d/texture/GRenderTexture");
+        textureWidth = accessor(textureType, "getWidth", MethodType.methodType(int.class, Object.class));
+        textureHeight = accessor(textureType, "getHeight", MethodType.methodType(int.class, Object.class));
+        textureGlName = accessor(textureType, "getGlTextureName", MethodType.methodType(int.class, Object.class));
 
-        final Class<?> glType = Class.forName("com.jogamp.opengl.GL", false, loader);
-        glGetIntegerv = ClipMaskHandles.virtual(
+        final Class<?> glType = HostHandles.load(loader, "com/jogamp/opengl/GL");
+        glGetIntegerv = accessor(
                 glType,
                 "glGetIntegerv",
                 MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class),
                 int.class,
                 int[].class,
                 int.class);
-        glIsEnabled = ClipMaskHandles.virtual(
+        glIsEnabled = accessor(
                 glType, "glIsEnabled", MethodType.methodType(boolean.class, Object.class, int.class), int.class);
-        glEnable = ClipMaskHandles.virtual(
-                glType, "glEnable", MethodType.methodType(void.class, Object.class, int.class), int.class);
-        glDisable = ClipMaskHandles.virtual(
-                glType, "glDisable", MethodType.methodType(void.class, Object.class, int.class), int.class);
-        glScissor = ClipMaskHandles.virtual(
+        glEnable = accessor(glType, "glEnable", MethodType.methodType(void.class, Object.class, int.class), int.class);
+        glDisable =
+                accessor(glType, "glDisable", MethodType.methodType(void.class, Object.class, int.class), int.class);
+        glScissor = accessor(
                 glType,
                 "glScissor",
                 MethodType.methodType(void.class, Object.class, int.class, int.class, int.class, int.class),
@@ -234,6 +228,20 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
                 int.class,
                 int.class,
                 int.class);
+    }
+
+    /**
+     * Resolves one reviewed member whose parameter types are pinned but whose return type is checked by
+     * the bridge's call shape.
+     *
+     * <p>The member is discovered by name and exact parameter types (as the reviewed layout declares it)
+     * and opened through {@link HostHandles}, so the discovered descriptor decides which overload is
+     * bound and the unreflection is the one opening policy.</p>
+     */
+    private static MethodHandle accessor(
+            final Class<?> owner, final String name, final MethodType shape, final Class<?>... parameters)
+            throws ReflectiveOperationException {
+        return HostHandles.virtual(owner.getMethod(name, parameters), shape);
     }
 
     /** Sets the startup-configured default when the diagnostic property is absent. */

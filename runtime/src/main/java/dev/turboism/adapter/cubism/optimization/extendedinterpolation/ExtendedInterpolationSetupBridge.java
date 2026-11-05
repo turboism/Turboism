@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.extendedinterpolation;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -89,15 +89,12 @@ public final class ExtendedInterpolationSetupBridge implements AutoCloseable {
 
     public ExtendedInterpolationSetupBridge(final ClassLoader loader) throws ReflectiveOperationException {
         Objects.requireNonNull(loader, "loader");
-        extensionType = Class.forName(ExtendedInterpolationSetupTarget.EXTENSION.replace('/', '.'), false, loader);
+        extensionType = HostHandles.load(loader, ExtendedInterpolationSetupTarget.EXTENSION);
+        // The reviewed return type of the host's own update is not pinned by the target table, so the
+        // member is discovered by name and exact parameter types and opened through HostHandles.
         final Method update = extensionType.getMethod("updateInterpolatedForms", boolean.class);
-        try {
-            updateInterpolatedForms = MethodHandles.publicLookup()
-                    .unreflect(update)
-                    .asType(MethodType.methodType(boolean.class, Object.class, boolean.class));
-        } catch (IllegalAccessException unavailable) {
-            throw new ReflectiveOperationException("extended interpolation access unavailable", unavailable);
-        }
+        updateInterpolatedForms =
+                HostHandles.virtual(update, MethodType.methodType(boolean.class, Object.class, boolean.class));
     }
 
     /** {@return whether the feature is requested for this launch; enabled by default} */
