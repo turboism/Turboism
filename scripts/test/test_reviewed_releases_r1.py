@@ -54,7 +54,7 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
     for path, content in gate.generated.render(root).items():
         put(path.as_posix(), content)
     for path in [gate.r1_AVAILABILITY_POLICY, gate.r1_HOST_VALIDATION_PY,
-                 Path('runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java'),
+                 Path('compatibility-policy/src/main/java/dev/turboism/compatibility/policy/ReviewedCubismReleases.java'),
                  Path('runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java'),
                  Path('runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java')]:
         put(path.as_posix(), (ROOT / path).read_text())

@@ -8,7 +8,13 @@
         ":sdk"
       ],
       "testImplementation": [
+        ":compatibility-policy",
         ":testing:test-support"
+      ]
+    },
+    ":compatibility-policy": {
+      "api": [
+        ":sdk"
       ]
     },
     ":core-contract": {
@@ -471,6 +477,7 @@
     },
     ":runtime": {
       "implementation": [
+        ":compatibility-policy",
         ":core-contract",
         ":persistence-core",
         ":sdk"
@@ -616,10 +623,6 @@
       [
         "dev.turboism.core",
         "dev.turboism.failure"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.mapping"
       ],
       [
         "dev.turboism.core",

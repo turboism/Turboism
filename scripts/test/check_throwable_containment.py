@@ -28,6 +28,7 @@ PRODUCTION_ROOTS = (
     "runtime/src/main/java",
     "bootstrap/src/main/java",
     "persistence-core/src/main/java",
+    "compatibility-policy/src/main/java",
     "scripts/verification-sources/templates",
 )
 PLUGIN_ROOT = "plugins"

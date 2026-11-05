@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.compatibility.policy.ReviewedReleaseTable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

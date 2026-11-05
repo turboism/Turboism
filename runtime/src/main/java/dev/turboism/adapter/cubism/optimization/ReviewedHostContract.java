@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.optimization;
 
+import dev.turboism.compatibility.policy.ReviewedCubismReleases;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.CubismHostIdentity;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.HostIdentityProbe;
-import dev.turboism.mapping.verification.ReviewedCubismReleases;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;

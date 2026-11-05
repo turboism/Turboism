@@ -152,7 +152,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void immutableAvailabilityResolutionIsReusedButActiveVersionIsAlwaysRechecked() throws Exception {
         final var method = Example.class.getMethod("only5302");
-        assertSame(CubismEditorAvailabilityPolicy.resolve(method), CubismEditorAvailabilityPolicy.resolve(method));
+        assertSame(CubismEditorAvailabilityResolver.resolve(method), CubismEditorAvailabilityResolver.resolve(method));
         final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
         final AtomicInteger calls = new AtomicInteger();
         final var interceptor = new CubismEditorApiAvailabilityInterceptor(version::get);
@@ -187,7 +187,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
                         "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01",
                         "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
                         "5.3.03", "5.3.04"),
-                CubismEditorAvailabilityPolicy.reviewedVersions());
+                CubismEditorAvailabilityResolver.reviewedVersions());
     }
 
     @Test

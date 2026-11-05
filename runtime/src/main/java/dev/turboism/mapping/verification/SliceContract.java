@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.compatibility.policy.ReviewedCubismReleases;
 import java.util.Objects;
 import java.util.Set;
 

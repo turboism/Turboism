@@ -24,6 +24,8 @@ private val forbiddenImportPatterns = listOf(
     "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals",
     "dev.turboism.persistence.*" to
         "SDK/plugins must not import the runtime persistence kernel (:persistence-core)",
+    "dev.turboism.compatibility.*" to
+        "SDK/plugins must not import the compatibility admission policy (:compatibility-policy)",
     "dev.turboism.sdk.event.cubism.*" to
         "SDK/plugins must not import the retired dev.turboism.sdk.event.cubism package " +
         "(Cubism events live in dev.turboism.sdk.cubism.event)"
@@ -48,6 +50,8 @@ private val forbiddenQualifiedReferencePatterns = listOf(
         "SDK/plugins must not reference runtime core internals",
     Regex("""(?<![\w$])dev\.turboism\.persistence(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""") to
         "SDK/plugins must not reference the runtime persistence kernel (:persistence-core)",
+    Regex("""(?<![\w$])dev\.turboism\.compatibility(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""") to
+        "SDK/plugins must not reference the compatibility admission policy (:compatibility-policy)",
     Regex("""(?<![\w$])dev\.turboism\.distribution(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""") to
         "SDK/plugins must not reference distribution internals"
 )
@@ -66,9 +70,12 @@ tasks.register("checkModuleBoundaries") {
     inputs.file("settings.gradle.kts")
     // The kernel is proved from its compiled classes as well as its sources, so the
     // bytecode half of its contract only passes after it actually compiles.
-    dependsOn(":persistence-core:classes")
+    dependsOn(":persistence-core:classes", ":compatibility-policy:classes")
     inputs.files(
         fileTree(project(":persistence-core").layout.buildDirectory.dir("classes/java/main")) {
+            include("**/*.class")
+        },
+        fileTree(project(":compatibility-policy").layout.buildDirectory.dir("classes/java/main")) {
             include("**/*.class")
         },
         fileTree(rootDir) {
@@ -167,6 +174,8 @@ private fun checkModuleBoundaries(project: Project) {
     checkOpaqueUserFileSdk(project, state)
     checkPersistenceCoreSources(project, state)
     checkPersistenceCoreBytecode(project, state)
+    checkCompatibilityPolicySources(project, state)
+    checkCompatibilityPolicyBytecode(project, state)
     if (state.failed) {
         throw GradleException("Module boundary checks failed.")
     }
@@ -209,6 +218,22 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
                 config,
                 subproject,
                 setOf(":persistence-core", ":sdk"),
+                state
+            )
+        }
+        subproject.path == ":compatibility-policy" -> {
+            // The admission policy reads frozen SDK declarations only; a dependency back
+            // on :runtime (or anything else) would dissolve the host-independent boundary.
+            checkDeclaredBoundaryDependencies(
+                subproject,
+                setOf(":sdk"),
+                "Compatibility-policy",
+                state
+            )
+            checkResolvedBoundaryComponents(
+                config,
+                subproject,
+                setOf(":compatibility-policy", ":sdk"),
                 state
             )
         }
@@ -771,6 +796,120 @@ private fun checkPersistenceCoreBytecode(root: Project, state: BoundaryState) {
 }
 
 /*
+ * :compatibility-policy owns the host-independent Cubism admission policy. Its sources may
+ * name only its own package, frozen SDK annotation types, and the JDK value/collection
+ * types the exact decision needs; compiled bytecode is checked too, because an import-only
+ * rule cannot see a fully qualified reference. The allowlist is a prefix list rather than
+ * a ban: a new JDK package is a reviewed contract change, not an accident.
+ */
+private val compatibilityPolicyAllowedImportPrefixes = listOf(
+    "dev.turboism.compatibility.",
+    "dev.turboism.sdk.",
+    "java.math.BigInteger",
+    "java.util."
+)
+
+private val compatibilityPolicyForbiddenBinaryPrefixes = listOf(
+    "com/live2d/",
+    "java/awt/",
+    "java/io/",
+    "java/lang/ClassLoader",
+    "java/lang/reflect/",
+    "java/net/",
+    "java/nio/",
+    "java/security/",
+    "java/util/concurrent/",
+    "javax/",
+    "org/objectweb/asm/"
+)
+
+private val compatibilityPolicyAllowedDevTurboismRoots = setOf("compatibility", "sdk")
+
+private fun checkCompatibilityPolicySources(root: Project, state: BoundaryState) {
+    val sourceRoot = root.file("compatibility-policy/src/main/java")
+    if (!sourceRoot.isDirectory) {
+        state.reject(
+            "Compatibility-policy production sources are missing at " +
+                sourceRoot.relativeTo(root.projectDir)
+        )
+        return
+    }
+    sourceRoot.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
+        val display = file.relativeTo(root.projectDir)
+        file.readLines().forEachIndexed { index, line ->
+            val trimmed = line.trim()
+            if (!trimmed.startsWith("import ")) {
+                return@forEachIndexed
+            }
+            val imported = trimmed
+                .removePrefix("import ")
+                .removePrefix("static ")
+                .removeSuffix(";")
+                .trim()
+            if (compatibilityPolicyAllowedImportPrefixes.none { imported.startsWith(it) }) {
+                state.reject(
+                    "Compatibility-policy import rejected in $display:${index + 1}: " +
+                        "the pure admission policy must not name '$imported'"
+                )
+            }
+        }
+    }
+}
+
+private fun checkCompatibilityPolicyBytecode(root: Project, state: BoundaryState) {
+    val classesDir = root.project(":compatibility-policy")
+        .layout.buildDirectory.dir("classes/java/main").get().asFile
+    if (!classesDir.isDirectory) {
+        state.reject(
+            "Compatibility-policy has no compiled classes at " +
+                classesDir.relativeTo(root.projectDir)
+        )
+        return
+    }
+    classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach { file ->
+        val display = file.relativeTo(root.projectDir)
+        val bytes = file.readBytes()
+        compatibilityPolicyForbiddenBinaryPrefixes.forEach { prefix ->
+            if (bytes.indexOfNeedle(prefix.toByteArray(Charsets.UTF_8), 0) >= 0) {
+                state.reject(
+                    "Compatibility-policy class $display references forbidden $prefix"
+                )
+            }
+        }
+        val binaryNeedle = "dev/turboism/".toByteArray(Charsets.UTF_8)
+        var offset = bytes.indexOfNeedle(binaryNeedle, 0)
+        while (offset >= 0) {
+            var end = offset + binaryNeedle.size
+            while (end < bytes.size && isBinaryNameByte(bytes[end])) {
+                end++
+            }
+            val segment = bytes.decodeToString(offset + binaryNeedle.size, end)
+            if (segment.isNotEmpty() && segment !in compatibilityPolicyAllowedDevTurboismRoots) {
+                state.reject(
+                    "Compatibility-policy class $display references forbidden package dev/turboism/$segment"
+                )
+            }
+            offset = bytes.indexOfNeedle(binaryNeedle, offset + binaryNeedle.size)
+        }
+        val dottedNeedle = "dev.turboism.".toByteArray(Charsets.UTF_8)
+        offset = bytes.indexOfNeedle(dottedNeedle, 0)
+        while (offset >= 0) {
+            var end = offset + dottedNeedle.size
+            while (end < bytes.size && isBinaryNameByte(bytes[end])) {
+                end++
+            }
+            val segment = bytes.decodeToString(offset + dottedNeedle.size, end)
+            if (segment.isNotEmpty() && segment !in compatibilityPolicyAllowedDevTurboismRoots) {
+                state.reject(
+                    "Compatibility-policy class $display references forbidden package dev.turboism.$segment"
+                )
+            }
+            offset = bytes.indexOfNeedle(dottedNeedle, offset + dottedNeedle.size)
+        }
+    }
+}
+
+/*
  * checkPluginBoundaries is the compiled-artifact half of the plugin boundary.
  * checkModuleBoundaries scans sources and declared dependency paths; this gate
  * scans the bytecode every plugin actually ships, so copied or generated
@@ -931,6 +1070,7 @@ private fun ByteArray.indexOfNeedle(needle: ByteArray, from: Int): Int {
 private val pluginBoundaryForbiddenDottedExtras = setOf(
     "internal",       // :core-contract management contracts
     "persistence",    // :persistence-core typed-config kernel
+    "compatibility",  // :compatibility-policy Cubism admission policy
     "bootstrap",      // java-agent entrypoint surface
     "eventprocessor", // annotation-processor implementation
     "graalhost"       // native-image host surface
