@@ -22,6 +22,10 @@ import java.util.jar.JarFile;
 final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.render.sorting-info-cache";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
+
     static final String ENABLE_PROPERTY = "turboism.optimization.sortingInfoCache";
 
     private final Instrumentation instrumentation;
@@ -34,9 +38,8 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
 
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested)
             throws java.io.IOException {
-        return requested
-                && config != null
-                && config.hookEnabled(HOOK_ID)
+        return VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())
                 && SortingInfoCacheTarget.of(HostArtifactDigest.from(artifact)).isPresent();
     }
 

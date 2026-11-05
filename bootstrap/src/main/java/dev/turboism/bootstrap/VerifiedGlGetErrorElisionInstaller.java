@@ -5,101 +5,116 @@ import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransfo
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.util.jar.JarFile;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * Exact glGetError-elision admission and restoration for the test-only timing-leg
- * experiment. One host class is rewritten: the shader helper owning the
- * unconditional error-check marker. The reference bytecode comes from the official
- * artifact itself and the marker method's reviewed shape must match before any
- * rewrite; on close the class is re-captured and must hash back to its pre-rewrite
- * SHA-256. This installer performs no runtime bridge and never alters GL call
- * semantics outside the reviewed marker method.
+ * Exact glGetError-elision admission and restoration for the test-only timing-leg experiment. One host
+ * class is rewritten: the shader helper owning the unconditional error-check marker.
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}. Its admission row never consults the startup
+ * policy — the sole switch is {@code -Dturboism.validation.glGetErrorElision=true} — and it publishes
+ * the composed method shape only after the rewrite is verified, then withdraws it before the
+ * restoration capture so bytes that stay elided are no longer claimed as ours.</p>
  */
 final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final GlGetErrorElisionTarget target;
-    private final Class<?> entry;
-    private final GlGetErrorElisionTransformer transformer;
-    private boolean installed, restored;
+    /** The one switch of this test-only experiment; not a policy id. */
+    static final String HOOK_ID = "TURBOISM_GL_ERROR_ELISION";
+
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
+
+    /** Publishes the composed method shape only after the weave is proven, and withdraws it before the capture. */
+    private static final WeaveEffects<GlGetErrorElisionTarget> EFFECTS = new WeaveEffects<GlGetErrorElisionTarget>() {
+        @Override
+        public void confirmed(final VerifiedInstall<GlGetErrorElisionTarget> hook) {
+            GlGetErrorElisionTransformer.markInstalled(
+                    hook.context().hostLoader(), hook.contract().owner());
+        }
+
+        @Override
+        public void withdrawn(final VerifiedInstall<GlGetErrorElisionTarget> hook) {
+            GlGetErrorElisionTransformer.clearInstalled(
+                    hook.context().hostLoader(), hook.contract().owner());
+        }
+    };
+
+    static final WeaveSpec<GlGetErrorElisionTarget> SPEC = new WeaveSpec<>(
+            ADMISSION,
+            "glGetError elision",
+            VerifiedGlGetErrorElisionInstaller::resolve,
+            new WeavePlan<>(VerifiedGlGetErrorElisionInstaller::targets, VerifiedGlGetErrorElisionInstaller::unelided),
+            BridgeLayer.NONE,
+            EFFECTS);
+
+    private final InstallContext context;
+    private VerifiedInstall<GlGetErrorElisionTarget> hook;
 
     VerifiedGlGetErrorElisionInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        target = GlGetErrorElisionTarget.of(HostArtifactDigest.from(artifact))
-                .orElseThrow(() -> new IllegalArgumentException("glGetError elision unsupported host artifact"));
-        if (Runtime.version().feature() < 17) {
-            throw new IllegalArgumentException("glGetError elision requires JVM17+");
-        }
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        entry = Class.forName(target.owner().replace('/', '.'), false, loader);
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            VerifiedHookInstallerSupport.attestClassSource(
-                    entry, loader, artifact, "glGetError elision loader/source mismatch");
-            transformer = new GlGetErrorElisionTransformer(
-                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, entry), target);
-        }
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) {
+        context = InstallContext.of(instrumentation, artifact, loader);
     }
 
+    private static Optional<GlGetErrorElisionTarget> resolve(final Path artifact) throws Exception {
+        return GlGetErrorElisionTarget.of(HostArtifactDigest.from(artifact));
+    }
+
+    /** The experiment declares exactly one target, so the post-check reads that one. */
+    private static String unelided(final List<WeaveTarget> targets) {
+        return targets.get(0).transformer(GlGetErrorElisionTransformer.class).elided() < 1
+                ? "no glGetError call site was elided"
+                : null;
+    }
+
+    private static List<WeaveTarget> targets(final GlGetErrorElisionTarget target, final WeaveSource source)
+            throws Exception {
+        final Class<?> entry = source.load(target.owner());
+        final var transformer = new GlGetErrorElisionTransformer(
+                source.loader(), source.artifact(), source.referenceBytes(entry), target);
+        return List.of(WeaveTarget.single(
+                entry,
+                transformer,
+                1,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
+    }
+
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalArgumentException when the artifact is not a reviewed glGetError-elision host
+     * @throws Exception when registration, retransformation or the elision proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("glGetError elision entry unmodifiable");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context)
+                instanceof VerifiedInstall.Attempt.Installed<GlGetErrorElisionTarget> installed)) {
+            throw new IllegalArgumentException("glGetError elision unsupported host artifact");
         }
-        try {
-            instrumentation.addTransformer(transformer, true);
-            installed = true;
-            instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.elided() < 1 || transformer.failure() != null) {
-                throw new IllegalStateException("glGetError elision entry not admitted: " + transformer.failure());
-            }
-            // Publish only after the rewrite is verified: downstream verified
-            // installers may then admit the composed (elided) method shape.
-            GlGetErrorElisionTransformer.markInstalled(entry.getClassLoader(), target.owner());
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     /** Returns the replaced {@code glGetError} site count for the install marker log. */
     int elided() {
-        return transformer.elided();
+        return hook.targets()
+                .get(0)
+                .transformer(GlGetErrorElisionTransformer.class)
+                .elided();
     }
 
     /** Returns the reviewed owner/method/descriptor for the install marker log. */
     String targetDescription() {
+        final GlGetErrorElisionTarget target = hook.contract();
         return target.owner() + "." + target.method() + target.descriptor();
     }
 
     @Override
     public synchronized void close() {
-        if (!installed) return;
-        instrumentation.removeTransformer(transformer);
-        // The marker is dropped before the restore capture so bytes that stay
-        // elided after a failed restore are no longer claimed as ours.
-        GlGetErrorElisionTransformer.clearInstalled(entry.getClassLoader(), target.owner());
-        try {
-            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
-                    entry,
-                    "glGetError elision class unmodifiable",
-                    "glGetError elision inspection absent");
-            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
-            if (!hash.equals(transformer.beforeSha256())) {
-                throw new IllegalStateException("native glGetError elision restoration not proven: " + target.owner());
-            }
-            restored = true;
-            installed = false;
-        } catch (Exception failure) {
-            throw new IllegalStateException("glGetError elision restoration failed", failure);
-        }
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

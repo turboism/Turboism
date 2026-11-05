@@ -17,6 +17,10 @@ import java.util.jar.JarFile;
 /** Exact native pure-accessor/consumer admission and verified restoration. */
 final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.warp-position-projection";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
+
     private final Instrumentation instrumentation;
     private final Class<?> target;
     private final WarpPositionProjectionTransformer transformer;
@@ -27,10 +31,8 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
             WarpPositionProjectionTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return requested
-                && jvm == 17
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedWarpPositionProjectionInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
