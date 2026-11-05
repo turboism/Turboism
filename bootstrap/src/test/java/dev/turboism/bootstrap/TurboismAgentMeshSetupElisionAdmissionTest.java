@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-import dev.turboism.config.NativeOptimizationConfig;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,9 +37,9 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
     @Test
     void preferenceOffInstallsNothingAndNeverTouchesTheHost() throws Exception {
         withProperty(
-                NativeOptimizationConfig.Option.MESH_SETUP_ELISION.property(),
+                OptimizationCatalog.MESH_SETUP_ELISION.property(),
                 "false",
-                () -> withProperty(NativeOptimizationConfig.Option.MODEL_UPDATE_SKIP.property(), "true", () -> {
+                () -> withProperty(OptimizationCatalog.MODEL_UPDATE_SKIP.property(), "true", () -> {
                     final var instrumentationCalls = new java.util.concurrent.atomic.AtomicInteger();
                     final var instrumentation =
                             (java.lang.instrument.Instrumentation) java.lang.reflect.Proxy.newProxyInstance(
@@ -66,9 +66,9 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
     @Test
     void modelUpdateSkipDisabledRefusesBeforeTouchingTheHost() {
         withProperty(
-                NativeOptimizationConfig.Option.MESH_SETUP_ELISION.property(),
+                OptimizationCatalog.MESH_SETUP_ELISION.property(),
                 "true",
-                () -> withProperty(NativeOptimizationConfig.Option.MODEL_UPDATE_SKIP.property(), "false", () -> {
+                () -> withProperty(OptimizationCatalog.MODEL_UPDATE_SKIP.property(), "false", () -> {
                     final var contributor = new SkippedFrameMeshSetupElisionHookContributor();
                     assertNotNull(contributor.install(environment(true)));
                     assertFalse(System.getProperties()
@@ -81,9 +81,9 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
     @Test
     void preferenceOnWithoutHostFailsSafe() {
         withProperty(
-                NativeOptimizationConfig.Option.MESH_SETUP_ELISION.property(),
+                OptimizationCatalog.MESH_SETUP_ELISION.property(),
                 "true",
-                () -> withProperty(NativeOptimizationConfig.Option.MODEL_UPDATE_SKIP.property(), "true", () -> {
+                () -> withProperty(OptimizationCatalog.MODEL_UPDATE_SKIP.property(), "true", () -> {
                     final var contributor = new SkippedFrameMeshSetupElisionHookContributor();
                     assertNotNull(contributor.install(environment(true)));
                 }));

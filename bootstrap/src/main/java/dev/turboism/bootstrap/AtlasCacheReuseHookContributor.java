@@ -43,7 +43,7 @@ final class AtlasCacheReuseHookContributor implements ReportedHookContributor {
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
                 .optimizationConfig()
-                .choice(dev.turboism.config.NativeOptimizationConfig.Option.ATLAS_CACHE_REUSE)
+                .choice(dev.turboism.config.optimization.OptimizationCatalog.ATLAS_CACHE_REUSE)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)
