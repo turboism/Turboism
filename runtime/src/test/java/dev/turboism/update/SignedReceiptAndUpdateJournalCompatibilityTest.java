@@ -367,6 +367,88 @@ class SignedReceiptAndUpdateJournalCompatibilityTest {
         assertArrayEquals(corruptPreferences, Files.readAllBytes(preferences));
     }
 
+    @Test
+    void savingAfterACorruptReadKeepsThePreUpgradeBytesOfStateAndPreferences() throws Exception {
+        final Path updateState = temporary.resolve(UpdateStateStore.FILE_NAME);
+        final byte[] corruptState = "{\"schemaVersion\":1,\"etag\":".getBytes(StandardCharsets.UTF_8);
+        Files.write(updateState, corruptState);
+        final UpdateStateStore stateStore = new UpdateStateStore(temporary);
+        assertTrue(stateStore.read().lastAutomaticAttempt().isEmpty());
+
+        assertTrue(stateStore.save(stateStore.read()).saved());
+        final Path stateImage = temporary.resolve(UpdateStateStore.FILE_NAME + ".corrupt.bak");
+        assertArrayEquals(
+                corruptState,
+                Files.readAllBytes(stateImage),
+                "the unreadable document must survive the overwrite that replaces it");
+        assertEquals(
+                UpdateStateStore.SCHEMA_VERSION,
+                UpdateFileSupport.JSON
+                        .readTree(Files.readAllBytes(updateState))
+                        .path("schemaVersion")
+                        .asInt());
+
+        final Path preferences = temporary.resolve(UpdatePreferencesStore.FILE_NAME);
+        final byte[] corruptPreferences =
+                "{\"schemaVersion\":2,\"automaticChecksEnabled\":true}".getBytes(StandardCharsets.UTF_8);
+        Files.write(preferences, corruptPreferences);
+        final UpdatePreferencesStore preferenceStore = new UpdatePreferencesStore(temporary);
+        assertEquals(UpdatePreferencesStore.StoredPreferences.DEFAULT, preferenceStore.readAll());
+
+        assertTrue(preferenceStore.saveAutomaticPluginUpdatesEnabled(false).saved());
+        final Path preferenceImage = temporary.resolve(UpdatePreferencesStore.FILE_NAME + ".corrupt.bak");
+        assertArrayEquals(
+                corruptPreferences,
+                Files.readAllBytes(preferenceImage),
+                "a future preference schema must not be erased by a downgrade");
+        assertFalse(preferenceStore.readAll().automaticPluginUpdatesEnabled());
+    }
+
+    @Test
+    void aNormalOverwriteKeepsNoRecoveryImage() throws Exception {
+        final UpdateStateStore store = new UpdateStateStore(temporary);
+        assertTrue(store.save(new UpdateStateStore.State(
+                        java.util.Optional.of(java.time.Instant.parse("2026-09-30T12:00:00Z")),
+                        java.util.Optional.empty(),
+                        java.util.Optional.of("W/\"golden\"")))
+                .saved());
+        assertTrue(store.save(UpdateStateStore.State.empty()).saved());
+        assertFalse(
+                Files.exists(temporary.resolve(UpdateStateStore.FILE_NAME + ".corrupt.bak")),
+                "a readable document must be overwritten in place without accumulating backups");
+
+        final UpdatePreferencesStore preferences = new UpdatePreferencesStore(temporary);
+        assertTrue(preferences.saveAutomaticPluginUpdatesEnabled(false).saved());
+        assertTrue(preferences.saveAutomaticPluginUpdatesEnabled(true).saved());
+        assertFalse(Files.exists(temporary.resolve(UpdatePreferencesStore.FILE_NAME + ".corrupt.bak")));
+    }
+
+    @Test
+    void repeatedCorruptCyclesKeepExactlyOneRecoveryImage() throws Exception {
+        final Path updateState = temporary.resolve(UpdateStateStore.FILE_NAME);
+        final Path image = temporary.resolve(UpdateStateStore.FILE_NAME + ".corrupt.bak");
+        final UpdateStateStore store = new UpdateStateStore(temporary);
+
+        Files.write(updateState, "\"not-a-document\"".getBytes(StandardCharsets.UTF_8));
+        assertTrue(store.save(UpdateStateStore.State.empty()).saved());
+        final byte[] first = Files.readAllBytes(image);
+
+        Files.write(updateState, "\"second-not-a-document\"".getBytes(StandardCharsets.UTF_8));
+        assertTrue(store.save(UpdateStateStore.State.empty()).saved());
+        assertArrayEquals(
+                "\"second-not-a-document\"".getBytes(StandardCharsets.UTF_8),
+                Files.readAllBytes(image),
+                "the newest unreadable image replaces the previous one");
+        assertFalse(java.util.Arrays.equals(first, Files.readAllBytes(image)));
+        try (var entries = Files.list(temporary)) {
+            assertEquals(
+                    1,
+                    entries.filter(path -> path.getFileName().toString().contains(".corrupt.bak"))
+                            .count(),
+                    "retention is exactly one image");
+        }
+    }
+
     private record Release(
             UpdateManifest manifest, byte[] manifestBytes, byte[] envelopeBytes, Map<String, byte[]> payloads) {}
 
