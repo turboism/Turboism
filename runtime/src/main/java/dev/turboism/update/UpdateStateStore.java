@@ -50,23 +50,46 @@ public final class UpdateStateStore {
             try {
                 final ObjectNode root = UpdateFileSupport.readObject(home, path);
                 if (root == null) return State.empty();
-                final JsonNode schema = root.get("schemaVersion");
-                if (schema == null
-                        || !schema.isIntegralNumber()
-                        || !schema.canConvertToInt()
-                        || schema.intValue() != SCHEMA_VERSION) {
-                    throw new IOException("state schema invalid");
-                }
-                final Optional<Instant> attempt = optionalInstant(root.get("lastAutomaticAttempt"));
-                final Optional<String> etag = optionalEtag(root.get("etag"));
-                final JsonNode cached = root.get("cachedResult");
-                final Optional<UpdateDiscovery> cachedResult =
-                        cached == null || cached.isNull() ? Optional.empty() : Optional.of(parser.parseNode(cached));
-                return new State(attempt, cachedResult, etag);
+                return parse(root);
             } catch (RuntimeException | IOException failure) {
                 UpdateFileSupport.report(diagnostic, "UPDATE_STATE_CORRUPT");
                 return State.empty();
             }
+        }
+    }
+
+    /** Decodes one document; throws unless it is the current schema this build understands. */
+    private State parse(final ObjectNode root) throws IOException {
+        final JsonNode schema = root.get("schemaVersion");
+        if (schema == null
+                || !schema.isIntegralNumber()
+                || !schema.canConvertToInt()
+                || schema.intValue() != SCHEMA_VERSION) {
+            throw new IOException("state schema invalid");
+        }
+        final Optional<Instant> attempt = optionalInstant(root.get("lastAutomaticAttempt"));
+        final Optional<String> etag = optionalEtag(root.get("etag"));
+        final JsonNode cached = root.get("cachedResult");
+        final Optional<UpdateDiscovery> cachedResult =
+                cached == null || cached.isNull() ? Optional.empty() : Optional.of(parser.parseNode(cached));
+        return new State(attempt, cachedResult, etag);
+    }
+
+    /**
+     * Keeps one image of a document this build can no longer read before the new state replaces it.
+     *
+     * <p>{@link #read} deliberately degrades a corrupt or future document to an empty state without
+     * touching it. The next save is the destructive step: without this image an identification
+     * check from a newer build would be silently replaced by an empty state and nobody could tell
+     * what had been there.</p>
+     */
+    private void preserveUnreadableState() {
+        try {
+            final ObjectNode root = UpdateFileSupport.readObject(home, path);
+            if (root == null) return;
+            parse(root);
+        } catch (IOException | RuntimeException unreadable) {
+            UpdateFileSupport.preserveUnreadable(home, path);
         }
     }
 
@@ -83,6 +106,7 @@ public final class UpdateStateStore {
                 // Revalidate the complete detached candidate before persistence; never merge capability
                 // or identity fields from a different response or an earlier cache entry.
                 state.cachedResult().ifPresent(value -> parser.parseNode(value.toJson(UpdateFileSupport.JSON)));
+                preserveUnreadableState();
                 UpdateFileSupport.writeAtomic(home, path, root);
                 return SaveResult.success();
             } catch (RuntimeException | IOException failure) {
