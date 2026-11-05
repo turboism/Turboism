@@ -62,7 +62,8 @@ class HostSessionMeshToolLifecycleTest {
                         deactivations.incrementAndGet();
                     }
                 },
-                (permission, operation) -> {});
+                (permission, operation) -> {},
+                false);
         coordinator.beginSession(new Session(0L));
         coordinator.activate("plugin", 1L, "brush");
         var lease = coordinator.activeLease().orElseThrow();

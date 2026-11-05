@@ -1,12 +1,14 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
-import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHookAdmission;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
+import dev.turboism.core.lifecycle.CapabilityAdmission;
+import dev.turboism.core.lifecycle.PluginAdmissionView;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * transformer must be installed before the host's point-move and drag-tick
  * classes load, so it installs in {@link Phase#PREMAIN} from the process
  * classpath, then defines its lazy targets and binds the native bridge once
- * the preview runtime has started and the authorized consumer plugin is
+ * the preview runtime has started and a capability-admitted consumer is
  * present.
  */
 final class WarpAltMirrorHookContributor implements HookContributor {
@@ -43,6 +45,21 @@ final class WarpAltMirrorHookContributor implements HookContributor {
                         WarpAltMirrorHostProfile.reviewedClassSha256(),
                         version -> WarpAltMirrorHostProfile.forReviewedVersion(version)
                                 .orElse(null)));
+    }
+
+    /**
+     * Admits the shared hooks for a plugin that owns one of the mirror capabilities, or for a
+     * plugin that mounts canvas-top control-strip buttons through the same hooks. Both rows are
+     * capability rows, so no plugin id is consulted and either branch is satisfied by a plugin
+     * declaring its capability and holding the row's permissions.
+     */
+    private static boolean admitted(final List<? extends PluginAdmissionView> plugins) {
+        return isAdmitted(plugins, CapabilityAdmission.WARP_ALT_MIRROR_HOOKS)
+                || isAdmitted(plugins, CapabilityAdmission.VIEW_CONTEXT_MENU_MOUNT);
+    }
+
+    private static boolean isAdmitted(final List<? extends PluginAdmissionView> plugins, final String hookId) {
+        return !CapabilityAdmission.admitted(plugins, hookId).isEmpty();
     }
 
     static void closeCurrent(final VerifiedWarpAltMirrorHookInstaller candidate) {
@@ -142,11 +159,11 @@ final class WarpAltMirrorHookContributor implements HookContributor {
         }
         final var runtime = environment.runtime().orElseThrow();
         current.onClose(() -> runtime.disableEditorCapabilitiesRequiringHook("warp-alt-mirror"));
-        if (!WarpAltMirrorHookAdmission.admitted(runtime.loadReport().loaded())) {
+        if (!admitted(runtime.loadReport().loaded())) {
             current.close();
             installer.compareAndSet(current, null);
             CURRENT.compareAndSet(current, null);
-            throw new IllegalStateException("Warp alt mirror bind refused: authorized consumer plugin absent");
+            throw new IllegalStateException("Warp alt mirror bind refused: capability-admitted consumer absent");
         }
         try {
             current.defineLazyTargets(environment.host().orElseThrow().classLoader());

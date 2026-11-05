@@ -48,7 +48,8 @@
     }
   ],
   "capabilities": [
-    "cubism.mesh.custom-tools"
+    "cubism.mesh.custom-tools",
+    "cubism.mesh.point-and-edge-layout"
   ],
   "environment": {
     "requiresCubism": true,

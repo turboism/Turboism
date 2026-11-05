@@ -27,7 +27,9 @@
       "reason": "Read the active Cubism model for protected-export preflight and the runtime orchestration's model census; the authoring document is never written."
     }
   ],
-  "capabilities": [],
+  "capabilities": [
+    "cubism.export.protected"
+  ],
   "environment": {
     "requiresCubism": true,
     "ui": "none"

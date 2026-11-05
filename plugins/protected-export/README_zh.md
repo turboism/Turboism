@@ -51,7 +51,9 @@ interface: none
 
 ## 功能能力
 
-插件清单未声明功能能力。
+| Capability | Effect |
+|---|---|
+| `cubism.export.protected` | 将声明该能力的插件准入为唯一所有者，由其自身导出设置选项驱动运行时的受保护导出流水线。 |
 
 ## 权限
 
