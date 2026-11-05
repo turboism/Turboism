@@ -1,5 +1,8 @@
 package dev.turboism.config;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -22,7 +25,10 @@ import java.util.function.UnaryOperator;
 
 /** Single Runtime-owned authority for the canonical global config document. */
 public final class RuntimeConfigRepository {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
+                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final long MAX_BYTES = 64L * 1024L;
     private static final Map<Path, Object> LOCKS = new ConcurrentHashMap<>();
 

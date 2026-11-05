@@ -41,6 +41,16 @@ public final class PluginCatalogStateStore {
     public static final String RELATIVE_PATH = "state/runtime/plugin-management/catalog-state.json";
 
     private static final long MAX_STATE_FILE_BYTES = 16L * 1024L * 1024L;
+    private static final java.util.Set<String> STATE_FIELDS = java.util.Set.of(
+            "schemaVersion",
+            "catalogVersion",
+            "publishedAt",
+            "catalogSha256",
+            "etag",
+            "lastAutomaticAttempt",
+            "cachedCatalogBase64",
+            "cachedSignatureBase64",
+            "stagedUpdates");
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
     private static final Map<Path, Object> LOCKS = new ConcurrentHashMap<>();
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
@@ -99,6 +109,9 @@ public final class PluginCatalogStateStore {
                 final JsonNode parsed = JSON.readTree(raw);
                 if (!(parsed instanceof ObjectNode root)) {
                     throw new IOException("catalog state must be a JSON object");
+                }
+                if (!hasOnlyFields(root, STATE_FIELDS)) {
+                    throw new IOException("unknown catalog state field");
                 }
                 final JsonNode schema = root.get("schemaVersion");
                 if (schema == null
@@ -204,6 +217,15 @@ public final class PluginCatalogStateStore {
 
     private void report(final String code) {
         FatalErrors.reportSafely(diagnostic, code);
+    }
+
+    /** Catalog state is a closed v2 schema: an older reader must not act on fields it does not know. */
+    private static boolean hasOnlyFields(final ObjectNode node, final java.util.Set<String> allowed) {
+        final var names = node.fieldNames();
+        while (names.hasNext()) {
+            if (!allowed.contains(names.next())) return false;
+        }
+        return true;
     }
 
     private static OptionalLong optionalPositiveLong(final JsonNode node) throws IOException {

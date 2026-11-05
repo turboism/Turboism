@@ -1,5 +1,8 @@
 package dev.turboism.pluginmanagement;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -28,8 +31,15 @@ import java.util.stream.Collectors;
 
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
+                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final int MAX_JOURNAL_BYTES = 64 * 1024;
+    private static final java.util.Set<String> JOURNAL_FIELDS =
+            java.util.Set.of("format", "schemaVersion", "revision", "operations");
+    private static final java.util.Set<String> OPERATION_FIELDS = java.util.Set.of(
+            "type", "pluginId", "stagedJar", "version", "rawSha256", "descriptorSha256", "jarSha256", "jarSize");
     private static final String CORE_ID = dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     private final Path home;
     private final Path plugins;
@@ -637,12 +647,13 @@ public final class PendingPluginOperations {
             }
             if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException();
             final JsonNode root = JSON.readTree(bytes);
-            if (root == null
-                    || !root.path("format").asText().equals("turboism.plugin.pending")
-                    || root.path("schemaVersion").asInt() != 1
-                    || !root.path("operations").isArray()) throw new IOException();
+            if (!(root instanceof ObjectNode journal)
+                    || !hasOnlyFields(journal, JOURNAL_FIELDS)
+                    || !journal.path("format").asText().equals("turboism.plugin.pending")
+                    || journal.path("schemaVersion").asInt() != 1
+                    || !journal.path("operations").isArray()) throw new IOException();
             final List<Operation> result = new ArrayList<>();
-            for (JsonNode node : root.path("operations")) result.add(Operation.from(node));
+            for (JsonNode node : journal.path("operations")) result.add(Operation.from(node));
             return new JournalSnapshot(file, result, snapshotOf(file, bytes));
         } catch (NoSuchFileException missing) {
             return new JournalSnapshot(file, new ArrayList<>(), snapshotOf(file, new byte[0]));
@@ -697,6 +708,15 @@ public final class PendingPluginOperations {
         final List<Operation> result = new ArrayList<>(input);
         result.removeIf(operation -> operation.pluginId.equals(pluginId));
         return result;
+    }
+
+    /** A transaction journal is authoritative: unknown fields must not be applied by an older reader. */
+    private static boolean hasOnlyFields(final ObjectNode node, final java.util.Set<String> allowed) {
+        final var names = node.fieldNames();
+        while (names.hasNext()) {
+            if (!allowed.contains(names.next())) return false;
+        }
+        return true;
     }
 
     private static void copySnapshot(
@@ -825,6 +845,9 @@ public final class PendingPluginOperations {
         }
 
         static Operation from(final JsonNode node) {
+            if (!(node instanceof ObjectNode operation)
+                    || !hasOnlyFields(operation, OPERATION_FIELDS)
+                    || operation.size() != OPERATION_FIELDS.size()) throw new IllegalArgumentException();
             final String type = node.path("type").asText();
             final String pluginId = node.path("pluginId").asText();
             if (!(type.equals("INSTALL") || type.equals("UNINSTALL")) || pluginId.isBlank())
