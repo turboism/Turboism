@@ -43,7 +43,7 @@ record InstallContext(
                 environment.instrumentation(),
                 host.artifact(),
                 host.classLoader(),
-                environment.startupPolicy(),
+                environment.plan().policy(),
                 Runtime.version().feature());
     }
 

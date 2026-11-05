@@ -7,10 +7,12 @@ import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.jar.JarFile;
 
@@ -26,9 +28,11 @@ import java.util.jar.JarFile;
  *       an exception;</li>
  *   <li>every target class is loaded without initialization and attested against the artifact and
  *       loader, and its reference bytes come from the one {@link JarFile} this attempt opened;</li>
- *   <li>the hook's slot bridge is installed before any transformer is registered, all transformers are
- *       added in {@link WeavePlan} order, and one {@code retransformClasses} call covers them all — a
- *       woven site calling an unpublished slot is the one ordering that can fault inside the host;</li>
+ *   <li>the hook's slot bridge is installed after that preparation and before any transformer is
+ *       registered, all transformers are added in {@link WeavePlan} order — one transformer declared
+ *       against several classes is registered once — and one {@code retransformClasses} call covers
+ *       them all: a woven site calling an unpublished slot is the one ordering that can fault inside
+ *       the host;</li>
  *   <li>every target's match count and recorded failure, then the plan's post-check, must all hold;
  *       otherwise every transformer this attempt registered is removed again and the failure is
  *       rethrown;</li>
@@ -52,14 +56,17 @@ final class VerifiedInstall<T> implements AutoCloseable {
     private final WeaveSpec<T> spec;
     private final InstallContext context;
     private final T contract;
+    private final BridgeLayer bridge;
     private final List<WeaveTarget> registered = new ArrayList<>();
+    private final Set<ClassFileTransformer> registrations = Collections.newSetFromMap(new IdentityHashMap<>());
     private boolean closed;
     private boolean restored;
 
-    private VerifiedInstall(final WeaveSpec<T> spec, final InstallContext context, final T contract) {
+    private VerifiedInstall(final WeaveSpec<T> spec, final InstallContext context, final T contract) throws Exception {
         this.spec = spec;
         this.context = context;
         this.contract = contract;
+        this.bridge = spec.bridge().create(contract, context);
     }
 
     /**
@@ -115,6 +122,24 @@ final class VerifiedInstall<T> implements AutoCloseable {
      *     with fatal JVM conditions prioritized
      */
     static <T> Attempt<T> install(final WeaveSpec<T> spec, final InstallContext context) throws Exception {
+        final Attempt<T> attempt = bind(spec, context);
+        if (attempt instanceof Attempt.Installed<T> installed) {
+            installed.hook().weave();
+        }
+        return attempt;
+    }
+
+    /**
+     * Admits the host and binds the hook without weaving, so a hook that must prove its own
+     * restoration after a failed weave still holds the handle that proves it.
+     *
+     * @param spec everything the hook declares
+     * @param context the launch facts for this attempt
+     * @param <T> the target/profile type the hook installs with
+     * @return the bound handle, or the refusal code for an unadmitted host
+     * @throws Exception when the artifact cannot be read or the hook's bridge cannot be built
+     */
+    static <T> Attempt<T> bind(final WeaveSpec<T> spec, final InstallContext context) throws Exception {
         if (!admits(spec.admission(), context.policy(), true, context.jvmFeature())) {
             return new Attempt.Refused<>(ADMISSION_REFUSED);
         }
@@ -122,14 +147,7 @@ final class VerifiedInstall<T> implements AutoCloseable {
         if (bound.isEmpty()) {
             return new Attempt.Refused<>(ADMISSION_REFUSED);
         }
-        final VerifiedInstall<T> hook = new VerifiedInstall<>(spec, context, bound.orElseThrow());
-        try {
-            hook.weave();
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, hook);
-            throw failure;
-        }
-        return new Attempt.Installed<>(hook);
+        return new Attempt.Installed<>(new VerifiedInstall<>(spec, context, bound.orElseThrow()));
     }
 
     /**
@@ -170,12 +188,31 @@ final class VerifiedInstall<T> implements AutoCloseable {
         }
     }
 
-    private void weave() throws Exception {
+    /**
+     * Runs the weave for a handle that was obtained from {@link #bind}: on failure every transformer this
+     * attempt registered is removed again, and the handle stays open so a close can still prove the
+     * restoration of the bytes that were rewritten before the failure.
+     *
+     * @throws Exception when registration, retransformation or the match/post-check proof fails
+     */
+    void weave() throws Exception {
+        try {
+            runProtocol();
+        } catch (Exception | Error failure) {
+            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
+            throw failure;
+        }
+    }
+
+    private void runProtocol() throws Exception {
         final Instrumentation instrumentation = context.instrumentation();
         if (!instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException(spec.feature() + " host cannot be transformed");
         }
-        spec.bridge().install();
+        // Preparation first: every target is built and attested from the artifact before the bridge
+        // publishes a single slot, so a refused weave never leaves a callback behind. Registration then
+        // happens after the bridge, because a woven site calling an unpublished slot is the one ordering
+        // that can fault inside the host.
         try (JarFile jar = new JarFile(context.artifact().toFile())) {
             final WeaveSource source = new WeaveSource(spec.feature(), context, jar);
             for (final WeaveTarget target : spec.plan().targets().create(contract, source)) {
@@ -184,6 +221,11 @@ final class VerifiedInstall<T> implements AutoCloseable {
                             + target.type().getName());
                 }
                 registered.add(target);
+            }
+        }
+        bridge.install();
+        for (final WeaveTarget target : registered) {
+            if (registrations.add(target.transformer())) {
                 instrumentation.addTransformer(target.transformer(), true);
             }
         }
@@ -224,33 +266,44 @@ final class VerifiedInstall<T> implements AutoCloseable {
         final Throwable removed = attempt(this::removeEveryTransformer);
         final Throwable withdrawn = attempt(() -> spec.effects().withdrawn(this));
         final Throwable proof = attempt(this::verifyRestoration);
-        final Throwable bridge = attempt(spec.bridge()::close);
+        final Throwable bridgeFailure = attempt(bridge::close);
         // The restoration proof is the only retryable step: a failed proof leaves the handle open so a
         // second close can re-capture and settle.
         closed = proof == null;
         return FatalErrors.mergeForCleanup(
-                FatalErrors.mergeForCleanup(removed, withdrawn), FatalErrors.mergeForCleanup(proof, bridge));
+                FatalErrors.mergeForCleanup(removed, withdrawn), FatalErrors.mergeForCleanup(proof, bridgeFailure));
     }
 
-    /** Removes every registration in reverse spec order, never abandoning the rest when one removal fails. */
+    /**
+     * Removes every registration in reverse spec order, never abandoning the rest when one removal
+     * fails. A transformer declared against several classes is removed once.
+     */
     private Throwable removeEveryTransformer() {
         final List<WeaveTarget> reverse = new ArrayList<>(registered);
         Collections.reverse(reverse);
         Throwable failure = null;
         for (final WeaveTarget target : reverse) {
-            failure = FatalErrors.mergeForCleanup(
-                    failure, attempt(() -> context.instrumentation().removeTransformer(target.transformer())));
+            final ClassFileTransformer transformer = target.transformer();
+            if (!registrations.contains(transformer)) continue;
+            final Throwable removal = attempt(() -> context.instrumentation().removeTransformer(transformer));
+            if (removal == null) registrations.remove(transformer);
+            failure = FatalErrors.mergeForCleanup(failure, removal);
         }
         return failure;
     }
 
+    /**
+     * Re-captures every rewritten class and compares it with the digest the transformer observed
+     * before it rewrote that class. An owner the transformer never observed carries no rewrite to
+     * prove: the per-target match count is what proves the weave happened.
+     */
     private void verifyRestoration() throws Exception {
         if (registered.isEmpty()) return;
         final Map<String, String> observed = captureOwners();
         for (final WeaveTarget target : registered) {
             for (final String owner : target.touchedOwners()) {
                 final String before = target.beforeSha256().apply(owner);
-                if (before == null || !before.equals(observed.get(owner))) {
+                if (before != null && !before.equals(observed.get(owner))) {
                     throw new IllegalStateException(spec.feature() + " restoration not proven: " + owner);
                 }
             }

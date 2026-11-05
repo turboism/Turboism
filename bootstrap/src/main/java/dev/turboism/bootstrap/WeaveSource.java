@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
 
@@ -28,6 +29,14 @@ final class WeaveSource {
     /** @return the host class loader the woven classes are defined by */
     ClassLoader loader() {
         return context.hostLoader();
+    }
+
+    /**
+     * @return the instrumentation this attempt registers through, for a hook whose reviewed-target
+     *     expression must read the loaded bytes of a dependency class
+     */
+    Instrumentation instrumentation() {
+        return context.instrumentation();
     }
 
     /**

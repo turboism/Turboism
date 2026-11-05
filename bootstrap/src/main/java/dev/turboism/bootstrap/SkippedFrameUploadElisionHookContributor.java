@@ -48,6 +48,8 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
             }
         }
         final var host = environment.host().orElseThrow();
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
         if (production
                 && !validation
                 && !VerifiedSkippedFrameUploadElisionInstaller.admitted(
@@ -59,7 +61,7 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedSkippedFrameUploadElisionInstaller installer = new VerifiedSkippedFrameUploadElisionInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader(), production && !validation);
+                InstallContext.of(environment), production && !validation);
         installer.install();
         log(
                 environment,

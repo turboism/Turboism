@@ -23,9 +23,8 @@ final class AsyncReadbackHookContributor extends NativeOptimizationHookContribut
             return refused("preference-disabled");
         }
         try {
-            final var host = environment.host().orElseThrow();
-            final VerifiedAsyncReadbackInstaller installer = new VerifiedAsyncReadbackInstaller(
-                    environment.instrumentation(), host.artifact(), host.classLoader());
+            final VerifiedAsyncReadbackInstaller installer =
+                    new VerifiedAsyncReadbackInstaller(InstallContext.of(environment));
             installer.install();
             log(environment, id() + " pipelined=ACTIVE oneFrameLatency=true");
             return installer;

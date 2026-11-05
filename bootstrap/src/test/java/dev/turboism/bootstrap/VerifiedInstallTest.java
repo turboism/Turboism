@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -69,7 +70,7 @@ class VerifiedInstallTest {
                 "test hook",
                 artifact -> Optional.empty(),
                 plan(List.of(), WeavePlan.PostCheck.NONE),
-                BridgeLayer.NONE,
+                BridgeFactory.none(),
                 WeaveEffects.none());
 
         final var attempt = VerifiedInstall.install(spec, context(fake, openPolicy()));
@@ -90,7 +91,7 @@ class VerifiedInstallTest {
                 "test hook",
                 artifact -> Optional.of(new Contract("bound")),
                 plan(List.of(target(first, HostA.class), target(second, HostB.class)), WeavePlan.PostCheck.NONE),
-                bridge,
+                (contract, context) -> bridge,
                 effects);
 
         final var installed = install(spec, fake);
@@ -144,6 +145,54 @@ class VerifiedInstallTest {
     }
 
     @Test
+    void oneTransformerDeclaredAgainstTwoClassesIsRegisteredOnce() throws Exception {
+        final Fake fake = new Fake();
+        final Woven shared = fake.transformer("shared", HostA.class, HostB.class);
+        final var spec = new WeaveSpec<>(
+                ADMISSION,
+                "test hook",
+                artifact -> Optional.of(new Contract("bound")),
+                plan(
+                        List.of(
+                                new WeaveTarget(
+                                        HostA.class,
+                                        shared,
+                                        2,
+                                        shared::matches,
+                                        shared::failure,
+                                        Set.of(WeaveTarget.internalName(HostA.class)),
+                                        shared::beforeSha256),
+                                new WeaveTarget(
+                                        HostB.class,
+                                        shared,
+                                        2,
+                                        shared::matches,
+                                        shared::failure,
+                                        Set.of(WeaveTarget.internalName(HostB.class)),
+                                        shared::beforeSha256)),
+                        WeavePlan.PostCheck.NONE),
+                BridgeFactory.none(),
+                WeaveEffects.none());
+
+        final var installed = install(spec, fake);
+
+        assertEquals(
+                List.of(
+                        "add:shared",
+                        "call:retransformClasses",
+                        "retransform:" + WeaveTarget.internalName(HostA.class),
+                        "retransform:" + WeaveTarget.internalName(HostB.class)),
+                fake.events,
+                "one transformer declared against two classes is registered once and sees both classes");
+        assertEquals(2, shared.matches());
+
+        installed.close();
+
+        assertTrue(installed.restored(), "each owner is proven against the digest the transformer observed");
+        assertTrue(fake.active.isEmpty());
+    }
+
+    @Test
     void failedMatchCountRemovesEveryTransformerAndRethrows() throws Exception {
         final Fake fake = new Fake();
         final Woven first = fake.transformer("first", HostA.class);
@@ -154,7 +203,7 @@ class VerifiedInstallTest {
                 "test hook",
                 artifact -> Optional.of(new Contract("bound")),
                 plan(List.of(target(first, HostA.class), target(second, HostB.class, 2)), WeavePlan.PostCheck.NONE),
-                new RecordingBridge(fake.events),
+                (contract, context) -> new RecordingBridge(fake.events),
                 WeaveEffects.none());
 
         final IllegalStateException failure = assertThrows(IllegalStateException.class, () -> install(spec, fake));
@@ -174,7 +223,7 @@ class VerifiedInstallTest {
                 "test hook",
                 artifact -> Optional.of(new Contract("bound")),
                 plan(List.of(target(only, HostA.class)), WeavePlan.PostCheck.NONE),
-                BridgeLayer.NONE,
+                BridgeFactory.none(),
                 WeaveEffects.none());
 
         final IllegalStateException failure = assertThrows(IllegalStateException.class, () -> install(spec, fake));
@@ -191,7 +240,7 @@ class VerifiedInstallTest {
                 "test hook",
                 artifact -> Optional.of(new Contract("bound")),
                 plan(List.of(target(fake.transformer("only", HostA.class), HostA.class)), targets -> "elided=0"),
-                BridgeLayer.NONE,
+                BridgeFactory.none(),
                 new RecordingEffects(fake.events));
 
         final IllegalStateException failure = assertThrows(IllegalStateException.class, () -> install(spec, fake));
@@ -252,7 +301,7 @@ class VerifiedInstallTest {
                 "test hook",
                 artifact -> Optional.of(new Contract("bound")),
                 plan(targets, WeavePlan.PostCheck.NONE),
-                BridgeLayer.NONE,
+                BridgeFactory.none(),
                 WeaveEffects.none());
     }
 
@@ -271,7 +320,7 @@ class VerifiedInstallTest {
                 expectedMatches,
                 transformer::matches,
                 transformer::failure,
-                owner -> transformer.beforeSha256());
+                transformer::beforeSha256);
     }
 
     private VerifiedInstall<Contract> install(final WeaveSpec<Contract> spec, final Fake fake) throws Exception {
@@ -346,14 +395,14 @@ class VerifiedInstallTest {
     /** Byte-rewriting transformer double whose own bookkeeping the routine reads. */
     private static final class Woven implements ClassFileTransformer {
         private final String label;
-        private final Class<?> owner;
+        private final Set<Class<?>> owners;
+        private final Map<String, String> before = new LinkedHashMap<>();
         private int matches;
         private String failure;
-        private String beforeSha256;
 
-        Woven(final String label, final Class<?> owner) {
+        Woven(final String label, final Class<?>... owners) {
             this.label = label;
-            this.owner = owner;
+            this.owners = Set.of(owners);
         }
 
         @Override
@@ -364,8 +413,9 @@ class VerifiedInstallTest {
                 final Class<?> redefined,
                 final ProtectionDomain domain,
                 final byte[] bytes) {
-            if (bytes == null || redefined != owner) return null;
-            if (beforeSha256 == null) beforeSha256 = VerifiedHookInstallerSupport.sha256HexUnchecked(bytes);
+            if (bytes == null || redefined == null || !owners.contains(redefined)) return null;
+            before.putIfAbsent(
+                    WeaveTarget.internalName(redefined), VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
             matches++;
             final byte[] woven = bytes.clone();
             woven[woven.length - 1] ^= 1;
@@ -380,8 +430,8 @@ class VerifiedInstallTest {
             return failure;
         }
 
-        String beforeSha256() {
-            return beforeSha256;
+        String beforeSha256(final String owner) {
+            return before.get(owner);
         }
     }
 
@@ -403,12 +453,14 @@ class VerifiedInstallTest {
                     VerifiedInstallTest.class.getClassLoader(), new Class<?>[] {Instrumentation.class}, this);
         }
 
-        Woven transformer(final String label, final Class<?> owner) {
-            final Woven woven = new Woven(label, owner);
+        Woven transformer(final String label, final Class<?>... owners) {
+            final Woven woven = new Woven(label, owners);
             labels.put(woven, label);
-            final byte[] bytes = ("official:" + owner.getName()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            official.put(owner, bytes);
-            current.put(owner, bytes);
+            for (final Class<?> owner : owners) {
+                final byte[] bytes = ("official:" + owner.getName()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                official.put(owner, bytes);
+                current.put(owner, bytes);
+            }
             return woven;
         }
 

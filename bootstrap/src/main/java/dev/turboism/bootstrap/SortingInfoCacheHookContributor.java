@@ -30,8 +30,8 @@ final class SortingInfoCacheHookContributor extends NativeOptimizationHookContri
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedSortingInfoCacheInstaller installer = new VerifiedSortingInfoCacheInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedSortingInfoCacheInstaller installer =
+                new VerifiedSortingInfoCacheInstaller(InstallContext.of(environment));
         installer.install();
         log(environment, id() + " sortingCache=ACTIVE meshContainerIndexed=ACTIVE");
         return installer;

@@ -14,6 +14,8 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
         if (!VerifiedTextureUploadPreparationInstaller.admitted(
                 host.artifact(),
                 environment.plan().policy(),
@@ -22,8 +24,8 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedTextureUploadPreparationInstaller installer = new VerifiedTextureUploadPreparationInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedTextureUploadPreparationInstaller installer =
+                new VerifiedTextureUploadPreparationInstaller(InstallContext.of(environment));
         installer.install();
         return installer;
     }

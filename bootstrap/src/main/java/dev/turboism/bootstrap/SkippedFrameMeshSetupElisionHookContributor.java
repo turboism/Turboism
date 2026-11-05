@@ -41,6 +41,8 @@ final class SkippedFrameMeshSetupElisionHookContributor extends NativeOptimizati
             }
         }
         final var host = environment.host().orElseThrow();
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
         if (!VerifiedSkippedFrameMeshSetupElisionInstaller.admitted(
                 HostArtifactDigest.from(host.artifact()),
                 environment.plan().policy(),
@@ -50,8 +52,7 @@ final class SkippedFrameMeshSetupElisionHookContributor extends NativeOptimizati
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedSkippedFrameMeshSetupElisionInstaller installer =
-                new VerifiedSkippedFrameMeshSetupElisionInstaller(
-                        environment.instrumentation(), host.artifact(), host.classLoader());
+                new VerifiedSkippedFrameMeshSetupElisionInstaller(InstallContext.of(environment));
         installer.install();
         log(
                 environment,
