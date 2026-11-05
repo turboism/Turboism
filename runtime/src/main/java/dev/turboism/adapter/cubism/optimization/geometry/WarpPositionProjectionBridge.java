@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Map;
@@ -47,13 +47,14 @@ public final class WarpPositionProjectionBridge implements AutoCloseable {
     /** Uses only reviewed pure accessors and the native fresh vector constructor. */
     public WarpPositionProjectionBridge(Class<?> formType, Class<?> vectorType) throws ReflectiveOperationException {
         this.formType = formType;
-        var lookup = MethodHandles.publicLookup();
-        positions = lookup.unreflect(formType.getMethod("getPositions"))
-                .asType(MethodType.methodType(float[].class, Object.class));
-        source = lookup.unreflect(formType.getMethod("getSource"))
-                .asType(MethodType.methodType(Object.class, Object.class));
-        vector = lookup.unreflectConstructor(vectorType.getConstructor(float.class, float.class))
-                .asType(MethodType.methodType(Object.class, float.class, float.class));
+        positions = HostHandles.virtual(
+                formType, "getPositions", "()[F", MethodType.methodType(float[].class, Object.class));
+        // The declared source type is whatever that form exposes, so the member is discovered by name
+        // and opened on its discovered descriptor.
+        source =
+                HostHandles.virtual(formType.getMethod("getSource"), MethodType.methodType(Object.class, Object.class));
+        vector = HostHandles.construct(
+                vectorType, "(FF)V", MethodType.methodType(Object.class, float.class, float.class));
     }
 
     /** Rejects occupied slots rather than replacing another installation. */

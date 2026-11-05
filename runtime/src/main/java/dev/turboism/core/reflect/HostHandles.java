@@ -33,6 +33,19 @@ import java.util.Objects;
  *
  * <p>Every entry point either returns a handle of exactly the requested shape or throws
  * {@link HostMemberRefused}, so callers keep one {@code ReflectiveOperationException} path.</p>
+ *
+ * <p>{@link #virtual(Method, MethodType)} and {@link #unreflect(Method)} expose the same opening
+ * policy for a member the caller had to discover by shape rather than by descriptor (a getter whose
+ * wrapper type the host may narrow, a helper declared with two overloads across the reviewed
+ * families). The member is bound exactly as discovered; only the unreflection is shared.</p>
+ *
+ * <p>{@link #field(Class, String)} is the field half of the policy and, on purpose, the one tolerant
+ * corner: a field is not a method. Its getter and setter resolve independently because the JVM
+ * refuses a setter for a {@code final} field while its getter stays usable, the field type is only
+ * known after the field is found, and a field whose module does not open it keeps the reflective
+ * read/write path through {@link ReflectAccess#open(java.lang.reflect.AccessibleObject)} — that is
+ * the behaviour both clipping-mask bridges already ship. Its only refusals are
+ * {@link Refusal#MEMBER_ABSENT} and {@link Refusal#OWNER_UNLOADABLE}.</p>
  */
 public final class HostHandles {
 
@@ -101,6 +114,12 @@ public final class HostHandles {
         MethodHandle open(MethodHandles.Lookup lookup) throws IllegalAccessException;
     }
 
+    /** Erased receiver-first shape of a field read. */
+    private static final MethodType FIELD_READ = MethodType.methodType(Object.class, Object.class);
+
+    /** Erased receiver-first shape of a field write. */
+    private static final MethodType FIELD_WRITE = MethodType.methodType(void.class, Object.class, Object.class);
+
     private HostHandles() {}
 
     /**
@@ -118,6 +137,41 @@ public final class HostHandles {
         } catch (ClassNotFoundException | LinkageError unloadable) {
             throw new HostMemberRefused(Refusal.OWNER_UNLOADABLE, internalName, unloadable);
         }
+    }
+
+    /**
+     * Opens an already-discovered instance method under the opening half of this policy.
+     *
+     * <p>For a member whose reviewed return type is checked by shape rather than by descriptor — a
+     * getter whose wrapper the host may narrow, a helper that the reviewed families declare with
+     * different overload sets — the caller discovers the member (by name, or by name and exact
+     * parameter types) and hands it here, so the bound overload is the one it found while the opening
+     * and the adaptation stay this one policy.</p>
+     *
+     * @param method the already-found instance method
+     * @param shape the invocation type to adapt the handle to, receiver first
+     * @return a handle of exactly {@code shape}
+     * @throws HostMemberRefused when the declaring class is closed or the shape cannot be produced
+     */
+    public static MethodHandle virtual(final Method method, final MethodType shape) throws HostMemberRefused {
+        final String declaration = declaration(Objects.requireNonNull(method, "method"));
+        return adapt(unreflect(method), shape, declaration);
+    }
+
+    /**
+     * Opens an already-discovered method in its declared shape.
+     *
+     * <p>For a caller that must reshape the handle itself ({@link MethodHandles#dropArguments}) before
+     * it has the call shape it needs; prefer {@link #virtual(Method, MethodType)} otherwise, because
+     * only that one refuses an unadaptable shape with a reason.</p>
+     *
+     * @param method the already-found instance or static method
+     * @return the handle in the declared shape, receiver first
+     * @throws HostMemberRefused when the declaring class is closed
+     */
+    public static MethodHandle unreflect(final Method method) throws HostMemberRefused {
+        Objects.requireNonNull(method, "method");
+        return open(method, LookupFactory.PRIVATE, lookup -> lookup.unreflect(method), declaration(method));
     }
 
     /**
@@ -266,6 +320,65 @@ public final class HostHandles {
         throw new HostMemberRefused(Refusal.MEMBER_ABSENT, declaration, null);
     }
 
+    /**
+     * Resolves one host field into independent getter and setter accessors.
+     *
+     * <p>The two accessors resolve separately on purpose: the JVM refuses a setter for a
+     * {@code final} field while its getter stays usable, and the reviewed hosts carry both a static
+     * singleton and a mutable lease slot. When the private lookup is refused the accessor keeps the
+     * reflective path through {@link ReflectAccess#open(java.lang.reflect.AccessibleObject)}, which
+     * then fails loudly at use exactly as it does today.</p>
+     *
+     * @param owner the class declaring the field, without a superclass walk
+     * @param name the exact field name
+     * @return the accessor pair
+     * @throws HostMemberRefused with {@link Refusal#MEMBER_ABSENT} when {@code owner} declares no such field
+     */
+    public static HostField field(final Class<?> owner, final String name) throws HostMemberRefused {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(name, "name");
+        final String declaration = owner.getName() + "." + name;
+        final Field declared;
+        try {
+            declared = owner.getDeclaredField(name);
+        } catch (NoSuchFieldException absent) {
+            throw new HostMemberRefused(Refusal.MEMBER_ABSENT, declaration, absent);
+        }
+        final boolean onInstance = !Modifier.isStatic(declared.getModifiers());
+        final Class<?> type = declared.getType();
+        MethodHandle getter = null;
+        MethodHandle setter = null;
+        try {
+            final MethodHandles.Lookup lookup = LookupFactory.PRIVATE.lookup(owner);
+            getter = adaptField(
+                    onInstance ? lookup.findGetter(owner, name, type) : lookup.findStaticGetter(owner, name, type),
+                    onInstance,
+                    FIELD_READ);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError refused) {
+            // A closed module keeps the reflective read below rather than losing the bridge.
+        }
+        try {
+            final MethodHandles.Lookup lookup = LookupFactory.PRIVATE.lookup(owner);
+            setter = adaptField(
+                    onInstance ? lookup.findSetter(owner, name, type) : lookup.findStaticSetter(owner, name, type),
+                    onInstance,
+                    FIELD_WRITE);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError refused) {
+            // A final or unopened field keeps the reflective write path (which fails loudly).
+        }
+        return new HostField(declared, getter, setter);
+    }
+
+    /**
+     * Adapts a field handle to the erased shape by dropping the receiver of a static field first.
+     *
+     * <p>{@link MethodHandle#asType} only inserts a reference cast here, so a field of an unexpected
+     * type fails with a {@link ClassCastException} at use instead of silently writing the wrong one.
+     */
+    private static MethodHandle adaptField(final MethodHandle raw, final boolean onInstance, final MethodType shape) {
+        return (onInstance ? raw : MethodHandles.dropArguments(raw, 0, Object.class)).asType(shape);
+    }
+
     /** Exact-descriptor method lookup: hierarchy first (closest class wins), then the public surface. */
     private static Method findMethod(final Class<?> owner, final String name, final String descriptor)
             throws HostMemberRefused {
@@ -358,6 +471,10 @@ public final class HostHandles {
         return owner.getName() + "." + name + descriptor;
     }
 
+    private static String declaration(final Method method) {
+        return method.getDeclaringClass().getName() + "." + method.getName() + descriptor(method);
+    }
+
     /**
      * Parameter count encoded in a method descriptor, computed textually so a lookup never loads a
      * parameter type. A malformed descriptor yields a count no real member has, so the exact
@@ -385,5 +502,60 @@ public final class HostHandles {
             parameters++;
         }
         return parameters;
+    }
+
+    /** One host field: handle-backed when the module opens it, reflective otherwise. */
+    public static final class HostField {
+
+        private final Field field;
+        private final MethodHandle getter;
+        private final MethodHandle setter;
+        private boolean opened;
+
+        private HostField(final Field field, final MethodHandle getter, final MethodHandle setter) {
+            this.field = field;
+            this.getter = getter;
+            this.setter = setter;
+        }
+
+        /** @return the declared host type of this field */
+        public Class<?> type() {
+            return field.getType();
+        }
+
+        /**
+         * Reads the field.
+         *
+         * @param owner the receiver, {@code null} for a static field
+         * @return the field value
+         * @throws Throwable from the reflective fallback when the module keeps the field closed
+         */
+        public Object get(final Object owner) throws Throwable {
+            if (getter != null) return (Object) getter.invokeExact(owner);
+            return open().get(owner);
+        }
+
+        /**
+         * Writes the field.
+         *
+         * @param owner the receiver, {@code null} for a static field
+         * @param value the new value
+         * @throws Throwable from the reflective fallback, which is the path a final field takes
+         */
+        public void set(final Object owner, final Object value) throws Throwable {
+            if (setter != null) {
+                setter.invokeExact(owner, value);
+                return;
+            }
+            open().set(owner, value);
+        }
+
+        private Field open() {
+            if (!opened) {
+                ReflectAccess.open(field);
+                opened = true;
+            }
+            return field;
+        }
     }
 }
