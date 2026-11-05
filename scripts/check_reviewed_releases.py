@@ -80,7 +80,7 @@ r1_COMPATIBILITY_CATALOG = Path(
     "scripts/verification-sources/families/compatibility-catalog.json"
 )
 r1_AVAILABILITY_POLICY = Path(
-    "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java"
+    "compatibility-policy/src/main/java/dev/turboism/compatibility/policy/CubismEditorAvailabilityPolicy.java"
 )
 r1_HOST_VALIDATION_TASKS = HOST_TASKS
 r1_HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
@@ -141,7 +141,7 @@ def r1_derived_consumers(root: Path) -> list[str]:
     """Reject a stale consumer that stops using the generated table."""
     expected = {
         r1_AVAILABILITY_POLICY: 'REVIEWED_VERSIONS = ReviewedReleaseTable.versions()',
-        Path('runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java'): 'ReviewedReleaseTable.find(version)',
+        Path('compatibility-policy/src/main/java/dev/turboism/compatibility/policy/ReviewedCubismReleases.java'): 'ReviewedReleaseTable.find(version)',
         Path('runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java'): 'ReviewedReleaseTable.find(profile)',
         Path('runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java'): 'ReviewedReleaseTable.find(profile)',
         r1_HOST_VALIDATION_PY: 'reviewed_host_artifacts.load()',
@@ -321,6 +321,7 @@ r2_JAVA_ROOTS = (
     "bootstrap/src/main",
     "core-contract/src/main",
     "persistence-core/src/main",
+    "compatibility-policy/src/main",
     "event-processor/src/main",
     "graal-host/src/main",
     "packaging/java-installer/listener-src",

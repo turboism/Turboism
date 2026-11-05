@@ -54,10 +54,24 @@ def write_persistence_kernel(root: Path, source: str = "") -> None:
     )
 
 
+def write_compatibility_policy(root: Path, source: str = "") -> None:
+    """The admission-policy boundary gate needs a minimal, contract-clean source tree to pass."""
+    policy = root / "compatibility-policy/src/main/java/dev/turboism/compatibility/policy/Fixture.java"
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    policy.write_text(
+        source
+        or "package dev.turboism.compatibility.policy;\n\n"
+        "final class Fixture { boolean admits(final String version) { return "
+        "version != null && version.equals(\"5.3.02\"); } }\n",
+        encoding="utf-8",
+    )
+
+
 def run_fixture(
     name: str, sdk_dependency: str = "", plugin_dependency: str = "", source: str = "",
     expected: str = "", *, runtime_dependency: str = "", contract_dependency: str = "",
     persistence_dependency: str = "", persistence_source: str = "", resource_source: str = "",
+    policy_dependency: str = "", policy_source: str = "",
 ) -> None:
     with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
         root = Path(directory)
@@ -69,7 +83,8 @@ def run_fixture(
         write_buildsrc(root)
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
-            'include(":sdk", ":runtime", ":core-contract", ":persistence-core", ":plugins:fixture")\n',
+            'include(":sdk", ":runtime", ":core-contract", ":persistence-core", '
+            '":compatibility-policy", ":plugins:fixture")\n',
             encoding="utf-8",
         )
         (root / "build.gradle.kts").write_text(
@@ -82,6 +97,8 @@ def run_fixture(
         write_project(root / "core-contract", contract_dependency)
         write_project(root / "persistence-core", persistence_dependency)
         write_persistence_kernel(root, persistence_source)
+        write_project(root / "compatibility-policy", policy_dependency)
+        write_compatibility_policy(root, policy_source)
         write_project(
             root / "plugins/fixture", plugin_dependency, source, resource_source,
         )
@@ -113,7 +130,8 @@ def run_clean_fixture(name: str, source: str = "", resource_source: str = "") ->
         write_buildsrc(root)
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
-            'include(":sdk", ":runtime", ":core-contract", ":persistence-core", ":plugins:fixture")\n',
+            'include(":sdk", ":runtime", ":core-contract", ":persistence-core", '
+            '":compatibility-policy", ":plugins:fixture")\n',
             encoding="utf-8",
         )
         (root / "build.gradle.kts").write_text(
@@ -126,6 +144,8 @@ def run_clean_fixture(name: str, source: str = "", resource_source: str = "") ->
         write_project(root / "core-contract")
         write_project(root / "persistence-core")
         write_persistence_kernel(root)
+        write_project(root / "compatibility-policy")
+        write_compatibility_policy(root)
         write_project(root / "plugins/fixture", source=source, resource_source=resource_source)
 
         result = subprocess.run(
@@ -250,6 +270,25 @@ def main() -> None:
                 "final class Fixture { Files files; }\n"
             ),
             expected="Persistence-core import rejected",
+        ),
+        lambda: run_fixture(
+            "compatibility-policy-runtime-project",
+            policy_dependency='dependencies { api(project(":runtime")) }\n',
+            expected="Compatibility-policy :compatibility-policy may not depend on project component :runtime",
+        ),
+        lambda: run_fixture(
+            "compatibility-policy-reflect-import",
+            policy_source=(
+                "package dev.turboism.compatibility.policy;\n\n"
+                "import java.lang.reflect.Method;\n\n"
+                "final class Fixture { Method method; }\n"
+            ),
+            expected="Compatibility-policy import rejected",
+        ),
+        lambda: run_fixture(
+            "plugin-compatibility-policy-project",
+            plugin_dependency='dependencies { compileOnly(project(":compatibility-policy")) }\n',
+            expected="Plugin :plugins:fixture may not depend on project component :compatibility-policy",
         ),
         lambda: run_fixture(
             "plugin-persistence-project",

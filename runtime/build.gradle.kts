@@ -480,6 +480,10 @@ dependencies {
     // Pure typed-config codec/schema/migration kernel (#112). The runtime owns the
     // file store, I/O lane and failure presentation on top of it.
     implementation(project(":persistence-core"))
+    // Pure Cubism compatibility admission policy (#113): reviewed release matrix,
+    // reviewed-release predicate, @CubismEditor rules and selector admission. The
+    // runtime keeps host artifacts, verified-member resolution and host probes.
+    implementation(project(":compatibility-policy"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.
     implementation(project(":core-contract"))

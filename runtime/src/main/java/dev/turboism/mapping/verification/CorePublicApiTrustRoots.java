@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.compatibility.policy.ReviewedReleaseTable;
 import java.util.Objects;
 
 /** Public non-secret identities of the reviewed Core verification trust roots. */

@@ -13,8 +13,9 @@ from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = Path('scripts/reviewed-releases/ReviewedHostArtifacts.java.template')
 JAVA_DIR = Path('runtime/src/main/java/dev/turboism/mapping/verification')
+POLICY_JAVA_DIR = Path('compatibility-policy/src/main/java/dev/turboism/compatibility/policy')
 HOST = JAVA_DIR / 'ReviewedHostArtifacts.java'
-TABLE = JAVA_DIR / 'ReviewedReleaseTable.java'
+TABLE = POLICY_JAVA_DIR / 'ReviewedReleaseTable.java'
 ENV = Path('.env.example')
 VERSIONS = Path('sdk/src/main/java/dev/turboism/sdk/cubism/command/ReviewedVersions.java')
 INTERNAL_VERSIONS = Path('runtime/src/main/java/dev/turboism/internal/ReviewedVersions.java')
@@ -51,11 +52,11 @@ def render(root: Path) -> dict[Path, str]:
     for marker, value in replacements.items():
         host = host.replace(marker, value)
     rows = []
-    for r, symbol in zip(releases, symbols):
+    for r in releases:
         c = r['core']
-        rows.append(f'            new Release(ReviewedHostArtifacts.{symbol}_VERSION, {r["build"]}, '
-                    f'{c["major"]}, {c["minor"]}, {c["patch"]}, {str(r["fullRuntime"]).lower()})')
-    table = '''package dev.turboism.mapping.verification;
+        rows.append(f"            new Release(\"{r['version']}\", {r['build']}, "
+                    f"{c['major']}, {c['minor']}, {c['patch']}, {str(r['fullRuntime']).lower()})")
+    table = '''package dev.turboism.compatibility.policy;
 
 import java.util.List;
 import java.util.Objects;

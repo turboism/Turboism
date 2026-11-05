@@ -2,9 +2,9 @@
 
 This inventory records what the module graph and the `:runtime` package graph
 actually look like, so that a change is reviewed instead of discovered late. It
-started as the pre-extraction baseline and now carries the first extracted
-module (`:persistence-core`, `#112`). It is **not** a proposal to split
-`:runtime`, and it does not replace the authoritative boundary gates.
+started as the pre-extraction baseline and now carries the two extracted
+modules (`:persistence-core`, `#112`; `:compatibility-policy`, `#113`). It is **not**
+a proposal to split `:runtime`, and it does not replace the authoritative boundary gates.
 
 ## Authority
 
@@ -37,16 +37,20 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
 
 ## Recorded baseline
 
-- 44 Gradle modules, including convention-supplied edges (plugins declare
+- 45 Gradle modules, including convention-supplied edges (plugins declare
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`).
-- One extracted module: `:persistence-core` (typed-config codec/schema/migration
-  kernel) with `api :sdk`, consumed by `:runtime implementation`. It has no
+- Two extracted modules: `:persistence-core` (typed-config codec/schema/migration
+  kernel) and `:compatibility-policy` (reviewed release matrix, exact
+  reviewed-release predicate, `@CubismEditor` rules and selector admission), both
+  with `api :sdk` and consumed by `:runtime implementation`. Neither has a
   dependency back on `:runtime`, and `checkModuleBoundaries` proves both the
   declared/resolved edges and the compiled bytecode. The package-graph sections
-  below still describe `:runtime` only; the kernel is a single package, so its
-  cycle surface is the module edge itself.
-- `:runtime`: 34 top-level `dev.turboism.*` packages, 121 top-level package
+  below still describe `:runtime` only; each extracted module is a single package,
+  so its cycle surface is the module edge itself. `:bootstrap` declares
+  `:compatibility-policy` only as a `testImplementation` for the repacked-host
+  admission test.
+- `:runtime`: 34 top-level `dev.turboism.*` packages, 120 top-level package
   edges, 1 top-level cycle, **0 leaf-package cycles** (6 before the `#70` step 3a
   pilot; see below for how each was removed).
 - Production code has no dependency on `:plugins:*`; runtime test code does
@@ -91,10 +95,8 @@ misleading — the leaf list above is the actionable one.
 1. Pure persistence codec/migration kernel (already covered by the golden
    snapshots) — it has no cycle today, only composition-layer reach-through.
 2. Compatibility policy, after the `hostread`/`adapter` direction is inverted.
-3. Nothing else until the remaining cycles are gone; moving files across a cycle
-   turns a local cycle into a cross-module cycle and makes the gate unusable. The
-   resolved rows above show the process: contract first, then the smallest
-   possible move, then let the inventory prove the cycle is gone.
+3. Nothing else until a new contract proves host/UI/classloader behavior is not
+   being moved across the boundary.
 
 Every extraction adds one reviewable module contract (owner, allowed compile and
 runtime dependencies, public API, forbidden imports, threading/IO semantics,

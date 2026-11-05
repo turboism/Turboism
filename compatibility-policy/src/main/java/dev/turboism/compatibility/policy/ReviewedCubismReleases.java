@@ -1,4 +1,4 @@
-package dev.turboism.mapping.verification;
+package dev.turboism.compatibility.policy;
 
 import java.util.Objects;
 

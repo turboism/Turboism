@@ -319,9 +319,79 @@ small read-only parser: it runs before the runtime exists, is fail-open by contr
 and reports its own bounded diagnostics; unifying it on the kernel is a separate,
 reviewable change.
 
+## `:compatibility-policy` ↔ `:runtime` Cubism admission policy
+
+- **Owner**: compatibility, mapping and release-table maintainers (see
+  `.github/CODEOWNERS`).
+- **Purpose**: `:compatibility-policy` owns the host-independent Cubism admission
+  facts and predicates: the exact reviewed release matrix (version, declared build,
+  Core runtime tuple and the explicit full-runtime decision), the exact
+  reviewed-release predicate, `@CubismEditor` declaration validation and version-range
+  expansion/permission, and the selector requirement predicate over exact version,
+  capability ids and selector aliases. It answers "does this declared version or
+  annotation declare/evidence admit this exact version" without loading Cubism, the
+  host JAR, a classloader or any file. It does not decide host identity, read host
+  artifacts, verify members, install hooks, run ASM scans or present failures.
+- **Allowed dependencies**: `:compatibility-policy` may depend on `:sdk` only
+  (`api(project(":sdk"))`): the frozen `dev.turboism.sdk.CubismEditor` annotation
+  type it evaluates. `:runtime` depends on it through
+  `implementation(project(":compatibility-policy"))`; `:bootstrap` declares it only as
+  a `testImplementation` for the repacked-host admission test. No module other than
+  those two may declare the edge, and the dependency never points back at `:runtime`.
+- **Forbidden**: any `:compatibility-policy` → `:runtime`/`:core-contract`/`:plugins:*`
+  edge; any external library, reflection, file-system, network, classloader, Swing/
+  AWT, `com.live2d`, ASM, scheduler or concurrent-executor reference; and any SDK or
+  plugin source/bytecode reference to `dev.turboism.compatibility.*`. The module must
+  not import `java.lang.reflect`, `java.nio.file`, `java.io`, `java.net`,
+  `java.awt`, `javax.swing` or `java.util.concurrent`.
+- **Public API**: `ReviewedReleaseTable` + `ReviewedReleaseTable.Release` (generated
+  exact release facts), `ReviewedCubismReleases` (exact version+build review
+  predicate), `CubismEditorAvailabilityPolicy` + `CubismEditorAvailabilityPolicy.Resolution`
+  (annotation declaration expansion and version permission), and
+  `SelectorAdmissionPolicy` (pure selector admission over version, capability and
+  alias evidence). Everything else is private.
+- **Threading / IO**: every type is stateless, immutable and pure; there is no
+  executor, lock, cache lifecycle or static mutable state. Callers supply annotation
+  instances, version strings and evidence sets on their own thread. No method reads a
+  file, the host, the environment or a classloader.
+- **Tests**: `compatibility-policy/src/test/java/dev/turboism/compatibility/policy/**`
+  pins the reviewed matrix, unknown-future fail-closed behaviour, annotation range
+  expansion/exclusion/intersection and selector evidence admission offline, including
+  the deep-adaptation targets 5.2.03 and 5.3.02+.
+- **Backward compatibility**: every existing reviewed host/version keeps its exact
+  admission and capability outcome. Unknown versions fail closed; no range, build
+  drift or partially verified capability evidence is silently admitted. The generated
+  `ReviewedReleaseTable` keeps its previous class name and API; only its module and
+  package move. `compatibility/cubism/compatibility-matrix.json`, SDK class identity,
+  plugin lifecycle, host load order and persisted data are unchanged.
+- **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges, the
+  source import allowlist and a compiled-bytecode scan over
+  `compatibility-policy/build/classes/java/main`), the plugin boundary dotted root
+  `compatibility`, `checkDependencyInventory`, `checkCodeQuality`,
+  `checkThrowableContainment`, `checkReviewedReleases` and `checkCompatibilityMatrix`,
+  whose inputs include the module's production sources.
+
+**What changed (`#113`)**: the reviewed release table and its exact review predicate
+moved out of `dev.turboism.mapping.verification` into
+`dev.turboism.compatibility.policy`; the annotation range/version decision moved out
+of the runtime interceptor package into the same module, leaving a small runtime
+resolver that only collects SDK declarations by reflection. The selector contract
+predicate moved into `SelectorAdmissionPolicy`; the contracts keep their data because
+the compatibility matrix pins those exact files and symbols.
+
+**What stayed behind, and why**: `ReviewedHostArtifacts` keeps every host artifact
+size/SHA-256 trust root (generated into `:runtime`), `VerifiedMemberResolver`,
+`StaticSelectorVerifier`, ASM bytecode scanning, `CubismEditorReleaseDetector`,
+`HostArtifactDigest.from(Path)`, host JAR/probe evidence, `PinnedVerifiedResolverWorkflow`,
+`SliceContract`/`ReviewedSliceRecord`, `CompatibilityResolution`, plugin activation and
+SDK/interceptor adapters stay in `:runtime` because they read host bytes, reflect over
+loaded host classes, verify members or own composition/threading. The selector
+contracts (`MeshToolSessionSelectorContract`, `ModelingSelectionSelectorContract`)
+keep their capability/alias/supported-version data and matrix provenance in
+`:runtime`; only their generic admission decision delegates to the policy module.
+
 ## Next boundaries (not yet extracted)
 
-None at package granularity, and the pure persistence kernel now has its module
-boundary. Step 3 of #70 is complete for persistence; the remaining extraction is the
-pure Cubism compatibility admission policy (#113), which lands as its own reviewable
-PR with a module contract and the same bytecode/ABI gates ratcheting the direction.
+None at package granularity. Both planned pure policies (#112 persistence and #113
+Cubism compatibility) now have enforced module boundaries; further extraction needs a
+new reviewed contract and must not move host, UI or classloader-bound behavior.
