@@ -890,6 +890,10 @@
       ],
       [
         "dev.turboism.shell",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.shell",
         "dev.turboism.core"
       ],
       [

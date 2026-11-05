@@ -44,10 +44,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final KernelPluginContextFactory contextFactory;
     private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     private final dev.turboism.internal.core.CubismJvmSettingsService cubismJvmSettings;
-    private final dev.turboism.internal.core.MeshTriangulationSettingsService meshTriangulationSettings;
-    private final dev.turboism.internal.core.AtlasTileBboxSettingsService atlasTileBboxSettings;
-    private final dev.turboism.internal.core.AtlasCacheReuseSettingsService atlasCacheReuseSettings;
-    private final dev.turboism.internal.core.TriangulationEdgeIndexSettingsService triangulationEdgeIndexSettings;
+    private final dev.turboism.internal.core.OptimizationSettingsService optimizationSettings;
     private final dev.turboism.internal.core.CoreUpdateService updateService;
     private final KernelLog log;
     private final PluginLifecyclePolicy lifecyclePolicy;
@@ -376,10 +373,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.contextFactory = resources.contextFactory();
         this.runtimeSettings = resources.runtimeSettings();
         this.cubismJvmSettings = resources.cubismJvmSettings();
-        this.meshTriangulationSettings = resources.meshTriangulationSettings();
-        this.atlasTileBboxSettings = resources.atlasTileBboxSettings();
-        this.atlasCacheReuseSettings = resources.atlasCacheReuseSettings();
-        this.triangulationEdgeIndexSettings = resources.triangulationEdgeIndexSettings();
+        this.optimizationSettings = resources.optimizationSettings();
         this.updateService = resources.updateService();
         this.lifecyclePolicy = resources.lifecyclePolicy();
         this.lifecycleLane = resources.lifecycleLane();
@@ -451,10 +445,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                         new dev.turboism.internal.core.ShellServices(
                                 runtimeSettings,
                                 cubismJvmSettings,
-                                meshTriangulationSettings,
-                                atlasTileBboxSettings,
-                                atlasCacheReuseSettings,
-                                triangulationEdgeIndexSettings,
+                                optimizationSettings,
                                 dev.turboism.ui.settings.ProcessSettingsContributions.forHost(
                                         contextFactory.hostAccessIdentity()),
                                 pluginManagement,
