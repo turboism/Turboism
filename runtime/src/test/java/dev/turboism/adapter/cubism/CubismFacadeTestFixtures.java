@@ -54,6 +54,7 @@ import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -792,55 +793,18 @@ final class CubismFacadeTestFixtures {
                 Optional.of(model));
         final HostSnapshotSource.HostProject project = new HostSnapshotSource.HostProject(
                 "project-1", "Project", Optional.of(Path.of("projects/demo")), List.of(document));
-        return new StubHostSnapshotSource(
-                Optional.of(project),
-                Optional.of(document),
-                Optional.of(model),
-                new HostSnapshotSource.HostSelection(
-                        List.of("param-1"), Optional.of("param-1"), Optional.empty(), Optional.empty()),
-                true);
+        return RecordingHostSnapshotSource.builder()
+                .project(project)
+                .document(document)
+                .model(model)
+                .selection(new HostSnapshotSource.HostSelection(
+                        List.of("param-1"), Optional.of("param-1"), Optional.empty(), Optional.empty()))
+                .hostPresent(true)
+                .build();
     }
 
     static HostSnapshotSource emptySource() {
-        return new StubHostSnapshotSource(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
-                false);
-    }
-
-    record StubHostSnapshotSource(
-            Optional<HostProject> project,
-            Optional<HostDocument> document,
-            Optional<HostModel> model,
-            HostSelection selection,
-            boolean hostPresent)
-            implements HostSnapshotSource {
-        @Override
-        public Optional<HostProject> activeProject() {
-            return project;
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return document;
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            return model;
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return hostPresent;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return 0L;
-        }
+        return RecordingHostSnapshotSource.empty();
     }
 
     static final ModelProfile PROFILE = new ModelProfile() {

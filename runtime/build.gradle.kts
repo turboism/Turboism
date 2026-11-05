@@ -2,6 +2,10 @@ import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
     id("turboism.java-conventions")
+    // The shared HostSnapshotSource double lives in `src/testFixtures/java` so that
+    // `:testing:integration-tests` can consume it: `:testing:test-support` depends only on
+    // `:sdk` and therefore cannot see runtime types without a dependency cycle.
+    id("java-test-fixtures")
 }
 
 val generatedCoreCatalogRoot = layout.buildDirectory.dir(
@@ -152,6 +156,24 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
 sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
     java.srcDir(generatedVerificationRoot)
+}
+
+// Test fixtures are a second published-shape JAR, so it carries the same worktree classifier
+// as the main JAR: build output must stay attributable to one worktree
+// (`scripts/test/test_worktree_artifact_boundary.sh`).
+val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
+tasks.named<Jar>("testFixturesJar") {
+    archiveClassifier.set("test-fixtures-$resolvedWorktreeId")
+}
+
+// The fixtures dependency makes Gradle resolve :runtime's own main artifact (the JAR) for the
+// test classpath, which drops the compiled `classes/java/main` and `resources/main` entries it
+// had before. Classpath scanning tests need the directories --
+// `VerificationManifestAdmissionPreflightTest` indexes the generated `*VerificationManifest`
+// class files -- so the compiled output stays in front of the JAR, i.e. the classpath order the
+// project had without a fixtures source set.
+sourceSets.named("test") {
+    runtimeClasspath = output + sourceSets.main.get().output + runtimeClasspath
 }
 
 val frameworkVersionResource = layout.buildDirectory.file(
@@ -475,6 +497,11 @@ val toolingJar by tasks.registering(Jar::class) {
 val toolingElements by configurations.creating {
     isCanBeConsumed = true
     isCanBeResolved = false
+    // The tooling JAR is a different artifact with a different classpath role, so it must not
+    // claim the runtime module's default capability. Two variants advertising
+    // `dev.turboism:runtime` are an unresolvable conflict for any capability-aware consumer,
+    // which is what `testFixtures(project(":runtime"))` in :testing:integration-tests is.
+    outgoing.capability("${project.group}:runtime-tooling:${project.version}")
 }
 
 artifacts {
