@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -30,6 +31,7 @@ class HostHandlesTest {
 
     /** Production-shaped owner: an overload pair, a private member, a static entry, a mutable field. */
     public static class Sample {
+        private static final String POOL = "pool";
         private final String label;
         private String note = "before";
 
@@ -130,6 +132,51 @@ class HostHandlesTest {
         assertSame(
                 Sample.class,
                 HostHandles.load(getClass().getClassLoader(), "dev/turboism/core/reflect/HostHandlesTest$Sample"));
+    }
+
+    @Test
+    void aDiscoveredMethodOpensThroughTheSamePolicy() throws Throwable {
+        // Discovery stays with the caller (shape-checked getters); the opening and the adaptation are
+        // still the ones this policy owns.
+        final Method secret = Sample.class.getDeclaredMethod("secret");
+        assertEquals("secret", (String) HostHandles.virtual(secret, REFERENCE).invokeWithArguments(new Sample()));
+
+        final Method pick = Sample.class.getMethod("pick", String.class);
+        assertEquals("string:x", (String) HostHandles.virtual(pick, SINGLE).invokeWithArguments(new Sample(), "x"));
+
+        // unreflect keeps the declared shape for a caller that reshapes the handle itself.
+        final MethodHandle declared = HostHandles.unreflect(secret);
+        assertEquals(MethodType.methodType(String.class, Sample.class), declared.type());
+        assertEquals("secret", (String) declared.invokeWithArguments(new Sample()));
+    }
+
+    @Test
+    void fieldResolvesIndependentAccessorsForOneDeclaredType() throws Throwable {
+        final HostHandles.HostField note = HostHandles.field(Sample.class, "note");
+        final Sample sample = new Sample();
+
+        assertEquals(String.class, note.type());
+        assertEquals("before", note.get(sample));
+        note.set(sample, "after");
+        assertEquals("after", note.get(sample));
+    }
+
+    @Test
+    void aStaticFinalFieldKeepsItsGetterAndFailsItsSetterReflectively() throws Throwable {
+        final HostHandles.HostField pool = HostHandles.field(Sample.class, "POOL");
+
+        assertEquals(String.class, pool.type());
+        assertEquals("pool", pool.get(null));
+        // The JVM refuses a setter for a final field, so the field keeps the reflective write path,
+        // which fails loudly instead of silently doing nothing.
+        assertThrows(IllegalAccessException.class, () -> pool.set(null, "replaced"));
+    }
+
+    @Test
+    void anAbsentFieldIsRefusedAsMemberAbsent() {
+        final HostHandles.HostMemberRefused absent =
+                assertRefusal(HostHandles.Refusal.MEMBER_ABSENT, () -> HostHandles.field(Sample.class, "absent"));
+        assertEquals("dev.turboism.core.reflect.HostHandlesTest$Sample.absent", absent.declaration());
     }
 
     @Test

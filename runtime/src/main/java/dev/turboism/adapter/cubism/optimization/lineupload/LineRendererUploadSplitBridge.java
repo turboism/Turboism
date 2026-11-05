@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.lineupload;
 
+import dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitTarget.Dep;
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -56,26 +57,33 @@ public final class LineRendererUploadSplitBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when a reviewed member is absent
      */
     public LineRendererUploadSplitBridge(final ClassLoader loader) throws ReflectiveOperationException {
-        final Class<?> renderer = Class.forName(LineRendererUploadSplitTarget.OWNER.replace('/', '.'), false, loader);
-        final Class<?> floatBuffer =
-                Class.forName(LineRendererUploadSplitTarget.FLOAT_BUFFER_OWNER.replace('/', '.'), false, loader);
-        final Class<?> intBuffer =
-                Class.forName(LineRendererUploadSplitTarget.INT_BUFFER_OWNER.replace('/', '.'), false, loader);
-        final Class<?> base =
-                Class.forName(LineRendererUploadSplitTarget.BUFFER_BASE_OWNER.replace('/', '.'), false, loader);
-        final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-        positionsBuffer = lookup.findVirtual(renderer, "getPositionsBuffer", MethodType.methodType(floatBuffer))
-                .asType(MethodType.methodType(Object.class, Object.class));
-        colorsBuffer = lookup.findVirtual(renderer, "getColorsBuffer", MethodType.methodType(floatBuffer))
-                .asType(MethodType.methodType(Object.class, Object.class));
-        indicesBuffer = lookup.findVirtual(renderer, "getIndicesBuffer", MethodType.methodType(intBuffer))
-                .asType(MethodType.methodType(Object.class, Object.class));
-        colors = lookup.findVirtual(renderer, "getColors", MethodType.methodType(float[].class))
-                .asType(MethodType.methodType(float[].class, Object.class));
-        indices = lookup.findVirtual(renderer, "getIndices", MethodType.methodType(int[].class))
-                .asType(MethodType.methodType(int[].class, Object.class));
-        dirty = lookup.findVirtual(base, LineRendererUploadSplitTarget.DIRTY_METHOD, MethodType.methodType(void.class))
-                .asType(MethodType.methodType(void.class, Object.class));
+        final Class<?> renderer = HostHandles.load(loader, LineRendererUploadSplitTarget.OWNER);
+        final Class<?> base = HostHandles.load(loader, LineRendererUploadSplitTarget.BUFFER_BASE_OWNER);
+        positionsBuffer = reviewed(renderer, "getPositionsBuffer", MethodType.methodType(Object.class, Object.class));
+        colorsBuffer = reviewed(renderer, "getColorsBuffer", MethodType.methodType(Object.class, Object.class));
+        indicesBuffer = reviewed(renderer, "getIndicesBuffer", MethodType.methodType(Object.class, Object.class));
+        colors = reviewed(renderer, "getColors", MethodType.methodType(float[].class, Object.class));
+        indices = reviewed(renderer, "getIndices", MethodType.methodType(int[].class, Object.class));
+        dirty = reviewed(
+                base, LineRendererUploadSplitTarget.DIRTY_METHOD, MethodType.methodType(void.class, Object.class));
+    }
+
+    /**
+     * Resolves one reviewed dependency by the exact descriptor its target table declares.
+     *
+     * <p>The table is the same one the verified installer attests against the official artifact, so the
+     * bridge, the admission gate and the body check cannot disagree about which member is bound.</p>
+     *
+     * @throws NoSuchMethodException when the dependency is not in the reviewed table
+     */
+    private static MethodHandle reviewed(final Class<?> owner, final String name, final MethodType shape)
+            throws ReflectiveOperationException {
+        for (final Dep dep : LineRendererUploadSplitTarget.DEPENDENCIES) {
+            if (dep.name().equals(name) && dep.owner().equals(owner.getName().replace('.', '/'))) {
+                return HostHandles.virtual(owner, dep.name(), dep.descriptor(), shape);
+            }
+        }
+        throw new NoSuchMethodException(owner.getName() + "." + name + " is not a reviewed dependency");
     }
 
     /** Occupies the predicate/statistics slots; refuses another installation. */

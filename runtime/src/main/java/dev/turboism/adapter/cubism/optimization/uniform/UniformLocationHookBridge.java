@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -63,6 +64,9 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public static final String DEFER_REPORT_PROPERTY = "turboism.deferred-error.report";
     /** Loader-neutral supplier of scalar diagnostics. */
     public static final String STATS_PROPERTY = "turboism.uniform-location.stats";
+
+    /** {@code GL.getContext()} and {@code static GLContext.getCurrent()} both answer {@code GLContext}. */
+    private static final String GL_CONTEXT_DESCRIPTOR = "()Lcom/jogamp/opengl/GLContext;";
 
     /**
      * Extra handles the deferred error-check path needs: the real
@@ -265,23 +269,24 @@ public final class UniformLocationHookBridge implements AutoCloseable {
         }
     }
 
+    /**
+     * Resolves the reviewed frame and GL-context accessors through {@link HostHandles}.
+     *
+     * @param loader the host loader attested by the verified installer
+     * @throws ReflectiveOperationException when the required accessor shape is absent
+     */
     private static MethodHandle[] accessors(ClassLoader loader) throws ReflectiveOperationException {
-        Class<?> frame = Class.forName("com.live2d.graphics3d.a", false, loader);
-        Class<?> gl = Class.forName("com.jogamp.opengl.GL", false, loader);
-        Class<?> gl3 = Class.forName("com.jogamp.opengl.GL3", false, loader);
-        Class<?> context = Class.forName("com.jogamp.opengl.GLContext", false, loader);
-        MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+        Class<?> frame = HostHandles.load(loader, "com/live2d/graphics3d/a");
+        Class<?> gl = HostHandles.load(loader, "com/jogamp/opengl/GL");
+        Class<?> context = HostHandles.load(loader, "com/jogamp/opengl/GLContext");
         return new MethodHandle[] {
-            lookup.findVirtual(frame, "a", MethodType.methodType(gl3))
-                    .asType(MethodType.methodType(Object.class, Object.class)),
-            lookup.findVirtual(gl, "getContext", MethodType.methodType(context))
-                    .asType(MethodType.methodType(Object.class, Object.class)),
-            lookup.findStatic(context, "getCurrent", MethodType.methodType(context))
-                    .asType(MethodType.methodType(Object.class)),
-            lookup.findVirtual(context, "isShared", MethodType.methodType(boolean.class))
-                    .asType(MethodType.methodType(boolean.class, Object.class)),
-            lookup.findVirtual(context, "isCreated", MethodType.methodType(boolean.class))
-                    .asType(MethodType.methodType(boolean.class, Object.class))
+            HostHandles.virtual(
+                    frame, "a", "()Lcom/jogamp/opengl/GL3;", MethodType.methodType(Object.class, Object.class)),
+            HostHandles.virtual(
+                    gl, "getContext", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class, Object.class)),
+            HostHandles.staticCall(context, "getCurrent", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class)),
+            HostHandles.virtual(context, "isShared", "()Z", MethodType.methodType(boolean.class, Object.class)),
+            HostHandles.virtual(context, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class))
         };
     }
 
