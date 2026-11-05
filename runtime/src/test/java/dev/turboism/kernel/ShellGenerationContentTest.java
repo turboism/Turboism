@@ -244,6 +244,7 @@ class ShellGenerationContentTest {
 
         @Override
         public void close() throws Exception {
+            resources.contextFactory().close();
             resources.lifecycleLane().shutdown();
             host.close();
             scheduler.shutdown();
