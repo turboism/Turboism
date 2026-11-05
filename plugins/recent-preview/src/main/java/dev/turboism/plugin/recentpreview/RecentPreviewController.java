@@ -5,6 +5,7 @@ import dev.turboism.plugin.recentpreview.cache.PreviewCacheWriteResult;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
  * Captures preview thumbnails for recent files and serves them from an in-memory
@@ -25,11 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class RecentPreviewController {
 
-    static final int THUMBNAIL_SIZE = 150;
+    static final int THUMBNAIL_SIZE = 300;
 
     private final RecentFileService recentFiles;
     private final ScreenshotCaptureService screenshots;
     private final PreviewCache cache;
+    private final Consumer<RecentPreviewCapturedEvent> capturedListener;
     private volatile boolean enabled;
     private final java.util.concurrent.atomic.AtomicLong generation = new java.util.concurrent.atomic.AtomicLong();
     private final Object filesLock = new Object();
@@ -42,9 +45,23 @@ public final class RecentPreviewController {
 
     public RecentPreviewController(
             final RecentFileService recentFiles, final ScreenshotCaptureService screenshots, final PreviewCache cache) {
+        this(recentFiles, screenshots, cache, ignored -> {});
+    }
+
+    /**
+     * Creates a controller that also publishes each committed capture to
+     * {@code capturedListener}. The listener is a side channel: a listener failure must
+     * never fail the cache write or popup refresh.
+     */
+    public RecentPreviewController(
+            final RecentFileService recentFiles,
+            final ScreenshotCaptureService screenshots,
+            final PreviewCache cache,
+            final Consumer<RecentPreviewCapturedEvent> capturedListener) {
         this.recentFiles = Objects.requireNonNull(recentFiles, "recentFiles");
         this.screenshots = Objects.requireNonNull(screenshots, "screenshots");
         this.cache = Objects.requireNonNull(cache, "cache");
+        this.capturedListener = Objects.requireNonNull(capturedListener, "capturedListener");
     }
 
     /**
@@ -205,6 +222,12 @@ public final class RecentPreviewController {
                                 .ifPresentOrElse(
                                         modified -> lastCapturedModified.put(id, modified.toEpochMilli()),
                                         () -> lastCapturedModified.remove(id));
+                        try {
+                            capturedListener.accept(
+                                    new RecentPreviewCapturedEvent(id, target.displayName(), result.image()));
+                        } catch (RuntimeException ignored) {
+                            // The capture is already committed; observer failures stay isolated.
+                        }
                     }
                     return generation.get() == captureGeneration ? stored : PreviewCacheWriteResult.DISABLED;
                 });

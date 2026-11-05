@@ -61,6 +61,26 @@ class PanelViewContractTest {
     }
 
     @Test
+    void scaledImageNodeCarriesSourcePixelsAndLogicalDisplayBounds() {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final PanelView.ScaledImage image = PanelView.scaledImage(png, "thumbnail", 150, 120);
+        assertEquals("thumbnail", image.altText());
+        assertEquals(150, image.maxWidth());
+        assertEquals(120, image.maxHeight());
+        assertArrayEquals(png, image.pngBytes());
+        final byte[] mutated = image.pngBytes();
+        mutated[0] = 9;
+        assertArrayEquals(png, image.pngBytes());
+        assertThrows(
+                IllegalArgumentException.class, () -> PanelView.scaledImage(new byte[] {1, 2, 3}, "bad", 150, 150));
+        assertThrows(NullPointerException.class, () -> PanelView.scaledImage(png, null, 150, 150));
+        assertThrows(NullPointerException.class, () -> PanelView.scaledImage(null, "bad", 150, 150));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.scaledImage(png, "bad", 0, 150));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.scaledImage(png, "bad", 150, 4097));
+    }
+
+    @Test
     void uiActionEventsCarryTypedControlValuesThroughActionContext() {
         UiActionEvent text = UiActionEvent.text("name", "Alice");
         UiActionEvent selection = UiActionEvent.selection("mode", "safe");

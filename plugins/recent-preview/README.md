@@ -30,7 +30,7 @@ Captures bounded thumbnails and shows them in Cubism's Recent Files hover popup.
 
 ## What it does
 
-- Captures up to 150×150 modeling-surface previews after supported project open/save activity.
+- Captures up to 300×300 modeling-surface previews after supported project open/save activity and renders them within the existing popup bounds.
 - Deduplicates in-flight and unchanged captures and contributes cached content to Recent Files hover UI.
 - Uses opaque recent-file IDs and a no-path cache index.
 
@@ -57,6 +57,32 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 2. Open Cubism's Recent Files surface and hover a recent entry.
 3. The popup shows the cached thumbnail and available display metadata; stale or unavailable captures are skipped safely.
 
+## Plugin-to-plugin event contract
+
+The plugin exports the public `thumbnail.captured` event (contract `1.0.0`). Its SDK-owned payload `RecentPreviewCapturedEvent` carries the opaque recent-file id, display name, captured `ScreenshotImage`, and a ready-to-use thumbnail `PanelView`.
+
+A consumer declares a dependency on `dev.turboism.plugin.recent-preview` with `ordering: after`, imports the event, and declares `turboism.event.subscribe`:
+
+```json
+"dependencies": [{
+  "id": "dev.turboism.plugin.recent-preview",
+  "version": "[0.68.0,1.0.0)",
+  "type": "required",
+  "ordering": "after",
+  "reason": "Consumes committed recent-file previews."
+}],
+"eventImports": [{
+  "provider": "dev.turboism.plugin.recent-preview",
+  "eventId": "thumbnail.captured",
+  "contractVersion": "[1.0.0,2.0.0)",
+  "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
+  "abiSha256": "e4791126d565f94153f3580974ea179f1fd46fa69a638ed52cabdb359a4f4109",
+  "required": true
+}]
+```
+
+Subscribe with `@SubscribeEvent` or `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)`. Use `event.image().png()` for the byte stream or `event.thumbnail()` for a `PanelView` part. The event is live-only and is not replayed to subscribers that start after a capture.
+
 ## Capabilities
 
 No capabilities are declared in the plugin manifest.
@@ -71,6 +97,7 @@ No capabilities are declared in the plugin manifest.
 | `turboism.ui.recent-preview.contribute` | `application` | Contributes thumbnail popup content to the host Recent Files hover bridge. |
 | `turboism.file.read` | `application` | Reads cached preview PNGs from plugin-confined cache storage. |
 | `turboism.file.write` | `application` | Atomically writes preview PNGs and the no-path index into plugin-confined cache storage. |
+| `turboism.event.publish` | `application` | Publishes committed thumbnails to dependent plugins that import the public `thumbnail.captured` event. |
 
 ## Privacy and data
 

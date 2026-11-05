@@ -1,6 +1,6 @@
 {
   "format": "turboism.plugin.meta",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "id": "dev.turboism.plugin.recent-preview",
   "name": "Recent Preview Plugin",
   "version": "0.68.0",
@@ -19,6 +19,14 @@
     "baseName": "META-INF/turboism/i18n/messages",
     "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
   },
+  "eventExports": [
+    {
+      "id": "thumbnail.captured",
+      "contractVersion": "1.0.0",
+      "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
+      "abiSha256": "e4791126d565f94153f3580974ea179f1fd46fa69a638ed52cabdb359a4f4109"
+    }
+  ],
   "dependencies": [],
   "permissions": [
     {
@@ -50,6 +58,11 @@
       "id": "turboism.file.write",
       "scope": "application",
       "reason": "Atomically writes preview PNGs and the no-path index into plugin-confined cache storage."
+    },
+    {
+      "id": "turboism.event.publish",
+      "scope": "application",
+      "reason": "Publishes committed preview thumbnails to plugins that declare a dependency and import the public thumbnail.captured event contract."
     }
   ],
   "capabilities": [],

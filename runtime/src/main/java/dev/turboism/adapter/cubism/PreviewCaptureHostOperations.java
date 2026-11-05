@@ -270,11 +270,17 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                     diagnose("captureNow:solid-content tier=" + tier + " size=" + captured.getWidth() + "x"
                             + captured.getHeight());
                 }
-                final BufferedImage scaled = scale(cropMargins(captured), request.maxWidth(), request.maxHeight());
+                final Rectangle detectedPage = detectPageBounds(captured);
+                final BufferedImage pageCropped =
+                        detectedPage == null ? null : cropToImageBounds(captured, detectedPage);
+                final BufferedImage prepared = pageCropped != null ? pageCropped : cropMargins(captured);
+                final BufferedImage scaled = scale(prepared, request.maxWidth(), request.maxHeight());
                 diagnose("captureNow:ok root=" + className(root)
                         + " target=" + className(target)
                         + " tier=" + tier
+                        + " crop=" + (pageCropped != null ? "page" : "margin")
                         + " pre-scale=" + captured.getWidth() + "x" + captured.getHeight()
+                        + " cropped=" + prepared.getWidth() + "x" + prepared.getHeight()
                         + " png=" + scaled.getWidth() + "x" + scaled.getHeight());
                 final ByteArrayOutputStream png = new ByteArrayOutputStream();
                 if (!ImageIO.write(scaled, "png", png)) {
@@ -1017,11 +1023,113 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         final int width = Math.max(1, image.getWidth() - marginX * 2);
         final int height = Math.max(1, image.getHeight() - marginY * 2);
         if (width == image.getWidth() && height == image.getHeight()) return image;
-        final BufferedImage cropped = image.getSubimage(marginX, marginY, width, height);
-        final BufferedImage copy = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        return copyOf(image.getSubimage(marginX, marginY, width, height));
+    }
+
+    /**
+     * Detects the Cubism canvas page inside a captured viewport from its light, low-chroma
+     * background. The editor renders the page as a large near-white rectangle; the surrounding
+     * off-canvas area is a darker theme colour and the viewport toolbars are dark strips. The
+     * row projection finds the page's vertical span, then the horizontal bounds come from the
+     * light pixels inside that span. This keeps the full page even when the model splits its
+     * background into separate left/right strips. Returns null when no plausible page-sized
+     * region is present.
+     */
+    static Rectangle detectPageBounds(final BufferedImage image) {
+        if (image == null || image.getWidth() < 8 || image.getHeight() < 8) return null;
+        final int width = image.getWidth();
+        final int height = image.getHeight();
+        final int[] rows = new int[height];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (isPageBackground(image.getRGB(x, y))) rows[y]++;
+            }
+        }
+        final int maxGap = Math.max(1, Math.min(width, height) / 100);
+        final int[] rowRun = longestRun(rows, Math.max(3, (int) Math.ceil(width * 0.05)), maxGap);
+        if (rowRun == null) return null;
+        int left = width;
+        int right = -1;
+        for (int y = rowRun[0]; y <= rowRun[1]; y++) {
+            for (int x = 0; x < width; x++) {
+                if (!isPageBackground(image.getRGB(x, y))) continue;
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+            }
+        }
+        if (right < left) return null;
+        final int pageWidth = right - left + 1;
+        final int pageHeight = rowRun[1] - rowRun[0] + 1;
+        if (pageWidth < 8 || pageHeight < 8) return null;
+        if ((long) pageWidth * pageHeight < (long) width * height / 100L) return null;
+        return new Rectangle(left, rowRun[0], pageWidth, pageHeight);
+    }
+
+    /** Near-white, low-chroma pixels make up the editor page and its transparency checkerboard. */
+    private static boolean isPageBackground(final int argb) {
+        final int red = (argb >> 16) & 0xFF;
+        final int green = (argb >> 8) & 0xFF;
+        final int blue = argb & 0xFF;
+        if (red < 200 || green < 200 || blue < 200) return false;
+        final int maximum = Math.max(red, Math.max(green, blue));
+        final int minimum = Math.min(red, Math.min(green, blue));
+        return maximum - minimum <= 12;
+    }
+
+    /**
+     * Longest run of indices whose count reaches {@code minCount}; short gaps up to
+     * {@code maxGap} are bridged so a row crossing the page does not split it.
+     * Returns {@code {start, end}} inclusive, or null when no run qualifies.
+     */
+    private static int[] longestRun(final int[] counts, final int minCount, final int maxGap) {
+        int bestStart = -1;
+        int bestEnd = -1;
+        long bestScore = -1;
+        int start = -1;
+        int last = -1;
+        for (int index = 0; index <= counts.length; index++) {
+            final boolean active = index < counts.length && counts[index] >= minCount;
+            if (active) {
+                if (start < 0) start = index;
+                last = index;
+                continue;
+            }
+            if (start < 0) continue;
+            if (index < counts.length && index - last <= maxGap) continue;
+            final long score = score(counts, start, last);
+            if (score > bestScore) {
+                bestScore = score;
+                bestStart = start;
+                bestEnd = last;
+            }
+            start = -1;
+            last = -1;
+        }
+        return bestStart < 0 ? null : new int[] {bestStart, bestEnd};
+    }
+
+    private static long score(final int[] counts, final int start, final int end) {
+        long sum = 0;
+        for (int index = start; index <= end; index++) sum += counts[index];
+        return (long) (end - start + 1) * 1_000_000L + sum;
+    }
+
+    static BufferedImage cropToImageBounds(final BufferedImage image, final Rectangle requested) {
+        if (image == null || requested == null) return null;
+        final Rectangle crop = requested.intersection(new Rectangle(0, 0, image.getWidth(), image.getHeight()));
+        if (crop.width < 8 || crop.height < 8) return null;
+        if (crop.x == 0 && crop.y == 0 && crop.width == image.getWidth() && crop.height == image.getHeight()) {
+            return image;
+        }
+        return copyOf(image.getSubimage(crop.x, crop.y, crop.width, crop.height));
+    }
+
+    private static BufferedImage copyOf(final BufferedImage source) {
+        final BufferedImage copy =
+                new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = copy.createGraphics();
         try {
-            graphics.drawImage(cropped, 0, 0, null);
+            graphics.drawImage(source, 0, 0, null);
         } finally {
             graphics.dispose();
         }
@@ -1037,7 +1145,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         final BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = scaled.createGraphics();
         try {
-            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             graphics.drawImage(image, 0, 0, width, height, null);
         } finally {

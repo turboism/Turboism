@@ -21,6 +21,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -37,6 +38,62 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 class ScreenshotCaptureHostOperationsTest {
+
+    @Test
+    void detectsTheCanvasPageInsideTheViewportChrome() {
+        final BufferedImage source = new BufferedImage(400, 300, BufferedImage.TYPE_INT_RGB);
+        fill(source, new Color(30, 30, 30));
+        for (int y = 0; y < 20; y++) {
+            for (int x = 0; x < 400; x++) {
+                source.setRGB(x, y, new Color(45, 45, 45).getRGB());
+            }
+        }
+        for (int y = 5; y < 15; y++) {
+            for (int x = 10; x < 15; x++) {
+                source.setRGB(x, y, 0xFFFFFFFF);
+            }
+        }
+        for (int y = 30; y < 270; y++) {
+            for (int x = 60; x < 260; x++) {
+                source.setRGB(x, y, ((x + y) & 1) == 0 ? 0xFFFFFFFF : 0xFFF7F7F7);
+            }
+        }
+        // A model column spanning the full page height must not split the detected page.
+        for (int y = 30; y < 270; y++) {
+            for (int x = 140; x < 190; x++) {
+                source.setRGB(x, y, new Color(180, 120, 80).getRGB());
+            }
+        }
+
+        assertEquals(new Rectangle(60, 30, 200, 240), PreviewCaptureHostOperations.detectPageBounds(source));
+    }
+
+    @Test
+    void cropsToTheDetectedCanvasPageBounds() {
+        final BufferedImage source = new BufferedImage(400, 300, BufferedImage.TYPE_INT_ARGB);
+        fill(source, new Color(30, 30, 30));
+        for (int y = 40; y < 240; y++) {
+            for (int x = 80; x < 280; x++) {
+                source.setRGB(x, y, 0xFFFFFFFF);
+            }
+        }
+        final Rectangle detected = PreviewCaptureHostOperations.detectPageBounds(source);
+
+        final BufferedImage cropped = PreviewCaptureHostOperations.cropToImageBounds(source, detected);
+
+        assertNotNull(cropped);
+        assertEquals(200, cropped.getWidth());
+        assertEquals(200, cropped.getHeight());
+        assertEquals(0xFFFFFFFF, cropped.getRGB(0, 0));
+        assertEquals(0xFFFFFFFF, cropped.getRGB(199, 199));
+    }
+
+    @Test
+    void rejectsAViewportWithNoCanvasPage() {
+        final BufferedImage source = new BufferedImage(400, 300, BufferedImage.TYPE_INT_RGB);
+        fill(source, new Color(30, 30, 30));
+        assertNull(PreviewCaptureHostOperations.detectPageBounds(source));
+    }
 
     @Test
     void portsLegacyCroppingAndBoundedScaling() {

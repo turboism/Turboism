@@ -68,7 +68,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
                 context.services()
                         .find(ScreenshotCaptureService.class)
                         .orElseGet(ScreenshotCaptureService::unavailable),
-                cacheIndex);
+                cacheIndex,
+                this::publishCaptured);
         renderer =
                 new RecentPreviewRendererImpl(controller, this::requestCapture, context.logger(), loadingText(context));
         context.disposableScope().register(() -> closeContribution());
@@ -308,6 +309,21 @@ public final class RecentPreviewPlugin implements CubismPlugin {
                 refreshPopup();
             }
         });
+    }
+
+    /** Publishes the committed capture to dependent plugins without affecting the cache path. */
+    private void publishCaptured(final dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent event) {
+        final PluginContext current = context;
+        if (!enabled || current == null) {
+            return;
+        }
+        try {
+            current.eventBus().publish(event);
+        } catch (RuntimeException failure) {
+            current.logger()
+                    .warn("Recent preview event publish failed: "
+                            + failure.getClass().getSimpleName());
+        }
     }
 
     private static String loadingText(final PluginContext context) {

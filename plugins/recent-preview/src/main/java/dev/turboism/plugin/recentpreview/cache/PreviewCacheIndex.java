@@ -33,7 +33,7 @@ import javax.imageio.ImageIO;
  */
 public final class PreviewCacheIndex implements PreviewCache {
 
-    private static final int MAX_THUMBNAIL_SIZE = 150;
+    private static final int MAX_THUMBNAIL_SIZE = 300;
     private static final int MAX_INDEXED_FILES = 100;
     private static final int MAX_PNG_BYTES = 1024 * 1024;
     private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};

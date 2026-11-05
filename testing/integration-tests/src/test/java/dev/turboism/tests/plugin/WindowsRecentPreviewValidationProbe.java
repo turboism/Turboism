@@ -13,7 +13,6 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
-import dev.turboism.test.Stubs;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Frame;
@@ -35,7 +34,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -70,7 +72,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
 
     static final String PRODUCTION_PLUGIN_ID = "dev.turboism.plugin.recent-preview";
     static final String POPUP_IMAGE_LABEL = "panel-image";
-    static final int TARGET_SIZE = 150;
+    static final int TARGET_SIZE = 300;
     static final int MAX_PNG_BYTES = 1024 * 1024;
     static final long RECENT_LIST_DEADLINE_MILLIS = 120_000L;
     static final long CAPTURE_DEADLINE_MILLIS = 60_000L;
@@ -1803,7 +1805,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     static String sha256Hex(final byte[] value) {
-        return Stubs.sha256Hex(value);
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 
     // --- robot / EDT plumbing ----------------------------------------------------------

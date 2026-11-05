@@ -29,7 +29,7 @@ interface: swing
 
 ## 기능 개요
 
-- サポート対象のプロジェクトを開くまたは保存する操作の後に、最大 150×150 のモデリングサーフェスのプレビューをキャプチャします。
+- 지원되는 프로젝트 열기 또는 저장 작업 후 최대 300×300의 모델링 표면 미리보기를 캡처하고 기존 팝업 크기 안에 표시합니다.
 - 実行中および変更のないキャプチャを重複排除し、キャッシュ済みのコンテンツを Recent Files のホバー UI に提供します。
 - 不透明な最近使用したファイル ID と、パスを含まないキャッシュインデックスを使用します。
 
@@ -56,6 +56,12 @@ interface: swing
 2. Cubism の Recent Files 表示を開き、最近使用した項目にカーソルを合わせます。
 3. ポップアップにキャッシュ済みのサムネイルと利用可能な表示メタデータが表示されます。古い、または利用できないキャプチャは安全にスキップされます。
 
+## 플러그인 간 이벤트 계약
+
+이 플러그인은 공개 이벤트 `thumbnail.captured`(계약 `1.0.0`)를 내보냅니다. SDK 소유 페이로드 `RecentPreviewCapturedEvent`에는 불투명 최근 파일 ID, 표시 이름, 캡처된 `ScreenshotImage`, 바로 사용할 수 있는 썸네일 `PanelView`가 포함됩니다.
+
+소비 플러그인은 `dev.turboism.plugin.recent-preview`에 대한 의존성(`ordering: after`)과 이벤트 가져오기를 선언하고 `turboism.event.subscribe` 권한을 추가합니다. `@SubscribeEvent` 또는 `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)`로 구독합니다. `event.image().png()`는 이미지 스트림, `event.thumbnail()`은 `PanelView` 부품을 제공합니다. 이벤트는 실시간 전용이며 캡처 후 구독을 시작한 플러그인에 과거 이미지를 재생하지 않습니다.
+
 ## 기능
 
 플러그인 매니페스트에 선언된 기능이 없습니다.
@@ -72,6 +78,7 @@ interface: swing
 | `turboism.ui.recent-preview.contribute` | `application` | ホストの Recent Files ホバーブリッジにサムネイルポップアップのコンテンツを提供します。 |
 | `turboism.file.read` | `application` | プラグインに限定されたキャッシュストレージから、キャッシュ済みプレビュー PNG を読み取ります。 |
 | `turboism.file.write` | `application` | プレビュー PNG とパスを含まないインデックスを、プラグインに限定されたキャッシュストレージへアトミックに書き込みます。 |
+| `turboism.event.publish` | `application` | 공개 `thumbnail.captured` 이벤트를 가져온 종속 플러그인에 커밋된 썸네일을 게시합니다. |
 
 ## 개인정보 및 데이터
 

@@ -11,11 +11,14 @@ import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
+import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -47,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
@@ -68,6 +72,33 @@ final class RecentPreviewPluginLifecycleTest {
         plugin.disable();
         assertFalse(plugin.isEnabled());
         assertTrue(renderers.isEmpty());
+    }
+
+    @Test
+    void publishesCommittedCaptureToDependentPlugins() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<RecentPreviewRenderer> renderers = new ArrayList<>();
+        final int[] captures = {0};
+        final AtomicInteger refreshes = new AtomicInteger();
+        final List<String> warnings = new ArrayList<>();
+        final RecordingEventBus events = new RecordingEventBus();
+        final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
+
+        plugin.init(
+                context(List.of(file), renderers, captures, refreshes, warnings, new RecordingTaskScheduler(), events));
+        plugin.enable();
+        plugin.onModelOpened(
+                new ProjectContentSnapshot("content-1", "One", ProjectContentKind.MODEL, Optional.empty(), List.of()));
+        awaitCaptures(captures, 1);
+        awaitCondition(() -> !events.published.isEmpty());
+
+        final RecentPreviewCapturedEvent captured = (RecentPreviewCapturedEvent) events.published.get(0);
+        assertEquals(file.id(), captured.id());
+        assertEquals("One.cmo3", captured.displayName());
+        assertEquals(1, captured.image().width());
+        assertEquals(1, captured.image().height());
+        assertEquals(150, ((dev.turboism.sdk.ui.PanelView.ScaledImage) captured.thumbnail()).maxWidth());
+        plugin.shutdown();
     }
 
     @Test
@@ -349,12 +380,23 @@ final class RecentPreviewPluginLifecycleTest {
             final AtomicInteger refreshes,
             final List<String> warnings,
             final RecordingTaskScheduler tasks) {
+        return context(files, renderers, captures, refreshes, warnings, tasks, new RecordingEventBus());
+    }
+
+    private static PluginContext context(
+            final List<RecentFileSummary> files,
+            final List<RecentPreviewRenderer> renderers,
+            final int[] captures,
+            final AtomicInteger refreshes,
+            final List<String> warnings,
+            final RecordingTaskScheduler tasks,
+            final EventBus eventBus) {
         final ScreenshotCaptureService screenshots = request -> {
             captures[0]++;
             return CompletableFuture.completedStage(
                     new ScreenshotCaptureResult(request.id(), new ScreenshotImage(1, 1, png())));
         };
-        return context(files, renderers, screenshots, refreshes, warnings, tasks);
+        return context(files, renderers, screenshots, refreshes, warnings, tasks, eventBus);
     }
 
     private static PluginContext context(
@@ -364,6 +406,17 @@ final class RecentPreviewPluginLifecycleTest {
             final AtomicInteger refreshes,
             final List<String> warnings,
             final RecordingTaskScheduler tasks) {
+        return context(files, renderers, screenshots, refreshes, warnings, tasks, new RecordingEventBus());
+    }
+
+    private static PluginContext context(
+            final List<RecentFileSummary> files,
+            final List<RecentPreviewRenderer> renderers,
+            final ScreenshotCaptureService screenshots,
+            final AtomicInteger refreshes,
+            final List<String> warnings,
+            final RecordingTaskScheduler tasks,
+            final EventBus eventBus) {
         final DisposableScope scope = new DisposableScope();
         final PluginLogger logger = (PluginLogger) Proxy.newProxyInstance(
                 PluginLogger.class.getClassLoader(), new Class<?>[] {PluginLogger.class}, (proxy, method, args) -> {
@@ -424,6 +477,7 @@ final class RecentPreviewPluginLifecycleTest {
                     case "tasks" -> tasks;
                     case "localization" -> dev.turboism.sdk.i18n.PluginLocalization.unavailable();
                     case "uiScheduler" -> new FakeDirectUiScheduler();
+                    case "eventBus" -> eventBus;
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
     }
@@ -475,6 +529,21 @@ final class RecentPreviewPluginLifecycleTest {
                         }
                     },
                     Optional.empty());
+        }
+    }
+
+    private static final class RecordingEventBus implements EventBus {
+        private final List<TurboismEvent> published = new CopyOnWriteArrayList<>();
+
+        @Override
+        public <T extends TurboismEvent> Registration subscribe(
+                final Class<T> type, final java.util.function.Consumer<T> listener) {
+            return () -> {};
+        }
+
+        @Override
+        public <T extends TurboismEvent> void publish(final T event) {
+            published.add(event);
         }
     }
 

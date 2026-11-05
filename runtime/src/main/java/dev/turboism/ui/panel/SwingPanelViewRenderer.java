@@ -8,6 +8,10 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BaseMultiResolutionImage;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.util.Objects;
 import java.util.Optional;
@@ -167,6 +171,9 @@ public final class SwingPanelViewRenderer {
                     label.getIcon().getIconWidth(), label.getIcon().getIconHeight()));
             return label;
         }
+        if (view instanceof PanelView.ScaledImage image) {
+            return scaledImageLabel(image);
+        }
         if (view instanceof PanelView.Button button) {
             final JButton component = new JButton(button.label());
             component.setName(button.id());
@@ -256,6 +263,56 @@ public final class SwingPanelViewRenderer {
         } catch (Exception failure) {
             throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
         }
+    }
+
+    /**
+     * Renders a high-resolution image at its logical display size. The base variant keeps
+     * the established panel dimensions; the original pixels remain available as a
+     * multi-resolution variant so HiDPI painting uses the sharper source instead of
+     * upscaling the small base raster.
+     */
+    private static JLabel scaledImageLabel(final PanelView.ScaledImage image) {
+        final BufferedImage source;
+        try {
+            source = ImageIO.read(new ByteArrayInputStream(image.pngBytes()));
+        } catch (Exception failure) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
+        if (source == null) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG");
+        }
+        final double fit = Math.min(
+                1d,
+                Math.min(
+                        image.maxWidth() / (double) source.getWidth(),
+                        image.maxHeight() / (double) source.getHeight()));
+        final int displayWidth = Math.max(1, (int) Math.round(source.getWidth() * fit));
+        final int displayHeight = Math.max(1, (int) Math.round(source.getHeight() * fit));
+        final BufferedImage base = displayWidth == source.getWidth() && displayHeight == source.getHeight()
+                ? source
+                : scaleImage(source, displayWidth, displayHeight);
+        final ImageIcon icon = base == source
+                ? new ImageIcon(source, image.altText())
+                : new ImageIcon(new BaseMultiResolutionImage(base, source), image.altText());
+        final JLabel label = new JLabel();
+        label.setName("panel-image");
+        label.setIcon(icon);
+        label.setToolTipText(image.altText());
+        label.setPreferredSize(new Dimension(displayWidth, displayHeight));
+        return label;
+    }
+
+    private static BufferedImage scaleImage(final BufferedImage source, final int width, final int height) {
+        final BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = scaled.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            graphics.drawImage(source, 0, 0, width, height, null);
+        } finally {
+            graphics.dispose();
+        }
+        return scaled;
     }
 
     private static JPanel container(

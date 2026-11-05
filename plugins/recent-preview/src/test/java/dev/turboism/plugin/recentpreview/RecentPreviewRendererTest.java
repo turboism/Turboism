@@ -48,9 +48,12 @@ final class RecentPreviewRendererTest {
         assertEquals(summary.id(), content.id());
         final PanelView.Column column = (PanelView.Column) content.view();
         assertEquals(3, column.children().size());
-        final PanelView.Image image = (PanelView.Image) column.children().get(0);
+        final PanelView.ScaledImage image =
+                (PanelView.ScaledImage) column.children().get(0);
         assertArrayEquals(png(), image.pngBytes());
         assertEquals("model.cmo3", image.altText());
+        assertEquals(150, image.maxWidth());
+        assertEquals(150, image.maxHeight());
         assertEquals("model.cmo3", ((PanelView.Text) column.children().get(1)).value());
         assertEquals(
                 RecentPreviewRendererImpl.LAST_MODIFIED_FORMAT.format(Instant.parse("2026-08-05T12:00:00Z")),

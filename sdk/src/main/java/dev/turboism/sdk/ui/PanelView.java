@@ -13,6 +13,7 @@ public sealed interface PanelView
                 PanelView.Row,
                 PanelView.Text,
                 PanelView.Image,
+                PanelView.ScaledImage,
                 PanelView.Button,
                 PanelView.TextInput,
                 PanelView.Select,
@@ -50,6 +51,17 @@ public sealed interface PanelView
     /** Creates an image node from PNG bytes with accessibility alt text. */
     static Image image(final byte[] pngBytes, final String altText) {
         return new Image(pngBytes, altText);
+    }
+
+    /**
+     * Creates a high-resolution image node displayed inside the given logical bounds.
+     * The runtime preserves the image aspect ratio, scales it down for 1x displays and
+     * keeps the original pixels available as a device-resolution variant for HiDPI
+     * displays.
+     */
+    static ScaledImage scaledImage(
+            final byte[] pngBytes, final String altText, final int maxWidth, final int maxHeight) {
+        return new ScaledImage(pngBytes, altText, maxWidth, maxHeight);
     }
 
     /** Creates a push button that invokes {@code actionId} when pressed. */
@@ -170,25 +182,8 @@ public sealed interface PanelView
      * alt text. The runtime renders it as an image label sized to the decoded pixels.
      */
     record Image(byte[] pngBytes, String altText) implements PanelView {
-        private static final int MAX_PNG_BYTES = 1024 * 1024;
-        private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
-
         public Image {
-            pngBytes = Objects.requireNonNull(pngBytes, "pngBytes").clone();
-            if (pngBytes.length == 0 || pngBytes.length > MAX_PNG_BYTES) {
-                throw new IllegalArgumentException("pngBytes must contain between 1 and 1048576 bytes");
-            }
-            if (!startsWithPngSignature(pngBytes)) {
-                throw new IllegalArgumentException("pngBytes must start with the PNG signature");
-            }
-            try {
-                final var decoded = ImageIO.read(new ByteArrayInputStream(pngBytes));
-                if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) {
-                    throw new IllegalArgumentException("pngBytes must be a readable PNG");
-                }
-            } catch (IOException failure) {
-                throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
-            }
+            pngBytes = checkedPngBytes(pngBytes);
             altText = Objects.requireNonNull(altText, "altText");
         }
 
@@ -196,13 +191,32 @@ public sealed interface PanelView
         public byte[] pngBytes() {
             return pngBytes.clone();
         }
+    }
 
-        private static boolean startsWithPngSignature(final byte[] value) {
-            if (value.length < PNG_SIGNATURE.length) return false;
-            for (int index = 0; index < PNG_SIGNATURE.length; index++) {
-                if (value[index] != PNG_SIGNATURE[index]) return false;
+    /**
+     * High-resolution PNG image node with explicit logical display bounds. The runtime
+     * fits the image into the bounds while preserving aspect ratio, and supplies the
+     * original pixels to HiDPI painting without increasing the panel's logical size.
+     */
+    record ScaledImage(byte[] pngBytes, String altText, int maxWidth, int maxHeight) implements PanelView {
+        private static final int MAX_DISPLAY_DIMENSION = 4096;
+
+        public ScaledImage {
+            pngBytes = checkedPngBytes(pngBytes);
+            altText = Objects.requireNonNull(altText, "altText");
+            requireDisplayDimension(maxWidth, "maxWidth");
+            requireDisplayDimension(maxHeight, "maxHeight");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
+        }
+
+        private static void requireDisplayDimension(final int value, final String name) {
+            if (value < 1 || value > MAX_DISPLAY_DIMENSION) {
+                throw new IllegalArgumentException(name + " must be between 1 and " + MAX_DISPLAY_DIMENSION);
             }
-            return true;
         }
     }
 
@@ -365,6 +379,31 @@ public sealed interface PanelView
             throw new IllegalArgumentException("children must not be empty");
         }
         return snapshot;
+    }
+
+    private static byte[] checkedPngBytes(final byte[] value) {
+        final byte[] pngBytes = Objects.requireNonNull(value, "pngBytes").clone();
+        if (pngBytes.length == 0 || pngBytes.length > 1024 * 1024) {
+            throw new IllegalArgumentException("pngBytes must contain between 1 and 1048576 bytes");
+        }
+        final byte[] signature = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+        if (pngBytes.length < signature.length) {
+            throw new IllegalArgumentException("pngBytes must start with the PNG signature");
+        }
+        for (int index = 0; index < signature.length; index++) {
+            if (pngBytes[index] != signature[index]) {
+                throw new IllegalArgumentException("pngBytes must start with the PNG signature");
+            }
+        }
+        try {
+            final var decoded = ImageIO.read(new ByteArrayInputStream(pngBytes));
+            if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG");
+            }
+        } catch (IOException failure) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
+        return pngBytes;
     }
 
     private static String requireText(final String value, final String name) {

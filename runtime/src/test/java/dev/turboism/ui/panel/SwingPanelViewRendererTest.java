@@ -18,14 +18,18 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.awt.image.MultiResolutionImage;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.imageio.ImageIO;
 import javax.swing.AbstractButton;
 import javax.swing.Action;
 import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -635,6 +639,33 @@ class SwingPanelViewRendererTest {
 
     private static Point centerOf(java.awt.Rectangle bounds) {
         return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    }
+
+    @Test
+    void scaledImageKeepsPopupSizeAndCarriesHighResolutionVariant() throws Exception {
+        final BufferedImage source = new BufferedImage(213, 300, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                source.setRGB(x, y, x < source.getWidth() / 2 ? 0xFFCC4444 : 0xFF4444CC);
+            }
+        }
+        final ByteArrayOutputStream png = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(source, "png", png));
+        final PanelView view = PanelView.column(PanelView.scaledImage(png.toByteArray(), "thumbnail", 150, 150));
+
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(view, (action, event) -> {});
+            final JLabel label = assertInstanceOf(JLabel.class, named(rendered, "panel-image"));
+            assertEquals(107, label.getPreferredSize().width);
+            assertEquals(150, label.getPreferredSize().height);
+            final ImageIcon icon = assertInstanceOf(ImageIcon.class, label.getIcon());
+            assertEquals(107, icon.getIconWidth());
+            assertEquals(150, icon.getIconHeight());
+            final MultiResolutionImage multi = assertInstanceOf(MultiResolutionImage.class, icon.getImage());
+            assertEquals(2, multi.getResolutionVariants().size());
+            assertTrue(multi.getResolutionVariants().stream()
+                    .anyMatch(image -> image.getWidth(null) == 213 && image.getHeight(null) == 300));
+        });
     }
 
     private static Component named(final Component component, final String name) {
