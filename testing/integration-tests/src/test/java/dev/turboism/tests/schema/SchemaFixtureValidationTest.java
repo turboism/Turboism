@@ -12,7 +12,6 @@ import dev.turboism.core.schema.permission.PermissionValidator;
 import dev.turboism.core.schema.plugin.PluginMetaValidator;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.core.schema.version.VersionRangeValidator;
-import dev.turboism.hook.spec.HookSpecValidator;
 import dev.turboism.mapping.draft.DraftMappingException;
 import dev.turboism.mapping.draft.MappingReviewValidator;
 import dev.turboism.mapping.draft.MappingUpdateCandidateValidator;
@@ -66,8 +65,7 @@ class SchemaFixtureValidationTest {
         "cubism-5-3-02-low-risk.json, static-verification-record-v1, static-verification-record",
         "minimal.json, mapping-update-candidate-v1, mapping-update-candidate",
         "minimal.json, mapping-update-review-v1, mapping-update-review",
-        "minimal.json, mapping-update-diff-v1, mapping-update-diff",
-        "parameter-top-level-menu.json, hook-spec-v1, hook-spec"
+        "minimal.json, mapping-update-diff-v1, mapping-update-diff"
     })
     void validFixturesPass(String file, String dir, String type) throws Exception {
         Path path = FIXTURES.resolve(dir).resolve("valid").resolve(file);
@@ -154,10 +152,7 @@ class SchemaFixtureValidationTest {
         "missing-required.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_BAD_CHANGES",
         "duplicate-key.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON",
         "bom.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON",
-        "trailing-token.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON",
-        "unknown-field.json, hook-spec-v1, hook-spec, HOOK_SPEC_UNKNOWN_FIELD",
-        "missing-id.json, hook-spec-v1, hook-spec, HOOK_SPEC_MISSING",
-        "bad-schema-version.json, hook-spec-v1, hook-spec, HOOK_SPEC_BAD_SCHEMA_VERSION"
+        "trailing-token.json, mapping-update-diff-v1, mapping-update-diff, MAPPING_UPDATE_DIFF_INVALID_JSON"
     })
     void invalidFixturesFail(String file, String dir, String type, String expectedCode) throws Exception {
         Path path = FIXTURES.resolve(dir).resolve("invalid").resolve(file);
@@ -220,7 +215,6 @@ class SchemaFixtureValidationTest {
             case "mapping-update-candidate" -> new MappingUpdateCandidateValidator();
             case "mapping-update-review" -> new MappingReviewValidator();
             case "mapping-update-diff" -> new MappingUpdateDiffValidator();
-            case "hook-spec" -> new HookSpecValidator();
             default -> throw new IllegalArgumentException("Unknown schema type: " + type);
         };
     }
