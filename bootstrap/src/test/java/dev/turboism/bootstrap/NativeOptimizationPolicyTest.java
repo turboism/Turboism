@@ -82,10 +82,10 @@ class NativeOptimizationPolicyTest {
         assertFalse(NativeOptimizationPolicy.inputPathElisionEnabled(first));
         assertFalse(NativeOptimizationPolicy.mesaGlThreadEnabled(first));
         for (Optimization optimization : OptimizationCatalog.persisted())
-            assertFalse(first.optimizationConfig().choice(optimization).enabled());
+            assertFalse(first.plan().choice(optimization).enabled());
         HookEnvironment next = environment();
         for (Optimization optimization : OptimizationCatalog.persisted())
-            assertTrue(next.optimizationConfig().choice(optimization).enabled());
+            assertTrue(next.plan().choice(optimization).enabled());
         assertTrue(NativeOptimizationPolicy.modelUpdateSkipEnabled(next));
         assertTrue(NativeOptimizationPolicy.incrementalUpdateEnabled(next));
         assertTrue(NativeOptimizationPolicy.uniformLocationCacheEnabled(next));

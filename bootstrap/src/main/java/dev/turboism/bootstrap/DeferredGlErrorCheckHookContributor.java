@@ -46,7 +46,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
             final var host = environment.host().orElseThrow();
             if (!VerifiedDeferredGlErrorCheckInstaller.admitted(
                     HostArtifactDigest.from(host.artifact()),
-                    NativeOptimizationPolicy.load(environment.options().home()),
+                    environment.plan().policy(),
                     true,
                     Runtime.version().feature())) {
                 warnInactive(environment, "admission-refused");

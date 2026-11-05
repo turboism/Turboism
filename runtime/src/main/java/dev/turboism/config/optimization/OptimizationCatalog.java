@@ -24,7 +24,9 @@ import java.util.function.Function;
  * contribution id, protocol or {@code (section, index)}; a persisted row whose key or scope
  * disagrees with its {@link PerformanceSettingsConfig.Field}; a diagnostic-only row that claims a
  * config key, row, placement or field; a persisted row whose first override property is not
- * {@code turboism.optimization.<key>}.</p>
+ * {@code turboism.optimization.<key>}; a {@link Optimization.Relation} that points at an entry
+ * not declared before it (which is also what keeps the relation graph acyclic) or that is stated
+ * twice.</p>
  */
 public final class OptimizationCatalog {
     /** Protocol the clip-mask installer reports its scissor-limited clear sub-mode under. */
@@ -47,7 +49,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.model-update.unchanged-frame-skip"),
             Optional.of(new Optimization.Placement("heavy-model", 62)),
             "settings.optimization.model-update-skip",
-            "settings.optimization.model-update-skip.tooltip");
+            "settings.optimization.model-update-skip.tooltip",
+            List.of());
 
     public static final Optimization INCREMENTAL_UPDATE = new Optimization(
             "incrementalUpdate",
@@ -58,8 +61,13 @@ public final class OptimizationCatalog {
             Set.of("cubism.model-update.incremental"),
             Optional.of(new Optimization.Placement("model", 72)),
             "settings.optimization.incremental-update",
-            "settings.optimization.incremental-update.tooltip");
+            "settings.optimization.incremental-update.tooltip",
+            List.of());
 
+    /**
+     * The glue-affecter sub-mode of {@link #INCREMENTAL_UPDATE}: the bridge only publishes the
+     * affecter default while the incremental path itself is admitted.
+     */
     public static final Optimization INCREMENTAL_UPDATE_AFFECTERS = new Optimization(
             "incrementalUpdateAffecters",
             "incremental-update-affecters",
@@ -69,7 +77,9 @@ public final class OptimizationCatalog {
             Set.of("cubism.model-update.incremental"),
             Optional.of(new Optimization.Placement("model", 73)),
             "settings.optimization.incremental-update-affecters",
-            "settings.optimization.incremental-update-affecters.tooltip");
+            "settings.optimization.incremental-update-affecters.tooltip",
+            List.of(new Optimization.Relation(
+                    Optimization.Relation.Kind.REQUIRES, INCREMENTAL_UPDATE, "incrementalUpdate-disabled")));
 
     public static final Optimization UNIFORM_LOCATION_CACHE = new Optimization(
             "uniformLocationCache",
@@ -80,12 +90,16 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.uniform-location-cache"),
             Optional.of(new Optimization.Placement("rendering", 81)),
             "settings.optimization.uniform-location-cache",
-            "settings.optimization.uniform-location-cache.tooltip");
+            "settings.optimization.uniform-location-cache.tooltip",
+            List.of());
 
     /**
      * One preference implemented by two independent weaves: the skipped-frame elision refuses when
      * the uniform-location cache is enabled, while the line-renderer split installs in exactly that
-     * combination. Both protocols therefore prove this one entry.
+     * combination. Both protocols therefore prove this one entry. The skipped-frame weave's two
+     * preconditions - the unchanged-frame skip it needs and the uniform-location cache it cannot
+     * compose with - are declared as relations, so one launch decision serves both contributor and
+     * status dialog.
      */
     public static final Optimization UPLOAD_ELISION = new Optimization(
             "uploadElision",
@@ -96,8 +110,19 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.upload-elision", "cubism.render.line-renderer-upload-split"),
             Optional.of(new Optimization.Placement("upload", 91)),
             "settings.optimization.upload-elision",
-            "settings.optimization.upload-elision.tooltip");
+            "settings.optimization.upload-elision.tooltip",
+            List.of(
+                    new Optimization.Relation(
+                            Optimization.Relation.Kind.REQUIRES, MODEL_UPDATE_SKIP, "modelUpdateSkip-disabled"),
+                    new Optimization.Relation(
+                            Optimization.Relation.Kind.CONFLICTS,
+                            UNIFORM_LOCATION_CACHE,
+                            "uniformLocationCache-enabled")));
 
+    /**
+     * Skips {@code GMesh2.setup} on a frame the model update already skipped, so it requires
+     * {@link #MODEL_UPDATE_SKIP}: without a skipped frame no setup can be proven redundant.
+     */
     public static final Optimization MESH_SETUP_ELISION = new Optimization(
             "meshSetupElision",
             "mesh-setup-elision",
@@ -107,7 +132,9 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.mesh-setup-elision"),
             Optional.of(new Optimization.Placement("upload", 93)),
             "settings.optimization.mesh-setup-elision",
-            "settings.optimization.mesh-setup-elision.tooltip");
+            "settings.optimization.mesh-setup-elision.tooltip",
+            List.of(new Optimization.Relation(
+                    Optimization.Relation.Kind.REQUIRES, MODEL_UPDATE_SKIP, "modelUpdateSkip-disabled")));
 
     public static final Optimization INPUT_PATH_ELISION = new Optimization(
             "inputPathElision",
@@ -118,7 +145,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.input-path-elision"),
             Optional.of(new Optimization.Placement("upload", 92)),
             "settings.optimization.input-path-elision",
-            "settings.optimization.input-path-elision.tooltip");
+            "settings.optimization.input-path-elision.tooltip",
+            List.of());
 
     public static final Optimization MESA_GL_THREAD = new Optimization(
             "mesaGlThread",
@@ -129,7 +157,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.mesa-gl-thread"),
             Optional.of(new Optimization.Placement("heavy-model", 61)),
             "settings.optimization.mesa-gl-thread",
-            "settings.optimization.mesa-gl-thread.tooltip");
+            "settings.optimization.mesa-gl-thread.tooltip",
+            List.of());
 
     public static final Optimization ASYNC_READBACK = new Optimization(
             "asyncReadback",
@@ -140,7 +169,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.async-readback"),
             Optional.of(new Optimization.Placement("heavy-model", 69)),
             "settings.optimization.async-readback",
-            "settings.optimization.async-readback.tooltip");
+            "settings.optimization.async-readback.tooltip",
+            List.of());
 
     /**
      * The second entry with a legacy alias: {@code turboism.meshInterpolation.enabled} is honoured
@@ -155,7 +185,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.mesh.interpolation"),
             Optional.of(new Optimization.Placement("model", 74)),
             "settings.optimization.mesh-interpolation",
-            "settings.optimization.mesh-interpolation.tooltip");
+            "settings.optimization.mesh-interpolation.tooltip",
+            List.of());
 
     /** The other legacy alias: {@code turboism.shaderUniform.enabled}. */
     public static final Optimization SHADER_UNIFORM = new Optimization(
@@ -167,7 +198,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.shader.uniform"),
             Optional.of(new Optimization.Placement("rendering", 82)),
             "settings.optimization.shader-uniform",
-            "settings.optimization.shader-uniform.tooltip");
+            "settings.optimization.shader-uniform.tooltip",
+            List.of());
 
     public static final Optimization MATRIX_SCRATCH = new Optimization(
             "matrixScratch",
@@ -178,7 +210,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.matrix-scratch"),
             Optional.of(new Optimization.Placement("rendering", 83)),
             "settings.optimization.matrix-scratch",
-            "settings.optimization.matrix-scratch.tooltip");
+            "settings.optimization.matrix-scratch.tooltip",
+            List.of());
 
     public static final Optimization IMAGE_ARCHIVE_REUSE = new Optimization(
             "imageArchiveReuse",
@@ -189,7 +222,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.image-archive-reuse"),
             Optional.of(new Optimization.Placement("mesh", 105)),
             "settings.optimization.image-archive-reuse",
-            "settings.optimization.image-archive-reuse.tooltip");
+            "settings.optimization.image-archive-reuse.tooltip",
+            List.of());
 
     public static final Optimization FLOAT_ARRAY_PARSE_CACHE = new Optimization(
             "floatArrayParseCache",
@@ -200,7 +234,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.float-array-parse-cache"),
             Optional.of(new Optimization.Placement("mesh", 106)),
             "settings.optimization.float-array-parse-cache",
-            "settings.optimization.float-array-parse-cache.tooltip");
+            "settings.optimization.float-array-parse-cache.tooltip",
+            List.of());
 
     public static final Optimization TEXTURE_UPLOAD_PREPARATION = new Optimization(
             "textureUploadPreparation",
@@ -211,7 +246,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.texture-upload-preparation"),
             Optional.of(new Optimization.Placement("mesh", 107)),
             "settings.optimization.texture-upload-preparation",
-            "settings.optimization.texture-upload-preparation.tooltip");
+            "settings.optimization.texture-upload-preparation.tooltip",
+            List.of());
 
     public static final Optimization WARP_POSITION_PROJECTION = new Optimization(
             "warpPositionProjection",
@@ -222,7 +258,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.warp-position-projection"),
             Optional.of(new Optimization.Placement("rendering", 84)),
             "settings.optimization.warp-position-projection",
-            "settings.optimization.warp-position-projection.tooltip");
+            "settings.optimization.warp-position-projection.tooltip",
+            List.of());
 
     public static final Optimization REINIT_PAIR_ELISION = new Optimization(
             "reinitPairElision",
@@ -233,7 +270,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.model.reinit-pair-elision"),
             Optional.of(new Optimization.Placement("heavy-model", 66)),
             "settings.optimization.reinit-pair-elision",
-            "settings.optimization.reinit-pair-elision.tooltip");
+            "settings.optimization.reinit-pair-elision.tooltip",
+            List.of());
 
     public static final Optimization CLIP_MASK_DEDUPLICATION = new Optimization(
             "clipMaskDeduplication",
@@ -244,9 +282,13 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.clip-mask-dedupe"),
             Optional.of(new Optimization.Placement("heavy-model", 63)),
             "settings.optimization.clip-mask-deduplication",
-            "settings.optimization.clip-mask-deduplication.tooltip");
+            "settings.optimization.clip-mask-deduplication.tooltip",
+            List.of());
 
-    /** Sub-mode of {@link #CLIP_MASK_DEDUPLICATION}, decided inside the same installer. */
+    /**
+     * Sub-mode of {@link #CLIP_MASK_DEDUPLICATION}, decided inside the same installer: the
+     * scissor-limited clear rides the dedupe weave and cannot outlive it.
+     */
     public static final Optimization CLIP_MASK_SCISSOR_CLEAR = new Optimization(
             "clipMaskScissorClear",
             "clip-mask-scissor-clear",
@@ -256,7 +298,9 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.clip-mask-dedupe"),
             Optional.of(new Optimization.Placement("heavy-model", 64)),
             "settings.optimization.clip-mask-scissor-clear",
-            "settings.optimization.clip-mask-scissor-clear.tooltip");
+            "settings.optimization.clip-mask-scissor-clear.tooltip",
+            List.of(new Optimization.Relation(
+                    Optimization.Relation.Kind.REQUIRES, CLIP_MASK_DEDUPLICATION, "clipMaskDeduplication-disabled")));
 
     public static final Optimization EXTENDED_INTERPOLATION_INCREMENTAL_SETUP = new Optimization(
             "extendedInterpolationIncrementalSetup",
@@ -267,7 +311,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.editor-model.extended-interpolation-incremental-setup"),
             Optional.of(new Optimization.Placement("heavy-model", 65)),
             "settings.optimization.extended-interpolation-incremental-setup",
-            "settings.optimization.extended-interpolation-incremental-setup.tooltip");
+            "settings.optimization.extended-interpolation-incremental-setup.tooltip",
+            List.of());
 
     public static final Optimization MODEL_INSTANCE_COALESCE = new Optimization(
             "modelInstanceCoalesce",
@@ -278,7 +323,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.model-instance-update-coalesce"),
             Optional.of(new Optimization.Placement("heavy-model", 67)),
             "settings.optimization.model-instance-coalesce",
-            "settings.optimization.model-instance-coalesce.tooltip");
+            "settings.optimization.model-instance-coalesce.tooltip",
+            List.of());
 
     public static final Optimization INSPECTOR_PROPERTY_BYPASS = new Optimization(
             "inspectorPropertyBypass",
@@ -289,7 +335,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.editor-model.inspector-property-bypass"),
             Optional.of(new Optimization.Placement("heavy-model", 68)),
             "settings.optimization.inspector-property-bypass",
-            "settings.optimization.inspector-property-bypass.tooltip");
+            "settings.optimization.inspector-property-bypass.tooltip",
+            List.of());
 
     // ------------------------------------------------------------ root-level asset-load preferences
 
@@ -302,7 +349,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.mesh.triangulation-hash"),
             Optional.of(new Optimization.Placement("mesh", 101)),
             "settings.mesh-triangulation.hash-degeneracy",
-            "settings.mesh-triangulation.hash-degeneracy.tooltip");
+            "settings.mesh-triangulation.hash-degeneracy.tooltip",
+            List.of());
 
     /**
      * The one hook whose {@code hooks.disabledIds} identity is its report id rather than a
@@ -318,7 +366,8 @@ public final class OptimizationCatalog {
             Set.of("TURBOISM_TRIANGULATION_EDGE_INDEX", "cubism.mesh.triangulation-edge-index"),
             Optional.of(new Optimization.Placement("mesh", 102)),
             "settings.mesh-triangulation.edge-index",
-            "settings.mesh-triangulation.edge-index.tooltip");
+            "settings.mesh-triangulation.edge-index.tooltip",
+            List.of());
 
     public static final Optimization ATLAS_TILE_BBOX = new Optimization(
             "atlasTileBbox",
@@ -329,7 +378,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.textureatlas.tile-bbox"),
             Optional.of(new Optimization.Placement("mesh", 103)),
             "settings.atlas.tile-bbox",
-            "settings.atlas.tile-bbox.tooltip");
+            "settings.atlas.tile-bbox.tooltip",
+            List.of());
 
     public static final Optimization ATLAS_CACHE_REUSE = new Optimization(
             "atlasCacheReuse",
@@ -340,7 +390,8 @@ public final class OptimizationCatalog {
             Set.of("cubism.textureatlas.cache-reuse"),
             Optional.of(new Optimization.Placement("mesh", 104)),
             "settings.atlas.cache-reuse",
-            "settings.atlas.cache-reuse.tooltip");
+            "settings.atlas.cache-reuse.tooltip",
+            List.of());
 
     // ---------------------------------------------------------------- diagnostic-only probe hooks
 
@@ -358,7 +409,8 @@ public final class OptimizationCatalog {
             Set.of("TURBOISM_CANVAS_COMPOSITE"),
             Optional.empty(),
             "",
-            "");
+            "",
+            List.of());
 
     /** Diagnostic-only: measurement-only clipping-mask/transparent-group probe. */
     public static final Optimization CLIP_MASK_PROBE = new Optimization(
@@ -370,7 +422,8 @@ public final class OptimizationCatalog {
             Set.of("TURBOISM_CLIP_MASK_PROBE"),
             Optional.empty(),
             "",
-            "");
+            "",
+            List.of());
 
     /** Diagnostic-only: validation-only {@code glGetError} elision. */
     public static final Optimization GL_GET_ERROR_ELISION = new Optimization(
@@ -382,7 +435,8 @@ public final class OptimizationCatalog {
             Set.of("TURBOISM_GL_ERROR_ELISION"),
             Optional.empty(),
             "",
-            "");
+            "",
+            List.of());
 
     /** Diagnostic-only: validation-only redundant GL state elision. */
     public static final Optimization REDUNDANT_STATE_ELISION = new Optimization(
@@ -394,12 +448,14 @@ public final class OptimizationCatalog {
             Set.of("TURBOISM_STATE_ELISION"),
             Optional.empty(),
             "",
-            "");
+            "",
+            List.of());
 
     /**
      * Diagnostic-only: validation-only skipped-frame sorting-info reuse. Its switch is named like a
      * product override ({@code turboism.optimization.sortingInfoCache}) although nothing persists
-     * it, and it is the one probe whose default is derived from the preferences it serves.
+     * it, and it is the one probe whose default is derived from the preferences it serves: it is
+     * on whenever any of the three elisions it reuses state from is admitted.
      */
     public static final Optimization SORTING_INFO_CACHE = new Optimization(
             "",
@@ -410,7 +466,11 @@ public final class OptimizationCatalog {
             Set.of("cubism.render.sorting-info-cache"),
             Optional.empty(),
             "",
-            "");
+            "",
+            List.of(
+                    new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, MODEL_UPDATE_SKIP, ""),
+                    new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, MESH_SETUP_ELISION, ""),
+                    new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, CLIP_MASK_DEDUPLICATION, "")));
 
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
@@ -571,9 +631,13 @@ public final class OptimizationCatalog {
         final Set<String> contributionIds = new LinkedHashSet<>();
         final Set<String> protocols = new LinkedHashSet<>();
         final Set<String> placements = new LinkedHashSet<>();
+        final Set<String> relations = new LinkedHashSet<>();
+        final Set<Optimization> declared = new LinkedHashSet<>();
         for (final Optimization entry : entries) {
             final String name = describe(entry);
             validateIdentity(entry, name);
+            validateRelations(entry, name, declared, relations);
+            declared.add(entry);
             if (!entry.key().isEmpty() && !keys.add(entry.key())) {
                 throw new IllegalArgumentException("Two native optimizations declare the config key " + entry.key());
             }
@@ -606,6 +670,28 @@ public final class OptimizationCatalog {
                             name + " reuses the settings row " + placement.section() + '#' + placement.index());
                 }
             });
+        }
+    }
+
+    /**
+     * A relation may only read an entry declared before it - which also makes the declaration
+     * acyclic - and an entry may state each dependency once.
+     */
+    private static void validateRelations(
+            final Optimization entry,
+            final String name,
+            final Set<Optimization> declared,
+            final Set<String> relations) {
+        for (final Optimization.Relation relation : entry.relations()) {
+            if (!declared.contains(relation.target())) {
+                throw new IllegalArgumentException(
+                        name + " relates to " + describe(relation.target()) + ", which is not declared before it");
+            }
+            if (!relations.add(
+                    name + ' ' + relation.kind() + ' ' + relation.target().key())) {
+                throw new IllegalArgumentException(name + " declares the " + relation.kind() + ' '
+                        + relation.target().key() + " relation twice");
+            }
         }
     }
 

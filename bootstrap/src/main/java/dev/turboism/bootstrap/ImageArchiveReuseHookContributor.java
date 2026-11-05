@@ -15,9 +15,7 @@ final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContr
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedImageArchiveReuseInstaller.admitted(
-                host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
-                true)) {
+                host.artifact(), environment.plan().policy(), true)) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }

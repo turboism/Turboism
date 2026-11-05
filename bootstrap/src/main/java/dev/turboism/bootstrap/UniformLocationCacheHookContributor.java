@@ -19,7 +19,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
         final var host = environment.host().orElseThrow();
         if (!VerifiedUniformLocationInstaller.admitted(
                 host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
+                environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");

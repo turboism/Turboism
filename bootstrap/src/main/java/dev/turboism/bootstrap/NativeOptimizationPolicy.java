@@ -13,6 +13,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class NativeOptimizationPolicy {
     private NativeOptimizationPolicy() {}
 
+    /**
+     * Reads the fail-closed startup subset of one launch. Called once, by
+     * {@link HookEnvironment} when it builds the launch {@link OptimizationPlan}; hooks read the
+     * result through {@link OptimizationPlan#policy()} instead of re-reading the file.
+     *
+     * @param home Turboism home directory containing {@code config.json}
+     * @return the startup subset, with every rejection collapsed onto safe mode
+     */
     static RuntimeStartupConfig load(Path home) {
         AtomicBoolean rejected = new AtomicBoolean();
         RuntimeStartupConfig config = RuntimeStartupConfig.load(home, ignored -> rejected.set(true));
@@ -21,22 +29,22 @@ final class NativeOptimizationPolicy {
         return rejected.get() ? new RuntimeStartupConfig(true, false, false, false) : config;
     }
 
+    /**
+     * The launch's resolved preference for one entry, read from the plan instead of the
+     * configuration file: every hook of a launch sees the same snapshot, and the relations the
+     * contributors used to spell out themselves are decided once in {@link OptimizationPlan}.
+     */
     private static boolean requested(final HookEnvironment environment, final Optimization option) {
-        final var config = environment == null
-                ? dev.turboism.config.NativeOptimizationConfig.load(null, ignored -> {})
-                : environment.optimizationConfig();
-        final var choice = config.choice(option);
+        final var choice = environment.plan().choice(option);
         dev.turboism.config.NativeOptimizationDiagnostics.requested(option, choice);
-        if (environment != null) {
-            NativeOptimizationHookContributor.debug(
-                    environment,
-                    "NATIVE_OPTIMIZATION preference=" + option.key()
-                            + " requested=" + choice.enabled() + " source=" + choice.source()
-                            + " config="
-                            + (environment.options() == null
-                                    ? "unavailable"
-                                    : environment.options().home().resolve("config.json")));
-        }
+        NativeOptimizationHookContributor.debug(
+                environment,
+                "NATIVE_OPTIMIZATION preference=" + option.key()
+                        + " requested=" + choice.enabled() + " source=" + choice.source()
+                        + " config="
+                        + (environment.options() == null
+                                ? "unavailable"
+                                : environment.options().home().resolve("config.json")));
         return choice.enabled();
     }
 

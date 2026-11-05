@@ -37,7 +37,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
                 && !validation
                 && !VerifiedInputPathElisionInstaller.admitted(
                         HostArtifactDigest.from(host.artifact()),
-                        NativeOptimizationPolicy.load(environment.options().home()),
+                        environment.plan().policy(),
                         true,
                         Runtime.version())) {
             debug(environment, id() + " installation=NOT_ADMITTED");

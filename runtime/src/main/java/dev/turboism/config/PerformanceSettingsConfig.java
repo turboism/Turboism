@@ -88,6 +88,13 @@ public final class PerformanceSettingsConfig {
         }
     }
 
+    /**
+     * Source reported for every field when {@code config.json} could not be read: native
+     * optimizations fall back to off, and the bootstrap plan reports that fallback as its own
+     * refusal reason instead of a preference the user never set.
+     */
+    public static final String SOURCE_INVALID_CONFIG = "invalid-config";
+
     /** Startup request and its source, separate from the subsequently edited saved value. */
     public record Value(String value, String source) {}
 
@@ -118,7 +125,7 @@ public final class PerformanceSettingsConfig {
             final String overridden = jvmOverride(field);
             if (!valid) {
                 value = field.nativeOptimization() ? "false" : field.defaultValue(proton);
-                source = "invalid-config";
+                source = SOURCE_INVALID_CONFIG;
             } else if (overridden != null) {
                 value = overridden;
                 source = "jvm-override";
