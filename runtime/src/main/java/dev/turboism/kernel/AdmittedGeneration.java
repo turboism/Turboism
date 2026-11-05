@@ -255,6 +255,23 @@ final class AdmittedGeneration {
         }
 
         /**
+         * The handle of the generation this submission admitted, for a kind whose caller keeps the
+         * generation open after a committed admission instead of re-adopting it for close. The
+         * handle shares this submission's stage state.
+         */
+        Handle handle() {
+            return new Handle(generation);
+        }
+
+        /**
+         * @return when the worker exits the lane task body — the quiescence signal retention waits
+         *     for; a cancelled future is not evidence the code stopped
+         */
+        CompletableFuture<Void> workerDone() {
+            return invocation.workerDone;
+        }
+
+        /**
          * Waits for the lane task under the kind's deadline and resolves every failure shape:
          * a timeout and a rejection fence immediately, a failure retains whatever the worker left
          * incomplete, and only a committed success returns a value.
