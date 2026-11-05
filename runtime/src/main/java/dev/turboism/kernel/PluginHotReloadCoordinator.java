@@ -283,7 +283,7 @@ public final class PluginHotReloadCoordinator {
                 return applied;
             }
         } catch (IOException | RuntimeException failure) {
-            log.warn(pluginId, "Plugin replacement failed; restoring installed generation");
+            log.warn(pluginId, "Plugin replacement failed; restoring installed generation: " + failure.getMessage());
         }
         try {
             if (replaced) dev.turboism.update.UpdateFileSupport.copyAtomic(backup, installedJar);
