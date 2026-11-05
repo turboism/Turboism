@@ -36,6 +36,14 @@ GOOD_CASE = {
     "path": "runtime-config/schema-v1/legacy-user.json",
     "expectation": "global-config-read-and-update-preserve-user-settings",
 }
+VERIFIED_PROVENANCE = {
+    "origin": "verified-release-artifact",
+    "releaseTag": "v0.42.0",
+    "releaseCommit": "4f75113d7cb269d3e14dde0077d02fb43cd70dad",
+    "writer": "RuntimeConfigRepository#read",
+    "producerInvocation": "java -cp agent-0.42.0.jar:driver dev.turboism.config.ConfigGen <empty-home>",
+    "deidentification": "Generated into an empty scratch home from release defaults().",
+}
 
 
 def sha256(payload):
@@ -71,6 +79,11 @@ class SnapshotTree:
         case["sha256"] = sha256(FIXTURE_BYTES)
         case.update(overrides)
         return case
+
+    def verified_case(self, **overrides):
+        provenance = dict(VERIFIED_PROVENANCE)
+        provenance.update(overrides)
+        return self.case(**provenance)
 
     def run(self):
         env = dict(os.environ)
@@ -140,6 +153,36 @@ class GoldenSnapshotManifestTest(unittest.TestCase):
     def test_unknown_provenance_is_rejected(self):
         self.tree.write_manifest([self.tree.case(origin="invented-release")])
         self.assert_rejected(self.tree.run(), "invalid snapshot provenance")
+
+    def test_verified_release_artifact_with_provenance_passes(self):
+        self.tree.write_manifest([self.tree.verified_case()])
+        result = self.tree.run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("1 immutable fixtures verified", result.stdout)
+
+    def test_verified_release_artifact_missing_provenance_is_rejected(self):
+        for field in ("releaseTag", "releaseCommit", "writer", "producerInvocation", "deidentification"):
+            with self.subTest(field=field):
+                case = self.tree.verified_case()
+                del case[field]
+                self.tree.write_manifest([case])
+                self.assert_rejected(self.tree.run(), "missing verified provenance")
+
+    def test_verified_release_artifact_blank_provenance_is_rejected(self):
+        self.tree.write_manifest([self.tree.verified_case(writer="   ")])
+        self.assert_rejected(self.tree.run(), "missing verified provenance")
+
+    def test_verified_release_artifact_malformed_tag_is_rejected(self):
+        self.tree.write_manifest([self.tree.verified_case(releaseTag="0.42.0")])
+        self.assert_rejected(self.tree.run(), "invalid releaseTag")
+
+    def test_verified_release_artifact_malformed_commit_is_rejected(self):
+        self.tree.write_manifest([self.tree.verified_case(releaseCommit="not-a-commit")])
+        self.assert_rejected(self.tree.run(), "invalid releaseCommit")
+
+    def test_document_path_traversal_is_rejected(self):
+        self.tree.write_manifest([self.tree.verified_case(documentPath="../escaped.cfg")])
+        self.assert_rejected(self.tree.run(), "invalid documentPath")
 
     def test_family_mismatch_is_rejected(self):
         self.tree.write_manifest([self.tree.case(family="typed-config")])

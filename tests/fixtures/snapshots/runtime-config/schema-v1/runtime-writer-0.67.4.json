@@ -1,0 +1,23 @@
+{
+  "format" : "turboism.runtime.config",
+  "schemaVersion" : 1,
+  "worktreeId" : "turboism-runtime",
+  "pluginDirs" : [ "plugins" ],
+  "disabledPlugins" : [ ],
+  "logLevel" : "INFO",
+  "maxLogStorageMiB" : 100,
+  "safeMode" : false,
+  "useTextIcon" : false,
+  "hooks" : {
+    "disabledIds" : [ ],
+    "denylistedClasses" : [ ],
+    "startup" : {
+      "skipUpdateCheck" : true,
+      "skipSplash" : true,
+      "skipInformation" : true
+    }
+  },
+  "launcher" : {
+    "cubismJvm" : "graalvm"
+  }
+}
