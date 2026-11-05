@@ -344,7 +344,7 @@ if ($Calibration) {
 $jvmOptionEntries = @($JvmOption | ForEach-Object { $_ -split "," } |
     ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 0 })
 foreach ($option in $jvmOptionEntries) {
-    if ($option -notmatch '^-D') { throw "-JvmOption entries must start with -D: $option" }
+    if ($option -notmatch '^(-D|-javaagent:)') { throw "-JvmOption entries must start with -D or -javaagent:: $option" }
     $workloadOptions.Add($option)
 }
 
