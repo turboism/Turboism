@@ -21,6 +21,7 @@ import dev.turboism.core.runtime.psd.RuntimePsdExportService;
 import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.permissions.ServiceGateInstaller;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
@@ -322,8 +323,14 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                         pluginModelAccess, permissionChecker, () -> !scopeClosed.get()),
                 dependencies.permissions().stream()
                                 .anyMatch(permission -> CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id()))
-                        ? new dev.turboism.adapter.cubism.physics.PluginScopedPhysicsEditorService(
-                                physicsEditorCoordinator, dependencies.disposableScope(), () -> !scopeClosed.get())
+                        ? ServiceGateInstaller.install(
+                                dev.turboism.sdk.cubism.physics.PhysicsEditorService.class,
+                                physicsEditorCoordinator,
+                                permissionChecker,
+                                dependencies.disposableScope(),
+                                () -> !scopeClosed.get(),
+                                ServiceGateInstaller.rowsFor(
+                                        dev.turboism.sdk.cubism.physics.PhysicsEditorService.class))
                         : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
                 new CubismClipMaskServiceImpl(readCapabilityService, pluginModelAccess),
                 new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
