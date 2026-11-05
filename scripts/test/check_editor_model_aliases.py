@@ -41,6 +41,9 @@ ALIAS_CONSTANT_DEFINITION = re.compile(
     + re.escape(ALIAS_PREFIX) + r'([^"]*)"')
 ALIAS_CONSTANT_REFERENCE = re.compile(r'\.\s*([A-Z][A-Z0-9_]*_ALIAS)\b')
 VERIFICATION_PATH = "/mapping/verification/"
+# OptimizationCatalog declares bootstrap HookContributor policyIds (hookIds),
+# not VerifiedMemberResolver member aliases.
+OPTIMIZATION_CATALOG_PATH = "/config/optimization/"
 PRESET_ALIAS_PREFIX = "cubism.editor-model.label-color-type."
 PRESET_COLORS = ("red", "orange", "yellow", "green", "blue", "purple", "gray")
 # Reviewed 5.2.03 selectors verified statically against the exact artifact but not yet
@@ -78,6 +81,8 @@ def implementation_aliases(root: Path) -> set[str]:
         if VERIFICATION_PATH in source.as_posix():
             for name, suffix in ALIAS_CONSTANT_DEFINITION.findall(text):
                 constants[name] = ALIAS_PREFIX + suffix
+            continue
+        if OPTIMIZATION_CATALOG_PATH in source.as_posix():
             continue
         production_sources.append((source, text))
     for _source, text in production_sources:
