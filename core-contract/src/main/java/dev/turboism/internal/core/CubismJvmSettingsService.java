@@ -16,15 +16,6 @@ import java.util.concurrent.CompletionStage;
  */
 public interface CubismJvmSettingsService {
 
-    /** One optimization's saved preference and separately observed startup state. */
-    record OptimizationStatus(
-            String key, boolean saved, Optional<Boolean> requested, String source, String state, String reason) {}
-
-    /** Diagnostics for the current session; saved preferences still apply on the next launch. */
-    default java.util.List<OptimizationStatus> optimizationStatuses() {
-        return java.util.List.of();
-    }
-
     /** One page field's persisted selection, startup request, and separately observed current result. */
     record PerformanceStatus(
             String key, String saved, String requested, String source, String actual, boolean pendingRestart) {}

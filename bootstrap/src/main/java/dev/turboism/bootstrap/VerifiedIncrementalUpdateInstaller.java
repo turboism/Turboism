@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.Incremen
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTransformer;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -166,12 +167,12 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         final String refusal = bridge.affecterReuseRefusal();
         if (refusal != null) {
             NativeOptimizationDiagnostics.installed(
-                    NativeOptimizationDiagnostics.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", refusal);
+                    OptimizationCatalog.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", refusal);
             return;
         }
         affectersReported = true;
         NativeOptimizationDiagnostics.installed(
-                NativeOptimizationDiagnostics.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "installed", "verified");
+                OptimizationCatalog.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "installed", "verified");
     }
 
     /** The sub-mode cannot survive the weave it rides, so a closed installer proves nothing. */
@@ -179,7 +180,7 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         if (!affectersReported) return;
         affectersReported = false;
         NativeOptimizationDiagnostics.installed(
-                NativeOptimizationDiagnostics.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", "closed");
+                OptimizationCatalog.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", "closed");
     }
 
     @Override

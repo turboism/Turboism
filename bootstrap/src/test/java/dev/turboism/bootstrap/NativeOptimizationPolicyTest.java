@@ -2,10 +2,11 @@ package dev.turboism.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.turboism.config.NativeOptimizationConfig.Option;
 import dev.turboism.config.NativeOptimizationDiagnostics;
+import dev.turboism.config.optimization.Optimization;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.nio.file.Path;
-import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,23 +17,26 @@ class NativeOptimizationPolicyTest {
     @TempDir
     Path home;
 
-    private final Map<Option, String> properties = new EnumMap<>(Option.class);
+    /** Declared override property to its previous value; {@code null} means it was not set. */
+    private final Map<String, String> properties = new LinkedHashMap<>();
 
     @BeforeEach
     void clearOverrides() {
-        for (Option option : Option.values()) {
-            properties.put(option, System.getProperty(option.property()));
-            System.clearProperty(option.property());
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            for (String property : optimization.overrideProperties()) {
+                properties.put(property, System.getProperty(property));
+                System.clearProperty(property);
+            }
         }
     }
 
     @AfterEach
     void restoreOverrides() {
-        for (Option option : Option.values()) {
-            String previous = properties.get(option);
-            if (previous == null) System.clearProperty(option.property());
-            else System.setProperty(option.property(), previous);
-        }
+        properties.forEach((property, previous) -> {
+            if (previous == null) System.clearProperty(property);
+            else System.setProperty(property, previous);
+        });
+        properties.clear();
         dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge.setConfiguredDefault(false);
         dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge.setConfiguredDefault(
                 false);
@@ -51,13 +55,13 @@ class NativeOptimizationPolicyTest {
     }
 
     private void writeChoices(boolean enabled) throws Exception {
-        String launcher = java.util.Arrays.stream(Option.values())
-                .filter(option -> option.field().launcher())
-                .map(option -> "\"" + option.key() + "\":" + enabled)
+        String launcher = OptimizationCatalog.persisted().stream()
+                .filter(optimization -> optimization.access() == Optimization.Access.PERSISTED_LAUNCHER)
+                .map(optimization -> "\"" + optimization.key() + "\":" + enabled)
                 .collect(java.util.stream.Collectors.joining(","));
-        String root = java.util.Arrays.stream(Option.values())
-                .filter(option -> !option.field().launcher())
-                .map(option -> "\"" + option.key() + "\":" + enabled)
+        String root = OptimizationCatalog.persisted().stream()
+                .filter(optimization -> optimization.access() == Optimization.Access.PERSISTED_ROOT)
+                .map(optimization -> "\"" + optimization.key() + "\":" + enabled)
                 .collect(java.util.stream.Collectors.joining(","));
         java.nio.file.Files.writeString(
                 home.resolve("config.json"),
@@ -77,11 +81,11 @@ class NativeOptimizationPolicyTest {
         assertFalse(NativeOptimizationPolicy.meshSetupElisionEnabled(first));
         assertFalse(NativeOptimizationPolicy.inputPathElisionEnabled(first));
         assertFalse(NativeOptimizationPolicy.mesaGlThreadEnabled(first));
-        for (Option option : Option.values())
-            assertFalse(first.optimizationConfig().choice(option).enabled());
+        for (Optimization optimization : OptimizationCatalog.persisted())
+            assertFalse(first.optimizationConfig().choice(optimization).enabled());
         HookEnvironment next = environment();
-        for (Option option : Option.values())
-            assertTrue(next.optimizationConfig().choice(option).enabled());
+        for (Optimization optimization : OptimizationCatalog.persisted())
+            assertTrue(next.optimizationConfig().choice(optimization).enabled());
         assertTrue(NativeOptimizationPolicy.modelUpdateSkipEnabled(next));
         assertTrue(NativeOptimizationPolicy.incrementalUpdateEnabled(next));
         assertTrue(NativeOptimizationPolicy.uniformLocationCacheEnabled(next));
@@ -115,7 +119,7 @@ class NativeOptimizationPolicyTest {
             assertEquals(
                     "not-installed",
                     NativeOptimizationDiagnostics.snapshot()
-                            .get(Option.MODEL_UPDATE_SKIP)
+                            .get(OptimizationCatalog.MODEL_UPDATE_SKIP)
                             .state());
         }
     }
@@ -136,13 +140,13 @@ class NativeOptimizationPolicyTest {
             assertEquals(
                     "installed",
                     NativeOptimizationDiagnostics.snapshot()
-                            .get(Option.MODEL_UPDATE_SKIP)
+                            .get(OptimizationCatalog.MODEL_UPDATE_SKIP)
                             .state());
         }
         assertEquals(
                 "closed",
                 NativeOptimizationDiagnostics.snapshot()
-                        .get(Option.MODEL_UPDATE_SKIP)
+                        .get(OptimizationCatalog.MODEL_UPDATE_SKIP)
                         .reason());
     }
 }

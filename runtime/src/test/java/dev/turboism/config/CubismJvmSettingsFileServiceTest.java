@@ -324,20 +324,27 @@ class CubismJvmSettingsFileServiceTest {
     @Test
     void savedPreferenceAndObservedStartupStateRemainSeparate() throws Exception {
         try (CubismJvmSettingsFileService settings = service(Map.of())) {
-            var option = NativeOptimizationConfig.Option.MODEL_UPDATE_SKIP;
-            NativeOptimizationDiagnostics.requested(option, new NativeOptimizationConfig.Choice(true, "global-config"));
+            new RuntimeConfigRepository(home, ignored -> {}).update(root -> {
+                root.withObject("launcher").put("modelUpdateSkip", true);
+                return root;
+            });
+            NativeOptimizationDiagnostics.startup(
+                    NativeOptimizationConfig.load(home, ignored -> {}).settings());
             NativeOptimizationDiagnostics.installed(
                     "TURBOISM_MODEL_UPDATE_SKIP", "not-installed", "host-not-supported");
             settings.saveModelUpdateSkip(false);
-            var status = settings.optimizationStatuses().stream()
+            var status = settings.performanceStatuses().stream()
                     .filter(row -> row.key().equals("modelUpdateSkip"))
                     .findFirst()
                     .orElseThrow();
-            assertFalse(status.saved());
-            assertTrue(status.requested().orElseThrow());
-            assertEquals("not-installed", status.state());
-            assertEquals("host-not-supported", status.reason());
+            assertEquals("false", status.saved(), "the edited preference");
+            assertEquals("true", status.requested(), "the startup request captured before the edit");
+            assertEquals("global-config", status.source());
+            assertEquals("not-installed: host-not-supported", status.actual(), "the observed outcome");
+            assertTrue(status.pendingRestart());
             assertEquals(home.resolve("config.json").toString(), settings.globalConfigPath());
+        } finally {
+            NativeOptimizationDiagnostics.resetForTesting();
         }
     }
 

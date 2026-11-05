@@ -1,69 +1,12 @@
 package dev.turboism.config;
 
+import dev.turboism.config.optimization.Optimization;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Immutable launch snapshot of native optimization preferences from the global configuration. */
 public final class NativeOptimizationConfig {
-    /** Optimization identity shared by startup policy, persistence and diagnostics. */
-    public enum Option {
-        MODEL_UPDATE_SKIP("modelUpdateSkip"),
-        INCREMENTAL_UPDATE("incrementalUpdate"),
-        INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters"),
-        UNIFORM_LOCATION_CACHE("uniformLocationCache"),
-        UPLOAD_ELISION("uploadElision"),
-        MESH_SETUP_ELISION("meshSetupElision"),
-        INPUT_PATH_ELISION("inputPathElision"),
-        MESA_GL_THREAD("mesaGlThread"),
-        ASYNC_READBACK("asyncReadback"),
-        MESH_INTERPOLATION("meshInterpolation"),
-        SHADER_UNIFORM("shaderUniform"),
-        MATRIX_SCRATCH("matrixScratch"),
-        IMAGE_ARCHIVE_REUSE("imageArchiveReuse"),
-        FLOAT_ARRAY_PARSE_CACHE("floatArrayParseCache"),
-        TEXTURE_UPLOAD_PREPARATION("textureUploadPreparation"),
-        WARP_POSITION_PROJECTION("warpPositionProjection"),
-        REINIT_PAIR_ELISION("reinitPairElision"),
-        CLIP_MASK_DEDUPLICATION("clipMaskDeduplication"),
-        CLIP_MASK_SCISSOR_CLEAR("clipMaskScissorClear"),
-        EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup"),
-        MODEL_INSTANCE_COALESCE("modelInstanceCoalesce"),
-        INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass"),
-        MESH_TRIANGULATION_HASH("meshTriangulationHashFix"),
-        TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex"),
-        ATLAS_TILE_BBOX("atlasTileBbox"),
-        ATLAS_CACHE_REUSE("atlasCacheReuse");
-
-        private final PerformanceSettingsConfig.Field field;
-
-        Option(String key) {
-            field = PerformanceSettingsConfig.Field.forKey(key);
-        }
-        /** Global field definition, including its existing JSON location. */
-        public PerformanceSettingsConfig.Field field() {
-            return field;
-        }
-        /** Global field name. */
-        public String key() {
-            return field.key();
-        }
-        /** Explicit diagnostic override. */
-        public String property() {
-            return "turboism.optimization." + key();
-        }
-        /** Shared platform default. */
-        public boolean defaultEnabled(boolean proton) {
-            return Boolean.parseBoolean(field.defaultValue(proton));
-        }
-
-        /** Resolves one supported global configuration field. */
-        public static Option forKey(String key) {
-            for (Option option : values()) if (option.key().equals(key)) return option;
-            throw new IllegalArgumentException("Unknown native optimization: " + key);
-        }
-    }
-
     /** Resolved startup preference, including the source of an explicit override. */
     public record Choice(boolean enabled, String source) {}
 
@@ -80,9 +23,18 @@ public final class NativeOptimizationConfig {
     public PerformanceSettingsConfig settings() {
         return settings;
     }
-    /** Immutable native optimization request. */
-    public Choice choice(Option option) {
-        var value = settings.value(Objects.requireNonNull(option).field());
+    /**
+     * Immutable native optimization request.
+     *
+     * @throws IllegalArgumentException when {@code optimization} is diagnostic-only and therefore
+     *     has no persisted preference to resolve
+     */
+    public Choice choice(Optimization optimization) {
+        final Optimization checked = Objects.requireNonNull(optimization, "optimization");
+        if (!checked.persisted()) {
+            throw new IllegalArgumentException("No persisted preference: " + checked.protocols());
+        }
+        var value = settings.value(PerformanceSettingsConfig.Field.forKey(checked.key()));
         return new Choice(Boolean.parseBoolean(value.value()), value.source());
     }
 }
