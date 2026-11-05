@@ -151,5 +151,8 @@
  "coverageSourceGlobs": [
   "runtime/src/main/java/dev/turboism/adapter/cubism/**/*.java",
   "runtime/src/main/java/dev/turboism/ui/**/*.java"
- ]
+ ],
+ "vocabulary": {
+  "admissionEqualsUse": true
+ }
 }

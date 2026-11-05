@@ -1,0 +1,216 @@
+{
+ "format": "turboism.no-record-aliases/v1",
+ "namespaces": [
+  "cubism.export-settings.",
+  "cubism.scene-palette."
+ ],
+ "aliases": [
+  {
+   "alias": "cubism.protected-export.exporter.gated-chooser",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
+   "reason": "Protected-export chooser selectors are verified against the host at runtime, not by a reviewed record: the reviewed protected-export records do not carry this exporter alias, so the pin keeps the unreviewed capability visible until a Lane C task records it."
+  },
+  {
+   "alias": "cubism.protected-export.exporter.gated-continuation",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
+   "reason": "Protected-export chooser selectors are verified against the host at runtime, not by a reviewed record: the reviewed protected-export records do not carry this exporter alias, so the pin keeps the unreviewed capability visible until a Lane C task records it."
+  },
+  {
+   "alias": "cubism.protected-export.exporter.moc3-chooser",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
+   "reason": "Protected-export chooser selectors are verified against the host at runtime, not by a reviewed record: the reviewed protected-export records do not carry this exporter alias, so the pin keeps the unreviewed capability visible until a Lane C task records it."
+  },
+  {
+   "alias": "cubism.protected-export.exporter.moc3-continuation",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
+   "reason": "Protected-export chooser selectors are verified against the host at runtime, not by a reviewed record: the reviewed protected-export records do not carry this exporter alias, so the pin keeps the unreviewed capability visible until a Lane C task records it."
+  },
+  {
+   "alias": "cubism.protected-export.exporter.owner",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
+   "reason": "Protected-export chooser selectors are verified against the host at runtime, not by a reviewed record: the reviewed protected-export records do not carry this exporter alias, so the pin keeps the unreviewed capability visible until a Lane C task records it."
+  },
+  {
+   "alias": "cubism.export-settings.dialog.constructor",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.export-settings.dialog.content-builder",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.export-settings.dialog.owner",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.export-settings.dialog.show",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.export-settings.dialog.window-field",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.export-settings.window.class",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.export-settings.window.jdialog",
+   "file": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "reason": "Export-settings dialog selectors are verified against the host at runtime, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into records."
+  },
+  {
+   "alias": "cubism.scene-palette.complete-pack.view-context",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.content.file",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.content.scene-docs",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.class",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.complete-pack",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.content",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.select-row",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.select-row-fallback",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.selected-row",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.table",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.controller.table-data",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.document.class",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.document.open-scene",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.document.scene-source",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.document.switch-scene-default",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.listener.class",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.listener.palette",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.modeling-document.class",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.movie-info.display-duration",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.source.guid",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.source.movie-info",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.source.scene-name",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.source.tag",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.table.swing",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.scene-palette.view-context.doc",
+   "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
+   "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  }
+ ],
+ "localVocabulary": [
+  {
+   "literal": "cubism.clipmask.write",
+   "file": "runtime/src/main/java/dev/turboism/kernel/KernelReportSnapshotFactory.java",
+   "reason": "Permission-gated clipmask write capability id reported by the kernel snapshot, not a VerifiedMemberResolver selector alias; the reviewed records declare the read side only."
+  },
+  {
+   "literal": "cubism.editor-command.open",
+   "file": "runtime/src/main/java/dev/turboism/adapter/cubism/command/RuntimeEditorCommandService.java",
+   "reason": "Operation id passed to the permission gate, not a VerifiedMemberResolver selector alias."
+  },
+  {
+   "literal": "cubism.texture-atlas.layout",
+   "file": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/RuntimeTextureAtlasLayoutService.java",
+   "reason": "Capability id of the texture-atlas layout service, not a VerifiedMemberResolver selector alias; the records declare the layout.write alias, not the capability."
+  },
+  {
+   "literal": "cubism.texture-atlas.read",
+   "file": "runtime/src/main/java/dev/turboism/adapter/cubism/service/read/CubismReadCapabilityServiceImpl.java",
+   "reason": "Capability id reported by the texture-atlas read service, not a VerifiedMemberResolver selector alias."
+  }
+ ]
+}

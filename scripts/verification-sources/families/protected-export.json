@@ -36,5 +36,8 @@
   "cubism-5.3.04-protected-export.json"
  ],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }
