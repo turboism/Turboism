@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CubismJvmSettingsService;
+import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
@@ -681,32 +683,16 @@ class DeclarativeSettingsRendererTest {
     @Test
     void renderedOptimizationDefaultsAndExplicitOptOutSurviveScrollingAndSave() throws Exception {
         final java.util.concurrent.atomic.AtomicBoolean uniform = new java.util.concurrent.atomic.AtomicBoolean(true);
-        CubismJvmSettingsService service = new CubismJvmSettingsService() {
+        final OptimizationSettingsService service = new OptimizationSettingsService() {
             @Override
-            public CubismJvm read() {
-                return CubismJvm.BUNDLED;
+            public boolean enabled(final String key) {
+                return "uniformLocationCache".equals(key) && uniform.get();
             }
 
             @Override
-            public CubismJvm save(CubismJvm value) {
-                return value;
-            }
-
-            @Override
-            public boolean uniformLocationCache() {
-                return uniform.get();
-            }
-
-            @Override
-            public boolean saveUniformLocationCache(boolean value) {
-                uniform.set(value);
-                return value;
-            }
-
-            @Override
-            public boolean saveIncrementalUpdate(boolean value) {
-                assertFalse(value);
-                return false;
+            public void setEnabled(final String key, final boolean value) {
+                if ("uniformLocationCache".equals(key)) uniform.set(value);
+                else assertFalse(value, "the unrelated row stays off");
             }
         };
         String key = "turboism.optimization.uniformLocationCache";
@@ -718,11 +704,12 @@ class DeclarativeSettingsRendererTest {
                 List<SettingsSnapshot.Entry> entries = List.of(
                         new SettingsSnapshot.Entry(
                                 "turboism.core",
-                                CubismJvmSettingsContribution.createUniformLocationCacheToggle(
-                                        localization(), service)),
+                                OptimizationSettingsContribution.create(
+                                        localization(), service, OptimizationCatalog.UNIFORM_LOCATION_CACHE)),
                         new SettingsSnapshot.Entry(
                                 "turboism.core",
-                                CubismJvmSettingsContribution.createIncrementalUpdateToggle(localization(), service)));
+                                OptimizationSettingsContribution.create(
+                                        localization(), service, OptimizationCatalog.INCREMENTAL_UPDATE)));
                 try (CoreWindows windows = new CoreWindows(
                         localization(),
                         settings(),
