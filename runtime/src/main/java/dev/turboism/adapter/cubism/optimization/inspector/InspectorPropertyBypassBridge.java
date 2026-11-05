@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.inspector;
 
+import dev.turboism.core.reflect.HostHandles;
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -176,6 +178,15 @@ public final class InspectorPropertyBypassBridge implements AutoCloseable {
     private static final class ReflectiveHost implements Host {
         private static final List<String> DRAWABLE_GETTERS = List.of("getObj", "getArtMesh", "getPart");
 
+        /** Exact descriptor of the reviewed shader entry, {@code setupShader(Map)}. */
+        private static final String SHADER_DESCRIPTOR = "(Ljava/util/Map;)V";
+
+        /** Erased receiver-first shape of every reference-returning accessor. */
+        private static final MethodType REFERENCE = MethodType.methodType(Object.class, Object.class);
+
+        /** Erased shape of {@code setupShader(Map)}. */
+        private static final MethodType SHADER = MethodType.methodType(void.class, Object.class, Object.class);
+
         private final ConcurrentHashMap<Class<?>, Target> targets = new ConcurrentHashMap<>();
         private final ConcurrentHashMap<Class<?>, MethodHandle> shaders = new ConcurrentHashMap<>();
 
@@ -183,10 +194,10 @@ public final class InspectorPropertyBypassBridge implements AutoCloseable {
             final ReflectiveHost host = new ReflectiveHost();
             // Fail the install before weaving when the reviewed seams or shader entry are absent.
             for (final InspectorPropertyBypassTarget.Seam seam : InspectorPropertyBypassTarget.SEAMS) {
-                host.target(Class.forName(seam.binaryName(), false, loader));
+                host.target(HostHandles.load(loader, seam.owner()));
             }
             for (final String owner : InspectorPropertyBypassTarget.DRAWABLE_OWNERS) {
-                host.shader(Class.forName(owner.replace('/', '.'), false, loader));
+                host.shader(HostHandles.load(loader, owner));
             }
             return host;
         }
@@ -217,24 +228,29 @@ public final class InspectorPropertyBypassBridge implements AutoCloseable {
                     if (Modifier.isStatic(field.getModifiers())) continue;
                     final MethodHandle inner = drawableGetter(field.getType());
                     if (inner == null) continue;
-                    final MethodHandles.Lookup lookup =
-                            MethodHandles.privateLookupIn(field.getDeclaringClass(), MethodHandles.lookup());
-                    return new Target(List.of(lookup.unreflectGetter(field), inner));
+                    final MethodHandle outer = HostHandles.getter(
+                            field.getDeclaringClass(),
+                            field.getName(),
+                            field.getType().descriptorString(),
+                            REFERENCE);
+                    return new Target(List.of(outer, inner));
                 }
             }
             throw new NoSuchFieldException(setterType.getName() + " has no drawable wrapper");
         }
 
+        /**
+         * Discovers the reviewed drawable getter by name (its return type is whatever that wrapper
+         * exposes), then opens the discovered member through {@link HostHandles} so the exact
+         * descriptor decides which overload is bound.
+         */
         private static MethodHandle drawableGetter(final Class<?> type) throws ReflectiveOperationException {
             for (final String name : DRAWABLE_GETTERS) {
-                for (final Method method : type.getMethods()) {
-                    if (!method.getName().equals(name)
-                            || method.getParameterCount() != 0
-                            || Modifier.isStatic(method.getModifiers())
-                            || method.getReturnType() == void.class) {
+                for (final Method method : MethodHandleCache.overloads(type, name, 0)) {
+                    if (Modifier.isStatic(method.getModifiers()) || method.getReturnType() == void.class) {
                         continue;
                     }
-                    return MethodHandles.publicLookup().unreflect(method);
+                    return HostHandles.virtual(type, name, descriptor(method), REFERENCE);
                 }
             }
             return null;
@@ -243,17 +259,14 @@ public final class InspectorPropertyBypassBridge implements AutoCloseable {
         private MethodHandle shader(final Class<?> drawableType) throws ReflectiveOperationException {
             MethodHandle shader = shaders.get(drawableType);
             if (shader != null) return shader;
-            for (final Method method : drawableType.getMethods()) {
-                if (method.getName().equals("setupShader")
-                        && method.getParameterCount() == 1
-                        && method.getReturnType() == void.class
-                        && Map.class.isAssignableFrom(method.getParameterTypes()[0])) {
-                    shader = MethodHandles.publicLookup().unreflect(method);
-                    shaders.putIfAbsent(drawableType, shader);
-                    return shader;
-                }
-            }
-            throw new NoSuchMethodException(drawableType.getName() + ".setupShader(Map)");
+            shader = HostHandles.virtual(drawableType, "setupShader", SHADER_DESCRIPTOR, SHADER);
+            shaders.putIfAbsent(drawableType, shader);
+            return shader;
+        }
+
+        private static String descriptor(final Method method) {
+            return MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                    .descriptorString();
         }
     }
 
