@@ -44,10 +44,10 @@ The paths that need care are protected by the gates above, not by a routing list
 
 ## ast-grep contract
 
-CLI pinned to `@ast-grep/cli@0.45.3` (required by `devCheck`).
+`@ast-grep/cli` is required by `devCheck`.
 
 ```bash
-npm install --global @ast-grep/cli@0.45.3
+npm install --global @ast-grep/cli
 python3 scripts/check_ast_grep.py
 # Review a scoped rewrite without applying it:
 ast-grep scan --rule tooling/ast-grep/codemods/java17-empty-list.yml plugins/mcp
