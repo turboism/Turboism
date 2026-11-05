@@ -16,6 +16,10 @@ tasks.named<JavaCompile>("compileTestJava") {
 
 dependencies {
     testImplementation(project(":runtime"))
+    // Shared runtime test fixtures (`dev.turboism.testkit`), e.g. the one
+    // RecordingHostSnapshotSource; `:testing:test-support` depends only on :sdk and
+    // therefore cannot host it.
+    testImplementation(testFixtures(project(":runtime")))
     // Fixture validation covers the draft mapping-review validators, which are build-time
     // tooling in :runtime's `tooling` source set and therefore absent from the runtime JAR.
     testImplementation(project(path = ":runtime", configuration = "toolingElements"))

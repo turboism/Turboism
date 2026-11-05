@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -360,41 +361,7 @@ class SdkForwardingCompletenessGuardTest {
 
     private static CubismFacadeImpl facade() {
         return new CubismFacadeImpl(
-                new HostSnapshotSource() {
-                    @Override
-                    public java.util.Optional<HostProject> activeProject() {
-                        return java.util.Optional.empty();
-                    }
-
-                    @Override
-                    public java.util.Optional<HostDocument> activeDocument() {
-                        return java.util.Optional.empty();
-                    }
-
-                    @Override
-                    public java.util.Optional<HostModel> activeModel() {
-                        return java.util.Optional.empty();
-                    }
-
-                    @Override
-                    public HostSelection selection() {
-                        return new HostSelection(
-                                List.of(),
-                                java.util.Optional.empty(),
-                                java.util.Optional.empty(),
-                                java.util.Optional.empty());
-                    }
-
-                    @Override
-                    public boolean isHostPresent() {
-                        return false;
-                    }
-
-                    @Override
-                    public long invalidationToken() {
-                        return 0L;
-                    }
-                },
+                RecordingHostSnapshotSource.empty(),
                 new CubismPermissionGate(
                         "plugin.demo",
                         List.of(
