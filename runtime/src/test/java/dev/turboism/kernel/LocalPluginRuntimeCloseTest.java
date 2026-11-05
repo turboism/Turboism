@@ -630,7 +630,11 @@ class LocalPluginRuntimeCloseTest {
                 List.of(),
                 new CorePluginDescriptor.CoreEnvironment(false, "none"),
                 Optional.empty(),
-                List.of());
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                false);
         final PluginRuntime pluginRuntime = new PluginRuntime(id, descriptor);
         pluginRuntime.setEntrypoints(List.of(plugin));
         pluginRuntime.transitionTo(PluginLifecycleState.ENABLED);
