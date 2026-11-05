@@ -258,7 +258,7 @@ final class TurboismAgentMeshInterpolationPolicyTest {
                 .instrumentation(mockInstrumentation(capturedRef))
                 .build();
 
-        final dev.turboism.config.NativeOptimizationConfig launchConfig = premainEnv.optimizationConfig();
+        final OptimizationPlan launchPlan = premainEnv.plan();
 
         // 1. In PREMAIN phase: contributor installs and class is transformed / patched
         try (var handle = contributor.install(premainEnv)) {
@@ -273,15 +273,15 @@ final class TurboismAgentMeshInterpolationPolicyTest {
                     .options(AgentOptions.parse("home=" + home, home))
                     .startupPolicy(policy(false, Set.of()))
                     .instrumentation(mockInstrumentation(capturedRef))
-                    .optimizationConfig(launchConfig)
+                    .plan(launchPlan)
                     .build();
 
-            // When new phase environment resolves its optimizationConfig, it reuses the explicitly shared launchConfig
-            var nextConfig = hostResolvedEnv.optimizationConfig();
-            assertSame(launchConfig, nextConfig);
-            assertTrue(nextConfig.choice(OptimizationCatalog.MESH_INTERPOLATION).enabled());
+            // A new phase environment reuses the explicitly shared launch plan instead of rebuilding it
+            var nextPlan = hostResolvedEnv.plan();
+            assertSame(launchPlan, nextPlan);
+            assertTrue(nextPlan.choice(OptimizationCatalog.MESH_INTERPOLATION).enabled());
 
-            // Because launchConfig was explicitly shared, premain observed status is preserved
+            // Because the plan was explicitly shared, premain observed status is preserved
             var preservedStatus = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
             assertEquals(
                     "installed",

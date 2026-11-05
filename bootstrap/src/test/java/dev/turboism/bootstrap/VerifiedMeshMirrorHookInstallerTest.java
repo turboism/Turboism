@@ -393,7 +393,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
                     dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.class,
                     List.class,
                     List.class,
-                    dev.turboism.config.NativeOptimizationConfig.class);
+                    OptimizationPlan.class);
             start.setAccessible(true);
             start.invoke(
                     null,
