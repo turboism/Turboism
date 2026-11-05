@@ -8,7 +8,8 @@ package dev.turboism.bootstrap;
  * @param feature the human feature name used in every failure message
  * @param resolver the hook's reviewed-target expression
  * @param plan target factory and post-check
- * @param bridge the hook's own slot bridge, or {@link BridgeLayer#NONE}
+ * @param bridge builds the hook's own slot bridge from the bound contract, or
+ *     {@link BridgeFactory#none()}
  * @param effects install/close side effects, or {@link WeaveEffects#none()}
  * @param <T> the target/profile type the hook installs with
  */
@@ -17,5 +18,5 @@ record WeaveSpec<T>(
         String feature,
         TargetResolver<T> resolver,
         WeavePlan<T> plan,
-        BridgeLayer bridge,
+        BridgeFactory<T> bridge,
         WeaveEffects<T> effects) {}
