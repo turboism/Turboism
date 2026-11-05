@@ -48,6 +48,10 @@ class SchemaFixtureValidationTest {
         "minimal.json, plugin-meta-v3, plugin-meta-v3",
         "with-tags.json, plugin-meta-v3, plugin-meta-v3",
         "empty-tags.json, plugin-meta-v3, plugin-meta-v3",
+        "minimal.json, plugin-meta-v4, plugin-meta-v4",
+        "empty-events.json, plugin-meta-v4, plugin-meta-v4",
+        "minimal.json, plugin-meta-v5, plugin-meta-v5",
+        "without-contracts.json, plugin-meta-v5, plugin-meta-v5",
         "required.json, dependency-v1, dependency",
         "half-open.json, version-range-v1, version-range",
         "context-menu-contribute.json, permission-v1, permission",
@@ -91,6 +95,14 @@ class SchemaFixtureValidationTest {
         "non-array-tags.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_BAD_TAGS",
         "unknown-field.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_UNKNOWN_FIELD",
         "unsupported-schema-version.json, plugin-meta-v3, plugin-meta-v3, PLUGIN_META_BAD_SCHEMA_VERSION",
+        "duplicate-event-export.json, plugin-meta-v4, plugin-meta-v4, PLUGIN_META_DUPLICATE_EVENT_EXPORT",
+        "malformed-event-abi.json, plugin-meta-v4, plugin-meta-v4, PLUGIN_META_BAD_EVENT_ABI",
+        "non-array-event-imports.json, plugin-meta-v4, plugin-meta-v4, PLUGIN_META_BAD_EVENT_IMPORTS",
+        "v5-contracts-in-v4.json, plugin-meta-v4, plugin-meta-v4, PLUGIN_META_UNKNOWN_FIELD",
+        "duplicate-event-contract.json, plugin-meta-v5, plugin-meta-v5, PLUGIN_META_DUPLICATE_EVENT_CONTRACT",
+        "artifact-outside-contracts.json, plugin-meta-v5, plugin-meta-v5, PLUGIN_META_BAD_EVENT_CONTRACT_ARTIFACT",
+        "contract-bad-sha256.json, plugin-meta-v5, plugin-meta-v5, PLUGIN_META_BAD_EVENT_ABI",
+        "unknown-contract-field.json, plugin-meta-v5, plugin-meta-v5, PLUGIN_META_UNKNOWN_EVENT_CONTRACT_FIELD",
         "missing-entrypoints.json, plugin-meta-v2, plugin-meta, PLUGIN_META_MISSING",
         "bad-schema-version.json, plugin-meta-v2, plugin-meta, PLUGIN_META_BAD_SCHEMA_VERSION",
         "dependency-missing-version.json, plugin-meta-v2, plugin-meta, DEPENDENCY_MISSING_VERSION",
@@ -204,6 +216,8 @@ class SchemaFixtureValidationTest {
         return switch (type) {
             case "plugin-meta" -> new PluginMetaValidator();
             case "plugin-meta-v3" -> PluginMetaValidator.v3();
+            case "plugin-meta-v4" -> PluginMetaValidator.v4();
+            case "plugin-meta-v5" -> PluginMetaValidator.v5();
             case "dependency" -> new DependencyValidator();
             case "version-range" -> new VersionRangeValidator();
             case "permission" -> new PermissionValidator();
