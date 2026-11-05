@@ -36,6 +36,15 @@ The authoritative project list is `settings.gradle.kts`.
   only on :sdk. These are not plugin-facing APIs; ordinary plugins cannot
   compile against them and their classloaders refuse dev.turboism.internal.*.
 
+:persistence-core
+  Pure typed-config codec, schema-admission and in-memory migration kernel
+  (`dev.turboism.persistence.config.*`): the four frozen value codecs, the
+  canonical `turboism-typed-config-v1` document format, registration validation
+  and the migration walk. Depends only on :sdk; no file IO, reflection,
+  scheduler, UI or Cubism host access. :runtime owns the file store, I/O lane,
+  failure reporting and host-facing facade on top of it, and ordinary
+  plugins/SDK consumers never see this module (#112).
+
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
   hook infrastructure, transactions, diagnostics, shared services, and the

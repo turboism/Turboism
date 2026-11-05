@@ -6,7 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.charset.StandardCharsets;
+import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.persistence.config.TypedConfigDocumentCodec;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -15,11 +16,9 @@ import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -95,7 +94,7 @@ class TypedConfigDocumentStorePermissionTest {
         assertEquals(DIR_OWNER_ONLY, Files.getPosixFilePermissions(parent));
         assertEquals(FILE_OWNER_ONLY, Files.getPosixFilePermissions(file));
 
-        final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read("plugin/webdav.cfg");
+        final Optional<StoredDocument> stored = store.read("plugin/webdav.cfg");
         assertTrue(stored.isPresent());
         assertEquals("value", stored.orElseThrow().encodedValues().get("line"));
     }
@@ -114,7 +113,7 @@ class TypedConfigDocumentStorePermissionTest {
 
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
 
-        final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read("plugin/webdav.cfg");
+        final Optional<StoredDocument> stored = store.read("plugin/webdav.cfg");
 
         assertTrue(stored.isPresent(), "existing config must remain readable after tightening");
         assertEquals("secret", stored.orElseThrow().encodedValues().get("password"));
@@ -142,7 +141,7 @@ class TypedConfigDocumentStorePermissionTest {
         assertTrue(
                 Files.readString(existing).contains("bmV3:Mg"),
                 "replacement must have atomically replaced the file content");
-        final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read("plugin/webdav.cfg");
+        final Optional<StoredDocument> stored = store.read("plugin/webdav.cfg");
         assertEquals("2", stored.orElseThrow().encodedValues().get("new"));
     }
 
@@ -209,26 +208,13 @@ class TypedConfigDocumentStorePermissionTest {
         }
     }
 
-    private static TypedConfigDocumentStore.StoredDocument document(final String encodedPair) {
+    private static StoredDocument document(final String encodedPair) {
         final String[] parts = encodedPair.split("=", 2);
-        return new TypedConfigDocumentStore.StoredDocument(1, 0, Map.of(parts[0], parts[1]));
+        return new StoredDocument(1, 0, Map.of(parts[0], parts[1]));
     }
 
-    /** Mirrors the store's canonical on-disk serialization for hand-built fixtures. */
-    private static String encode(final TypedConfigDocumentStore.StoredDocument document) {
-        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-        final StringBuilder builder = new StringBuilder();
-        builder.append("turboism-typed-config-v1\n")
-                .append("schemaVersion=1\n")
-                .append("revision=0\n")
-                .append("count=")
-                .append(document.encodedValues().size())
-                .append("\n");
-        final TreeMap<String, String> sorted = new TreeMap<>(document.encodedValues());
-        sorted.forEach((key, value) -> builder.append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
-                .append(':')
-                .append(encoder.encodeToString(value.getBytes(StandardCharsets.UTF_8)))
-                .append('\n'));
-        return builder.toString();
+    /** Produces a canonical image through the production codec instead of a hand encoder. */
+    private static String encode(final StoredDocument document) {
+        return TypedConfigDocumentCodec.encode(document);
     }
 }

@@ -22,6 +22,8 @@ private val forbiddenImportPatterns = listOf(
     "dev.turboism.core.mesh.*" to "SDK/plugins must not import runtime mesh internals",
     "dev.turboism.core.psd.*" to "SDK/plugins must not import runtime PSD internals",
     "dev.turboism.core.mirror.*" to "SDK/plugins must not import runtime mirror internals",
+    "dev.turboism.persistence.*" to
+        "SDK/plugins must not import the runtime persistence kernel (:persistence-core)",
     "dev.turboism.sdk.event.cubism.*" to
         "SDK/plugins must not import the retired dev.turboism.sdk.event.cubism package " +
         "(Cubism events live in dev.turboism.sdk.cubism.event)"
@@ -44,6 +46,8 @@ private val forbiddenQualifiedReferencePatterns = listOf(
         "SDK/plugins must not reference Cubism internal packages (com.live2d)",
     Regex("""(?<![\w$])dev\.turboism\.core\.(?:parameter|mesh|psd|mirror)(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""") to
         "SDK/plugins must not reference runtime core internals",
+    Regex("""(?<![\w$])dev\.turboism\.persistence(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""") to
+        "SDK/plugins must not reference the runtime persistence kernel (:persistence-core)",
     Regex("""(?<![\w$])dev\.turboism\.distribution(?:\.[A-Za-z_$][\w$]*)+(?![\w$])""") to
         "SDK/plugins must not reference distribution internals"
 )
@@ -60,7 +64,13 @@ tasks.register("checkModuleBoundaries") {
     // The rules and waivers live in this script; module additions land in settings.gradle.kts.
     inputs.file("gradle/module-boundaries.gradle.kts")
     inputs.file("settings.gradle.kts")
+    // The kernel is proved from its compiled classes as well as its sources, so the
+    // bytecode half of its contract only passes after it actually compiles.
+    dependsOn(":persistence-core:classes")
     inputs.files(
+        fileTree(project(":persistence-core").layout.buildDirectory.dir("classes/java/main")) {
+            include("**/*.class")
+        },
         fileTree(rootDir) {
             include("**/src/main/java/**/*.java", "**/src/main/resources/**/*.java")
             exclude(".worktrees/**", ".claude/**", "**/build/**", ".git/**")
@@ -155,6 +165,8 @@ private fun checkModuleBoundaries(project: Project) {
     }
     checkOpaqueUserFileRuntime(project, state)
     checkOpaqueUserFileSdk(project, state)
+    checkPersistenceCoreSources(project, state)
+    checkPersistenceCoreBytecode(project, state)
     if (state.failed) {
         throw GradleException("Module boundary checks failed.")
     }
@@ -181,6 +193,22 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
                 config,
                 subproject,
                 setOf(":core-contract", ":sdk"),
+                state
+            )
+        }
+        subproject.path == ":persistence-core" -> {
+            // The typed-config kernel is expressed in frozen SDK types only; a dependency
+            // back on :runtime (or anything else) would dissolve the boundary it exists for.
+            checkDeclaredBoundaryDependencies(
+                subproject,
+                setOf(":sdk"),
+                "Persistence-core",
+                state
+            )
+            checkResolvedBoundaryComponents(
+                config,
+                subproject,
+                setOf(":persistence-core", ":sdk"),
                 state
             )
         }
@@ -614,6 +642,135 @@ private fun checkOpaqueUserFileSdkSource(project: Project, file: java.io.File, s
 }
 
 /*
+ * :persistence-core owns the pure typed-config kernel. Its sources may name only its own
+ * package, frozen SDK types, and the JDK value/collection/charset types it needs; the
+ * compiled bytecode is checked too, because an import-only rule cannot see a fully
+ * qualified reference. The allowlist is intentionally a prefix list rather than a ban:
+ * a new JDK package is a reviewed contract change, not an accident.
+ */
+private val persistenceCoreAllowedImportPrefixes = listOf(
+    "dev.turboism.persistence.",
+    "dev.turboism.sdk.",
+    "java.io.IOException",
+    "java.nio.ByteBuffer",
+    "java.nio.charset.",
+    "java.util."
+)
+
+private val persistenceCoreForbiddenBinaryPrefixes = listOf(
+    "com/live2d/",
+    "java/awt/",
+    "java/lang/reflect/",
+    "java/net/",
+    "java/nio/channels/",
+    "java/nio/file/",
+    "java/util/concurrent/",
+    "javax/imageio/",
+    "javax/swing/"
+)
+
+private val persistenceCoreAllowedDevTurboismRoots = setOf("persistence", "sdk")
+
+private fun checkPersistenceCoreSources(root: Project, state: BoundaryState) {
+    val sourceRoot = root.file("persistence-core/src/main/java")
+    if (!sourceRoot.isDirectory) {
+        state.reject(
+            "Persistence-core production sources are missing at " +
+                sourceRoot.relativeTo(root.projectDir)
+        )
+        return
+    }
+    sourceRoot.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
+        val display = file.relativeTo(root.projectDir)
+        file.readLines().forEachIndexed { index, line ->
+            val trimmed = line.trim()
+            if (!trimmed.startsWith("import ")) {
+                return@forEachIndexed
+            }
+            val imported = trimmed
+                .removePrefix("import ")
+                .removePrefix("static ")
+                .removeSuffix(";")
+                .trim()
+            if (persistenceCoreAllowedImportPrefixes.none { imported.startsWith(it) }) {
+                state.reject(
+                    "Persistence-core import rejected in $display:${index + 1}: " +
+                        "the pure kernel must not name '$imported'"
+                )
+            }
+        }
+    }
+}
+
+private fun checkPersistenceCoreBytecode(root: Project, state: BoundaryState) {
+    val classesDir = root.project(":persistence-core")
+        .layout.buildDirectory.dir("classes/java/main").get().asFile
+    if (!classesDir.isDirectory) {
+        state.reject(
+            "Persistence-core has no compiled classes at " + classesDir.relativeTo(root.projectDir)
+        )
+        return
+    }
+    classesDir.walkTopDown().filter { it.isFile && it.extension == "class" }.forEach { file ->
+        val display = file.relativeTo(root.projectDir)
+        val bytes = file.readBytes()
+        persistenceCoreForbiddenBinaryPrefixes.forEach { prefix ->
+            if (bytes.indexOfNeedle(prefix.toByteArray(Charsets.UTF_8), 0) >= 0) {
+                state.reject(
+                    "Persistence-core class $display references forbidden $prefix"
+                )
+            }
+        }
+        val binaryNeedle = "dev/turboism/".toByteArray(Charsets.UTF_8)
+        var offset = bytes.indexOfNeedle(binaryNeedle, 0)
+        while (offset >= 0) {
+            var end = offset + binaryNeedle.size
+            while (end < bytes.size && isBinaryNameByte(bytes[end])) {
+                end++
+            }
+            val segment = bytes.decodeToString(offset + binaryNeedle.size, end)
+            if (segment.isNotEmpty() && segment !in persistenceCoreAllowedDevTurboismRoots) {
+                state.reject(
+                    "Persistence-core class $display references forbidden package dev/turboism/$segment"
+                )
+            }
+            offset = bytes.indexOfNeedle(binaryNeedle, offset + binaryNeedle.size)
+        }
+        val dottedNeedle = "dev.turboism.".toByteArray(Charsets.UTF_8)
+        offset = bytes.indexOfNeedle(dottedNeedle, 0)
+        while (offset >= 0) {
+            var end = offset + dottedNeedle.size
+            while (end < bytes.size && isBinaryNameByte(bytes[end])) {
+                end++
+            }
+            val segment = bytes.decodeToString(offset + dottedNeedle.size, end)
+            if (segment.isNotEmpty() && segment !in persistenceCoreAllowedDevTurboismRoots) {
+                state.reject(
+                    "Persistence-core class $display references forbidden package dev.turboism.$segment"
+                )
+            }
+            offset = bytes.indexOfNeedle(dottedNeedle, offset + dottedNeedle.size)
+        }
+        // java.io is admitted only as the checked parse-failure type, never as file IO.
+        val ioNeedle = "java/io/".toByteArray(Charsets.UTF_8)
+        offset = bytes.indexOfNeedle(ioNeedle, 0)
+        while (offset >= 0) {
+            var end = offset + ioNeedle.size
+            while (end < bytes.size && isBinaryNameByte(bytes[end])) {
+                end++
+            }
+            val segment = bytes.decodeToString(offset + ioNeedle.size, end)
+            if (segment.isNotEmpty() && segment != "IOException") {
+                state.reject(
+                    "Persistence-core class $display references forbidden java.io.$segment"
+                )
+            }
+            offset = bytes.indexOfNeedle(ioNeedle, offset + ioNeedle.size)
+        }
+    }
+}
+
+/*
  * checkPluginBoundaries is the compiled-artifact half of the plugin boundary.
  * checkModuleBoundaries scans sources and declared dependency paths; this gate
  * scans the bytecode every plugin actually ships, so copied or generated
@@ -773,6 +930,7 @@ private fun ByteArray.indexOfNeedle(needle: ByteArray, from: Int): Int {
  */
 private val pluginBoundaryForbiddenDottedExtras = setOf(
     "internal",       // :core-contract management contracts
+    "persistence",    // :persistence-core typed-config kernel
     "bootstrap",      // java-agent entrypoint surface
     "eventprocessor", // annotation-processor implementation
     "graalhost"       // native-image host surface

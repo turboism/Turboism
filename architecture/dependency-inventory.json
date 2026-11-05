@@ -29,6 +29,11 @@
         ":sdk"
       ]
     },
+    ":persistence-core": {
+      "api": [
+        ":sdk"
+      ]
+    },
     ":plugins:acp": {
       "annotationProcessor": [
         ":event-processor"
@@ -467,6 +472,7 @@
     ":runtime": {
       "implementation": [
         ":core-contract",
+        ":persistence-core",
         ":sdk"
       ],
       "testImplementation": [

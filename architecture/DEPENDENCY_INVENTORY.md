@@ -1,9 +1,10 @@
 # Dependency inventory baseline (`#70`, step 1)
 
-This is the pre-extraction inventory: what the module graph and the `:runtime`
-package graph actually look like today, recorded so that a change is reviewed
-instead of discovered late. It is **not** a proposal to split `:runtime`, and it
-does not replace the authoritative boundary gates.
+This inventory records what the module graph and the `:runtime` package graph
+actually look like, so that a change is reviewed instead of discovered late. It
+started as the pre-extraction baseline and now carries the first extracted
+module (`:persistence-core`, `#112`). It is **not** a proposal to split
+`:runtime`, and it does not replace the authoritative boundary gates.
 
 ## Authority
 
@@ -36,9 +37,15 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
 
 ## Recorded baseline
 
-- 43 Gradle modules, including convention-supplied edges (plugins declare
+- 44 Gradle modules, including convention-supplied edges (plugins declare
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`).
+- One extracted module: `:persistence-core` (typed-config codec/schema/migration
+  kernel) with `api :sdk`, consumed by `:runtime implementation`. It has no
+  dependency back on `:runtime`, and `checkModuleBoundaries` proves both the
+  declared/resolved edges and the compiled bytecode. The package-graph sections
+  below still describe `:runtime` only; the kernel is a single package, so its
+  cycle surface is the module edge itself.
 - `:runtime`: 34 top-level `dev.turboism.*` packages, 121 top-level package
   edges, 1 top-level cycle, **0 leaf-package cycles** (6 before the `#70` step 3a
   pilot; see below for how each was removed).

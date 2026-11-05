@@ -477,6 +477,9 @@ dependencies {
     testImplementation(project(":plugins:selection-brush"))
     testImplementation(project(":testing:test-support"))
     implementation(project(":sdk"))
+    // Pure typed-config codec/schema/migration kernel (#112). The runtime owns the
+    // file store, I/O lane and failure presentation on top of it.
+    implementation(project(":persistence-core"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.
     implementation(project(":core-contract"))

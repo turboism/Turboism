@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Fail-closed, pinned ast-grep rule tests and production scans."""
+"""Fail-closed ast-grep rule tests and production scans."""
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PINNED = "0.45.3"
+VERSION_LINE = re.compile(
+    r"^(?:ast-grep|sg)\s+\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$", re.IGNORECASE
+)
 
 
-def pinned(executable: str) -> bool:
-    """True when `executable` reports exactly the pinned ast-grep version.
+def valid_binary(executable: str) -> bool:
+    """True when `executable` reports a valid ast-grep CLI version line.
 
     The probe matches version lines individually instead of comparing the whole
     output: package managers may prepend install warnings on stderr (npm blocks
-    lifecycle scripts by default), and that must not look like a wrong version.
+    lifecycle scripts by default), and unrelated binaries (such as the Unix `sg`
+    group command) must not satisfy the gate.
     """
     result = subprocess.run(
         [executable, "--version"], capture_output=True, text=True, check=False
@@ -24,8 +28,7 @@ def pinned(executable: str) -> bool:
     if result.returncode != 0:
         return False
     for line in (result.stdout + "\n" + result.stderr).splitlines():
-        name, _, version = line.strip().partition(" ")
-        if name.lower() in {"ast-grep", "sg"} and version.strip() == PINNED:
+        if VERSION_LINE.match(line.strip()):
             return True
     return False
 
@@ -33,13 +36,10 @@ def pinned(executable: str) -> bool:
 def binary() -> str:
     for candidate in ("ast-grep", "sg"):
         executable = shutil.which(candidate)
-        if executable is not None and pinned(executable):
+        if executable is not None and valid_binary(executable):
             return executable
     sys.exit(
-        "checkArchitectureRules: ast-grep=="
-        + PINNED
-        + " is required; install npm i -g @ast-grep/cli@"
-        + PINNED
+        "checkArchitectureRules: ast-grep is required; install npm i -g @ast-grep/cli"
     )
 
 

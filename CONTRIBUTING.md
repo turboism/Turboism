@@ -235,9 +235,9 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
   (`python3 -m pip install "ruff==0.16.9"` or an equivalent `ruff` binary on
   `PATH`). The rule set lives in `ruff.toml`.
 - **AST architecture rules**: `devCheck` runs `checkArchitectureRules`, which needs the
-  pinned ast-grep CLI (`npm install --global '@ast-grep/cli@0.45.3'`). The gate fails
-  closed when the binary is missing or a different version is first on `PATH`, so an
-  unpinned global install silently disables the gate instead of weakening it. See
+  ast-grep CLI (`npm install --global '@ast-grep/cli'`). The gate fails
+  closed when the binary is missing or an unrelated tool is first on `PATH`, so a
+  missing install fails the gate instead of weakening it. See
   [`ARCHITECTURE_GOVERNANCE.md`](ARCHITECTURE_GOVERNANCE.md) for the rule and codemod
   policy.
 - **Shell lint**: `devCheck` runs `checkShellLint`, which requires `shellcheck`

@@ -1,6 +1,8 @@
 package dev.turboism.config;
 
 import dev.turboism.home.AnchoredDirectoryTree;
+import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.persistence.config.TypedConfigDocumentCodec;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import java.io.IOException;
@@ -28,14 +30,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -45,7 +44,6 @@ import java.util.regex.Pattern;
 /** Deterministic atomic persistence for one plugin's typed config documents. */
 final class TypedConfigDocumentStore {
 
-    private static final String HEADER = "turboism-typed-config-v1";
     private static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
 
     /**
@@ -86,7 +84,7 @@ final class TypedConfigDocumentStore {
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(bytes))
                     .toString();
-            return Optional.of(parse(text));
+            return Optional.of(TypedConfigDocumentCodec.decode(text));
         } catch (CharacterCodingException exception) {
             throw new IOException("typed config document is not valid UTF-8", exception);
         }
@@ -94,7 +92,7 @@ final class TypedConfigDocumentStore {
 
     void writeAtomic(final String relativePath, final StoredDocument document) throws IOException {
         final Path target = resolve(relativePath, true);
-        final byte[] bytes = encode(document).getBytes(StandardCharsets.UTF_8);
+        final byte[] bytes = TypedConfigDocumentCodec.encode(document).getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_DOCUMENT_BYTES) {
             throw new IOException("typed config document exceeds size limit");
         }
@@ -130,7 +128,7 @@ final class TypedConfigDocumentStore {
             throw new IOException("typed config recovery point source is missing");
         }
         final byte[] bytes = readDocumentBytes(document);
-        if (!Arrays.equals(bytes, encode(expected).getBytes(StandardCharsets.UTF_8))) {
+        if (!Arrays.equals(bytes, TypedConfigDocumentCodec.encode(expected).getBytes(StandardCharsets.UTF_8))) {
             throw new IOException("typed config document changed before its recovery point was captured");
         }
         final Path directory = recoveryDirectory(relativePath, true);
@@ -543,104 +541,4 @@ final class TypedConfigDocumentStore {
 
     private static final Set<PosixFilePermission> FILE_OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
     private static final Set<PosixFilePermission> DIR_OWNER_ONLY = PosixFilePermissions.fromString("rwx------");
-
-    private static String encode(final StoredDocument document) {
-        final List<String> keys = new ArrayList<>(document.encodedValues().keySet());
-        keys.sort(String::compareTo);
-        final StringBuilder output = new StringBuilder();
-        output.append(HEADER).append('\n');
-        output.append("schemaVersion=").append(document.schemaVersion()).append('\n');
-        output.append("revision=").append(document.revision()).append('\n');
-        output.append("count=").append(keys.size()).append('\n');
-        final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-        for (String key : keys) {
-            output.append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
-                    .append(':')
-                    .append(encoder.encodeToString(
-                            document.encodedValues().get(key).getBytes(StandardCharsets.UTF_8)))
-                    .append('\n');
-        }
-        return output.toString();
-    }
-
-    private static StoredDocument parse(final String text) throws IOException {
-        final String[] lines = text.split("\\n", -1);
-        if (lines.length < 5 || !lines[0].equals(HEADER) || !lines[lines.length - 1].isEmpty()) {
-            throw new IOException("typed config document header is invalid");
-        }
-        final int version = parseInt(lines[1], "schemaVersion=");
-        final long revision = parseLong(lines[2], "revision=");
-        final int count = parseInt(lines[3], "count=");
-        if (version < 1 || revision < 0 || count < 0 || lines.length != count + 5) {
-            throw new IOException("typed config document metadata is invalid");
-        }
-        final Base64.Decoder decoder = Base64.getUrlDecoder();
-        final Map<String, String> values = new LinkedHashMap<>();
-        for (int index = 0; index < count; index++) {
-            final String line = lines[index + 4];
-            final int separator = line.indexOf(':');
-            if (separator <= 0 || separator != line.lastIndexOf(':')) {
-                throw new IOException("typed config entry is invalid");
-            }
-            try {
-                final String key = decodeUtf8(decoder.decode(line.substring(0, separator)));
-                final String value = decodeUtf8(decoder.decode(line.substring(separator + 1)));
-                if (key.isBlank() || values.putIfAbsent(key, value) != null) {
-                    throw new IOException("typed config entry key is invalid");
-                }
-            } catch (IllegalArgumentException exception) {
-                throw new IOException("typed config entry encoding is invalid", exception);
-            }
-        }
-        final StoredDocument document = new StoredDocument(version, revision, values);
-        if (!encode(document).equals(text)) {
-            throw new IOException("typed config document is noncanonical");
-        }
-        return document;
-    }
-
-    private static String decodeUtf8(final byte[] bytes) throws IOException {
-        try {
-            return StandardCharsets.UTF_8
-                    .newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
-        } catch (CharacterCodingException exception) {
-            throw new IOException("typed config entry is not valid UTF-8", exception);
-        }
-    }
-
-    private static int parseInt(final String line, final String prefix) throws IOException {
-        final long value = parseLong(line, prefix);
-        if (value > Integer.MAX_VALUE) {
-            throw new IOException("typed config integer metadata is out of range");
-        }
-        return (int) value;
-    }
-
-    private static long parseLong(final String line, final String prefix) throws IOException {
-        if (!line.startsWith(prefix)) {
-            throw new IOException("typed config metadata is missing");
-        }
-        final String raw = line.substring(prefix.length());
-        if (!raw.matches("0|[1-9][0-9]*")) {
-            throw new IOException("typed config metadata is noncanonical");
-        }
-        try {
-            return Long.parseLong(raw);
-        } catch (NumberFormatException exception) {
-            throw new IOException("typed config metadata is out of range", exception);
-        }
-    }
-
-    record StoredDocument(int schemaVersion, long revision, Map<String, String> encodedValues) {
-        StoredDocument {
-            if (schemaVersion < 1 || revision < 0) {
-                throw new IllegalArgumentException("typed config document metadata is invalid");
-            }
-            encodedValues = Map.copyOf(encodedValues);
-        }
-    }
 }

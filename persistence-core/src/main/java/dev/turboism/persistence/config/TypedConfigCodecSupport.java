@@ -1,4 +1,4 @@
-package dev.turboism.config;
+package dev.turboism.persistence.config;
 
 import dev.turboism.sdk.config.ConfigCodec;
 import dev.turboism.sdk.config.ConfigKey;
@@ -9,8 +9,16 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Runtime-only implementation of the four frozen typed-config codecs. */
-final class TypedConfigCodecSupport {
+/**
+ * Deterministic implementation of the four frozen typed-config value codecs.
+ *
+ * <p>The codec identity is a type id such as {@code boolean}, {@code int:-2:4},
+ * {@code enum:com.example.Mode}, {@code string:64} or {@code string-list:3:32}. Encoding and
+ * decoding are pure functions of the key and the text: no locale, clock, file system or
+ * reflection participates, and an unrecognised value is rejected instead of repaired. A value
+ * that is rejected here is never written to disk and never handed to a plugin as stored.
+ */
+public final class TypedConfigCodecSupport {
 
     private static final Pattern INTEGER = Pattern.compile("0|-?[1-9][0-9]*");
     private static final Pattern INTEGER_CODEC = Pattern.compile("int:(-?[0-9]+):(-?[0-9]+)");
@@ -19,7 +27,13 @@ final class TypedConfigCodecSupport {
 
     private TypedConfigCodecSupport() {}
 
-    static boolean isRecognized(final ConfigCodec<?> codec) {
+    /**
+     * Reports whether a codec declares one of the four admitted type ids.
+     *
+     * @param codec the codec to inspect, possibly {@code null}
+     * @return {@code true} when the type id is one this kernel can encode and decode
+     */
+    public static boolean isRecognized(final ConfigCodec<?> codec) {
         if (codec == null || codec.typeId() == null) {
             return false;
         }
@@ -31,11 +45,24 @@ final class TypedConfigCodecSupport {
                 || STRING_CODEC.matcher(id).matches();
     }
 
-    static boolean isValidDefault(final ConfigKey<?> key) {
+    /**
+     * Reports whether the key's declared default value encodes under its own codec.
+     *
+     * @param key the key to validate, possibly {@code null}
+     * @return {@code true} when the default value is a legal value for the key's codec
+     */
+    public static boolean isValidDefault(final ConfigKey<?> key) {
         return key != null && encode(key, key.defaultValue()).isPresent();
     }
 
-    static Optional<String> encode(final ConfigKey<?> key, final Object value) {
+    /**
+     * Encodes one value under the key's codec.
+     *
+     * @param key the key whose codec and bounds apply
+     * @param value the value to encode
+     * @return the canonical text form, or empty when the value does not fit the codec
+     */
+    public static Optional<String> encode(final ConfigKey<?> key, final Object value) {
         Objects.requireNonNull(key, "key");
         final String id = key.codec() == null ? "" : key.codec().typeId();
         if (id.equals("boolean")) {
@@ -86,7 +113,14 @@ final class TypedConfigCodecSupport {
         return Optional.empty();
     }
 
-    static Optional<Object> decode(final ConfigKey<?> key, final String encoded) {
+    /**
+     * Decodes one stored value under the key's codec.
+     *
+     * @param key the key whose codec and bounds apply
+     * @param encoded the stored text, which must be canonical for the codec
+     * @return the decoded value, or empty when the text is not a canonical in-bounds value
+     */
+    public static Optional<Object> decode(final ConfigKey<?> key, final String encoded) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(encoded, "encoded");
         final String id = key.codec() == null ? "" : key.codec().typeId();
@@ -139,7 +173,14 @@ final class TypedConfigCodecSupport {
         return Optional.empty();
     }
 
-    static Object immutableDefault(final ConfigKey<?> key) {
+    /**
+     * Returns the default value in the form a caller may keep: list defaults are copied so a
+     * plugin cannot mutate the registered schema through the value it was handed.
+     *
+     * @param key the key whose default value is requested
+     * @return the immutable default value
+     */
+    public static Object immutableDefault(final ConfigKey<?> key) {
         final Object value = key.defaultValue();
         return value instanceof List<?> list ? List.copyOf(list) : value;
     }
