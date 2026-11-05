@@ -28,7 +28,7 @@ final class VerifiedReinitPairElisionInstaller implements AutoCloseable {
             "reinit Pair elision",
             VerifiedReinitPairElisionInstaller::resolve,
             new WeavePlan<>(VerifiedReinitPairElisionInstaller::targets, WeavePlan.PostCheck.NONE),
-            BridgeLayer.NONE,
+            BridgeFactory.none(),
             WeaveEffects.none());
 
     private final InstallContext context;
