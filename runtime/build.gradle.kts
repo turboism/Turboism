@@ -469,7 +469,7 @@ sourceSets.named("test") {
 val toolingJar by tasks.registering(Jar::class) {
     description = "Packages the build-time mapping review tooling; never a runtime dependency."
     from(sourceSets["tooling"].output)
-    archiveClassifier.set("tooling")
+    archiveClassifier.set("tooling-${rootProject.extra["turboismResolvedWorktreeId"]}")
 }
 val toolingElements by configurations.creating {
     isCanBeConsumed = true
