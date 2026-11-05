@@ -8,6 +8,7 @@ import dev.turboism.sdk.hostread.AsyncHostReadRequest;
 import dev.turboism.sdk.hostread.AsyncHostReadService;
 import dev.turboism.sdk.hostread.AsyncHostReadSubmission;
 import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import java.time.Duration;
@@ -22,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 /** Plugin-scoped admission, permission, coalescing, handle, and lifecycle owner. */
 public final class RuntimeAsyncHostReadService implements AsyncHostReadService, AutoCloseable {
 
-    public static final String PROJECT_READ_PERMISSION = "turboism.cubism.project.read";
+    public static final String PROJECT_READ_PERMISSION = PermissionIds.TURBOISM_CUBISM_PROJECT_READ;
     private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(5);
     private static final String QUIESCENCE_FAILURE =
             "Async host-read operations did not quiesce before plugin scope close.";

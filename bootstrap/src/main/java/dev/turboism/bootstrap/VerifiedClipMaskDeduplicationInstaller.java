@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationBr
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTarget;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTransformer;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
+import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.Instrumentation;
@@ -34,6 +35,8 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
     private final Set<Class<?>> retransformed = new LinkedHashSet<>();
     private boolean installed;
     private boolean restored;
+    /** True while the scissor sub-mode is reported as installed, so closing reports itself. */
+    private boolean scissorReported;
 
     VerifiedClipMaskDeduplicationInstaller(
             final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
@@ -96,6 +99,30 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
             VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
             throw failure;
         }
+        reportScissor();
+    }
+
+    /**
+     * Reports the scissor-limited clear sub-mode from the point where this installer decides
+     * it: the sub-mode rides the dedupe weave, so only the bridge's own switch and whether it
+     * claimed its slots can still refuse it.
+     */
+    private void reportScissor() {
+        if (scissorBridge == null) {
+            NativeOptimizationDiagnostics.installed(
+                    NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR,
+                    "not-installed",
+                    scissorFailure == null ? "not-attempted" : "refused");
+        } else if (!ClipMaskScissorBridge.enabledByPreference()) {
+            NativeOptimizationDiagnostics.installed(
+                    NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR,
+                    "not-installed",
+                    "disabled-by-property");
+        } else {
+            scissorReported = true;
+            NativeOptimizationDiagnostics.installed(
+                    NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "installed", "verified");
+        }
     }
 
     private void retransformIfLoaded() throws Exception {
@@ -155,7 +182,16 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
             } finally {
                 bridge.close();
                 installed = false;
+                reportScissorClosed();
             }
         }
+    }
+
+    /** The sub-mode cannot survive the weave it rides, so a closed installer proves nothing. */
+    private void reportScissorClosed() {
+        if (!scissorReported) return;
+        scissorReported = false;
+        NativeOptimizationDiagnostics.installed(
+                NativeOptimizationDiagnostics.PROTOCOL_CLIP_MASK_SCISSOR_CLEAR, "not-installed", "closed");
     }
 }

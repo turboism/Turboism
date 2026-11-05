@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.permission.PermissionIds;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,8 +24,8 @@ import java.util.stream.IntStream;
 public final class RuntimeTextureAtlasLayoutService
         implements TextureAtlasLayoutService, dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService {
 
-    public static final String READ_PERMISSION = "turboism.cubism.model.read";
-    public static final String WRITE_PERMISSION = "turboism.cubism.model.write";
+    public static final String READ_PERMISSION = PermissionIds.TURBOISM_CUBISM_MODEL_READ;
+    public static final String WRITE_PERMISSION = PermissionIds.TURBOISM_CUBISM_MODEL_WRITE;
     private static final String CAPABILITY = "cubism.texture-atlas.layout";
 
     private final TextureAtlasLayoutCoordinator coordinator;

@@ -25,6 +25,7 @@ import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.permission.PermissionIds;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -45,11 +46,11 @@ import java.util.function.Supplier;
  */
 public final class CubismFacadeImpl implements CubismFacade {
 
-    public static final String PROJECT_READ_PERMISSION = "turboism.cubism.project.read";
-    public static final String MODEL_READ_PERMISSION = "turboism.cubism.model.read";
-    public static final String MODEL_WRITE_PERMISSION = "turboism.cubism.model.write";
-    public static final String MESH_READ_PERMISSION = "turboism.cubism.mesh.read";
-    public static final String EDIT_PERMISSION = "turboism.cubism.edit";
+    public static final String PROJECT_READ_PERMISSION = PermissionIds.TURBOISM_CUBISM_PROJECT_READ;
+    public static final String MODEL_READ_PERMISSION = PermissionIds.TURBOISM_CUBISM_MODEL_READ;
+    public static final String MODEL_WRITE_PERMISSION = PermissionIds.TURBOISM_CUBISM_MODEL_WRITE;
+    public static final String MESH_READ_PERMISSION = PermissionIds.TURBOISM_CUBISM_MESH_READ;
+    public static final String EDIT_PERMISSION = PermissionIds.TURBOISM_CUBISM_EDIT;
 
     private static final HostSnapshotSource.HostSelection EMPTY_SELECTION =
             new HostSnapshotSource.HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
