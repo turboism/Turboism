@@ -98,8 +98,14 @@ class PhysicsGifControlsTest {
                 received.add(command);
             }
         };
-        final var scoped = new PluginScopedPhysicsEditorService(
-                backend, new dev.turboism.sdk.plugin.DisposableScope(), active::get);
+        final var scoped = dev.turboism.permissions.ServiceGateInstaller.install(
+                dev.turboism.sdk.cubism.physics.PhysicsEditorService.class,
+                backend,
+                dev.turboism.permissions.PermissionChecker.allowAll(),
+                new dev.turboism.sdk.plugin.DisposableScope(),
+                active::get,
+                dev.turboism.permissions.ServiceGateInstaller.rowsFor(
+                        dev.turboism.sdk.cubism.physics.PhysicsEditorService.class));
         scoped.gifCommand(dev.turboism.sdk.cubism.physics.PhysicsEditorService.GifCommand.PAUSE);
         active.set(false);
         org.junit.jupiter.api.Assertions.assertThrows(
