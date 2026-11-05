@@ -1,15 +1,13 @@
 package dev.turboism.pluginmanagement;
 
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.PublishGuard;
 import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Set;
+import java.util.Objects;
 
 /** Minimal confined filesystem guard for Runtime-owned plugin state. */
 final class ConfinedPluginFiles {
@@ -22,7 +20,7 @@ final class ConfinedPluginFiles {
 
     ConfinedPluginFiles(final Path requestedHome, final AttributeReader reader) {
         home = requestedHome.toAbsolutePath().normalize();
-        this.reader = java.util.Objects.requireNonNull(reader, "reader");
+        this.reader = Objects.requireNonNull(reader, "reader");
     }
 
     ParentIdentity parent(final Path requested) throws IOException {
@@ -35,24 +33,26 @@ final class ConfinedPluginFiles {
         return new ParentIdentity(parent, reader.read(parent), reader);
     }
 
-    SeekableByteChannel createNew(final Path path, final ParentIdentity parent) throws IOException {
+    /** Publishes {@code bytes} at {@code target} through the durable-write module. */
+    void writeBytes(final Path target, final byte[] bytes, final ParentIdentity parent, final boolean replace)
+            throws IOException {
+        final Path path = confined(target);
         parent.verify();
-        if (!path.toAbsolutePath().normalize().getParent().equals(parent.path()))
-            throw new IOException("parent changed");
-        return Files.newByteChannel(
-                path,
-                Set.<OpenOption>of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS));
+        if (!path.getParent().equals(parent.path())) throw new IOException("parent changed");
+        publication(path, parent, replace).replace(bytes);
     }
 
-    void move(final Path source, final Path target, final ParentIdentity parent, final boolean replace)
+    /**
+     * Publishes an already written sibling temporary file. The temporary is left in place when
+     * publication fails, so the caller keeps owning its cleanup.
+     */
+    void publish(final Path temporary, final Path target, final ParentIdentity parent, final boolean replace)
             throws IOException {
+        final Path path = confined(target);
+        rejectLinks(temporary);
         parent.verify();
-        rejectLinks(source);
-        final var options = replace
-                ? new StandardCopyOption[] {StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING}
-                : new StandardCopyOption[] {StandardCopyOption.ATOMIC_MOVE};
-        Files.move(source, target, options);
-        parent.verify();
+        if (!path.getParent().equals(parent.path())) throw new IOException("parent changed");
+        publication(path, parent, replace).adoptKeepingSource(temporary);
     }
 
     void delete(final Path path, final ParentIdentity parent) throws IOException {
@@ -80,6 +80,26 @@ final class ConfinedPluginFiles {
         }
     }
 
+    /** A replace-or-create-once handle that rechecks the parent identity across the rename. */
+    private DurableFile publication(final Path target, final ParentIdentity parent, final boolean replace) {
+        return (replace ? DurableFile.at(target) : DurableFile.createOnce(target)).guardedBy(identityGuard(parent));
+    }
+
+    private PublishGuard identityGuard(final ParentIdentity parent) {
+        return new PublishGuard() {
+            @Override
+            public void beforePublish(final Path staged, final Path target) throws IOException {
+                rejectLinks(staged);
+                parent.verify();
+            }
+
+            @Override
+            public void afterPublish(final Path staged, final Path target) throws IOException {
+                parent.verify();
+            }
+        };
+    }
+
     private static BasicFileAttributes attributes(final Path path) throws IOException {
         return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
     }
@@ -94,8 +114,7 @@ final class ConfinedPluginFiles {
             if (Files.isSymbolicLink(path)) throw new IOException("parent became symbolic link");
             final BasicFileAttributes current = reader.read(path);
             final Object expectedKey = attributes.fileKey();
-            if (!current.isDirectory()
-                    || (expectedKey != null && !java.util.Objects.equals(expectedKey, current.fileKey()))) {
+            if (!current.isDirectory() || (expectedKey != null && !Objects.equals(expectedKey, current.fileKey()))) {
                 throw new IOException("parent identity changed");
             }
         }

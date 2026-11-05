@@ -1,5 +1,6 @@
 package dev.turboism.storage;
 
+import dev.turboism.core.io.DurableFile;
 import dev.turboism.sdk.storage.StorageEntry;
 import dev.turboism.sdk.storage.StorageEntryType;
 import dev.turboism.sdk.storage.StoragePath;
@@ -7,8 +8,6 @@ import dev.turboism.sdk.storage.StorageReadResult;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -56,15 +55,20 @@ final class StorageFiles {
     }
 
     static void writeDurably(final Path temporary, final byte[] content) throws IOException, InterruptedException {
-        try (FileChannel channel =
-                FileChannel.open(temporary, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            final ByteBuffer buffer = ByteBuffer.wrap(content);
-            while (buffer.hasRemaining()) {
-                checkCanceled();
-                channel.write(buffer);
-            }
-            channel.force(true);
-        }
+        // The backend still names its own temporary sibling so the AtomicMover seam keeps a
+        // node to delete when a publication is refused; the durable-write module owns the
+        // write, the file force and the create-once publication of that sibling.
+        DurableFile.createOnce(temporary).replaceCancellable(content);
+    }
+
+    /**
+     * Production implementation of the {@code AtomicMover} seam: the durable-write module
+     * replaces the target atomically and fails closed when the file system cannot.
+     */
+    static void moveAtomically(final Path source, final Path target, final boolean replaceExisting) throws IOException {
+        // The source is caller-owned (a plugin's own file for moveAtomic), so a refused
+        // publication must leave it where it is instead of deleting it.
+        (replaceExisting ? DurableFile.at(target) : DurableFile.createOnce(target)).adoptKeepingSource(source);
     }
 
     static List<Path> children(final Path directory) throws IOException, InterruptedException {

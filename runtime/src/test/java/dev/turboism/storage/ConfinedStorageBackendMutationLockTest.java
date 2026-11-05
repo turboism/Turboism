@@ -42,9 +42,9 @@ class ConfinedStorageBackendMutationLockTest {
         final ConfinedStorageBackend first = backend(firstRoots, (source, target, replaceExisting) -> {
             writeEnteredMover.countDown();
             await(releaseWrite);
-            StorageAtomicMover.move(source, target, replaceExisting);
+            StorageFiles.moveAtomically(source, target, replaceExisting);
         });
-        final ConfinedStorageBackend alias = backend(secondRoots, StorageAtomicMover::move);
+        final ConfinedStorageBackend alias = backend(secondRoots, StorageFiles::moveAtomically);
         final AtomicReference<StorageWriteResult> write = new AtomicReference<>();
         final AtomicReference<StorageWriteResult> aliasWrite = new AtomicReference<>();
 
@@ -77,9 +77,9 @@ class ConfinedStorageBackendMutationLockTest {
         final ConfinedStorageBackend first = backend(roots, (source, target, replaceExisting) -> {
             writeEnteredMover.countDown();
             await(releaseWrite);
-            StorageAtomicMover.move(source, target, replaceExisting);
+            StorageFiles.moveAtomically(source, target, replaceExisting);
         });
-        final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend second = backend(roots, StorageFiles::moveAtomically);
         final AtomicReference<StorageWriteResult> write = new AtomicReference<>();
         final AtomicReference<StorageMutationResult> move = new AtomicReference<>();
         final AtomicReference<StorageMutationResult> delete = new AtomicReference<>();
@@ -116,7 +116,7 @@ class ConfinedStorageBackendMutationLockTest {
             await(releaseCleanup);
             return Files.deleteIfExists(temporary);
         });
-        final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend second = backend(roots, StorageFiles::moveAtomically);
         final AtomicReference<StorageWriteResult> failedWrite = new AtomicReference<>();
         final AtomicReference<StorageWriteResult> competingWrite = new AtomicReference<>();
 
@@ -153,7 +153,7 @@ class ConfinedStorageBackendMutationLockTest {
             await(releaseCleanup);
             return Files.deleteIfExists(temporary);
         });
-        final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend second = backend(roots, StorageFiles::moveAtomically);
         final AtomicReference<StorageMutationResult> failedCopy = new AtomicReference<>();
         final AtomicReference<StorageMutationResult> competingDelete = new AtomicReference<>();
 
@@ -185,9 +185,9 @@ class ConfinedStorageBackendMutationLockTest {
         final ConfinedStorageBackend holder = backend(roots, (source, target, replaceExisting) -> {
             writeEnteredMover.countDown();
             await(releaseWrite);
-            StorageAtomicMover.move(source, target, replaceExisting);
+            StorageFiles.moveAtomically(source, target, replaceExisting);
         });
-        final ConfinedStorageBackend waiter = backend(roots, StorageAtomicMover::move);
+        final ConfinedStorageBackend waiter = backend(roots, StorageFiles::moveAtomically);
         final Thread holderThread = new Thread(() -> holder.writeBytesAtomic(path("held.txt"), new byte[] {1}, true));
         holderThread.start();
         assertTrue(writeEnteredMover.await(2, TimeUnit.SECONDS));
@@ -218,8 +218,8 @@ class ConfinedStorageBackendMutationLockTest {
             final Roots roots = roots("race-" + iteration);
             Files.writeString(roots.data().resolve("data-source.txt"), "data");
             Files.writeString(roots.state().resolve("state-source.txt"), "state");
-            final ConfinedStorageBackend first = backend(roots, StorageAtomicMover::move);
-            final ConfinedStorageBackend second = backend(roots, StorageAtomicMover::move);
+            final ConfinedStorageBackend first = backend(roots, StorageFiles::moveAtomically);
+            final ConfinedStorageBackend second = backend(roots, StorageFiles::moveAtomically);
             final CountDownLatch ready = new CountDownLatch(2);
             final CountDownLatch start = new CountDownLatch(1);
             final AtomicReference<StorageMutationResult> dataToState = new AtomicReference<>();

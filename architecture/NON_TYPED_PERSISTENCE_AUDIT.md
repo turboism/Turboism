@@ -42,7 +42,7 @@ Paths are relative to `<turboism-home>` unless stated otherwise.
 | --- | --- | --- | --- | --- |
 | legacy global config | `config.json` | `RuntimeConfigRepository#writeLocked`; facades `RuntimeSettingsFileService`, `CubismJvmSettingsFileService`, `OptimizationSettingsFileService` | `RuntimeConfigRepository#readLocked` + `RuntimeConfigValidator#validateForRead` | every facade delegates to `RuntimeConfigRepository#update`; no read-time migration; missing file is seeded from `defaults()` |
 | plugin key-value config | `<plugin data dir>/*.properties` | `RuntimePluginConfigRegistry#writeProperty` (`java.util.Properties.store`) | `RuntimePluginConfigRegistry#read` | temp file + atomic move; parse happens before mutation; last writer wins |
-| plugin private state | `data/<pluginId>/`, `state/<pluginId>/`, `cache/<pluginId>/` | plugin code through `RuntimePluginStorage` / `ConfinedStorageBackend#writeBytesAtomicLocked` | plugin code | `StorageFiles#writeDurably` (`CREATE_NEW` + `force`) then `StorageAtomicMover#move`; no runtime format layer |
+| plugin private state | `data/<pluginId>/`, `state/<pluginId>/`, `cache/<pluginId>/` | plugin code through `RuntimePluginStorage` / `ConfinedStorageBackend#writeBytesAtomicLocked` | plugin code | `StorageFiles#writeDurably` (`DurableFile` create-once + `force`) then `StorageFiles#moveAtomically` (atomic replace, fail-closed); no runtime format layer |
 | plugin install/enable journal | `state/runtime/plugin-management/pending.json` | `PendingPluginOperations#writeOperations` | `PendingPluginOperations#readJournal` / `#operations` / `#apply` | journal is the recovery record; `failed-pending.json` is suspended intent, not a second format |
 | plugin catalog state | `state/runtime/plugin-management/catalog-state.json` | `PluginCatalogStateStore#save` | `PluginCatalogStateStore#read` | v2 closed schema; v1 is refused rather than migrated; corrupt state reads as empty |
 | framework update journal | `state/runtime/update/helper/journal.json` | `FrameworkUpdateApplier#writeJournal` / `#writeAtomic` | `FrameworkUpdateApplier#readJournal` / `#recover` / `#prepareLaunch` | state machine `PREPARED → APPLYING → AWAITING_HEALTH/COMMITTED`; backups under `helper/backup/` restore files, `installed-build.json` and the receipt index |
@@ -59,12 +59,37 @@ Paths are relative to `<turboism-home>` unless stated otherwise.
 
 | Primitive | Used by | Notes |
 | --- | --- | --- |
-| JVM per-path lock (`ConcurrentHashMap<Path,Object>` + `synchronized`) | `RuntimeConfigRepository`, `PluginCatalogStateStore`, `UpdateFileSupport` stores | serializes writers inside one JVM; no cross-process lock |
+| JVM per-path lock (`dev.turboism.core.io.PathLocks` + `synchronized`) | `PluginCatalogStateStore`; `RuntimeConfigRepository`, `UpdateFileSupport` stores until their slice lands | one monitor per normalized absolute path, so two packages serializing on the same path now share it; no cross-process lock |
 | `synchronized` instance methods | `PendingPluginOperations` | serializes staging/apply inside one instance/JVM; `PluginUpdateGate` adds a root lease for coordinated flows |
-| temp sibling + `force` + `ATOMIC_MOVE` | config, plugin journal, catalog state, update state/preferences, update journal, receipt index | `RuntimePluginConfigRegistry` writes a temp file and atomically moves it but does not `force` before publication |
-| `CREATE_NEW` + `force` + atomic move | `ConfinedStorageBackend` | plugin private state; fails closed when the filesystem cannot move atomically |
+| temp sibling + `force` + `DurableFile` publication (`dev.turboism.core.io`) | probe report/rollback manifest, physics GIF, plugin journal, catalog state, plugin packages (`ConfinedPluginFiles`, `ConfinedStagingFiles`), legacy home migration, config, update state/preferences, update journal, receipt index | one module stages a unique sibling, forces it, checks the caller's `PublishGuard` and renames; `Atomicity.REQUIRED` fails closed, `PREFERRED` keeps the documented fallback of `RuntimePluginConfigRegistry` and the probe writers |
+| `CREATE_NEW` + `force` + atomic move | `ConfinedStorageBackend` via `StorageFiles` | plugin private state; both steps are `DurableFile` calls, and the backend keeps its own temporary sibling so cleanup evidence stays countable |
 | rollback journal + backups | `FrameworkUpdateApplier` | backs up every replaced payload, `installed-build.json` and the receipt index before mutation |
 | symlink rejection | all runtime-owned paths above | `NOFOLLOW_LINKS` plus explicit ancestor checks; plugin storage is confined to three roots |
+
+### 1.2 Durable-write disposition
+
+`dev.turboism.core.io.DurableFile` owns every publication whose result is a single file. The sites
+below are deliberately **not** one, and each keeps its own mechanism. A site belongs in this table
+when it never publishes a whole document (append-only streams, scratch downloads), when the thing
+being published is a directory tree, or when the publication is a transaction across several files
+that a single rename cannot express. Classes: **AP** append-only stream, **ST** streamed/large
+transfer, **IM** immutable create-once, **NA** no atomic publication possible, **NE** private temp
+never published, **DP** directory publish.
+
+| Site (`runtime/src/main/java/dev/turboism/…`) | What it does | Class | Why it stays outside `DurableFile` | Owner |
+| --- | --- | --- | --- | --- |
+| `update/FrameworkUpdateDownloader.java:561` | `newOutputStream(part, APPEND)` for a ranged download | AP | resumable part file is cache state, never a published document | update |
+| `pluginmanagement/PluginCatalogClient.java:684` | streamed catalog/signature download with progress and deadline | ST | the caller verifies the digest before use; the stream is not a document | pluginmanagement |
+| `kernel/KernelLog.java:160,655` | append-only session log and rotation | AP | loss of the tail is acceptable and bounded | kernel |
+| `adapter/cubism/editor/EditorObjectValidationTrace.java:88`, `adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateBridge.java:917`, `ModelUpdateSkipBridge`, `adapter/cubism/textureatlas/cache/AtlasCacheReuseDelegate.java:218`, `AtlasCacheReuseTransformer`, `TextureAtlasAutoLayoutTransformer` | append-only evidence lines under `logs/` | AP | diagnostics: a failure is swallowed on purpose so it can never change host mutation behaviour | adapter |
+| `graal/ManagedGraalRuntimeService.java:320` | `CREATE_NEW` activation marker | IM | create-once one-line marker behind an identity-checked parent; there is no payload to force | graal |
+| `graal/ManagedGraalRuntimeService.java:586,669` | downloads into a scratch directory | ST | streamed and hash-checked later | graal |
+| `shell/SaveDirectoryHistoryProvider.java:68` | `Properties.store` directly onto the final file | NA | no temporary at all; a crash truncates two recent-directory slots | shell |
+| `ui/appearance/ThemeRuntimeProperties.java:48` | `Files.writeString` into `java.io.tmpdir` | NA | documented non-atomic; FlatLaf tolerates it | ui |
+| `exportsettings/ProtectedExportStaging.java:73,175` | multi-file publish with per-file scratch backup and rollback | NA | a transaction across a user-chosen directory outside Turboism home; needs the backup journal, not one rename | exportsettings |
+| `distribution/{PluginArtifactInspector,LocalPluginJarPreparer,LocalPluginPackageInspector,LocalFrameworkPackageInspector}`, `mapping/draft/ArtifactSnapshotter`, `core/runtime/psd/PsdStableSnapshot` | owner-only private temp snapshot | NE | the snapshot is read back and deleted, never published at a target path | distribution, mapping, core |
+| `adapter/cubism/physics/PhysicsGifRecorder` raw capture | frames recorded into a scratch file | NE | the scratch recording is retained for retry and only the encoded GIF is published (through `DurableFile`) | adapter |
+| `update/FrameworkUpdateStage` (`.building` tree), `graal/ManagedGraalRuntimeService#moveAtomically` (managed runtime home swap), `pluginmanagement/PendingPluginOperations` backup/restore trees | rename, create or delete a whole directory tree | DP | a directory rename has no file payload to stage, force and publish; `ATOMIC_MOVE` plus the caller's identity checks is the strongest step available | update, graal, pluginmanagement |
 
 ## 2. Named threat / failure matrix
 
