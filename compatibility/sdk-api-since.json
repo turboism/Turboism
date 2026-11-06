@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "0a84c9c92bdbbad2d08f0530ae4a4de01a88f225292adbb7eee33f27fb5376db",
+  "surfaceSha256": "20081d49eb6328c8c9ff21c7efb225b1b7f5e659e450fae54b1bdb2ecaff4b63",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
@@ -14,6 +14,7 @@
     "dev.turboism.sdk.cubism.export.ProtectedExportPlanner": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService$Unavailable": "0.68.0",
+    "dev.turboism.sdk.cubism.mesh.MeshCanvasSession": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface$MirrorAxisAngleControl": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface$Unavailable": "0.68.1",
@@ -47,6 +48,7 @@
   },
   "members": {
     "dev.turboism.sdk.cubism.export.ExportSettingsContributionService#contributeProtectedExport:(Ldev/turboism/sdk/cubism/export/ProtectedExportContribution;)Ldev/turboism/sdk/plugin/Registration;": "0.68.1",
+    "dev.turboism.sdk.cubism.mesh.MeshToolContext#canvasSession:()Ldev/turboism/sdk/cubism/mesh/MeshCanvasSession;": "0.68.1",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#<init>:(Ljava/lang/String;Ljava/util/List;ILjava/util/Optional;)V": "0.68.0",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#opacity:()Ljava/util/Optional;": "0.68.0",
     "dev.turboism.sdk.cubism.model.Deformer#ordinaryKeyformWriteSupport:()Ldev/turboism/sdk/cubism/model/OrdinaryKeyformWriteSupport;": "0.68.0",
@@ -70,6 +72,8 @@
     "dev.turboism.sdk.plugin.PluginDescriptor#hotReload:()Z": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
     "dev.turboism.sdk.plugin.PluginService#HOST_VIEW_PANEL": "0.68.1",
+    "dev.turboism.sdk.plugin.PluginService#MESH_EDIT_CONTRIBUTION": "0.68.1",
+    "dev.turboism.sdk.plugin.PluginService#MESH_MIRROR_CONTROL": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#PREVIEW_FRAMES": "0.68.1",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",

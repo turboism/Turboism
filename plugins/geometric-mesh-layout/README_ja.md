@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -20,7 +20,7 @@ interface: embedded
 
 ## 要件と互換性
 
-Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.1,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
@@ -44,7 +44,7 @@ Turboism 公式配布パッケージに同梱されています。プラグイ�
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | メッシュ編集ツールバーにカスタムツールを登録します。 |
-| `cubism.mesh.point-and-edge-layout` | このプラグインが登録したツールにランタイムの点・線配置ブラシを割り当てます。 |
+| `cubism.mesh.point-and-edge-layout` | このプラグインのプレビューを描画し、生成した点と辺を 1 回の Undo で確定するランタイムのキャンバスセッションを提供します。 |
 
 ## 権限
 
