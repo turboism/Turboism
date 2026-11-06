@@ -38,6 +38,11 @@ public final class CapabilityAdmission {
     public static final String MESH_POINT_AND_EDGE_LAYOUT = "mesh.point-and-edge-layout";
     /** Protected-export pipeline armed for the declared orchestration owner. */
     public static final String EXPORT_PROTECTED_ORCHESTRATION = "export.protected-orchestration";
+    /**
+     * Host view panel attachment surface: whichever plugin declares the host-view-panel capability
+     * and holds the panel-contribution permission may render panel content into a host view anchor.
+     */
+    public static final String UI_HOST_VIEW_PANEL = "ui.host-view-panel";
 
     private static final Set<CapabilityRule> RULES = index(List.of(
             new CapabilityRule(
@@ -59,7 +64,11 @@ public final class CapabilityAdmission {
             new CapabilityRule(
                     EXPORT_PROTECTED_ORCHESTRATION,
                     Set.of("cubism.export.protected"),
-                    Set.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ))));
+                    Set.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ)),
+            new CapabilityRule(
+                    UI_HOST_VIEW_PANEL,
+                    Set.of("ui.host-view-panel.contribute"),
+                    Set.of(PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE))));
 
     private CapabilityAdmission() {}
 

@@ -10,7 +10,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- The SDK adds the incubating `HostViewPanel` capability with `HostViewPanelHandle`, the `HostViewAnchors` anchor constants and the `PluginService.HOST_VIEW_PANEL` directory member: a plugin attaches `PanelView` content to a named host view (the native texture-atlas editor first), the runtime renders it, marshals updates onto the editor thread and drops them once the plugin generation is fenced.
+
 - Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory.
+
+### Deprecated
+
+- `TextureAtlasEditorUi` and `TextureAtlasEditorPanel` are deprecated for removal; both keep working as a thin adapter over `HostViewPanel`. Use `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` and `HostViewPanelHandle.setContent(PanelView)` instead.
 
 ### Fixed
 

@@ -25,9 +25,14 @@
       "id": "turboism.cubism.model.read",
       "scope": "application",
       "reason": "Read model-image counts from the active texture-atlas editor session."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Attach the statistics line to the native texture-atlas editor window."
     }
   ],
-  "capabilities": ["cubism.texture-atlas.statistics"],
+  "capabilities": ["cubism.texture-atlas.statistics", "ui.host-view-panel.contribute"],
   "environment": {
     "requiresCubism": true,
     "ui": "swing"

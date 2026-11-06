@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "4ab6b6b3adfcc5ffa930f48980e4c9f61bf81c5c983634a72ca22f5ec390aafb",
+  "surfaceSha256": "d7450b30d4626e2c2947f6b7f54d82c725850680c8cb3d6b3f78ff47acf48d84",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
@@ -25,6 +25,10 @@
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$1": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$Reason": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize": "0.67.2",
+    "dev.turboism.sdk.ui.HostViewAnchors": "0.68.1",
+    "dev.turboism.sdk.ui.HostViewPanel": "0.68.1",
+    "dev.turboism.sdk.ui.HostViewPanel$Unavailable": "0.68.1",
+    "dev.turboism.sdk.ui.HostViewPanelHandle": "0.68.1",
     "dev.turboism.sdk.ui.SelectionTableDialogRequest": "0.68.0",
     "dev.turboism.sdk.ui.SelectionTableDialogRequest$Row": "0.68.0",
     "dev.turboism.sdk.ui.SelectionTableDialogResultListener": "0.68.0",
@@ -55,6 +59,7 @@
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner#supportsCompleteAtlas:()Z": "0.67.2",
     "dev.turboism.sdk.plugin.PluginDescriptor#hotReload:()Z": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
+    "dev.turboism.sdk.plugin.PluginService#HOST_VIEW_PANEL": "0.68.1",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
     "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",

@@ -10,7 +10,13 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- SDK에 인큐베이팅 `HostViewPanel` 기능(`HostViewPanelHandle`, `HostViewAnchors` 앵커 상수, `PluginService.HOST_VIEW_PANEL` 디렉터리 멤버)을 추가했습니다. 플러그인은 `PanelView` 내용을 이름이 지정된 호스트 뷰(우선 네이티브 텍스처 아틀라스 편집기)에 붙이고, 렌더링과 편집기 스레드에서의 갱신 적용, 플러그인 세대 종료 후 갱신의 조용한 폐기는 런타임이 담당합니다.
+
 - 물리 시뮬레이션 미리보기에 GIF 녹화를 추가했습니다. 녹화/일시 정지/계속, 정지/버리기 및 단축키 등록, 녹화 후 크기 설정, Gifsicle 목표 크기 최적화 (기본 20 MB), GIF 내보내기 폴더 저장을 지원합니다.
+
+### 폐기 예정
+
+- `TextureAtlasEditorUi`와 `TextureAtlasEditorPanel`을 제거 예정으로 폐기했습니다. 두 인터페이스는 `HostViewPanel` 위의 얇은 어댑터로 계속 동작합니다. 대신 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)`와 `HostViewPanelHandle.setContent(PanelView)`를 사용하세요.
 
 ## [0.68.1] - 2026-10-30
 

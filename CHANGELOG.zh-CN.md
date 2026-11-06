@@ -10,7 +10,13 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- SDK 新增孵化中的 `HostViewPanel` 能力（含 `HostViewPanelHandle`、`HostViewAnchors` 锚点常量与 `PluginService.HOST_VIEW_PANEL` 目录成员）：插件可把 `PanelView` 内容挂到指定的宿主视图（首期为原生纹理图集编辑器），由运行时负责渲染、在编辑器线程上应用更新，并在插件代际关闭后静默丢弃更新。
+
 - 物理模拟预览新增 GIF 录制：支持录制／暂停／继续、停止／放弃及注册快捷键、录制后调整导出尺寸、可选 Gifsicle 目标大小优化（默认 20 MB），并持久化 GIF 专用导出目录。
+
+### 已弃用
+
+- `TextureAtlasEditorUi` 与 `TextureAtlasEditorPanel` 已标记为待移除；两者仍作为 `HostViewPanel` 之上的薄适配器继续可用。请改用 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` 与 `HostViewPanelHandle.setContent(PanelView)`。
 
 ## [0.68.1] - 2026-10-30
 

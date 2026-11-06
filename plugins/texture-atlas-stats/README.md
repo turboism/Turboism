@@ -30,7 +30,7 @@ Shows total and current-texture model-image counts in Cubism's native texture-at
 
 ## What it does
 
-- Attaches one localized statistics line to the active texture-atlas editor UI.
+- Attaches one localized statistics line to the active texture-atlas editor UI through the framework host-view panel capability.
 - Refreshes total model-image and selected-texture image counts once per second while the panel is visible; a hidden or closed editor view is not polled.
 - Displays an unavailable state instead of propagating read failures to the host UI.
 
@@ -44,9 +44,7 @@ Shows total and current-texture model-image counts in Cubism's native texture-at
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
 Full feature set (reviewed versions): 5.2.00–5.2.03, 5.3.00–5.3.04.
-- Atlas editor panel only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
 - Native atlas editor session access only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
-- Native atlas editor UI contribution only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
@@ -65,12 +63,14 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 | Declared capability | User effect |
 |---|---|
 | `cubism.texture-atlas.statistics` | Reads model-image counts from the active texture-atlas editor session. |
+| `ui.host-view-panel.contribute` | Renders the statistics line into the native texture-atlas editor window. |
 
 ## Permissions
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | Read model-image counts from the active texture-atlas editor session. |
+| `turboism.ui.panel.contribute` | `application` | Attach the statistics line to the native texture-atlas editor window. |
 
 ## Privacy and data
 
