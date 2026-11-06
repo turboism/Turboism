@@ -4,13 +4,21 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -502,6 +510,64 @@ final class ServiceGateInstallerTest {
 
         assertEquals("DisposableScope is already closed", first.getMessage());
         assertEquals(first.getMessage(), second.getMessage(), "the rejected resolver slot must have been released");
+    }
+
+    // ------------------------------------------------------------------
+    // The consolidated mesh surfaces
+    // ------------------------------------------------------------------
+
+    /**
+     * The two consolidated surfaces re-declare the released rows operation for operation, so a
+     * plugin migrating to them keeps exactly the permission checks and audit operation ids it had.
+     */
+    @Test
+    @SuppressWarnings("removal") // the released rows the consolidated surfaces repeat
+    void consolidatedMeshRowsRepeatTheReleasedPermissionsAndOperationIds() {
+        assertRepeatsRow(
+                MeshMirrorControl.class, "currentAngleDegrees", MeshMirrorAxisService.class, "currentAngleDegrees");
+        assertRepeatsRow(
+                MeshMirrorControl.class,
+                "setCurrentAngleDegrees",
+                MeshMirrorAxisService.class,
+                "setCurrentAngleDegrees");
+        assertRepeatsRow(MeshMirrorControl.class, "mirrorOf", MeshMirrorCounterparts.class, "mirrorOf");
+        assertRepeatsRow(MeshMirrorControl.class, "overrideResolver", MeshMirrorCounterparts.class, "overrideResolver");
+        assertRepeatsRow(MeshMirrorControl.class, "participate", MeshMirrorMoveParticipation.class, "participate");
+        assertRepeatsRow(
+                MeshMirrorControl.class, "extendEligibleTools", MeshMirrorToolEligibility.class, "extendEligibleTools");
+        assertRepeatsRow(MeshEditContributionSurface.class, "participate", MeshEditParticipation.class, "participate");
+        assertRepeatsRow(
+                MeshEditContributionSurface.class,
+                "contributeMirrorAxisAngleControl",
+                MeshEditUiService.class,
+                "contributeMirrorAxisAngleControl");
+
+        // Availability probes admit without a permission either way; only their operation id is
+        // new, because one consolidated surface probes once instead of four times.
+        assertNull(rowOf(MeshMirrorControl.class, "isAvailable").permissionId());
+        assertNull(rowOf(MeshEditContributionSurface.class, "isAvailable").permissionId());
+    }
+
+    private static void assertRepeatsRow(
+            final Class<?> consolidated,
+            final String consolidatedMethod,
+            final Class<?> released,
+            final String releasedMethod) {
+        final ServiceGate row = rowOf(consolidated, consolidatedMethod);
+        final ServiceGate original = rowOf(released, releasedMethod);
+        final String subject = consolidated.getName() + "." + consolidatedMethod;
+
+        assertEquals(original.permissionId(), row.permissionId(), subject + " must demand the released permission");
+        assertEquals(original.operationId(), row.operationId(), subject + " must keep the released operation id");
+        assertEquals(original.access(), row.access(), subject + " must keep the released access class");
+    }
+
+    private static ServiceGate rowOf(final Class<?> api, final String method) {
+        final List<ServiceGate> rows = ServiceGateInstaller.rowsFor(api).stream()
+                .filter(row -> row.method().equals(method))
+                .toList();
+        assertEquals(1, rows.size(), api.getName() + " must declare exactly one row for " + method);
+        return rows.get(0);
     }
 
     // ------------------------------------------------------------------

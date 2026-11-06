@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Mirror counterpart resolution over the live host edit. */
+@SuppressWarnings("removal") // the released interface this registry keeps serving
 public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterparts {
 
     @Override
