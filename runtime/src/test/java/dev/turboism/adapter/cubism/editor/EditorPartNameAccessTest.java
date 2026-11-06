@@ -141,6 +141,7 @@ class EditorPartNameAccessTest {
                 "adapter.editor-model.readwrite",
                 includeNameCapability
                         ? java.util.Set.of(
+                                "cubism.editor-history.read",
                                 EditorPartNameSelectorContract.CAPABILITY_ID,
                                 EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
                                 EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
