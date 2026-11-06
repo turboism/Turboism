@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -27,6 +28,10 @@ CLIPMASK_RECORD = "cubism-5.0.00-clipmask.json"
 CLIPMASK_ALIAS = "cubism.clipmask.app-controller.instance"
 CLIPMASK_CLASS_ALIAS = "cubism.clipmask.doc-model.class"
 CLIPMASK_CAPABILITY = "cubism.clipmask.read"
+# The clipmask fixture family generates a vocabulary class, which makes its records the table a
+# ``ClipmaskAliases.<CONSTANT>`` reference resolves against.
+CLIPMASK_ALIASES = {"className": "ClipmaskAliases", "prefix": "cubism.clipmask."}
+CLIPMASK_ALIAS_CONSTANT = "ClipmaskAliases.APP_CONTROLLER_INSTANCE"
 SCENE_ALIAS = "cubism.scene-palette.controller.table"
 LOCAL_LITERAL = "cubism.clipmask.write"
 EDITOR_MODEL_ALIAS = "cubism.editor-model.parameter.value"
@@ -48,9 +53,11 @@ def selector(alias: str, kind: str = "method") -> dict:
     }
 
 
-def family_document(name: str, records: list[str], strict: bool = False) -> dict:
+def family_document(
+    name: str, records: list[str], strict: bool = False, aliases: dict | None = None
+) -> dict:
     """Return one family authoring document with a vocabulary declaration."""
-    return {
+    document = {
         "format": "turboism.verification-source-family/v1",
         "family": name,
         "records": records,
@@ -61,6 +68,9 @@ def family_document(name: str, records: list[str], strict: bool = False) -> dict
         "coverageSources": [],
         "vocabulary": {"admissionEqualsUse": strict},
     }
+    if aliases is not None:
+        document["aliases"] = aliases
+    return document
 
 
 def write(root: Path, relative: str, text: str) -> Path:
@@ -110,7 +120,7 @@ def fixture(root: Path) -> Path:
     """Write a minimal repository tree the checker can admit without a violation."""
     editor_model_base = set(CHECKER.REVIEWED_UNCONSUMED_ALIASES) | {EDITOR_MODEL_ALIAS}
     write_json(root, "scripts/verification-sources/families/clipmask.json",
-               family_document("clipmask", [CLIPMASK_RECORD]))
+               family_document("clipmask", [CLIPMASK_RECORD], aliases=CLIPMASK_ALIASES))
     write_json(root, "scripts/verification-sources/families/editor-model.json",
                family_document(
                    "editor-model",
@@ -350,6 +360,10 @@ class HostAliasVocabularyTest(unittest.TestCase):
         self.assertIn("moved away from their pinned file", report)
 
     def test_pinned_alias_that_became_recorded_must_be_unpinned(self):
+        # The pinned alias lives outside the family's vocabulary prefix, so this tree declares no
+        # generated vocabulary: it compares the pin against the records, not the constant names.
+        write_json(self.root, "scripts/verification-sources/families/clipmask.json",
+                   family_document("clipmask", [CLIPMASK_RECORD]))
         path = self.root / record_path(CLIPMASK_RECORD)
         document = json.loads(path.read_text(encoding="utf-8"))
         document["selectors"].append(selector(SCENE_ALIAS))
@@ -432,6 +446,79 @@ class HostAliasVocabularyTest(unittest.TestCase):
             f'        resolver.invoke("{CLIPMASK_CAPABILITY}.extra", null);'))
         report = failures(self.root)
         self.assertIn(f"{CLIPMASK_CAPABILITY}.extra", report)
+
+
+class GeneratedAliasVocabularyTest(unittest.TestCase):
+    """Following ``<Family>Aliases.<CONSTANT>`` references back to the records they name."""
+
+    def setUp(self) -> None:
+        self._directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self._directory.cleanup)
+        self.root = fixture(Path(self._directory.name))
+
+    def vocabulary(self) -> dict[str, dict[str, str]]:
+        return CHECKER.alias_vocabulary_classes(self.root, CHECKER.family_vocabulary(self.root))
+
+    def test_constant_reference_resolves_to_its_record_alias(self):
+        write(self.root, ADAPTER, adapter_body(
+            f'        resolver.invoke({CLIPMASK_ALIAS_CONSTANT}, null);'))
+        self.assertEqual(failures(self.root), "")
+        aliases, unresolved = CHECKER.implementation_scan(
+            self.root, vocabulary=self.vocabulary())
+        self.assertEqual([], unresolved)
+        self.assertIn(ADAPTER, aliases[CLIPMASK_ALIAS])
+
+    def test_constant_reference_keeps_the_vocabulary_derivation_injective(self):
+        # Two aliases that differ only in where the separator sits derive one constant name, which
+        # would make one of them unreachable from Java; the table refuses instead of picking one.
+        path = self.root / record_path(CLIPMASK_RECORD)
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["selectors"].append(selector("cubism.clipmask.app.controller-instance"))
+        path.write_text(json.dumps(document), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "both derive the constant name"):
+            self.vocabulary()
+
+    def test_record_alias_outside_the_declared_prefix_fails_closed(self):
+        # A family vocabulary covers one namespace; an alias of another namespace would derive a
+        # constant name that hides which owner it belongs to, so the declaration is an error.
+        path = self.root / record_path(CLIPMASK_RECORD)
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["selectors"].append(selector(SCENE_ALIAS))
+        path.write_text(json.dumps(document), encoding="utf-8")
+        with self.assertRaisesRegex(
+                ValueError, re.escape("is not a member of the 'cubism.clipmask.' namespace")):
+            self.vocabulary()
+
+    def test_unknown_vocabulary_constant_fails_closed(self):
+        write(self.root, ADAPTER, adapter_body(
+            '        resolver.invoke(ClipmaskAliases.APP_CONTROLLER_NOT_A_MEMBER, null);'))
+        report = failures(self.root)
+        self.assertIn("ClipmaskAliases.APP_CONTROLLER_NOT_A_MEMBER", report)
+        self.assertIn("no record declares", report)
+
+    def test_vocabulary_rollup_member_is_known(self):
+        # ``ALL`` is the vocabulary's own set of every alias, not an alias, so naming it is legal.
+        write(self.root, ADAPTER, adapter_body("        consume(ClipmaskAliases.ALL);"))
+        self.assertEqual(failures(self.root), "")
+
+    def test_family_without_a_vocabulary_declaration_declares_no_constants(self):
+        write_json(self.root, "scripts/verification-sources/families/clipmask.json",
+                   family_document("clipmask", [CLIPMASK_RECORD]))
+        self.assertEqual({}, self.vocabulary())
+
+    def test_vocabulary_declaration_shape_fails_closed(self):
+        write_json(self.root, "scripts/verification-sources/families/clipmask.json",
+                   family_document(
+                       "clipmask", [CLIPMASK_RECORD],
+                       aliases={"className": "ClipmaskVocabulary", "prefix": "cubism.clipmask."}))
+        with self.assertRaisesRegex(ValueError, re.escape("must be a <Family>Aliases name")):
+            CHECKER.family_vocabulary(self.root)
+        write_json(self.root, "scripts/verification-sources/families/clipmask.json",
+                   family_document(
+                       "clipmask", [CLIPMASK_RECORD],
+                       aliases={"className": "ClipmaskAliases", "prefix": "cubism/clipmask."}))
+        with self.assertRaisesRegex(ValueError, "prefix must be a dotted lowercase namespace"):
+            CHECKER.family_vocabulary(self.root)
 
 
 if __name__ == "__main__":

@@ -3,15 +3,17 @@
 
 Which vocabulary a ``cubism.*`` string belongs to is decided by the call site, never by the
 string alone. This checker owns the alias vocabulary: every string literal that sits in a
-reviewed alias namespace, and every literal a ``VerifiedMemberResolver`` alias accessor receives,
-has to be declared by an admitted record of a family that declares a ``vocabulary`` block in
+reviewed alias namespace, every literal a ``VerifiedMemberResolver`` alias accessor receives, and
+every ``<Family>Aliases.<CONSTANT>`` reference to a generated alias vocabulary has to be declared
+by an admitted record of a family that declares a ``vocabulary`` block in
 ``scripts/verification-sources/families/*.json``, or be one of the deliberately unrecorded
 aliases pinned by alias, file and reason in ``scripts/verification-sources/no-record-aliases.json``.
 
 Two directions are enforced:
 
 * existence — an invoked alias with no reviewed record and no pin fails closed, so a typo in a
-  member segment cannot reach a user's host;
+  member segment cannot reach a user's host; the same holds for a constant that no record
+  declares, which is why the derived table is compared rather than trusted;
 * admission — a family that declares ``admissionEqualsUse`` (editor-model) keeps its exact-record
   admission policy: the aliases its records admit may not exceed the aliases production invokes,
   minus the pinned remainder, so reviewed admission cannot widen silently.
@@ -34,6 +36,10 @@ from pathlib import Path
 _SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.alias_vocabulary import RESERVED_NAMES
+from turboism_dev.alias_vocabulary import VocabularyError
+from turboism_dev.alias_vocabulary import constants as vocabulary_constants
+from turboism_dev.alias_vocabulary import declaration as vocabulary_declaration
 from turboism_dev.json_io import read_json
 
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
@@ -65,6 +71,9 @@ ALIAS_LITERAL = re.compile(r'"([^"]*)"')
 ALIAS_CONSTANT_DEFINITION = re.compile(
     r'public\s+static\s+final\s+String\s+([A-Z][A-Z0-9_]*_ALIAS)\s*=\s*"([^"]*)"')
 ALIAS_CONSTANT_REFERENCE = re.compile(r'\.\s*([A-Z][A-Z0-9_]*_ALIAS)\b')
+# Generated vocabularies are named ``<Family>Aliases`` by the generator, so a reference can only be
+# a vocabulary reference when the receiver is one of the classes a family declares.
+VOCABULARY_MEMBER = re.compile(r'\b([A-Z][A-Za-z0-9]*Aliases)\s*\.\s*([A-Z][A-Z0-9_]*)\b')
 VERIFICATION_PATH = "/mapping/verification/"
 # OptimizationCatalog declares bootstrap HookContributor policyIds (hookIds),
 # not VerifiedMemberResolver member aliases.
@@ -106,6 +115,8 @@ class FamilyVocabulary:
     name: str
     records: tuple[str, ...]
     admission_equals_use: bool
+    aliases_class: str | None = None
+    aliases_prefix: str | None = None
 
 
 @dataclass(frozen=True)
@@ -146,6 +157,7 @@ class Vocabulary:
     used: int
     pins: int
     local_vocabulary: int
+    vocabulary_constants: int
     unrecorded: tuple[str, ...]
     unused: tuple[str, ...]
 
@@ -156,7 +168,9 @@ def family_vocabulary(root: Path) -> dict[str, FamilyVocabulary]:
     Family data, not a name list here, decides which records back the alias vocabulary:
     ``compatibility-catalog`` aggregates every other family's records and ``validation-lanes``
     has none, so neither declares a block. A declared family has to name readable records,
-    otherwise the alias side of the comparison would silently shrink.
+    otherwise the alias side of the comparison would silently shrink. An ``aliases`` block is
+    carried through as the family's generated vocabulary declaration, so the caller can resolve
+    ``<Family>Aliases.<CONSTANT>`` references against the same records.
     """
     base = root / FAMILY_ROOT
     if not base.is_dir():
@@ -182,6 +196,7 @@ def family_vocabulary(root: Path) -> dict[str, FamilyVocabulary]:
             name=name,
             records=records,
             admission_equals_use=bool(vocabulary.get("admissionEqualsUse")),
+            **_aliases_declaration(document, name),
         )
     if not families:
         raise ValueError(f"{FAMILY_ROOT}: no family declares a vocabulary block")
@@ -193,6 +208,71 @@ def family_vocabulary(root: Path) -> dict[str, FamilyVocabulary]:
     if ADMISSION_FAMILY not in families or not families[ADMISSION_FAMILY].admission_equals_use:
         raise ValueError(f"{ADMISSION_FAMILY} must declare vocabulary.admissionEqualsUse")
     return families
+
+
+def _aliases_declaration(document: dict, name: str) -> dict[str, str | None]:
+    """Return the family's generated alias vocabulary declaration, if it has one.
+
+    Only a declared block makes a family's constants resolvable: a ``<Family>Aliases.<CONSTANT>``
+    reference is followed for the classes this returns, so a family that generates no vocabulary
+    contributes no aliases rather than a guessed table.
+    """
+    block = document.get("aliases")
+    if block is None:
+        return {"aliases_class": None, "aliases_prefix": None}
+    try:
+        class_name, prefix = vocabulary_declaration(block, name)
+    except VocabularyError as failure:
+        raise ValueError(f"{name}: {failure}") from failure
+    return {"aliases_class": class_name, "aliases_prefix": prefix}
+
+
+def alias_vocabulary_classes(
+    root: Path, families: dict[str, FamilyVocabulary]
+) -> dict[str, dict[str, str]]:
+    """Return ``class name -> {constant: alias}`` for every family that generates a vocabulary.
+
+    The table is derived from the same records and the same name derivation the generator uses
+    (``turboism_dev.alias_vocabulary``), so a reference can only resolve to an alias the records
+    actually declare; a name the derivation does not produce is reported, not guessed.
+    """
+    classes: dict[str, dict[str, str]] = {}
+    for family in sorted(families.values(), key=lambda entry: entry.name):
+        if family.aliases_class is None or family.aliases_prefix is None:
+            continue
+        aliases: set[str] = set()
+        for relative in family.records:
+            aliases |= selector_aliases(root, f"{RECORD_ROOT}/{relative}")
+        try:
+            classes[family.aliases_class] = vocabulary_constants(aliases, family.aliases_prefix)
+        except VocabularyError as failure:
+            raise ValueError(f"{family.name}: {failure}") from failure
+    return classes
+
+
+def vocabulary_members(
+    text: str, vocabulary: dict[str, dict[str, str]]
+) -> tuple[set[str], list[str]]:
+    """Return the aliases and the unresolved constants one source references.
+
+    ``ALL`` is the vocabulary's own roll-up set, not an alias, so it is a known member that
+    resolves to nothing. Any other member the derived table lacks is unresolved: the generator
+    would not emit it, so the reference cannot name a reviewed alias.
+    """
+    aliases: set[str] = set()
+    unresolved: list[str] = []
+    for class_name, constant in VOCABULARY_MEMBER.findall(text):
+        table = vocabulary.get(class_name)
+        if table is None:
+            continue
+        if constant in RESERVED_NAMES:
+            continue
+        alias = table.get(constant)
+        if alias is None:
+            unresolved.append(f"{class_name}.{constant}")
+            continue
+        aliases.add(alias)
+    return aliases, unresolved
 
 
 def no_record_vocabulary(root: Path) -> NoRecordVocabulary:
@@ -337,19 +417,28 @@ def is_alias_literal(value: str, namespaces: set[str]) -> bool:
     return any(value.startswith(namespace) for namespace in namespaces)
 
 
-def implementation_aliases(root: Path, namespaces: set[str] | None = None) -> dict[str, set[str]]:
-    """Return production aliases mapped to the sources that mention them.
+def implementation_scan(
+    root: Path,
+    namespaces: set[str] | None = None,
+    vocabulary: dict[str, dict[str, str]] | None = None,
+) -> tuple[dict[str, set[str]], list[str]]:
+    """Return production aliases mapped to their sources, plus unresolved vocabulary constants.
 
     Contracts, manifests and compatibility catalogs declare evidence instead of invoking a host
     member, so their literals never count as implementation use. ``namespaces`` of ``None``
     accepts every literal, which is what the unit tests use to pin the constant-following rules.
+    A ``vocabulary`` of generated ``<Family>Aliases`` tables makes every
+    ``<Family>Aliases.<CONSTANT>`` reference count as the record alias it names; a constant those
+    tables lack is returned as an unresolved reference, so an invented or renamed constant cannot
+    pass as an alias.
     """
     aliases: dict[str, set[str]] = {}
+    unresolved: list[str] = []
     constants: dict[str, str] = {}
     production_sources: list[tuple[Path, str]] = []
     base = root / IMPLEMENTATION_ROOT
     if not base.exists():
-        return aliases
+        return aliases, unresolved
     for source in sorted(base.rglob("*.java")):
         text = source.read_text(encoding="utf-8")
         if VERIFICATION_PATH in source.as_posix():
@@ -379,10 +468,25 @@ def implementation_aliases(root: Path, namespaces: set[str] | None = None) -> di
             value = constants.get(name)
             if value is not None:
                 admit(value, source)
+        if vocabulary:
+            members, missing = vocabulary_members(text, vocabulary)
+            for alias in sorted(members):
+                admit(alias, source)
+            unresolved.extend(
+                f"{reference} ({source.relative_to(root).as_posix()})" for reference in missing)
         if "presetAlias(" in text and PRESET_ALIAS_PREFIX in text:
             for color in PRESET_COLORS:
                 admit(PRESET_ALIAS_PREFIX + color, source)
-    return aliases
+    return aliases, unresolved
+
+
+def implementation_aliases(
+    root: Path,
+    namespaces: set[str] | None = None,
+    vocabulary: dict[str, dict[str, str]] | None = None,
+) -> dict[str, set[str]]:
+    """Return the aliases production mentions; unresolved vocabulary references are dropped."""
+    return implementation_scan(root, namespaces, vocabulary)[0]
 
 
 def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
@@ -423,9 +527,10 @@ def check(root: Path) -> tuple[list[str], Vocabulary]:
     """Return the failure messages and the measured vocabulary of one repository tree."""
     families = family_vocabulary(root)
     declared = declared_aliases(root, families)
+    vocabulary = alias_vocabulary_classes(root, families)
     no_record = no_record_vocabulary(root)
     namespaces = alias_namespaces(declared) | set(no_record.namespaces)
-    implementation = implementation_aliases(root, namespaces)
+    implementation, unresolved = implementation_scan(root, namespaces, vocabulary)
     used = set(implementation)
     pins = {pin.alias: pin for pin in no_record.aliases}
     local = {entry.literal: entry for entry in no_record.local_vocabulary}
@@ -460,6 +565,11 @@ def check(root: Path) -> tuple[list[str], Vocabulary]:
     unconsumed_drift = sorted(REVIEWED_UNCONSUMED_ALIASES - union)
 
     failures: list[str] = []
+    if unresolved:
+        failures.append(
+            f"FAIL: {len(unresolved)} generated alias vocabulary reference(s) name a constant "
+            "no record declares:")
+        failures.extend(f"  {reference}" for reference in unresolved)
     if unrecorded:
         failures.append(
             f"FAIL: {len(unrecorded)} invoked host aliases lack reviewed evidence "
@@ -506,6 +616,7 @@ def check(root: Path) -> tuple[list[str], Vocabulary]:
         used=len(used),
         pins=len(pins),
         local_vocabulary=len(local),
+        vocabulary_constants=sum(len(table) for table in vocabulary.values()),
         unrecorded=tuple(unrecorded),
         unused=tuple(unused),
     )
@@ -536,6 +647,7 @@ def main() -> int:
         print(f"invoked aliases        : {measurement.used}")
         print(f"pinned no-record       : {measurement.pins}")
         print(f"local vocabulary       : {measurement.local_vocabulary}")
+        print(f"vocabulary constants   : {measurement.vocabulary_constants}")
         print(f"unrecorded (must be 0) : {len(measurement.unrecorded)}")
         for alias in measurement.unrecorded:
             print(f"    {alias}")
