@@ -117,6 +117,7 @@ class HostSessionCompositionApiTest {
                         "textureAtlasDataModelCapture():dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture",
                         "textureAtlasEditorUi():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi",
                         "hostViewPanels():dev.turboism.ui.panel.RuntimeHostViewPanelRegistry",
+                        "previewSurfaces():dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry",
                         "textureAtlasEditorSession():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession",
                         "textureAtlasAlgorithms():dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry",
                         "textureAtlasSelection():dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection",
