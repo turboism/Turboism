@@ -27,6 +27,7 @@ final class KernelPluginLoadCoordinator {
     private final KernelPluginShutdown shutdown;
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
     private final KernelLog log;
+    private final KernelPluginContextFactory contextFactory;
     private final PluginHotReloadCoordinator hotReloadCoordinator;
 
     KernelPluginLoadCoordinator(
@@ -57,6 +58,7 @@ final class KernelPluginLoadCoordinator {
                 lifecycleLane,
                 lifecyclePolicy,
                 retention);
+        this.contextFactory = java.util.Objects.requireNonNull(contextFactory, "contextFactory");
         this.shutdown = java.util.Objects.requireNonNull(shutdown, "shutdown");
         this.loaded = loaded;
         this.log = log;
@@ -111,59 +113,72 @@ final class KernelPluginLoadCoordinator {
         int waveIndex = 0;
         final long loadStarted = System.nanoTime();
         final dev.turboism.ui.host.EdtDispatch.Contention edtBefore = dev.turboism.ui.host.EdtDispatch.contention();
-        for (List<DependencyResolver.ResolvedPlugin> wave : loadWaves(resolution, candidates, disabled)) {
-            final long waveStarted = System.nanoTime();
-            log.info(
-                    "plugin-loader",
-                    "Plugin load wave started: wave=" + (++waveIndex) + " plugins="
-                            + wave.stream()
-                                    .map(DependencyResolver.ResolvedPlugin::id)
-                                    .toList());
-            final List<PreviewPluginCandidate> ready = new ArrayList<>();
-            for (DependencyResolver.ResolvedPlugin resolved : wave) {
-                final PreviewPluginCandidate candidate = candidates.get(resolved.id());
-                if (candidate == null || disabled.contains(resolved.id())) {
-                    continue;
+        final java.util.Map<String, long[]> edtLabelsBefore = dev.turboism.ui.host.EdtDispatch.labelSnapshot();
+        // Editor UI families are flushed once for the whole load instead of once per plugin per
+        // family: the host thread is busy booting, and every family reconcile costs a bounded EDT
+        // round trip. Contributions stay logically visible immediately; the flush at the end of
+        // this block realizes them and records any provider failure through the authority.
+        java.util.List<java.util.List<DependencyResolver.ResolvedPlugin>> waves =
+                loadWaves(resolution, candidates, disabled);
+        try (AutoCloseable deferred = contextFactory.deferEditorUiReconciles()) {
+            for (List<DependencyResolver.ResolvedPlugin> wave : waves) {
+                final long waveStarted = System.nanoTime();
+                log.info(
+                        "plugin-loader",
+                        "Plugin load wave started: wave=" + (++waveIndex) + " plugins="
+                                + wave.stream()
+                                        .map(DependencyResolver.ResolvedPlugin::id)
+                                        .toList());
+                final List<PreviewPluginCandidate> ready = new ArrayList<>();
+                for (DependencyResolver.ResolvedPlugin resolved : wave) {
+                    final PreviewPluginCandidate candidate = candidates.get(resolved.id());
+                    if (candidate == null || disabled.contains(resolved.id())) {
+                        continue;
+                    }
+                    final List<String> failedDependencies = failedDependencies(candidate.descriptor(), runtimeFailed);
+                    if (!failedDependencies.isEmpty()) {
+                        failures.add(new LocalPluginRuntime.PluginFailure(
+                                resolved.id(),
+                                candidate.jar(),
+                                "DEPENDENCY_LOAD_FAILED",
+                                "Required dependency failed to load: " + String.join(", ", failedDependencies)));
+                        log.warn(
+                                resolved.id(),
+                                "Plugin lifecycle: load skipped because required dependencies failed: "
+                                        + String.join(", ", failedDependencies));
+                        markRuntimeFailed(
+                                resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
+                        continue;
+                    }
+                    ready.add(candidate);
                 }
-                final List<String> failedDependencies = failedDependencies(candidate.descriptor(), runtimeFailed);
-                if (!failedDependencies.isEmpty()) {
-                    failures.add(new LocalPluginRuntime.PluginFailure(
-                            resolved.id(),
-                            candidate.jar(),
-                            "DEPENDENCY_LOAD_FAILED",
-                            "Required dependency failed to load: " + String.join(", ", failedDependencies)));
-                    log.warn(
-                            resolved.id(),
-                            "Plugin lifecycle: load skipped because required dependencies failed: "
-                                    + String.join(", ", failedDependencies));
-                    markRuntimeFailed(
-                            resolved.id(), candidates, requiredDependents, runtimeFailed, failures, summaries);
-                    continue;
+                // Admit the complete wave before awaiting any sibling.
+                final List<PluginClassLoader.PendingLoad> pending =
+                        ready.stream().map(loader::submitLoad).toList();
+                for (PluginClassLoader.PendingLoad attempt : pending) {
+                    final LocalPluginRuntime.LoadedPluginSummary summary = loader.finishLoad(attempt, failures);
+                    if (summary == null) {
+                        markRuntimeFailed(
+                                attempt.candidate().descriptor().id(),
+                                candidates,
+                                requiredDependents,
+                                runtimeFailed,
+                                failures,
+                                summaries);
+                    } else {
+                        summaries.add(summary);
+                    }
                 }
-                ready.add(candidate);
+                log.info(
+                        "plugin-loader",
+                        "Plugin load wave complete: wave=" + waveIndex + " elapsedMs="
+                                + java.time.Duration.ofNanos(System.nanoTime() - waveStarted)
+                                        .toMillis());
             }
-            // Admit the complete wave before awaiting any sibling.
-            final List<PluginClassLoader.PendingLoad> pending =
-                    ready.stream().map(loader::submitLoad).toList();
-            for (PluginClassLoader.PendingLoad attempt : pending) {
-                final LocalPluginRuntime.LoadedPluginSummary summary = loader.finishLoad(attempt, failures);
-                if (summary == null) {
-                    markRuntimeFailed(
-                            attempt.candidate().descriptor().id(),
-                            candidates,
-                            requiredDependents,
-                            runtimeFailed,
-                            failures,
-                            summaries);
-                } else {
-                    summaries.add(summary);
-                }
-            }
-            log.info(
-                    "plugin-loader",
-                    "Plugin load wave complete: wave=" + waveIndex + " elapsedMs="
-                            + java.time.Duration.ofNanos(System.nanoTime() - waveStarted)
-                                    .toMillis());
+        } catch (Exception flushFailure) {
+            // A deferred family flush reports through the authority's failure surface; the load
+            // itself already completed, so this must not convert into a plugin failure.
+            log.warn("plugin-loader", "Deferred Editor UI flush reported: " + flushFailure.getMessage());
         }
         log.info("plugin-loader", "Plugin load complete: loaded=" + summaries.size() + ", failed=" + failures.size());
         // Total worker time is what parallel loading actually pays for; the wall-clock window
@@ -180,6 +195,10 @@ final class KernelPluginLoadCoordinator {
                         + " parallelismEfficiency=" + parallelismEfficiency(workerBusyMillis, loadWindowMillis)
                         + " edtCalls=" + (edtAfter.calls() - edtBefore.calls())
                         + " edtWaitMs=" + (edtAfter.waitMillis() - edtBefore.waitMillis()));
+        log.info(
+                "plugin-loader",
+                "Plugin load EDT hot spots: "
+                        + dev.turboism.ui.host.EdtDispatch.costliestLabelsSince(edtLabelsBefore, 8));
         // A bare count is not diagnosable. An exact-host run reported failed=1 with nothing
         // naming the plugin or the reason, which cost several host sessions to narrow down by
         // hand; every failure now says which plugin, which code, and why.

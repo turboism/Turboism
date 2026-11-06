@@ -123,6 +123,16 @@ final class KernelPluginContextFactory implements AutoCloseable {
         return hostAccess;
     }
 
+    /**
+     * Defers Editor UI family reconciliation for the duration of a plugin load wave, so N plugin
+     * registrations cost one host-EDT round trip per family instead of one per plugin per family.
+     *
+     * @return scope whose close flushes every armed family
+     */
+    AutoCloseable deferEditorUiReconciles() {
+        return hostAccess.editorUiContributions().deferReconciles();
+    }
+
     GraalHostConfiguration graalConfiguration() {
         return graalConfiguration;
     }

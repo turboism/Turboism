@@ -103,6 +103,10 @@ final class PluginClassLoader {
         final PluginLifecycleLane.Invocation<LocalPluginRuntime.LoadedPlugin> invocation =
                 lane.submit(descriptor.id(), "load", () -> {
                     resources.workerStartedNanos = System.nanoTime();
+                    resources.edtCallsAtStart =
+                            dev.turboism.ui.host.EdtDispatch.threadContention().calls();
+                    resources.edtWaitAtStart =
+                            dev.turboism.ui.host.EdtDispatch.threadContention().waitMillis();
                     resources.timeline.mark("queue");
                     try {
                         return loadPlugin(candidate, runtime, resources, lease);
@@ -111,6 +115,10 @@ final class PluginClassLoader {
                         resources.cleanupComplete = cleanupFailed(resources, descriptor.id(), true);
                         throw failure;
                     } finally {
+                        final dev.turboism.ui.host.EdtDispatch.Contention mine =
+                                dev.turboism.ui.host.EdtDispatch.threadContention();
+                        resources.edtCallsAtEnd = mine.calls();
+                        resources.edtWaitAtEnd = mine.waitMillis();
                         resources.completedNanos = System.nanoTime();
                     }
                 });
@@ -140,7 +148,8 @@ final class PluginClassLoader {
         }
         final LoadTimeline timeline = resources.timeline;
         consumedLoadMillis.addAndGet(elapsedMillis);
-        final String profile = "Plugin load profile: totalMs=" + elapsedMillis + timeline;
+        final String edt = edtAttribution(resources);
+        final String profile = "Plugin load profile: totalMs=" + elapsedMillis + timeline + edt;
         // Slow loads and every failure are always profiled; a diagnostic launch can ask for
         // every plugin (-Dturboism.plugin.loadProfile=true) when a startup budget is being
         // attributed across the whole plugin set.
@@ -200,6 +209,19 @@ final class PluginClassLoader {
     /** @return cumulative worker-busy milliseconds of every finished load attempt */
     long consumedLoadMillis() {
         return consumedLoadMillis.get();
+    }
+
+    /**
+     * Off-EDT dispatch cost paid inside this load attempt. Plugin enable bodies register host UI
+     * contributions synchronously; attributing the hand-off to the plugin that caused it is what
+     * separates "the plugin did work" from "the plugin waited for the single host thread".
+     */
+    private static String edtAttribution(final LoadResources resources) {
+        final long calls = resources.edtCallsAtEnd - resources.edtCallsAtStart;
+        if (calls <= 0L) {
+            return "";
+        }
+        return " edtCalls=" + calls + " edtWaitMs=" + (resources.edtWaitAtEnd - resources.edtWaitAtStart);
     }
 
     record PendingLoad(
@@ -700,6 +722,10 @@ final class PluginClassLoader {
         volatile String phase = "queued";
         final LoadTimeline timeline = new LoadTimeline();
         volatile long workerStartedNanos;
+        volatile long edtCallsAtStart;
+        volatile long edtWaitAtStart;
+        volatile long edtCallsAtEnd;
+        volatile long edtWaitAtEnd;
         volatile long completedNanos;
         volatile URLClassLoader classLoader;
         final List<TurboismPlugin> entrypoints = new ArrayList<>();
