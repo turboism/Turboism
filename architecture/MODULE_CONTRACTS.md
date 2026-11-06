@@ -285,7 +285,7 @@ edge that made the selector package depend on the resolver. Leaf-package cycles:
   and `RuntimeTypedPluginConfigRegistryTest` as the production read/migrate/recover
   evidence through the real file store.
 - **Backward compatibility**: the on-disk format is frozen by
-  `tests/fixtures/snapshots/typed-config/**` and `checkGoldenSnapshotManifest`: the
+  `testing/fixtures/snapshots/typed-config/**` and `checkGoldenSnapshotManifest`: the
   `turboism-typed-config-v1` header, sorted base64url entries, schema-version and
   revision metadata must stay byte-identical. Migration failure, future-version
   rejection and idempotence semantics are unchanged; no SDK type, plugin lifecycle

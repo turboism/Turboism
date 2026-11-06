@@ -43,7 +43,7 @@
       "releaseTag": "v0.42.0",
       "releaseCommit": "4f75113d7cb269d3e14dde0077d02fb43cd70dad",
       "writer": "packaging/windows-installer/config.template.json (shipped seed installed verbatim by assemble-release.sh)",
-      "producerInvocation": "git show v0.42.0:packaging/windows-installer/config.template.json > tests/fixtures/snapshots/runtime-config/schema-v1/installer-template-0.42.0.json",
+      "producerInvocation": "git show v0.42.0:packaging/windows-installer/config.template.json > testing/fixtures/snapshots/runtime-config/schema-v1/installer-template-0.42.0.json",
       "deidentification": "Repository-shipped release seed: only release defaults (worktreeId turboism-runtime, pluginDirs [plugins]); no user data."
     },
     {
@@ -56,7 +56,7 @@
       "releaseTag": "v0.67.4",
       "releaseCommit": "d9d630c65b75e382f416f1559a8ead40eb99c56f",
       "writer": "packaging/windows-installer/config.template.json (shipped seed installed verbatim by assemble-release.sh)",
-      "producerInvocation": "git show v0.67.4:packaging/windows-installer/config.template.json > tests/fixtures/snapshots/runtime-config/schema-v1/installer-template-0.67.4.json",
+      "producerInvocation": "git show v0.67.4:packaging/windows-installer/config.template.json > testing/fixtures/snapshots/runtime-config/schema-v1/installer-template-0.67.4.json",
       "deidentification": "Repository-shipped release seed: only release defaults (worktreeId turboism-runtime, pluginDirs [plugins]); no user data."
     },
     {
@@ -233,7 +233,7 @@
       "releaseTag": "v0.67.4",
       "releaseCommit": "d9d630c65b75e382f416f1559a8ead40eb99c56f",
       "writer": "packaging/windows-installer/assemble-release.sh (release ZIP entry installed-build.json)",
-      "producerInvocation": "gh release download v0.67.4 -R turboism/Turboism --pattern turboism-0.67.4.zip; unzip -p turboism-0.67.4.zip installed-build.json > tests/fixtures/snapshots/installed-build/schema-v1/installed-build-zip-0.67.4.json",
+      "producerInvocation": "gh release download v0.67.4 -R turboism/Turboism --pattern turboism-0.67.4.zip; unzip -p turboism-0.67.4.zip installed-build.json > testing/fixtures/snapshots/installed-build/schema-v1/installed-build-zip-0.67.4.json",
       "deidentification": "Release artifact metadata only: the published version, the full variant and no build number; no host or user value."
     },
     {

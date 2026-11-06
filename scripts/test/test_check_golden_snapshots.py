@@ -10,7 +10,7 @@ unlisted or missing fixture, a symlinked fixture, an escaped/absolute path, a
 duplicate path, a bogus provenance and an empty inventory must all fail closed.
 
 Each case runs the real script as a subprocess inside a throwaway tree that
-mirrors the repository layout (`scripts/` plus `tests/fixtures/snapshots/`), so
+mirrors the repository layout (`scripts/` plus `testing/fixtures/snapshots/`), so
 the checker's own path resolution is exercised rather than stubbed.
 """
 
@@ -27,7 +27,7 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 CHECKER = SCRIPTS_DIR / "check_golden_snapshots.py"
 REPO_ROOT = SCRIPTS_DIR.parent
-REPO_FIXTURES = REPO_ROOT / "tests" / "fixtures" / "snapshots"
+REPO_FIXTURES = REPO_ROOT / "testing" / "fixtures" / "snapshots"
 FIXTURE_BYTES = b'{\n  "format": "turboism.runtime.config",\n  "schemaVersion": 1\n}\n'
 GOOD_CASE = {
     "id": "runtime-config-v1",
@@ -57,7 +57,7 @@ class SnapshotTree:
         self.root = Path(tempfile.mkdtemp(prefix="golden-snapshots-"))
         (self.root / "scripts").mkdir()
         shutil.copy2(CHECKER, self.root / "scripts" / CHECKER.name)
-        self.fixtures = self.root / "tests" / "fixtures" / "snapshots"
+        self.fixtures = self.root / "testing" / "fixtures" / "snapshots"
         self.fixtures.mkdir(parents=True)
         self.checker = self.root / "scripts" / CHECKER.name
         case = dict(GOOD_CASE)

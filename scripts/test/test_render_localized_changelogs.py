@@ -14,13 +14,13 @@ import render_localized_changelogs as rlc  # noqa: E402
 
 
 def write_tree(root: Path) -> None:
-    (root / "release-notes").mkdir(parents=True)
+    (root / "distribution" / "release-notes").mkdir(parents=True)
     (root / "CHANGELOG.md").write_text(
         "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- WIP item.\n\n"
         "## [1.0.0] - 2030-01-01\n\n### Added\n\n- English one.\n\n"
         "## [0.9.0] - 2029-01-01\n\n### Fixed\n\n- Legacy English.\n",
         encoding="utf-8")
-    (root / "release-notes" / "1.0.0.json").write_text(json.dumps({
+    (root / "distribution" / "release-notes" / "1.0.0.json").write_text(json.dumps({
         "schemaVersion": 1, "version": "1.0.0",
         "englishSha256": hashlib.sha256("### Added\n\n- English one.".encode()).hexdigest(),
         "locales": {"zh": "### 新增\n\n- 中文一。", "ja": "### 追加\n\n- 日本語一。",
@@ -51,7 +51,7 @@ def main() -> int:
         try:
             root = Path(tmp)
             write_tree(root)
-            rlc.ROOT, rlc.NOTES_DIR = root, root / "release-notes"
+            rlc.ROOT, rlc.NOTES_DIR = root, root / "distribution" / "release-notes"
             rlc.ENGLISH = root / "CHANGELOG.md"
 
             if run_case(check=True) != 1:
@@ -72,9 +72,9 @@ def main() -> int:
                 return 1
 
             # Locale missing from the JSON falls back to committed text.
-            notes = json.loads((root / "release-notes" / "1.0.0.json").read_text())
+            notes = json.loads((root / "distribution" / "release-notes" / "1.0.0.json").read_text())
             del notes["locales"]["ko"]
-            (root / "release-notes" / "1.0.0.json").write_text(json.dumps(notes))
+            (root / "distribution" / "release-notes" / "1.0.0.json").write_text(json.dumps(notes))
             assert run_case(check=False) == 0
             ko = (root / rlc.LOCALE_CHANGELOGS["ko"]).read_text(encoding="utf-8")
             assert "- ko hand-written." in ko or "- 韩文旧版。" in ko, \
