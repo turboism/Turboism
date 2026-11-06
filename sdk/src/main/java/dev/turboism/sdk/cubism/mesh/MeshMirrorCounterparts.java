@@ -5,7 +5,15 @@ import dev.turboism.sdk.plugin.Registration;
 
 /**
  * Mirror counterpart resolution, defaulted by the framework and overridable by a plugin.
+ *
+ * @deprecated use {@link MeshMirrorControl#mirrorOf(MeshDeletion)} and
+ *     {@link MeshMirrorControl#overrideResolver(MeshMirrorCounterpartResolver)} instead: the
+ *     mirror axis, the counterpart rule, movement participation and the eligible-tool set are
+ *     one capability, handed out together by {@code PluginService.MESH_MIRROR_CONTROL}.
+ *     Scheduled for removal; every released operation keeps working through this thin adapter
+ *     until then.
  */
+@Deprecated(forRemoval = true)
 @CubismEditor(from = "5.0.00")
 public interface MeshMirrorCounterparts {
 

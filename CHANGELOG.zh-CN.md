@@ -14,9 +14,13 @@ Turboism 的所有重要变更都记录在本文件中。
 
 - 物理模拟预览新增 GIF 录制：支持录制／暂停／继续、停止／放弃及注册快捷键、录制后调整导出尺寸、可选 Gifsicle 目标大小优化（默认 20 MB），并持久化 GIF 专用导出目录。
 
+- SDK 新增孵化中的 `MeshMirrorControl` 与 `MeshEditContributionSurface` 能力，并新增 `PluginService.MESH_MIRROR_CONTROL` 与 `PluginService.MESH_EDIT_CONTRIBUTION` 目录成员。两者分别把插件总是同时需要的已发布单一职责服务合并在一起：一侧是镜像轴、镜像对应点规则、移动参与和可用工具集，另一侧是宿主编辑参与与原生工具区贡献，网格编辑不再需要六次服务查找。权限与操作标识保持不变。
+
 ### 已弃用
 
 - `TextureAtlasEditorUi` 与 `TextureAtlasEditorPanel` 已标记为待移除；两者仍作为 `HostViewPanel` 之上的薄适配器继续可用。请改用 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` 与 `HostViewPanelHandle.setContent(PanelView)`。
+
+- `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation` 与 `MeshEditUiService`（连同其 `PluginService` 成员与 `MeshEditUiService.MirrorAxisAngleControl`）已标记为待移除；六者行为保持不变。请改用 `MeshMirrorControl` 与 `MeshEditContributionSurface`。
 
 ## [0.68.1] - 2026-10-30
 

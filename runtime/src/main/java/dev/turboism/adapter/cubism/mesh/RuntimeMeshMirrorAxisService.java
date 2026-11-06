@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 
 /** Runtime-owned generation state used by the verified mesh-mirror hook path. */
+@SuppressWarnings("removal") // the released interface this registry keeps serving
 public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService {
     private volatile float angleDegrees;
     private volatile AxisState axisState;

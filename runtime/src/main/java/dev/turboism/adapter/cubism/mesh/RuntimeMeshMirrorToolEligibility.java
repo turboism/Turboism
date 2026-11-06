@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Shared registry consulted synchronously by the exact-host mirror eligibility hook. */
+@SuppressWarnings("removal") // the released interface this registry keeps serving
 public final class RuntimeMeshMirrorToolEligibility implements MeshMirrorToolEligibility {
 
     private final Map<MeshEditTool, Integer> registrations = new EnumMap<>(MeshEditTool.class);

@@ -1,9 +1,11 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditContributionSurface;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorControl;
 import dev.turboism.adapter.cubism.warpalt.NativeArtMeshSymmetryBridge;
 import dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge;
 import dev.turboism.adapter.cubism.warpalt.RuntimeViewContextMenuRegistry;
@@ -12,10 +14,12 @@ import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.permissions.ServiceGateInstaller;
 import dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
@@ -36,6 +40,8 @@ record MeshCapabilityBundle(
         MeshMirrorCounterparts meshMirrorCounterpartsService,
         MeshMirrorToolEligibility meshMirrorToolEligibilityService,
         MeshMirrorMoveParticipation meshMirrorMoveParticipationService,
+        MeshMirrorControl meshMirrorControlService,
+        MeshEditContributionSurface meshEditContributionSurfaceService,
         ArtMeshMirrorService artMeshMirrorService,
         WarpAltMirrorParticipation warpAltMirrorParticipationService,
         ViewContextMenuRegistry viewContextMenuRegistry)
@@ -49,6 +55,8 @@ record MeshCapabilityBundle(
         Objects.requireNonNull(meshMirrorCounterpartsService, "meshMirrorCounterpartsService");
         Objects.requireNonNull(meshMirrorToolEligibilityService, "meshMirrorToolEligibilityService");
         Objects.requireNonNull(meshMirrorMoveParticipationService, "meshMirrorMoveParticipationService");
+        Objects.requireNonNull(meshMirrorControlService, "meshMirrorControlService");
+        Objects.requireNonNull(meshEditContributionSurfaceService, "meshEditContributionSurfaceService");
         Objects.requireNonNull(artMeshMirrorService, "artMeshMirrorService");
         Objects.requireNonNull(warpAltMirrorParticipationService, "warpAltMirrorParticipationService");
         Objects.requireNonNull(viewContextMenuRegistry, "viewContextMenuRegistry");
@@ -101,6 +109,16 @@ record MeshCapabilityBundle(
                 RuntimeViewContextMenuRegistry.getInstance(),
                 meshPermissionChecker,
                 scope);
+        final MeshMirrorControl meshMirrorControlService = gate(
+                MeshMirrorControl.class,
+                RuntimeMeshMirrorControl.forSession(sharedMeshMirrorAxis),
+                meshPermissionChecker,
+                scope);
+        final MeshEditContributionSurface meshEditContributionSurfaceService = gate(
+                MeshEditContributionSurface.class,
+                new RuntimeMeshEditContributionSurface(NativeMeshMirrorBridge.participation(), sharedMeshEditUi),
+                meshPermissionChecker,
+                scope);
         return new MeshCapabilityBundle(
                 meshMirrorAxisService,
                 meshEditUiService,
@@ -109,6 +127,8 @@ record MeshCapabilityBundle(
                 meshMirrorCounterpartsService,
                 meshMirrorToolEligibilityService,
                 meshMirrorMoveParticipationService,
+                meshMirrorControlService,
+                meshEditContributionSurfaceService,
                 artMeshMirrorService,
                 warpAltMirrorParticipationService,
                 viewContextMenuRegistry);
@@ -139,5 +159,7 @@ record MeshCapabilityBundle(
         directory.installWhenPresent(PluginService.VIEW_CONTEXT_MENU, () -> viewContextMenuRegistry);
         directory.installWhenPresent(PluginService.ART_MESH_MIRROR, () -> artMeshMirrorService);
         directory.installWhenPresent(PluginService.MESH_EDIT_UI, () -> meshEditUiService);
+        directory.installWhenPresent(PluginService.MESH_MIRROR_CONTROL, () -> meshMirrorControlService);
+        directory.installWhenPresent(PluginService.MESH_EDIT_CONTRIBUTION, () -> meshEditContributionSurfaceService);
     }
 }

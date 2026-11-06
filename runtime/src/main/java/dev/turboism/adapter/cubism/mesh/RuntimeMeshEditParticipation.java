@@ -18,6 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * plugin-supplied code beyond that single call, and a participant that throws is dropped rather
  * than allowed to affect the host's own edit.</p>
  */
+@SuppressWarnings("removal") // the released interface this registry keeps serving
 public final class RuntimeMeshEditParticipation implements MeshEditParticipation {
 
     private static final long CALLBACK_BUDGET_NANOS = 10_000_000L;

@@ -14,9 +14,13 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 - 物理演算プレビューに GIF 録画を追加。録画／一時停止／再開、停止／破棄とショートカット登録、録画後のサイズ変更、Gifsicle による目標サイズ最適化（既定 20 MB）、GIF 専用出力フォルダーの記憶に対応。
 
+- SDK にインキュベーティングな `MeshMirrorControl` と `MeshEditContributionSurface` 機能、および `PluginService.MESH_MIRROR_CONTROL` と `PluginService.MESH_EDIT_CONTRIBUTION` ディレクトリメンバーを追加しました。前者はミラー軸・ミラー対応点の規則・移動参加・対象ツール集合を、後者はホスト編集への参加とネイティブツール領域へのコントリビューションを、それぞれプラグインが常に同時に必要とする公開済みの単一目的サービスとして統合します。メッシュ編集で 6 回のサービス参照が不要になります。権限と操作 ID は変わりません。
+
 ### 非推奨
 
 - `TextureAtlasEditorUi` と `TextureAtlasEditorPanel` を削除予定として非推奨にしました。どちらも `HostViewPanel` 上の薄いアダプターとして引き続き動作します。代わりに `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` と `HostViewPanelHandle.setContent(PanelView)` を使用してください。
+
+- `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation`、`MeshEditUiService`（および対応する `PluginService` メンバーと `MeshEditUiService.MirrorAxisAngleControl`）を削除予定として非推奨にしました。6 つとも動作は変わりません。代わりに `MeshMirrorControl` と `MeshEditContributionSurface` を使用してください。
 
 ## [0.68.1] - 2026-10-30
 
