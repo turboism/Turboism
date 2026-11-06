@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 
 /**
@@ -10,8 +11,9 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
  * the hook policy is not consulted. Production mode:
  * {@code -Dturboism.optimization.uploadElision=true} (default off), content
  * compare armed unconditionally, gated by the persisted preference, the
- * startup hook policy ({@code cubism.render.upload-elision}) and the
- * model-update-skip dependency. When both flags are set the validation mode
+ * startup hook policy ({@code cubism.render.upload-elision}) and the two
+ * declared relations of its catalogue row: the model-update-skip dependency and
+ * the uniform-location-cache conflict. When both flags are set the validation mode
  * wins — the harness owns the gate — and the mode is logged. The
  * {@code elision=ACTIVE} log marker, not {@code installation=COMPLETE} alone,
  * is the driver's evidence that the two reviewed mesh wrappers were actually
@@ -32,33 +34,34 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }
-        if (production && !validation && !NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)) {
-            // Without skipped frames the consult can never elide; installing
-            // would buy pure per-call overhead.
-            debug(environment, id() + " installation=NOT_ADMITTED reason=modelUpdateSkip-disabled");
-            return refused("modelUpdateSkip-disabled");
-        }
-        if (production && !validation && NativeOptimizationPolicy.uniformLocationCacheEnabled(environment)) {
-            // The uniform lifecycle invalidates upload content at every render
-            // boundary by design, so no baseline can survive to the next frame.
-            // Installing here would only add the content-compare cost; fail
-            // closed until the two safety models are composed.
-            debug(environment, id() + " installation=NOT_ADMITTED reason=uniformLocationCache-enabled");
-            return refused("uniformLocationCache-enabled");
+        if (production && !validation) {
+            // The two cross-entry constraints - the unchanged-frame skip this
+            // weave needs and the uniform-location cache it cannot compose with
+            // - are declared by the catalogue and decided by the launch plan.
+            final var relation = environment.plan().relationRefusal(OptimizationCatalog.UPLOAD_ELISION);
+            if (relation.isPresent()) {
+                debug(
+                        environment,
+                        id() + " installation=NOT_ADMITTED reason="
+                                + relation.get().reasonCode());
+                return refused(relation.get().reasonCode());
+            }
         }
         final var host = environment.host().orElseThrow();
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
         if (production
                 && !validation
                 && !VerifiedSkippedFrameUploadElisionInstaller.admitted(
                         HostArtifactDigest.from(host.artifact()),
-                        NativeOptimizationPolicy.load(environment.options().home()),
+                        environment.plan().policy(),
                         true,
                         Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedSkippedFrameUploadElisionInstaller installer = new VerifiedSkippedFrameUploadElisionInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader(), production && !validation);
+                InstallContext.of(environment), production && !validation);
         installer.install();
         log(
                 environment,

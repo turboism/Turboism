@@ -44,6 +44,7 @@ Turboism 公式配布パッケージに同梱されています。プラグイ�
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | メッシュ編集ツールバーにカスタムツールを登録します。 |
+| `cubism.mesh.point-and-edge-layout` | このプラグインが登録したツールにランタイムの点・線配置ブラシを割り当てます。 |
 
 ## 権限
 

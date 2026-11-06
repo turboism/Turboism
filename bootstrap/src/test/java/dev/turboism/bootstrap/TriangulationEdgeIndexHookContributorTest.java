@@ -30,9 +30,9 @@ class TriangulationEdgeIndexHookContributorTest {
     @Test
     void admittedOnlyWhenPolicyAllowsAndPreferenceEnabled() throws Exception {
         assertFalse(TriangulationEdgeIndexHookContributor.enabled(policy(false), home));
-        new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home).save(true);
+        new dev.turboism.config.OptimizationSettingsFileService(home).setEnabled("meshTriangulationEdgeIndex", true);
         assertTrue(TriangulationEdgeIndexHookContributor.enabled(policy(false), home));
-        new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home).save(false);
+        new dev.turboism.config.OptimizationSettingsFileService(home).setEnabled("meshTriangulationEdgeIndex", false);
         assertFalse(TriangulationEdgeIndexHookContributor.enabled(policy(false), home));
     }
 

@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.physics;
 
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.WriteOptions;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.ui.host.EdtDispatch;
@@ -8,10 +10,8 @@ import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeUnit;
 import javax.swing.JButton;
@@ -24,6 +24,10 @@ import javax.swing.SpinnerNumberModel;
 /** Preview-local recording controls and cancellable, disk-backed background recording. */
 final class PhysicsGifRecorder implements AutoCloseable {
     private static final String MARKER = "turboism.physics.gif";
+    /** A recorded GIF is user output, not live state: a plain replacing move is better than none. */
+    private static final WriteOptions PREFER_ATOMIC_REPLACE =
+            WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
+
     private final ResourceBundle messages =
             ResourceBundle.getBundle("dev.turboism.adapter.cubism.physics.messages", CubismHostLocale.resolve());
     private final Object panel;
@@ -293,15 +297,9 @@ final class PhysicsGifRecorder implements AutoCloseable {
                 checkCancelled();
                 synchronized (this) {
                     checkCancelled();
-                    try {
-                        Files.move(
-                                optimized,
-                                destination,
-                                StandardCopyOption.ATOMIC_MOVE,
-                                StandardCopyOption.REPLACE_EXISTING);
-                    } catch (AtomicMoveNotSupportedException ignored) {
-                        Files.move(optimized, destination, StandardCopyOption.REPLACE_EXISTING);
-                    }
+                    DurableFile.at(destination)
+                            .withOptions(PREFER_ATOMIC_REPLACE)
+                            .adopt(optimized);
                 }
                 PhysicsGifExportDialog.rememberDirectory(destination);
                 return tr("saved") + " " + destination.getFileName() + " (" + Files.size(destination) + " B)";

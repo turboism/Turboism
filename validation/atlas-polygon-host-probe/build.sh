@@ -4,31 +4,10 @@ set -euo pipefail
 # Builds the task-local atlas-polygon host validation exerciser plugin JAR
 # against the already-built SDK jar. The probe is validation tooling only; it
 # is never part of the production preview bundle or product build.
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$repo_root"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/probe-build.sh"
 
-sdk_jar="$(ls build/worktree/*/sdk/libs/sdk-*.jar 2>/dev/null | head -1)"
-if [ -z "$sdk_jar" ] || [ ! -f "$sdk_jar" ]; then
-  echo "error: sdk jar not found; run :sdk:jar first" >&2
-  exit 1
-fi
-
-base="validation/atlas-polygon-host-probe"
-src="$base/src"
-out="$(mktemp -d)"
-trap 'rm -rf "$out"' EXIT
-
-javac --release 17 -cp "$sdk_jar" -d "$out" \
-  "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeTerminal.java" \
-  "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeAssertions.java" \
-  "$src/dev/turboism/validation/atlaspolygon/AtlasPolygonHostValidationPlugin.java"
-cp -r "$src/META-INF" "$out/"
-
-output="$repo_root/build/atlas-polygon-validation-exerciser.jar"
-jar cf "$output" -C "$out" .
-if ! jar tf "$output" | grep -Fq 'META-INF/turboism/plugin.json'; then
-  echo "error: probe jar is missing META-INF/turboism/plugin.json" >&2
-  exit 1
-fi
-echo "[probe] $output"
-sha256sum "$output"
+probe_build_plugin_jar validation/atlas-polygon-host-probe \
+  build/atlas-polygon-validation-exerciser.jar \
+  validation/shared/src/dev/turboism/validation/shared/verdict/ProbeTerminal.java \
+  validation/shared/src/dev/turboism/validation/shared/verdict/ProbeAssertions.java \
+  validation/atlas-polygon-host-probe/src/dev/turboism/validation/atlaspolygon/AtlasPolygonHostValidationPlugin.java

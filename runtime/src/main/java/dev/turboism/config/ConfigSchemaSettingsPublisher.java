@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.persistence.config.RegisteredSchema;
 import dev.turboism.sdk.config.ConfigError;
 import dev.turboism.sdk.config.ConfigErrorCode;
 import dev.turboism.sdk.config.ConfigKey;
@@ -61,7 +62,7 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
         int ordinal = 0;
         for (ConfigSchemaEditor.Field field :
                 Objects.requireNonNull(editor, "editor").fields()) {
-            final ConfigKey<?> key = schema.keys.get(field.key());
+            final ConfigKey<?> key = schema.keys().get(field.key());
             if (key == null) {
                 throw unsupported(field.key(), "does not reference a key in the schema");
             }
@@ -81,7 +82,7 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
                 throw new IllegalStateException("config settings contribution order is exhausted", failure);
             }
         }
-        return new PreparedEditor(schema.schema.configId(), base, List.copyOf(declared));
+        return new PreparedEditor(schema.schema().configId(), base, List.copyOf(declared));
     }
 
     void publish(final PreparedEditor prepared) {

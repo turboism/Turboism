@@ -55,7 +55,7 @@ try {
         [System.IO.File]::WriteAllText($syntheticAgent, 'synthetic normal file; never executed')
         $managedBat = New-CubismManagedOptionsBat -OfficialBat $syntheticBat -CubismRoot $syntheticRoot -TurboismHome $homePath -Agent $syntheticAgent
         $managedText = [System.IO.File]::ReadAllText($managedBat)
-        Assert-BatRegression (([regex]::Matches($managedText, '-XX:\+DisableAttachMechanism')).Count -eq 1) "ephemeral managed BAT emits default ownership option once: $name"
+        Assert-BatRegression (([regex]::Matches($managedText, '-XX:\+DisableAttachMechanism')).Count -eq 0) "ephemeral managed BAT leaves ownership off while the key is absent: $name"
         Assert-BatRegression ((Get-CubismSha256 $syntheticBat) -eq $syntheticHash) "managed staging preserves synthetic official BAT bytes: $name"
         $text = Get-CubismBatIntegrationText -OriginalText $original -TurboismHome $homePath
         $lines = @($text -split '\r?\n')

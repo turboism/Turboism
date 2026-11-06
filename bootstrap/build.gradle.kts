@@ -10,6 +10,9 @@ import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 
 dependencies {
     testImplementation(project(":testing:test-support"))
+    // The repacked-host admission test asserts the exact reviewed-release predicate
+    // directly; production bootstrap code reaches it through :runtime.
+    testImplementation(project(":compatibility-policy"))
     testImplementation(libs.jackson.databind)
     implementation(project(":runtime"))
     implementation(project(":sdk"))

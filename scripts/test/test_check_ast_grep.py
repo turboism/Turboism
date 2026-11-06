@@ -3,10 +3,10 @@
 
 Run:  python3 scripts/test/test_check_ast_grep.py
 
-`checkArchitectureRules` is only a real gate while the pinned CLI is the one that
-runs: an unpinned global install, an unrelated tool answering `--version`, a
-failed version probe, or a missing binary must fail the build instead of
-silently turning the AST guardrails off.
+`checkArchitectureRules` is only a real gate while a verified ast-grep CLI is
+the one that runs: an unrelated tool answering `--version` (such as the Unix
+`sg` group command), a failed version probe, or a missing binary must fail the
+build instead of silently turning the AST guardrails off.
 
 Each case runs the real script with an isolated `PATH` containing only generated
 stand-ins, so no developer-installed ast-grep can satisfy the gate by accident.
@@ -22,7 +22,6 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 CHECKER = SCRIPTS_DIR / "check_ast_grep.py"
-PINNED = "0.45.3"
 
 FAKE_BINARY = '''#!{python}
 import json, os, sys
@@ -98,21 +97,26 @@ class AstGrepGateTest(unittest.TestCase):
 
     def assert_fails_closed(self, result):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn(f"ast-grep=={PINNED} is required", result.stderr)
-        self.assertIn(f"@ast-grep/cli@{PINNED}", result.stderr)
+        self.assertIn("ast-grep is required", result.stderr)
+        self.assertIn("@ast-grep/cli", result.stderr)
 
     def test_missing_binary_fails_closed(self):
         self.assert_fails_closed(self.path.run())
         self.assertEqual(self.path.calls(), [])
 
-    def test_unpinned_version_fails_closed(self):
+    def test_newer_semver_version_is_accepted(self):
         self.path.install("ast-grep", version="ast-grep 0.51.0\n")
-        self.assert_fails_closed(self.path.run())
-        self.assertEqual([call[1:] for call in self.path.calls()], [["--version"]])
+        result = self.path.run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            [call[1] for call in self.path.calls()],
+            ["--version", "test", "scan"],
+        )
 
-    def test_longer_patch_version_is_not_pinned(self):
+    def test_multi_digit_patch_version_is_accepted(self):
         self.path.install("ast-grep", version="ast-grep 0.45.30\n")
-        self.assert_fails_closed(self.path.run())
+        result = self.path.run()
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_unrelated_tool_answer_fails_closed(self):
         self.path.install("ast-grep", version="some-other-tool 0.45.3\n")
@@ -122,7 +126,7 @@ class AstGrepGateTest(unittest.TestCase):
         self.path.install("ast-grep", version="ast-grep 0.45.3\n", version_exit=2)
         self.assert_fails_closed(self.path.run())
 
-    def test_pinned_version_runs_rule_tests_then_scan(self):
+    def test_valid_version_runs_rule_tests_then_scan(self):
         self.path.install("ast-grep")
         result = self.path.run()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -141,9 +145,9 @@ class AstGrepGateTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([call[0] for call in self.path.calls()], ["sg", "sg", "sg"])
 
-    def test_install_warning_on_stderr_still_accepts_the_pinned_binary(self):
+    def test_install_warning_on_stderr_still_accepts_the_binary(self):
         # npm blocks lifecycle scripts by default and warns on every invocation;
-        # the pinned CLI is still valid, so the probe must read version lines.
+        # the CLI is still valid, so the probe must read version lines.
         self.path.install(
             "ast-grep",
             warning="[warn] postinstall script did not run; falling back to runtime binary resolution.\n",
@@ -155,19 +159,19 @@ class AstGrepGateTest(unittest.TestCase):
             ["--version", "test", "scan"],
         )
 
-    def test_version_mentioned_inside_a_hint_is_not_a_pin(self):
+    def test_version_mentioned_inside_a_hint_is_not_accepted(self):
         self.path.install(
             "ast-grep",
             version="",
-            warning="hint: install @ast-grep/cli@0.45.3 to enable AST rules\n",
+            warning="hint: install @ast-grep/cli to enable AST rules\n",
         )
         self.assert_fails_closed(self.path.run())
 
-    def test_trailing_text_after_the_version_is_not_a_pin(self):
+    def test_trailing_text_after_the_version_is_rejected(self):
         self.path.install("ast-grep", version="ast-grep 0.45.3 (release build)\n")
         self.assert_fails_closed(self.path.run())
 
-    def test_ast_grep_is_preferred_over_a_stale_sg(self):
+    def test_ast_grep_is_preferred_over_sg(self):
         self.path.install("ast-grep")
         self.path.install("sg", version="sg 0.44.0\n")
         result = self.path.run()

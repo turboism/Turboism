@@ -1,10 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.modelinstances;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -336,33 +335,32 @@ public final class ModelInstanceCoalesceBridge implements AutoCloseable {
             MethodHandle editDocument)
             implements Host {
 
-        static ReflectiveHost resolve(final ClassLoader loader) throws ReflectiveOperationException {
-            final Class<?> source =
-                    Class.forName(ModelInstanceCoalesceTarget.SOURCE_OWNER.replace('/', '.'), false, loader);
-            final Class<?> document = Class.forName("com.live2d.cubism.doc.modeling.CModelingDocument", false, loader);
-            final Class<?> editMode =
-                    Class.forName(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER.replace('/', '.'), false, loader);
-            final Class<?> undo = Class.forName("com.live2d.undo.GroupUndo", false, loader);
-            return new ReflectiveHost(
-                    handle(source, "getDocument", "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;"),
-                    handle(document, "getCurrentEditMode", "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;"),
-                    handle(editMode, "isEditing", "()Z"),
-                    handle(editMode, "getCurrentUndo", "()Lcom/live2d/undo/GroupUndo;"),
-                    handle(undo, "getEditCount", "()I"),
-                    handle(editMode, "getDoc", "()Lcom/live2d/cubism/doc/IDocument;"));
-        }
+        /** Erased receiver-first shape of every reference-returning seam. */
+        private static final MethodType REFERENCE = MethodType.methodType(Object.class, Object.class);
 
-        private static MethodHandle handle(final Class<?> owner, final String name, final String descriptor)
-                throws ReflectiveOperationException {
-            for (final Method method : owner.getMethods()) {
-                if (!method.getName().equals(name)) continue;
-                final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                        .descriptorString();
-                if (actual.equals(descriptor)) {
-                    return MethodHandles.publicLookup().unreflect(method);
-                }
-            }
-            throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
+        /** Erased receiver-first shape of {@code isEditing()}. */
+        private static final MethodType FLAG = MethodType.methodType(boolean.class, Object.class);
+
+        /** Erased receiver-first shape of {@code getEditCount()}. */
+        private static final MethodType COUNT = MethodType.methodType(int.class, Object.class);
+
+        static ReflectiveHost resolve(final ClassLoader loader) throws ReflectiveOperationException {
+            final Class<?> source = HostHandles.load(loader, ModelInstanceCoalesceTarget.SOURCE_OWNER);
+            final Class<?> document = HostHandles.load(loader, "com/live2d/cubism/doc/modeling/CModelingDocument");
+            final Class<?> editMode = HostHandles.load(loader, ModelInstanceCoalesceTarget.EDIT_MODE_OWNER);
+            final Class<?> undo = HostHandles.load(loader, "com/live2d/undo/GroupUndo");
+            return new ReflectiveHost(
+                    HostHandles.virtual(
+                            source, "getDocument", "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;", REFERENCE),
+                    HostHandles.virtual(
+                            document,
+                            "getCurrentEditMode",
+                            "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
+                            REFERENCE),
+                    HostHandles.virtual(editMode, "isEditing", "()Z", FLAG),
+                    HostHandles.virtual(editMode, "getCurrentUndo", "()Lcom/live2d/undo/GroupUndo;", REFERENCE),
+                    HostHandles.virtual(undo, "getEditCount", "()I", COUNT),
+                    HostHandles.virtual(editMode, "getDoc", "()Lcom/live2d/cubism/doc/IDocument;", REFERENCE));
         }
 
         @Override

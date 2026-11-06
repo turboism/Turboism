@@ -5,69 +5,88 @@ import dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheTarget;
 import dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.security.ProtectionDomain;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.JarFile;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Exact-host admission, rewrite and verified restoration for the skipped-frame
  * sorting-info cache and allocation-free {@code GMeshRenderer.getMeshContainer()} lookup.
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's two targets and
+ * their dependency-shape proof. Both transforms own one class each, so the routine retransforms both
+ * in one call and re-captures both on close.</p>
  */
 final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.render.sorting-info-cache";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
+
     static final String ENABLE_PROPERTY = "turboism.optimization.sortingInfoCache";
 
-    private final Instrumentation instrumentation;
-    private final Class<?> sortingOwner;
-    private final Class<?> meshRendererOwner;
-    private final SortingInfoCacheTransformer sortingTransformer;
-    private final MeshContainerLookupTransformer containerTransformer;
-    private boolean installed;
-    private boolean restored;
+    /** Each transformer rewrites exactly one site; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures both rewritten classes; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 2;
+
+    static final WeaveSpec<SortingInfoCacheTarget> SPEC = new WeaveSpec<SortingInfoCacheTarget>(
+            ADMISSION,
+            "sorting-info cache",
+            VerifiedSortingInfoCacheInstaller::resolve,
+            new WeavePlan<>(VerifiedSortingInfoCacheInstaller::targets, WeavePlan.PostCheck.NONE),
+            BridgeFactory.none(),
+            WeaveEffects.none());
+
+    private final InstallContext context;
+    private VerifiedInstall<SortingInfoCacheTarget> hook;
+
+    VerifiedSortingInfoCacheInstaller(final InstallContext context) {
+        this.context = context;
+    }
 
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested)
             throws java.io.IOException {
-        return requested
-                && config != null
-                && config.hookEnabled(HOOK_ID)
+        // The digest read stays after the shared gate so a refused hook never opens the artifact.
+        return VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())
                 && SortingInfoCacheTarget.of(HostArtifactDigest.from(artifact)).isPresent();
     }
 
-    VerifiedSortingInfoCacheInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        final Path source =
-                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        final SortingInfoCacheTarget target = SortingInfoCacheTarget.of(HostArtifactDigest.from(source))
-                .orElseThrow(() -> new IllegalArgumentException("sorting-info cache unsupported host artifact"));
+    private static Optional<SortingInfoCacheTarget> resolve(final Path artifact) throws Exception {
+        return SortingInfoCacheTarget.of(HostArtifactDigest.from(artifact));
+    }
 
-        sortingOwner = Class.forName(SortingInfoCacheTarget.SORTING_OWNER.replace('/', '.'), false, loader);
-        meshRendererOwner = Class.forName(SortingInfoCacheTarget.MESH_RENDERER_OWNER.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                sortingOwner, loader, source, "sorting-info host loader or artifact mismatch");
-        VerifiedHookInstallerSupport.attestClassSource(
-                meshRendererOwner, loader, source, "mesh-renderer host loader or artifact mismatch");
-
+    private static List<WeaveTarget> targets(final SortingInfoCacheTarget target, final WeaveSource source)
+            throws Exception {
+        final Class<?> sortingOwner = source.load(SortingInfoCacheTarget.SORTING_OWNER);
+        final Class<?> meshRendererOwner = source.load(SortingInfoCacheTarget.MESH_RENDERER_OWNER);
         for (final SortingInfoCacheTarget.Dep dep : target.dependencies()) {
-            final Class<?> depOwner = Class.forName(dep.owner().replace('/', '.'), false, loader);
-            VerifiedHookInstallerSupport.attestClassSource(
-                    depOwner, loader, source, "sorting dependency loader/source mismatch: " + depOwner.getName());
-            verifyMethodPresent(depOwner, dep.name(), dep.descriptor());
+            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
-
-        try (JarFile jar = new JarFile(source.toFile())) {
-            sortingTransformer = new SortingInfoCacheTransformer(
-                    loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, sortingOwner), target);
-            containerTransformer = new MeshContainerLookupTransformer(
-                    loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, meshRendererOwner));
-        }
+        final SortingInfoCacheTransformer sortingTransformer = new SortingInfoCacheTransformer(
+                source.loader(), source.artifact(), source.referenceBytes(sortingOwner), target);
+        final MeshContainerLookupTransformer containerTransformer = new MeshContainerLookupTransformer(
+                source.loader(), source.artifact(), source.referenceBytes(meshRendererOwner));
+        return List.of(
+                WeaveTarget.single(
+                        sortingOwner,
+                        sortingTransformer,
+                        EXPECTED_MATCHES,
+                        sortingTransformer::matches,
+                        sortingTransformer::failure,
+                        owner -> sortingTransformer.beforeSha256()),
+                WeaveTarget.single(
+                        meshRendererOwner,
+                        containerTransformer,
+                        EXPECTED_MATCHES,
+                        containerTransformer::matches,
+                        containerTransformer::failure,
+                        owner -> containerTransformer.beforeSha256()));
     }
 
     private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
@@ -81,75 +100,27 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
         throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not a reviewed sorting-info host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isRetransformClassesSupported()
-                || !instrumentation.isModifiableClass(sortingOwner)
-                || !instrumentation.isModifiableClass(meshRendererOwner)) {
-            throw new IllegalStateException("sorting-info host classes cannot be transformed");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context)
+                instanceof VerifiedInstall.Attempt.Installed<SortingInfoCacheTarget> installed)) {
+            throw new IllegalStateException("sorting-info cache refused: host-not-supported-or-hook-disabled");
         }
-        try {
-            instrumentation.addTransformer(sortingTransformer, true);
-            instrumentation.addTransformer(containerTransformer, true);
-            installed = true;
-            instrumentation.retransformClasses(sortingOwner, meshRendererOwner);
-            if (sortingTransformer.matches() != 1 || sortingTransformer.failure() != null) {
-                throw new IllegalStateException(
-                        "sorting-info rewrite was not admitted: " + sortingTransformer.failure());
-            }
-            if (containerTransformer.matches() != 1 || containerTransformer.failure() != null) {
-                throw new IllegalStateException(
-                        "mesh-container rewrite was not admitted: " + containerTransformer.failure());
-            }
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     @Override
     public synchronized void close() {
-        if (!installed) return;
-        instrumentation.removeTransformer(containerTransformer);
-        instrumentation.removeTransformer(sortingTransformer);
-        final AtomicReference<String> observedSorting = new AtomicReference<>();
-        final AtomicReference<String> observedContainer = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == sortingOwner) {
-                    observedSorting.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
-                } else if (redefined == meshRendererOwner) {
-                    observedContainer.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
-                }
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(sortingOwner, meshRendererOwner);
-            restored = sortingTransformer.beforeSha256() != null
-                    && sortingTransformer.beforeSha256().equals(observedSorting.get())
-                    && containerTransformer.beforeSha256() != null
-                    && containerTransformer.beforeSha256().equals(observedContainer.get());
-            if (!restored) {
-                throw new IllegalStateException("sorting-info restoration not proven");
-            }
-            installed = false;
-        } catch (java.lang.instrument.UnmodifiableClassException failure) {
-            throw new IllegalStateException("sorting-info restoration failed", failure);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

@@ -178,32 +178,6 @@ class CoreWindowsTest {
         assertTrue(
                 contribution.index().orElseThrow() < memoryProfile.index().orElseThrow(),
                 "the custom GraalVM path must precede the memory profile");
-        for (String id : java.util.List.of(
-                "mesh-triangulation-hash",
-                "atlas-tile-bbox",
-                "atlas-cache-reuse",
-                "triangulation-edge-index",
-                "model-update-skip",
-                "incremental-update",
-                "uniform-location-cache",
-                "upload-elision",
-                "mesh-setup-elision",
-                "input-path-elision",
-                "mesa-gl-thread",
-                "mesh-interpolation",
-                "shader-uniform",
-                "matrix-scratch",
-                "image-archive-reuse",
-                "float-array-parse-cache",
-                "texture-upload-preparation",
-                "warp-position-projection",
-                "reinit-pair-elision",
-                "cubism-disable-auto-backup",
-                "cubism-zgc",
-                "cubism-jvm",
-                "cubism-memory-profile")) {
-            assertTrue(CubismJvmSettingsContribution.tooltipKey(id).isPresent(), "Missing tooltip key for " + id);
-        }
         assertEquals("C:\\GraalVM", text.binding().read());
         assertTrue(text.validator().validate(saved[0], "").accepted());
         assertFalse(text.validator()
@@ -212,6 +186,26 @@ class CoreWindowsTest {
         assertTrue(text.validator().validate(saved[0], "C:\\GraalVM\\bin").accepted());
         text.binding().write("C:\\GraalVM\\bin");
         assertEquals("C:\\GraalVM\\bin", saved[0]);
+    }
+
+    /**
+     * Every Performance row the renderer can build must declare a tooltip: the optimization rows
+     * answer from the catalogue, the JVM rows from this contribution, and a row that loses its key
+     * silently stops showing help text instead of failing.
+     */
+    @Test
+    void everyPerformanceRowDeclaresATooltipKey() {
+        for (final dev.turboism.config.optimization.Optimization optimization :
+                dev.turboism.config.optimization.OptimizationCatalog.persisted()) {
+            assertEquals(
+                    Optional.of(optimization.tooltipKey()),
+                    CubismJvmSettingsContribution.tooltipKey(optimization.contributionId()),
+                    "the catalogue declares the tooltip of " + optimization.contributionId());
+        }
+        for (final String id :
+                java.util.List.of("cubism-disable-auto-backup", "cubism-zgc", "cubism-jvm", "cubism-memory-profile")) {
+            assertTrue(CubismJvmSettingsContribution.tooltipKey(id).isPresent(), "Missing tooltip key for " + id);
+        }
     }
 
     @Test

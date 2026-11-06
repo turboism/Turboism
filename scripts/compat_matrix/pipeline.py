@@ -13,23 +13,23 @@ from .render_markdown import render_capabilities_doc, render_plugins_doc
 def render_all(root: Path) -> dict[str, str]:
     matrix = build_matrix(root)
     outputs: dict[str, str] = {
-        str(MATRIX_JSON): json.dumps(matrix, ensure_ascii=False, indent=1) + "\n"
+        MATRIX_JSON.as_posix(): json.dumps(matrix, ensure_ascii=False, indent=1) + "\n"
     }
     for locale in ("en", "zh", "ja", "ko"):
         suffix = DOC_SUFFIX[locale]
-        outputs[str(DOCS_DIR / f"plugins{suffix}.md")] = render_plugins_doc(
+        outputs[(DOCS_DIR / f"plugins{suffix}.md").as_posix()] = render_plugins_doc(
             matrix, locale
         )
-        outputs[str(DOCS_DIR / f"capabilities{suffix}.md")] = (
+        outputs[(DOCS_DIR / f"capabilities{suffix}.md").as_posix()] = (
             render_capabilities_doc(matrix, locale)
         )
     for plugin in matrix["plugins"]:
         module = root / "plugins" / plugin["directory"]
         outputs[
-            str(
+            (
                 module.relative_to(root)
                 / "src/main/resources/META-INF/turboism/cubism-versions.json"
-            )
+            ).as_posix()
         ] = json.dumps(
             {
                 "format": "turboism.plugin-cubism-versions/v1",
@@ -44,7 +44,7 @@ def render_all(root: Path) -> dict[str, str]:
             path = module / readme_name
             if not path.is_file():
                 continue
-            outputs[str(path.relative_to(root))] = update_readme(
+            outputs[path.relative_to(root).as_posix()] = update_readme(
                 path.read_text(encoding="utf-8"),
                 plugin,
                 readme_name,

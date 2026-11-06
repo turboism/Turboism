@@ -233,8 +233,8 @@ by the two editor call sites. Leaf-package cycles went from 2 to 1.
 - **Tests**: `runtime/src/test/java/dev/turboism/ui/**`,
   `runtime/src/test/java/dev/turboism/mapping/**`.
 - **Backward compatibility**: selector contracts feed the compatibility matrix
-  (`compatibility/cubism/compatibility-matrix.json`) and the generated
-  verification manifest, both regenerated in the same commit.
+  (`build/generated/compatibility/cubism/compatibility-matrix.json`) and the
+  verification manifest, both materialized from reviewed sources during the build.
 - **Enforcement**: `checkDependencyInventory`, the `mapping`/`adapter`/`ui` rules in
   `gradle/module-boundaries.gradle.kts` (waiver map is now empty), and the
   compatibility-matrix freshness gate.
@@ -248,10 +248,150 @@ became `SelectorAdmission`, because leaving them in the contract classes was the
 edge that made the selector package depend on the resolver. Leaf-package cycles:
 1 → **0**.
 
+## `:persistence-core` ↔ `:runtime` typed config
+
+- **Owner**: typed-config and persistence maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `:persistence-core` owns the deterministic typed-config kernel: the
+  four frozen value codecs, the canonical persisted-document text format, the
+  schema/migration-chain validation, and the in-memory migration walk. It answers
+  "what do these bytes mean and is this registration legal" and nothing else. It
+  does not open files, schedule work, report failures, check permissions or decide
+  how a failure is presented to a plugin.
+- **Allowed dependencies**: `:persistence-core` may depend on `:sdk` only
+  (`api(project(":sdk"))`): the frozen `dev.turboism.sdk.config.*` records and
+  `dev.turboism.sdk.storage.StoragePath`. `:runtime` may depend on it through
+  `implementation(project(":persistence-core"))`. No other module declares it; the
+  framework shell, plugins and `:core-contract` keep consuming SDK types.
+- **Forbidden**: any `:persistence-core` → `:runtime`/`:core-contract`/`:plugins:*`
+  edge; any external library, file-system, reflection, Swing/AWT, `com.live2d`,
+  scheduler, event-broker or network reference; and any plugin source or bytecode
+  reference to `dev.turboism.persistence.*`. `java.io.IOException` is the only
+  `java.io` type the kernel may name — it is a checked parse-failure signature, not
+  IO.
+- **Public API**: `TypedConfigCodecSupport` (encode/decode/validate one value),
+  `TypedConfigDocumentCodec` + `StoredDocument` (canonical document bytes),
+  `RegisteredKey` + `RegisteredSchema` (snapshot of one legal registration),
+  `TypedConfigSchemaPolicy` (schema and migration-chain admission),
+  `TypedConfigMigrationPolicy` + `TypedConfigMigrationOutcome` +
+  `TypedConfigMigrationStatus` (in-memory migration walk and its classified
+  outcome). Everything else is package-private and must stay that way.
+- **Threading / IO**: all functions are stateless and pure; there is no executor,
+  lock or mutable static state. Callers own the bytes, the thread and the failure
+  presentation. A migration supplied by a plugin runs on the typed-config I/O lane
+  the `:runtime` facade owns, never inside the kernel.
+- **Tests**: `persistence-core/src/test/java/dev/turboism/persistence/config/**`
+  pins the codec, document-format, schema-admission and migration outcomes;
+  `:runtime` keeps `PersistenceGoldenSnapshotsTest`, `TypedConfigRecoveryPointTest`
+  and `RuntimeTypedPluginConfigRegistryTest` as the production read/migrate/recover
+  evidence through the real file store.
+- **Backward compatibility**: the on-disk format is frozen by
+  `tests/fixtures/snapshots/typed-config/**` and `checkGoldenSnapshotManifest`: the
+  `turboism-typed-config-v1` header, sorted base64url entries, schema-version and
+  revision metadata must stay byte-identical. Migration failure, future-version
+  rejection and idempotence semantics are unchanged; no SDK type, plugin lifecycle
+  hook or class identity moves.
+- **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges,
+  the source import allowlist and a compiled-bytecode scan over
+  `persistence-core/build/classes/java/main`), the plugin boundary dotted root
+  `persistence`, `checkDependencyInventory`, `checkCodeQuality`,
+  `checkThrowableContainment` and `checkReviewedReleases`, whose inputs now include
+  the module's production sources.
+
+**What changed (`#112`)**: `TypedConfigCodecSupport`, the canonical document
+`encode`/`parse` pair and its `StoredDocument`, the `RegisteredSchema`/
+`RegisteredKey` snapshots, and the pure `validate(...)` and migration walk moved out
+of `dev.turboism.config` into `dev.turboism.persistence.config`. The extraction is
+behaviour-preserving: the moved code keeps its exact checks, order and diagnostics,
+and the runtime facade now maps the kernel's classified outcome back to the same
+`ConfigValueSource`/`ConfigErrorCode` pairs.
+
+**What stayed behind, and why**: `TypedConfigDocumentStore` keeps every file-system
+concern — anchored root, owner-only permissions, atomic replace, fsync, recovery
+points and the BOM/size guards — and only delegates the text format to the kernel.
+`TypedConfigIoExecutor` (the single-threaded I/O lane), `TypedConfigFailureReporter`
+(the failure sink), `ConfigSchemaSettingsPublisher` (UI settings), `LoadedDocument`
+(the runtime read outcome) and `RuntimeTypedPluginConfigRegistry` (permissions,
+lifecycle, revision checks and error presentation) stay because they own threading,
+UI, failure reporting or composition, none of which the kernel may see.
+`RuntimeConfigRepository` stays for the same reason: it is the global runtime-config
+file owner, not a typed-config document. `EarlyThemeAppearanceBootstrap` keeps its
+small read-only parser: it runs before the runtime exists, is fail-open by contract
+and reports its own bounded diagnostics; unifying it on the kernel is a separate,
+reviewable change.
+
+## `:compatibility-policy` ↔ `:runtime` Cubism admission policy
+
+- **Owner**: compatibility, mapping and release-table maintainers (see
+  `.github/CODEOWNERS`).
+- **Purpose**: `:compatibility-policy` owns the host-independent Cubism admission
+  facts and predicates: the exact reviewed release matrix (version, declared build,
+  Core runtime tuple and the explicit full-runtime decision), the exact
+  reviewed-release predicate, `@CubismEditor` declaration validation and version-range
+  expansion/permission, and the selector requirement predicate over exact version,
+  capability ids and selector aliases. It answers "does this declared version or
+  annotation declare/evidence admit this exact version" without loading Cubism, the
+  host JAR, a classloader or any file. It does not decide host identity, read host
+  artifacts, verify members, install hooks, run ASM scans or present failures.
+- **Allowed dependencies**: `:compatibility-policy` may depend on `:sdk` only
+  (`api(project(":sdk"))`): the frozen `dev.turboism.sdk.CubismEditor` annotation
+  type it evaluates. `:runtime` depends on it through
+  `implementation(project(":compatibility-policy"))`; `:bootstrap` declares it only as
+  a `testImplementation` for the repacked-host admission test. No module other than
+  those two may declare the edge, and the dependency never points back at `:runtime`.
+- **Forbidden**: any `:compatibility-policy` → `:runtime`/`:core-contract`/`:plugins:*`
+  edge; any external library, reflection, file-system, network, classloader, Swing/
+  AWT, `com.live2d`, ASM, scheduler or concurrent-executor reference; and any SDK or
+  plugin source/bytecode reference to `dev.turboism.compatibility.*`. The module must
+  not import `java.lang.reflect`, `java.nio.file`, `java.io`, `java.net`,
+  `java.awt`, `javax.swing` or `java.util.concurrent`.
+- **Public API**: `ReviewedReleaseTable` + `ReviewedReleaseTable.Release` (generated
+  exact release facts), `ReviewedCubismReleases` (exact version+build review
+  predicate), `CubismEditorAvailabilityPolicy` + `CubismEditorAvailabilityPolicy.Resolution`
+  (annotation declaration expansion and version permission), and
+  `SelectorAdmissionPolicy` (pure selector admission over version, capability and
+  alias evidence). Everything else is private.
+- **Threading / IO**: every type is stateless, immutable and pure; there is no
+  executor, lock, cache lifecycle or static mutable state. Callers supply annotation
+  instances, version strings and evidence sets on their own thread. No method reads a
+  file, the host, the environment or a classloader.
+- **Tests**: `compatibility-policy/src/test/java/dev/turboism/compatibility/policy/**`
+  pins the reviewed matrix, unknown-future fail-closed behaviour, annotation range
+  expansion/exclusion/intersection and selector evidence admission offline, including
+  the deep-adaptation targets 5.2.03 and 5.3.02+.
+- **Backward compatibility**: every existing reviewed host/version keeps its exact
+  admission and capability outcome. Unknown versions fail closed; no range, build
+  drift or partially verified capability evidence is silently admitted. The generated
+  `ReviewedReleaseTable` keeps its previous class name and API; only its module and
+  package move. `compatibility/cubism/compatibility-matrix.json`, SDK class identity,
+  plugin lifecycle, host load order and persisted data are unchanged.
+- **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges, the
+  source import allowlist and a compiled-bytecode scan over
+  `compatibility-policy/build/classes/java/main`), the plugin boundary dotted root
+  `compatibility`, `checkDependencyInventory`, `checkCodeQuality`,
+  `checkThrowableContainment`, `checkReviewedReleases` and `checkCompatibilityMatrix`,
+  whose inputs include the module's production sources.
+
+**What changed (`#113`)**: the reviewed release table and its exact review predicate
+moved out of `dev.turboism.mapping.verification` into
+`dev.turboism.compatibility.policy`; the annotation range/version decision moved out
+of the runtime interceptor package into the same module, leaving a small runtime
+resolver that only collects SDK declarations by reflection. The selector contract
+predicate moved into `SelectorAdmissionPolicy`; the contracts keep their data because
+the compatibility matrix pins those exact files and symbols.
+
+**What stayed behind, and why**: `ReviewedHostArtifacts` keeps every host artifact
+size/SHA-256 trust root (generated into `:runtime`), `VerifiedMemberResolver`,
+`StaticSelectorVerifier`, ASM bytecode scanning, `CubismEditorReleaseDetector`,
+`HostArtifactDigest.from(Path)`, host JAR/probe evidence, `PinnedVerifiedResolverWorkflow`,
+`SliceContract`/`ReviewedSliceRecord`, `CompatibilityResolution`, plugin activation and
+SDK/interceptor adapters stay in `:runtime` because they read host bytes, reflect over
+loaded host classes, verify members or own composition/threading. The selector
+contracts (`MeshToolSessionSelectorContract`, `ModelingSelectionSelectorContract`)
+keep their capability/alias/supported-version data and matrix provenance in
+`:runtime`; only their generic admission decision delegates to the policy module.
+
 ## Next boundaries (not yet extracted)
 
-None at package granularity. The next step in #70's sequence is not another move but
-the extraction itself (step 3): pull the pure persistence codec/migration kernel out
-of `:runtime` behind the contracts already recorded here, then the compatibility
-policy, each as its own reviewable PR with module contracts and the existing
-bytecode/ABI gates ratcheting the direction.
+None at package granularity. Both planned pure policies (#112 persistence and #113
+Cubism compatibility) now have enforced module boundaries; further extraction needs a
+new reviewed contract and must not move host, UI or classloader-bound behavior.

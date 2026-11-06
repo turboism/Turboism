@@ -8,6 +8,16 @@ from pathlib import Path
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR: Path = REPO_ROOT / "scripts"
 
+# Deterministic build products live below this untracked root. Paths are kept
+# repository-relative so every consumer can resolve them against its own tree.
+GENERATED_ROOT: Path = Path("build/generated")
+# Machine-readable compatibility matrix: generated from reviewed facts by
+# scripts/generate_compatibility_matrix.py, never committed. Docs pages, plugin
+# sidecars and release tooling derive from the same reviewed sources, so the
+# matrix itself stays a build product; consumers that need its projection read
+# this path after generation instead of regenerating the whole matrix.
+COMPATIBILITY_MATRIX: Path = GENERATED_ROOT / "compatibility/cubism/compatibility-matrix.json"
+
 
 def repo_root(anchor: Path | str | None = None) -> Path:
     """Return the Turboism repository root as a resolved Path.

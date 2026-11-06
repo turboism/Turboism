@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
@@ -107,9 +108,14 @@ final class EditorTextureAccess {
                 new EditorTexturePsdCoordinator(resolver, modelGuard, this.generationSupplier, this.relationAccess);
         this.registrationBindingAccess =
                 new EditorTextureRegistrationBindingAccess(resolver, modelGuard, authoringCoordinator, bindingSupplier);
+        // The texture families write through the one authoring envelope; a read-only composition
+        // (no coordinator or no binding) never writes.
+        final EditorAuthoringWriter authoringWriter = authoringCoordinator == null || bindingSupplier == null
+                ? null
+                : new CoordinatorAuthoringWriter(authoringCoordinator, resolver, bindingSupplier);
         this.atlasAppendAccess = new EditorTextureAtlasAppendAccess(
-                resolver, modelGuard, authoringCoordinator, this.registrationBindingAccess::observeTextureInput);
-        this.libraryAccess = new EditorTextureLibraryAccess(resolver, modelGuard, authoringCoordinator);
+                resolver, modelGuard, authoringWriter, this.registrationBindingAccess::observeTextureInput);
+        this.libraryAccess = new EditorTextureLibraryAccess(resolver, modelGuard, authoringWriter);
     }
 
     ModelTextures textures(final String identity, final Object source, final Object model) {

@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.edit.VerifiedEditorEditSessionHost;
 import dev.turboism.adapter.cubism.editor.history.EditorHistoryPort;
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
@@ -77,7 +78,7 @@ public final class EditorBackedCubismModelAccess
                 dev.turboism.adapter.cubism.BorrowedModelRelease {
 
     private final VerifiedMemberResolver resolver;
-    private final String sessionIdentity;
+    private final EditorModelGeneration modelGeneration;
     private final EditorParameterCombinedAccess combinedAccess;
     private final EditorParameterGroupsAccess parameterGroupsAccess;
     private final EditorDefaultKeyformLockAccess defaultKeyformLockAccess;
@@ -94,20 +95,9 @@ public final class EditorBackedCubismModelAccess
     private final EditorPsdSnapshotAccess psdSnapshotAccess;
     private final VerifiedEditorAuthoringTransactionHost authoringHost;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final EditorAuthoringWriter authoringWriter;
     private final VerifiedEditorEditSessionHost editSessionHost;
     private final RuntimeEditSessionManager editSessionManager;
-    private final Object generationLock = new Object();
-    /**
-     * Identity cache for generation tracking only. The bound values are held weakly so that a closed
-     * document, its model source and its model instance do not stay reachable for the whole life of this
-     * access instance; a cleared referent reads as "no previous binding", which is the same comparison
-     * result a different binding would produce anyway.
-     */
-    private WeakReference<Object> activeDocument;
-
-    private WeakReference<Object> activeSource;
-    private WeakReference<Object> activeModel;
-    private long generation;
     /** Upper bound on retained parameter-position hints; an oversized table simply rescans. */
     private static final int PARAMETER_INDEX_HINTS = 512;
     /**
@@ -138,29 +128,35 @@ public final class EditorBackedCubismModelAccess
             final String sessionIdentity,
             final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
+        this.modelGeneration = new EditorModelGeneration(
+                resolver, requireText(sessionIdentity, "sessionIdentity"), this::releaseUnboundBorrowedModel);
         this.authoringHost = new VerifiedEditorAuthoringTransactionHost(
                 resolver,
                 this::authoringNativeBinding,
-                this::authoringGeneration,
-                new EditorHistoryPort(() -> Optional.of(resolver), this::authoringGeneration));
+                modelGeneration::generation,
+                new EditorHistoryPort(() -> Optional.of(resolver), modelGeneration::generation));
         final java.util.concurrent.atomic.AtomicBoolean editScopeGate = new java.util.concurrent.atomic.AtomicBoolean();
         this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost, editScopeGate);
+        this.authoringWriter =
+                new CoordinatorAuthoringWriter(authoringCoordinator, resolver, this::authoringParticipationBinding);
         this.editSessionHost =
-                new VerifiedEditorEditSessionHost(resolver, this::authoringNativeBinding, this::authoringGeneration);
+                new VerifiedEditorEditSessionHost(resolver, this::authoringNativeBinding, modelGeneration::generation);
         this.editSessionManager = new RuntimeEditSessionManager(editSessionHost, editScopeGate);
-        this.combinedAccess = new EditorParameterCombinedAccess(
-                resolver, this::requireCurrent, this::source, this.authoringCoordinator);
+        this.combinedAccess =
+                new EditorParameterCombinedAccess(resolver, this::requireCurrent, this::source, this.authoringWriter);
         this.parameterStructureAccess = new EditorParameterStructureAccess(
-                resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
+                resolver,
+                this::requireCurrent,
+                this.authoringCoordinator,
+                this::authoringParticipationBinding,
+                this.authoringWriter);
         this.parameterGroupsAccess =
                 new EditorParameterGroupsAccess(resolver, this::requireCurrent, this.parameterStructureAccess);
         this.defaultKeyformLockAccess =
-                new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+                new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.editLevelAccess = new EditorModelEditLevelAccess(resolver, this::requireCurrent);
-        this.partStructureAccess =
-                new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
-        this.morphTargetAccess = new EditorMorphTargetAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.partStructureAccess = new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringWriter);
+        this.morphTargetAccess = new EditorMorphTargetAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
                 resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
 
@@ -172,18 +168,17 @@ public final class EditorBackedCubismModelAccess
         this.textureAccess = new EditorTextureAccess(
                 resolver,
                 this::requireCurrent,
-                () -> binding().generation(),
+                modelGeneration::generation,
                 this.authoringCoordinator,
                 this::authoringParticipationBinding);
-        this.modelProfileAccess =
-                new EditorModelProfileAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.modelProfileAccess = new EditorModelProfileAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.partOpacityAccess = new EditorPartOpacityAccess(
                 resolver,
                 this::requireCurrent,
                 this.partStructureAccess,
                 this.morphTargetAccess,
                 this.hierarchyEditAccess,
-                this.authoringCoordinator);
+                this.authoringWriter);
         this.evaluatedJoin = evaluatedJoin;
         this.objectReadAccess = new EditorObjectReadAccess(
                 resolver,
@@ -196,7 +191,7 @@ public final class EditorBackedCubismModelAccess
         this.statisticsAccess = new EditorModelStatisticsAccess(resolver, this::requireCurrent);
         this.psdSnapshotAccess = new EditorPsdSnapshotAccess(resolver, this::requireCurrent);
         this.nativeControlAppearanceAccess =
-                new EditorNativeControlAppearanceAccess(resolver, () -> binding(), this.authoringCoordinator);
+                new EditorNativeControlAppearanceAccess(resolver, modelGeneration::mint, this.authoringWriter);
         this.selectionReadAccess = new EditorSelectionReadAccess(resolver);
     }
 
@@ -242,7 +237,7 @@ public final class EditorBackedCubismModelAccess
                 resolver,
                 objectReadAccess,
                 () -> {
-                    final Binding value = binding();
+                    final BoundModel value = modelGeneration.mint();
                     return new EditorWarpMirrorAccess.NativeBinding(
                             value.identity(), value.generation(), value.source(), value.model());
                 },
@@ -262,7 +257,7 @@ public final class EditorBackedCubismModelAccess
 
     @Override
     public CubismModel active() {
-        final Binding binding = binding();
+        final BoundModel binding = modelGeneration.mint();
         return new EditorModel(binding.identity(), binding.modelId(), binding.source(), binding.model());
     }
 
@@ -273,7 +268,7 @@ public final class EditorBackedCubismModelAccess
      * plugin-facing API.
      */
     public String currentBindingIdentity() {
-        return binding().identity();
+        return modelGeneration.mint().identity();
     }
 
     @Override
@@ -348,33 +343,6 @@ public final class EditorBackedCubismModelAccess
         return new CreateParent(nativeRef.nativeSource(), parent.kind() != ModelObjectKind.PART);
     }
 
-    private Binding binding() {
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document =
-                app == null ? null : resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
-            final String actualClass =
-                    document == null ? "null" : document.getClass().getName();
-            throw unavailable("The active Cubism document is not a modeling document. [DEBUG-pb-admission]"
-                    + " activeDocumentClass="
-                    + actualClass + " thread=" + Thread.currentThread().getName());
-        }
-        final Object source = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
-        final Object model =
-                source == null ? null : resolver.invoke("cubism.editor-model.model-source.current-instance", source);
-        if (!resolver.isInstance("cubism.editor-model.model.class", model)) {
-            throw unavailable("No verified active model is available.");
-        }
-        final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
-        final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
-        final String identity = bindingIdentity(id, document, source, model);
-        final long currentGeneration;
-        synchronized (generationLock) {
-            currentGeneration = generation;
-        }
-        return new Binding(identity, currentGeneration, id, document, source, model);
-    }
-
     private EditorAuthoringTransactionCoordinator.Binding authoringParticipationBinding() {
         return authoringHost
                 .binding("runtime.editor-model")
@@ -382,42 +350,9 @@ public final class EditorBackedCubismModelAccess
     }
 
     private VerifiedEditorAuthoringTransactionHost.NativeBinding authoringNativeBinding() {
-        final Binding binding = binding();
+        final BoundModel binding = modelGeneration.mint();
         return new VerifiedEditorAuthoringTransactionHost.NativeBinding(
                 binding.identity(), binding.generation(), binding.document(), binding.source(), binding.model());
-    }
-
-    private long authoringGeneration() {
-        synchronized (generationLock) {
-            return generation;
-        }
-    }
-
-    private String bindingIdentity(
-            final String modelId, final Object document, final Object source, final Object model) {
-        final boolean changed;
-        final String identity;
-        synchronized (generationLock) {
-            if (document != cachedIdentity(activeDocument)
-                    || source != cachedIdentity(activeSource)
-                    || model != cachedIdentity(activeModel)) {
-                changed = generation != 0;
-                activeDocument = new WeakReference<>(document);
-                activeSource = new WeakReference<>(source);
-                activeModel = new WeakReference<>(model);
-                generation = Math.incrementExact(generation);
-            } else {
-                changed = false;
-            }
-            identity = sessionIdentity + ":" + modelId + ":" + generation;
-        }
-        if (changed) releaseUnboundBorrowedModel();
-        return identity;
-    }
-
-    /** @return the cached identity, or {@code null} when it was never bound or has already been collected. */
-    private static Object cachedIdentity(final WeakReference<Object> cached) {
-        return cached == null ? null : cached.get();
     }
 
     /**
@@ -439,7 +374,7 @@ public final class EditorBackedCubismModelAccess
         if (evaluatedJoin == null) {
             throw new IllegalStateException("Cubism MOC metadata is unavailable: no Core evaluated join is installed.");
         }
-        return evaluatedJoin.mocInfo(binding().identity());
+        return evaluatedJoin.mocInfo(modelGeneration.mint().identity());
     }
 
     private void setParameterValue(
@@ -454,10 +389,7 @@ public final class EditorBackedCubismModelAccess
             throw new UnsupportedOperationException(
                     "Parameter value editing is unavailable without exact verified host evidence.");
         }
-        final Binding currentBinding = binding();
-        if (!currentBinding.identity().equals(expectedIdentity) || currentBinding.model() != expectedModel) {
-            throw new IllegalStateException("Cubism model reference is stale for the active Editor model generation.");
-        }
+        final BoundModel currentBinding = modelGeneration.requireCurrent(expectedIdentity, expectedModel);
 
         final ParameterBinding parameterBinding = parameter(expectedModel, id);
         final float oldValue =
@@ -811,10 +743,7 @@ public final class EditorBackedCubismModelAccess
     }
 
     private void requireCurrent(final String expectedIdentity, final Object expectedModel) {
-        final Binding current = binding();
-        if (!current.identity().equals(expectedIdentity) || current.model() != expectedModel) {
-            throw new IllegalStateException("Cubism model reference is stale for the active Editor model generation.");
-        }
+        modelGeneration.requireCurrent(expectedIdentity, expectedModel);
     }
 
     private Iterable<?> nativeParameters(final Object model) {
@@ -891,12 +820,13 @@ public final class EditorBackedCubismModelAccess
     private int hintedIndex(final Object model, final String id) {
         final ParameterIndexHint hint = parameterIndexHints.get(id);
         if (hint == null) return -1;
-        return hint.matches(model, authoringGeneration()) ? hint.index() : -1;
+        return hint.matches(model, modelGeneration.generation()) ? hint.index() : -1;
     }
 
     private void rememberIndex(final Object model, final String id, final int index) {
         if (parameterIndexHints.size() >= PARAMETER_INDEX_HINTS) parameterIndexHints.clear();
-        parameterIndexHints.put(id, new ParameterIndexHint(new WeakReference<>(model), authoringGeneration(), index));
+        parameterIndexHints.put(
+                id, new ParameterIndexHint(new WeakReference<>(model), modelGeneration.generation(), index));
     }
 
     private static String text(final Object value) {
@@ -1094,6 +1024,7 @@ public final class EditorBackedCubismModelAccess
                     EditorBackedCubismModelAccess.this::requireCurrent,
                     objectReadAccess::bindingTargetSource,
                     EditorBackedCubismModelAccess.this::source,
+                    authoringWriter,
                     authoringCoordinator,
                     EditorBackedCubismModelAccess.this::authoringParticipationBinding);
         }
@@ -1385,7 +1316,8 @@ public final class EditorBackedCubismModelAccess
         @Override
         public List<dev.turboism.sdk.cubism.model.ParameterBinding> getParameterBindings() {
             current();
-            return objectReadAccess.parameterBindings(identity, binding().source(), model, id);
+            return objectReadAccess.parameterBindings(
+                    identity, modelGeneration.mint().source(), model, id);
         }
 
         @Override
@@ -1520,8 +1452,6 @@ public final class EditorBackedCubismModelAccess
     private static String nullableText(final Object value) {
         return value instanceof String text && !text.isBlank() ? text : null;
     }
-
-    record Binding(String identity, long generation, String modelId, Object document, Object source, Object model) {}
 
     private record ParameterBinding(String id, Object parameter, int index) {}
 

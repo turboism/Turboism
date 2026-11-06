@@ -20,11 +20,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Plugin-generation-owned SDK mesh-tool registry. */
 public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
     public static final String REQUIRED_CAPABILITY = "cubism.mesh.custom-tools";
+    /**
+     * Capability that entitles a plugin's own registered tool to the runtime point-and-edge layout
+     * brush. It is carried into the tool registration so the brush is selected by capability
+     * instead of by a plugin identity.
+     */
+    public static final String POINT_AND_EDGE_LAYOUT_CAPABILITY = "cubism.mesh.point-and-edge-layout";
 
     private final String pluginId;
     private final long pluginGeneration;
     private final PermissionChecker permissions;
     private final boolean capabilityGranted;
+    private final boolean pointAndEdgeLayoutGranted;
     private final MeshToolCoordinator coordinator;
     private final EditorUiContributionAuthority authority;
     private final Object monitor = new Object();
@@ -37,6 +44,7 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
             long pluginGeneration,
             PermissionChecker permissions,
             boolean capabilityGranted,
+            boolean pointAndEdgeLayoutGranted,
             MeshToolCoordinator coordinator,
             EditorUiContributionAuthority authority) {
         this.pluginId = text(pluginId, "pluginId");
@@ -44,6 +52,7 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
         this.pluginGeneration = pluginGeneration;
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.capabilityGranted = capabilityGranted;
+        this.pointAndEdgeLayoutGranted = pointAndEdgeLayoutGranted;
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.authority = Objects.requireNonNull(authority, "authority");
     }
@@ -80,7 +89,7 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
                 throw new IllegalStateException("mesh tool id is already registered by this plugin generation");
             }
             final Registration coordinatorRegistration =
-                    coordinator.register(pluginId, pluginGeneration, tool, permissions);
+                    coordinator.register(pluginId, pluginGeneration, tool, permissions, pointAndEdgeLayoutGranted);
             final Registration uiRegistration;
             try {
                 uiRegistration = authority.contribute(descriptor.contribution());

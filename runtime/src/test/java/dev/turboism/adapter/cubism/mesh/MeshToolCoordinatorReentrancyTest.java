@@ -51,8 +51,9 @@ class MeshToolCoordinatorReentrancyTest {
                         calls.add("deactivate:a");
                     }
                 },
-                allow());
-        coordinator.register("plugin", 1L, tool("b", calls), allow());
+                allow(),
+                false);
+        coordinator.register("plugin", 1L, tool("b", calls), allow(), false);
         coordinator.beginSession(new Session(1L));
 
         assertTimeoutPreemptively(Duration.ofSeconds(2), () -> coordinator.activate("plugin", 1L, "a"));
@@ -97,7 +98,8 @@ class MeshToolCoordinatorReentrancyTest {
                         calls.add("deactivate");
                     }
                 },
-                allow()));
+                allow(),
+                false));
         coordinator.beginSession(new Session(1L));
 
         assertTimeoutPreemptively(Duration.ofSeconds(2), () -> coordinator.activate("plugin", 1L, "self"));
@@ -142,8 +144,9 @@ class MeshToolCoordinatorReentrancyTest {
                         calls.add("deactivate:bad");
                     }
                 },
-                allow());
-        coordinator.register("plugin", 1L, tool("good", calls), allow());
+                allow(),
+                false);
+        coordinator.register("plugin", 1L, tool("good", calls), allow(), false);
         coordinator.beginSession(new Session(1L));
 
         org.junit.jupiter.api.Assertions.assertThrows(

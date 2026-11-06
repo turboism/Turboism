@@ -1,11 +1,12 @@
 package dev.turboism.update;
 
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.PublishGuard;
+import dev.turboism.core.io.WriteOptions;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -15,6 +16,25 @@ import java.util.Locale;
 /** Exact signed installation receipt. The mutable index is advanced by the applier's rollback journal, not here. */
 final class FrameworkUpdateReceipt {
     private FrameworkUpdateReceipt() {}
+
+    /** Receipt documents and the index are private: owner-only before the first byte, atomicity required. */
+    private static final WriteOptions PRIVATE_WRITE =
+            WriteOptions.DEFAULT.withPermissions(WriteOptions.Permissions.OWNER_ONLY);
+
+    /**
+     * Windows keeps the receipt state's historical owner/SYSTEM/Administrators DACL. The staged file is
+     * already owner-only, and this widens it to exactly the trusted principals the pre-migration code
+     * applied before the bytes were written.
+     */
+    private static final PublishGuard PRIVATE_ACL = new PublishGuard() {
+        @Override
+        public void beforePublish(final Path staged, final Path target) {}
+
+        @Override
+        public void afterPublish(final Path staged, final Path target) throws IOException {
+            applyPrivateAcl(target);
+        }
+    };
 
     static final class Prepared {
         private final Path root;
@@ -110,21 +130,30 @@ final class FrameworkUpdateReceipt {
             }
         }
         receipt.publishDocuments();
-        final Path temporary = Files.createTempFile(receipt.indexPath().getParent(), ".receipt-index-", ".writing");
-        try {
-            if (!Files.getFileStore(temporary).supportsFileAttributeView("posix")) {
-                FrameworkUpdateCache.restrictAcl(temporary);
-            }
-            Files.write(temporary, receipt.index(), StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-            try (var channel = FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
-                channel.force(true);
-            }
-            if (FrameworkUpdateCache.attributes(receipt.indexPath()) != null) {
-                throw new IOException("Receipt appeared during initialization");
-            }
-            Files.move(temporary, receipt.indexPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-        } finally {
-            Files.deleteIfExists(temporary);
+        // Create-once publication: an existing index is never replaced, and the guard keeps the explicit
+        // "appeared during initialization" report for a race the checks above cannot see.
+        DurableFile.createOnce(receipt.indexPath())
+                .withOptions(PRIVATE_WRITE)
+                .guardedBy(new PublishGuard() {
+                    @Override
+                    public void beforePublish(final Path staged, final Path target) throws IOException {
+                        if (FrameworkUpdateCache.attributes(target) != null) {
+                            throw new IOException("Receipt appeared during initialization");
+                        }
+                    }
+
+                    @Override
+                    public void afterPublish(final Path staged, final Path target) throws IOException {
+                        applyPrivateAcl(target);
+                    }
+                })
+                .replace(receipt.index());
+    }
+
+    /** POSIX keeps private state via owner-only mode bits; Windows needs an explicit restrictive DACL. */
+    private static void applyPrivateAcl(final Path path) throws IOException {
+        if (!Files.getFileStore(path).supportsFileAttributeView("posix")) {
+            FrameworkUpdateCache.restrictAcl(path);
         }
     }
 
@@ -157,21 +186,12 @@ final class FrameworkUpdateReceipt {
 
     private static void immutable(final Path target, final byte[] bytes) throws IOException {
         if (FrameworkUpdateCache.attributes(target) == null) {
-            final Path temporary = Files.createTempFile(target.getParent(), ".receipt-", ".writing");
-            try {
-                if (!Files.getFileStore(temporary).supportsFileAttributeView("posix")) {
-                    FrameworkUpdateCache.restrictAcl(temporary);
-                }
-                try (var channel = FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
-                    final var buffer = java.nio.ByteBuffer.wrap(bytes);
-                    while (buffer.hasRemaining()) channel.write(buffer);
-                    channel.force(true);
-                }
-                // Publication is serialized by the transaction lock. No partially written canonical document.
-                Files.move(temporary, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-            } finally {
-                Files.deleteIfExists(temporary);
-            }
+            // Publication is serialized by the transaction lock and create-once: no partially written
+            // canonical document, and no replacement of an existing one.
+            DurableFile.createOnce(target)
+                    .withOptions(PRIVATE_WRITE)
+                    .guardedBy(PRIVATE_ACL)
+                    .replace(bytes);
         }
         final var attributes = FrameworkUpdateCache.attributes(target);
         if (attributes == null

@@ -40,5 +40,8 @@
   "cubism.core.owned-moc.read"
  ],
  "coverageSources": [],
- "coverage": false
+ "coverage": false,
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

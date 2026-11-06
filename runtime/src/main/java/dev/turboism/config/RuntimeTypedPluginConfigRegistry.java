@@ -2,12 +2,17 @@ package dev.turboism.config;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.failure.RuntimeFailureSink;
-import dev.turboism.sdk.config.ConfigDocument;
+import dev.turboism.persistence.config.RegisteredKey;
+import dev.turboism.persistence.config.RegisteredSchema;
+import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.persistence.config.TypedConfigCodecSupport;
+import dev.turboism.persistence.config.TypedConfigMigrationOutcome;
+import dev.turboism.persistence.config.TypedConfigMigrationPolicy;
+import dev.turboism.persistence.config.TypedConfigSchemaPolicy;
 import dev.turboism.sdk.config.ConfigError;
 import dev.turboism.sdk.config.ConfigErrorCode;
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigMigration;
-import dev.turboism.sdk.config.ConfigMigrationException;
 import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigRegistrationError;
 import dev.turboism.sdk.config.ConfigRegistrationException;
@@ -23,13 +28,10 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.storage.StoragePath;
-import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.ui.settings.SettingsContributionStore;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,12 +40,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.regex.Pattern;
 
 /** Typed-config facade layered beside the preserved legacy config registry. */
 public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegistry, AutoCloseable {
-
-    private static final Pattern IDENTIFIER = Pattern.compile("[a-z0-9][a-z0-9._-]{0,127}");
 
     private final PluginConfigRegistry legacy;
     private final String pluginId;
@@ -184,13 +183,13 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
 
     private CompletionStage<Void> register(final RegisteredSchema candidate) {
         synchronized (lifecycleLock) {
-            if (schemas.containsKey(candidate.schema.configId())) {
+            if (schemas.containsKey(candidate.schema().configId())) {
                 final ConfigSchemaValidationException failure =
                         validation(ConfigSchemaValidationError.DUPLICATE_CONFIG_ID);
                 failureReporter.schemaValidationFailed(failure);
                 throw failure;
             }
-            if (paths.containsKey(candidate.schema.relativePath())) {
+            if (paths.containsKey(candidate.schema().relativePath())) {
                 final ConfigSchemaValidationException failure = validation(ConfigSchemaValidationError.DUPLICATE_PATH);
                 failureReporter.schemaValidationFailed(failure);
                 throw failure;
@@ -203,13 +202,13 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
                         ConfigRegistrationError.PERMISSION_DENIED, PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE);
             }
             try {
-                schemas.put(candidate.schema.configId(), candidate);
-                paths.put(candidate.schema.relativePath(), candidate.schema.configId());
+                schemas.put(candidate.schema().configId(), candidate);
+                paths.put(candidate.schema().relativePath(), candidate.schema().configId());
                 return io.submit(() -> materializeDefaults(candidate), () -> Materialization.UNAVAILABLE)
                         .thenCompose(this::completeRegistration);
             } catch (RuntimeException exception) {
-                schemas.remove(candidate.schema.configId());
-                paths.remove(candidate.schema.relativePath());
+                schemas.remove(candidate.schema().configId());
+                paths.remove(candidate.schema().relativePath());
                 return registrationFailure(ConfigRegistrationError.REGISTRATION_FAILED, null);
             }
         }
@@ -229,14 +228,16 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
         }
         if (!has(PermissionIds.TURBOISM_CONFIG_PLUGIN_READ)) {
             return io.immediate(failureReporter.observe(
-                    defaultUnavailable(registered.key, ConfigErrorCode.PERMISSION_DENIED),
+                    defaultUnavailable(registered.key(), ConfigErrorCode.PERMISSION_DENIED),
                     "config.read",
                     PermissionIds.TURBOISM_CONFIG_PLUGIN_READ));
         }
         return io.submit(
                 () -> failureReporter.observe(readNow(registered), "config.read", null),
                 () -> failureReporter.observe(
-                        defaultUnavailable(registered.key, ConfigErrorCode.RUNTIME_UNAVAILABLE), "config.read", null));
+                        defaultUnavailable(registered.key(), ConfigErrorCode.RUNTIME_UNAVAILABLE),
+                        "config.read",
+                        null));
     }
 
     @Override
@@ -257,11 +258,11 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
         }
         if (!has(PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE)) {
             return io.immediate(failureReporter.observe(
-                    writeFailure(registered.key.name(), ConfigErrorCode.PERMISSION_DENIED, 0),
+                    writeFailure(registered.key().name(), ConfigErrorCode.PERMISSION_DENIED, 0),
                     "config.write",
                     PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE));
         }
-        final Optional<String> encoded = TypedConfigCodecSupport.encode(registered.key, value);
+        final Optional<String> encoded = TypedConfigCodecSupport.encode(registered.key(), value);
         return io.submit(
                 () -> failureReporter.observe(
                         encoded.isPresent()
@@ -270,7 +271,7 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
                         "config.write",
                         null),
                 () -> failureReporter.observe(
-                        writeFailure(registered.key.name(), ConfigErrorCode.RUNTIME_UNAVAILABLE, 0),
+                        writeFailure(registered.key().name(), ConfigErrorCode.RUNTIME_UNAVAILABLE, 0),
                         "config.write",
                         null));
     }
@@ -295,21 +296,21 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
 
     private <T> ConfigReadResult<T> readNow(final RegisteredKey<T> registered) {
         try {
-            final LoadedDocument loaded = loadCurrent(registered.schema);
+            final LoadedDocument loaded = loadCurrent(registered.schema());
             if (loaded.error != null) {
-                return defaultRead(registered.key, loaded.source, loaded.error, loaded.revision);
+                return defaultRead(registered.key(), loaded.source, loaded.error, loaded.revision);
             }
-            final String encoded = loaded.values.get(registered.key.name());
+            final String encoded = loaded.values.get(registered.key().name());
             if (encoded == null) {
                 return new ConfigReadResult<>(
                         new ConfigValue<>(
-                                defaultValue(registered.key), ConfigValueSource.DEFAULT_MISSING, loaded.revision),
+                                defaultValue(registered.key()), ConfigValueSource.DEFAULT_MISSING, loaded.revision),
                         Optional.empty());
             }
-            final Optional<Object> decoded = TypedConfigCodecSupport.decode(registered.key, encoded);
+            final Optional<Object> decoded = TypedConfigCodecSupport.decode(registered.key(), encoded);
             if (decoded.isEmpty()) {
                 return defaultRead(
-                        registered.key,
+                        registered.key(),
                         ConfigValueSource.DEFAULT_INVALID,
                         ConfigErrorCode.INVALID_VALUE,
                         loaded.revision);
@@ -319,41 +320,42 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
             return new ConfigReadResult<>(
                     new ConfigValue<>(value, ConfigValueSource.STORED, loaded.revision), Optional.empty());
         } catch (IOException exception) {
-            return defaultUnavailable(registered.key, ConfigErrorCode.PERSISTENCE_FAILED);
+            return defaultUnavailable(registered.key(), ConfigErrorCode.PERSISTENCE_FAILED);
         }
     }
 
     private ConfigWriteResult invalidWriteNow(final RegisteredKey<?> registered, final long expectedRevision) {
-        return writeFailure(registered.key.name(), ConfigErrorCode.INVALID_VALUE, currentRevision(registered.schema));
+        return writeFailure(
+                registered.key().name(), ConfigErrorCode.INVALID_VALUE, currentRevision(registered.schema()));
     }
 
     private ConfigWriteResult writeNow(
             final RegisteredKey<?> registered, final String encoded, final long expectedRevision) {
         try {
-            final LoadedDocument loaded = loadCurrentForWrite(registered.schema);
+            final LoadedDocument loaded = loadCurrentForWrite(registered.schema());
             if (loaded.error != null) {
-                return writeFailure(registered.key.name(), ConfigErrorCode.PERSISTENCE_FAILED, loaded.revision);
+                return writeFailure(registered.key().name(), ConfigErrorCode.PERSISTENCE_FAILED, loaded.revision);
             }
             if (loaded.revision != expectedRevision) {
-                return writeFailure(registered.key.name(), ConfigErrorCode.REVISION_CONFLICT, loaded.revision);
+                return writeFailure(registered.key().name(), ConfigErrorCode.REVISION_CONFLICT, loaded.revision);
             }
             final Map<String, String> values = new LinkedHashMap<>(loaded.values);
-            values.put(registered.key.name(), encoded);
+            values.put(registered.key().name(), encoded);
             final long revision = Math.addExact(loaded.revision, 1);
             store.writeAtomic(
-                    registered.schema.schema.relativePath(),
-                    new TypedConfigDocumentStore.StoredDocument(registered.schema.schema.version(), revision, values));
+                    registered.schema().schema().relativePath(),
+                    new StoredDocument(registered.schema().schema().version(), revision, values));
             return new ConfigWriteResult(true, revision, Optional.empty());
         } catch (IOException | ArithmeticException exception) {
             return writeFailure(
-                    registered.key.name(), ConfigErrorCode.PERSISTENCE_FAILED, currentRevision(registered.schema));
+                    registered.key().name(), ConfigErrorCode.PERSISTENCE_FAILED, currentRevision(registered.schema()));
         }
     }
 
     private long currentRevision(final RegisteredSchema schema) {
         try {
-            return store.read(schema.schema.relativePath())
-                    .map(TypedConfigDocumentStore.StoredDocument::revision)
+            return store.read(schema.schema().relativePath())
+                    .map(StoredDocument::revision)
                     .orElse(0L);
         } catch (IOException exception) {
             return 0L;
@@ -361,28 +363,28 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
     }
 
     private LoadedDocument loadCurrentForWrite(final RegisteredSchema schema) throws IOException {
-        final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read(schema.schema.relativePath());
+        final Optional<StoredDocument> stored = store.read(schema.schema().relativePath());
         if (stored.isEmpty()) {
             return LoadedDocument.success(0, Map.of());
         }
-        final TypedConfigDocumentStore.StoredDocument document = stored.orElseThrow();
+        final StoredDocument document = stored.orElseThrow();
         final LoadedDocument loaded = migrate(schema, document, true);
-        if (loaded.error == null && document.schemaVersion() < schema.schema.version()) {
+        if (loaded.error == null && document.schemaVersion() < schema.schema().version()) {
             // The pending write stores the migrated document, so the bytes it replaces are captured
             // first. A capture failure propagates as PERSISTENCE_FAILED before anything is written.
-            store.recordRecoveryPoint(schema.schema.relativePath(), document);
+            store.recordRecoveryPoint(schema.schema().relativePath(), document);
         }
         return loaded;
     }
 
     private LoadedDocument loadCurrent(final RegisteredSchema schema) throws IOException {
-        final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read(schema.schema.relativePath());
+        final Optional<StoredDocument> stored = store.read(schema.schema().relativePath());
         if (stored.isEmpty()) {
             return LoadedDocument.success(0, Map.of());
         }
-        final TypedConfigDocumentStore.StoredDocument document = stored.orElseThrow();
+        final StoredDocument document = stored.orElseThrow();
         final LoadedDocument loaded = migrate(schema, document, false);
-        if (loaded.error == null && document.schemaVersion() < schema.schema.version()) {
+        if (loaded.error == null && document.schemaVersion() < schema.schema().version()) {
             final long revision;
             try {
                 revision = Math.addExact(document.revision(), 1);
@@ -393,141 +395,46 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
             // A read-time migration replaces the stored document with the migrated schema, so the
             // pre-migration bytes become a recovery point first. A capture failure propagates as
             // PERSISTENCE_FAILED and leaves the original bytes untouched.
-            store.recordRecoveryPoint(schema.schema.relativePath(), document);
+            store.recordRecoveryPoint(schema.schema().relativePath(), document);
             store.writeAtomic(
-                    schema.schema.relativePath(),
-                    new TypedConfigDocumentStore.StoredDocument(schema.schema.version(), revision, loaded.values));
+                    schema.schema().relativePath(),
+                    new StoredDocument(schema.schema().version(), revision, loaded.values));
             return LoadedDocument.success(revision, loaded.values);
         }
         return loaded;
     }
 
-    private LoadedDocument migrate(
-            final RegisteredSchema schema,
-            final TypedConfigDocumentStore.StoredDocument stored,
-            final boolean forWrite) {
-        if (stored.schemaVersion() > schema.schema.version()) {
-            return forWrite
-                    ? LoadedDocument.failure(
-                            stored.revision(),
-                            ConfigValueSource.DEFAULT_UNAVAILABLE,
-                            ConfigErrorCode.PERSISTENCE_FAILED)
-                    : LoadedDocument.failure(
-                            stored.revision(),
-                            ConfigValueSource.DEFAULT_FUTURE_VERSION,
-                            ConfigErrorCode.FUTURE_SCHEMA_VERSION);
-        }
-        ConfigDocument document = new ConfigDocument(stored.schemaVersion(), stored.encodedValues());
-        try {
-            while (document.schemaVersion() < schema.schema.version()) {
-                final ConfigMigration migration = schema.migrations.get(document.schemaVersion());
-                if (migration == null) {
-                    return LoadedDocument.failure(
-                            stored.revision(),
-                            ConfigValueSource.DEFAULT_MIGRATION_FAILED,
-                            ConfigErrorCode.MIGRATION_GAP);
-                }
-                document = Objects.requireNonNull(migration.migrate(document), "migration result");
-                if (document.schemaVersion() != migration.toVersion()
-                        || !validEncodedValues(schema, document.encodedValues())) {
-                    throw new ConfigMigrationException("migration output is invalid");
-                }
-            }
-            if (!validEncodedValues(schema, document.encodedValues())) {
-                return LoadedDocument.failure(
+    private LoadedDocument migrate(final RegisteredSchema schema, final StoredDocument stored, final boolean forWrite) {
+        final TypedConfigMigrationOutcome outcome =
+                TypedConfigMigrationPolicy.migrate(schema, stored.schemaVersion(), stored.encodedValues());
+        return switch (outcome.status()) {
+            case MIGRATED -> LoadedDocument.success(stored.revision(), outcome.encodedValues());
+            case FUTURE_VERSION ->
+                forWrite
+                        ? LoadedDocument.failure(
+                                stored.revision(),
+                                ConfigValueSource.DEFAULT_UNAVAILABLE,
+                                ConfigErrorCode.PERSISTENCE_FAILED)
+                        : LoadedDocument.failure(
+                                stored.revision(),
+                                ConfigValueSource.DEFAULT_FUTURE_VERSION,
+                                ConfigErrorCode.FUTURE_SCHEMA_VERSION);
+            case MIGRATION_GAP ->
+                LoadedDocument.failure(
+                        stored.revision(), ConfigValueSource.DEFAULT_MIGRATION_FAILED, ConfigErrorCode.MIGRATION_GAP);
+            case MIGRATION_FAILED ->
+                LoadedDocument.failure(
+                        stored.revision(),
+                        ConfigValueSource.DEFAULT_MIGRATION_FAILED,
+                        ConfigErrorCode.MIGRATION_FAILED);
+            case INVALID_VALUES ->
+                LoadedDocument.failure(
                         stored.revision(), ConfigValueSource.DEFAULT_UNAVAILABLE, ConfigErrorCode.PERSISTENCE_FAILED);
-            }
-            return LoadedDocument.success(stored.revision(), document.encodedValues());
-        } catch (ConfigMigrationException | RuntimeException exception) {
-            return LoadedDocument.failure(
-                    stored.revision(), ConfigValueSource.DEFAULT_MIGRATION_FAILED, ConfigErrorCode.MIGRATION_FAILED);
-        }
-    }
-
-    private static boolean validEncodedValues(final RegisteredSchema schema, final Map<String, String> values) {
-        if (values == null) {
-            return false;
-        }
-        for (Map.Entry<String, String> entry : values.entrySet()) {
-            final ConfigKey<?> key = schema.keys.get(entry.getKey());
-            if (key == null
-                    || entry.getValue() == null
-                    || TypedConfigCodecSupport.decode(key, entry.getValue()).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
+        };
     }
 
     private RegisteredSchema validate(final ConfigSchema schema, final List<ConfigMigration> migrations) {
-        if (schema == null || schema.keys() == null) {
-            throw validation(ConfigSchemaValidationError.INVALID_SCHEMA);
-        }
-        if (!validIdentifier(schema.configId())) {
-            throw validation(ConfigSchemaValidationError.INVALID_CONFIG_ID);
-        }
-        try {
-            new StoragePath(StorageRoot.DATA, schema.relativePath());
-        } catch (RuntimeException exception) {
-            throw validation(ConfigSchemaValidationError.INVALID_PATH);
-        }
-        if (schema.version() < 1) {
-            throw validation(ConfigSchemaValidationError.INVALID_VERSION);
-        }
-        final Map<String, ConfigKey<?>> keys = new LinkedHashMap<>();
-        for (ConfigKey<?> key : schema.keys()) {
-            if (key == null || key.configId() == null || key.name() == null) {
-                throw validation(ConfigSchemaValidationError.INVALID_KEY);
-            }
-            if (!schema.configId().equals(key.configId()) || !validIdentifier(key.name())) {
-                throw validation(ConfigSchemaValidationError.INVALID_KEY);
-            }
-            if (keys.putIfAbsent(key.name(), snapshotKey(key)) != null) {
-                throw validation(ConfigSchemaValidationError.DUPLICATE_KEY);
-            }
-            if (!TypedConfigCodecSupport.isRecognized(key.codec())) {
-                throw validation(ConfigSchemaValidationError.INVALID_CODEC);
-            }
-            if (!TypedConfigCodecSupport.isValidDefault(key)) {
-                throw validation(ConfigSchemaValidationError.INVALID_DEFAULT_VALUE);
-            }
-        }
-        if (migrations == null) {
-            throw validation(ConfigSchemaValidationError.INVALID_MIGRATION);
-        }
-        final Map<Integer, ConfigMigration> transitions = new HashMap<>();
-        for (ConfigMigration migration : migrations) {
-            if (migration == null
-                    || migration.fromVersion() < 1
-                    || migration.toVersion() != migration.fromVersion() + 1
-                    || migration.toVersion() > schema.version()) {
-                throw validation(ConfigSchemaValidationError.INVALID_MIGRATION);
-            }
-            if (transitions.putIfAbsent(migration.fromVersion(), migration) != null) {
-                throw validation(ConfigSchemaValidationError.MIGRATION_BRANCH);
-            }
-        }
-        for (int version = 1; version < schema.version(); version++) {
-            if (!transitions.containsKey(version)) {
-                throw validation(ConfigSchemaValidationError.MIGRATION_GAP);
-            }
-        }
-        if (transitions.size() != Math.max(0, schema.version() - 1)) {
-            throw validation(ConfigSchemaValidationError.INVALID_MIGRATION);
-        }
-        final ConfigSchema snapshot = new ConfigSchema(
-                schema.configId(), schema.relativePath(), schema.version(), new ArrayList<>(keys.values()));
-        return new RegisteredSchema(snapshot, Map.copyOf(keys), Map.copyOf(transitions));
-    }
-
-    private static ConfigKey<?> snapshotKey(final ConfigKey<?> key) {
-        return snapshotTypedKey(key);
-    }
-
-    private static <T> ConfigKey<T> snapshotTypedKey(final ConfigKey<T> key) {
-        @SuppressWarnings("unchecked")
-        final T defaultValue = (T) TypedConfigCodecSupport.immutableDefault(key);
-        return new ConfigKey<>(key.configId(), key.name(), defaultValue, key.codec());
+        return TypedConfigSchemaPolicy.validate(schema, migrations);
     }
 
     private <T> RegisteredKey<T> registeredKey(final ConfigKey<T> requested) {
@@ -539,7 +446,7 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
             if (schema == null) {
                 return null;
             }
-            final ConfigKey<?> candidate = schema.keys.get(requested.name());
+            final ConfigKey<?> candidate = schema.keys().get(requested.name());
             if (candidate == null
                     || requested.codec() == null
                     || candidate.codec() == null
@@ -559,17 +466,17 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
      */
     private Materialization materializeDefaults(final RegisteredSchema schema) {
         try {
-            if (store.read(schema.schema.relativePath()).isEmpty()) {
+            if (store.read(schema.schema().relativePath()).isEmpty()) {
                 final Map<String, String> defaults = new LinkedHashMap<>();
-                for (ConfigKey<?> key : schema.keys.values()) {
+                for (ConfigKey<?> key : schema.keys().values()) {
                     defaults.put(
                             key.name(),
                             TypedConfigCodecSupport.encode(key, TypedConfigCodecSupport.immutableDefault(key))
                                     .orElseThrow());
                 }
                 store.writeAtomic(
-                        schema.schema.relativePath(),
-                        new TypedConfigDocumentStore.StoredDocument(schema.schema.version(), 0, defaults));
+                        schema.schema().relativePath(),
+                        new StoredDocument(schema.schema().version(), 0, defaults));
             }
             return Materialization.DONE;
         } catch (IOException | RuntimeException failure) {
@@ -580,8 +487,8 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
 
     private void rollbackPublication(final RegisteredSchema schema) {
         synchronized (lifecycleLock) {
-            schemas.remove(schema.schema.configId());
-            paths.remove(schema.schema.relativePath());
+            schemas.remove(schema.schema().configId());
+            paths.remove(schema.schema().relativePath());
         }
     }
 
@@ -607,10 +514,6 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
 
     private boolean has(final String permission) {
         return permissions.contains(permission);
-    }
-
-    private static boolean validIdentifier(final String value) {
-        return value != null && IDENTIFIER.matcher(value).matches();
     }
 
     private static String requireText(final String value, final String name) {

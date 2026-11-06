@@ -124,10 +124,8 @@ final class KernelPluginContextFactory implements AutoCloseable {
     }
 
     /**
-     * Defers Editor UI family reconciliation for the duration of a plugin load wave, so N plugin
-     * registrations cost one host-EDT round trip per family instead of one per plugin per family.
-     *
-     * @return scope whose close flushes every armed family
+     * Defers Editor UI family reconciliation for a plugin load wave. The scope flushes
+     * every armed family on close while contributions remain logically visible.
      */
     AutoCloseable deferEditorUiReconciles() {
         return hostAccess.editorUiContributions().deferReconciles();
@@ -191,6 +189,13 @@ final class KernelPluginContextFactory implements AutoCloseable {
             if (requestedDescriptor
                     .capabilities()
                     .contains(dev.turboism.adapter.cubism.mesh.RuntimeMeshToolRegistry.REQUIRED_CAPABILITY)) {
+                // The runtime point-and-edge layout brush is selected by this declaration, so a
+                // plugin that declares it owns the brush its own tool registers.
+                final boolean pointAndEdgeLayout = requestedDescriptor
+                        .capabilities()
+                        .contains(
+                                dev.turboism.adapter.cubism.mesh.RuntimeMeshToolRegistry
+                                        .POINT_AND_EDGE_LAYOUT_CAPABILITY);
                 final var meshTools = new dev.turboism.adapter.cubism.mesh.RuntimeMeshToolRegistry(
                         requestedDescriptor.id(),
                         eventOwner.key().generation(),
@@ -201,6 +206,7 @@ final class KernelPluginContextFactory implements AutoCloseable {
                                         services.dependencies().cubismAuditSink(),
                                                 services.dependencies().clock())),
                         true,
+                        pointAndEdgeLayout,
                         hostAccess.meshToolCoordinator(),
                         hostAccess.editorUiContributions());
                 try {

@@ -14,6 +14,11 @@ from validation/shared/src/, so this check enforces two invariants:
 Deliberate exceptions live in EXCEPTIONS: files that share a basename but are a
 different implementation by design (documented inline).
 
+Status tokens are typed (ProbeTerminal), so this check reads no status literals: a
+mistyped token is a compile error. What it still pins is the single publication path —
+a probe that appends the counter block, the record block or the terminal line itself
+could reorder the tail the Runner and the evidence gate read.
+
 Usage: check_validation_tools_sync.py [repo-root] [--report]
 """
 from __future__ import annotations
@@ -78,124 +83,14 @@ LOCAL_TERMINAL_RE = re.compile(
     r"\bcomputeTerminal\s*\(|\bString\s+terminal\s*=\s*\"PASS\""
 )
 
-PROBE_TERMINAL_JAVA = "validation/shared/src/dev/turboism/validation/shared/verdict/ProbeTerminal.java"
-RECORD_CALL_RE = re.compile(r"\brecordAssertion\s*\(")
-# A literal that is a possible status value: the whole argument or a ternary branch.
-# Literals inside conditions, such as !"unreadable".equals(x), never reach the recorder.
-STATUS_BRANCH_RE = re.compile(r'(?:^|[?:])\s*"((?:[^"\\]|\\.)*)"\s*(?=:|$)')
-
-
-def accepted_statuses(root: Path):
-    """Status tokens the shared recorder accepts, read from ProbeTerminal itself."""
-    text = (root / PROBE_TERMINAL_JAVA).read_text(encoding="utf-8")
-    enum_body = re.search(r"public enum ProbeTerminal\s*\{(.*?);", text, re.S)
-    tokens = set(re.findall(r"\b([A-Z]+)\b(?=\s*[,;]|\s*$)", enum_body.group(1))) if enum_body else set()
-    evidence = re.search(r'EVIDENCE_ONLY\s*=\s*"([A-Z]+)"', text)
-    if evidence:
-        tokens.add(evidence.group(1))
-    return tokens
-
-
-def strip_comments(text: str) -> str:
-    """Blank out // and /* */ comments, keeping string literals and line numbers intact."""
-    out, index, length = [], 0, len(text)
-    while index < length:
-        char = text[index]
-        if char == '"':
-            end = index + 1
-            while end < length and text[end] != '"':
-                end += 2 if text[end] == "\\" else 1
-            out.append(text[index:end + 1])
-            index = end + 1
-        elif text.startswith("//", index):
-            end = text.find("\n", index)
-            index = length if end < 0 else end
-        elif text.startswith("/*", index):
-            end = text.find("*/", index + 2)
-            end = length if end < 0 else end + 2
-            out.append("\n" * text.count("\n", index, end))
-            index = end
-        else:
-            out.append(char)
-            index += 1
-    return "".join(out)
-
-
-def record_calls(text: str):
-    """Yield (line, argument texts) for each recordAssertion(...) call.
-
-    Walks the balanced argument list so ternaries, nested calls and string literals
-    holding commas or parentheses do not split the arguments early. Comments are blanked
-    first so a comma in a comment between arguments cannot shift them.
-    """
-    text = strip_comments(text)
-    for match in RECORD_CALL_RE.finditer(text):
-        depth, in_string, escaped = 1, False, False
-        args, current = [], []
-        for char in text[match.end():]:
-            if in_string:
-                current.append(char)
-                if escaped:
-                    escaped = False
-                elif char == "\\":
-                    escaped = True
-                elif char == '"':
-                    in_string = False
-                continue
-            if char == '"':
-                in_string = True
-            elif char in "([{":
-                depth += 1
-            elif char in ")]}":
-                depth -= 1
-                if depth == 0:
-                    break
-            elif char == "," and depth == 1:
-                args.append("".join(current))
-                current = []
-                continue
-            current.append(char)
-        args.append("".join(current))
-        line = text.count("\n", 0, match.start()) + 1
-        yield line, [" ".join(arg.split()) for arg in args]
-
-
-def record_status_arguments(text: str):
-    """Yield (line, status argument text, argument count) for each recordAssertion call."""
-    for line, args in record_calls(text):
-        yield line, args[-1], len(args)
-
-
-def status_findings(relative: str, text: str, accepted) -> list[str]:
-    """Reject recorded statuses that the shared recorder would refuse at run time.
-
-    The recorder validates a status only when the probe runs on a host, so an unknown
-    token such as NOTE would abort the probe there. This check reads the literals
-    offline. A bare identifier is resolved through its string assignments in the file.
-    """
-    violations = []
-    for line, status, argument_count in record_status_arguments(text):
-        if argument_count != 4:
-            continue
-        if re.fullmatch(r"(?:final\s+)?String\s+\w+", status):
-            continue  # the recorder wrapper's own parameter declaration
-        literals = STATUS_BRANCH_RE.findall(status)
-        if not literals and re.fullmatch(r"\w+", status):
-            literals = re.findall(
-                r"\b" + re.escape(status) + r'\s*=\s*"([^"]*)"', text)
-        if not literals:
-            violations.append(
-                f"{relative}:{line}: recordAssertion status '{status}' has no string "
-                "literal the check can verify"
-            )
-            continue
-        for token in literals:
-            if token not in accepted:
-                violations.append(
-                    f"{relative}:{line}: recordAssertion status '{token}' is not accepted by "
-                    f"ProbeAssertions (accepted: {', '.join(sorted(accepted))})"
-                )
-    return violations
+# A result tail written outside the shared publication: the counter block, an
+# assertion-record block, or a terminal line appended straight to the report. Probes
+# publish through ProbeAssertions.appendPublication, which owns that order.
+LOCAL_PUBLICATION_RE = re.compile(
+    r"assertions\.(?:appendCounters|appendIndexed|appendNamed)\s*\(|"
+    r'report\.append\(\s*"(?:status|terminal)='
+)
+PUBLICATION_CALL = "appendPublication("
 
 
 # Files allowed to declare a same-named class because theirs is a different
@@ -249,7 +144,6 @@ def findings(root: Path):
                     f"the single source lives at {CANONICAL[declared][0]}"
                 )
 
-    accepted = accepted_statuses(root) if (root / PROBE_TERMINAL_JAVA).is_file() else set()
     for relative, build_scripts in sorted(PROBE_TERMINAL_SOURCES.items()):
         source = root / relative
         if not source.is_file():
@@ -267,7 +161,18 @@ def findings(root: Path):
                 f"{relative}: computes a local terminal verdict ({local.group(0)}); "
                 "call ProbeAssertions.terminal() instead"
             )
-        violations.extend(status_findings(relative, text, accepted))
+        local = LOCAL_PUBLICATION_RE.search(text)
+        if local:
+            violations.append(
+                f"{relative}: writes a result tail outside the shared publication "
+                f"({local.group(0).strip()}); call ProbeAssertions.appendPublication"
+            )
+        publications = text.count(PUBLICATION_CALL)
+        if publications != 1:
+            violations.append(
+                f"{relative}: expected exactly one ProbeAssertions.appendPublication "
+                f"call, found {publications}"
+            )
         for build in build_scripts:
             build_path = root / build
             build_text = build_path.read_text(encoding="utf-8") if build_path.is_file() else ""

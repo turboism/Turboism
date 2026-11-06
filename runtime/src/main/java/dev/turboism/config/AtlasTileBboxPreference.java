@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -25,7 +26,7 @@ public final class AtlasTileBboxPreference {
      */
     public static boolean read(final Path turboismHome) {
         return NativeOptimizationConfig.load(turboismHome, ignored -> {})
-                .choice(NativeOptimizationConfig.Option.ATLAS_TILE_BBOX)
+                .choice(OptimizationCatalog.ATLAS_TILE_BBOX)
                 .enabled();
     }
 

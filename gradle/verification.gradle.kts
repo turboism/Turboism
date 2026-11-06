@@ -4,6 +4,8 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.testing.jacoco.tasks.JacocoReport
+import dev.turboism.gradle.internal.GateManifest
+import dev.turboism.gradle.internal.boundary.DuplicateImports
 import dev.turboism.gradle.internal.VerificationStamps
 
 /*
@@ -15,6 +17,10 @@ import dev.turboism.gradle.internal.VerificationStamps
  *   checkIntegration  packaged/runtime and affected cross-module behavior
  *   checkRelease      supply-chain, API tooling, packaging, and release checks
  *   host validation   explicit exact-version Cubism runs; never a default gate
+ *
+ * The aggregates themselves are declared in gradle/gates.txt and registered at the bottom of this
+ * script, from the same manifest scripts/test/test_ci_coverage.py asserts against. Everything else
+ * in this file is a leaf task that some aggregate names.
  *
  * Historical M1-M16/M13/M14 governance tasks are intentionally absent.
  */
@@ -229,9 +235,12 @@ tasks.register<Exec>("checkThrowableContainment") {
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("core-contract/src/main/java") { include("**/*.java") },
+        fileTree("persistence-core/src/main/java") { include("**/*.java") },
+        fileTree("compatibility-policy/src/main/java") { include("**/*.java") },
         fileTree("event-processor/src/main/java") { include("**/*.java") },
         fileTree("graal-host/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/tooling/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
         fileTree("plugins") { include("**/src/main/java/**/*.java") },
         fileTree("scripts/verification-sources/templates") { include("**/*.java") }
@@ -258,8 +267,11 @@ tasks.register<Exec>("checkCodeQuality") {
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/tooling/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
         fileTree("core-contract/src/main/java") { include("**/*.java") },
+        fileTree("persistence-core/src/main/java") { include("**/*.java") },
+        fileTree("compatibility-policy/src/main/java") { include("**/*.java") },
         fileTree("event-processor/src/main/java") { include("**/*.java") },
         fileTree("graal-host/src/main/java") { include("**/*.java") },
         fileTree("plugins") { include("**/src/main/**/*.java") },
@@ -268,6 +280,9 @@ tasks.register<Exec>("checkCodeQuality") {
     // The controlchars rule also scans these roots for literal control bytes.
     inputs.files(
         fileTree("runtime/src/test/java") { include("**/*.java") },
+        fileTree("runtime/src/testFixtures/java") { include("**/*.java") },
+        fileTree("persistence-core/src/test/java") { include("**/*.java") },
+        fileTree("compatibility-policy/src/test/java") { include("**/*.java") },
         fileTree("bootstrap/src/test/java") { include("**/*.java") },
         fileTree("testing/integration-tests/src/test/java") { include("**/*.java") },
         fileTree("buildSrc") { include("**/*.java", "**/*.kts") },
@@ -304,24 +319,31 @@ tasks.register<Exec>("checkCodeQuality") {
 }
 
 /*
- * Editor-model is the one capability family whose aliases are inline literals rather than
- * constants, so it has no Verified*HostOperations.methodAliasesUsed() for a test to compare
- * against. The repository test used a hand-maintained list instead, which drifted until it
- * matched neither the implementation nor the record. This derives production use and the older
- * exact-use records, then admits only the fixed invoked subset of the broader 5.3.03 static record.
+ * Host alias vocabulary. Every alias literal in a reviewed alias namespace, and every literal a
+ * VerifiedMemberResolver alias accessor receives, has to be declared by an admitted record of a
+ * family that declares a `vocabulary` block, or be pinned by name, file and reason in
+ * no-record-aliases.json. Editor-model is the one family whose aliases are inline literals rather
+ * than constants, so its admission stays exact: production use against the older exact-use
+ * records plus only the fixed invoked subset of the broader 5.3.03 static record. The repository
+ * test used a hand-maintained list instead, which drifted until it matched neither the
+ * implementation nor the record; the pin file replaces that list.
  */
 val checkEditorModelAliases by tasks.registering(Exec::class) {
     group = "verification"
     description =
-        "Rejects Editor-model selector aliases the implementation invokes without a reviewed " +
-            "record, and holds the unused-alias count non-increasing."
+        "Rejects host selector aliases the implementation invokes without a reviewed record " +
+            "or a named no-record pin, and holds the unused-alias count non-increasing."
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_editor_model_aliases.py",
-        "scripts/test/test_editor_model_aliases.py"
+        "scripts/test/test_editor_model_aliases.py",
+        "scripts/turboism_dev/alias_vocabulary.py",
+        "scripts/verification-sources/no-record-aliases.json"
     )
     inputs.files(
-        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        fileTree("scripts/verification-sources/families") { include("*.json") },
+        fileTree("build/generated/verification") { include("*.json") },
+        fileTree("runtime/src/main/java") { include("**/*.java") },
         "build/generated/verification/cubism-5.2.03-editor-model.json",
         "build/generated/verification/cubism-5.3.02-editor-model.json",
         "build/generated/verification/cubism-5.3.03-editor-model.json"
@@ -366,12 +388,16 @@ val checkDraftPackMetadata by tasks.registering(Exec::class) {
 val checkReviewedReleases by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks reviewed release integrity, patch closure, literal bans and task coverage."
+    dependsOn("checkCompatibilityMatrix")
     workingDir(rootDir)
+    inputs.file("build/generated/compatibility/cubism/compatibility-matrix.json")
     inputs.files(fileTree(rootDir) {
         include("scripts/**/*.py", "scripts/**/*.json", "scripts/**/*.java", "scripts/**/*.template",
                 "scripts/preview/run-*.sh", "compatibility/cubism/**/*.json", "compatibility/cubism/index.md",
                 "sdk/src/main/**/*.java", "runtime/src/main/**/*.java", "bootstrap/src/main/**/*.java",
-                "core-contract/src/main/**/*.java", "event-processor/src/main/**/*.java",
+                "core-contract/src/main/**/*.java", "persistence-core/src/main/**/*.java",
+                "compatibility-policy/src/main/**/*.java",
+                "event-processor/src/main/**/*.java",
                 "graal-host/src/main/**/*.java", "buildSrc/src/main/**/*.java",
                 "packaging/java-installer/listener-src/**/*.java", "templates/**/*.java",
                 "plugins/*/src/main/**/*.java", "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
@@ -391,8 +417,8 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
  * the generated blocks inside plugin READMEs are derived artifacts: every
  * version set comes from the verification records, selector contracts, SDK
  * annotations, and campaign results. The check task regenerates them in
- * memory and fails on drift, so a coverage change must be followed by one
- * generator run instead of hand-editing the outputs.
+ * memory and fails on tracked-output drift before materializing the matrix
+ * under build/generated. One render serves the check and its downstream readers.
  */
 /*
  * generate_compatibility_matrix.py reads Java sources only through token-gated
@@ -423,8 +449,6 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
         "validation/cubism-version-matrix/campaign-jobs.json",
-        "validation/cubism-version-matrix/inventory.json",
-        "compatibility/cubism/compatibility-matrix.json",
         "compatibility/cubism/version-boundaries.json",
         "compatibility/cubism/official-feature-timeline.json",
         "packaging/release-plugins.txt",
@@ -450,13 +474,14 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
             include("*/src/main/resources/META-INF/turboism/cubism-versions.json")
             // Plugin sources stay whole: SDK accessor use is detected by method-name regex.
             include("*/src/main/java/**/*.java")
-            include("README*.md")
+            include("*/README*.md")
         }
     )
+    outputs.file("build/generated/compatibility/cubism/compatibility-matrix.json")
     VerificationStamps.apply(this)
     commandLine(
         "python3", "scripts/generate_compatibility_matrix.py",
-        "--check", "--root", rootDir.absolutePath
+        "--check", "--generated-only", "--root", rootDir.absolutePath
     )
 }
 
@@ -525,6 +550,7 @@ val checkVerificationSources by tasks.registering(Exec::class) {
         "scripts/generate_verification_sources.py",
         "compatibility/cubism/reviewed-releases.json",
         "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/turboism_dev/alias_vocabulary.py",
         "scripts/turboism_dev/json_io.py",
         "scripts/verification-sources/model-update-targets.json",
         "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
@@ -550,7 +576,8 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     inputs.file("scripts/test/check_package_layout.py")
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
-        fileTree("runtime/src/main/java") { include("**/*.java") }
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/tooling/java") { include("**/*.java") }
     )
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
@@ -580,52 +607,19 @@ val checkDuplicateJavaImports by tasks.registering {
         exclude(".worktrees/**", ".claude/**", "**/build/**")
     }
     inputs.files(sources)
-    // The check logic lives in this script rather than a standalone tool.
+    // The wiring lives in this script, so an edit here still invalidates the gate.
     inputs.file("gradle/verification.gradle.kts")
     doLast {
-        val importPattern = Regex("""^\s*import\s+(static\s+)?([\w.${'$'}*]+)\s*;\s*${'$'}""")
+        // The scan itself lives in buildSrc (DuplicateImports), so the import-block grammar is
+        // covered by unit tests; this action is the walk, the ordering and the single failure.
         val duplicates = mutableListOf<String>()
         sources.files
             .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
             .forEach { source ->
-                val relativePath = source.relativeTo(rootDir).invariantSeparatorsPath
-                val firstImportLines = mutableMapOf<String, Int>()
-                var importsOpen = true
-                var blockComment = false
-                source.useLines { lines ->
-                    lines.forEachIndexed { index, line ->
-                        if (!importsOpen) {
-                            return@forEachIndexed
-                        }
-                        val trimmed = line.trim()
-                        if (blockComment) {
-                            if (trimmed.contains("*/")) {
-                                blockComment = false
-                            }
-                            return@forEachIndexed
-                        }
-                        if (trimmed.isEmpty() || trimmed.startsWith("//")) {
-                            return@forEachIndexed
-                        }
-                        if (trimmed.startsWith("/*")) {
-                            blockComment = !trimmed.contains("*/")
-                            return@forEachIndexed
-                        }
-                        val match = importPattern.matchEntire(line)
-                        if (match == null) {
-                            if (!trimmed.startsWith("package ") && !trimmed.startsWith("@")) {
-                                importsOpen = false
-                            }
-                            return@forEachIndexed
-                        }
-                        val declaration = (match.groupValues[1] + match.groupValues[2]).trim()
-                        val lineNumber = index + 1
-                        val firstLine = firstImportLines.putIfAbsent(declaration, lineNumber)
-                        if (firstLine != null) {
-                            duplicates += "$relativePath:$lineNumber repeats import $declaration; (first at line $firstLine)"
-                        }
-                    }
-                }
+                duplicates += DuplicateImports.duplicates(
+                    source.relativeTo(rootDir).invariantSeparatorsPath,
+                    source.readLines()
+                )
             }
         if (duplicates.isNotEmpty()) {
             throw GradleException(duplicates.sorted().joinToString("\n", prefix = "Duplicate Java import declarations:\n"))
@@ -1054,6 +1048,12 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
         val mainSources = sub.extensions.getByType<SourceSetContainer>()["main"]
         sourceDirectories.from(mainSources.allJava.srcDirs)
         classDirectories.from(mainSources.output.classesDirs)
+        // :runtime compiles its build-time review tooling into a separate source set; the tests
+        // that execute it still run in :runtime:test, so its coverage is attributed too.
+        sub.extensions.getByType<SourceSetContainer>().findByName("tooling")?.let { toolingSources ->
+            sourceDirectories.from(toolingSources.allJava.srcDirs)
+            classDirectories.from(toolingSources.output.classesDirs)
+        }
     }
 }
 
@@ -1072,61 +1072,6 @@ tasks.register<Exec>("checkPythonLint") {
     inputs.files(fileTree("validation") { include("**/*.py") })
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_python_lint.py")
-}
-
-val devCheck by tasks.registering {
-    group = "verification"
-    description = "Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice."
-    // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the
-    // live collection keeps devCheck wired without a hardcoded plugin list.
-    dependsOn(tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" })
-    dependsOn(
-        "checkPluginBoundaries",
-        "checkPluginPermissionAudit",
-        // Declared in build.gradle.kts / applied gate scripts, wired here and nowhere else.
-        "checkDraftContractDiagnostics",
-        "checkDependencyInventory",
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest",
-        ":runtime:persistenceGoldenSnapshotsTest",
-        productionClasses,
-        checkDuplicateJavaImports,
-        checkPackageLayout,
-        "checkModuleBoundaries",
-        "checkCodeQuality",
-        "checkThrowableContainment",
-        "checkValidationToolsSync",
-        "checkPythonLint",
-        "checkCompatibilityMatrix",
-        "checkShellLint",
-        // ASM admission used to run only in checkRelease, so a plugin or SDK dependency
-        // could carry an unadmitted bytecode library through the daily gate unnoticed.
-        "checkAsmDependencyModel",
-        "checkResolvedBytecodeDependencyGraph",
-        "checkInstallerPluginSections",
-        checkProbeTerminalSelftest,
-        checkHostProbeResultContract,
-        "checkCleanWorktreeSafety",
-        "checkShellLintRequiresShellcheck",
-        "checkHostCleanupEnvMerge",
-        "checkCleanupFailurePropagation",
-        checkTestExecutionGuard,
-        checkPluginTemplateSetup,
-        checkRepositoryHygiene,
-        checkEditorModelAliases,
-        checkMaterializedRecords,
-        checkReviewedReleases,
-        checkSdkCubismEditorAnnotations,
-        "validatePluginMeta",
-        checkPluginApiRanges,
-        checkPluginApiFloors,
-        ":runtime:checkHeadlessRuntimeClasspath",
-        ":runtime:admissionPreflightTest",
-        ":runtime:admissionUnitTests",
-        ":sdk:test",
-        ":bootstrap:test",
-        ":testing:integration-tests:admissionUnitTests"
-    )
 }
 
 val resolvedHostValidationWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
@@ -1595,37 +1540,6 @@ tasks.register<Exec>("checkLocalizedChangelogsSelfTest") {
     commandLine("python3", "scripts/test/test_render_localized_changelogs.py")
 }
 
-tasks.register("checkIntegration") {
-    group = "verification"
-    description = "Runs packaged runtime, plugin, preview-agent, and affected cross-module integration verification."
-    dependsOn(
-        devCheck,
-        "checkExternalPluginTemplate",
-        checkAsyncHostReadFoundation,
-        checkCubismCoreApiInventory,
-        checkCubismCoreMemberPolicy,
-        checkCubismCoreSelectorPolicy,
-        ":runtime:corePublicApiProviderTest",
-        "checkPluginInspectionRuntime",
-        "verifyFirstPartyPluginMetadata",
-        "verifyFirstPartyPluginReadmes",
-        "checkDistributionProtocolContract",
-        "checkOfficialPluginI18nCompleteness",
-        "checkPreviewBundleLayout",
-        "checkPsdClipMaskHostValidationBundle",
-        "checkHistoryValidationProbePackaging",
-        "checkCubismHostValidationLocalTransport",
-        "previewBootstrapBridgeTest",
-        // Registered in :testing:integration-tests; the locale wrapper contract is
-        // offline and part of the packaged preview-agent surface, so the aggregated
-        // integration gate must execute it instead of leaving it orphaned.
-        ":testing:integration-tests:hostValidationScriptContractTest",
-        ":bootstrap:checkBootstrapJarDependencyIsolation",
-        ":bootstrap:checkBootstrapLaunchLeasePremain",
-        ":testing:integration-tests:previewPluginRuntimeTest"
-    )
-}
-
 val checkPerformanceProbeReports by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks legacy and image-pipeline diagnostic evidence without launching Cubism."
@@ -1668,39 +1582,6 @@ val ordinaryTestTasks = subprojects
 val spotlessCheckTasks = subprojects
     .filter { it.tasks.findByName("spotlessCheck") != null }
     .map { "${it.path}:spotlessCheck" }
-
-val checkCompletedCommit by tasks.registering {
-    group = "verification"
-    description = "Runs the complete automated repository gate for a coherent completed change."
-    dependsOn(
-        "checkIntegration",
-        ordinaryTestTasks,
-        ":sdk:javadoc",
-        "checkOfficialPluginI18nCompleteness",
-        checkOfficialPluginReadmes,
-        checkPluginApiRanges,
-        checkPluginApiFloors,
-        checkDraftPackMetadata,
-        checkReviewedReleases,
-        checkVerificationSources,
-        "checkSdkApiBaselineTool",
-        checkPluginEventReference,
-        checkPerformanceProbeReports,
-        checkHostToolingSelfTest,
-        "checkLocalizedChangelogs",
-        "checkLocalizedChangelogsSelfTest",
-        spotlessCheckTasks,
-        "checkSdkApiCurrent",
-        // Registered later in this script (forward references stay lazy by name).
-        "checkFrameworkUpdateTooling",
-        "checkWindowsUpdateNativeSources",
-        "checkBootstrapReceipt",
-        ":bootstrap:checkBootstrapLaunchLeasePremain",
-        // Registered by gradle/architecture-governance.gradle.kts, applied before this script.
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest"
-    )
-}
 
 // The offline signing fixture is ordinary CI: temporary keys only, no publishing.
 val checkFrameworkUpdateTooling by tasks.registering(Exec::class) {
@@ -1764,30 +1645,7 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
     )
 }
 
-tasks.register("checkRelease") {
-    group = "verification"
-    description = "Runs completed-commit verification plus supply-chain and historical release audits."
-    dependsOn(
-        checkCompletedCommit,
-        checkReleaseTooling,
-        "checkInstallerVersion",
-        // Registered by gradle/architecture-governance.gradle.kts and reachable through
-        // checkCompletedCommit; listed here so this gate states its full dependency set.
-        "checkArchitectureRules",
-        "checkGoldenSnapshotManifest",
-        checkMarketReleaseMetadata,
-        "checkAsmSupplyChainAdmission",
-        "checkMappingReviewWrapperArgs",
-        "checkInstallerLocalization",
-        "checkWindowsInstaller"
-    )
-}
-
-tasks.named("check") {
-    dependsOn(devCheck)
-}
-
-// Gate notes: the unified channel check runs the full release gate on pushes touching gradle/runtime/packaging.
+// Ordinary CI owns the completed-commit closure; the channel workflow runs the release delta once.
 
 // Python gates and their live-tree fixtures read the canonical materialized records.
 // The materializer itself is registered in the root build, outside this gate script.
@@ -1874,3 +1732,38 @@ val checkBootstrapReceipt by tasks.registering(Exec::class) {
 // :bootstrap (it owns the built JAR input, the test-classes dependency and the fork classpath); the checkCompletedCommit
 // dependency list above links it into the ordinary gate so a premain handshake regression fails loudly. It validates
 // whatever identity the built artifact really carries, so a numbered CI build stays valid.
+
+/*
+ * The aggregate gates are declared in gradle/gates.txt and registered here, once, after every leaf
+ * task above exists: a member that is not a `@token` stays a string, so a task registered by a
+ * script applied after this one still resolves lazily by name.
+ *
+ * The tokens are the four dynamic collections the manifest cannot name statically. Loading fails
+ * closed both ways: a member naming a token this map does not bind, and a bound token no member
+ * names, both break the build instead of silently shrinking a gate.
+ */
+val gateTokens: Map<String, Any> = mapOf(
+    // :testing:integration-tests is excluded so the fast gate never waits for the packaged suites.
+    "@all-module-classes" to productionClasses,
+    "@all-module-tests" to ordinaryTestTasks,
+    "@all-module-spotless" to spotlessCheckTasks,
+    // Registered on demand by TurboismPluginExtension.verifySubscriberCatalog; the live collection
+    // keeps devCheck wired without a hardcoded plugin list and matches nothing if it is not.
+    "@matching:checkGeneratedSubscriberCatalogs" to tasks.matching { it.name == "checkGeneratedSubscriberCatalogs" }
+)
+
+val gateManifest = GateManifest.load(rootDir.toPath().resolve("gradle/gates.txt"), gateTokens.keys)
+
+gateManifest.aggregateNames().forEach { name ->
+    val aggregate = gateManifest.aggregate(name)
+    tasks.register(name) {
+        group = aggregate.group()
+        description = aggregate.description()
+        dependsOn(aggregate.members().map { member -> gateTokens[member] ?: member })
+    }
+}
+
+// The root lifecycle task is an alias for the daily gate, not a second aggregate.
+tasks.named("check") {
+    dependsOn("devCheck")
+}

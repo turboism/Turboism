@@ -6,12 +6,11 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridg
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTarget;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.jar.JarFile;
+import java.util.Optional;
 
 /**
  * Exact model-update entry admission, dependency-body verification and restoration.
@@ -20,63 +19,85 @@ import java.util.jar.JarFile;
  * bytecode via {@link ReviewedMethodShape} before the entry method is rewritten; any
  * absent, renamed or changed dependency fails the installation closed. On close the
  * original entry bytes are re-captured and must hash back to the pre-rewrite SHA-256.</p>
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
+ * contract table and its dependency-body proof.</p>
  */
 final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.model-update.unchanged-frame-skip";
 
-    private final Instrumentation instrumentation;
-    private final ModelUpdateSkipTarget target;
-    private final Class<?> entry;
-    private final ModelUpdateSkipTransformer transformer;
-    private final ModelUpdateSkipBridge bridge;
-    private boolean installed, restored;
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
+    /** The one entry method this hook rewrites; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<ModelUpdateSkipTarget>> CANDIDATES =
             ReviewedHostContract.candidates(
                     ModelUpdateSkipTarget.reviewedClassSha256(),
                     version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null));
 
+    static final WeaveSpec<ReviewedHostContract.Bound<ModelUpdateSkipTarget>> SPEC =
+            new WeaveSpec<ReviewedHostContract.Bound<ModelUpdateSkipTarget>>(
+                    ADMISSION,
+                    "model-update skip",
+                    VerifiedModelUpdateSkipInstaller::resolve,
+                    new WeavePlan<>(VerifiedModelUpdateSkipInstaller::targets, WeavePlan.PostCheck.NONE),
+                    (contract, context) -> {
+                        final ModelUpdateSkipBridge bridge =
+                                new ModelUpdateSkipBridge(contract.contract(), context.hostLoader());
+                        return BridgeLayer.of(bridge::install, bridge);
+                    },
+                    WeaveEffects.none());
+
+    private final InstallContext context;
+    private VerifiedInstall<ReviewedHostContract.Bound<ModelUpdateSkipTarget>> hook;
+
+    VerifiedModelUpdateSkipInstaller(final InstallContext context) {
+        this.context = context;
+    }
+
     static boolean admitted(
             final Path artifact, final RuntimeStartupConfig config, final boolean requested, final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
-    VerifiedModelUpdateSkipInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        final var contract = ReviewedHostContract.requireBound(
-                ReviewedHostContract.resolve(artifact, CANDIDATES), "model-update skip");
-        target = contract.contract();
-        if (Runtime.version().feature() < 17) {
-            throw new IllegalArgumentException("model-update skip requires JVM17+");
-        }
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        entry = Class.forName(target.owner().replace('/', '.'), false, loader);
+    private static Optional<ReviewedHostContract.Bound<ModelUpdateSkipTarget>> resolve(final Path artifact) {
+        return ReviewedHostContract.resolve(artifact, CANDIDATES)
+                        instanceof ReviewedHostContract.Bound<ModelUpdateSkipTarget> bound
+                ? Optional.of(bound)
+                : Optional.empty();
+    }
+
+    private static List<WeaveTarget> targets(
+            final ReviewedHostContract.Bound<ModelUpdateSkipTarget> contract, final WeaveSource source)
+            throws Exception {
+        final ModelUpdateSkipTarget target = contract.contract();
+        final Class<?> entry = source.load(target.owner());
+        final ModelUpdateSkipTransformer transformer = new ModelUpdateSkipTransformer(
+                source.loader(), source.artifact(), source.referenceBytes(entry), target);
         final Map<Class<?>, byte[]> observed = new HashMap<>();
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            VerifiedHookInstallerSupport.attestClassSource(
-                    entry, loader, artifact, "model-update dependency loader/source mismatch");
-            transformer = new ModelUpdateSkipTransformer(
-                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, entry), target);
-            for (final ModelUpdateSkipTarget.Dep dep : target.dependencies()) {
-                final Class<?> owner = Class.forName(dep.owner(), false, loader);
-                VerifiedHookInstallerSupport.attestClassSource(
-                        owner, loader, artifact, "model-update dependency loader/source mismatch");
-                verifyMethod(jar, owner, dep.name(), dep.descriptor(), observed);
-            }
+        for (final ModelUpdateSkipTarget.Dep dep : target.dependencies()) {
+            final Class<?> owner = source.load(dep.owner());
+            verifyMethod(source, owner, dep.name(), dep.descriptor(), observed);
         }
-        bridge = new ModelUpdateSkipBridge(target, loader);
-        contract.requireUnchanged(artifact);
+        contract.requireUnchanged(source.artifact());
+        return List.of(WeaveTarget.single(
+                entry,
+                transformer,
+                EXPECTED_MATCHES,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
     }
 
-    private void verifyMethod(
-            final JarFile jar,
+    private static void verifyMethod(
+            final WeaveSource source,
             final Class<?> type,
             final String name,
             final String descriptor,
@@ -85,15 +106,14 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
         byte[] actual = observed.get(type);
         if (actual == null) {
             actual = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
+                    source.instrumentation(),
                     type,
                     "model-update dependency unmodifiable",
                     "model-update dependency inspection absent");
             observed.put(type, actual);
         }
-        final String owner = type.getName().replace('.', '/');
-        final var expected = ReviewedMethodShape.read(
-                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, name, descriptor);
+        final String owner = WeaveTarget.internalName(type);
+        final var expected = ReviewedMethodShape.read(source.referenceBytes(type), owner, name, descriptor);
         if (expected == null) {
             // Abstract dependencies have no body to compare; the reviewed table pins the
             // signature and the loaded declaration must still be abstract on the attested class.
@@ -120,48 +140,28 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
                 "abstract model-update dependency absent or concrete: " + type.getName() + "." + name + descriptor);
     }
 
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not an admitted model-update host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("model-update entry unmodifiable");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context)
+                instanceof
+                VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<ModelUpdateSkipTarget>> installed)) {
+            throw new IllegalStateException("model-update skip refused: host-not-supported-or-hook-disabled");
         }
-        bridge.install();
-        try {
-            instrumentation.addTransformer(transformer, true);
-            installed = true;
-            instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException("model-update entry not admitted: " + transformer.failure());
-            }
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     @Override
     public synchronized void close() {
-        bridge.close();
-        if (!installed) return;
-        instrumentation.removeTransformer(transformer);
-        try {
-            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
-                    entry,
-                    "model-update dependency unmodifiable",
-                    "model-update dependency inspection absent");
-            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
-            restored = hash.equals(transformer.beforeSha256());
-            if (!restored) {
-                throw new IllegalStateException("native model-update entry restoration not proven");
-            }
-            installed = false;
-        } catch (Exception failure) {
-            throw new IllegalStateException("model-update restoration failed", failure);
-        }
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

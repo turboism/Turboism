@@ -86,7 +86,7 @@ generated subscriber-catalog verification, installer plugin-section freshness, A
 - `runtime-verification.gradle.kts` — plugin metadata validation and static host-selector verification CLIs.
 - `sdk-api.gradle.kts` — SDK public-API baseline tooling and exact-version compatibility checks.
 - `distribution-preview.gradle.kts` — preview bundle assembly plus distribution protocol and bundle-layout contracts.
-- `verification.gradle.kts` — the layered gates in the table above and the host-validation task registrations.
+- `verification.gradle.kts` — the layered gates in the table above, registered from the aggregate manifest `gates.txt`, and the host-validation task registrations.
 - `image-archive-validation.gradle.kts` — builds the test-only native PNG/float validators and checks they stay out of product artifacts.
 
 `scripts/preview/` holds the local host-validation machinery those `validate*Host` tasks invoke: the `host_validation.py` admission queue and containment, packaging/launch scripts, and per-feature probes. It is opt-in, uses one UID-scoped queue root and host-admission lock, and is never installed or started by Gradle; see `scripts/preview/README-host-validation-scheduling.md`.
@@ -185,11 +185,11 @@ first-party plugin — never implement for a few versions and move on.
   blocks new gaps and shrinks as the backlog is annotated.
 - **First-party plugins** get their supported-version set derived from
   declared capabilities and SDK usage — it lands in the generated block of
-  each `plugins/*/README*`, in `compatibility/cubism/compatibility-matrix.json`,
+  each `plugins/*/README*`, in `build/generated/compatibility/cubism/compatibility-matrix.json`,
   and in the packaged `META-INF/turboism/cubism-versions.json` sidecar.
   After any coverage change run
   `python3 scripts/generate_compatibility_matrix.py`; `checkCompatibilityMatrix`
-  rejects stale generated output.
+  rejects stale tracked output and materializes the untracked matrix in one pass.
 - **Real-host confirmation is representative, not exhaustive.** Validate on
   the lowest and highest patch of each affected minor line, and run the
   offline preflight `:runtime:admissionPreflightTest` first.
@@ -235,9 +235,9 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
   (`python3 -m pip install "ruff==0.16.9"` or an equivalent `ruff` binary on
   `PATH`). The rule set lives in `ruff.toml`.
 - **AST architecture rules**: `devCheck` runs `checkArchitectureRules`, which needs the
-  pinned ast-grep CLI (`npm install --global '@ast-grep/cli@0.45.3'`). The gate fails
-  closed when the binary is missing or a different version is first on `PATH`, so an
-  unpinned global install silently disables the gate instead of weakening it. See
+  ast-grep CLI (`npm install --global '@ast-grep/cli'`). The gate fails
+  closed when the binary is missing or an unrelated tool is first on `PATH`, so a
+  missing install fails the gate instead of weakening it. See
   [`ARCHITECTURE_GOVERNANCE.md`](ARCHITECTURE_GOVERNANCE.md) for the rule and codemod
   policy.
 - **Shell lint**: `devCheck` runs `checkShellLint`, which requires `shellcheck`

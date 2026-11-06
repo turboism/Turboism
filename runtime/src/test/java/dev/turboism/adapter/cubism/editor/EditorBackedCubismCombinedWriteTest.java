@@ -166,8 +166,10 @@ class EditorBackedCubismCombinedWriteTest {
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
                                 "cubism.editor-model.write",
+                                "cubism.editor-history.read",
                                 "cubism.editor-model.parameter-combined.write")
-                        : java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.write"),
+                        : java.util.Set.of(
+                                "cubism.editor-model.read", "cubism.editor-model.write", "cubism.editor-history.read"),
                 List.of(
                         StaticSelector.classSelector("cubism.editor-model.app-controller.class", host),
                         StaticSelector.staticMethod(
@@ -186,6 +188,55 @@ class EditorBackedCubismCombinedWriteTest {
                                 Host.class,
                                 "mainFrame",
                                 desc(MainFrame.class)),
+                        method(
+                                "cubism.editor-model.app-controller.complete-pack",
+                                Host.class,
+                                "completePack",
+                                desc(CompletePack.class)),
+                        method(
+                                "cubism.editor-model.complete-pack.update-parameter",
+                                CompletePack.class,
+                                "updateParameter",
+                                "(Z)V"),
+                        method(
+                                "cubism.editor-model.complete-pack.repaint-canvas",
+                                CompletePack.class,
+                                "repaint",
+                                "(Z)V"),
+                        method(
+                                "cubism.editor-history.document.undo-manager",
+                                Document.class,
+                                "undoManager",
+                                desc(UndoManager.class)),
+                        StaticSelector.classSelector(
+                                "cubism.editor-history.manager.class", internal(UndoManager.class)),
+                        method(
+                                "cubism.editor-history.manager.entries",
+                                UndoManager.class,
+                                "entries",
+                                "()Ljava/util/List;"),
+                        method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"),
+                        method(
+                                "cubism.editor-history.manager.can-undo",
+                                UndoManager.class,
+                                "canUndo",
+                                "()Ljava/lang/Boolean;"),
+                        method(
+                                "cubism.editor-history.manager.can-redo",
+                                UndoManager.class,
+                                "canRedo",
+                                "()Ljava/lang/Boolean;"),
+                        StaticSelector.classSelector("cubism.editor-history.entry.class", undo),
+                        method(
+                                "cubism.editor-history.entry.presentation-name",
+                                Undo.class,
+                                "presentationName",
+                                "()Ljava/lang/String;"),
+                        method(
+                                "cubism.editor-history.entry.significant",
+                                Undo.class,
+                                "significant",
+                                "()Ljava/lang/Boolean;"),
                         StaticSelector.classSelector("cubism.editor-model.modeling-document.class", document),
                         method(
                                 "cubism.editor-model.modeling-document.model-source",
@@ -555,6 +606,24 @@ class EditorBackedCubismCombinedWriteTest {
     public static final class Undo {
         final List<SimpleUndo> edits = new ArrayList<>();
         final List<UndoListener> listeners = new ArrayList<>();
+        private final String presentationName;
+
+        Undo() {
+            this("group");
+        }
+
+        Undo(String presentationName) {
+            this.presentationName = presentationName;
+        }
+
+        /** Native history projection: the entry's presentation name is the write label. */
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public Boolean significant() {
+            return Boolean.TRUE;
+        }
 
         public boolean add(Object edit, boolean force) {
             edits.add((SimpleUndo) edit);
@@ -583,10 +652,11 @@ class EditorBackedCubismCombinedWriteTest {
         int committedEdits;
         Undo current;
         Undo committed;
+        final List<Undo> history = new ArrayList<>();
 
         public Undo begin(String name) {
             beginCalls++;
-            return current = new Undo();
+            return current = new Undo(name);
         }
 
         public boolean end(boolean cancel, Object callback) {
@@ -594,6 +664,7 @@ class EditorBackedCubismCombinedWriteTest {
             if (!cancel) {
                 committed = current;
                 committedEdits++;
+                history.add(current);
             }
             return !cancel;
         }
@@ -610,11 +681,17 @@ class EditorBackedCubismCombinedWriteTest {
     public static final class Document {
         final ModelSource source;
         final EditMode editMode;
+        final UndoManager undoManager;
         int dirty;
 
         Document(ModelSource source, EditMode editMode) {
             this.source = source;
             this.editMode = editMode;
+            this.undoManager = new UndoManager(editMode);
+        }
+
+        public UndoManager undoManager() {
+            return undoManager;
         }
 
         public ModelSource modelSource() {
@@ -627,6 +704,44 @@ class EditorBackedCubismCombinedWriteTest {
 
         public void markDirty() {
             dirty++;
+        }
+    }
+
+    /** Native Undo-manager projection over the committed edit bank (one entry per bracket). */
+    public static final class UndoManager {
+        private final EditMode editMode;
+
+        UndoManager(EditMode editMode) {
+            this.editMode = editMode;
+        }
+
+        public List<Undo> entries() {
+            return List.copyOf(editMode.history);
+        }
+
+        public int position() {
+            return editMode.history.size();
+        }
+
+        public Boolean canUndo() {
+            return !editMode.history.isEmpty();
+        }
+
+        public Boolean canRedo() {
+            return Boolean.FALSE;
+        }
+    }
+
+    public static final class CompletePack {
+        int parameterRefreshes;
+        int repaints;
+
+        public void updateParameter(boolean immediate) {
+            parameterRefreshes++;
+        }
+
+        public void repaint(boolean immediate) {
+            repaints++;
         }
     }
 
@@ -678,6 +793,7 @@ class EditorBackedCubismCombinedWriteTest {
         public static final Host INSTANCE = new Host();
         static Document currentDocument;
         static MainFrame mainFrame;
+        static CompletePack completePack;
 
         public static Host instance() {
             return INSTANCE;
@@ -691,9 +807,14 @@ class EditorBackedCubismCombinedWriteTest {
             return mainFrame;
         }
 
+        public CompletePack completePack() {
+            return completePack;
+        }
+
         static void install(Fixture fixture) {
             currentDocument = fixture.document;
             mainFrame = fixture.mainFrame;
+            completePack = fixture.completePack;
         }
     }
 
@@ -707,6 +828,7 @@ class EditorBackedCubismCombinedWriteTest {
         final ParameterOperation operation = new ParameterOperation();
         final ParameterSet set = new ParameterSet(this);
         final ModelSource source = new ModelSource(new Model(set));
+        final CompletePack completePack = new CompletePack();
         final Document document = new Document(source, editMode);
         final MainFrame mainFrame = new MainFrame(new ParameterPalette(new ParameterPaletteView(operation)));
 

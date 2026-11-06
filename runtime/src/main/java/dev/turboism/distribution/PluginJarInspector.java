@@ -107,7 +107,7 @@ final class PluginJarInspector {
         } catch (PluginJarContract.PluginJarContractException exception) {
             throw ArchivePolicy.problem(exception.code(), exception.getMessage(), exception.path());
         }
-        return new Inspected(PluginDescriptorSnapshot.copyOf(parsed), sha256(descriptor));
+        return new Inspected(parsed, sha256(descriptor));
     }
 
     private static void inspectContent(
@@ -164,5 +164,5 @@ final class PluginJarInspector {
         throw ArchivePolicy.problem(code, "Invalid plugin JAR content", path);
     }
 
-    record Inspected(PluginDescriptorSnapshot descriptor, String descriptorSha256) {}
+    record Inspected(PluginDescriptor descriptor, String descriptorSha256) {}
 }

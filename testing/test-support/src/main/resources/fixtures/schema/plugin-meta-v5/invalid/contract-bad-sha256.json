@@ -1,0 +1,23 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 5,
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "entrypoints": ["dev.turboism.plugin.sample.SamplePlugin"],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [{"name":"Turboism Contributors"}],
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName":"META-INF/turboism/i18n/messages","locales":[]},
+  "category": "modeling",
+  "tags": [],
+  "eventContracts": [
+    {
+      "id": "sample.events",
+      "version": "1.0.0",
+      "artifact": "META-INF/turboism/contracts/sample-events-1.0.0.jar",
+      "sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 4,
+  "id": "dev.turboism.plugin.sample",
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "description": "Sample schema v4 plugin metadata fixture with public event exports and imports.",
+  "entrypoints": [
+    "dev.turboism.plugin.sample.SamplePlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [
+    { "id": "dev.turboism.plugin.provider", "version": "[1.0.0,2.0.0)", "type": "required", "ordering": "after" }
+  ],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": false,
+    "ui": "none"
+  },
+  "category": "workflow",
+  "tags": [
+    "batch-edit"
+  ],
+  "eventExports": [
+    {
+      "id": "sample.ready",
+      "contractVersion": "1.0.0",
+      "eventType": "dev.turboism.plugin.sample.SampleReadyEvent",
+      "abiSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "eventImports": [
+    {
+      "provider": "dev.turboism.plugin.provider",
+      "eventId": "provider.ready",
+      "contractVersion": "[1.0.0,2.0.0)",
+      "eventType": "dev.turboism.plugin.provider.ProviderReadyEvent",
+      "abiSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "required": false
+    }
+  ],
+  "lifecycle": {
+    "hotReload": true
+  }
+}

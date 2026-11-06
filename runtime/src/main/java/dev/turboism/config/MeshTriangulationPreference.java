@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -25,7 +26,7 @@ public final class MeshTriangulationPreference {
      */
     public static boolean read(final Path turboismHome) {
         return NativeOptimizationConfig.load(turboismHome, ignored -> {})
-                .choice(NativeOptimizationConfig.Option.MESH_TRIANGULATION_HASH)
+                .choice(OptimizationCatalog.MESH_TRIANGULATION_HASH)
                 .enabled();
     }
 

@@ -15,6 +15,7 @@ import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -29,7 +30,7 @@ class SnapshotVersioningTest {
 
     @Test
     void runtimeWithVersionReturnsSnapshotAndCurrentInvalidationToken() {
-        final VersionedSource source = new VersionedSource();
+        final RecordingHostSnapshotSource source = versionedSource();
         final CubismFacadeImpl facade = facadeWith(source, List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         final SnapshotWithVersion first = facade.runtimeWithVersion();
@@ -43,14 +44,14 @@ class SnapshotVersioningTest {
 
     @Test
     void runtimeWithVersionKeepsSnapshotPermissionGate() {
-        final VersionedSource source = new VersionedSource();
+        final RecordingHostSnapshotSource source = versionedSource();
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final CubismFacadeImpl facade = facadeWith(source, auditEvents, List.of());
 
         final CubismPermissionException error =
                 assertThrows(CubismPermissionException.class, facade::runtimeWithVersion);
 
-        assertEquals(0L, source.invalidationTokenReadCount());
+        assertEquals(0, source.readCount(RecordingHostSnapshotSource.Accessor.INVALIDATION_TOKEN));
         assertEquals(1, auditEvents.size());
         assertEquals(CubismFacadeImpl.MODEL_READ_PERMISSION, auditEvents.get(0).permissionId());
         assertEquals("runtime", auditEvents.get(0).methodName());
@@ -217,50 +218,10 @@ class SnapshotVersioningTest {
         }
     }
 
-    private static final class VersionedSource implements HostSnapshotSource {
-
-        private static final HostModel MODEL = new HostModel("model-1", "Model", List.of(), List.of(), List.of());
-
-        private long invalidationToken;
-        private long invalidationTokenReadCount;
-
-        void advanceInvalidationToken() {
-            invalidationToken++;
-        }
-
-        long invalidationTokenReadCount() {
-            return invalidationTokenReadCount;
-        }
-
-        @Override
-        public Optional<HostProject> activeProject() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            return Optional.of(MODEL);
-        }
-
-        @Override
-        public HostSelection selection() {
-            return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return true;
-        }
-
-        @Override
-        public long invalidationToken() {
-            invalidationTokenReadCount++;
-            return invalidationToken;
-        }
+    private static RecordingHostSnapshotSource versionedSource() {
+        return RecordingHostSnapshotSource.builder()
+                .model(new HostSnapshotSource.HostModel("model-1", "Model", List.of(), List.of(), List.of()))
+                .hostPresent(true)
+                .build();
     }
 }

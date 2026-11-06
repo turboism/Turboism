@@ -29,10 +29,7 @@ record KernelPluginRuntimeResources(
         KernelPluginContextFactory contextFactory,
         dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
         dev.turboism.internal.core.CubismJvmSettingsService cubismJvmSettings,
-        dev.turboism.internal.core.MeshTriangulationSettingsService meshTriangulationSettings,
-        dev.turboism.internal.core.AtlasTileBboxSettingsService atlasTileBboxSettings,
-        dev.turboism.internal.core.AtlasCacheReuseSettingsService atlasCacheReuseSettings,
-        dev.turboism.internal.core.TriangulationEdgeIndexSettingsService triangulationEdgeIndexSettings,
+        dev.turboism.internal.core.OptimizationSettingsService optimizationSettings,
         dev.turboism.internal.core.CoreUpdateService updateService,
         PluginLifecyclePolicy lifecyclePolicy,
         PluginLifecycleLane lifecycleLane,
@@ -202,14 +199,8 @@ record KernelPluginRuntimeResources(
         log.setMaxStorageMiB(settings.maxLogStorageMiB());
         final dev.turboism.config.CubismJvmSettingsFileService cubismJvmSettings =
                 new dev.turboism.config.CubismJvmSettingsFileService(home, message -> log.warn("config", message));
-        final dev.turboism.config.MeshTriangulationSettingsFileService meshTriangulationSettings =
-                new dev.turboism.config.MeshTriangulationSettingsFileService(home);
-        final dev.turboism.config.AtlasTileBboxSettingsFileService atlasTileBboxSettings =
-                new dev.turboism.config.AtlasTileBboxSettingsFileService(home);
-        final dev.turboism.config.AtlasCacheReuseSettingsFileService atlasCacheReuseSettings =
-                new dev.turboism.config.AtlasCacheReuseSettingsFileService(home);
-        final dev.turboism.config.TriangulationEdgeIndexSettingsFileService triangulationEdgeIndexSettings =
-                new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home);
+        final dev.turboism.config.OptimizationSettingsFileService optimizationSettings =
+                new dev.turboism.config.OptimizationSettingsFileService(home);
         final dev.turboism.update.RuntimeUpdateService updateService = new dev.turboism.update.RuntimeUpdateService(
                 home,
                 scheduler,
@@ -269,10 +260,7 @@ record KernelPluginRuntimeResources(
                 contextFactory,
                 runtimeSettings,
                 cubismJvmSettings,
-                meshTriangulationSettings,
-                atlasTileBboxSettings,
-                atlasCacheReuseSettings,
-                triangulationEdgeIndexSettings,
+                optimizationSettings,
                 updateService,
                 lifecyclePolicy,
                 lifecycleLane,

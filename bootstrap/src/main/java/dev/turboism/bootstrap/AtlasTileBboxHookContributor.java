@@ -10,7 +10,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * classes before they load, so it installs in {@link Phase#PREMAIN} and closes
  * on the process-exit path.
  */
-final class AtlasTileBboxHookContributor implements HookContributor {
+final class AtlasTileBboxHookContributor implements ReportedHookContributor {
 
     static final String HOOK_POLICY_ID = "cubism.textureatlas.tile-bbox";
 
@@ -42,8 +42,8 @@ final class AtlasTileBboxHookContributor implements HookContributor {
     @Override
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
-                .optimizationConfig()
-                .choice(dev.turboism.config.NativeOptimizationConfig.Option.ATLAS_TILE_BBOX)
+                .plan()
+                .choice(dev.turboism.config.optimization.OptimizationCatalog.ATLAS_TILE_BBOX)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)

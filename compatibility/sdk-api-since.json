@@ -1,9 +1,17 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "ae358248c4128fabecc9b97a28401ce69b1cabdfb27b7a166ff6cec6a9e1ee18",
+  "surfaceSha256": "4ab6b6b3adfcc5ffa930f48980e4c9f61bf81c5c983634a72ca22f5ec390aafb",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
+    "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportContribution": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlan": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlan$Target": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanResult": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanResult$Admitted": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanResult$Rejected": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanner": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService$Unavailable": "0.68.0",
     "dev.turboism.sdk.cubism.model.ArtMeshKeyformValues": "0.68.0",
@@ -24,6 +32,7 @@
     "dev.turboism.sdk.ui.window.TurboismProgressDialog": "0.67.4"
   },
   "members": {
+    "dev.turboism.sdk.cubism.export.ExportSettingsContributionService#contributeProtectedExport:(Ldev/turboism/sdk/cubism/export/ProtectedExportContribution;)Ldev/turboism/sdk/plugin/Registration;": "0.68.1",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#<init>:(Ljava/lang/String;Ljava/util/List;ILjava/util/Optional;)V": "0.68.0",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#opacity:()Ljava/util/Optional;": "0.68.0",
     "dev.turboism.sdk.cubism.model.Deformer#ordinaryKeyformWriteSupport:()Ldev/turboism/sdk/cubism/model/OrdinaryKeyformWriteSupport;": "0.68.0",
@@ -44,6 +53,7 @@
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan#pageSizes:()Ljava/util/List;": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan#polygonPages:()Ljava/util/List;": "0.67.4",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner#supportsCompleteAtlas:()Z": "0.67.2",
+    "dev.turboism.sdk.plugin.PluginDescriptor#hotReload:()Z": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",

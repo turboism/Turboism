@@ -48,8 +48,8 @@ class EditorTextureAccessAppendAtlasTest {
 
     @BeforeEach
     void setUp() {
-        originalKillSwitch = System.getProperty(HostUndoMutationScope.ENABLED_PROPERTY);
-        System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+        originalKillSwitch = System.getProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY);
+        System.clearProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY);
         Undo.rejectListener = false;
         Undo.throwOnForceRedo = false;
         Undo.undoCount = 0;
@@ -63,9 +63,9 @@ class EditorTextureAccessAppendAtlasTest {
         Undo.undoCount = 0;
         GroupUndo.rejectUndo = false;
         if (originalKillSwitch != null) {
-            System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, originalKillSwitch);
+            System.setProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY, originalKillSwitch);
         } else {
-            System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+            System.clearProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY);
         }
     }
 
@@ -537,18 +537,31 @@ class EditorTextureAccessAppendAtlasTest {
                         List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)))));
 
         // 2. With kill switch set to "false"
-        System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, "false");
+        System.setProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY, "false");
         final EditorTextureAccess withCap = createAccess(VERSION, true, null);
         final ModelTextures texturesKillSwitch = withCap.textures("session-a:model-1:1", fixture.source, fixture.model);
         assertFalse(texturesKillSwitch.supportsAppendTextureAtlasPages());
     }
 
+    /**
+     * Builds the texture access over the same authoring coordinator the production wiring uses, so
+     * both the joined and the standalone append paths run the real authoring envelope.
+     */
     private static EditorTextureAccess createAccess(
             final String version,
             final boolean includeCapability,
             final EditorAuthoringTransactionCoordinator coordinator) {
+        final Document document = Host.document;
+        final EditorAuthoringTransactionCoordinator authoring = coordinator != null
+                ? coordinator
+                : new EditorAuthoringTransactionCoordinator(
+                        new TestTxHost(document, document.source, document.source.model));
         return new EditorTextureAccess(
-                resolver(version, includeCapability), (identity, model) -> {}, coordinator, () -> null);
+                resolver(version, includeCapability),
+                (identity, model) -> {},
+                authoring,
+                () -> new EditorAuthoringTransactionCoordinator.Binding(
+                        "test-plugin", "doc-1", 1L, "model-1", 1L, Thread.currentThread()));
     }
 
     private static VerifiedMemberResolver resolver(final String version, final boolean includeCapability) {
@@ -1368,7 +1381,8 @@ class EditorTextureAccessAppendAtlasTest {
 
         @Override
         public String diagnosticId(final String code, final Throwable failure) {
-            return code;
+            final String value = failure == null ? code : code + ": " + failure;
+            return value.length() > 128 ? value.substring(0, 128) : value;
         }
 
         @Override

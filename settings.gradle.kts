@@ -5,6 +5,8 @@ include(
     "runtime",
     "sdk",
     "core-contract",
+    "persistence-core",
+    "compatibility-policy",
     "event-processor",
     "graal-host",
     "plugins:demo",

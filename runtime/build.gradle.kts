@@ -2,6 +2,10 @@ import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
     id("turboism.java-conventions")
+    // The shared HostSnapshotSource double lives in `src/testFixtures/java` so that
+    // `:testing:integration-tests` can consume it: `:testing:test-support` depends only on
+    // `:sdk` and therefore cannot see runtime types without a dependency cycle.
+    id("java-test-fixtures")
 }
 
 val generatedCoreCatalogRoot = layout.buildDirectory.dir(
@@ -69,6 +73,7 @@ val generateVerificationSources by tasks.registering(Exec::class) {
         rootProject.file("scripts/generate_verification_sources.py"),
         rootProject.file("compatibility/cubism/reviewed-releases.json"),
         rootProject.file("scripts/preview/reviewed_host_artifacts.py"),
+        rootProject.file("scripts/turboism_dev/alias_vocabulary.py"),
         rootProject.file("scripts/turboism_dev/json_io.py"),
         rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json"),
         rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json"),
@@ -152,6 +157,24 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
 sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
     java.srcDir(generatedVerificationRoot)
+}
+
+// Test fixtures are a second published-shape JAR, so it carries the same worktree classifier
+// as the main JAR: build output must stay attributable to one worktree
+// (`scripts/test/test_worktree_artifact_boundary.sh`).
+val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
+tasks.named<Jar>("testFixturesJar") {
+    archiveClassifier.set("test-fixtures-$resolvedWorktreeId")
+}
+
+// The fixtures dependency makes Gradle resolve :runtime's own main artifact (the JAR) for the
+// test classpath, which drops the compiled `classes/java/main` and `resources/main` entries it
+// had before. Classpath scanning tests need the directories --
+// `VerificationManifestAdmissionPreflightTest` indexes the generated `*VerificationManifest`
+// class files -- so the compiled output stays in front of the JAR, i.e. the classpath order the
+// project had without a fixtures source set.
+sourceSets.named("test") {
+    runtimeClasspath = output + sourceSets.main.get().output + runtimeClasspath
 }
 
 val frameworkVersionResource = layout.buildDirectory.file(
@@ -409,6 +432,7 @@ val admissionUnitTests by tasks.registering(Test::class) {
     filter {
         includeTestsMatching("dev.turboism.mapping.*")
         includeTestsMatching("dev.turboism.adapter.*")
+        includeTestsMatching("dev.turboism.core.lifecycle.*")
         includeTestsMatching("dev.turboism.core.plugin.context.*")
         legacyEvidenceTests.forEach { excludeTestsMatching(it) }
         isFailOnNoMatchingTests = true
@@ -441,6 +465,48 @@ sourceSets {
 sourceSets.named("headlessProbe") {
     compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
     runtimeClasspath += sourceSets.main.get().runtimeClasspath
+}
+
+// Mapping review tooling (draft review pipeline, static-verification CLI) runs from a JavaExec
+// task, never from the agent: no src/main/java type references it, so it must not ship in the
+// runtime JAR. It stays in this module because it compiles against the production mapping,
+// schema and verification types, and it keeps its package names so the FQN-based launchers
+// (`mappingReview`, `verifyStaticHostSelectors`) still resolve.
+sourceSets {
+    create("tooling") {
+        java.srcDir("src/tooling/java")
+    }
+}
+sourceSets.named("tooling") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+    runtimeClasspath += sourceSets.main.get().runtimeClasspath
+}
+// The matching tests stay in src/test/java. The two source sets declare disjoint packages, so
+// the tooling output is added to the test classpath rather than duplicated into a toolingTest
+// source set.
+sourceSets.named("test") {
+    compileClasspath += sourceSets["tooling"].output
+    runtimeClasspath += sourceSets["tooling"].output
+}
+// Single consumable projection of the tooling output so the integration fixture tests depend on
+// it by name instead of reaching into another project's source sets.
+val toolingJar by tasks.registering(Jar::class) {
+    description = "Packages the build-time mapping review tooling; never a runtime dependency."
+    from(sourceSets["tooling"].output)
+    archiveClassifier.set("tooling-${rootProject.extra["turboismResolvedWorktreeId"]}")
+}
+val toolingElements by configurations.creating {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+    // The tooling JAR is a different artifact with a different classpath role, so it must not
+    // claim the runtime module's default capability. Two variants advertising
+    // `dev.turboism:runtime` are an unresolvable conflict for any capability-aware consumer,
+    // which is what `testFixtures(project(":runtime"))` in :testing:integration-tests is.
+    outgoing.capability("${project.group}:runtime-tooling:${project.version}")
+}
+
+artifacts {
+    add("toolingElements", toolingJar)
 }
 
 val headlessProbeHome = layout.buildDirectory.dir("headless-probe/home")
@@ -477,6 +543,13 @@ dependencies {
     testImplementation(project(":plugins:selection-brush"))
     testImplementation(project(":testing:test-support"))
     implementation(project(":sdk"))
+    // Pure typed-config codec/schema/migration kernel (#112). The runtime owns the
+    // file store, I/O lane and failure presentation on top of it.
+    implementation(project(":persistence-core"))
+    // Pure Cubism compatibility admission policy (#113): reviewed release matrix,
+    // reviewed-release predicate, @CubismEditor rules and selector admission. The
+    // runtime keeps host artifacts, verified-member resolution and host probes.
+    implementation(project(":compatibility-policy"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.
     implementation(project(":core-contract"))
@@ -571,6 +644,8 @@ tasks.register<Test>("persistenceGoldenSnapshotsTest") {
     useJUnitPlatform()
     filter {
         includeTestsMatching("dev.turboism.config.PersistenceGoldenSnapshotsTest")
+        includeTestsMatching("dev.turboism.pluginmanagement.PluginPersistenceJournalCompatibilityTest")
+        includeTestsMatching("dev.turboism.update.GoldenUpdateStateSnapshotsTest")
         isFailOnNoMatchingTests = true
     }
 }
