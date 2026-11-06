@@ -19,6 +19,7 @@ class EditorTextureRelationsSelectorContractTest {
                 "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
             })
     void exactRecordsVerifyTheReadOnlyRelationContract(final String version) throws Exception {
+        EditorSelectorContractTestPaths.assumeLegacyEvidence();
         final Path artifact = EditorSelectorContractTestPaths.artifact(version);
         final Path recordPath =
                 EditorSelectorContractTestPaths.verificationRecord("cubism-" + version + "-editor-model.json");
