@@ -20,12 +20,12 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 | Cubism Editor | Support |
 | --- | --- |
-| **5.0.00 – 5.0.06** | Exact-version adapters |
-| **5.1.00 – 5.1.03** | Exact-version adapters |
-| **5.2.00 – 5.2.03** | Exact-version adapters |
-| **5.3.00 – 5.3.04** | Exact-version adapters |
+| **5.0.00 – 5.0.06** | Exact-version adapters. Missing: auto backup, auto sway read, geometry read, integration bridges, modeling custom tools, protected export, top-menu integration, MOC export read, part-inspector writes. Partial: animation/timeline |
+| **5.1.00 – 5.1.03** | Exact-version adapters. Missing: geometry read, modeling custom tools, MOC export read, part-inspector writes. Partial: animation/timeline; integration bridges before 5.1.02 |
+| **5.2.00 – 5.2.03** | Exact-version adapters. Only Cubism 5.3-only surfaces are missing: alpha composition, part-inspector writes, MOC export read, Core parameter repeat |
+| **5.3.00 – 5.3.04** | Exact-version adapters. Fully compatible: every verified capability group is available |
 
-**Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
+**Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version; per-version capability details are listed in the [capability matrix](compatibility/cubism/capabilities.md).
 
 On macOS, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support.
 
