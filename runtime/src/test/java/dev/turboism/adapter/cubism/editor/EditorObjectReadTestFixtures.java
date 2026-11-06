@@ -36,12 +36,16 @@ public final class EditorObjectReadTestFixtures {
             target = source.id.value;
         }
 
+        Undo() {
+            target = "group-undo";
+        }
+
         public boolean addListener(final Listener listener) {
             return true;
         }
     }
 
-    public static final class GroupUndo {
+    public static final class GroupUndo extends Undo {
         final List<String> undoTargets = new java.util.ArrayList<>();
         int undoAddCount;
         private String presentationName = "group";
@@ -60,6 +64,11 @@ public final class EditorObjectReadTestFixtures {
             undoAddCount++;
             undoTargets.add(undo.target);
             return true;
+        }
+
+        /** Native history projection: the envelope's group-undo member rewinds admitted undos. */
+        public void groupUndo() {
+            undoAddCount++;
         }
     }
 
@@ -229,6 +238,11 @@ public final class EditorObjectReadTestFixtures {
         public List<Float> keys() {
             return keys;
         }
+
+        /** The parameter this binding addresses; only its read-only range members are observed. */
+        public ParameterSource parameter() {
+            return new ParameterSource(parameterId.value);
+        }
     }
 
     public static final class KeyformGrid {
@@ -236,6 +250,16 @@ public final class EditorObjectReadTestFixtures {
 
         public List<KeyformBinding> bindings() {
             return bindings;
+        }
+
+        /** The fixture's grid emulation carries no per-form rows; every form projects zero cells. */
+        public List<Object> formsForGuid(final Id ignored) {
+            return List.of();
+        }
+
+        /** Fail-fast: the fixture's row-less grid never reaches a row-level semantic selector. */
+        public Object unexpected() {
+            throw new AssertionError("row-level semantic selector reached on a row-less fixture grid");
         }
 
         public void addKey(final float value, final Id parameterGuid) {
@@ -346,6 +370,7 @@ public final class EditorObjectReadTestFixtures {
 
     public static class ObjectSource {
         final Id id;
+        final Id guid;
         final String localName;
         final Handler handler;
         final Failures failures;
@@ -359,9 +384,14 @@ public final class EditorObjectReadTestFixtures {
 
         ObjectSource(final String id, final String localName, final Failures failures) {
             this.id = new Id(id);
+            this.guid = new Id("guid:" + id);
             this.localName = localName;
             this.failures = failures;
             this.handler = new Handler(this);
+        }
+
+        public Id guid() {
+            return guid;
         }
 
         public Id id() {
@@ -422,6 +452,7 @@ public final class EditorObjectReadTestFixtures {
 
     public static class Form {
         float opacity;
+        final Id guid = new Id("form-guid");
 
         Form(final float opacity) {
             this.opacity = opacity;
@@ -438,6 +469,10 @@ public final class EditorObjectReadTestFixtures {
         public int drawOrder() {
             return 0;
         }
+
+        public Id guid() {
+            return guid;
+        }
     }
 
     public static final class ArtMeshSource extends ObjectSource {
@@ -447,7 +482,6 @@ public final class EditorObjectReadTestFixtures {
             return forms;
         }
 
-        final Id guid;
         final boolean culling;
         ClipGuidList clipGuids = new ClipGuidList();
         boolean invertedMask;
@@ -457,11 +491,11 @@ public final class EditorObjectReadTestFixtures {
 
         ArtMeshSource(final String id, final String name, final boolean culling, final Failures failures) {
             super(id, name, failures);
-            this.guid = new Id("guid:" + id);
             this.culling = culling;
             this.invertedMask = "ArtMeshFace".equals(id);
         }
 
+        @Override
         public Id guid() {
             return guid;
         }
@@ -768,6 +802,7 @@ public final class EditorObjectReadTestFixtures {
     }
 
     public static final class RotationSource extends ObjectSource {
+        final List<Form> forms = new java.util.ArrayList<>();
         float baseAngle = 30.0F;
 
         RotationSource(final Failures failures) {
@@ -776,6 +811,10 @@ public final class EditorObjectReadTestFixtures {
 
         RotationSource(final String id, final String name, final Failures failures) {
             super(id, name, failures);
+        }
+
+        public List<Form> keyforms() {
+            return forms;
         }
 
         public float baseAngle() {
@@ -860,6 +899,7 @@ public final class EditorObjectReadTestFixtures {
     public static final class Rotation extends Deformer {
         Rotation(final RotationSource source) {
             super(source, new RotationForm(source.failures));
+            source.forms.add(form);
         }
     }
 
@@ -984,6 +1024,10 @@ public final class EditorObjectReadTestFixtures {
 
         public float maximum() {
             return 30.0F;
+        }
+
+        public float defaultValue() {
+            return 0.0F;
         }
     }
 

@@ -195,6 +195,21 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Rejects one hand-written native Undo envelope while an ambient authoring transaction is
+     * open on this thread: the envelope's detached {@code edit-mode} group can neither join the
+     * root nor be rolled back by it. The typed rejection carries the write label for
+     * diagnostics; the failure is raised before any native edit begins.
+     *
+     * @param writeLabel human-readable name of the rejected write, for diagnostics
+     * @throws EditorAmbientTransactionRejection when an ambient root is open on this thread
+     */
+    public void requireNoAmbientTransaction(final String writeLabel) {
+        if (ambientScopeActive()) {
+            throw new EditorAmbientTransactionRejection(writeLabel);
+        }
+    }
+
+    /**
      * Admits one hand-written native-Undo-envelope contribution into the ambient root
      * transaction. The contribution's Undo object is attached to the shared root edit instead
      * of opening a nested edit-mode bracket, so commit produces one Undo group and rollback is

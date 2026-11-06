@@ -68,11 +68,19 @@ class EditorWritePostconditionAllowlistTest {
     /** Every write that reads its result back, so a missing readback is visible as a site change. */
     private static final Set<String> READBACK_SITES = Set.of(
             "EditorDefaultKeyformLockAccess#cubism.model.set-default-keyform-locked",
+            "EditorParameterBindingAccess#operationId",
             "EditorModelProfileAccess#cubism.model.set-name",
             "EditorMorphTargetAccess#cubism.morph-target.set-parameter",
             "EditorNativeControlAppearanceAccess#cubism.model.set-native-label-color",
             "EditorPartOpacityAccess#cubism.part.set-opacity",
             "EditorTextureAtlasAppendAccess#cubism.texture.write");
+
+    /**
+     * Sites whose operation id is computed per target family (one write shape for several
+     * {@code cubism.<family>.parameter-binding} identities). Each is keyed by its local variable
+     * name; any other non-constant first argument still fails the scan.
+     */
+    private static final Set<String> COMPUTED_OPERATION_ID_SITES = Set.of("EditorParameterBindingAccess#operationId");
 
     @Test
     void everyAuthoringWriteDeclaresExactlyOnePostcondition() throws IOException {
@@ -151,7 +159,7 @@ class EditorWritePostconditionAllowlistTest {
                     Pattern.compile("EditorAuthoringWrite\\s*\\.\\s*of\\s*\\(").matcher(source);
             while (writer.find()) {
                 final String body = statement(source, writer.end());
-                final String site = simpleName + "#" + operationId(source, body, constants, writer.end());
+                final String site = simpleName + "#" + operationId(simpleName, body, constants);
                 sites.put(site, postcondition(body));
             }
         }
@@ -167,12 +175,12 @@ class EditorWritePostconditionAllowlistTest {
         return source.substring(start, end);
     }
 
-    private static String operationId(
-            final String source, final String body, final Map<String, String> constants, final int start) {
+    private static String operationId(final String simpleName, final String body, final Map<String, String> constants) {
         final String firstArgument = firstArgument(body);
         if (firstArgument.startsWith("\"")) {
             return firstArgument.substring(1, firstArgument.length() - 1);
         }
+        if (COMPUTED_OPERATION_ID_SITES.contains(simpleName + "#" + firstArgument)) return firstArgument;
         final String value = constants.get(firstArgument);
         if (value == null) {
             throw new IllegalStateException(
