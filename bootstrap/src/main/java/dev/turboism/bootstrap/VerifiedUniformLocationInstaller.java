@@ -11,22 +11,27 @@ import dev.turboism.adapter.cubism.shader.ShaderUniformTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.IntSupplier;
-import java.util.function.Supplier;
+import java.util.Optional;
 import java.util.jar.JarFile;
 
 /**
  * Target-verified installation with an independently pinned JOGL artifact.
- * Callbacks are published only after all required transforms succeed. Closing disables
- * reuse first, removes every owned transformer and verifies all original class
- * digests. An installation or restoration failure never becomes a silent success.
+ *
+ * <p>One shader-query class and the four lifecycle roles are prepared and attested here — in
+ * registration order, shader query first — and then handed to {@link VerifiedInstall}, which publishes
+ * the callbacks, registers every transformer, retransforms the five classes in one call, proves one
+ * rewritten site per class and re-captures each of them on close. An installation or restoration
+ * failure never becomes a silent success.</p>
+ *
+ * <p>The preparation stays in the constructor on purpose: the restored baseline of every class is the
+ * definition this installer <em>observes</em>, which may already be composed by the shader-uniform or
+ * glGetError-elision hook, so the digest the close proof must reproduce is fixed before anything is
+ * registered.</p>
  */
 final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.render.uniform-location-cache";
@@ -34,19 +39,14 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
 
-    private final Instrumentation instrumentation;
-    private final UniformLocationHookBridge bridge;
-    private final List<Target> targets = new ArrayList<>();
-    private final List<Target> registered = new ArrayList<>();
-    private final boolean seamComposed;
-    private boolean installed, restored, closed;
+    /** Each of the five transformers rewrites exactly one site; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
 
-    private record Target(
-            Class<?> type,
-            ClassFileTransformer transformer,
-            String before,
-            IntSupplier matches,
-            Supplier<String> failure) {}
+    /**
+     * The shader query and the four lifecycle roles are all re-captured on close; pinned by
+     * {@code WeaveSpecTest}.
+     */
+    static final int EXPECTED_OWNERS = 5;
 
     private static final List<ReviewedHostContract.Candidate<Map<UniformLocationLifecycleTransformer.Role, String>>>
             CANDIDATES = ReviewedHostContract.candidates(
@@ -58,21 +58,26 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         return Map.copyOf(owners);
                     });
 
-    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return VerifiedInstall.admits(
-                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
-    }
+    private final InstallContext context;
+    private final UniformLocationHookBridge bridge;
+    /** Registration order, which is load-bearing: the shader query first, then {@code Role.values()}. */
+    private final List<WeaveTarget> targets = new ArrayList<>();
 
-    VerifiedUniformLocationInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
-            throws Exception {
+    private final boolean seamComposed;
+    private boolean closed;
+    private VerifiedInstall<ReviewedHostContract.Bound<Map<UniformLocationLifecycleTransformer.Role, String>>> hook;
+
+    VerifiedUniformLocationInstaller(final InstallContext context) throws Exception {
+        this.context = context;
+        final Path artifact = context.artifact();
+        final ClassLoader loader = context.hostLoader();
         final var contract =
                 ReviewedHostContract.requireBound(ReviewedHostContract.resolve(artifact, CANDIDATES), "uniform cache");
         final String editorVersion = contract.sourceVersion();
         final HostArtifactDigest editor = HostArtifactDigest.from(artifact);
-        if (Runtime.version().feature() < 17 || !instrumentation.isRetransformClassesSupported()) {
+        if (context.jvmFeature() < 17 || !context.instrumentation().isRetransformClassesSupported()) {
             throw new IllegalStateException("uniform cache requires JVM17+ retransformation");
         }
-        this.instrumentation = instrumentation;
         Path joglArtifact = artifact.toAbsolutePath()
                 .getParent()
                 .resolve("jogl/jogl-all.jar")
@@ -82,6 +87,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         }
         bridge = new UniformLocationHookBridge(loader);
         Map<Class<?>, byte[]> observed = new HashMap<>();
+        Map<String, String> beforeSha256 = new HashMap<>();
         try (JarFile cubism = new JarFile(artifact.toFile());
                 JarFile jogl = new JarFile(joglArtifact.toFile())) {
             verifyMutationInventory(jogl);
@@ -89,11 +95,12 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             VerifiedHookInstallerSupport.attestClassSource(
                     shader, loader, artifact, "uniform dependency loader/source mismatch: " + shader.getName());
             byte[] before = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
+                    context.instrumentation(),
                     shader,
                     "uniform target is not modifiable: " + shader.getName(),
                     "uniform class capture absent: " + shader.getName());
             observed.put(shader, before);
+            beforeSha256.put(WeaveTarget.internalName(shader), VerifiedHookInstallerSupport.sha256Hex(before));
             byte[] shaderReference = VerifiedHookInstallerSupport.readReferenceBytes(
                     cubism, shader, "uniform reference class missing: " + shader.getName());
             final List<String> composedQuery = composedQueryShape(loader, shaderReference);
@@ -114,8 +121,8 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         ShaderUniformTransformer.BRIDGE_LOOKUP,
                         ShaderUniformTransformer.BRIDGE_LOOKUP_DESCRIPTOR);
             }
-            targets.add(new Target(
-                    shader, query, VerifiedHookInstallerSupport.sha256Hex(before), query::matches, query::failure));
+            targets.add(WeaveTarget.single(
+                    shader, query, EXPECTED_MATCHES, query::matches, query::failure, beforeSha256::get));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
                 Class<?> type =
                         Class.forName(role.ownerForVersion(editorVersion).replace('/', '.'), false, loader);
@@ -124,11 +131,12 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                 VerifiedHookInstallerSupport.attestClassSource(
                         type, ownerLoader, source, "uniform dependency loader/source mismatch: " + type.getName());
                 byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
-                        instrumentation,
+                        context.instrumentation(),
                         type,
                         "uniform target is not modifiable: " + type.getName(),
                         "uniform class capture absent: " + type.getName());
                 observed.put(type, actual);
+                beforeSha256.put(WeaveTarget.internalName(type), VerifiedHookInstallerSupport.sha256Hex(actual));
                 JarFile jar = role.programMutations() ? jogl : cubism;
                 Map<String, List<String>> composed = composedShapes(jar, type, source, ownerLoader, role, editor);
                 for (var method : role.methods().entrySet())
@@ -142,12 +150,13 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         editorVersion);
                 composed.forEach(transformer::acceptComposedShape);
                 transformer.onRejection(bridge::retire);
-                targets.add(new Target(
+                targets.add(WeaveTarget.single(
                         type,
                         transformer,
-                        VerifiedHookInstallerSupport.sha256Hex(actual),
+                        EXPECTED_MATCHES,
                         transformer::matches,
-                        transformer::failure));
+                        transformer::failure,
+                        beforeSha256::get));
             }
             verifyDependency(
                     cubism, artifact, loader, "com.live2d.graphics3d.a", "a", "()Lcom/jogamp/opengl/GL3;", observed);
@@ -171,6 +180,40 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isCreated", "()Z", observed);
         }
         contract.requireUnchanged(artifact);
+    }
+
+    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
+        return VerifiedInstall.admits(
+                ADMISSION, config, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
+    }
+
+    private static Optional<ReviewedHostContract.Bound<Map<UniformLocationLifecycleTransformer.Role, String>>> resolve(
+            final Path artifact) {
+        return ReviewedHostContract.resolve(artifact, CANDIDATES)
+                        instanceof
+                        ReviewedHostContract.Bound<Map<UniformLocationLifecycleTransformer.Role, String>> bound
+                ? Optional.of(bound)
+                : Optional.empty();
+    }
+
+    /**
+     * @return the hook's spec: the targets were attested and their restoration baselines captured by
+     *     the constructor, so the plan only hands them over in registration order
+     */
+    private WeaveSpec<ReviewedHostContract.Bound<Map<UniformLocationLifecycleTransformer.Role, String>>> spec() {
+        return new WeaveSpec<>(
+                ADMISSION,
+                "uniform location cache",
+                VerifiedUniformLocationInstaller::resolve,
+                new WeavePlan<>((contract, source) -> List.copyOf(targets), WeavePlan.PostCheck.NONE),
+                (contract, launch) -> BridgeLayer.of(this::publish, bridge),
+                WeaveEffects.none());
+    }
+
+    /** Confirms the attested mutation coverage and then publishes every owned slot. */
+    private void publish() {
+        bridge.confirmMutationCoverage();
+        bridge.install();
     }
 
     static void verifyMutationInventory(JarFile jar) throws Exception {
@@ -220,7 +263,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         byte[] actual = observed.get(type);
         if (actual == null) {
             actual = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
+                    context.instrumentation(),
                     type,
                     "uniform target is not modifiable: " + type.getName(),
                     "uniform class capture absent: " + type.getName());
@@ -228,6 +271,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         }
         verify(jar, type, actual, method, descriptor, null);
     }
+
     /**
      * Computes the exact method shapes the reviewed glGetError elision produces
      * on the official bodies, for the ERROR role only. The elision transform is
@@ -291,68 +335,36 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         }
     }
 
+    /**
+     * Binds the hook and installs the weave through {@link VerifiedInstall}. The handle is kept before
+     * the weave runs, so a failed installation can still prove the restoration of the classes it
+     * rewrote.
+     *
+     * @throws IllegalStateException when the installer is closed or the artifact is not an admitted
+     *     uniform-cache host
+     * @throws Exception when registration, retransformation or the rewrite proof fails
+     */
     synchronized void install() throws Exception {
         if (closed) throw new IllegalStateException("uniform installer is closed");
-        if (installed) return;
-        try {
-            for (Target target : targets) {
-                instrumentation.addTransformer(target.transformer(), true);
-                registered.add(target);
-            }
-            instrumentation.retransformClasses(
-                    targets.stream().map(Target::type).toArray(Class<?>[]::new));
-            for (Target target : targets)
-                if (target.matches().getAsInt() != 1 || target.failure().get() != null) {
-                    throw new IllegalStateException("uniform transform rejected: "
-                            + target.type().getName() + ": " + target.failure().get());
-                }
-            bridge.confirmMutationCoverage();
-            bridge.install();
-            installed = true;
-        } catch (Exception | Error problem) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(problem, this);
-            throw problem;
+        if (hook != null) return;
+        if (!(VerifiedInstall.bind(spec(), context)
+                instanceof
+                VerifiedInstall.Attempt.Installed<
+                                ReviewedHostContract.Bound<Map<UniformLocationLifecycleTransformer.Role, String>>>
+                        installed)) {
+            throw new IllegalStateException("uniform cache refused: host-not-supported-or-hook-disabled");
         }
+        hook = installed.hook();
+        hook.weave();
     }
 
     @Override
     public synchronized void close() {
-        bridge.close();
         closed = true;
-        installed = false;
-        if (registered.isEmpty()) return;
-        List<Target> removing = List.copyOf(registered);
-        IllegalStateException failure = null;
-        for (Target target : removing) {
-            if (!instrumentation.removeTransformer(target.transformer())) {
-                final IllegalStateException problem =
-                        new IllegalStateException(target.type().getName());
-                if (failure == null)
-                    failure = new IllegalStateException("uniform transformer removal not proven", problem);
-                else failure.addSuppressed(problem);
-            }
-        }
-        registered.clear();
-        for (Target target : removing) {
-            try {
-                String actual = VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
-                        instrumentation,
-                        target.type(),
-                        "uniform target is not modifiable: " + target.type().getName(),
-                        "uniform class capture absent: " + target.type().getName()));
-                if (!actual.equals(target.before()))
-                    throw new IllegalStateException("uniform class restoration mismatch: "
-                            + target.type().getName());
-            } catch (Exception problem) {
-                if (failure == null) failure = new IllegalStateException("uniform native restoration failed", problem);
-                else failure.addSuppressed(problem);
-            }
-        }
-        restored = failure == null;
-        if (failure != null) throw failure;
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

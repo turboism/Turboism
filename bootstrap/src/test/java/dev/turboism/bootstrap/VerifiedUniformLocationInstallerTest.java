@@ -67,8 +67,7 @@ class VerifiedUniformLocationInstallerTest {
     @Test
     void exactReferencesExerciseRegistrationAndRestorationWithoutRunningEditor() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedUniformLocationInstaller installer =
-                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(fixture.context());
             installer.install();
             assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
             assertEquals(5, fixture.active.size());
@@ -82,8 +81,7 @@ class VerifiedUniformLocationInstallerTest {
     @Test
     void failedRetransformRollsBackAllOwnedSlotsAndTransforms() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedUniformLocationInstaller installer =
-                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(fixture.context());
             fixture.failHookRetransform = true;
             assertThrows(Exception.class, installer::install);
             assertEquals(0, fixture.active.size());
@@ -113,8 +111,7 @@ class VerifiedUniformLocationInstallerTest {
                     new VerifiedGlGetErrorElisionInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
             elision.install();
             assertEquals(1, elision.elided());
-            VerifiedUniformLocationInstaller uniform =
-                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(fixture.context());
             uniform.install();
             assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
             uniform.close();
@@ -143,9 +140,7 @@ class VerifiedUniformLocationInstallerTest {
                             .orElseThrow());
             fixture.active.add(foreign);
             IllegalStateException failure = assertThrows(
-                    IllegalStateException.class,
-                    () -> new VerifiedUniformLocationInstaller(
-                            fixture.instrumentation, fixture.artifact, fixture.loader));
+                    IllegalStateException.class, () -> new VerifiedUniformLocationInstaller(fixture.context()));
             assertTrue(
                     failure.getMessage().contains("shader/A.a"),
                     "the rejection must name the drifted method: " + failure.getMessage());
@@ -168,15 +163,13 @@ class VerifiedUniformLocationInstallerTest {
                     shader, dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.composedDefinition(reference));
             IllegalStateException rejected = assertThrows(
                     IllegalStateException.class,
-                    () -> new VerifiedUniformLocationInstaller(
-                            fixture.instrumentation, fixture.artifact, fixture.loader),
+                    () -> new VerifiedUniformLocationInstaller(fixture.context()),
                     "a patched body without our own patch record is foreign instrumentation");
             assertTrue(rejected.getMessage().contains(shader + ".preDraw_exe"), rejected.getMessage());
 
             dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.markPatched(fixture.loader, shader);
             try {
-                VerifiedUniformLocationInstaller uniform =
-                        new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+                VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(fixture.context());
                 assertTrue(uniform.seamComposed(), "the composed shader seam must be recognised");
                 uniform.install();
                 assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
@@ -191,8 +184,7 @@ class VerifiedUniformLocationInstallerTest {
     @Test
     void officialBaselineReportsAnUncomposedSeam() throws Exception {
         try (Fixture fixture = fixture()) {
-            VerifiedUniformLocationInstaller uniform =
-                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(fixture.context());
             assertFalse(uniform.seamComposed());
             uniform.install();
             uniform.close();
@@ -208,8 +200,7 @@ class VerifiedUniformLocationInstallerTest {
             elision.install();
             elision.close();
             assertTrue(elision.restored());
-            VerifiedUniformLocationInstaller uniform =
-                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(fixture.context());
             uniform.install();
             uniform.close();
             assertTrue(uniform.restored());
@@ -287,6 +278,16 @@ class VerifiedUniformLocationInstallerTest {
         @Override
         public void close() throws Exception {
             loader.close();
+        }
+
+        /** The launch facts the shared protocol is installed with; the policy admits every hook. */
+        InstallContext context() {
+            return new InstallContext(
+                    instrumentation,
+                    artifact,
+                    loader,
+                    new RuntimeStartupConfig(false, false, false, false),
+                    Runtime.version().feature());
         }
     }
 }
