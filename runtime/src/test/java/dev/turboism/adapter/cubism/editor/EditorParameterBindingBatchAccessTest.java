@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.authoringWriter;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -186,8 +187,9 @@ class EditorParameterBindingBatchAccessTest {
     }
 
     private static EditorParameterBindingBatchAccess access(final Fixture fixture) {
+        final VerifiedMemberResolver resolver = resolver();
         return new EditorParameterBindingBatchAccess(
-                resolver(),
+                resolver,
                 "test-model",
                 fixture.modelSource,
                 fixture.model,
@@ -198,7 +200,8 @@ class EditorParameterBindingBatchAccessTest {
                     fixture.currentChecks++;
                 },
                 (identity, source, model, target) -> fixture.owner(target),
-                (model, parameterId) -> fixture.parameters.get(parameterId.value()));
+                (model, parameterId) -> fixture.parameters.get(parameterId.value()),
+                authoringWriter(resolver, fixture.document, fixture.modelSource, fixture.model));
     }
 
     private static Fixture fixture(final float minimum, final float maximum, final float... values) {
@@ -216,13 +219,40 @@ class EditorParameterBindingBatchAccessTest {
                 EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
                 Set.of(
                         EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
-                        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID),
+                        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                        "cubism.editor-history.read"),
                 selectors(),
                 EditorParameterBindingBatchAccessTest.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         return List.of(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)),
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        descriptor(UndoManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)),
+                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", descriptor(List.class)),
+                method("cubism.editor-history.manager.position", UndoManager.class, "position", descriptor(int.class)),
+                method(
+                        "cubism.editor-history.manager.can-undo",
+                        UndoManager.class,
+                        "canUndo",
+                        descriptor(Boolean.class)),
+                method(
+                        "cubism.editor-history.manager.can-redo",
+                        UndoManager.class,
+                        "canRedo",
+                        descriptor(Boolean.class)),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Edit.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        Edit.class,
+                        "presentationName",
+                        descriptor(String.class)),
+                method("cubism.editor-history.entry.significant", Edit.class, "significant", descriptor(Boolean.class)),
                 StaticSelector.staticMethod(
                         "cubism.editor-model.app-controller.instance",
                         internal(Host.class),
@@ -404,8 +434,36 @@ class EditorParameterBindingBatchAccessTest {
             return editMode;
         }
 
+        public UndoManager undoManager() {
+            return editMode.fixture.undoManager;
+        }
+
         public void markDirty() {
             editMode.fixture.dirtyCount++;
+        }
+    }
+
+    public static final class UndoManager {
+        private final Fixture fixture;
+
+        UndoManager(final Fixture fixture) {
+            this.fixture = fixture;
+        }
+
+        public List<Edit> entries() {
+            return List.copyOf(fixture.committedEdits);
+        }
+
+        public int position() {
+            return fixture.committedEdits.size();
+        }
+
+        public Boolean canUndo() {
+            return !fixture.committedEdits.isEmpty();
+        }
+
+        public Boolean canRedo() {
+            return Boolean.FALSE;
         }
     }
 
@@ -421,27 +479,39 @@ class EditorParameterBindingBatchAccessTest {
 
         public Edit begin(final String name) {
             beginCount++;
-            fixture.edit = new Edit(fixture);
+            fixture.edit = new Edit(fixture, name);
             return fixture.edit;
         }
 
         public void end(final boolean cancel, final Object ignored) {
             endCount++;
             cancelled = cancel;
+            if (!cancel) fixture.committedEdits.add(fixture.edit);
         }
     }
 
     public static final class Edit {
         private final Fixture fixture;
+        private final String presentationName;
         private int undoAdds;
 
-        Edit(final Fixture fixture) {
+        Edit(final Fixture fixture, final String presentationName) {
             this.fixture = fixture;
+            this.presentationName = presentationName;
         }
 
         public boolean add(final Undo undo, final boolean accepted) {
             undoAdds++;
             return accepted;
+        }
+
+        /** Native history projection: the committed entry's presentation name is the write label. */
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public Boolean significant() {
+            return Boolean.TRUE;
         }
     }
 
@@ -674,6 +744,8 @@ class EditorParameterBindingBatchAccessTest {
         private final EditMode editMode;
         private final Pack pack;
         private final Document document;
+        private final UndoManager undoManager = new UndoManager(this);
+        private final List<Edit> committedEdits = new ArrayList<>();
         private int currentChecks;
         private int dirtyCount;
         private int updateInstancesCount;

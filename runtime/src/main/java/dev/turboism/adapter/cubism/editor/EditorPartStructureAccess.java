@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
@@ -15,22 +16,19 @@ import java.util.function.Supplier;
 /** Exact, generation-bound Editor projection for Part collection structure writes (add / copy / delete). */
 final class EditorPartStructureAccess {
 
+    private static final String OPERATION_ID = "cubism.part.structure-edit";
+
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
-
-    EditorPartStructureAccess(
-            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
-        this(resolver, modelGuard, null);
-    }
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorPartStructureAccess(
             final VerifiedMemberResolver resolver,
             final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = Objects.requireNonNull(authoringWriter, "authoringWriter");
     }
 
     PartId add(final String identity, final Object source, final Object model, final PartId id, final PartId parentId) {
@@ -249,70 +247,36 @@ final class EditorPartStructureAccess {
         requireHostThread(actionName);
         modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = activeDocumentFor(source, app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.part.structure-edit",
-                            identity + ":part-structure:" + actionName,
-                            actionName,
-                            (edit, transactionLabel) -> {
-                                final Object undo = undoSupplier.get();
-                                HostUndoMutationScope.requireUndoAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
-                                        actionName);
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", source);
-                                            refresh(app);
-                                            return null;
-                                        });
-                                requireListenerAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
-                                        actionName);
-                            },
-                            () -> {
-                                modelGuard.requireCurrent(identity, model);
-                                activeDocumentFor(source, app);
-                            },
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PART_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, actionName);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
-        boolean completed = false;
-        try {
-            final Object undo = undoSupplier.get();
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the " + actionName + " Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-            requireListenerAccepted(
-                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener), actionName);
-            modelGuard.requireCurrent(identity, model);
-            activeDocumentFor(source, app);
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refresh(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        activeDocumentFor(source, app);
+        authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, actionName)
+                .subject(identity + ":part-structure:" + actionName)
+                .refusalLabel(actionName)
+                // The native add/copy/delete returns the Undo object that already performed the
+                // write, so the mutation only re-checks the binding it was admitted against.
+                .admit((edit, transactionLabel) -> {
+                    final Object undo = undoSupplier.get();
+                    HostUndoMutationScope.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE), actionName);
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                    requireListenerAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener), actionName);
+                })
+                .mutate(() -> {
+                    modelGuard.requireCurrent(identity, model);
+                    activeDocumentFor(source, app);
+                })
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private Object activeDocumentFor(final Object source, final Object app) {
