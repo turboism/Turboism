@@ -1,5 +1,6 @@
-package dev.turboism.adapter.cubism.mesh;
+package dev.turboism.plugin.geometricmeshlayout;
 
+import dev.turboism.sdk.cubism.model.Point2;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,17 +37,6 @@ final class GeometricMeshShape {
         }
     }
 
-    /** Generated vertices (flat XY pairs) and undirected edge index pairs (flat [u0, v0, u1, v1, ...]). */
-    record LayoutPlan(float[] verticesXY, int[] edgePairs) {
-        int vertexCount() {
-            return verticesXY.length / 2;
-        }
-
-        int edgeCount() {
-            return edgePairs.length / 2;
-        }
-    }
-
     static int clampSides(final int sides) {
         return Math.max(MIN_SIDES, Math.min(MAX_SIDES, sides));
     }
@@ -67,7 +57,7 @@ final class GeometricMeshShape {
      * the outer perimeter loop; {@code k > 0} generates {@code k} inner concentric loops plus the outer
      * loop, i.e. {@code M = k + 1} total loops equally spaced at radii {@code R * 1/M, R * 2/M, ..., R}).</p>
      */
-    static LayoutPlan generate(
+    static MeshPointLayout generate(
             final float centerX,
             final float centerY,
             final float radius,
@@ -87,10 +77,9 @@ final class GeometricMeshShape {
 
         final int ringVertexOffset = hasCenterVertex ? 1 : 0;
         final int totalVertices = ringVertexOffset + totalRings * sides;
-        final float[] vertices = new float[totalVertices * 2];
+        final List<Point2> points = new ArrayList<>(totalVertices);
         if (hasCenterVertex) {
-            vertices[0] = centerX;
-            vertices[1] = centerY;
+            points.add(new Point2(centerX, centerY));
         }
 
         final double step = (Math.PI * 2.0) / sides;
@@ -99,40 +88,33 @@ final class GeometricMeshShape {
 
         for (int ring = 0; ring < totalRings; ring++) {
             final float ringRadius = clampedRadius * (float) (ring + 1) / (float) totalRings;
-            final int baseVertex = ringVertexOffset + ring * sides;
             for (int index = 0; index < sides; index++) {
                 final double angle = startAngle + index * step;
-                final int v = baseVertex + index;
-                vertices[v * 2] = centerX + (float) (ringRadius * Math.cos(angle));
-                vertices[v * 2 + 1] = centerY + (float) (ringRadius * Math.sin(angle));
+                points.add(new Point2(
+                        centerX + (float) (ringRadius * Math.cos(angle)),
+                        centerY + (float) (ringRadius * Math.sin(angle))));
             }
         }
 
-        final List<Integer> edges = new ArrayList<>((totalRings * sides + (hasSpokes ? totalRings * sides : 0)) * 2);
+        final int[] edges = new int[(totalRings * sides + (hasSpokes ? totalRings * sides : 0)) * 2];
+        int cursor = 0;
         for (int ring = 0; ring < totalRings; ring++) {
             final int baseVertex = ringVertexOffset + ring * sides;
             for (int index = 0; index < sides; index++) {
-                edges.add(baseVertex + index);
-                edges.add(baseVertex + ((index + 1) % sides));
+                edges[cursor++] = baseVertex + index;
+                edges[cursor++] = baseVertex + ((index + 1) % sides);
             }
         }
         if (hasSpokes) {
             for (int index = 0; index < sides; index++) {
-                edges.add(0);
-                edges.add(ringVertexOffset + index);
+                edges[cursor++] = 0;
+                edges[cursor++] = ringVertexOffset + index;
                 for (int ring = 1; ring < totalRings; ring++) {
-                    final int prevRingVertex = ringVertexOffset + (ring - 1) * sides + index;
-                    final int currRingVertex = ringVertexOffset + ring * sides + index;
-                    edges.add(prevRingVertex);
-                    edges.add(currRingVertex);
+                    edges[cursor++] = ringVertexOffset + (ring - 1) * sides + index;
+                    edges[cursor++] = ringVertexOffset + ring * sides + index;
                 }
             }
         }
-
-        final int[] edgeArray = new int[edges.size()];
-        for (int i = 0; i < edges.size(); i++) {
-            edgeArray[i] = edges.get(i);
-        }
-        return new LayoutPlan(vertices, edgeArray);
+        return new MeshPointLayout(points, edges);
     }
 }

@@ -531,22 +531,31 @@ final class EditSessionOps {
     }
 
     private String labelTypeAlias(final EditLabelColorType type) {
-        return "cubism.editor-model.label-color-type." + type.name().toLowerCase(java.util.Locale.ROOT);
+        return switch (type) {
+            case UNDEFINED -> "cubism.editor-model.label-color-type.undefined";
+            case RED -> "cubism.editor-model.label-color-type.red";
+            case ORANGE -> "cubism.editor-model.label-color-type.orange";
+            case YELLOW -> "cubism.editor-model.label-color-type.yellow";
+            case GREEN -> "cubism.editor-model.label-color-type.green";
+            case BLUE -> "cubism.editor-model.label-color-type.blue";
+            case PURPLE -> "cubism.editor-model.label-color-type.purple";
+            case GRAY -> "cubism.editor-model.label-color-type.gray";
+            case CUSTOM -> "cubism.editor-model.label-color-type.custom";
+        };
     }
 
     private String hexColor(final EditSessionOpsAccess access, final Object color) {
-        final int red = colorComponent(access, color, "red");
-        final int green = colorComponent(access, color, "green");
-        final int blue = colorComponent(access, color, "blue");
-        final int alpha = colorComponent(access, color, "alpha");
+        final int red = colorComponent(access, color, "cubism.editor-model.color.red");
+        final int green = colorComponent(access, color, "cubism.editor-model.color.green");
+        final int blue = colorComponent(access, color, "cubism.editor-model.color.blue");
+        final int alpha = colorComponent(access, color, "cubism.editor-model.color.alpha");
         return alpha == 255
                 ? String.format("#%02X%02X%02X", red, green, blue)
                 : String.format("#%02X%02X%02X%02X", red, green, blue, alpha);
     }
 
-    private int colorComponent(final EditSessionOpsAccess access, final Object color, final String component) {
-        final double value =
-                number(access.invoke("cubism.editor-model.color." + component, color), "Editor color component");
+    private int colorComponent(final EditSessionOpsAccess access, final Object color, final String alias) {
+        final double value = number(access.invoke(alias, color), "Editor color component");
         return Math.max(0, Math.min(255, (int) Math.round(value * 255.0)));
     }
 

@@ -10,7 +10,6 @@ import java.util.function.Supplier;
 
 /** Native parent conversion participates in the root and verifies its full stored before image. */
 final class EditorDeformerParentEditAccess {
-    private static final String M = "cubism.editor-model.";
 
     static void change(
             final VerifiedMemberResolver resolver,
@@ -27,8 +26,8 @@ final class EditorDeformerParentEditAccess {
             throw new UnsupportedOperationException(
                     "Deformer parent root conversion requires a verified reviewed host");
         final Object before = storedAuthoring.get();
-        final Supplier<Object> parent =
-                () -> resolver.invoke(M + "parameter-controllable-source.target-deformer-source", source);
+        final Supplier<Object> parent = () ->
+                resolver.invoke("cubism.editor-model.parameter-controllable-source.target-deformer-source", source);
         final Object oldParent = parent.get();
         final Object[] undo = new Object[1];
         coordinator.mutate(
@@ -38,22 +37,24 @@ final class EditorDeformerParentEditAccess {
                         binding.modelIdentity() + ":deformer:" + id,
                         "Change Deformer Target",
                         (edit, label) -> {
-                            final Object handler = resolver.invoke(M + "parameter-controllable-source.handler", source);
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", source);
                             // The factory eagerly transforms all stored coordinates before Undo admission.
                             undo[0] = resolver.invoke(
-                                    M + "parameter-controllable-handler.change-target-deformer-guid",
+                                    "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
                                     handler,
                                     model,
                                     targetGuid,
                                     Boolean.FALSE);
-                            if (!Boolean.TRUE.equals(resolver.invoke(M + "undo.add", edit, undo[0], Boolean.TRUE)))
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo[0], Boolean.TRUE)))
                                 throw new IllegalStateException("Deformer parent Undo admission failed");
-                            final Object listener =
-                                    resolver.createFunctionalProxy(M + "undo-listener.class", ignored -> {
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
                                         update.run();
                                         return null;
                                     });
-                            resolver.invoke(M + "undo.add-listener", undo[0], listener);
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo[0], listener);
                         },
                         update,
                         () -> {
@@ -62,7 +63,7 @@ final class EditorDeformerParentEditAccess {
                         },
                         () -> {
                             if (!coordinator.isCreatedTargetRestored(binding, source) && undo[0] != null) {
-                                resolver.invoke(M + "undo.execute-undo", undo[0]);
+                                resolver.invoke("cubism.editor-model.undo.execute-undo", undo[0]);
                                 update.run();
                             }
                         },

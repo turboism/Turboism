@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAmbientTransactionRejection;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;

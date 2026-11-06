@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -20,7 +20,7 @@ interface: embedded
 
 ## 요구 사항 및 호환성
 
-Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.1,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).
@@ -44,7 +44,7 @@ Turboism 공식 배포 패키지에 포함되어 있으며 플러그인 관리�
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | 네이티브 메시 편집 툴바에 사용자 정의 도구를 등록합니다. |
-| `cubism.mesh.point-and-edge-layout` | 이 플러그인이 등록한 도구에 런타임 점·선 배치 브러시를 연결합니다. |
+| `cubism.mesh.point-and-edge-layout` | 이 플러그인의 미리 보기를 그리고 생성한 점과 변을 한 번의 Undo 로 확정하는 런타임 캔버스 세션을 제공합니다. |
 
 ## 권한
 

@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.sdk.cubism.history.HistoryAction;
@@ -63,6 +65,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     private final ParameterSourceLookup parameterSourceLookup;
     private final EditorAuthoringTransactionCoordinator coordinator;
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
+    private final EditorAuthoringWriter writer;
 
     EditorParameterBindingAccess(
             final VerifiedMemberResolver resolver,
@@ -75,7 +78,8 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
             final TargetLookup targetLookup,
             final ParameterSourceLookup parameterSourceLookup,
             final EditorAuthoringTransactionCoordinator coordinator,
-            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
+            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding,
+            final EditorAuthoringWriter writer) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.modelSource = Objects.requireNonNull(modelSource, "modelSource");
@@ -87,6 +91,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         this.parameterSourceLookup = Objects.requireNonNull(parameterSourceLookup, "parameterSourceLookup");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.authoringBinding = Objects.requireNonNull(authoringBinding, "authoringBinding");
+        this.writer = Objects.requireNonNull(writer, "writer");
     }
 
     @Override
@@ -235,52 +240,22 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
             final String action,
             final List<Float> desired,
             final java.util.function.Consumer<Object> mutation) {
+        EditorHostThread.dispatch("Cubism parameter binding write", () -> {
+            mutateOnEdt(target, action, desired, mutation);
+            return null;
+        });
+    }
+
+    private void mutateOnEdt(
+            final ParameterBindingTarget target,
+            final String action,
+            final List<Float> desired,
+            final java.util.function.Consumer<Object> mutation) {
+        EditorHostThread.requireHostThread("Cubism parameter binding write");
         requireAuthorized(target.type());
         currentGuard.requireCurrent(identity, model);
         final Object objectSource = targetLookup.find(identity, modelSource, model, target);
         final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", objectSource);
-        if (coordinator.ambientScopeActive()) {
-            mutateInTransaction(target, objectSource, action, desired, () -> mutation.accept(grid));
-            return;
-        }
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: " + action);
-        boolean completed = false;
-        try {
-            final Object handler =
-                    resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", objectSource);
-            final Object undo = resolver.invoke(
-                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                    handler,
-                    "Turboism: " + action);
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the parameter-binding Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        refresh(app, target.type());
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-            mutation.accept(grid);
-            refresh(app, target.type());
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
-        currentGuard.requireCurrent(identity, model);
-    }
-
-    private void mutateInTransaction(
-            final ParameterBindingTarget target,
-            final Object objectSource,
-            final String action,
-            final List<Float> desired,
-            final Runnable mutation) {
         final String family, capability;
         switch (target.type()) {
             case ART_MESH -> {
@@ -299,10 +274,13 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
                 throw new UnsupportedOperationException(
                         "Transactional binding requires a verified stored authoring snapshot.");
         }
-        if (!resolver.authorizesFeature(
-                EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
-                capability,
-                EditorParameterBindingWriteSelectorContract.TRANSACTION_REQUIRED_ALIASES)) {
+        // Ambient-only stricter gate: a standalone root keeps the base capability gate, so a
+        // plugin without the transaction capability can still write outside an ambient root.
+        if (coordinator.ambientScopeActive()
+                && !resolver.authorizesFeature(
+                        EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
+                        capability,
+                        EditorParameterBindingWriteSelectorContract.TRANSACTION_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException("Transactional binding requires verified native recovery.");
         }
         final Supplier<BindingSnapshot> reader = () -> {
@@ -316,107 +294,101 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object[] undo = new Object[1];
-        coordinator.mutate(
-                binding,
-                new EditorUndoContribution(
-                        operationId,
-                        binding.modelIdentity() + ":" + family + ":" + target.id(),
-                        "Turboism: " + action,
-                        (edit, label) -> {
-                            final Object handler = resolver.invoke(
-                                    "cubism.editor-model.parameter-controllable-source.handler", objectSource);
-                            undo[0] = resolver.invoke(
-                                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                                    handler,
-                                    label);
-                            if (!Boolean.TRUE.equals(
-                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo[0], Boolean.TRUE))) {
-                                throw new IllegalStateException("Cubism rejected the parameter-binding Undo entry.");
-                            }
-                            // Native GroupUndo fires its root event after every child has restored
-                            // the source bank. Refreshing here once avoids evaluating intermediate
-                            // banks and repeatedly rebuilding all unrelated mesh instances.
-                            if (coordinator.claimRootUndoListener(
-                                    binding, edit, "parameter-binding.refresh:" + target.type())) {
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            refresh(app, target.type());
-                                            return null;
-                                        });
-                                final Object accepted =
-                                        resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
-                                if (Boolean.FALSE.equals(accepted)) {
-                                    throw new IllegalStateException(
-                                            "Cubism rejected the parameter-binding root Undo listener.");
-                                }
-                            }
-                        },
-                        () -> {
-                            currentGuard.requireCurrent(identity, model);
-                            if (targetLookup.find(identity, modelSource, model, target) != objectSource
-                                    || !reader.get().equals(before)) {
-                                throw new IllegalStateException("Binding source changed before mutation.");
-                            }
-                            mutation.run();
-                            coordinator.evaluateStoredSource(
-                                    binding,
-                                    modelSource,
-                                    () -> resolver.invoke(
-                                            "cubism.editor-model.model-source.update-instances", modelSource));
-                        },
-                        () -> {
-                            final var after = reader.get();
-                            final var axes = after.axes().stream()
-                                    .filter(axis -> axis.parameterId().equals(parameterId))
-                                    .toList();
-                            return (desired.isEmpty()
-                                            ? axes.isEmpty()
-                                            : axes.size() == 1
-                                                    && axes.get(0).keys().equals(desired))
-                                    && after.protectedState().equals(before.protectedState())
-                                    && after.axes().stream()
+        writer.apply(EditorAuthoringWrite.of(operationId, "Turboism: " + action)
+                .subject(binding.modelIdentity() + ":" + family + ":" + target.id())
+                .admit((edit, label) -> {
+                    final Object handler =
+                            resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", objectSource);
+                    undo[0] = resolver.invoke(
+                            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                            handler,
+                            label);
+                    if (!Boolean.TRUE.equals(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, undo[0], Boolean.TRUE))) {
+                        throw new IllegalStateException("Cubism rejected the parameter-binding Undo entry.");
+                    }
+                    // Native GroupUndo fires its root event after every child has restored
+                    // the source bank. Refreshing here once avoids evaluating intermediate
+                    // banks and repeatedly rebuilding all unrelated mesh instances.
+                    if (coordinator.claimRootUndoListener(
+                            binding, edit, "parameter-binding.refresh:" + target.type())) {
+                        final Object listener =
+                                resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                    refresh(app, target.type());
+                                    return null;
+                                });
+                        final Object accepted =
+                                resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
+                        if (Boolean.FALSE.equals(accepted)) {
+                            throw new IllegalStateException(
+                                    "Cubism rejected the parameter-binding root Undo listener.");
+                        }
+                    }
+                })
+                .mutate(() -> {
+                    currentGuard.requireCurrent(identity, model);
+                    if (targetLookup.find(identity, modelSource, model, target) != objectSource
+                            || !reader.get().equals(before)) {
+                        throw new IllegalStateException("Binding source changed before mutation.");
+                    }
+                    mutation.accept(grid);
+                    coordinator.evaluateStoredSource(
+                            binding,
+                            modelSource,
+                            () -> resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource));
+                })
+                .verifyApplied(() -> {
+                    final var after = reader.get();
+                    final var axes = after.axes().stream()
+                            .filter(axis -> axis.parameterId().equals(parameterId))
+                            .toList();
+                    return (desired.isEmpty()
+                                    ? axes.isEmpty()
+                                    : axes.size() == 1 && axes.get(0).keys().equals(desired))
+                            && after.protectedState().equals(before.protectedState())
+                            && after.axes().stream()
+                                    .filter(axis -> !axis.parameterId().equals(parameterId))
+                                    .toList()
+                                    .equals(before.axes().stream()
                                             .filter(axis -> !axis.parameterId().equals(parameterId))
-                                            .toList()
-                                            .equals(before.axes().stream()
-                                                    .filter(axis ->
-                                                            !axis.parameterId().equals(parameterId))
-                                                    .toList());
-                        },
-                        () -> {
-                            currentGuard.requireCurrent(identity, model);
-                            if (targetLookup.find(identity, modelSource, model, target) != objectSource)
-                                throw new IllegalStateException("Binding recovery source identity changed.");
-                            if (undo[0] != null) resolver.invoke("cubism.editor-model.undo.execute-undo", undo[0]);
-                            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                        },
-                        () -> coordinator.isCreatedTargetRestored(binding, objectSource)
-                                || bindingSnapshotRestored(target, objectSource, before),
-                        Set.of(
-                                EditorRefreshRequirement.MODEL_INSTANCES,
-                                EditorRefreshRequirement.PARAMETER_PALETTE,
-                                target.type() == ParameterBindingTargetType.ART_MESH
-                                        ? EditorRefreshRequirement.PART_PALETTE
-                                        : EditorRefreshRequirement.DEFORMER_PALETTE,
-                                EditorRefreshRequirement.CANVAS,
-                                EditorRefreshRequirement.MARK_DIRTY),
-                        new HistoryEntryDetail(
-                                action,
-                                HistoryAction.DetailLevel.PARTIAL,
-                                HistoryOrigin.turboism(binding.pluginId(), operationId),
-                                List.of(new HistoryTarget(
-                                        target.type().name(), Optional.of(target.id()), Optional.empty())),
-                                List.of(new HistoryChange(
-                                        HistoryChange.Operation.SET,
-                                        Optional.of(0),
-                                        Optional.of("parameterBinding:" + parameterId.value()),
-                                        Optional.of(historyKeys(before.axes().stream()
-                                                .filter(axis ->
-                                                        axis.parameterId().equals(parameterId))
-                                                .flatMap(axis -> axis.keys().stream())
-                                                .toList())),
-                                        Optional.of(historyKeys(desired)))),
-                                Optional.empty(),
-                                Optional.of("history.detail.binding-forms-unrecorded"))));
+                                            .toList());
+                })
+                .compensate(() -> {
+                    currentGuard.requireCurrent(identity, model);
+                    if (targetLookup.find(identity, modelSource, model, target) != objectSource)
+                        throw new IllegalStateException("Binding recovery source identity changed.");
+                    if (undo[0] != null) resolver.invoke("cubism.editor-model.undo.execute-undo", undo[0]);
+                    resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                })
+                .restored(() -> coordinator.isCreatedTargetRestored(binding, objectSource)
+                        || bindingSnapshotRestored(target, objectSource, before))
+                // MODEL_INSTANCES is intentionally absent: the stored-source evaluation above
+                // already refreshed the native instances once for this write, and the commit
+                // refresh must not repeat it.
+                .refresh(Set.of(
+                        EditorRefreshRequirement.PARAMETER_PALETTE,
+                        target.type() == ParameterBindingTargetType.ART_MESH
+                                ? EditorRefreshRequirement.PART_PALETTE
+                                : EditorRefreshRequirement.DEFORMER_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .detail(new HistoryEntryDetail(
+                        action,
+                        HistoryAction.DetailLevel.PARTIAL,
+                        HistoryOrigin.turboism(binding.pluginId(), operationId),
+                        List.of(new HistoryTarget(target.type().name(), Optional.of(target.id()), Optional.empty())),
+                        List.of(new HistoryChange(
+                                HistoryChange.Operation.SET,
+                                Optional.of(0),
+                                Optional.of("parameterBinding:" + parameterId.value()),
+                                Optional.of(historyKeys(before.axes().stream()
+                                        .filter(axis -> axis.parameterId().equals(parameterId))
+                                        .flatMap(axis -> axis.keys().stream())
+                                        .toList())),
+                                Optional.of(historyKeys(desired)))),
+                        Optional.empty(),
+                        Optional.of("history.detail.binding-forms-unrecorded")))
+                .build());
     }
 
     private boolean bindingSnapshotRestored(

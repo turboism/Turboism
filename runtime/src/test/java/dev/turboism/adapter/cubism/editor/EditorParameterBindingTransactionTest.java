@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.*;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAmbientTransactionRejection;
 import dev.turboism.mapping.verification.*;
 import dev.turboism.mapping.verification.selector.*;
 import dev.turboism.sdk.cubism.history.*;
@@ -570,6 +571,37 @@ class EditorParameterBindingTransactionTest {
         });
     }
 
+    /**
+     * Kill switch: {@code turboism.editorAmbientEnvelopeJoin=false} restores the fail-closed
+     * behaviour for the folded binding write too — inside an ambient root it rejects with the
+     * typed ambient rejection before any native edit begins, instead of joining the root.
+     */
+    @Test
+    void killSwitchRejectsBindingWriteInsideAmbientRootBeforeAnyNativeEdit() {
+        EditorHostThread.dispatch("binding kill switch", () -> {
+            System.setProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY, "false");
+            try {
+                var f = new Fixture();
+                var before = f.read();
+                var result =
+                        f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("rejected binding"), () -> {
+                            assertThrows(
+                                    EditorAmbientTransactionRejection.class,
+                                    () -> f.access.bindValues(f.target, List.of(1f)),
+                                    "kill switch must restore fail-closed ambient rejection");
+                            return null;
+                        });
+                assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+                assertEquals(0, f.begins, "no native edit may begin");
+                assertEquals(before, f.read());
+                assertTrue(f.history.isEmpty());
+            } finally {
+                System.clearProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY);
+            }
+            return null;
+        });
+    }
+
     public interface Listener {
         void changed(Object event);
     }
@@ -884,7 +916,8 @@ class EditorParameterBindingTransactionTest {
                     (id, src, model, target) -> present ? lookupSource : null,
                     (model, parameter) -> this,
                     coordinator,
-                    () -> binding);
+                    () -> binding,
+                    new CoordinatorAuthoringWriter(coordinator, resolver, () -> binding));
         }
 
         WarpAuthoringSnapshot warpRead() {
@@ -1045,6 +1078,7 @@ class EditorParameterBindingTransactionTest {
                 method(M + "undo.add", Edit.class, "add", Undo.class, boolean.class),
                 method(M + "undo.add-listener", Undo.class, "listen", Listener.class),
                 method(M + "undo.execute-undo", Undo.class, "undo"),
+                method(M + "undo.group-undo", Undo.class, "undo"),
                 method(M + "parameter-controllable-source.target-deformer-source", NativeSource.class, "parent"),
                 method(
                         M + "parameter-controllable-handler.change-target-deformer-guid",
@@ -1068,6 +1102,8 @@ class EditorParameterBindingTransactionTest {
         }
         var capabilities = new HashSet<>(EditorArtMeshAuthoringReadSelectorContract.CAPABILITY_IDS);
         capabilities.add(EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID);
+        capabilities.add(
+                dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID);
         if (warp) {
             capabilities.addAll(EditorWarpAuthoringSelectorContract.CAPABILITY_IDS);
             capabilities.add(EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID);

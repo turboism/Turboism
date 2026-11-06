@@ -4,6 +4,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 /**
  * Exact texture-atlas authoring provider bound to the reviewed selector {@link
@@ -14,11 +15,17 @@ public final class VerifiedTextureAtlasLayoutProvider implements TextureAtlasLay
 
     private final VerifiedTextureAtlasLayoutProviderEngine engine;
 
+    /**
+     * @param ambientScopeActive reports whether an authoring transaction ambient scope is open
+     *        on the calling thread; while it reports active, {@link #apply} refuses with
+     *        {@link ApplyOutcome#REJECTED} before any native edit, staging or image work
+     */
     public VerifiedTextureAtlasLayoutProvider(
             final VerifiedMemberResolver resolver,
             final String sessionIdentity,
             final TextureAtlasDataModelCapture capture,
-            final VerifiedTextureAtlasSelectorContract.Profile profile) {
+            final VerifiedTextureAtlasSelectorContract.Profile profile,
+            final BooleanSupplier ambientScopeActive) {
         Objects.requireNonNull(profile, "profile");
         engine = new VerifiedTextureAtlasLayoutProviderEngine(
                 resolver,
@@ -27,7 +34,8 @@ public final class VerifiedTextureAtlasLayoutProvider implements TextureAtlasLay
                 profile.cubismVersion(),
                 VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
-                profile.requiredAliases());
+                profile.requiredAliases(),
+                ambientScopeActive);
     }
 
     @Override

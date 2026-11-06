@@ -1,10 +1,16 @@
-package dev.turboism.adapter.cubism.physics;
+package dev.turboism.plugin.physicseditor;
 
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.plugin.PluginLogger;
 import java.awt.Component;
+import java.awt.Frame;
 import java.awt.GridLayout;
+import java.awt.KeyboardFocusManager;
+import java.awt.Window;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ResourceBundle;
+import java.util.Locale;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
@@ -16,10 +22,23 @@ import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
-/** Post-recording export settings, followed by a remembered GIF destination chooser. */
-final class PhysicsGifExportDialog {
+/**
+ * Post-recording export settings, followed by a remembered GIF destination chooser.
+ *
+ * <p>Feature-owned policy: the scale/pixel/lock model, the target-size limit, the remembered
+ * directory and the Gifsicle path live here because they describe this plugin's export, not a
+ * framework capability. Every member that touches Swing is called on the event dispatch thread by
+ * {@link GifRecordingController}.</p>
+ */
+final class GifExportSettingsDialog {
+
     private static final String DIRECTORY_KEY = "lastGifExportDirectory";
-    private final ResourceBundle messages;
+
+    /** The Cubism Editor window title the owner lookup matches, as the SDK progress window does. */
+    private static final String EDITOR_TITLE_FRAGMENT = "Live2D Cubism Editor";
+
+    private final PluginLocalization i18n;
+    private final PluginLogger logger;
     private final int originalWidth;
     private final int originalHeight;
     private final JSpinner percent = new JSpinner(new SpinnerNumberModel(100.0, 0.001, 3_276_800.0, 1.0));
@@ -31,16 +50,21 @@ final class PhysicsGifExportDialog {
     private final JTextField executable = new JTextField(System.getProperty("turboism.gifsicle.path", "gifsicle"), 24);
     private boolean updating;
     private javax.swing.JDialog activeDialog;
-    private boolean closed;
+    private volatile boolean closed;
 
-    PhysicsGifExportDialog(final ResourceBundle messages, final int originalWidth, final int originalHeight) {
-        this.messages = messages;
+    GifExportSettingsDialog(
+            final PluginLocalization i18n,
+            final PluginLogger logger,
+            final int originalWidth,
+            final int originalHeight) {
+        this.i18n = i18n;
+        this.logger = logger;
         this.originalWidth = originalWidth;
         this.originalHeight = originalHeight;
         width = new JSpinner(new SpinnerNumberModel(originalWidth, 1, 32768, 1));
         height = new JSpinner(new SpinnerNumberModel(originalHeight, 1, 32768, 1));
-        lock = new JCheckBox(tr("lock"), true);
-        optimize = new JCheckBox(tr("optimize"), true);
+        lock = new JCheckBox(tr("gif.lock"), true);
+        optimize = new JCheckBox(tr("gif.optimize"), true);
         percent.addChangeListener(event -> updateFromPercent());
         width.addChangeListener(event -> updateFromPixels(true));
         height.addChangeListener(event -> updateFromPixels(false));
@@ -52,7 +76,7 @@ final class PhysicsGifExportDialog {
     }
 
     private String tr(final String key) {
-        return messages.getString(key);
+        return i18n.text(key);
     }
 
     private void updateFromPercent() {
@@ -89,18 +113,18 @@ final class PhysicsGifExportDialog {
         return (int) Math.max(1, Math.min(32768, Math.round(pixels)));
     }
 
-    Settings show(final Component parent, final String previousFailure) {
+    Settings show(final String previousFailure) {
+        final Component parent = owner();
         final JPanel settings = createSettingsPanel();
         final JPanel content = new JPanel(new java.awt.BorderLayout(0, 8));
         content.add(settings, java.awt.BorderLayout.CENTER);
-        final JLabel hint = new JLabel(tr("optimizationHint"));
-        content.add(hint, java.awt.BorderLayout.SOUTH);
+        content.add(new JLabel(tr("gif.optimization-hint")), java.awt.BorderLayout.SOUTH);
         if (previousFailure != null) content.add(new JLabel(previousFailure), java.awt.BorderLayout.NORTH);
 
         while (true) {
             if (closed) return null;
             final JOptionPane pane = new JOptionPane(content, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
-            activeDialog = pane.createDialog(parent, tr("export"));
+            activeDialog = pane.createDialog(parent, tr("gif.export"));
             try {
                 activeDialog.setVisible(true);
             } finally {
@@ -110,10 +134,10 @@ final class PhysicsGifExportDialog {
             if (closed || !(pane.getValue() instanceof Integer value) || value != JOptionPane.OK_OPTION) return null;
             try {
                 commitSettingsEdits();
-                if (executable.getText().isBlank()) throw new IllegalArgumentException(tr("executableHint"));
+                if (executable.getText().isBlank()) throw new IllegalArgumentException(tr("gif.executable-hint"));
                 break;
             } catch (java.text.ParseException | IllegalArgumentException invalid) {
-                JOptionPane.showMessageDialog(parent, tr("invalid"), tr("export"), JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(parent, tr("gif.invalid"), tr("gif.export"), JOptionPane.ERROR_MESSAGE);
             }
         }
         final JFileChooser chooser = new JFileChooser() {
@@ -131,16 +155,15 @@ final class PhysicsGifExportDialog {
             if (closed || chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION || closed) return null;
             activeDialog = null;
             Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
-            if (!destination
-                    .getFileName()
-                    .toString()
-                    .toLowerCase(java.util.Locale.ROOT)
-                    .endsWith(".gif")) {
+            if (!destination.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gif")) {
                 destination = destination.resolveSibling(destination.getFileName() + ".gif");
             }
             if (Files.exists(destination)
-                    && JOptionPane.showConfirmDialog(parent, tr("overwrite"), tr("export"), JOptionPane.YES_NO_OPTION)
-                            != JOptionPane.YES_OPTION) continue;
+                    && JOptionPane.showConfirmDialog(
+                                    parent, tr("gif.overwrite"), tr("gif.export"), JOptionPane.YES_NO_OPTION)
+                            != JOptionPane.YES_OPTION) {
+                continue;
+            }
             return new Settings(
                     destination,
                     ((Number) width.getValue()).intValue(),
@@ -162,16 +185,16 @@ final class PhysicsGifExportDialog {
 
     JPanel createSettingsPanel() {
         final JPanel settings = new JPanel(new GridLayout(0, 2, 8, 8));
-        addSetting(settings, "scale", percent);
-        addSetting(settings, "width", width);
-        addSetting(settings, "height", height);
+        addSetting(settings, "gif.scale", percent);
+        addSetting(settings, "gif.width", width);
+        addSetting(settings, "gif.height", height);
         settings.add(lock);
         settings.add(new JLabel());
         settings.add(optimize);
         settings.add(new JLabel());
-        addSetting(settings, "limit", limit);
-        addSetting(settings, "executable", executable);
-        executable.setToolTipText(tr("executableHint"));
+        addSetting(settings, "gif.limit", limit);
+        addSetting(settings, "gif.executable", executable);
+        executable.setToolTipText(tr("gif.executable-hint"));
         return settings;
     }
 
@@ -183,36 +206,61 @@ final class PhysicsGifExportDialog {
         settings.add(input);
     }
 
+    /** Disposes the open dialog, if any; safe from any thread. */
     void close() {
         closed = true;
-        if (activeDialog != null) activeDialog.dispose();
+        final javax.swing.JDialog dialog = activeDialog;
+        if (dialog != null) dialog.dispose();
     }
 
-    static Path lastDirectory() {
+    Path lastDirectory() {
         try {
             final String value = preferences().get(DIRECTORY_KEY, "");
             return value.isBlank() ? null : Path.of(value);
         } catch (RuntimeException failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "physics-editor", "GIF directory could not be read", failure);
+            logger.error("GIF export directory could not be read", failure);
             return null;
         }
     }
 
-    static void rememberDirectory(final Path destination) {
+    void rememberDirectory(final Path destination) {
         try {
             preferences()
                     .put(DIRECTORY_KEY, destination.toAbsolutePath().getParent().toString());
             preferences().flush();
-        } catch (java.util.prefs.BackingStoreException | RuntimeException failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "physics-editor", "GIF directory could not be remembered", failure);
+        } catch (BackingStoreException | RuntimeException failure) {
+            logger.error("GIF export directory could not be remembered", failure);
         }
     }
 
     private static Preferences preferences() {
-        return Preferences.userRoot().node("dev/turboism/physics-gif");
+        return Preferences.userRoot().node("turboism/plugin/physics-editor");
     }
 
+    /**
+     * Resolves the window the export dialogs are owned by.
+     *
+     * <p>A modal dialog needs the Editor as its owner, so it blocks the Editor rather than floating
+     * beside it. This is the same two-step lookup the SDK progress window uses: the visible Editor
+     * frame, then the active window's root owner.</p>
+     */
+    static Window owner() {
+        for (Frame frame : Frame.getFrames()) {
+            if (frame.isShowing() && frame.getTitle().contains(EDITOR_TITLE_FRAGMENT)) return frame;
+        }
+        Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+        while (active != null && active.getOwner() != null) active = active.getOwner();
+        return active;
+    }
+
+    /**
+     * The chosen export policy.
+     *
+     * @param destination where the finalized GIF is written
+     * @param width the requested pixel width
+     * @param height the requested pixel height
+     * @param maxBytes the size ceiling, or {@link Long#MAX_VALUE} when optimization is off
+     * @param executable the Gifsicle executable to run
+     */
     record Settings(Path destination, int width, int height, long maxBytes, String executable) {}
 }

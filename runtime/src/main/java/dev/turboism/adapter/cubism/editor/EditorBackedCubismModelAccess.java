@@ -201,6 +201,15 @@ public final class EditorBackedCubismModelAccess
     }
 
     /**
+     * Whether an authoring transaction ambient scope is open on the calling thread. Writes that
+     * cannot join the ambient scope (the texture-atlas layout apply) consult this to refuse
+     * instead of creating a detached Undo group the root transaction cannot roll back.
+     */
+    public boolean ambientAuthoringScopeActive() {
+        return authoringCoordinator.ambientScopeActive();
+    }
+
+    /**
      * Whether this connection's verified evidence admits the live selection read.
      * When false the snapshot seam reports an honest empty selection instead of
      * reflecting into the Editor.
@@ -508,7 +517,7 @@ public final class EditorBackedCubismModelAccess
             final Object source,
             final float expectedValue) {
         EditorHostThread.requireHostThread("Parameter.setValue");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.setValue");
+        authoringCoordinator.requireNoAmbientTransaction("Parameter.setValue");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", expectedModel);
@@ -561,7 +570,7 @@ public final class EditorBackedCubismModelAccess
                     "Parameter definition editing is unavailable without exact verified host evidence.");
         }
         requireCurrent(expectedIdentity, expectedModel);
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.updateDefinition");
+        authoringCoordinator.requireNoAmbientTransaction("Parameter.updateDefinition");
         final ParameterBinding parameterBinding = parameter(expectedModel, currentId);
         final Object source = resolver.invoke("cubism.editor-model.parameter.source", parameterBinding.parameter());
         final ParameterDefinition current = definition(source, currentId);
@@ -1010,7 +1019,8 @@ public final class EditorBackedCubismModelAccess
                     objectReadAccess::bindingTargetSource,
                     EditorBackedCubismModelAccess.this::source,
                     authoringCoordinator,
-                    EditorBackedCubismModelAccess.this::authoringParticipationBinding);
+                    EditorBackedCubismModelAccess.this::authoringParticipationBinding,
+                    authoringWriter);
         }
 
         @Override

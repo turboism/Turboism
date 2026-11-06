@@ -519,8 +519,7 @@ final class EditorPartOpacityAccess {
         }
         requirePartInspector5302Authorization();
         final PartBinding current = requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
-        final Object host =
-                resolver.readStaticField("cubism.editor-model.alpha-composition." + alphaCompositionKey(composition));
+        final Object host = resolver.readStaticField(alphaCompositionAlias(composition));
         final Object currentHost =
                 resolver.invoke("cubism.editor-model.part-source.alpha-composition", current.source());
         if (currentHost == host) return;
@@ -719,13 +718,13 @@ final class EditorPartOpacityAccess {
         return InspectorIdRules.isValidCubismId(id);
     }
 
-    private static String alphaCompositionKey(final AlphaComposition composition) {
+    private static String alphaCompositionAlias(final AlphaComposition composition) {
         return switch (composition) {
-            case OVER -> "over";
-            case ATOP -> "atop";
-            case OUT -> "out";
-            case CONJOINT -> "conjoint";
-            case DISJOINT -> "disjoint";
+            case OVER -> "cubism.editor-model.alpha-composition.over";
+            case ATOP -> "cubism.editor-model.alpha-composition.atop";
+            case OUT -> "cubism.editor-model.alpha-composition.out";
+            case CONJOINT -> "cubism.editor-model.alpha-composition.conjoint";
+            case DISJOINT -> "cubism.editor-model.alpha-composition.disjoint";
             case UNKNOWN -> throw new IllegalArgumentException("alpha composition must be a concrete mode");
         };
     }

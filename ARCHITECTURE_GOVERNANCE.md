@@ -23,13 +23,18 @@ adaptation targets: they are where exact-version adapter work, host validation
 runs and SDK parity claims must be proven. The older 5.0.x/5.1.x adapters stay as
 shipped compatibility, not as places to invest new capability. Any claim about a
 version outside the listed set fails closed rather than degrading silently.
-2. **Third-party plugin ecosystem mechanisms are deferred.** Extension points,
-published plugin ABI guarantees, marketplace submission rules and sandboxing for
-external plugin authors stay unbuilt until an actual external plugin consumer
-exists. Speculating about a plugin ecosystem with no consumer produces API
-surface that cannot be validated, and API surface is the most expensive thing
-here to retract. The first-party plugin set under `plugins/` is the only
-supported consumer today.
+2. **Framework first, then first-party plugins, then third-party plugins.** The
+priority order is framework > first-party plugins > third-party plugins: the
+first-party plugin set under `plugins/` is the supported consumer every change
+must serve, and third-party plugin support is wanted but ranks lowest — it is
+not frozen, and it is welcome wherever it falls out of framework work, because
+stable SDK contracts, uniform unavailability semantics and documentation serve
+it for free. Ecosystem-only mechanisms — marketplace submission rules,
+sandboxing for untrusted authors, ABI guarantees beyond the SDK compatibility
+policy — stay unbuilt until an actual external plugin consumer exists.
+Speculating about a plugin ecosystem with no consumer produces API surface that
+cannot be validated, and API surface is the most expensive thing here to
+retract, so new SDK surface still needs a first-party consumer.
 3. **Every verification gate must justify itself.** A new gate cites a concrete
 user-harm mode — what breaks for a user if the gate is absent — or a specific
 past incident with a date. "It would be good practice" is not a citation, and a
